@@ -39,15 +39,15 @@ final class IntegrityAndParsingTests: XCTestCase {
 	func testScreenshotsKeyedByDeviceDecodesBothSets() throws {
 		let json = #"{"iphone": ["https://example.com/i.png"], "ipad": [{"url": "https://example.com/pad.png"}]}"#
 		let shots = try decodeScreenshots(json)
-		XCTAssertEqual(shots.iPhone, [URL(string: "https://example.com/i.png")])
-		XCTAssertEqual(shots.iPad, [URL(string: "https://example.com/pad.png")])
+		XCTAssertEqual(shots.iPhone, [URL(string: "https://example.com/i.png")!])
+		XCTAssertEqual(shots.iPad, [URL(string: "https://example.com/pad.png")!])
 	}
 
 	/// Malformed entries (nulls, numbers) are skipped without breaking the decode.
 	func testScreenshotsNullAndGarbageElementsAreSkipped() throws {
 		let json = #"[null, "https://example.com/ok.png", 42]"#
 		let shots = try decodeScreenshots(json)
-		XCTAssertEqual(shots.iPhone, [URL(string: "https://example.com/ok.png")])
+		XCTAssertEqual(shots.iPhone, [URL(string: "https://example.com/ok.png")!])
 	}
 
 	// MARK: FileIntegrity

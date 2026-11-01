@@ -11,6 +11,7 @@
 //  what these tests hold to.
 //
 
+import CryptoKit
 import Foundation
 import XCTest
 @testable import VexSign

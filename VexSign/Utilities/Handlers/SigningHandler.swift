@@ -257,6 +257,10 @@ final class SigningHandler: NSObject {
 		try? _fileManager.removeItem(at: _uniqueWorkDir)
 	}
 	
+	/// Runs on the main actor: it ends by handing a managed object to the caller and
+	/// `NSManagedObject` is not `Sendable`. The write itself hops to the private
+	/// queue; only the row lookup comes back here.
+	@MainActor
 	func addToDatabase() async throws {
 		let app = try await _directory()
 
@@ -287,7 +291,7 @@ final class SigningHandler: NSObject {
 		// context. Looking it up by UUID keeps the closure free of managed
 		// objects and of a non-Sendable `self`.
 		let uuid = _uuid
-		signedApp = await MainActor.run { Storage.shared.app(withUuid: uuid) as? Signed }
+		signedApp = Storage.shared.app(withUuid: uuid) as? Signed
 
 		_didAddToDatabase = true
 	}
