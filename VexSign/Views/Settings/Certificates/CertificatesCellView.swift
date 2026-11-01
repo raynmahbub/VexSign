@@ -15,6 +15,10 @@ struct CertificatesCellView: View {
 	
 	@ObservedObject var cert: CertificatePair
 	@ObservedObject private var statusManager = CertificateStatusManager.shared
+	/// The app being signed, when this cell is shown in a signing context. Nil in Settings,
+	/// where there is no app to compare against. Declared last so the memberwise
+	/// initializer takes it after `cert`, which is how every call site passes it.
+	var target: ProfileCompatibility.Target? = nil
 
 	// MARK: Body
 	var body: some View {
@@ -94,7 +98,43 @@ extension CertificatesCellView {
 				color: info.color
 			))
 		}
+
+		// "Can this sign this app?" — only answerable while picking a certificate for an app.
+		if let target, let data {
+			let verdict = ProfileCompatibility.verdict(profile: data, target: target)
+			pills.append(NBPillItem(
+				title: verdict.title,
+				icon: _compatibilityIcon(for: verdict),
+				color: _compatibilityColor(for: verdict)
+			))
+		}
 		
 		return pills
+	}
+
+	private func _compatibilityIcon(for verdict: ProfileCompatibility.Verdict) -> String {
+		switch verdict {
+		case .covers:
+			"checkmark.seal.fill"
+		case .wildcard:
+			"asterisk.circle.fill"
+		case .unusable:
+			"xmark.seal.fill"
+		case .unknown:
+			"questionmark.circle"
+		}
+	}
+
+	private func _compatibilityColor(for verdict: ProfileCompatibility.Verdict) -> Color {
+		switch verdict {
+		case .covers:
+			.green
+		case .wildcard:
+			.teal
+		case .unusable:
+			.red
+		case .unknown:
+			.secondary
+		}
 	}
 }

@@ -166,7 +166,16 @@ extension WebManagerServer {
 			return Self.json(infos)
 		}
 
-		app.get("api", "certs", ":uuid", "download") { req async -> Response in
+		app.get("api", "certs", ":uuid", "download") { [weak self] req async -> Response in
+			guard let self else { return Response(status: .internalServerError) }
+			// The archive contains the private key and its password file, so it stays
+			// off unless the user turned it on in Settings → Web Manager.
+			guard self.allowsCertificateExport else {
+				return Self.text(
+					"Certificate download is turned off. Enable it in VexSign → Settings → Web Manager.",
+					.forbidden
+				)
+			}
 			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
 			let zipURL: URL? = await MainActor.run {
 				guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == uuid }) else { return nil }

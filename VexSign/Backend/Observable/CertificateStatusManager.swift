@@ -2,33 +2,43 @@
 //  CertificateStatusManager.swift
 //  VexSign
 //
-//  Certificate revocation status checker imported from NexStore (NovaDev404).
-//  Caches Apple-side OCSP responses for each certificate so you can see whether
-//  a cert is still signing or has been revoked, without waiting for an install
-//  to fail.
+//  Caches the on-device OCSP verdict for each certificate so the library can show
+//  whether a certificate is still signing instead of waiting for an install to
+//  fail.
+//
+//  There is no remote verdict service. A certificate's private key and its
+//  password never leave the device: revocation evidence comes from
+//  `CertificateInspector`, which asks the OCSP responder using certificate
+//  identifiers only (docs/ROADMAP.md). The cache below holds a status
+//  word, a sentence and a date — never key material.
 //
 
 import Foundation
 import SwiftUI
 import NimbleExtensions
 
+// MARK: - Status value
+
 enum CertificateStatusValue: String, Codable {
 	case signed
 	case revoked
 	case unknown
 
-	init(apiStatus: String) {
-		let normalizedStatus = apiStatus.lowercased()
-
-        if ["signed", "good", "valid"].contains(normalizedStatus) {
-			self = .signed
-		} else if normalizedStatus == "revoked" {
-			self = .revoked
-		} else {
-			self = .unknown
+	/// Maps an on-device OCSP result onto the badge vocabulary.
+	///
+	/// Only positive evidence becomes `signed`. An unanswered query, an offline
+	/// device or an unparsable response stays `unknown` — never "good", because a
+	/// certificate shown as valid when its status is unknown is worse than an
+	/// honest question mark.
+	init(revocation: CertificateHealth.Revocation) {
+		switch revocation {
+		case .good: self = .signed
+		case .revoked: self = .revoked
+		case .unknown: self = .unknown
 		}
 	}
 
+	/// What the stored row says, used when no OCSP result exists yet.
 	static func deviceStatus(for cert: CertificatePair) -> CertificateStatusValue {
 		cert.revoked == true ? .revoked : .unknown
 	}
@@ -67,49 +77,72 @@ enum CertificateStatusValue: String, Codable {
 	}
 }
 
-struct CertificateAppleStatusSnapshot: Codable, Equatable {
+// MARK: - Snapshot
+
+/// The cached result of one OCSP check.
+struct CertificateRevocationSnapshot: Codable, Equatable {
+	/// How long a verdict is trusted before it is fetched again.
+	static let defaultMaxAge: TimeInterval = 30 * 60
+
 	let status: CertificateStatusValue
-	let rawValue: String
+	/// The inspector's explanation of how the verdict was reached.
+	let detail: String
 	let checkedAt: Date
 
+	/// The cache rule, split out so it can be unit tested without a server or a
+	/// certificate.
+	func isFresh(now: Date = Date(), maxAge: TimeInterval = CertificateRevocationSnapshot.defaultMaxAge) -> Bool {
+		abs(now.timeIntervalSince(checkedAt)) <= maxAge
+	}
+
+	/// Short label for a badge. `detail` is a sentence and would not fit.
 	var displayTitle: String {
-		let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-		return trimmedValue.isEmpty ? status.title : trimmedValue
+		switch status {
+		case .signed: String.localized("OCSP Verified")
+		case .revoked: String.localized("Revoked")
+		case .unknown: String.localized("Unknown")
+		}
 	}
 }
+
+// MARK: - Manager
 
 @MainActor
 final class CertificateStatusManager: ObservableObject {
 	static let shared = CertificateStatusManager()
 
-	@Published private(set) var appleStatusSnapshots: [String: CertificateAppleStatusSnapshot]
-	@Published private(set) var refreshingAppleStatusIDs: Set<String> = []
+	@Published private(set) var revocationSnapshots: [String: CertificateRevocationSnapshot]
+	@Published private(set) var refreshingRevocationIDs: Set<String> = []
 	@Published private(set) var refreshingDeviceStatusIDs: Set<String> = []
 
-	private let _checkerURL = URL(string: "https://certchecker.novadev.vip/checkCert")!
-	private let _storageKey = "VexSign.certificate.appleStatusSnapshots"
-	private let _statusMaxAge: TimeInterval = 30 * 60
+	private static let storageKey = "VexSign.certificate.revocationSnapshots"
+	/// Written by the removed third-party checker. Deleted on launch and never
+	/// read: those verdicts were produced from an uploaded p12, so they are not
+	/// evidence this app can stand behind.
+	private static let legacyStorageKey = "VexSign.certificate.appleStatusSnapshots"
+	/// Consent switch for uploading private keys, from the same removed service.
+	private static let legacyUploadKey = "VexSign.security.allowLegacyCertificateUpload"
 
 	private init() {
+		UserDefaults.standard.removeObject(forKey: Self.legacyStorageKey)
+		UserDefaults.standard.removeObject(forKey: Self.legacyUploadKey)
+
 		if
-			let data = UserDefaults.standard.data(forKey: _storageKey),
-			let snapshots = try? JSONDecoder().decode([String: CertificateAppleStatusSnapshot].self, from: data) {
-			self.appleStatusSnapshots = snapshots
+			let data = UserDefaults.standard.data(forKey: Self.storageKey),
+			let snapshots = try? JSONDecoder().decode([String: CertificateRevocationSnapshot].self, from: data) {
+			self.revocationSnapshots = snapshots
 		} else {
-			self.appleStatusSnapshots = [:]
+			self.revocationSnapshots = [:]
 		}
 	}
 
-	func appleStatus(for cert: CertificatePair) -> CertificateAppleStatusSnapshot? {
-		guard let uuid = cert.uuid else {
-			return nil
-		}
-
-		return appleStatusSnapshots[uuid]
+	func revocationSnapshot(for cert: CertificatePair) -> CertificateRevocationSnapshot? {
+		guard let uuid = cert.uuid else { return nil }
+		return revocationSnapshots[uuid]
 	}
 
 	func effectiveStatus(for cert: CertificatePair) -> CertificateStatusValue {
-		guard let snapshot = appleStatus(for: cert), snapshot.status != .unknown else {
+		guard let snapshot = revocationSnapshot(for: cert), snapshot.status != .unknown else {
 			return CertificateStatusValue.deviceStatus(for: cert)
 		}
 
@@ -117,127 +150,82 @@ final class CertificateStatusManager: ObservableObject {
 	}
 
 	func effectiveStatusTitle(for cert: CertificatePair) -> String {
-		guard let snapshot = appleStatus(for: cert), snapshot.status != .unknown else {
+		guard let snapshot = revocationSnapshot(for: cert), snapshot.status != .unknown else {
 			return CertificateStatusValue.deviceStatus(for: cert).title
 		}
 
 		return snapshot.displayTitle
 	}
 
-	func hasFreshAppleStatus(for cert: CertificatePair) -> Bool {
-		guard let uuid = cert.uuid else {
-			return false
-		}
-
-		return !_shouldRefreshAppleStatus(for: uuid)
+	func hasFreshStatus(for cert: CertificatePair) -> Bool {
+		guard let uuid = cert.uuid else { return false }
+		return !_shouldRefresh(uuid)
 	}
 
-	func isRefreshingAppleStatus(for cert: CertificatePair) -> Bool {
-		guard let uuid = cert.uuid else {
-			return false
-		}
-
-		return refreshingAppleStatusIDs.contains(uuid)
+	func isRefreshingRevocation(for cert: CertificatePair) -> Bool {
+		guard let uuid = cert.uuid else { return false }
+		return refreshingRevocationIDs.contains(uuid)
 	}
 
 	func isRefreshingDeviceStatus(for cert: CertificatePair) -> Bool {
-		guard let uuid = cert.uuid else {
-			return false
-		}
-
+		guard let uuid = cert.uuid else { return false }
 		return refreshingDeviceStatusIDs.contains(uuid)
 	}
 
-	func refreshAppleStatusIfNeeded(for cert: CertificatePair) {
-		guard let uuid = cert.uuid else {
-			return
-		}
-
-		guard _shouldRefreshAppleStatus(for: uuid) else {
-			return
-		}
-
-		refreshAppleStatus(for: cert, force: false)
-	}
-
 	func refreshStatusIfNeeded(for cert: CertificatePair) {
-		refreshAppleStatusIfNeeded(for: cert)
+		refreshRevocationIfNeeded(for: cert)
 	}
 
-    func refreshAppleStatus(for cert: CertificatePair, force: Bool = true) {
+	func refreshRevocationIfNeeded(for cert: CertificatePair) {
+		guard let uuid = cert.uuid, _shouldRefresh(uuid) else { return }
+		refreshRevocation(for: cert, force: false)
+	}
+
+	/// Asks the OCSP responder for this certificate's status. Sends certificate
+	/// identifiers, never the p12 or its password.
+	func refreshRevocation(for cert: CertificatePair, force: Bool = true) {
 		guard
 			let uuid = cert.uuid,
-			let p12URL = Storage.shared.getFile(.certificate, from: cert)
+			let p12URL = Storage.shared.getFile(.certificate, from: cert),
+			let profileURL = Storage.shared.getFile(.provision, from: cert)
 		else {
 			return
 		}
 
-		if refreshingAppleStatusIDs.contains(uuid) {
-			return
-		}
+		guard !refreshingRevocationIDs.contains(uuid) else { return }
+		guard force || _shouldRefresh(uuid) else { return }
 
-		guard force || _shouldRefreshAppleStatus(for: uuid) else {
-			return
-		}
-
-		refreshingAppleStatusIDs.insert(uuid)
+		refreshingRevocationIDs.insert(uuid)
 
 		let password = cert.signingPassword ?? ""
-		let useLegacyRemote = UserDefaults.standard.bool(forKey: "VexSign.security.allowLegacyCertificateUpload")
-		let profileURL = Storage.shared.getFile(.provision, from: cert)
+		let name = cert.nickname ?? String.localized("Certificate")
 
-		Task { [checkerURL = _checkerURL] in
-			defer {
-				refreshingAppleStatusIDs.remove(uuid)
-			}
+		Task {
+			defer { refreshingRevocationIDs.remove(uuid) }
 
-			do {
-				let snapshot: CertificateAppleStatusSnapshot
-				if useLegacyRemote {
-					snapshot = try await Self._fetchAppleStatus(
-						from: checkerURL,
-						p12URL: p12URL,
-						password: password
-					)
-				} else if let profileURL {
-					// Use local OCSP via CertificateInspector without transmitting private keys
-					let health = try await CertificateInspector.inspect(
-						id: uuid,
-						name: cert.nickname ?? "Certificate",
-						p12: p12URL,
-						password: password,
-						profile: profileURL,
-						online: true
-					)
-					let statusValue: CertificateStatusValue = {
-						switch health.revocation {
-						case .good: return .signed
-						case .revoked: return .revoked
-						case .unknown: return .unknown
-						}
-					}()
-					let label = health.revocation == .good ? "OCSP Valid" : (health.revocation == .revoked ? "Revoked" : "Unknown")
-					snapshot = CertificateAppleStatusSnapshot(
-						status: statusValue,
-						rawValue: label,
-						checkedAt: Date()
-					)
-				} else {
-					return
-				}
-
-				appleStatusSnapshots[uuid] = snapshot
-				_persistAppleStatuses()
-			} catch {
+			guard let health = try? await CertificateInspector.inspect(
+				id: uuid,
+				name: name,
+				p12: p12URL,
+				password: password,
+				profile: profileURL,
+				online: true
+			) else {
 				return
 			}
+
+			revocationSnapshots[uuid] = CertificateRevocationSnapshot(
+				status: CertificateStatusValue(revocation: health.revocation),
+				detail: health.detail,
+				checkedAt: health.checkedAt
+			)
+			_persist()
 		}
 	}
 
-	func refreshStatus(for cert: CertificatePair, forceRemote: Bool = true) {
-		guard let uuid = cert.uuid else {
-			return
-		}
+	/// Runs the stored-row revocation check and then the OCSP check.
+	func refreshStatus(for cert: CertificatePair, forceRevocation: Bool = true) {
+		guard let uuid = cert.uuid else { return }
 
 		if !refreshingDeviceStatusIDs.contains(uuid) {
 			refreshingDeviceStatusIDs.insert(uuid)
@@ -249,112 +237,25 @@ final class CertificateStatusManager: ObservableObject {
 			}
 		}
 
-		refreshAppleStatus(for: cert, force: forceRemote)
+		refreshRevocation(for: cert, force: forceRevocation)
 	}
 
-	func removeAppleStatus(for cert: CertificatePair) {
-		guard let uuid = cert.uuid else {
-			return
-		}
+	func removeRevocationSnapshot(for cert: CertificatePair) {
+		guard let uuid = cert.uuid else { return }
 
-		appleStatusSnapshots.removeValue(forKey: uuid)
-		refreshingAppleStatusIDs.remove(uuid)
+		revocationSnapshots.removeValue(forKey: uuid)
+		refreshingRevocationIDs.remove(uuid)
 		refreshingDeviceStatusIDs.remove(uuid)
-		_persistAppleStatuses()
+		_persist()
 	}
 
-	private func _shouldRefreshAppleStatus(for uuid: String) -> Bool {
-		guard let snapshot = appleStatusSnapshots[uuid] else {
-			return true
-		}
-
-		return abs(snapshot.checkedAt.timeIntervalSinceNow) > _statusMaxAge
+	private func _shouldRefresh(_ uuid: String) -> Bool {
+		guard let snapshot = revocationSnapshots[uuid] else { return true }
+		return !snapshot.isFresh()
 	}
 
-	private func _persistAppleStatuses() {
-		guard let data = try? JSONEncoder().encode(appleStatusSnapshots) else {
-			return
-		}
-
-		UserDefaults.standard.set(data, forKey: _storageKey)
-	}
-
-	private static func _fetchAppleStatus(
-		from url: URL,
-		p12URL: URL,
-		password: String
-	) async throws -> CertificateAppleStatusSnapshot {
-		let p12Data = try await Task.detached(priority: .userInitiated) {
-			try Data(contentsOf: p12URL)
-		}.value
-
-		let boundary = "Boundary-\(UUID().uuidString)"
-		var request = URLRequest(url: url)
-		request.httpMethod = "POST"
-		request.timeoutInterval = 30
-		request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-		request.setValue("application/json", forHTTPHeaderField: "Accept")
-		request.setValue("VexSign/1.0", forHTTPHeaderField: "User-Agent")
-		request.httpBody = _multipartBody(boundary: boundary, p12Data: p12Data, password: password)
-
-		let (data, response) = try await URLSession.shared.data(for: request)
-
-		guard let httpResponse = response as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode) else {
-			throw CertificateStatusError.invalidResponse
-		}
-
-		let payload = try JSONDecoder().decode(CertCheckerResponse.self, from: data)
-		let rawStatus = payload.p12.status.trimmingCharacters(in: .whitespacesAndNewlines)
-
-		return CertificateAppleStatusSnapshot(
-			status: CertificateStatusValue(apiStatus: rawStatus),
-			rawValue: rawStatus,
-			checkedAt: Date()
-		)
-	}
-
-	private static func _multipartBody(boundary: String, p12Data: Data, password: String) -> Data {
-		var body = Data()
-
-		_append("--\(boundary)\r\n", to: &body)
-		_append("Content-Disposition: form-data; name=\"p12\"; filename=\"cert.p12\"\r\n", to: &body)
-		_append("Content-Type: application/x-pkcs12\r\n\r\n", to: &body)
-		body.append(p12Data)
-		_append("\r\n", to: &body)
-
-		_append("--\(boundary)\r\n", to: &body)
-		_append("Content-Disposition: form-data; name=\"password\"\r\n\r\n", to: &body)
-		_append(password, to: &body)
-		_append("\r\n", to: &body)
-
-		_append("--\(boundary)--\r\n", to: &body)
-		return body
-	}
-
-	private static func _append(_ string: String, to data: inout Data) {
-		data.append(Data(string.utf8))
-	}
-}
-
-private enum CertificateStatusError: LocalizedError {
-	case invalidResponse
-
-	var errorDescription: String? {
-		switch self {
-		case .invalidResponse:
-			String.localized("The Apple certificate status check failed.")
-		}
-	}
-}
-
-private struct CertCheckerResponse: Decodable {
-	let p12: P12Response
-
-	struct P12Response: Decodable {
-		let status: String
-
-		enum CodingKeys: String, CodingKey {
-			case status = "Status"
-		}
+	private func _persist() {
+		guard let data = try? JSONEncoder().encode(revocationSnapshots) else { return }
+		UserDefaults.standard.set(data, forKey: Self.storageKey)
 	}
 }

@@ -33,6 +33,14 @@ enum MachOEntitlements {
 
 	/// Absolute offset of the code signature superblob, or nil when the binary is
 	/// unsigned or not a readable 64-bit Mach-O.
+	///
+	/// Shared with `BundleSignature`, which reads the CMS blob out of the same
+	/// superblob: one walk of the load commands, one place to fix if Apple changes the layout.
+	static func codeSignatureOffset(forExecutableAt url: URL) -> Int? {
+		guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+		return codeSignatureOffset(in: data)
+	}
+
 	private static func codeSignatureOffset(in data: Data) -> Int? {
 		let slice = MachOReader.sliceOffset(in: data)
 

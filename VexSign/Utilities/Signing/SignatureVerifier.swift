@@ -1,0 +1,543 @@
+//
+//  SignatureVerifier.swift
+//  VexSign
+//
+//  Post-sign inspection of a bundle VexSign has just produced (see docs/AUDIT_2026-10-31.md).
+//
+//  Nothing here re-derives a signature or recomputes hashes over the whole bundle: that
+//  would cost seconds on a large app and duplicate what installd does anyway. It answers a
+//  narrower and still useful question — "is what landed on disk the thing we meant to make?"
+//  — using structural evidence that is cheap to read:
+//
+//    * the main executable and every nested Mach-O carry an LC_CODE_SIGNATURE load command;
+//    * `_CodeSignature/CodeResources` exists where the bundle says it is signed;
+//    * the profile the bundle embeds is the one that covers its bundle identifier;
+//    * the entitlements sealed into the executable are granted by that profile;
+//    * the profile has not expired.
+//
+//  Everything that cannot be established with confidence is a warning, never a failure.
+//  A false failure blocks an install that would have worked, which is worse than the thing
+//  it is trying to prevent.
+//
+
+import Foundation
+import NimbleExtensions
+
+// MARK: - Verifier
+
+enum SignatureVerifier {
+	// MARK: Issue
+
+	struct Issue: Identifiable, Equatable {
+		enum Severity: String, Equatable {
+			case warning
+			case failure
+		}
+
+		enum Code: String, Equatable {
+			case bundleNotFound
+			case executableMissing
+			case missingCodeResources
+			case unsignedExecutable
+			case unsignedNestedBundle
+			case profileMissing
+			case profileUnreadable
+			case profileExpired
+			case profileIdentifierUnknown
+			case bundleIdentifierMismatch
+			case nestedIdentifierUncovered
+			case entitlementUnreadable
+			case entitlementNotGranted
+		}
+
+		let code: Code
+		let severity: Severity
+		/// User-facing, and it says what is wrong rather than which enum case fired.
+		let detail: String
+		/// The file or key the issue is about, when there is one — so a caller can group or
+		/// count issues without parsing `detail`.
+		var subject: String? = nil
+
+		var id: String {
+			"\(code.rawValue):\(detail)"
+		}
+	}
+
+	// MARK: Report
+
+	struct Report: Equatable {
+		let bundlePath: String?
+		let issues: [Issue]
+		let duration: TimeInterval
+
+		var failures: [Issue] {
+			issues.filter { $0.severity == .failure }
+		}
+
+		var warnings: [Issue] {
+			issues.filter { $0.severity == .warning }
+		}
+
+		/// A bundle with no bundle is not acceptable; one with no failures is.
+		var isAcceptable: Bool {
+			bundlePath != nil && failures.isEmpty
+		}
+
+		var summary: String {
+			guard bundlePath != nil else {
+				return .localized("No app bundle to verify.")
+			}
+
+			let elapsed = Int64((duration * 1000).rounded())
+			if isAcceptable {
+				if warnings.isEmpty {
+					return .localized("Signature verified in %lld ms.", arguments: elapsed)
+				}
+				return .localized(
+					"Signature verified in %lld ms with %lld warning(s).",
+					arguments: elapsed, Int64(warnings.count)
+				)
+			}
+
+			return .localized(
+				"Signature check found %lld problem(s): %@",
+				arguments: Int64(failures.count), failures.map(\.detail).joined(separator: " ")
+			)
+		}
+	}
+
+	// MARK: Expectation
+
+	/// What the caller believes it just produced. Verification is only meaningful relative to
+	/// that: a bundle signed with `removeProvisioning` has no profile on purpose.
+	struct Expectation {
+		/// False for a modify-only run, where nothing was signed and nothing should be expected.
+		var expectsSignature: Bool
+		/// False when the caller deliberately strips the profile, or is checking a bundle
+		/// signed elsewhere (which may be ad-hoc and profile-free).
+		var requiresEmbeddedProfile: Bool
+		/// The identifier the user asked for, when there is one. A mismatch with the produced
+		/// bundle means the signing options did not take effect.
+		var declaredBundleIdentifier: String?
+
+		static let freshlySigned = Expectation(
+			expectsSignature: true,
+			requiresEmbeddedProfile: true,
+			declaredBundleIdentifier: nil
+		)
+
+		static let alreadySigned = Expectation(
+			expectsSignature: true,
+			requiresEmbeddedProfile: false,
+			declaredBundleIdentifier: nil
+		)
+	}
+
+	// MARK: Keys
+
+	/// Entitlements that are rewritten on purpose by VexSign itself, or that iOS derives
+	/// rather than validates against the profile's list. A difference here is worth saying
+	/// out loud, but it is not proof the app will fail — and every one of these would
+	/// otherwise block a bundle that installs perfectly well.
+	/// Shared with `ProfileCompatibility`, which must not block on the same keys for the same
+	/// reason: a preflight that disagrees with the verifier is a preflight nobody trusts.
+	static var tolerantEntitlementKeys: Set<String> {
+		Set(
+			[
+				"application-identifier",
+				"com.apple.application-identifier",
+				"com.apple.developer.team-identifier",
+				"get-task-allow",
+				"keychain-access-groups"
+			] + EntitlementBuilder.jitEntitlementKeys
+		)
+	}
+
+	private static let nestedBundleFolders = ["Frameworks", "PlugIns", "Extensions"]
+	private static let nestedBundleExtensions: Set<String> = ["framework", "appex", "app", "bundle"]
+
+	// MARK: Verify
+
+	static func verify(bundleAt url: URL, expectation: Expectation = .freshlySigned) -> Report {
+		let started = Date()
+		var issues: [Issue] = []
+
+		guard let bundleURL = _bundleURL(at: url), let bundle = Bundle(url: bundleURL) else {
+			issues.append(
+				Issue(
+					code: .bundleNotFound,
+					severity: .failure,
+					detail: .localized("No .app bundle found in this directory.")
+				)
+			)
+			return Report(bundlePath: nil, issues: issues, duration: Date().timeIntervalSince(started))
+		}
+
+		let executable = bundle.executableURL
+		if executable == nil {
+			issues.append(
+				Issue(
+					code: .executableMissing,
+					severity: .failure,
+					detail: .localized("The bundle does not name an executable.")
+				)
+			)
+		}
+
+		if expectation.expectsSignature {
+			issues += _signatureIssues(in: bundleURL, executable: executable)
+		}
+
+		issues += _profileIssues(
+			in: bundleURL,
+			bundle: bundle,
+			executable: executable,
+			expectation: expectation
+		)
+
+		return Report(bundlePath: bundleURL.path, issues: issues, duration: Date().timeIntervalSince(started))
+	}
+
+	// MARK: Signature
+
+	private static func _signatureIssues(in bundleURL: URL, executable: URL?) -> [Issue] {
+		var issues: [Issue] = []
+		let fm = FileManager.default
+
+		let codeResources = bundleURL.appendingPathComponent("_CodeSignature/CodeResources")
+		if !fm.fileExists(atPath: codeResources.path) {
+			issues.append(
+				Issue(
+					code: .missingCodeResources,
+					severity: .failure,
+					detail: .localized("Missing _CodeSignature/CodeResources — the bundle was not signed.")
+				)
+			)
+		}
+
+		if let executable, !MachOEntitlements.hasCodeSignature(forExecutableAt: executable) {
+			issues.append(
+				Issue(
+					code: .unsignedExecutable,
+					severity: .failure,
+					detail: .localized("The main executable carries no code signature.")
+				)
+			)
+		}
+
+		// A nested bundle without its own signature fails the whole install, but report it as a
+		// warning: zsign's handling of some third-party frameworks is outside VexSign's control,
+		// and owns the per-extension profile story.
+		for nested in _nestedBundles(in: bundleURL) {
+			let isSigned = Bundle(url: nested)
+				.flatMap(\.executableURL)
+				.map { MachOEntitlements.hasCodeSignature(forExecutableAt: $0) } ?? false
+
+			guard !isSigned else { continue }
+
+			issues.append(
+				Issue(
+					code: .unsignedNestedBundle,
+					severity: .warning,
+					detail: .localized("%@ has no code signature.", arguments: nested.lastPathComponent),
+					subject: nested.lastPathComponent
+				)
+			)
+		}
+
+		return issues
+	}
+
+	// MARK: Profile
+
+	private static func _profileIssues(
+		in bundleURL: URL,
+		bundle: Bundle,
+		executable: URL?,
+		expectation: Expectation
+	) -> [Issue] {
+		var issues: [Issue] = []
+		let profileURL = bundleURL.appendingPathComponent("embedded.mobileprovision")
+		let hasProfile = FileManager.default.fileExists(atPath: profileURL.path)
+
+		if !hasProfile && expectation.requiresEmbeddedProfile {
+			issues.append(
+				Issue(
+					code: .profileMissing,
+					severity: .failure,
+					detail: .localized("The bundle has no embedded.mobileprovision.")
+				)
+			)
+		}
+
+		// The identifier the app actually ended up with is checked whether or not a profile is
+		// embedded: if the signing options asked for one and the bundle says another, something
+		// in between ignored the instruction.
+		let producedIdentifier = bundle.bundleIdentifier
+		if let declared = expectation.declaredBundleIdentifier, !declared.isEmpty, declared != producedIdentifier {
+			issues.append(
+				Issue(
+					code: .bundleIdentifierMismatch,
+					severity: .failure,
+					detail: .localized(
+						"Asked for bundle identifier %@ but the bundle says %@.",
+						arguments: declared, producedIdentifier ?? .localized("nothing")
+					)
+				)
+			)
+		}
+
+		guard hasProfile else {
+			return issues
+		}
+
+		guard let profile = CertificateReader(profileURL).decoded else {
+			issues.append(
+				Issue(
+					code: .profileUnreadable,
+					severity: .warning,
+					detail: .localized("Could not read the embedded profile, so its contents were not checked.")
+				)
+			)
+			return issues
+		}
+
+		if profile.ExpirationDate < Date() {
+			issues.append(
+				Issue(
+					code: .profileExpired,
+					severity: .failure,
+					detail: .localized(
+						"The embedded profile expired on %@.",
+						arguments: profile.ExpirationDate.formatted(date: .abbreviated, time: .shortened)
+					)
+				)
+			)
+		}
+
+		let profileEntitlements = profile.Entitlements.map { $0.mapValues { $0.value } } ?? [:]
+
+		if let pattern = profileEntitlements["application-identifier"] as? String {
+			if let producedIdentifier, !coverage(of: pattern, includes: producedIdentifier) {
+				issues.append(
+					Issue(
+						code: .bundleIdentifierMismatch,
+						severity: .failure,
+						detail: .localized(
+							"The profile covers %@ but the app is %@.",
+							arguments: pattern, producedIdentifier
+						)
+					)
+				)
+			}
+
+			issues += _nestedIdentifierIssues(in: bundleURL, pattern: pattern, appIdentifier: producedIdentifier)
+		} else {
+			issues.append(
+				Issue(
+					code: .profileIdentifierUnknown,
+					severity: .warning,
+					detail: .localized("The profile does not state which app identifier it covers.")
+				)
+			)
+		}
+
+		if let executable {
+			issues += _entitlementIssues(
+				signed: MachOEntitlements.read(forExecutableAt: executable),
+				granted: profileEntitlements
+			)
+		}
+
+		return issues
+	}
+
+	private static func _nestedIdentifierIssues(
+		in bundleURL: URL,
+		pattern: String,
+		appIdentifier: String?
+	) -> [Issue] {
+		var issues: [Issue] = []
+
+		for nested in _nestedBundles(in: bundleURL) {
+			guard
+				let identifier = Bundle(url: nested)?.bundleIdentifier,
+				identifier != appIdentifier,
+				!coverage(of: pattern, includes: identifier)
+			else { continue }
+
+			issues.append(
+				Issue(
+					code: .nestedIdentifierUncovered,
+					severity: .warning,
+					detail: .localized(
+						"%@ (%@) is not covered by the embedded profile.",
+						arguments: nested.lastPathComponent, identifier
+					),
+					subject: nested.lastPathComponent
+				)
+			)
+		}
+
+		return issues
+	}
+
+	// MARK: Entitlements
+
+	private static func _entitlementIssues(signed: [String: Any]?, granted: [String: Any]) -> [Issue] {
+		guard let signed, !signed.isEmpty else {
+			return [
+				Issue(
+					code: .entitlementUnreadable,
+					severity: .warning,
+					detail: .localized("Could not read the entitlements sealed into the executable.")
+				)
+			]
+		}
+
+		var issues: [Issue] = []
+
+		for (key, value) in signed.sorted(by: { $0.key < $1.key }) {
+			let severity: Issue.Severity = tolerantEntitlementKeys.contains(key) ? .warning : .failure
+
+			guard let grantedValue = granted[key] else {
+				issues.append(
+					Issue(
+						code: .entitlementNotGranted,
+						severity: severity,
+						detail: .localized("The profile does not grant %@.", arguments: key)
+					)
+				)
+				continue
+			}
+
+			if let signedArray = value as? [Any] {
+				// A subset is fine: the profile may grant more than this app asks for. Only an
+				// element the profile never grants is a problem.
+				let grantedElements = Set((grantedValue as? [Any] ?? []).map { _describe($0) })
+				let missing = signedArray
+					.compactMap { $0 as? String }
+					.filter { !grantedElements.contains($0) }
+
+				if !missing.isEmpty {
+					issues.append(
+						Issue(
+							code: .entitlementNotGranted,
+							severity: severity,
+							detail: .localized(
+								"The profile does not grant %@ for %@.",
+								arguments: key, missing.joined(separator: ", ")
+							)
+						)
+					)
+				}
+			} else if _describe(value) != _describe(grantedValue) {
+				issues.append(
+					Issue(
+						code: .entitlementNotGranted,
+						severity: severity,
+						detail: .localized(
+							"%@ is signed as %@ but the profile grants %@.",
+							arguments: key, _describe(value), _describe(grantedValue)
+						)
+					)
+				)
+			}
+		}
+
+		return issues
+	}
+
+	private static func _describe(_ value: Any) -> String {
+		switch value {
+		case let bool as Bool:
+			return bool ? "true" : "false"
+		case let string as String:
+			return string
+		case let number as NSNumber:
+			return number.stringValue
+		default:
+			return String(describing: value)
+		}
+	}
+
+	// MARK: Identifiers
+
+	/// Whether a profile's `application-identifier` (`TEAMID.bundle.id` or `TEAMID.*`) covers an
+	/// identifier, using Apple's wildcard rules.
+	///
+	/// The team prefix is *not* part of a bundle identifier, so it cannot be compared here: a
+	/// bundle id is `com.foo.bar`, not `TEAMID.com.foo.bar`. Entitlement values do carry it, so
+	/// both shapes are accepted. Team identity is a separate question — see
+	/// `ProfileCompatibility`, which compares team IDs directly.
+	static func coverage(of pattern: String, includes identifier: String) -> Bool {
+		guard let dot = pattern.firstIndex(of: ".") else { return pattern == identifier }
+
+		let team = String(pattern[..<dot])
+		let suffix = String(pattern[pattern.index(after: dot)...])
+		let bare = identifier.hasPrefix(team + ".") ? String(identifier.dropFirst(team.count + 1)) : identifier
+
+		if suffix == "*" {
+			return true
+		}
+		if suffix.hasSuffix("*") {
+			return bare.hasPrefix(String(suffix.dropLast()))
+		}
+		return bare == suffix
+	}
+
+	/// True when a profile's `application-identifier` covers everything under its team rather
+	/// than one app.
+	static func isWildcard(_ pattern: String) -> Bool {
+		guard let dot = pattern.firstIndex(of: ".") else { return false }
+		return pattern[pattern.index(after: dot)...].contains("*")
+	}
+
+	// MARK: File system
+
+	private static func _bundleURL(at url: URL) -> URL? {
+		let fm = FileManager.default
+
+		if url.pathExtension == "app" {
+			var isDirectory: ObjCBool = false
+			if fm.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+				return url
+			}
+		}
+
+		guard
+			let contents = try? fm.contentsOfDirectory(
+				at: url,
+				includingPropertiesForKeys: [.isDirectoryKey],
+				options: [.skipsHiddenFiles]
+			)
+		else {
+			return nil
+		}
+
+		return contents
+			.filter { $0.pathExtension == "app" }
+			.sorted { $0.lastPathComponent < $1.lastPathComponent }
+			.first
+	}
+
+	private static func _nestedBundles(in bundleURL: URL) -> [URL] {
+		let fm = FileManager.default
+		var nested: [URL] = []
+
+		for folder in nestedBundleFolders {
+			let directory = bundleURL.appendingPathComponent(folder)
+			guard
+				let contents = try? fm.contentsOfDirectory(
+					at: directory,
+					includingPropertiesForKeys: [.isDirectoryKey],
+					options: [.skipsHiddenFiles]
+				)
+			else { continue }
+
+			nested += contents.filter { nestedBundleExtensions.contains($0.pathExtension.lowercased()) }
+		}
+
+		return nested.sorted { $0.lastPathComponent < $1.lastPathComponent }
+	}
+}

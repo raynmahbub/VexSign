@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 import Zip
 import NimbleExtensions
 
@@ -95,16 +96,41 @@ struct BackupManifest: Codable {
 	}
 }
 
+/// What was actually inside the container, checked after authenticated
+/// decryption and before anything is written back.
+struct BackupIntegrity {
+	/// SHA-256 of the decrypted archive, so two backups of the same content can be
+	/// told apart from two that merely look alike.
+	let packSHA256: String
+	let certificateEntries: Int
+	let certificateDirectories: Int
+
+	var isComplete: Bool { certificateDirectories == certificateEntries }
+
+	var summary: String {
+		let hash = packSHA256.isEmpty ? String.localized("unavailable") : String(packSHA256.prefix(12))
+		if certificateEntries == 0 {
+			return String.localized("Integrity: no certificates · SHA-256 %@", arguments: hash)
+		}
+		return String.localized(
+			"Integrity: %lld of %lld certificate folders present · SHA-256 %@",
+			arguments: Int64(certificateDirectories), Int64(certificateEntries), hash
+		)
+	}
+}
+
 final class BackupArchive: Identifiable {
 	let id = UUID()
 	let manifest: BackupManifest
+	let integrity: BackupIntegrity
 	fileprivate let root: URL
 	private let _work: URL
 
-	fileprivate init(manifest: BackupManifest, root: URL, work: URL) {
+	fileprivate init(manifest: BackupManifest, root: URL, work: URL, integrity: BackupIntegrity) {
 		self.manifest = manifest
 		self.root = root
 		self._work = work
+		self.integrity = integrity
 	}
 
 	deinit {
@@ -181,6 +207,13 @@ final class BackupManager {
 	}
 
 	func makeBackup(password: String, components: BackupComponents) async throws -> URL {
+		// A backup with certificates carries private keys and their passwords, so
+		// it never leaves this app without a password of the user's choosing.
+		let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+		if components.contains(.certificates), trimmedPassword.count < BackupCrypto.minimumPasswordLength {
+			throw BackupCrypto.Failure.certificatesNeedPassword
+		}
+
 		let staging = _fm.uniqueTemporaryDirectory("VexBackup")
 		try _fm.createDirectory(at: staging, withIntermediateDirectories: true)
 		defer { try? _fm.removeItem(at: staging) }
@@ -288,19 +321,32 @@ final class BackupManager {
 
 		do {
 			let extractDir = work.appendingPathComponent("extract")
-			try await Task.detached(priority: .userInitiated) {
+			let packHash = try await Task.detached(priority: .userInitiated) {
 				let plaintext = try BackupCrypto.unseal(data, password: password)
 				let packURL = work.appendingPathComponent("pack.zip")
 				try plaintext.write(to: packURL)
 				try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
 				try ArchiveSafetyValidator.validate(packURL)
 				try Zip.unzipFile(packURL, destination: extractDir, overwrite: true, password: nil)
+				return SHA256.hash(data: plaintext).map { String(format: "%02x", $0) }.joined()
 			}.value
 
 			guard let root = _findRoot(in: extractDir) else { throw BackupCrypto.Failure.badFormat }
 			let manifestData = try Data(contentsOf: root.appendingPathComponent("manifest.json"))
 			let manifest = try JSONDecoder().decode(BackupManifest.self, from: manifestData)
-			return BackupArchive(manifest: manifest, root: root, work: work)
+
+			// Decryption already fails closed; this checks that the container holds
+			// what its manifest claims before the user commits to a restore.
+			let certRoot = root.appendingPathComponent("certs")
+			let present = manifest.certificates.filter {
+				_fm.fileExists(atPath: certRoot.appendingPathComponent($0.uuid).path)
+			}.count
+			let integrity = BackupIntegrity(
+				packSHA256: packHash,
+				certificateEntries: manifest.certificates.count,
+				certificateDirectories: present
+			)
+			return BackupArchive(manifest: manifest, root: root, work: work, integrity: integrity)
 		} catch {
 			try? _fm.removeItem(at: work)
 			throw error

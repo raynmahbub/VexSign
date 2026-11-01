@@ -120,7 +120,17 @@ final class IPAChangeJournal {
 		} catch {
 			// Try byte-level copy when the file provider refuses a direct copy.
 			if let data = try? Data(contentsOf: url) {
-				try? data.write(to: backupURL)
+				do {
+					try data.write(to: backupURL)
+				} catch {
+					// Undo depends on this copy. A name for a backup that is not there would make
+					// the journal promise a rollback it cannot deliver.
+					FileLogger.error(
+						"IPA change journal backup failed: \(error.localizedDescription)",
+						category: "ipa"
+					)
+					return nil
+				}
 				return name
 			}
 			return nil

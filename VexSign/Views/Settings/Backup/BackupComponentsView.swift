@@ -20,10 +20,15 @@ struct BackupComponentsView: View {
 	var detail: String?
 	let footer: String
 	var passwordFooter: String?
+	/// When true, the certificates component cannot be included without a
+	/// password long enough to be worth deriving a key from.
+	var enforcesPasswordForCertificates: Bool = false
 	let onConfirm: (BackupComponents, String) -> Void
 
 	@State private var _selection: BackupComponents
 	@State private var _password = ""
+	@State private var _confirmation = ""
+	@State private var _showPasswordNotice = false
 
 	init(
 		title: String,
@@ -33,6 +38,7 @@ struct BackupComponentsView: View {
 		detail: String? = nil,
 		footer: String,
 		passwordFooter: String? = nil,
+		enforcesPasswordForCertificates: Bool = false,
 		onConfirm: @escaping (BackupComponents, String) -> Void
 	) {
 		self.title = title
@@ -42,6 +48,7 @@ struct BackupComponentsView: View {
 		self.detail = detail
 		self.footer = footer
 		self.passwordFooter = passwordFooter
+		self.enforcesPasswordForCertificates = enforcesPasswordForCertificates
 		self.onConfirm = onConfirm
 		__selection = State(initialValue: available)
 	}
@@ -80,8 +87,21 @@ struct BackupComponentsView: View {
 				if let passwordFooter {
 					NBSection(.localized("Password")) {
 						SecureField(.localized("Password"), text: $_password)
+						if enforcesPasswordForCertificates {
+							SecureField(.localized("Confirm Password"), text: $_confirmation)
+						}
 					} footer: {
-						Text(passwordFooter)
+						VStack(alignment: .leading, spacing: 6) {
+							Text(passwordFooter)
+							if _needsPasswordForCertificates {
+								Label(
+									.localized("Use at least %lld characters, typed the same twice, to include certificates.", arguments: Int64(BackupCrypto.minimumPasswordLength)),
+									systemImage: "exclamationmark.triangle.fill"
+								)
+								.foregroundStyle(.orange)
+								.font(.footnote)
+							}
+						}
 					}
 				}
 			}
@@ -93,12 +113,17 @@ struct BackupComponentsView: View {
 					confirmTitle,
 					style: .text,
 					placement: .confirmationAction,
-					isDisabled: _selection.isEmpty
+					isDisabled: _selection.isEmpty || _needsPasswordForCertificates
 				) {
 					onConfirm(_selection, _password)
 					dismiss()
 				}
 			}
+		}
+		.alert(.localized("Password needed"), isPresented: $_showPasswordNotice) {
+			Button(.localized("OK"), role: .cancel) {}
+		} message: {
+			Text(.localized("A backup that includes certificates contains private keys, so it is only written with a password of at least %lld characters.", arguments: Int64(BackupCrypto.minimumPasswordLength)))
 		}
 	}
 
@@ -106,8 +131,26 @@ struct BackupComponentsView: View {
 		Binding(
 			get: { _selection.contains(component) },
 			set: { isOn in
-				if isOn { _selection.insert(component) } else { _selection.remove(component) }
+				if isOn {
+					guard !(enforcesPasswordForCertificates && component == .certificates && !_passwordIsUsable) else {
+						_showPasswordNotice = true
+						return
+					}
+					_selection.insert(component)
+				} else {
+					_selection.remove(component)
+				}
 			}
 		)
+	}
+
+	/// A backup with certificates carries private keys, so it needs a password of
+	/// real length, typed the same way twice.
+	private var _passwordIsUsable: Bool {
+		_password.count >= BackupCrypto.minimumPasswordLength && _password == _confirmation
+	}
+
+	private var _needsPasswordForCertificates: Bool {
+		enforcesPasswordForCertificates && _selection.contains(.certificates) && !_passwordIsUsable
 	}
 }

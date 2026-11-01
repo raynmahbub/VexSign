@@ -11,8 +11,25 @@ import Foundation
 import NimbleExtensions
 
 enum NexCerts {
-	private static let apiBaseURL = "https://sideloading.net/api/certificates"
+	/// The host every file in this catalogue comes from. Shown before anything is downloaded and
+	/// asserted by `NexCertsSourceTests`, so the catalogue cannot quietly move somewhere else.
+	static let sourceHost = "sideloading.net"
+
+	private static let apiBaseURL = "https://\(sourceHost)/api/certificates"
 	private static let listAllURL = URL(string: "\(apiBaseURL)/list/all")!
+
+	/// These files are a few hundred kilobytes. The cap stops a broken or hostile host from
+	/// streaming something enormous into memory.
+	private static let maxDownloadBytes = 16 * 1024 * 1024
+
+	/// Every download URL is built here so there is a single place to audit.
+	static func downloadURLs(for id: Int) -> (p12: URL, provision: URL, password: URL) {
+		(
+			p12: URL(string: "\(apiBaseURL)/download/\(id)/cert.p12")!,
+			provision: URL(string: "\(apiBaseURL)/download/\(id)/cert.mobileprovision")!,
+			password: URL(string: "\(apiBaseURL)/download/\(id)/password")!
+		)
+	}
 
 	struct CatalogItem: Identifiable, Hashable {
 		let id: Int
@@ -47,15 +64,15 @@ enum NexCerts {
 		}
 
 		var p12URL: URL {
-			URL(string: "\(NexCerts.apiBaseURL)/download/\(id)/cert.p12")!
+			NexCerts.downloadURLs(for: id).p12
 		}
 
 		var provisionURL: URL {
-			URL(string: "\(NexCerts.apiBaseURL)/download/\(id)/cert.mobileprovision")!
+			NexCerts.downloadURLs(for: id).provision
 		}
 
 		var passwordURL: URL {
-			URL(string: "\(NexCerts.apiBaseURL)/download/\(id)/password")!
+			NexCerts.downloadURLs(for: id).password
 		}
 	}
 
@@ -145,17 +162,20 @@ enum NexCerts {
 		case invalidJSON
 		case emptyCatalog
 		case invalidPassword
+		case downloadTooLarge(URL)
 
 		var errorDescription: String? {
 			switch self {
 			case .invalidResponse(let url):
 				String.localized("Failed to fetch %@.", arguments: url.absoluteString)
 			case .invalidJSON:
-				String.localized("The NexCerts API response could not be parsed.")
+				String.localized("The community catalogue response could not be parsed.")
 			case .emptyCatalog:
-				String.localized("NexCerts did not return any certificates.")
+				String.localized("The community catalogue did not return any certificates.")
 			case .invalidPassword:
-				String.localized("The downloaded NexCerts certificate password is invalid.")
+				String.localized("The downloaded certificate password is invalid.")
+			case .downloadTooLarge(let url):
+				String.localized("%@ returned a file larger than this catalogue can contain.", arguments: url.lastPathComponent)
 			}
 		}
 	}
@@ -307,6 +327,27 @@ extension NexCerts {
 	}
 }
 
+// MARK: - Acknowledgement
+/// Remembers that the user has read what the community catalogue is and who serves it.
+///
+/// The acknowledged *host* is stored rather than a bare flag, so the catalogue cannot move to
+/// another host and keep an acknowledgement the user never gave for it.
+enum NexCertsAccess {
+	static let acknowledgementKey = "nexCerts.acknowledgedHost"
+
+	static func hasAcknowledged(_ defaults: UserDefaults = .standard) -> Bool {
+		defaults.string(forKey: acknowledgementKey) == NexCerts.sourceHost
+	}
+
+	static func acknowledge(_ defaults: UserDefaults = .standard) {
+		defaults.set(NexCerts.sourceHost, forKey: acknowledgementKey)
+	}
+
+	static func revoke(_ defaults: UserDefaults = .standard) {
+		defaults.removeObject(forKey: acknowledgementKey)
+	}
+}
+
 // MARK: - Networking
 extension NexCerts {
 	private static func _downloadData(from url: URL) async throws -> Data {
@@ -317,6 +358,17 @@ extension NexCerts {
 		let (data, response) = try await URLSession.shared.data(for: request)
 		guard let httpResponse = response as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode) else {
 			throw NexCertsError.invalidResponse(url)
+		}
+
+		// A host that lies about its length can still exceed the cap; the buffer is already
+		// allocated by then. Enforcing it during the transfer needs a streaming downloader,
+		// which belongs with the download-integrity work, not here.
+		let declaredLength = httpResponse.expectedContentLength
+		guard declaredLength <= 0 || declaredLength <= Int64(maxDownloadBytes) else {
+			throw NexCertsError.downloadTooLarge(url)
+		}
+		guard data.count <= maxDownloadBytes else {
+			throw NexCertsError.downloadTooLarge(url)
 		}
 
 		return data

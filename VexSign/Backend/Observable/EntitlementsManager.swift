@@ -134,8 +134,17 @@ final class EntitlementsManager: ObservableObject {
 	}
 
 	private func _write(_ dict: [String: Any], for entry: EntitlementsFile) {
-		guard let data = try? PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0) else { return }
-		try? _fm.createDirectoryIfNeeded(at: _fm.entitlementsLibrary(entry.id.uuidString))
-		try? data.write(to: fileURL(for: entry), options: .atomic)
+		do {
+			let data = try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
+			try _fm.createDirectoryIfNeeded(at: _fm.entitlementsLibrary(entry.id.uuidString))
+			try data.write(to: fileURL(for: entry), options: .atomic)
+		} catch {
+			// Saving an entitlement set used to fail in silence: the sheet closed and the file was
+			// simply not there the next time the user looked.
+			FileLogger.error(
+				"Saving entitlements failed for \(entry.id.uuidString): \(error.localizedDescription)",
+				category: "entitlements"
+			)
+		}
 	}
 }
