@@ -161,13 +161,11 @@ extension ServerView {
 				case .success(let summary):
 					UIAlertController.showAlertWithOk(
 						title: .localized("SSL Certificates"),
-						message: summary.map {
-							.localized(
-								"Identity installed: %@, %@. Export the Root CA profile and enable full trust if installs fail.",
-								arguments: $0.commonName,
-								$0.expiryDescription
-							)
-						} ?? .localized("Identity installed.")
+						message: .localized(
+							"Identity installed: %@, %@. Export the Root CA profile and enable full trust if installs fail.",
+							arguments: summary.commonName,
+							summary.expiryDescription
+						)
 					)
 				case .failure(let error):
 					UIAlertController.showAlertWithOk(

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import IDeviceSwift
 import NimbleViews
 import NimbleExtensions
 

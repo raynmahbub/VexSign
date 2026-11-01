@@ -30,7 +30,7 @@ extension Storage {
 			new.uuid = uuid
 			new.source = source
 			new.date = Date()
-			new.sortIndex = nextImportedSortIndex(in: context)
+			new.sortIndex = self.nextImportedSortIndex(in: context)
 
 			new.originalIdentifier = appIdentifier
 			new.identifier = appIdentifier
