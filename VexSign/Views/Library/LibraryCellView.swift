@@ -152,7 +152,7 @@ struct LibraryCellView: View {
 				}
 				if SigningProfileStore.shared.profile(forBundleID: app.identifier) != nil {
 					Button {
-						Task { await AutoSignManager.shared.sign(app) }
+						Task { _ = await AutoSignManager.shared.sign(app) }
 					} label: {
 						Label(.localized("Re-sign Last"), systemImage: "signature")
 					}

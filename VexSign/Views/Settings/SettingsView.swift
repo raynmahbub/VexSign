@@ -445,14 +445,14 @@ private extension SettingsView {
     func _makeGitHubIssueURL(url: String) -> String {
         var configurationSection = "### App Configuration:\n"
         switch UserDefaults.standard.integer(forKey: "VexSign.installationMethod") {
-        case .setupHealth:
+        case 0:
             let serverMethod = UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
             let ipFix = UserDefaults.standard.bool(forKey: "VexSign.ipFix")
             let serverType = (serverMethod == 0) ? "Fully Local" : "Semi Local"
             configurationSection += "- Install method: `Server`\n"
             configurationSection += "  - Server type: `\(serverType)`\n"
             configurationSection += "  - IP Fix: `\(ipFix)`\n"
-        case .certificates:
+        case 1:
             let pairingPath = HeartbeatManager.pairingFile()
             let pairingExists = FileManager.default.fileExists(atPath: pairingPath)
             configurationSection += "- Install method: `idevice`\n"
