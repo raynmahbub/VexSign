@@ -111,19 +111,19 @@ class CertificateAutoImporter {
 					}
 
 					// On a hash change, update the existing cert rather than deleting it.
-					var existingCert: CertificatePair?
+					var existingCertUUID: String?
 					if storedHash != nil {
 						Logger.misc.info("Hash changed for \(certName), updating existing certificate")
-						existingCert = DispatchQueue.main.sync {
+						existingCertUUID = DispatchQueue.main.sync {
 							let allCerts = Storage.shared.getAllCertificates()
-							return allCerts.first(where: { $0.nickname == certName })
+							return allCerts.first(where: { $0.nickname == certName })?.uuid
 						}
 					}
 
-					if let existingCert = existingCert {
+					if let existingCertUUID {
 						// Update in place to preserve relationships.
 						self.updateCertificate(
-							cert: existingCert,
+							certUUID: existingCertUUID,
 							p12URL: p12Url,
 							provisionURL: provisionUrl,
 							password: password
@@ -219,7 +219,7 @@ class CertificateAutoImporter {
 
 	/// Update an existing certificate without breaking relationships
 	private func updateCertificate(
-		cert: CertificatePair,
+		certUUID: String,
 		p12URL: URL,
 		provisionURL: URL,
 		password: String,
@@ -227,6 +227,9 @@ class CertificateAutoImporter {
 	) {
         Task { @MainActor in
             do {
+                guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == certUUID }) else {
+                    throw CertificateUpdateError.directoryNotFound
+                }
                 let reader = CertificateReader(provisionURL)
                 guard let decoded = reader.decoded else { throw CertificateUpdateError.invalidCertificate }
                 guard let directory = Storage.shared.getUuidDirectory(for: cert) else {
