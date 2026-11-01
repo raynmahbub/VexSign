@@ -33,11 +33,16 @@ or the signer stays in the iOS target.
 `VexSignTV/` — one screen, focus-first: certificate hero card, four count tiles,
 pending updates, library grid.
 
-**Pairing:** open VexSign on the iPhone → *Settings → Web Manager* → start the
-server, then enter the printed address (and API token, if one is set) in
-*Settings → Companion Devices → Apple TV & Vision Pro*… or simply type it into
-the TV app's connect screen. There is no auto-discovery: the Web Manager does not
-advertise a Bonjour service, and guessing addresses is worse than asking.
+**Pairing:** open VexSign on the iPhone → *Settings → Web Manager* → set a
+username and password, turn on **Allow This Network**, then start the server and
+enter the printed address (plus the username/password, and the API token if one is
+set) in *Settings → Companion Devices → Apple TV & Vision Pro*… or simply type it
+into the TV app's connect screen. The server listens on loopback until network
+access is turned on, and it will not start at all while *Require Password* is on
+and the password is empty — the companion reads `/api/status`, `/api/library` and
+`/api/updates`, which are behind that password when one is configured. There is no
+auto-discovery: the Web Manager does not advertise a Bonjour service, and guessing
+addresses is worse than asking.
 
 **What it reads:** `GET /api/status`, `GET /api/library`, `GET /api/updates` —
 the automation endpoints that already existed. No new server surface was added
