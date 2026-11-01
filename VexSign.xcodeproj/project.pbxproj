@@ -1554,7 +1554,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1564,7 +1564,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1582,7 +1582,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1592,7 +1592,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1610,7 +1610,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1620,7 +1620,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1639,7 +1639,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1649,7 +1649,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1668,7 +1668,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1680,7 +1680,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.vision;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1698,7 +1698,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1710,7 +1710,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.vision;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1728,7 +1728,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1740,7 +1740,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.vision;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1759,7 +1759,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1771,7 +1771,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.vision;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1791,7 +1791,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1802,7 +1802,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1822,7 +1822,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1833,7 +1833,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1853,7 +1853,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1864,7 +1864,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1885,7 +1885,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1896,7 +1896,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1918,7 +1918,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1929,7 +1929,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1950,7 +1950,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1961,7 +1961,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1982,7 +1982,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1993,7 +1993,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -2015,7 +2015,7 @@
 				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = "1";
+				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2026,7 +2026,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "1.0";
+				MARKETING_VERSION = "1.1.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app.watch.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -2,9 +2,9 @@
 //  OCSPResponderVerification.swift
 //  VexSign
 //
-/, the part that makes the answer evidence rather than a claim: the responder's signature.
+//  This file is the half that makes an answer evidence rather than a claim: the responder's signature.
 //
-/ removed a remote revocation checker because it believed a third party's assertion. Reading
+//  The app removed a remote revocation checker because it believed a third party's assertion. Reading
 //  an OCSP response and *printing* it would repeat that mistake with more code. What makes this
 //  different is that the device can check the responder's signature over the exact bytes in the
 //  response, so the answer is either signed by a key we were given or it is not used at all.

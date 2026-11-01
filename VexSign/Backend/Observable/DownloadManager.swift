@@ -31,24 +31,6 @@ class DownloadManager: NSObject, ObservableObject {
 			onDismiss: (() -> Void)?
 		)
 	}
-
-	extension ErrorDelegate {
-		/// A conformer that only knows the plain message still compiles: the override is then
-		/// unavailable and `onDismiss` runs, so the rejected file is deleted rather than imported
-		/// without anyone deciding to.
-		func showUIErrorMessage(
-			title: String,
-			message: String,
-			actionTitle: String,
-			action: @escaping () -> Void,
-			dismissTitle: String,
-			onDismiss: (() -> Void)?
-		) {
-			showUIErrorMessage(title: title, message: message)
-			onDismiss?()
-		}
-	}
-	
 	weak var errorDelegate: ErrorDelegate?
 	
 	@Published var downloads: [Download] = []
@@ -1097,5 +1079,24 @@ class DownloadManager: NSObject, ObservableObject {
 		} else {
 			endLiveActivity()
 		}
+	}
+}
+
+// MARK: - ErrorDelegate default
+
+extension DownloadManager.ErrorDelegate {
+	/// A conformer that only knows the plain message still compiles: the override is then
+	/// unavailable and `onDismiss` runs, so the rejected file is deleted rather than imported
+	/// without anyone deciding to.
+	func showUIErrorMessage(
+		title: String,
+		message: String,
+		actionTitle: String,
+		action: @escaping () -> Void,
+		dismissTitle: String,
+		onDismiss: (() -> Void)?
+	) {
+		showUIErrorMessage(title: title, message: message)
+		onDismiss?()
 	}
 }
