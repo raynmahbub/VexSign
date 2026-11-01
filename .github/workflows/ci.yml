@@ -340,147 +340,130 @@ jobs:
       # which the pull request page and the API can both read.
       - name: Surface failures
         if: failure() && steps.test.outcome == 'failure'
+        env:
+          RESULT_BUNDLE: ${{ runner.temp }}/VexSignTests.xcresult
         run: |
+          # GitHub keeps at most 10 annotations per step, so the interesting
+          # facts are packed into a handful of lines instead of one annotation
+          # per field: a crash stack is one annotation, not thirty.
           set +e
-          python3 - "$TEST_LOG" "$RESULT_BUNDLE" <<'PY'
-          import json, pathlib, re, subprocess, sys
+          annotate() {
+            python3 -c 'import sys; t=sys.argv[1]; print("::error file=.github/workflows/ci.yml,line=1::" + "".join(c for c in t if c not in "\r\n")[:900])' "$1"
+          }
 
-          log, bundle = sys.argv[1], sys.argv[2]
-          located = re.compile(r"^(?P<file>/[^:]+\.[a-z]{1,3}):(?P<line>\d+):(?:\d+:)?\s*(?P<msg>.*)$")
+          CRASH_STACK=""
 
-          def annotate(message, file=".github/workflows/ci.yml", line=1):
-              message = str(message).strip()[:500].replace("%", "%25").replace("\n", " ")
-              print(f"::error file={file},line={line}::{message}")
+          if [ -d "$RESULT_BUNDLE" ]; then
+            echo "::group::failing tests"
+            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" --format json > "$RUNNER_TEMP/tests.json" 2>/dev/null
 
-          # 1. Failing tests, straight out of the result bundle.
-          try:
-              raw = subprocess.run(
-                  ["xcrun", "xcresulttool", "get", "test-results", "tests",
-                   "--path", bundle, "--format", "json"],
-                  capture_output=True, text=True, timeout=120,
-              )
-              data = json.loads(raw.stdout or "{}")
-          except Exception as error:  # noqa: BLE001 - diagnostics must never fail the step
-              data = {}
-              annotate(f"xcresulttool could not be read: {error}")
+            xcrun xcresulttool export diagnostics \
+              --path "$RESULT_BUNDLE" \
+              --output-path "$RUNNER_TEMP/xcresult-diagnostics" >/dev/null 2>&1
 
-          failures = []
+            CRASH_STACK=$(python3 - "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/xcresult-diagnostics" <<'PYEOF'
+          import json, os, sys
 
-          def walk(node, trail):
-              if isinstance(node, dict):
-                  result = str(node.get("result", ""))
-                  name = node.get("name") or node.get("nodeIdentifier")
-                  if result.lower() == "failed" and name:
-                      messages = []
-                      for key in ("failureMessages", "children"):
-                          value = node.get(key) or []
-                          if isinstance(value, list):
-                              for item in value:
-                                  if isinstance(item, dict):
-                                      messages.append(str(item.get("name") or item.get("message") or ""))
-                      failures.append((trail, str(name), "; ".join(m for m in messages if m)))
-                  for key, value in node.items():
-                      walk(value, trail + [str(name)] if name else trail)
-              elif isinstance(node, list):
-                  for item in node:
-                      walk(item, trail)
+          tests_path, diag_dir = sys.argv[1], sys.argv[2]
 
-          walk(data, [])
-          seen = set()
-          for trail, name, message in failures:
-              key = (name, message[:80])
-              if key in seen:
+          def failures():
+              try:
+                  with open(tests_path) as handle:
+                      data = json.load(handle)
+              except Exception:
+                  return []
+              seen, found = set(), []
+
+              def walk(node):
+                  if isinstance(node, dict):
+                      if node.get("result") == "failed":
+                          name = node.get("name") or node.get("nodeIdentifier") or "?"
+                          if name.startswith("All tests") or name == "VexSignTests":
+                              pass
+                          else:
+                              msg = []
+                              for detail in node.get("failureMessages") or []:
+                                  if isinstance(detail, dict) and detail.get("failureMessage"):
+                                      msg.append(detail["failureMessage"])
+                              key = (name, tuple(msg))
+                              if key not in seen:
+                                  seen.add(key)
+                                  found.append((name, msg))
+                      for value in node.values():
+                          walk(value)
+                  elif isinstance(node, list):
+                      for value in node:
+                          walk(value)
+
+              walk(data)
+              return found
+
+          def ips_files(root):
+              for base, _dirs, names in os.walk(root):
+                  for name in names:
+                      if name.endswith(".ips") or name.endswith(".crash"):
+                          yield os.path.join(base, name)
+
+          stack = ""
+          for path in ips_files(diag_dir):
+              try:
+                  with open(path, encoding="utf-8", errors="replace") as handle:
+                      text = handle.read()
+                  payload = json.loads(text.splitlines()[-1])
+              except Exception:
                   continue
-              seen.add(key)
-              annotate(f"{name} — {message}" if message else name)
-          annotate(f"{len(seen)} failing test node(s) in the result bundle")
+              threads = payload.get("threads") or []
+              index = payload.get("faultingThread")
+              if not isinstance(index, int) or index >= len(threads):
+                  index = next((i for i, t in enumerate(threads) if t.get("triggered")), 0)
+              frames = (threads[index].get("frames") or []) if threads else []
+              names = [f.get("symbol") or f.get("imageOffset") or "?" for f in frames]
+              if names:
+                  stack = " <- ".join(str(n)[:70] for n in names[:24])
+                  break
 
-          # 2. The crash report, when the test host died before the tests ran.
-          #    `export diagnostics` is the only way to see *why* it trapped.
-          try:
-              import glob, os
-              diag = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "xcresult-diagnostics")
-              subprocess.run(
-                  ["xcrun", "xcresulttool", "export", "diagnostics",
-                   "--path", bundle, "--output-path", diag],
-                  capture_output=True, text=True, timeout=180,
-              )
-              reports = sorted(
-                  glob.glob(os.path.join(diag, "**", "*.ips"), recursive=True)
-                  + glob.glob(os.path.join(diag, "**", "*.crash"), recursive=True),
-                  key=os.path.getmtime,
-              )
-              for report in reports[:2]:
-                  text = pathlib.Path(report).read_text(errors="replace")
-                  body = text
-                  if report.endswith(".ips"):
-                      inner = text.split("\n", 1)
-                      body = inner[1] if len(inner) > 1 else text
-                  try:
-                      parsed = json.loads(body)
-                  except Exception:  # noqa: BLE001 - a text crash log is fine
-                      parsed = None
-                  if isinstance(parsed, dict):
-                      for message in (parsed.get("asi") or {}).items():
-                          annotate(f"crash: {message[0]} = {message[1]}")
-                      termination = (parsed.get("termination") or {})
-                      if termination:
-                          annotate(f"termination: {termination.get('indicator') or termination}")
-                      exception = (parsed.get("exception") or {})
-                      if exception:
-                          annotate(f"exception: {exception}")
-                      threads = parsed.get("threads") or []
-                      index = parsed.get("faultingThread") or 0
-                      if 0 <= index < len(threads):
-                          frames = (threads[index].get("frames") or [])[:14]
-                          names = [
-                              frame.get("symbol") or f"image {frame.get('imageIndex')} + {frame.get('imageOffset')}"
-                              for frame in frames
-                          ]
-                          for depth, name in enumerate(names):
-                              annotate(f"crashed thread frame {depth}: {name}")
-                  else:
-                      for line in text.splitlines():
-                          lowered = line.lower()
-                          if any(word in lowered for word in ("exception", "termination", "assert", "fatal", "trap", "signal")):
-                              annotate(line)
-          except Exception as error:  # noqa: BLE001 - diagnostics must never fail the step
-              annotate(f"diagnostics could not be exported: {error}")
+          if stack:
+              print("STACK " + stack)
 
-          # 3. Anything in the log that looks like a diagnostic, at the end where
-          #    the interesting lines are.
-          try:
-              lines = pathlib.Path(log).read_text(errors="replace").splitlines()
-          except OSError:
-              lines = []
-          # A Swift trap in the host app prints to stderr, which lands in this
-          # log a little above the `** TEST FAILED **` marker. Both are shown.
-          priority = re.compile(
-              r"Fatal error|Precondition failed|Terminating app|Assertion failed|signal trap|SIGABRT|EXC_BAD"
-          )
-          urgent = [line for line in lines if priority.search(line)]
-          for line in urgent[:20]:
-              annotate(f"host: {line.strip()[:400]}")
+          for name, messages in failures()[:6]:
+              print("TEST " + name[:150] + (" — " + messages[0][:200] if messages else ""))
+          PYEOF
+            )
+            echo "::endgroup::"
+          fi
 
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            case "$line" in
+              STACK*) annotate "crash stack (callee <- caller): ${line#STACK }" ;;
+              TEST*) annotate "${line#TEST }" ;;
+            esac
+          done <<< "$CRASH_STACK"
+
+          if [ -f "$RUNNER_TEMP/xcodebuild.log" ]; then
+            # A trap in the host app prints to stderr, a little above the
+            # `** TEST FAILED **` marker; that context is worth more than the
+            # tail of an xcodebuild log that is mostly build chatter.
+            python3 - "$RUNNER_TEMP/xcodebuild.log" > "$RUNNER_TEMP/context.txt" <<'PYEOF'
+          import re, sys
+
+          lines = open(sys.argv[1], encoding="utf-8", errors="replace").read().splitlines()
           marker = next((i for i, l in enumerate(lines) if "** TEST FAILED **" in l), None)
+          picked = []
           if marker is not None:
-              for line in [l for l in lines[max(0, marker - 80):marker] if l.strip()][-35:]:
-                  annotate(f"before TEST FAILED: {line.strip()[:400]}")
+              picked = [l.strip() for l in lines[max(0, marker - 60):marker] if l.strip()][-6:]
+          if not picked:
+              pick = re.compile(r"error:|BUILD FAILED|Fatal error|Precondition failed|SIGABRT")
+              picked = [l.strip() for l in lines if pick.search(l)][-6:]
+          for line in picked:
+              print(line[:400])
+          PYEOF
+            while IFS= read -r line; do
+              [ -n "$line" ] && annotate "log: $line"
+            done < "$RUNNER_TEMP/context.txt"
+          fi
 
-          pick = re.compile(r"error:|BUILD FAILED|crash|assertion")
-          hits = [line for line in lines if pick.search(line)][-15:]
-          for line in hits:
-              match = located.match(line.strip())
-              if match:
-                  annotate(match["msg"], match["file"], match["line"])
-              else:
-                  annotate(line.strip()[:400])
-          PY
           exit 0
-
-      # Same reporter as the build job, so test failures are annotated inline
-      # (file + line). The warnings gate is off here: `build` owns that verdict
-      # and this job only needs to answer "did the tests pass".
       - name: Report diagnostics
         if: always() && steps.test.outcome != 'skipped'
         env:

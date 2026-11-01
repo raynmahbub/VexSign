@@ -220,24 +220,35 @@ final class Storage: ObservableObject {
 		let key = "vexsign.sortIndexMigrated"
 		guard !UserDefaults.standard.bool(forKey: key) else { return }
 
-		let signedRequest: NSFetchRequest<Signed> = Signed.fetchRequest()
-		signedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
-		if let apps = try? context.fetch(signedRequest) {
-			for (index, app) in apps.enumerated() { app.sortIndex = Int32(index) }
-		}
+		// On the view context's own queue. `init` runs on whichever thread first
+		// touches `Storage.shared`, and that can be a background thread - the
+		// certificate importer starts its work from a utility queue during
+		// launch. The view context belongs to the main queue, so a fetch from
+		// the creating thread trips Core Data's multithreading assertion
+		// (`_PFAssertSafeMultiThreadedAccess`): a SIGTRAP in a debug build and,
+		// worse, an unsynchronised fetch in an optimised one.
+		//
+		// `performAndWait` hops to the context's queue and runs inline when it is
+		// already there, so this is a no-op on the common path.
+		let viewContext = container.viewContext
+		viewContext.performAndWait {
+			let signedRequest: NSFetchRequest<Signed> = Signed.fetchRequest()
+			signedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
+			if let apps = try? viewContext.fetch(signedRequest) {
+				for (index, app) in apps.enumerated() { app.sortIndex = Int32(index) }
+			}
 
-		let importedRequest: NSFetchRequest<Imported> = Imported.fetchRequest()
-		importedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
-		if let apps = try? context.fetch(importedRequest) {
-			for (index, app) in apps.enumerated() { app.sortIndex = Int32(index) }
-		}
+			let importedRequest: NSFetchRequest<Imported> = Imported.fetchRequest()
+			importedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
+			if let apps = try? viewContext.fetch(importedRequest) {
+				for (index, app) in apps.enumerated() { app.sortIndex = Int32(index) }
+			}
 
-		// Not `saveContext()`: this runs inside `init`, on whichever thread
-		// created the store, before any other code can hold a reference. The
-		// main-queue guard on `saveContext` would log a fault for a lifecycle
-		// that is single-threaded by construction.
-		if container.viewContext.hasChanges {
-			try? container.viewContext.save()
+			// Not `saveContext()`: that guard logs a fault, and the fetch above
+			// already established the queue this work runs on.
+			if viewContext.hasChanges {
+				try? viewContext.save()
+			}
 		}
 		UserDefaults.standard.set(true, forKey: key)
 	}

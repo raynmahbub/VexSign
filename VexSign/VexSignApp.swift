@@ -525,6 +525,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 		_ application: UIApplication,
 		didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
 	) -> Bool {
+		// Create the store here, on the main thread, before anything else can
+		// reach for it: the certificate importer starts from a utility queue a
+		// few lines down, and whoever touches `Storage.shared` first is the
+		// thread that creates the container.
+		_ = Storage.shared
+
 		_createPipeline()
 		_createDocumentsDirectories()
 		StorageManager.purgeStaleTemporary()
