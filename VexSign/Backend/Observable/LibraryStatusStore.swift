@@ -148,7 +148,10 @@ final class LibraryStatusStore: ObservableObject {
 	private var epoch: [String: Int] = [:]
 
 	/// How long a read is trusted before the same app is read again.
-	static let defaultMaxAge: TimeInterval = 30
+	/// How long a cached answer stays good. `nonisolated` because it is a constant:
+	/// two methods that read it carry it as a default argument, which is evaluated
+	/// outside the actor.
+	nonisolated static let defaultMaxAge: TimeInterval = 30
 
 	init(
 		probe: InstalledAppProbing = InstalledAppProbe(),

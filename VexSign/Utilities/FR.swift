@@ -224,7 +224,7 @@ enum FR {
 				completion(.failure(NSError(
 					domain: "VexSign",
 					code: 7,
-					userInfo: [NSLocalizedDescriptionKey: .localized("Could not reach the certificate server. Check your connection and try again.")]
+					userInfo: [NSLocalizedDescriptionKey: String.localized("Could not reach the certificate server. Check your connection and try again.")]
 				)))
 				return
 			}

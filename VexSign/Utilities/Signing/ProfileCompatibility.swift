@@ -392,7 +392,9 @@ extension CertificatePair {
 			return nil
 		}
 
-		guard let secIdentity = identity as? SecIdentity else { return nil }
+		// SecIdentity is a CF type: the compiler knows a conditional cast from `Any`
+		// can only succeed here, so the unchecked form is the honest one.
+		let secIdentity = identity as SecIdentity
 
 		var certificate: SecCertificate?
 		guard

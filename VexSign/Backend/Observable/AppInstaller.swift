@@ -383,7 +383,7 @@ final class AppInstaller: ObservableObject {
 				probe: probe,
 				progress: { await UIApplication.installProgress(for: bundleID) },
 				onUpdate: { raw, phase in
-					await MainActor.run {
+					await MainActor.run { [weak self] in
 						self?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
 					}
 				}
@@ -391,7 +391,7 @@ final class AppInstaller: ObservableObject {
 
 			guard !Task.isCancelled else { return }
 
-			await MainActor.run {
+			await MainActor.run { [weak self] in
 				self?._finishConfirmed(verdict)
 			}
 		}
@@ -471,7 +471,7 @@ final class AppInstaller: ObservableObject {
 		var confirmation = InstallConfirmation(
 			expectation: .init(bundleIdentifier: bundleID, version: app.version)
 		)
-		confirmation.beginVerifying(at: Date())
+		_ = confirmation.beginVerifying(at: Date())
 
 		let verdict = await InstallWatcher.confirm(&confirmation, probe: _probe)
 		_finishConfirmed(verdict)

@@ -24,6 +24,7 @@
 //  not something this file pretends to do.
 //
 
+import CryptoKit
 import Foundation
 import Security
 
