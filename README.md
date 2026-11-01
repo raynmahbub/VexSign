@@ -166,7 +166,7 @@ This repository also contains services and tooling beyond the iOS app:
 - **Native cloud bridge:** endpoint/token configuration and connection testing, with client methods for remote signing jobs. Requires a compatible deployed backend.
 - **Cloud-signing infrastructure:** a separate TypeScript/Fastify API with JWT authorization, PostgreSQL, Redis/BullMQ queues, private S3 storage, worker contracts, webhook retries and OTA endpoints. See [`cloud-signing/`](cloud-signing/).
 - **OTA server pages:** manifest/download endpoints, installation links and QR codes, with optional app images, screenshots and changelogs.
-- **Tests and CI:** iOS test sources, backend tests and cloud-service tests alongside build/deployment tooling.
+- **Tests and CI:** the `VexSignTests` suite runs on every PR through the **Unit tests** workflow (or locally via `make test`), alongside backend and cloud-service tests, build checks and deployment tooling.
 
 **Cloud signing is not a turnkey feature:** no signing engine/sandbox launcher is bundled. The native client bridge and settings do not by themselves provide a deployed signing service. It requires infrastructure, a signer integration and end-to-end validation. Discovery rankings are local, not global popularity statistics; background schedules are controlled by iOS.
 
@@ -214,6 +214,19 @@ make deps
 open VexSign.xcworkspace
 ```
 
+`make deps` needs no network: it generates a self-signed **development** identity for the
+local install server (certificate, key and hostname in `deps/`) with `openssl`, and keeps that
+identity on later builds so a profile you trusted once keeps working. Devices must trust its
+Root CA before HTTPS installs succeed — **Settings → Installation → Server & SSL → Export Root
+CA Profile**, then enable full trust in *Settings → General → About → Certificate Trust
+Settings*. Release builds do not use it:
+
+```bash
+make deps-pin       # once (and after a deliberate rotation): fetch the published identity,
+                    # print its digest and rewrite Scripts/local-tls/pinned-pack.sha256
+make deps-release   # fetch + verify that digest before packaging; fails loudly on a mismatch
+```
+
 Select the VexSign scheme and configure your development team in Xcode. To create the unsigned IPA using the repository’s build recipe:
 
 ```bash
@@ -236,6 +249,9 @@ The packaged IPA is written to `packages/VexSign.ipa` and requires signing befor
 - [`docs/PLATFORMS.md`](docs/PLATFORMS.md) — Apple TV / visionOS / watchOS companions.
 - [`docs/WEBTOOLS.md`](docs/WEBTOOLS.md) — the browser tools and their endpoints.
 - [`docs/ECOSYSTEM.md`](docs/ECOSYSTEM.md) — implementation scope and release considerations.
+- [`docs/AUDIT_2026-10-31.md`](docs/AUDIT_2026-10-31.md) — source-code audit: verified findings, severities and evidence.
+- [`docs/REFERENCE_COMPARISON.md`](docs/REFERENCE_COMPARISON.md) — reference projects verified against source, with adoption decisions and the licence boundary.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — prioritized engineering roadmap (VX-01 … VX-27) with acceptance criteria and tests.
 - [`docs/RELEASING.md`](docs/RELEASING.md) — how releases are cut (tag push) and how to test a build without publishing.
 
 Want to contribute? Read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md), or [open an issue](https://github.com/iamsmmh/VexSign/issues).

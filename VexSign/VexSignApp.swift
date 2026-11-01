@@ -560,6 +560,28 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 		}
 	}
 
+	/// a download that failed its integrity check needs an answer, not an acknowledgement —
+	/// the file is either imported deliberately or deleted.
+	func showUIErrorMessage(
+		title: String,
+		message: String,
+		actionTitle: String,
+		action: @escaping () -> Void,
+		dismissTitle: String,
+		onDismiss: (() -> Void)?
+	) {
+		DispatchQueue.main.async {
+			UIAlertController.showAlertWithOptions(
+				title: .localized(title),
+				message: message,
+				actions: [
+					(actionTitle, .default, action),
+					(dismissTitle, .cancel, onDismiss)
+				]
+			)
+		}
+	}
+
 	func application(
         _ application: UIApplication,
         handleEventsForBackgroundURLSession identifier: String,

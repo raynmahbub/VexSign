@@ -80,6 +80,78 @@ enum FeatureStatusRegistry {
 			status: .implemented
 		),
 		FeatureStatusEntry(
+			id: "profile-compatibility",
+			name: "Profile compatibility",
+			setting: "Signing → Start Signing (preflight) · certificate picker badge",
+			persistedAs: "Nothing — computed from the decoded profile, the p12 and the signing options",
+			consumer: "PreflightChecks → ProfileCompatibility → PreflightIssue / CertificatesCellView",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "extension-coverage",
+			name: "Extension coverage audit",
+			setting: "Signing → Remove App Extensions (stripped extensions are never requirements)",
+			persistedAs: "Nothing — each nested bundle's Info.plist and embedded.mobileprovision are read per run",
+			consumer: "NestedBundleAudit → SigningHandler (signing log) · PreflightChecks / SigningView (coverage target)",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "signature-verification",
+			name: "Post-sign verification",
+			setting: "Signing log (every sign) · Install Without Signing (blocks)",
+			persistedAs: "SignatureVerifier.Report on SigningHandler.verification (not persisted)",
+			consumer: "SigningHandler.modify → SignatureVerifier → DirectInstaller",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "community-certificates",
+			name: "Community certificate catalogue",
+			setting: "Settings → Certificates → + → Community Certificates (Unofficial)",
+			persistedAs: "UserDefaults nexCerts.acknowledgedHost (the acknowledged host, not a flag)",
+			consumer: "NexCerts.fetchCatalog/importCertificate via CommunityCertificatesView",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "backup-encryption",
+			name: "Encrypted backup",
+			setting: "Settings → Backup & Restore → Create Backup → Password",
+			persistedAs: "VEXBK2 container (ContentKey wrapped by password or Keychain backup.deviceKey)",
+			consumer: "BackupCrypto.seal/unseal → BackupManager.makeBackup/open",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "certificate-revocation",
+			name: "Certificate revocation check",
+			setting: "Settings → Certificates → Certificate Health → Validate with System OCSP",
+			persistedAs: "VexSign.certificate.revocationSnapshots (status, detail, date only)",
+			consumer: "CertificateInspector (SecPolicyCreateRevocation, OCSP) → CertificateStatusManager",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "webmanager-access",
+			name: "Web Manager access control",
+			setting: "Settings → Web Manager → Require Password / Allow This Network",
+			persistedAs: "VexSign.webManager.{auth,user,pass→Keychain,bindMode,allowUnauthenticatedLAN}",
+			consumer: "WebManagerAccessPolicy → WebManagerServer bind + middleware",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "webmanager-cert-export",
+			name: "Web Manager certificate export",
+			setting: "Settings → Web Manager → Allow Certificate Download",
+			persistedAs: "VexSign.webManager.certificateExport",
+			consumer: "WebManagerServer.allowsCertificateExport → /api/certs/:uuid/download",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "webmanager-token",
+			name: "Web Manager API token",
+			setting: "Settings → Web Manager → API Token",
+			persistedAs: "Keychain (webManager.apiToken), legacy VexSign.apiToken migrated",
+			consumer: "WebManagerAuthMiddleware + WebManagerSensitiveAccessMiddleware",
+			status: .implemented
+		),
+		FeatureStatusEntry(
 			id: "per-app-cert",
 			name: "Per-app certificate selection",
 			setting: "App context → Signing certificate",
@@ -101,6 +173,14 @@ enum FeatureStatusRegistry {
 			setting: "Library → app → Re-sign",
 			persistedAs: "— (library action)",
 			consumer: "FR.signPackageFile → InstallQueue",
+			status: .needsDevice
+		),
+		FeatureStatusEntry(
+			id: "library-status",
+			name: "Library install state & signer identity",
+			setting: "Library → row badge · app info → Signature · Signing → Start Signing (preflight)",
+			persistedAs: "Nothing persisted — the device answer and the stored bundle's CMS are read on demand and cached for 30 s",
+			consumer: "LibraryStatusStore → LibraryCellView / LibraryInfoView · PreflightChecks.signerIdentity → CertificateIdentity → BundleSignature",
 			status: .needsDevice
 		),
 		FeatureStatusEntry(
@@ -189,6 +269,30 @@ enum FeatureStatusRegistry {
 			setting: "Settings → Backup",
 			persistedAs: ".vexbackup (AES-GCM, PBKDF2 200k)",
 			consumer: "BackupManager + BackupCrypto",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "download-integrity",
+			name: "Download integrity (published size / hash)",
+			setting: "The source's own `size` (a hash when a source publishes one)",
+			persistedAs: "Download.integrity — in memory, per download, never cached",
+			consumer: "DownloadManager.handlePackageFile → DownloadIntegrity → the import gate",
+			status: .needsDevice
+		),
+		FeatureStatusEntry(
+			id: "signed-sources",
+			name: "Signed repositories (Ed25519 provenance)",
+			setting: "A `vexsign` member in the repository's source.json",
+			persistedAs: "VexSign.sourceProvenance (badge cache; the check runs every refresh)",
+			consumer: "SourceProvenanceVerifier → SourceFeedLoader (refresh refused on a bad signature)",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "install-preflight",
+			name: "Install-method preflight",
+			setting: "Settings → Installation (method picker + prerequisites)",
+			persistedAs: "VexSign.installationMethod · server certificate · pairing file",
+			consumer: "InstallPreflight → InstallationView rows",
 			status: .implemented
 		)
 	]

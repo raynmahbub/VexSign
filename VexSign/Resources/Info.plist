@@ -190,6 +190,9 @@
 	<array>
 		<string>localdevvpn</string>
 		<string>tg</string>
+		<!-- VX-26: used only to answer "is TrollStore installed?" for the install preflight. -->
+		<string>apple-magnifier</string>
+		<string>trollstore</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
