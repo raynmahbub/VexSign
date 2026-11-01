@@ -63,7 +63,7 @@ struct SigningEntitlementsView: View {
 			}
 		}
 		.onAppear(perform: _syncSelection)
-		.onChange(of: _manager.files) { _ in _syncSelection() }
+		.nbOnChange(of: _manager.files) { _ in _syncSelection() }
 	}
 }
 

@@ -6,7 +6,6 @@
 //
 
 import CoreData
-import ZsignSwift
 
 // MARK: - Class extension: certificate
 extension Storage {
@@ -83,27 +82,46 @@ extension Storage {
 		return results[index]
 	}
 	
-	func revokagedCertificate(for cert: CertificatePair, completion: ((Bool) -> Void)? = nil) {
-		guard !cert.revoked else {
-			completion?(true)
-			return
-		}
-		
-		Zsign.checkRevokage(
-			provisionPath: Storage.shared.getFile(.provision, from: cert)?.path ?? "",
-			p12Path: Storage.shared.getFile(.certificate, from: cert)?.path ?? "",
-			p12Password: cert.signingPassword ?? ""
-		) { status, _, _ in
-			DispatchQueue.main.async {
-				if status == 1 {
-					cert.revoked = true
-					self.saveContext()
-				}
-				completion?(status == 1)
-			}
-		}
-	}
-	
+    /// Compatibility entry point for certificate-list and auto-import callers.
+    /// Never call Zsign.checkRevokage here: its native async OCSP implementation
+    /// holds dangling certificate state and parses into an uninitialized pointer.
+    @MainActor
+    func revokagedCertificate(for cert: CertificatePair, completion: ((Bool) -> Void)? = nil) {
+        guard !cert.isDeleted, cert.managedObjectContext != nil else {
+            completion?(false)
+            return
+        }
+        guard !cert.revoked else { completion?(true); return }
+        guard let uuid = cert.uuid,
+              let p12 = getFile(.certificate, from: cert),
+              let profile = getFile(.provision, from: cert),
+              let password = cert.signingPassword else {
+            completion?(false)
+            return
+        }
+        let name = cert.nickname ?? "Certificate"
+        Task {
+            do {
+                let health = try await CertificateInspector.inspect(
+                    id: uuid, name: name, p12: p12, password: password, profile: profile, online: true
+                )
+                guard !cert.isDeleted, cert.managedObjectContext != nil else {
+                    completion?(false)
+                    return
+                }
+                if health.revocation == .revoked {
+                    cert.revoked = true
+                    saveContext()
+                }
+                completion?(cert.revoked)
+            } catch {
+                // Offline, malformed or unverifiable evidence is unknown, not revoked.
+                FileLogger.log("Certificate status check could not complete: \(error)", category: "certificate")
+                completion?(false)
+            }
+        }
+    }
+
 	enum FileRequest: String {
 		case certificate = "p12"
 		case provision = "mobileprovision"

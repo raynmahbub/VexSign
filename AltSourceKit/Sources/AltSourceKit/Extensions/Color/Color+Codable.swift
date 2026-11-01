@@ -9,7 +9,7 @@ import SwiftUI
 
 // taken from skykit
 // MARK: - Make Color conform to codable
-extension Color: Codable {
+extension Color: @retroactive Codable {
 	public init(hex: String) {
 		let rgba = hex.toRGBA()
 

@@ -16,6 +16,8 @@ struct LibraryView: View {
     @ObservedObject private var tabSelection = TabSelectionObserver.shared
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
     @ObservedObject private var lockManager = AppLockManager.shared
+    @ObservedObject private var libraryStatus = LibraryStatusStore.shared
+    @AppStorage("VexSign.library.layout") private var libraryLayout = "list"
     
     @State private var _selectedInfoAppPresenting: AnyApp?
     @State private var _selectedSigningAppPresenting: AnyApp?
@@ -66,6 +68,7 @@ struct LibraryView: View {
             if !lockManager.isRevealingHiddenApps, let uuid = app.uuid, lockManager.isAppHidden(uuid) {
                 return false
             }
+            if _selectedScope == .attention && !needsAttention(app) { return false }
             return _searchText.isEmpty ||
             (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
         }
@@ -77,6 +80,7 @@ struct LibraryView: View {
             if !lockManager.isRevealingHiddenApps, let uuid = app.uuid, lockManager.isAppHidden(uuid) {
                 return false
             }
+            if _selectedScope == .attention && !needsAttention(app) { return false }
             return _searchText.isEmpty ||
             (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
         }
@@ -107,17 +111,28 @@ struct LibraryView: View {
     }
     
     private var shouldShowSignedSection: Bool {
-        _selectedScope == .all || _selectedScope == .signed
+        _selectedScope == .all || _selectedScope == .attention || _selectedScope == .signed
     }
     
     private var shouldShowImportedSection: Bool {
-        _selectedScope == .all || _selectedScope == .imported
+        _selectedScope == .all || _selectedScope == .attention || _selectedScope == .imported
     }
     
     private var hasNoContent: Bool {
-        filteredSignedApps.isEmpty && filteredImportedApps.isEmpty
+        (!shouldShowSignedSection || filteredSignedApps.isEmpty) && (!shouldShowImportedSection || filteredImportedApps.isEmpty)
     }
     
+    private func needsAttention(_ app: AppInfoPresentable) -> Bool {
+        let status = libraryStatus.status(for: app)
+        let certificate = Storage.shared.getCertificate(from: app)
+        return LibraryAttentionReason.evaluate(
+            isSigned: app.isSigned,
+            expiry: status.expiresAt ?? certificate?.expiration,
+            revoked: certificate?.revoked == true,
+            hasUpdate: updateChecker.hasUpdate(for: app) != nil
+        ) != nil
+    }
+
     // MARK: Body
     var body: some View {
         NBNavigationView(.localized("Library")) {
@@ -132,9 +147,11 @@ struct LibraryView: View {
                                         _selectedAppUUIDs.removeAll()
                                     }
                                 }
+                                .keyboardShortcut(.cancelAction)
                                 Button(action: selectAllApps) {
                                     Text("Select All")
                                 }
+                                .keyboardShortcut("a", modifiers: .command)
                             }
                         } else {
                             Button("Edit") {
@@ -148,6 +165,11 @@ struct LibraryView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         if !_editMode.isEditing {
                             Menu {
+                                Picker(.localized("Library layout"), selection: $libraryLayout) {
+                                    Label(.localized("Compact list"), systemImage: "list.bullet").tag("list")
+                                    Label(.localized("Adaptive cards"), systemImage: "rectangle.grid.1x2").tag("grid")
+                                    Label(.localized("Icon grid"), systemImage: "square.grid.2x2").tag("icons")
+                                }
                                 Section(.localized("Sort")) {
                                     ForEach(LibrarySort.allCases, id: \.rawValue) { option in
                                         Button {
@@ -199,9 +221,11 @@ struct LibraryView: View {
                 .alert(.localized("Import from URL"), isPresented: $_isDownloadingPresenting) {
                     urlImportAlert
                 }
-                .onChange(of: _editMode) { mode in
+                .nbOnChange(of: _editMode) { mode in
                     if mode == .inactive {
                         _selectedAppUUIDs.removeAll()
+                    } else {
+                        UIApplication.shared.endEditing()
                     }
                 }
                 .alert(
@@ -230,7 +254,10 @@ struct LibraryView: View {
     @ViewBuilder
     private var mainContent: some View {
         ScrollViewReader { proxy in
-            NBListAdaptable {
+            NBListAdaptable(
+                layout: libraryLayout != "list" && !_editMode.isEditing ? .grid : .list,
+                minimumCardWidth: libraryLayout == "icons" ? 160 : 340
+            ) {
                 if !hasNoContent {
                     appsListContent
                 }
@@ -264,7 +291,7 @@ struct LibraryView: View {
                     await updateChecker.checkNow()
                 }
             }
-            .onChange(of: tabSelection.highlightedAppUUID) { newUUID in
+            .nbOnChange(of: tabSelection.highlightedAppUUID) { newUUID in
                 if let uuid = newUUID {
                     withAnimation(.easeInOut(duration: 0.5)) {
                         proxy.scrollTo(uuid, anchor: .center)
@@ -484,7 +511,8 @@ struct LibraryView: View {
                     selectedSigningAppPresenting: $_selectedSigningAppPresenting,
                     selectedAppUUIDs: $_selectedAppUUIDs,
                     isHighlighted: app.uuid == tabSelection.highlightedAppUUID,
-                    onSelectMore: { _beginSelection(with: app) }
+                    onSelectMore: { _beginSelection(with: app) },
+                    isIconTile: libraryLayout == "icons" && !_editMode.isEditing
                 )
                 .compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
                 .id(app.uuid)
@@ -516,7 +544,8 @@ struct LibraryView: View {
                     selectedSigningAppPresenting: $_selectedSigningAppPresenting,
                     selectedAppUUIDs: $_selectedAppUUIDs,
                     isHighlighted: app.uuid == tabSelection.highlightedAppUUID,
-                    onSelectMore: { _beginSelection(with: app) }
+                    onSelectMore: { _beginSelection(with: app) },
+                    isIconTile: libraryLayout == "icons" && !_editMode.isEditing
                 )
                 .compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
                 .id(app.uuid)
@@ -528,56 +557,75 @@ struct LibraryView: View {
     // MARK: Empty State View
     @ViewBuilder
     private var emptyStateView: some View {
+        let isFiltered = !_searchText.isEmpty || _selectedScope != .all
         NBContentUnavailable(
-            .localized("No Apps"),
-            systemImage: "questionmark.app.fill",
-            description: .localized("Get started by importing your first IPA file.")
+            isFiltered ? .localized("No matching apps") : .localized("No Apps"),
+            systemImage: isFiltered ? "line.3.horizontal.decrease.circle" : "square.and.arrow.down",
+            description: isFiltered
+                ? .localized("No visible library apps match this search and filter. Unknown status is not treated as a failure.")
+                : .localized("Import an IPA to customize and sign it. Your original file stays separate from the library copy.")
         ) {
-            Menu {
-                importMenuActions
-            } label: {
-                NBButton(.localized("Import"), style: .text)
+            if isFiltered {
+                Button(.localized("Clear filters")) { _searchText = ""; _selectedScope = .all }
+            } else {
+                Menu { importMenuActions } label: {
+                    NBButton(.localized("Import IPA"), style: .text)
+                }
             }
         }
     }
     
     // MARK: Selection Action Bar
-    @ViewBuilder
     private var selectionActionBar: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            Text(String.localized("%lld selected", arguments: _selectedAppUUIDs.count))
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+            WorkspaceActionGroup { selectionActionButtons }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, Theme.Spacing.medium)
+        .background(Theme.card)
+        .overlay(alignment: .top) { Divider() }
+        .reportsBottomBarHeight()
+    }
+
+    @ViewBuilder
+    private var selectionActionButtons: some View {
         let selection = selectedApps()
         let canSign = selection.contains { !$0.isSigned }
         let canInstall = !selection.isEmpty && selection.allSatisfy { $0.isSigned }
-
-        HStack(spacing: 10) {
-            if canInstall {
-                _actionButton(.localized("Install"), systemImage: "square.and.arrow.down") {
-                    _startBatch(.install)
-                }
-            } else {
-                _actionButton(.localized("Sign"), systemImage: "signature", isDisabled: !canSign) {
-                    _startBatch(.sign)
-                }
-                _actionButton(.localized("Sign & Install"), systemImage: "square.and.arrow.down.on.square", isDisabled: !canSign) {
+        if canInstall {
+            _actionButton(.localized("Install"), systemImage: "square.and.arrow.down") { _startBatch(.install) }
+        } else {
+            _actionButton(.localized("Sign"), systemImage: "signature", isDisabled: !canSign) { _startBatch(.sign) }
+        }
+        _actionButton(.localized("Export"), systemImage: "square.and.arrow.up") {
+            let apps = selectedApps()
+            _selectedAppUUIDs.removeAll()
+            _editMode = .inactive
+            for app in apps { InstallQueue.shared.enqueue(app, exporting: true) }
+        }
+        Menu {
+            if !canInstall {
+                Button(.localized("Sign & Install"), systemImage: "square.and.arrow.down.on.square") {
                     _startBatch(.signAndInstall)
                 }
+                .disabled(!canSign || selection.isEmpty)
             }
-
-            Button(role: .destructive) {
+            Button(.localized("Delete selected apps"), systemImage: "trash", role: .destructive) {
                 _showDeleteConfirmation = true
-            } label: {
-                Image(systemName: "trash")
-                    .font(.body.weight(.medium))
-                    .frame(height: 34)
-                    .padding(.horizontal, 14)
             }
-            .buttonStyle(.bordered)
-            .tint(.red)
-            .disabled(_selectedAppUUIDs.isEmpty)
+        } label: {
+            Label(.localized("More"), systemImage: "ellipsis.circle")
+                .font(.subheadline.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 10)
-        .background(.bar)
-        .reportsBottomBarHeight()
+        .buttonStyle(.bordered)
+        .disabled(selection.isEmpty)
+        .accessibilityLabel(Text(.localized("More actions for selected apps")))
     }
 
     @ViewBuilder
@@ -590,9 +638,9 @@ struct LibraryView: View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(.subheadline.weight(.medium))
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
-                .frame(height: 34)
+                .frame(minHeight: 44)
         }
         .buttonStyle(.borderedProminent)
         .disabled(isDisabled || _selectedAppUUIDs.isEmpty)
@@ -604,7 +652,7 @@ struct LibraryView: View {
         Button(.localized("Import from Files"), systemImage: "folder") {
             DocumentPicker.open([.ipa, .tipa], multiple: true, folder: .apps) { urls in
                 for url in urls {
-                    _ = downloadManager.startArchive(from: url, id: "VexSignManualDownload_\(UUID().uuidString)")
+                    _ = downloadManager.startArchive(from: url, id: "VexSignManualDownload_\(UUID().uuidString)", reviewDuplicates: true)
                 }
             }
         }
@@ -742,12 +790,14 @@ extension LibraryView {
         case all
         case signed
         case imported
+        case attention
         
         var displayName: String {
             switch self {
             case .all: return .localized("All")
             case .signed: return .localized("Signed")
             case .imported: return .localized("Imported")
+            case .attention: return .localized("Needs Attention")
             }
         }
     }

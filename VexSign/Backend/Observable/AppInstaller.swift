@@ -316,7 +316,9 @@ final class AppInstaller: ObservableObject {
 			object: nil,
 			queue: .main
 		) { [weak self] _ in
-			self?._scheduleDeclineCheck(after: 2)
+            Task { @MainActor [weak self] in
+                self?._scheduleDeclineCheck(after: 2)
+            }
 		}
 
 		_scheduleDeclineCheck(after: 60)

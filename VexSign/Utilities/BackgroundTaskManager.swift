@@ -31,6 +31,7 @@ final class BackgroundTaskManager {
 	private var backgroundTaskID: UIBackgroundTaskIdentifier?
 	private var cycleTask: Task<Void, Error>?
 	private var isRunning = false
+    private let expirationEvent = Notification.Name("VexSign.backgroundTask.expired.\(UUID().uuidString)")
 
 	private let taskName: String
 	private let expirationNotificationTitle: String
@@ -66,6 +67,7 @@ final class BackgroundTaskManager {
 			object: AVAudioSession.sharedInstance()
 		)
 
+        NotificationCenter.default.addObserver(self, selector: #selector(handleExpiration), name: expirationEvent, object: nil)
 		startBackgroundCycle()
 	}
 
@@ -75,6 +77,7 @@ final class BackgroundTaskManager {
 
 		NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
 
+        NotificationCenter.default.removeObserver(self, name: expirationEvent, object: nil)
 		cycleTask?.cancel()
 		stopBackgroundTask()
 		stopAudio()
@@ -102,11 +105,10 @@ final class BackgroundTaskManager {
 
 			await MainActor.run { stopBackgroundTask() }
 
-			backgroundTaskID = await UIApplication.shared.beginBackgroundTask { [weak self] in
-				guard let self = self else { return }
-				self.sendExpirationNotification()
-				self.startBackgroundCycle()
-			}
+            let event = expirationEvent
+            backgroundTaskID = await UIApplication.shared.beginBackgroundTask {
+                NotificationCenter.default.post(name: event, object: nil)
+            }
 
 			await MainActor.run { stopAudio() }
 
@@ -121,6 +123,12 @@ final class BackgroundTaskManager {
 			startBackgroundCycle()
 		}
 	}
+
+    @objc private func handleExpiration() {
+        guard isRunning else { return }
+        sendExpirationNotification()
+        startBackgroundCycle()
+    }
 
 	private func stopBackgroundTask() {
 		if let taskID = backgroundTaskID {

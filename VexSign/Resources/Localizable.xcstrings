@@ -92672,6 +92672,3328 @@
           }
         }
       }
+    },
+    "Device Tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device Tools"
+          }
+        }
+      }
+    },
+    "%lld updates · %lld signed · %lld queued · %lld skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld updates · %lld signed · %lld queued · %lld skipped"
+          }
+        }
+      }
+    },
+    "Automation History" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automation History"
+          }
+        }
+      }
+    },
+    "Background run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background run"
+          }
+        }
+      }
+    },
+    "Clear automation history?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear automation history?"
+          }
+        }
+      }
+    },
+    "Keeps the latest 50 outcomes on this device. iOS decides when background tasks run; no exact refresh interval is guaranteed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps the latest 50 outcomes on this device. iOS decides when background tasks run; no exact refresh interval is guaranteed."
+          }
+        }
+      }
+    },
+    "Manual run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual run"
+          }
+        }
+      }
+    },
+    "No automation runs yet." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No automation runs yet."
+          }
+        }
+      }
+    },
+    "Skipped: Game Mode is on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: Game Mode is on"
+          }
+        }
+      }
+    },
+    "Skipped: another run is active" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: another run is active"
+          }
+        }
+      }
+    },
+    "Skipped: automation is disabled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: automation is disabled"
+          }
+        }
+      }
+    },
+    "Unknown outcome" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown outcome"
+          }
+        }
+      }
+    },
+    "A stored certificate is not proof of signing readiness. Profile scope, entitlements, device eligibility and revocation require separate checks." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A stored certificate is not proof of signing readiness. Profile scope, entitlements, device eligibility and revocation require separate checks."
+          }
+        }
+      }
+    },
+    "Expired — choose another certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expired — choose another certificate"
+          }
+        }
+      }
+    },
+    "Expiry recorded; revocation not checked here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiry recorded; revocation not checked here"
+          }
+        }
+      }
+    },
+    "Expiry unknown — review certificate details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiry unknown — review certificate details"
+          }
+        }
+      }
+    },
+    "Latest recorded attempt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest recorded attempt"
+          }
+        }
+      }
+    },
+    "Paused by Game Mode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused by Game Mode"
+          }
+        }
+      }
+    },
+    "Selected certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected certificate"
+          }
+        }
+      }
+    },
+    "Setup Health" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup Health"
+          }
+        }
+      }
+    },
+    "These checks detect local prerequisites only. HTTPS trust, VPN connectivity and actual installation acceptance are not verified here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These checks detect local prerequisites only. HTTPS trust, VPN connectivity and actual installation acceptance are not verified here."
+          }
+        }
+      }
+    },
+    "iOS schedules background work opportunistically. Open Automation for outcomes and manual refresh; installations may require confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS schedules background work opportunistically. Open Automation for outcomes and manual refresh; installations may require confirmation."
+          }
+        }
+      }
+    },
+    "Ecosystem" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ecosystem"
+          }
+        }
+      }
+    },
+    "No matching settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching settings"
+          }
+        }
+      }
+    },
+    "Search Results" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Results"
+          }
+        }
+      }
+    },
+    "Search Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Settings"
+          }
+        }
+      }
+    },
+    "Completed with failures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed with failures"
+          }
+        }
+      }
+    },
+    "Duration: %lld seconds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duration: %lld seconds"
+          }
+        }
+      }
+    },
+    "Review Activity Logs for signing failures. Certificate expiry, profile scope and download errors may need attention." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Activity Logs for signing failures. Certificate expiry, profile scope and download errors may need attention."
+          }
+        }
+      }
+    },
+    "Skipped: no repositories configured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: no repositories configured"
+          }
+        }
+      }
+    },
+    "Certificate expires within 14 days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate expires within 14 days"
+          }
+        }
+      }
+    },
+    "Certificate expiry is unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate expiry is unknown"
+          }
+        }
+      }
+    },
+    "Choose a valid signing identity before signing another app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a valid signing identity before signing another app."
+          }
+        }
+      }
+    },
+    "Import your certificate and provisioning profile to enable signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import your certificate and provisioning profile to enable signing."
+          }
+        }
+      }
+    },
+    "Latest automation run had failures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest automation run had failures"
+          }
+        }
+      }
+    },
+    "Needs Attention" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs Attention"
+          }
+        }
+      }
+    },
+    "No configuration warnings detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No configuration warnings detected"
+          }
+        }
+      }
+    },
+    "Open automation history to review counts, then inspect Activity Logs for details." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open automation history to review counts, then inspect Activity Logs for details."
+          }
+        }
+      }
+    },
+    "Prepare a replacement certificate and provisioning profile. VexSign cannot renew these automatically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare a replacement certificate and provisioning profile. VexSign cannot renew these automatically."
+          }
+        }
+      }
+    },
+    "Review the selected identity and provisioning profile before signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the selected identity and provisioning profile before signing."
+          }
+        }
+      }
+    },
+    "Selected install method needs setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected install method needs setup"
+          }
+        }
+      }
+    },
+    "Turn off Game Mode when you want scheduled refresh and signing to resume." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off Game Mode when you want scheduled refresh and signing to resume."
+          }
+        }
+      }
+    },
+    "Warnings cover local configuration only, not a full device or signing verification. Optional features that are off are not treated as failures." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warnings cover local configuration only, not a full device or signing verification. Optional features that are off are not treated as failures."
+          }
+        }
+      }
+    },
+    "Active" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        }
+      }
+    },
+    "Clear Task History?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Task History?"
+          }
+        }
+      }
+    },
+    "Failure stage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failure stage"
+          }
+        }
+      }
+    },
+    "In progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In progress"
+          }
+        }
+      }
+    },
+    "Last updated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last updated"
+          }
+        }
+      }
+    },
+    "Retry is unavailable for this saved task. Restart the action from its original app or download screen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry is unavailable for this saved task. Restart the action from its original app or download screen."
+          }
+        }
+      }
+    },
+    "Started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started"
+          }
+        }
+      }
+    },
+    "Task Details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task Details"
+          }
+        }
+      }
+    },
+    "Working" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
+    "Check connectivity, available storage and download conditions. Confirm the source still provides the file before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check connectivity, available storage and download conditions. Confirm the source still provides the file before retrying."
+          }
+        }
+      }
+    },
+    "Download a fresh IPA from a trusted source and check available storage. Unsafe paths, unsupported links or a corrupt archive must be fixed at the source; do not disable archive validation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download a fresh IPA from a trusted source and check available storage. Unsafe paths, unsupported links or a corrupt archive must be fixed at the source; do not disable archive validation."
+          }
+        }
+      }
+    },
+    "Review certificate expiry, provisioning-profile scope, entitlements and injected tweaks. Use Activity Logs to identify the failing step before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review certificate expiry, provisioning-profile scope, entitlements and injected tweaks. Use Activity Logs to identify the failing step before retrying."
+          }
+        }
+      }
+    },
+    "Review the recorded failure stage and Activity Logs, then restart the action from its original screen if retry is unavailable." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the recorded failure stage and Activity Logs, then restart the action from its original screen if retry is unavailable."
+          }
+        }
+      }
+    },
+    "Review the selected installation method. Local HTTPS needs device trust and connectivity; idevice needs a valid pairing file and running VPN. Signing success alone does not prove installation succeeded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the selected installation method. Local HTTPS needs device trust and connectivity; idevice needs a valid pairing file and running VPN. Signing success alone does not prove installation succeeded."
+          }
+        }
+      }
+    },
+    "Suggested next steps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested next steps"
+          }
+        }
+      }
+    },
+    "A source is excluded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A source is excluded"
+          }
+        }
+      }
+    },
+    "Automation Preview" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automation Preview"
+          }
+        }
+      }
+    },
+    "Certificate pinned" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate pinned"
+          }
+        }
+      }
+    },
+    "Ignoring version %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignoring version %@"
+          }
+        }
+      }
+    },
+    "No custom update rules." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No custom update rules."
+          }
+        }
+      }
+    },
+    "No pending candidates in the current snapshot." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pending candidates in the current snapshot."
+          }
+        }
+      }
+    },
+    "Pending candidates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pending candidates"
+          }
+        }
+      }
+    },
+    "Per-app rules" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per-app rules"
+          }
+        }
+      }
+    },
+    "Policy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Policy"
+          }
+        }
+      }
+    },
+    "Preferred source configured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preferred source configured"
+          }
+        }
+      }
+    },
+    "Preserving signing options" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preserving signing options"
+          }
+        }
+      }
+    },
+    "Preview only: uses the current repository snapshot and update-check results. It does not refresh, download, sign or install anything. Certificate and profile compatibility are checked later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview only: uses the current repository snapshot and update-check results. It does not refresh, download, sign or install anything. Certificate and profile compatibility are checked later."
+          }
+        }
+      }
+    },
+    "Rules can exclude apps or versions from update checks. This lists saved rules, not every possible exclusion reason. Preferred sources and pinned certificates do not guarantee compatibility." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rules can exclude apps or versions from update checks. This lists saved rules, not every possible exclusion reason. Preferred sources and pinned certificates do not guarantee compatibility."
+          }
+        }
+      }
+    },
+    "Tap an app to edit its update rules. Notify-only policy does not sign these candidates; sign-and-queue still requires a usable signing identity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap an app to edit its update rules. Notify-only policy does not sign these candidates; sign-and-queue still requires a usable signing identity."
+          }
+        }
+      }
+    },
+    "Updates disabled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates disabled"
+          }
+        }
+      }
+    },
+    "Add a repository before running automation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a repository before running automation."
+          }
+        }
+      }
+    },
+    "Current snapshot: %lld pending candidates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current snapshot: %lld pending candidates."
+          }
+        }
+      }
+    },
+    "Enable automatic update checks before running this policy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable automatic update checks before running this policy."
+          }
+        }
+      }
+    },
+    "Run automation now?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run automation now?"
+          }
+        }
+      }
+    },
+    "This run refreshes repositories first, so the candidate count can change. It also runs configured cleanup. Installations still require your confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This run refreshes repositories first, so the candidate count can change. It also runs configured cleanup. Installations still require your confirmation."
+          }
+        }
+      }
+    },
+    "Turn off Game Mode to run automation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off Game Mode to run automation."
+          }
+        }
+      }
+    },
+    "Wait for the current update queue to finish." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wait for the current update queue to finish."
+          }
+        }
+      }
+    },
+    "1. Account & renewal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Account & renewal"
+          }
+        }
+      }
+    },
+    "2. Install or refresh the container" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Install or refresh the container"
+          }
+        }
+      }
+    },
+    "3. Import guest apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Import guest apps"
+          }
+        }
+      }
+    },
+    "Apple-account login stays in SideStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple-account login stays in SideStore"
+          }
+        }
+      }
+    },
+    "Choose IPA to share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose IPA to share"
+          }
+        }
+      }
+    },
+    "Choose LiveContainer in the system share sheet if offered, or save the IPA to Files and import it from LiveContainer. Guest execution, JIT and signing-mode requirements are controlled by LiveContainer. This is a handoff, not an embedded runtime or shared app library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose LiveContainer in the system share sheet if offered, or save the IPA to Files and import it from LiveContainer. Guest execution, JIT and signing-mode requirements are controlled by LiveContainer. This is a handoff, not an embedded runtime or shared app library."
+          }
+        }
+      }
+    },
+    "Choose an IPA file, not a certificate or provisioning profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an IPA file, not a certificate or provisioning profile."
+          }
+        }
+      }
+    },
+    "Companion handoff failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion handoff failed"
+          }
+        }
+      }
+    },
+    "Continue in SideStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue in SideStore"
+          }
+        }
+      }
+    },
+    "Hosted IPA HTTPS URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hosted IPA HTTPS URL"
+          }
+        }
+      }
+    },
+    "Install SideStore using its official instructions. Configure its supported VPN/pairing and refresh automation there. VexSign cannot read your SideStore account or guarantee background renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install SideStore using its official instructions. Configure its supported VPN/pairing and refresh automation there. VexSign cannot read your SideStore account or guarantee background renewal."
+          }
+        }
+      }
+    },
+    "LiveContainer URL handler detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer URL handler detected"
+          }
+        }
+      }
+    },
+    "LiveContainer URL handler not detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer URL handler not detected"
+          }
+        }
+      }
+    },
+    "LiveContainer project & instructions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer project & instructions"
+          }
+        }
+      }
+    },
+    "Open LiveContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open LiveContainer"
+          }
+        }
+      }
+    },
+    "Open SideStore for account setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open SideStore for account setup"
+          }
+        }
+      }
+    },
+    "Send hosted IPA to SideStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send hosted IPA to SideStore"
+          }
+        }
+      }
+    },
+    "Send this IPA URL to SideStore?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send this IPA URL to SideStore?"
+          }
+        }
+      }
+    },
+    "Share IPA to LiveContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share IPA to LiveContainer"
+          }
+        }
+      }
+    },
+    "SideStore & LiveContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore & LiveContainer"
+          }
+        }
+      }
+    },
+    "SideStore URL handler detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore URL handler detected"
+          }
+        }
+      }
+    },
+    "SideStore URL handler not detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore URL handler not detected"
+          }
+        }
+      }
+    },
+    "SideStore setup guide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore setup guide"
+          }
+        }
+      }
+    },
+    "SideStore will receive the complete URL, including any query tokens. Use only a trusted IPA host. VexSign cannot confirm download, signing or installation there." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore will receive the complete URL, including any query tokens. Use only a trusted IPA host. VexSign cannot confirm download, signing or installation there."
+          }
+        }
+      }
+    },
+    "Sign in and complete two-factor authentication inside SideStore. VexSign does not request your Apple password, session, certificates or pairing secrets." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in and complete two-factor authentication inside SideStore. VexSign does not request your Apple password, session, certificates or pairing secrets."
+          }
+        }
+      }
+    },
+    "The companion app could not open this request. Check that it is installed and supports this action." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The companion app could not open this request. Check that it is installed and supports this action."
+          }
+        }
+      }
+    },
+    "Use a trusted LiveContainer IPA URL or another IPA you intend to install. SideStore performs authentication, signing and installation. Sending a link is not proof of success; verify the result in SideStore. Only apps managed by SideStore can be renewed by it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use a trusted LiveContainer IPA URL or another IPA you intend to install. SideStore performs authentication, signing and installation. Sending a link is not proof of success; verify the result in SideStore. Only apps managed by SideStore can be renewed by it."
+          }
+        }
+      }
+    },
+    "VexSign certificate-based automation is separate from SideStore renewal. Neither app shares Apple-account credentials through this workflow." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign certificate-based automation is separate from SideStore renewal. Neither app shares Apple-account credentials through this workflow."
+          }
+        }
+      }
+    },
+    "Companion request opened" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion request opened"
+          }
+        }
+      }
+    },
+    "Dismiss status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss status"
+          }
+        }
+      }
+    },
+    "Remove staged IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove staged IPA"
+          }
+        }
+      }
+    },
+    "iOS accepted the open request. Installation, account login and renewal are not verified. Check the result inside the companion app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS accepted the open request. Installation, account login and renewal are not verified. Check the result inside the companion app."
+          }
+        }
+      }
+    },
+    "Exports the stored library bundle as-is. It does not re-sign, install or upload the app. LiveContainer decides whether the guest is compatible." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exports the stored library bundle as-is. It does not re-sign, install or upload the app. LiveContainer decides whether the guest is compatible."
+          }
+        }
+      }
+    },
+    "Prepare library IPA for sharing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare library IPA for sharing"
+          }
+        }
+      }
+    },
+    "Preparing IPA — copying and archiving" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing IPA — copying and archiving"
+          }
+        }
+      }
+    },
+    "Preparing companion IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing companion IPA"
+          }
+        }
+      }
+    },
+    "Copying IPA for sharing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying IPA for sharing…"
+          }
+        }
+      }
+    },
+    "Prepare this library app as an IPA for LiveContainer, or open SideStore for Apple-account setup and renewal. No credentials are shared with VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare this library app as an IPA for LiveContainer, or open SideStore for Apple-account setup and renewal. No credentials are shared with VexSign."
+          }
+        }
+      }
+    },
+    "A fingerprint identifies these file bytes; it does not prove publisher identity, signing validity or companion compatibility." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A fingerprint identifies these file bytes; it does not prove publisher identity, signing validity or companion compatibility."
+          }
+        }
+      }
+    },
+    "Calculate SHA-256" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculate SHA-256"
+          }
+        }
+      }
+    },
+    "Choose SideStore to install an IPA, or LiveContainer to import a guest, if offered in the system share sheet. Otherwise save to Files and import inside the target app. Signing, JIT and execution requirements belong to the receiving app. Sharing does not confirm installation or import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose SideStore to install an IPA, or LiveContainer to import a guest, if offered in the system share sheet. Otherwise save to Files and import inside the target app. Signing, JIT and execution requirements belong to the receiving app. Sharing does not confirm installation or import."
+          }
+        }
+      }
+    },
+    "Prepared file size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepared file size"
+          }
+        }
+      }
+    },
+    "SHA-256 fingerprint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SHA-256 fingerprint"
+          }
+        }
+      }
+    },
+    "Share IPA to companion app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share IPA to companion app"
+          }
+        }
+      }
+    },
+    "Share fingerprint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share fingerprint"
+          }
+        }
+      }
+    },
+    "The prepared IPA could not be read. Prepare or select the file again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The prepared IPA could not be read. Prepare or select the file again."
+          }
+        }
+      }
+    },
+    "Apple-account login & 2FA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple-account login & 2FA"
+          }
+        }
+      }
+    },
+    "Check app expiry and the latest refresh result inside SideStore. There is no cross-app completion signal here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check app expiry and the latest refresh result inside SideStore. There is no cross-app completion signal here."
+          }
+        }
+      }
+    },
+    "Check in companion apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check in companion apps"
+          }
+        }
+      }
+    },
+    "Check the VPN and pairing requirements for the companion version you installed. A pairing file alone does not verify connectivity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the VPN and pairing requirements for the companion version you installed. A pairing file alone does not verify connectivity."
+          }
+        }
+      }
+    },
+    "Check the active signing mode and guest requirements inside LiveContainer. Opening its URL scheme does not test guest execution." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the active signing mode and guest requirements inside LiveContainer. Opening its URL scheme does not test guest execution."
+          }
+        }
+      }
+    },
+    "Check your account inside SideStore. VexSign cannot inspect that session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your account inside SideStore. VexSign cannot inspect that session."
+          }
+        }
+      }
+    },
+    "Checked at" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checked at"
+          }
+        }
+      }
+    },
+    "Companion Setup Diagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion Setup Diagnostics"
+          }
+        }
+      }
+    },
+    "Detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detected"
+          }
+        }
+      }
+    },
+    "LiveContainer URL handler" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer URL handler"
+          }
+        }
+      }
+    },
+    "LiveContainer signing mode & JIT" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer signing mode & JIT"
+          }
+        }
+      }
+    },
+    "Locally detectable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locally detectable"
+          }
+        }
+      }
+    },
+    "No Apple credentials, certificates, pairing secrets or guest data are requested by these checks. VexSign does not mark a companion workflow successful based on detection alone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Apple credentials, certificates, pairing secrets or guest data are requested by these checks. VexSign does not mark a companion workflow successful based on detection alone."
+          }
+        }
+      }
+    },
+    "Not detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not detected"
+          }
+        }
+      }
+    },
+    "Not verified by VexSign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not verified by VexSign"
+          }
+        }
+      }
+    },
+    "Refresh local checks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh local checks"
+          }
+        }
+      }
+    },
+    "SideStore URL handler" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore URL handler"
+          }
+        }
+      }
+    },
+    "SideStore renewal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore renewal"
+          }
+        }
+      }
+    },
+    "URL handlers are not app identity verification. A VexSign pairing file is not proof of a valid pair and says nothing about SideStore's private pairing configuration." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL handlers are not app identity verification. A VexSign pairing file is not proof of a valid pair and says nothing about SideStore's private pairing configuration."
+          }
+        }
+      }
+    },
+    "VPN & device connectivity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN & device connectivity"
+          }
+        }
+      }
+    },
+    "VexSign JIT & pairing tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign JIT & pairing tools"
+          }
+        }
+      }
+    },
+    "VexSign pairing file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign pairing file"
+          }
+        }
+      }
+    },
+    "Destination host" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destination host"
+          }
+        }
+      }
+    },
+    "Enter a complete URL with a host and no unescaped whitespace or control characters." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a complete URL with a host and no unescaped whitespace or control characters."
+          }
+        }
+      }
+    },
+    "Enter a hosted IPA HTTPS URL." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a hosted IPA HTTPS URL."
+          }
+        }
+      }
+    },
+    "Install or open SideStore, then return here to refresh detection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install or open SideStore, then return here to refresh detection."
+          }
+        }
+      }
+    },
+    "Remove the URL fragment after # before sending this link." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the URL fragment after # before sending this link."
+          }
+        }
+      }
+    },
+    "Remove the username and password from the URL. Embedded credentials are not accepted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the username and password from the URL. Embedded credentials are not accepted."
+          }
+        }
+      }
+    },
+    "Use an HTTPS link. Local files and other URL schemes cannot be sent through this action." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use an HTTPS link. Local files and other URL schemes cannot be sent through this action."
+          }
+        }
+      }
+    },
+    "Calculate this IPA's SHA-256 before sharing against the supplied hash." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculate this IPA's SHA-256 before sharing against the supplied hash."
+          }
+        }
+      }
+    },
+    "Enter a 64-character hexadecimal SHA-256 value, optionally prefixed with sha256:." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a 64-character hexadecimal SHA-256 value, optionally prefixed with sha256:."
+          }
+        }
+      }
+    },
+    "Hash mismatch. Sharing is blocked while this expected hash is set. Obtain the correct file and hash from a trusted source." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hash mismatch. Sharing is blocked while this expected hash is set. Obtain the correct file and hash from a trusted source."
+          }
+        }
+      }
+    },
+    "No publisher hash supplied. Sharing does not verify authenticity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No publisher hash supplied. Sharing does not verify authenticity."
+          }
+        }
+      }
+    },
+    "Publisher SHA-256 (optional)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publisher SHA-256 (optional)"
+          }
+        }
+      }
+    },
+    "The file matches the supplied hash. This does not verify who published the hash or whether the app can run." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file matches the supplied hash. This does not verify who published the hash or whether the app can run."
+          }
+        }
+      }
+    },
+    "Cancel file preparation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel file preparation"
+          }
+        }
+      }
+    },
+    "App name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App name"
+          }
+        }
+      }
+    },
+    "Latest activity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest activity"
+          }
+        }
+      }
+    },
+    "No matching tasks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching tasks"
+          }
+        }
+      }
+    },
+    "Oldest activity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oldest activity"
+          }
+        }
+      }
+    },
+    "Search applies to the selected filter. Try fewer words or switch to All." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search applies to the selected filter. Try fewer words or switch to All."
+          }
+        }
+      }
+    },
+    "Search tasks, stages or errors" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search tasks, stages or errors"
+          }
+        }
+      }
+    },
+    "Sort tasks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort tasks"
+          }
+        }
+      }
+    },
+    "Choose a readable certificate or provisioning-profile file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a readable certificate or provisioning-profile file."
+          }
+        }
+      }
+    },
+    "The certificate or provisioning-profile file exceeds the safe import size limit." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate or provisioning-profile file exceeds the safe import size limit."
+          }
+        }
+      }
+    },
+    "Add a certificate and review installation prerequisites." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a certificate and review installation prerequisites."
+          }
+        }
+      }
+    },
+    "Button feedback animations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Button feedback animations"
+          }
+        }
+      }
+    },
+    "Charcoal surfaces and a clear blue accent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charcoal surfaces and a clear blue accent."
+          }
+        }
+      }
+    },
+    "Companion Apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion Apps"
+          }
+        }
+      }
+    },
+    "Deep neutral surfaces with a restrained violet accent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deep neutral surfaces with a restrained violet accent."
+          }
+        }
+      }
+    },
+    "Graphite" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graphite"
+          }
+        }
+      }
+    },
+    "Import IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import IPA"
+          }
+        }
+      }
+    },
+    "Imported copy in Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported copy in Library"
+          }
+        }
+      }
+    },
+    "Liquid Glass" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquid Glass"
+          }
+        }
+      }
+    },
+    "Midnight Violet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midnight Violet"
+          }
+        }
+      }
+    },
+    "Native Liquid Glass requires iOS 26. This device uses standard system navigation and opaque content surfaces." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native Liquid Glass requires iOS 26. This device uses standard system navigation and opaque content surfaces."
+          }
+        }
+      }
+    },
+    "Native glass is used for supported navigation and actions. Content surfaces stay readable and respect Reduce Transparency." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native glass is used for supported navigation and actions. Content surfaces stay readable and respect Reduce Transparency."
+          }
+        }
+      }
+    },
+    "Native grouped surfaces that follow your interface appearance." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native grouped surfaces that follow your interface appearance."
+          }
+        }
+      }
+    },
+    "OLED" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLED"
+          }
+        }
+      }
+    },
+    "Paper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paper"
+          }
+        }
+      }
+    },
+    "Recently added" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recently added"
+          }
+        }
+      }
+    },
+    "Review certificate expiry and installation setup." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review certificate expiry and installation setup."
+          }
+        }
+      }
+    },
+    "Selected certificate expiry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected certificate expiry"
+          }
+        }
+      }
+    },
+    "Selected certificate has expired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected certificate has expired"
+          }
+        }
+      }
+    },
+    "Selected certificate is revoked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected certificate is revoked"
+          }
+        }
+      }
+    },
+    "Sign an app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign an app"
+          }
+        }
+      }
+    },
+    "Sign, organize and manage your apps." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign, organize and manage your apps."
+          }
+        }
+      }
+    },
+    "Signed copy in Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed copy in Library"
+          }
+        }
+      }
+    },
+    "System" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System"
+          }
+        }
+      }
+    },
+    "System follows your interface style. Other presets select their own light or dark surfaces. Your custom accent is preserved; Luna and Flare remain available for existing users." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System follows your interface style. Other presets select their own light or dark surfaces. Your custom accent is preserved; Luna and Flare remain available for existing users."
+          }
+        }
+      }
+    },
+    "System typography is recommended. Font sizing follows Dynamic Type; technical identifiers keep monospaced styling. Button feedback respects Reduce Motion." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System typography is recommended. Font sizing follows Dynamic Type; technical identifiers keep monospaced styling. Button feedback respects Reduce Motion."
+          }
+        }
+      }
+    },
+    "True-black backgrounds with subtly elevated surfaces." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "True-black backgrounds with subtly elevated surfaces."
+          }
+        }
+      }
+    },
+    "Warm light surfaces with crisp, readable text." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warm light surfaces with crisp, readable text."
+          }
+        }
+      }
+    },
+    "Your workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your workspace"
+          }
+        }
+      }
+    },
+    "Advanced Tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced Tools"
+          }
+        }
+      }
+    },
+    "Appearance & Notifications" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance & Notifications"
+          }
+        }
+      }
+    },
+    "Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites."
+          }
+        }
+      }
+    },
+    "Companion Apps & Devices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion Apps & Devices"
+          }
+        }
+      }
+    },
+    "External SideStore and LiveContainer workflows, plus Apple TV, Vision Pro and Watch companions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "External SideStore and LiveContainer workflows, plus Apple TV, Vision Pro and Watch companions."
+          }
+        }
+      }
+    },
+    "Pairing tools, local file transfer, app inspection and optional service integrations. Some tools require additional setup or supported hardware." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing tools, local file transfer, app inspection and optional service integrations. Some tools require additional setup or supported hardware."
+          }
+        }
+      }
+    },
+    "Protect access to VexSign and specific library apps. Repositories use HTTPS by default. DNS filtering does not guarantee protection from certificate revocation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protect access to VexSign and specific library apps. Repositories use HTTPS by default. DNS filtering does not guarantee protection from certificate revocation."
+          }
+        }
+      }
+    },
+    "Signing & Installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing & Installation"
+          }
+        }
+      }
+    },
+    "Sources & Updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sources & Updates"
+          }
+        }
+      }
+    },
+    "Adaptive cards" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adaptive cards"
+          }
+        }
+      }
+    },
+    "Clear filters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear filters"
+          }
+        }
+      }
+    },
+    "Compact list" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compact list"
+          }
+        }
+      }
+    },
+    "Import an IPA to customize and sign it. Your original file stays separate from the library copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import an IPA to customize and sign it. Your original file stays separate from the library copy."
+          }
+        }
+      }
+    },
+    "Imported copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported copy"
+          }
+        }
+      }
+    },
+    "Library layout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library layout"
+          }
+        }
+      }
+    },
+    "No matching apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching apps"
+          }
+        }
+      }
+    },
+    "No visible library apps match this search and filter. Unknown status is not treated as a failure." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No visible library apps match this search and filter. Unknown status is not treated as a failure."
+          }
+        }
+      }
+    },
+    "Signed copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed copy"
+          }
+        }
+      }
+    },
+    "Unknown version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown version"
+          }
+        }
+      }
+    },
+    "Preparing signing request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing signing request"
+          }
+        }
+      }
+    },
+    "Signing is separate from installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing is separate from installation."
+          }
+        }
+      }
+    },
+    "How the apps work together" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How the apps work together"
+          }
+        }
+      }
+    },
+    "LiveContainer imports and runs compatible guests" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer imports and runs compatible guests"
+          }
+        }
+      }
+    },
+    "SideStore manages its Apple account, installs and renewals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore manages its Apple account, installs and renewals"
+          }
+        }
+      }
+    },
+    "These are separate apps. Credentials, libraries and completion status are not automatically synchronized." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These are separate apps. Credentials, libraries and completion status are not automatically synchronized."
+          }
+        }
+      }
+    },
+    "VexSign prepares and shares IPA files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign prepares and shares IPA files"
+          }
+        }
+      }
+    },
+    "Delete selected apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete selected apps"
+          }
+        }
+      }
+    },
+    "More actions for selected apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More actions for selected apps"
+          }
+        }
+      }
+    },
+    "A readable preview of your current theme and typography." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A readable preview of your current theme and typography."
+          }
+        }
+      }
+    },
+    "Good afternoon" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good afternoon"
+          }
+        }
+      }
+    },
+    "Good evening" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good evening"
+          }
+        }
+      }
+    },
+    "Good morning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good morning"
+          }
+        }
+      }
+    },
+    "Icon grid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icon grid"
+          }
+        }
+      }
+    },
+    "Live Preview" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Preview"
+          }
+        }
+      }
+    },
+    "Open app details. More actions are available in the context menu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open app details. More actions are available in the context menu."
+          }
+        }
+      }
+    },
+    "Ready to customize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to customize"
+          }
+        }
+      }
+    },
+    "Reset workspace appearance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset workspace appearance"
+          }
+        }
+      }
+    },
+    "Reset workspace appearance?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset workspace appearance?"
+          }
+        }
+      }
+    },
+    "Restores System theme, system font, default text scale and button feedback. Certificates, apps and signing options are not changed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restores System theme, system font, default text scale and button feedback. Certificates, apps and signing options are not changed."
+          }
+        }
+      }
+    },
+    "Review the error and logs, adjust your options, then try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the error and logs, adjust your options, then try again."
+          }
+        }
+      }
+    },
+    "Signing complete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing complete"
+          }
+        }
+      }
+    },
+    "Signing complete — installation not confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing complete — installation not confirmed"
+          }
+        }
+      }
+    },
+    "Signing failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing failed"
+          }
+        }
+      }
+    },
+    "Signing failed. Review the details above or open logs." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing failed. Review the details above or open logs."
+          }
+        }
+      }
+    },
+    "Tap Done to finish and apply your existing cleanup preferences." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Done to finish and apply your existing cleanup preferences."
+          }
+        }
+      }
+    },
+    "The signing pipeline completed. This does not confirm installation on your device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing pipeline completed. This does not confirm installation on your device."
+          }
+        }
+      }
+    },
+    "Use theme accent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use theme accent"
+          }
+        }
+      }
+    },
+    "Your signing workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your signing workspace"
+          }
+        }
+      }
+    },
+    "Delete app?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete app?"
+          }
+        }
+      }
+    },
+    "This removes the stored copy from your Library, not the installed app on your device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This removes the stored copy from your Library, not the installed app on your device."
+          }
+        }
+      }
+    },
+    "Customize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Customize"
+          }
+        }
+      }
+    },
+    "Not run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not run"
+          }
+        }
+      }
+    },
+    "Only observed signing stages are marked complete. Installation is tracked separately; signing does not confirm that the app is installed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only observed signing stages are marked complete. Installation is tracked separately; signing does not confirm that the app is installed."
+          }
+        }
+      }
+    },
+    "Prepare" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare"
+          }
+        }
+      }
+    },
+    "Separate installation step" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separate installation step"
+          }
+        }
+      }
+    },
+    "Signing workflow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing workflow"
+          }
+        }
+      }
+    },
+    "%lld items require review in Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items require review in Library"
+          }
+        }
+      }
+    },
+    "Install, share the IPA or view the signed copy in Library. Done applies your existing cleanup preferences." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install, share the IPA or view the signed copy in Library. Done applies your existing cleanup preferences."
+          }
+        }
+      }
+    },
+    "Needs attention" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs attention"
+          }
+        }
+      }
+    },
+    "A signed copy will be produced. Choose an action on the result screen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A signed copy will be produced. Choose an action on the result screen."
+          }
+        }
+      }
+    },
+    "A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state."
+          }
+        }
+      }
+    },
+    "Added to Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added to Library"
+          }
+        }
+      }
+    },
+    "After signing, VexSign will request installation. Installation must be confirmed separately." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After signing, VexSign will request installation. Installation must be confirmed separately."
+          }
+        }
+      }
+    },
+    "An imported copy has the same bundle identifier and version. Its contents may differ. Keep both, or discard only this new import and use the existing copy. Nothing is replaced." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An imported copy has the same bundle identifier and version. Its contents may differ. Keep both, or discard only this new import and use the existing copy. Nothing is replaced."
+          }
+        }
+      }
+    },
+    "App extensions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App extensions"
+          }
+        }
+      }
+    },
+    "App names, identifiers, file paths and raw errors are omitted from this report. No credentials or file contents are included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App names, identifiers, file paths and raw errors are omitted from this report. No credentials or file contents are included."
+          }
+        }
+      }
+    },
+    "Bundle identifier" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle identifier"
+          }
+        }
+      }
+    },
+    "Bundle identifier: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle identifier: %@"
+          }
+        }
+      }
+    },
+    "Bundle signature expiry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle signature expiry"
+          }
+        }
+      }
+    },
+    "Certificate expiry: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate expiry: %@"
+          }
+        }
+      }
+    },
+    "Continue despite blocking preflight issues?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue despite blocking preflight issues?"
+          }
+        }
+      }
+    },
+    "Copy Redacted Report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Redacted Report"
+          }
+        }
+      }
+    },
+    "Device installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device installation"
+          }
+        }
+      }
+    },
+    "Import completed. A stored copy is not proof of signing or device installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import completed. A stored copy is not proof of signing or device installation."
+          }
+        }
+      }
+    },
+    "Injected files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Injected files"
+          }
+        }
+      }
+    },
+    "Keep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep"
+          }
+        }
+      }
+    },
+    "Keep Both" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Both"
+          }
+        }
+      }
+    },
+    "Last recorded signing result" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last recorded signing result"
+          }
+        }
+      }
+    },
+    "Library copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library copy"
+          }
+        }
+      }
+    },
+    "Matching copy in Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matching copy in Library"
+          }
+        }
+      }
+    },
+    "No certificate selected. Whether one is required depends on your signing mode." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No certificate selected. Whether one is required depends on your signing mode."
+          }
+        }
+      }
+    },
+    "No preflight issues found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No preflight issues found"
+          }
+        }
+      }
+    },
+    "On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings."
+          }
+        }
+      }
+    },
+    "Original identifier: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original identifier: %@"
+          }
+        }
+      }
+    },
+    "Preflight checks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preflight checks"
+          }
+        }
+      }
+    },
+    "Preflight checks do not guarantee successful signing or installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preflight checks do not guarantee successful signing or installation."
+          }
+        }
+      }
+    },
+    "Ready to Sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to Sign"
+          }
+        }
+      }
+    },
+    "Review certificate and options" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review certificate and options"
+          }
+        }
+      }
+    },
+    "Review changes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review changes"
+          }
+        }
+      }
+    },
+    "Review repeat signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review repeat signing"
+          }
+        }
+      }
+    },
+    "Saved settings are reused, but source contents are not fingerprinted. Review options if the app has changed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved settings are reused, but source contents are not fingerprinted. Review options if the app has changed."
+          }
+        }
+      }
+    },
+    "Signing completed. This receipt does not confirm that the signed copy is still retained or installed on the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing completed. This receipt does not confirm that the signed copy is still retained or installed on the device."
+          }
+        }
+      }
+    },
+    "Signing identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing identity"
+          }
+        }
+      }
+    },
+    "Stored in Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stored in Library"
+          }
+        }
+      }
+    },
+    "Task receipt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task receipt"
+          }
+        }
+      }
+    },
+    "The saved certificate is unavailable. The current selection would be used instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved certificate is unavailable. The current selection would be used instead."
+          }
+        }
+      }
+    },
+    "This receipt records the task outcome, not the current device installation state. Review Library app details for installation evidence." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This receipt records the task outcome, not the current device installation state. Review Library app details for installation evidence."
+          }
+        }
+      }
+    },
+    "Use Existing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Existing"
+          }
+        }
+      }
+    },
+    "Using existing Library copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using existing Library copy"
+          }
+        }
+      }
+    },
+    "Workspace status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workspace status"
+          }
+        }
+      }
+    },
+    "Choose Certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Certificate"
+          }
+        }
+      }
+    },
+    "Signing setup changed. Review it again before starting." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing setup changed. Review it again before starting."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

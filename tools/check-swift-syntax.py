@@ -2,7 +2,7 @@
 """Parse every Swift file in the repository with tree-sitter and report syntax errors.
 
 There is no Swift toolchain on Linux and the real compile happens in CI on macOS
-(`.github/workflows/build.yml`), so this is the local guard against a stray brace,
+(`.github/workflows/ci.yml`), so this is the local guard against a stray brace,
 unbalanced parenthesis or truncated string before a build is spent on it.
 
     python3 tools/check-swift-syntax.py            # check the whole repo

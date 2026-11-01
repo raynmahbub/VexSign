@@ -35,7 +35,7 @@ enum CertificateInspector {
     /// Signing eligibility still belongs to the existing signing preflight.
     static func inspect(id: String, name: String, p12: URL, password: String, profile: URL, online: Bool) async throws -> CertificateHealth {
         try await Task.detached(priority: .utility) {
-            let data = try Data(contentsOf: profile, options: .mappedIfSafe)
+            let data = try CertificateInputReader.read(profile)
             guard data.count <= 10 * 1_024 * 1_024,
                   let start = data.range(of: Data("<?xml".utf8)),
                   let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex) else {
@@ -49,7 +49,7 @@ enum CertificateInspector {
 
 			// Import the P12 even for an offline inspection. This validates the saved
 			// password and lets the UI distinguish certificate expiry from profile expiry.
-			let keyData = try Data(contentsOf: p12)
+			let keyData = try CertificateInputReader.read(p12)
 			var imported: CFArray?
 			let importResult = SecPKCS12Import(keyData as CFData, [kSecImportExportPassphrase as String: password] as CFDictionary, &imported)
 			guard importResult == errSecSuccess,

@@ -630,7 +630,7 @@ class DownloadManager: NSObject, ObservableObject {
 		return download
 	}
 	
-	func startArchive(from url: URL, id: String = UUID().uuidString, appName: String? = nil, completion: ((Error?) -> Void)? = nil) -> Download {
+	func startArchive(from url: URL, id: String = UUID().uuidString, appName: String? = nil, reviewDuplicates: Bool = false, completion: ((Error?) -> Void)? = nil) -> Download {
 		let download = Download(id: id, url: url, onlyArchiving: true, appName: appName)
 		download.isActive = true
 
@@ -661,8 +661,21 @@ class DownloadManager: NSObject, ObservableObject {
 					DispatchQueue.main.async {
 						self.objectWillChange.send()
 						download.unpackageProgress = 1.0
-						completion?(nil)
-						self.autoSignOrFinish(app, for: download)
+                        if reviewDuplicates {
+                            ImportDuplicateReview.resolve(app) { chosen, retainedNewCopy in
+                                completion?(nil)
+                                if retainedNewCopy {
+                                    Toast.success(.localized("Added to Library"), systemImage: "archivebox")
+                                    self.autoSignOrFinish(chosen, for: download)
+                                } else {
+                                    Toast.info(.localized("Using existing Library copy"), systemImage: "archivebox")
+                                    self.finishImport(of: download, succeeded: true)
+                                }
+                            }
+                        } else {
+                            completion?(nil)
+                            self.autoSignOrFinish(app, for: download)
+                        }
 					}
 				}
 			}

@@ -74,8 +74,8 @@ final class AppearanceStore: ObservableObject {
     var isFlare: Bool { visualTheme == .flare }
     var isLuna: Bool { visualTheme == .luna }
 
-    /// Luna and Flare are permanently dark presentations.
-    var prefersDarkSurfaces: Bool { visualTheme == .luna || visualTheme == .flare }
+    /// Presets define their interface scheme; System follows the user preference.
+    var prefersDarkSurfaces: Bool { visualTheme.preferredColorScheme == .dark }
 
     var font: Font {
         VexSignStylePreferences.font(familyRawValue: fontFamily.rawValue, scale: fontScale)
@@ -91,7 +91,7 @@ final class AppearanceStore: ObservableObject {
 
         var isFlare: Bool { visualTheme == .flare }
         var isLuna: Bool { visualTheme == .luna }
-        var prefersDarkSurfaces: Bool { visualTheme == .luna || visualTheme == .flare }
+        var prefersDarkSurfaces: Bool { visualTheme.preferredColorScheme == .dark }
     }
 
     /// A non-reactive read of the persisted values. Safe from any thread;

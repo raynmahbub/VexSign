@@ -8,10 +8,15 @@
 //
 
 import SwiftUI
+import NimbleExtensions
 
 enum VexSignVisualTheme: String, CaseIterable, Identifiable {
     /// The original VexSign/Ksign-style iOS surfaces.
     case system
+    case midnightViolet
+    case graphite
+    case paper
+    case oled
     /// The existing VexSign indigo presentation.
     case luna
     /// Optional website-inspired Flare presentation for the native app.
@@ -22,7 +27,11 @@ enum VexSignVisualTheme: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .system: return "Base / Ksign"
+        case .system: return .localized("System")
+        case .midnightViolet: return .localized("Midnight Violet")
+        case .graphite: return .localized("Graphite")
+        case .paper: return .localized("Paper")
+        case .oled: return .localized("OLED")
         case .luna: return "Luna"
         case .flare: return "Flare"
         }
@@ -30,11 +39,35 @@ enum VexSignVisualTheme: String, CaseIterable, Identifiable {
 
     var description: String {
         switch self {
-        case .system: return "Keep the original grouped iOS and Ksign-style surfaces."
+        case .system: return .localized("Native grouped surfaces that follow your interface appearance.")
+        case .midnightViolet: return .localized("Deep neutral surfaces with a restrained violet accent.")
+        case .graphite: return .localized("Charcoal surfaces and a clear blue accent.")
+        case .paper: return .localized("Warm light surfaces with crisp, readable text.")
+        case .oled: return .localized("True-black backgrounds with subtly elevated surfaces.")
         case .luna: return "A soft indigo, glassy VexSign theme inspired by moonlight."
         case .flare: return "A dark, glassy native presentation inspired by the FlareStore website."
         }
     }
+    var preferredColorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .paper: return .light
+        case .midnightViolet, .graphite, .oled, .luna, .flare: return .dark
+        }
+    }
+
+    var defaultAccentHex: String {
+        switch self {
+        case .system, .luna: return "#848ef9"
+        case .flare: return "#7863FF"
+        case .graphite: return "#6CA8FF"
+        case .paper: return "#6550B9"
+        default: return "#A092FF"
+        }
+    }
+
+    var isLegacyPresentation: Bool { self == .luna || self == .flare }
+
 }
 
 enum VexSignFontFamily: String, CaseIterable, Identifiable {

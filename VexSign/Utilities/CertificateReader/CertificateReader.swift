@@ -22,7 +22,7 @@ class CertificateReader: NSObject {
 		guard let file = file else { return nil }
 		
 		do {
-			let fileData = try Data(contentsOf: file)
+			let fileData = try CertificateInputReader.read(file)
 			
 			guard let xmlRange = fileData.range(of: Data("<?xml".utf8)) else {
 				Logger.misc.error("XML start not found")

@@ -165,6 +165,13 @@ See [web tools](docs/WEBTOOLS.md) for endpoints and the privacy stance.
 
 ### 🎨 A native workspace
 
+- **Vex Glass presentation:** System, Midnight Violet, Graphite, Paper and OLED presets, plus preserved Luna/Flare preferences.
+- **Action-first Home:** import/sign shortcuts, setup health, ongoing tasks and privacy-filtered recent apps; empty update/metric panels are omitted.
+- **Compact Library:** list/adaptive-card layouts, evidence-based Needs Attention filtering and clearer stored-copy labels.
+- **Accessible signing controls:** safe-area action panel, real pipeline-stage labels, inline failures and optional logs.
+- **Typography and surfaces:** Dynamic Type-aware inherited body text, semantic colors, shared spacing, compact settings headers and supported native glass actions with accessibility fallbacks.
+- See [the UI implementation checklist](docs/UI_POLISH.md) for scope and remaining visual/device validation.
+
 - SwiftUI navigation, search, material surfaces and availability-gated Liquid Glass styling.
 - Appearance and app-icon settings.
 - Six fixed primary tabs — Files, Library, Home, App Store, Downloads and Settings — with launch-tab and library display preferences.

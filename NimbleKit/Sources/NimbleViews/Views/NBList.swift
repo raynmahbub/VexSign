@@ -8,6 +8,8 @@
 import SwiftUI
 
 public struct NBList<Content>: View where Content: View {
+    @Environment(\.nbWorkspaceBackground) private var background
+    @Environment(\.nbWorkspaceCard) private var card
 	public enum NBListType {
 		case list
 		case form
@@ -35,14 +37,16 @@ public struct NBList<Content>: View where Content: View {
 			switch _type {
 			case .form:
 				Form {
-					_content
+					_content.listRowBackground(card)
 				}
 			case .list:
 				List {
-					_content
+					_content.listRowBackground(card)
 				}
 			}
 		}
+        .scrollContentBackground(.hidden)
+        .background(background)
 		.navigationTitle(_title)
 		.navigationBarTitleDisplayMode(_mode)
 	}

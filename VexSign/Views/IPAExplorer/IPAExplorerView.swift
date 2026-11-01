@@ -91,8 +91,8 @@ struct IPAExplorerView: View {
 			}
 		}
 		.onAppear(perform: _load)
-		.onChange(of: _workspace.changeCount) { _ in _reload() }
-		.onChange(of: _showsHidden) { _ in _reload() }
+		.nbOnChange(of: _workspace.changeCount) { _ in _reload() }
+		.nbOnChange(of: _showsHidden) { _ in _reload() }
 	}
 
 	@ViewBuilder

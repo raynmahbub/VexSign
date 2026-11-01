@@ -53,6 +53,7 @@ enum FR {
 		using options: Options,
 		icon: UIImage?,
 		certificate: CertificatePair?,
+        onStage: ((SigningStage) -> Void)? = nil,
 		completion: @escaping (Result<Signed, Error>) -> Void
 	) {
 		let request = SigningRequest(app: app, options: options, icon: icon, certificate: certificate)
@@ -92,6 +93,7 @@ enum FR {
 			let started = SigningService.shared.sign(request) { event in
 				switch event {
 				case .stage(let stage):
+                    onStage?(stage)
 					SigningLiveActivityManager.shared.update(progress: stage.progress, status: stage.title)
 					UnifiedTaskCenter.shared.transition(task, to: .signing, progress: stage.progress)
 
@@ -186,7 +188,7 @@ enum FR {
 		// Security validates both the password and private key without the old
 		// OpenSSL CMS warm-up, which asserted on malformed or unreadable profiles.
 		guard CertificateReader(provision).decoded != nil,
-			  let data = try? Data(contentsOf: key), !data.isEmpty else { return false }
+			  let data = try? CertificateInputReader.read(key), !data.isEmpty else { return false }
 		var items: CFArray?
 		let options = [kSecImportExportPassphrase as String: password] as CFDictionary
 		guard SecPKCS12Import(data as CFData, options, &items) == errSecSuccess,
@@ -326,7 +328,7 @@ enum FR {
 		}
 		#endif
 
-		NBFetchService().fetch<ASRepository>(from: url, headers: headers) { (result: Result<ASRepository, Error>) in
+		NBFetchService().fetch(from: url, headers: headers) { (result: Result<ASRepository, Error>) in
 			switch result {
 			case .success(let data):
 				let id = data.id ?? url.absoluteString

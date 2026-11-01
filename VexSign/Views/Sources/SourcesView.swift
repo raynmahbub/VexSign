@@ -114,25 +114,40 @@ struct SourcesView: View {
 	// MARK: Body
 	var body: some View {
 		NBNavigationView(.localized("Sources")) {
-			mainContent
+            mainContent
+                .navigationDestination(isPresented: $_shouldNavigateToAllRepos) {
+                    SourceAppsView(object: _nonExcludedSources, viewModel: viewModel, onRefresh: {
+                        await viewModel.fetchSources(_sources, refresh: true)
+                    })
+                }
+                .navigationDestination(isPresented: Binding(
+                    get: { _activeIndividualSource != nil },
+                    set: { if !$0 { _activeIndividualSource = nil } }
+                )) {
+                    if let source = _activeIndividualSource {
+                        SourceAppsView(object: [source], viewModel: viewModel, onRefresh: {
+                            await viewModel.fetchSources(_sources, refresh: true)
+                        })
+                    }
+                }
 		}
 		.task(id: Array(_sources)) {
 			await viewModel.fetchSources(_sources)
 		}
-		.onChange(of: appNavigationManager.pendingAppNavigation) { pendingNavigation in
+		.nbOnChange(of: appNavigationManager.pendingAppNavigation) { pendingNavigation in
 			handlePendingNavigation(pendingNavigation)
 		}
-		.onChange(of: _isEditMode) { isEditing in
+		.nbOnChange(of: _isEditMode) { isEditing in
 			if !isEditing {
 				_selectedSources.removeAll()
 			}
 		}
-		.onChange(of: _premiumFilter.stamp) { _ in
+		.nbOnChange(of: _premiumFilter.stamp) { _ in
 			Task {
 				await viewModel.fetchSources(_sources, refresh: true)
 			}
 		}
-		.onChange(of: scenePhase) { newPhase in
+		.nbOnChange(of: scenePhase) { newPhase in
 			if newPhase == .active {
 				Task {
 					await viewModel.fetchSources(_sources)
@@ -261,23 +276,18 @@ struct SourcesView: View {
 	@ViewBuilder
 	private var allRepositoriesSection: some View {
 		Section {
-			NavigationLink(isActive: $_shouldNavigateToAllRepos) {
-				SourceAppsView(
-					object: _nonExcludedSources,
-					viewModel: viewModel,
-					onRefresh: {
-						await self.viewModel.fetchSources(self._sources, refresh: true)
-					}
-				)
-			} label: {
-				allRepositoriesLabel
-			}
-			.buttonStyle(.plain)
-			.onChange(of: _shouldNavigateToAllRepos) { isActive in
-				if isActive {
-					_activeIndividualSource = nil
-				}
-			}
+            Button {
+                _activeIndividualSource = nil
+                _shouldNavigateToAllRepos = true
+            } label: {
+                HStack {
+                    allRepositoriesLabel
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 		}
 		.disabled(_isEditMode)
 	}
@@ -381,30 +391,18 @@ struct SourcesView: View {
 
 	@ViewBuilder
 	private func normalModeRow(for source: AltSource) -> some View {
-		let isActive = Binding(
-			get: { _activeIndividualSource == source },
-			set: { isActive in
-				if isActive {
-					_activeIndividualSource = source
-					_shouldNavigateToAllRepos = false
-				} else if _activeIndividualSource == source {
-					_activeIndividualSource = nil
-				}
-			}
-		)
-
-		NavigationLink(isActive: isActive) {
-			SourceAppsView(
-				object: [source],
-				viewModel: viewModel,
-				onRefresh: {
-					await self.viewModel.fetchSources(self._sources, refresh: true)
-				}
-			)
-		} label: {
-			SourcesCellView(source: source, isEditMode: false)
-		}
-		.buttonStyle(.plain)
+        Button {
+            _shouldNavigateToAllRepos = false
+            _activeIndividualSource = source
+        } label: {
+            HStack {
+                SourcesCellView(source: source, isEditMode: false)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
 	}
 
 	@ViewBuilder

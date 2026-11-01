@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import NimbleViews
 import Nuke
 import IDeviceSwift
 import BackgroundTasks
@@ -26,6 +27,7 @@ struct VexSignApp: App {
     /// Single observable source of truth for theme/font/animation preferences,
     /// injected into the environment so every view updates on change.
     @StateObject private var appearance = AppearanceStore.shared
+    @AppStorage("VexSign.userTintColor") private var customWorkspaceAccent: String?
     @AppStorage("VexSign.onboardingCompleted") private var _onboardingCompleted = false
     @State private var _showOnboarding = false
     let storage = Storage.shared
@@ -129,8 +131,12 @@ struct VexSignApp: App {
                 }
             }
             .environmentObject(appearance)
-            .environment(\.font, appearance.font)
-            .preferredColorScheme(appearance.prefersDarkSurfaces ? .dark : nil)
+            .modifier(VexWorkspaceTypography())
+            .modifier(VexWorkspaceAccessibility())
+            .tint(Theme.tint)
+            .environment(\.nbWorkspaceBackground, Theme.background)
+            .environment(\.nbWorkspaceCard, Theme.card)
+            .preferredColorScheme(appearance.visualTheme.preferredColorScheme)
             .buttonStyle(VexSignFlareButtonStyle(enabled: appearance.animationsEnabled))
             .vexSignWebMotion()
             .overlay(alignment: .bottom) {
@@ -160,10 +166,13 @@ struct VexSignApp: App {
 
                 UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
             }
-            .onChange(of: appearance.visualTheme) { _ in
+            .nbOnChange(of: customWorkspaceAccent) { _ in
                 UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
             }
-            .onChange(of: scenePhase) { newPhase in
+            .nbOnChange(of: appearance.visualTheme) { _ in
+                UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
+            }
+            .nbOnChange(of: scenePhase) { newPhase in
                 if newPhase == .background {
                     EcosystemMaintenance.schedule()
                     appLock.lockIfNeeded()

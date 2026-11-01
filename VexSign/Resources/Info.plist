@@ -188,6 +188,8 @@
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<string>sidestore</string>
+		<string>livecontainer</string>
 		<string>localdevvpn</string>
 		<string>tg</string>
 		<!-- Used only to answer "is TrollStore installed?" for the install preflight. -->

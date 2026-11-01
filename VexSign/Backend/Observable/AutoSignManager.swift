@@ -13,7 +13,7 @@ import NimbleExtensions
 final class AutoSignManager {
 	static let shared = AutoSignManager()
 
-	static let enabledKey = "VexSign.autoSignAfterImport"
+	nonisolated static let enabledKey = "VexSign.autoSignAfterImport"
 
 	private var _tail: Task<Void, Never> = Task {}
 
@@ -31,13 +31,15 @@ final class AutoSignManager {
 	/// One app at a time. Signing is memory heavy and `SigningLog` is a single shared console.
 	func sign(_ app: AppInfoPresentable) async -> Result<Signed, Error> {
 		let previous = _tail
-		let job = Task { () -> Result<Signed, Error> in
-			await previous.value
-			return await Self._perform(app)
-		}
-
-		_tail = Task { _ = await job.value }
-		return await job.value
+        // Keep Core Data results on the main actor; Task.value carries only Void.
+        var result: Result<Signed, Error>?
+        let job = Task { @MainActor in
+            await previous.value
+            result = await Self._perform(app)
+        }
+        _tail = job
+        await job.value
+        return result ?? .failure(CancellationError())
 	}
 
 	private static func _perform(_ app: AppInfoPresentable) async -> Result<Signed, Error> {

@@ -18,7 +18,7 @@ struct HomeView: View {
     @StateObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lockManager = AppLockManager.shared
 
-    @FetchRequest(entity: CertificatePair.entity(), sortDescriptors: [])
+    @FetchRequest(entity: CertificatePair.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)])
     private var certificates: FetchedResults<CertificatePair>
 
     @FetchRequest(entity: AltSource.entity(), sortDescriptors: [])
@@ -36,6 +36,9 @@ struct HomeView: View {
     @State private var showAddRepository = false
 
     @ObservedObject private var appearance = AppearanceStore.shared
+    @ObservedObject private var tasks = UnifiedTaskCenter.shared
+    @ObservedObject private var libraryStatus = LibraryStatusStore.shared
+    @AppStorage("vexsign.selectedCert") private var selectedCertificateIndex = 0
 
     private var visibleAppCount: Int {
         let signed = signedApps.filter { app in
@@ -70,11 +73,15 @@ struct HomeView: View {
     var body: some View {
         NBNavigationView("", displayMode: .inline) {
             ZStack {
-                FlareGridBackground()
-                    .ignoresSafeArea()
+                if appearance.visualTheme.isLegacyPresentation {
+                    FlareGridBackground().ignoresSafeArea()
+                } else {
+                    Theme.background.ignoresSafeArea()
+                }
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
+                        if appearance.visualTheme.isLegacyPresentation {
                         header
                         if isFlareWebTheme { flareHero }
                         statistics
@@ -83,6 +90,9 @@ struct HomeView: View {
                         packageURLField
                         quickSignRow
                         featureRows
+                        } else {
+                            workspaceDashboard
+                        }
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 22)
@@ -401,6 +411,200 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Quiet, actionable workspace (System and new presets)
+
+    private var dashboardVisibleApps: [AppInfoPresentable] {
+        let apps = signedApps.map { $0 as AppInfoPresentable } + importedApps.map { $0 as AppInfoPresentable }
+        return apps.filter { app in
+            guard let uuid = app.uuid else { return false }
+            return !lockManager.isAppHidden(uuid) && (!lockManager.isAppLocked(uuid) || lockManager.isSessionUnlocked(uuid))
+        }
+    }
+
+    private var recentVisibleApps: [AnyApp] {
+        dashboardVisibleApps.sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+            .prefix(3).map { AnyApp(base: $0) }
+    }
+
+    private var attentionCount: Int {
+        dashboardVisibleApps.filter { app in
+            let status = libraryStatus.status(for: app)
+            let certificate = Storage.shared.getCertificate(from: app)
+            return LibraryAttentionReason.evaluate(
+                isSigned: app.isSigned, expiry: status.expiresAt ?? certificate?.expiration,
+                revoked: certificate?.revoked == true,
+                hasUpdate: updateChecker.hasUpdate(for: app) != nil
+            ) != nil
+        }.count
+    }
+
+    private var dashboardCertificate: CertificatePair? {
+        guard certificates.indices.contains(selectedCertificateIndex) else { return nil }
+        return certificates[selectedCertificateIndex]
+    }
+
+    private var workspaceDashboard: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.section) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                    TimelineView(.periodic(from: Date(), by: 60)) { context in
+                        Text(WorkspaceGreeting.title(hour: Calendar.current.component(.hour, from: context.date)))
+                            .font(.largeTitle.bold())
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                    Text(.localized("Your signing workspace"))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                NavigationLink(destination: TaskCenterView()) {
+                    Label(.localized("Task Center"), systemImage: "list.bullet.rectangle")
+                        .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                }
+                .modifier(VexToolbarActionStyle())
+            }
+            .accessibilityElement(children: .contain)
+
+            WorkspaceActionGroup { workspaceActions }
+
+            NavigationLink(destination: SetupHealthView()) {
+                WorkspaceCard {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                        Label(.localized("Setup Health"), systemImage: "checklist").font(.headline)
+                        if let certificate = dashboardCertificate {
+                            if certificate.revoked {
+                                Label(.localized("Selected certificate is revoked"), systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            } else if let expiry = certificate.expiration {
+                                Text(expiry <= Date() ? .localized("Selected certificate has expired") : .localized("Selected certificate expiry"))
+                                    .font(.subheadline)
+                                Text(expiry, style: .date).font(.subheadline.monospacedDigit())
+                            } else {
+                                Text(.localized("Review certificate expiry and installation setup."))
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text(.localized("Add a certificate and review installation prerequisites."))
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            if let task = tasks.tasks.first(where: { $0.phase.isInProgress }) {
+                NavigationLink(destination: TaskCenterView()) {
+                    WorkspaceCard {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                            Text(.localized("Continue")).font(.headline)
+                            // Hidden and locked app titles must not leak through dashboard tasks.
+                            Text(task.kind.title + " · " + task.phase.title)
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            // Task milestone fractions are not elapsed-work measurements.
+                            ProgressView()
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            if attentionCount > 0 {
+                Button { openTab(.library) } label: {
+                    WorkspaceCard {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                            Label(.localized("Needs attention"), systemImage: "exclamationmark.triangle")
+                                .font(.headline)
+                            Text(String.localized("%lld items require review in Library", arguments: attentionCount))
+                                .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            if updateCount > 0 {
+                Button { openTab(.appStore) } label: {
+                    WorkspaceCard {
+                        Label(updateTitle, systemImage: "arrow.triangle.2.circlepath")
+                            .font(.headline)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            if !recentVisibleApps.isEmpty {
+                VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                    Text(.localized("Recently added")).font(.headline)
+                    WorkspaceCard {
+                        VStack(spacing: Theme.Spacing.medium) {
+                            ForEach(recentVisibleApps) { item in
+                                Button { openTab(.library) } label: {
+                                    HStack(spacing: Theme.Spacing.medium) {
+                                        FRAppIconView(app: item.base, size: 40)
+                                        VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                                            Text(item.base.name ?? .localized("Application"))
+                                                .font(.subheadline.weight(.semibold))
+                                            Text(item.base.isSigned ? .localized("Signed copy in Library") : .localized("Imported copy in Library"))
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Spacer(minLength: 0)
+                                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    .frame(minHeight: 44)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                Text(.localized("Tools")).font(.headline)
+                WorkspaceCard {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.cardPadding) {
+                        NavigationLink(destination: CertificatesView()) {
+                            Label(.localized("Certificates"), systemImage: "checkmark.seal")
+                        }
+                        Button { showAddRepository = true } label: {
+                            Label(.localized("Add Repository"), systemImage: "plus.circle")
+                        }
+                        NavigationLink(destination: CompanionSigningWorkflowView()) {
+                            Label(.localized("Companion Apps"), systemImage: "arrow.triangle.branch")
+                        }
+                        DisclosureGroup(.localized("Download from URL")) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                                TextField("https://example.com/app.ipa", text: $packageURL)
+                                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                    .keyboardType(.URL).submitLabel(.go)
+                                    .onSubmit { startURLDownload() }
+                                Button(.localized("Download")) { startURLDownload() }
+                                    .disabled(packageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            }
+                            .padding(.top, Theme.Spacing.medium)
+                        }
+                    }
+                    .font(.body)
+                }
+            }
+        }
+        .foregroundStyle(.primary)
+        .task { libraryStatus.refresh(dashboardVisibleApps) }
+    }
+
+    @ViewBuilder
+    private var workspaceActions: some View {
+        Button { browseForPackages() } label: {
+            Label(.localized("Import IPA"), systemImage: "square.and.arrow.down")
+                .font(.headline).frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.borderedProminent)
+        Button { browseForPackages(quickSign: true) } label: {
+            Label(.localized("Sign an app"), systemImage: "signature")
+                .font(.headline).frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+    }
+
     // MARK: - Working actions
 
     private func openTab(_ tab: TabEnum) {
@@ -463,8 +667,12 @@ struct HomeView: View {
             FR.handlePackageFile(stagedURL) { result in
                 switch result {
                 case .success(let app):
-                    Toast.success(.localized("App ready to sign"), systemImage: "signature")
-                    quickSignApp = AnyApp(base: app)
+                    Task { @MainActor in
+                        ImportDuplicateReview.resolve(app) { chosen, _ in
+                            Toast.success(.localized("App ready to sign"), systemImage: "signature")
+                            quickSignApp = AnyApp(base: chosen)
+                        }
+                    }
                 case .failure(let error):
                     Toast.error(error.localizedDescription, duration: .long)
                 }
@@ -475,12 +683,11 @@ struct HomeView: View {
         _ = downloadManager.startArchive(
             from: stagedURL,
             id: "VexSignHomeImport_\(UUID().uuidString)",
-            appName: stagedURL.deletingPathExtension().lastPathComponent
+            appName: stagedURL.deletingPathExtension().lastPathComponent,
+            reviewDuplicates: true
         ) { error in
             if let error {
                 Toast.error(error.localizedDescription, duration: .long)
-            } else {
-                Toast.success(.localized("App imported"), systemImage: "square.and.arrow.down")
             }
         }
     }
@@ -531,7 +738,7 @@ private enum FlarePalette {
         AppearanceStore.snapshot().visualTheme
     }
 
-    private static var isBase: Bool { visualTheme == .system }
+    private static var isBase: Bool { !visualTheme.isLegacyPresentation }
     private static var isWeb: Bool { visualTheme == .flare }
 
     static var background: Color {
@@ -555,7 +762,7 @@ private enum FlarePalette {
         isBase ? Theme.primary : .white
     }
     static var pink: Color {
-        isWeb ? Theme.websiteAccent : Color(red: 1.0, green: 0.12, blue: 0.34)
+        isBase ? Theme.tint : (isWeb ? Theme.websiteAccent : Color(red: 1.0, green: 0.12, blue: 0.34))
     }
     static var purple: Color {
         isWeb ? Theme.websiteAccentSecondary : Color(red: 0.62, green: 0.20, blue: 1.0)

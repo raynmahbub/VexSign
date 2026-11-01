@@ -88,6 +88,30 @@ final class ArchiveHandler: NSObject {
 		}.value
 	}
 	
+    /// A handoff retains only the IPA, never a second unpacked copy of the app.
+    /// This does not touch the original library bundle.
+    func prepareCompanionArchive() async throws -> URL {
+        do {
+            try await move()
+            let package = try await archive()
+            if let payload = _payloadUrl {
+                try _fileManager.removeItem(at: payload)
+                _payloadUrl = nil
+            }
+            return package
+        } catch {
+            let originalError = error
+            if _fileManager.fileExists(atPath: _uniqueWorkDir.path) {
+                do {
+                    try _fileManager.removeItem(at: _uniqueWorkDir)
+                } catch {
+                    FileLogger.log("Could not clean failed companion archive: \(error)", category: "install")
+                }
+            }
+            throw originalError
+        }
+    }
+
 	func moveToArchive(_ package: URL, shouldOpen: Bool = false) async throws -> URL? {
 		let appName = _app.name ?? "App"
 		let appVersion = _app.version ?? "1.0"

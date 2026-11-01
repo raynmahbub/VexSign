@@ -60,18 +60,80 @@ struct AutomationRunResult {
 	var queueAdded: Int
 	var skipped: Int
 	var cleanup: CleanupSummary?
+    var failed: Int = 0
+}
+
+// Stores counts and outcomes only; no app names, credentials or source URLs.
+struct AutomationHistoryEntry: Codable, Identifiable {
+    let id: UUID
+    let date: Date
+    let fromBackground: Bool
+    let outcome: String
+    let updates: Int
+    let signed: Int
+    let queued: Int
+    let skipped: Int
+    // Optional fields keep histories written by earlier builds decodable.
+    let failed: Int?
+    let duration: TimeInterval?
+}
+
+@MainActor
+final class AutomationHistoryStore: ObservableObject {
+    static let shared = AutomationHistoryStore()
+    private static let key = "VexSign.automation.history"
+    @Published private(set) var entries: [AutomationHistoryEntry] = []
+
+    private init() {
+        if let data = UserDefaults.standard.data(forKey: Self.key) {
+            do {
+                entries = Array(try JSONDecoder().decode([AutomationHistoryEntry].self, from: data).prefix(50))
+            } catch {
+                FileLogger.log("Could not decode automation history: \(error)", category: "update")
+            }
+        }
+    }
+
+    func record(_ outcome: String, fromBackground: Bool, result: AutomationRunResult? = nil, duration: TimeInterval? = nil) {
+        entries.insert(AutomationHistoryEntry(
+            id: UUID(), date: Date(), fromBackground: fromBackground, outcome: outcome,
+            updates: result?.foundUpdates ?? 0, signed: result?.signed ?? 0,
+            queued: result?.queueAdded ?? 0, skipped: result?.skipped ?? 0,
+            failed: result?.failed, duration: duration
+        ), at: 0)
+        entries = Array(entries.prefix(50))
+        do {
+            UserDefaults.standard.set(try JSONEncoder().encode(entries), forKey: Self.key)
+        } catch {
+            FileLogger.log("Could not save automation history: \(error)", category: "update")
+        }
+    }
+
+    func clear() {
+        entries = []
+        UserDefaults.standard.removeObject(forKey: Self.key)
+    }
 }
 
 // MARK: - Runner
 @MainActor
 enum BackgroundAutomation {
+    private static var isRunning = false
 	/// One full maintenance pass. `fromBackground` keeps it quiet (no toasts).
 	static func run(fromBackground: Bool = false) async -> AutomationRunResult? {
-		guard BackgroundAutomationPreferences.isEnabled else { return nil }
+		guard BackgroundAutomationPreferences.isEnabled else {
+            AutomationHistoryStore.shared.record("disabled", fromBackground: fromBackground)
+            return nil
+        }
+        guard !isRunning else {
+            AutomationHistoryStore.shared.record("busy", fromBackground: fromBackground)
+            return nil
+        }
 
 		// Game Mode: the pass refreshes every source and downloads updates, which is exactly
 		// the background traffic the mode exists to stop.
 		guard !GameMode.isEnabled else {
+			AutomationHistoryStore.shared.record("gameMode", fromBackground: fromBackground)
 			FileLogger.log("Automation skipped — Game Mode is on", category: "update")
 			if !fromBackground {
 				GameMode.reportBlockedInline(.localized("Automatic update checks"))
@@ -79,9 +141,23 @@ enum BackgroundAutomation {
 			return nil
 		}
 
+        // Avoid reading another queue's counters as this run's result.
+        guard !UpdateAllManager.shared.isRunning else {
+            AutomationHistoryStore.shared.record("busy", fromBackground: fromBackground)
+            return nil
+        }
+
+        let startedAt = Date()
+        isRunning = true
+        defer { isRunning = false }
+
 		let policy = BackgroundAutomationPreferences.policy
 		let storage = Storage.shared
 		let sources = storage.getSources()
+        guard !sources.isEmpty else {
+            AutomationHistoryStore.shared.record("noSources", fromBackground: fromBackground)
+            return nil
+        }
 
 		// 1. Refresh repositories.
 		await SourcesViewModel.shared.fetchSources(sources, refresh: true)
@@ -107,6 +183,12 @@ enum BackgroundAutomation {
 
 		// 3. Sign & queue, when that policy is set.
 		if policy == .signAndQueue {
+            // Repository refresh suspends this actor; a manual queue may have
+            // started in the meantime. Never reuse that queue's outcome counts.
+            guard !UpdateAllManager.shared.isRunning else {
+                AutomationHistoryStore.shared.record("busy", fromBackground: fromBackground)
+                return nil
+            }
 			let prepared = UpdateAllManager.makeTasks(
 				from: repositories,
 				signedApps: signedApps,
@@ -119,6 +201,7 @@ enum BackgroundAutomation {
 
 			if !tasks.isEmpty {
 				await UpdateAllManager.shared.run(tasks: tasks)
+				result.failed = UpdateAllManager.shared.failed
 				result.signed = UpdateAllManager.shared.succeeded
 				result.queueAdded = UpdateAllManager.shared.tasks.filter { $0.state == .finished }.count
 				result.skipped = UpdateAllManager.shared.tasks.filter { $0.state == .skipped }.count
@@ -133,6 +216,7 @@ enum BackgroundAutomation {
 			postSummary(result)
 		}
 
+		AutomationHistoryStore.shared.record(result.failed > 0 ? "partialFailure" : "completed", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
 		return result
 	}
 
@@ -151,6 +235,9 @@ enum BackgroundAutomation {
 		if result.signed > 0 {
 			lines.append(String.localized("%lld signed and queued", arguments: result.signed))
 		}
+        if result.failed > 0 {
+            lines.append(String.localized("%lld failed", arguments: result.failed))
+        }
 		if result.skipped > 0 {
 			lines.append(String.localized("%lld skipped", arguments: result.skipped))
 		}

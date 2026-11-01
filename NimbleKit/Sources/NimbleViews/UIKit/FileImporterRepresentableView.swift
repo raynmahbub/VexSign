@@ -52,7 +52,10 @@ public struct FileImporterRepresentableView: UIViewControllerRepresentable {
 			self.onDocumentsPicked = onDocumentsPicked
 		}
 
-		deinit { release() }
+		deinit {
+            // URL is Sendable; releasing the security scope needs no UI actor.
+            heldFolder?.stopAccessingSecurityScopedResource()
+        }
 
 		// Scope must stay held while presented or directoryURL is ignored.
 		// nil keeps the picker on iOS's last location.

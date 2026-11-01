@@ -7,6 +7,19 @@ All notable changes to VexSign are documented here. The format follows
 Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 [docs/RELEASING.md](docs/RELEASING.md).
 
+## [Unreleased]
+
+### Fixed
+
+- Certificate import no longer starts Zsign's legacy native OCSP checker, which
+  has unsafe response-pointer initialization and asynchronous certificate lifetime
+  handling in the pinned dependency. Import, refresh and legacy certificate-check
+  entry points now use the system-trust inspector. Only positive revocation
+  evidence marks a stored certificate revoked; offline or unreadable results do not.
+- Certificate and provisioning-profile reads are bounded to 10 MiB before parsing
+  to avoid excessive allocation from oversized selections. Pending status results
+  are discarded when their certificate row has been deleted.
+
 ## [1.1.0] — 2026-11-01
 
 A hardening release. Most of it is not new surface: it is the app telling the truth about what it is

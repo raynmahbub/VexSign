@@ -16,7 +16,6 @@ struct AppearanceView: View {
         (.localized("Big Description"), .localized("Adds the localized description of the app."))
     ]
 
-    @AppStorage("com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck") private var _ignoreSolariumLinkedOnCheck: Bool = false
     @AppStorage("VexSign.showSourcesUpdateBadge") private var _showSourcesUpdateBadge: Bool = true
     @AppStorage("VexSign.shouldTintIcons") private var _shouldTintIcons: Bool = false
     @AppStorage("VexSign.shouldChangeIconsBasedOffStyle") private var _shouldChangeIconsBasedOffStyle: Bool = false
@@ -25,13 +24,7 @@ struct AppearanceView: View {
     /// Theme/font/animation preferences go through the shared appearance store
     /// so every observer (app root, tab bar, motion modifiers) updates at once.
     @ObservedObject private var _appearance = AppearanceStore.shared
-
-    private var _visualThemeBinding: Binding<String> {
-        Binding(
-            get: { _appearance.visualTheme.rawValue },
-            set: { _appearance.setVisualTheme(VexSignVisualTheme(rawValue: $0) ?? .system) }
-        )
-    }
+    @State private var confirmResetAppearance = false
 
     private var _fontFamilyBinding: Binding<String> {
         Binding(
@@ -56,13 +49,47 @@ struct AppearanceView: View {
 
     private var _tintColorBinding: Binding<Color> {
         Binding(
-            get: { Color(hex: _selectedColorHex) },
+            get: { Color.userTint },
             set: { _selectedColorHex = $0.toHex() }
         )
     }
 
+    private func themeSwatch(_ theme: VexSignVisualTheme) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.Radius.medium).fill(Theme.background(for: theme))
+            VStack(alignment: .leading, spacing: 5) {
+                Capsule().fill(Color(hex: theme.defaultAccentHex)).frame(width: 22, height: 4)
+                RoundedRectangle(cornerRadius: 4).fill(Theme.card(for: theme)).frame(height: 15)
+                RoundedRectangle(cornerRadius: 4).fill(Theme.card(for: theme)).frame(height: 8)
+            }
+            .padding(8)
+        }
+        .frame(width: 58, height: 58)
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.medium).stroke(Color.secondary.opacity(0.25)))
+        .preferredColorScheme(theme.preferredColorScheme)
+        .accessibilityHidden(true)
+    }
+
     var body: some View {
         NBList(.localized("Appearance")) {
+            Section {
+                WorkspaceCard {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                        Label(.localized("Your signing workspace"), systemImage: "signature")
+                            .font(.headline)
+                        Text(.localized("A readable preview of your current theme and typography."))
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Label(.localized("Ready to customize"), systemImage: "slider.horizontal.3")
+                            Spacer(minLength: 0)
+                            Image(systemName: "checkmark.circle").foregroundStyle(Theme.tint)
+                        }
+                        .font(.subheadline)
+                        Text("com.example.app").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    }
+                }
+                .listRowInsets(EdgeInsets())
+            } header: { Text(.localized("Live Preview")) }
             Section {
                 Picker(.localized("Appearance"), selection: $_userIntefacerStyle) {
                     ForEach(UIUserInterfaceStyle.allCases.sorted(by: { $0.rawValue < $1.rawValue }), id: \.rawValue) { style in
@@ -70,6 +97,7 @@ struct AppearanceView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .disabled(_appearance.visualTheme.preferredColorScheme != nil)
             } header: {
                 Label(.localized("Interface Style"), systemImage: "moonphase")
                     .font(.subheadline.weight(.semibold))
@@ -85,22 +113,38 @@ struct AppearanceView: View {
                 Text(.localized("The tint colors navigation, buttons and highlights across the app."))
             }
 
-            NBSection(.localized("Visual Theme"), systemName: "sparkles") {
-                Picker(.localized("Theme"), selection: _visualThemeBinding) {
-                    ForEach(VexSignVisualTheme.allCases) { theme in
-                        NBTitleWithSubtitleView(title: theme.title, subtitle: theme.description)
-                            .tag(theme.rawValue)
+            NBSection(.localized("Visual Theme"), systemName: "paintpalette") {
+                ForEach(VexSignVisualTheme.allCases) { theme in
+                    Button {
+                        _appearance.setVisualTheme(theme)
+                    } label: {
+                        HStack(spacing: Theme.Spacing.medium) {
+                            themeSwatch(theme)
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                                Text(theme.title).font(.headline).foregroundStyle(.primary)
+                                Text(theme.description).font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: 0)
+                            if _appearance.visualTheme == theme {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.tint)
+                            }
+                        }
+                        .padding(.vertical, Theme.Spacing.xSmall)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(_appearance.visualTheme == theme ? .isSelected : [])
                 }
-                .labelsHidden()
-                .pickerStyle(.inline)
             } footer: {
-                Text(.localized("Luna is an original VexSign dark, glassy presentation. It changes surfaces and motion context without changing signing behavior."))
+                Text(.localized("System follows your interface style. Other presets select their own light or dark surfaces. Your custom accent is preserved; Luna and Flare remain available for existing users."))
             }
 
             Section {
                 ColorPicker(.localized("Custom Theme Color"), selection: _tintColorBinding, supportsOpacity: false)
                     .tint(Color.userTint)
+                Button(.localized("Use theme accent")) {
+                    UserDefaults.standard.removeObject(forKey: "VexSign.userTintColor")
+                }
             } footer: {
                 Text(.localized("Pick any color if the presets don’t fit. It updates instantly."))
             }
@@ -128,10 +172,10 @@ struct AppearanceView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(Text(.localized("Font size")))
 
-                Toggle(.localized("Flare Touch Animations"), isOn: _flareAnimationsBinding)
+                Toggle(.localized("Button feedback animations"), isOn: _flareAnimationsBinding)
                     .tint(Color.userTint)
             } footer: {
-                Text(.localized("Choose the app font and size. Flare touch feedback adds a subtle spring to buttons without changing layout."))
+                Text(.localized("System typography is recommended. Font sizing follows Dynamic Type; technical identifiers keep monospaced styling. Button feedback respects Reduce Motion."))
             }
 
             if #available(iOS 18.0, *) {
@@ -164,24 +208,38 @@ struct AppearanceView: View {
                 Text(.localized("The App Store owns repository browsing, source refresh, updates, and app discovery. The update count badge appears on its primary tab."))
             }
 
-            if #available(iOS 19.0, *) {
-                NBSection(.localized("Experiments")) {
-                    Toggle(.localized("Enable Liquid Glass"), isOn: $_ignoreSolariumLinkedOnCheck).tint(Color.userTint)
-                } footer: {
-                    Text(.localized("This enables liquid glass for this app, this requires a restart of the app to take effect."))
+            Section {
+                Button(.localized("Reset workspace appearance")) { confirmResetAppearance = true }
+            } footer: {
+                Text(.localized("Restores System theme, system font, default text scale and button feedback. Certificates, apps and signing options are not changed."))
+            }
+
+            NBSection(.localized("Liquid Glass"), systemName: "circle.lefthalf.filled") {
+                if #available(iOS 26.0, *) {
+                    Text(.localized("Native glass is used for supported navigation and actions. Content surfaces stay readable and respect Reduce Transparency."))
+                } else {
+                    Text(.localized("Native Liquid Glass requires iOS 26. This device uses standard system navigation and opaque content surfaces."))
                 }
             }
         }
-        .onChange(of: _userIntefacerStyle) { value in
+        .confirmationDialog(.localized("Reset workspace appearance?"), isPresented: $confirmResetAppearance, titleVisibility: .visible) {
+            Button(.localized("Reset workspace appearance"), role: .destructive) {
+                _appearance.setVisualTheme(.system)
+                _appearance.setFontFamily(.system)
+                _appearance.setFontScale(1)
+                _appearance.setAnimationsEnabled(true)
+                _userIntefacerStyle = UIUserInterfaceStyle.unspecified.rawValue
+                UserDefaults.standard.removeObject(forKey: "VexSign.userTintColor")
+            }
+            Button(.localized("Cancel"), role: .cancel) {}
+        }
+        .nbOnChange(of: _userIntefacerStyle) { value in
             if let style = UIUserInterfaceStyle(rawValue: value) {
                 UIApplication.topViewController()?.view.window?.overrideUserInterfaceStyle = style
             }
         }
-        .onChange(of: _ignoreSolariumLinkedOnCheck) { _ in
-            UIApplication.shared.suspendAndReopen()
-        }
-        .onChange(of: _selectedColorHex) { hex in
-            UIApplication.topViewController()?.view.window?.tintColor = UIColor(Color(hex: hex))
+        .nbOnChange(of: _selectedColorHex) { _ in
+            UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
         }
     }
 }

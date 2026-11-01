@@ -16,6 +16,10 @@ struct LibraryInfoView: View {
 	var app: AppInfoPresentable
 	@State private var _displayedDescription: String?
 	@State private var _isClonePresenting = false
+    @State private var _isResigning = false
+    @ObservedObject private var _tasks = UnifiedTaskCenter.shared
+    @State private var _isCompanionPresenting = false
+    @ObservedObject private var _lockManager = AppLockManager.shared
 	@ObservedObject private var _appStoreTracker = AppStoreUpdateTracker.shared
 	@ObservedObject private var _status = LibraryStatusStore.shared
 
@@ -28,6 +32,7 @@ struct LibraryInfoView: View {
 						.frame(maxWidth: .infinity, alignment: .center)
 				}
 
+                _workspaceStatusSection()
 				_infoSection(for: app)
 				_signatureSection(for: app)
 				_certSection(for: app)
@@ -36,12 +41,23 @@ struct LibraryInfoView: View {
 
 				_resignSection()
 				_cloneSection()
+                Section {
+                    Button {
+                        _openCompanionWorkflow()
+                    } label: {
+                        Label(.localized("SideStore & LiveContainer"), systemImage: "arrow.triangle.branch")
+                    }
+                } footer: {
+                    Text(.localized("Prepare this library app as an IPA for LiveContainer, or open SideStore for Apple-account setup and renewal. No credentials are shared with VexSign."))
+                }
 				_appStoreSection()
 
 				Section {
 					_linksSection(for: app)
 					Button(.localized("Open in Files"), systemImage: "folder") {
-						UIApplication.open(Storage.shared.getUuidDirectory(for: app)!.toSharedDocumentsURL()!)
+	                        if let url = Storage.shared.getUuidDirectory(for: app)?.toSharedDocumentsURL() {
+                            UIApplication.open(url)
+                        }
 					}
 				}
 			}
@@ -52,6 +68,11 @@ struct LibraryInfoView: View {
 		.onAppear {
 			_displayedDescription = app.appDescription
 		}
+        .sheet(isPresented: $_isCompanionPresenting) {
+            NavigationStack {
+                CompanionSigningWorkflowView(libraryApp: AnyApp(base: app))
+            }
+        }
 		.sheet(isPresented: $_isClonePresenting) {
 			AppCloneSheet(app: app)
 		}
@@ -67,6 +88,35 @@ struct LibraryInfoView: View {
 
 // MARK: - Extension: View
 extension LibraryInfoView {
+    @ViewBuilder
+    private func _workspaceStatusSection() -> some View {
+        let status = _status.status(for: app)
+        Section {
+            Label(.localized("Stored in Library"), systemImage: "archivebox")
+            LabeledContent(.localized("Library copy"), value: app.isSigned ? String.localized("Signed copy") : String.localized("Imported copy"))
+            LabeledContent(.localized("Device installation"), value: status.installed.title)
+            if let expiry = status.expiresAt {
+                LabeledContent(.localized("Bundle signature expiry")) { Text(expiry, style: .date) }
+            }
+            if let task = (_tasks.tasks + _tasks.history).filter({ app.uuid != nil && $0.kind == .sign && $0.subjectID == app.uuid }).max(by: { $0.updatedAt < $1.updatedAt }) {
+                LabeledContent(.localized("Last recorded signing result"), value: task.phase.title)
+                Text(task.updatedAt, style: .date).font(.caption).foregroundStyle(.secondary)
+            }
+        } header: { Text(.localized("Workspace status")) } footer: {
+            Text(.localized("A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state."))
+        }
+    }
+
+    private func _openCompanionWorkflow() {
+        if let uuid = app.uuid, _lockManager.isAppLocked(uuid), !_lockManager.isSessionUnlocked(uuid) {
+            _lockManager.authenticateForApp(uuid: uuid, name: app.name ?? .localized("Application")) { success in
+                if success { _isCompanionPresenting = true }
+            }
+        } else {
+            _isCompanionPresenting = true
+        }
+    }
+
 	@ViewBuilder
 	private func _resignSection() -> some View {
 		if app.isSigned {
@@ -81,6 +131,7 @@ extension LibraryInfoView {
 						systemImage: "signature"
 					)
 				}
+                .disabled(_isResigning)
 			} footer: {
 				Text(.localized("Signs this app again with the tweaks, entitlements and certificate it used before. Install it again afterwards, or export it."))
 			}
@@ -96,14 +147,38 @@ extension LibraryInfoView {
 			return
 		}
 
-		Task {
-			switch await AutoSignManager.shared.sign(app) {
-			case .success:
-				Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
-			case .failure(let error):
-				Toast.error(error.localizedDescription, duration: .sticky)
-			}
-		}
+        let profile = SigningProfileStore.shared.profile(forBundleID: app.identifier)
+        let certificate = SigningProfileStore.shared.certificate(for: profile)
+        let options = (profile?.options ?? Options.batchBase).resolved(for: app)
+        let checks = PreflightChecks.run(app: app, options: options, certificate: certificate)
+        var lines = [String.localized("Bundle identifier: %@", arguments: options.appIdentifier ?? app.identifier ?? .localized("Unknown"))]
+        if let saved = profile?.savedAt { lines.append(saved.formatted()) }
+        if let expiry = certificate?.expiration {
+            lines.append(String.localized("Certificate expiry: %@", arguments: expiry.formatted()))
+        }
+        if let expected = profile?.certificateUUID, expected != certificate?.uuid {
+            lines.append(.localized("The saved certificate is unavailable. The current selection would be used instead."))
+        }
+        lines.append(contentsOf: checks.issues.map { LogRedaction.redact($0.title + ": " + $0.detail) })
+        lines.append(.localized("Saved settings are reused, but source contents are not fingerprinted. Review options if the app has changed."))
+        lines.append(.localized("On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings."))
+        UIAlertController.showAlertWithOptions(
+            title: .localized("Review repeat signing"), message: lines.joined(separator: "\n"),
+            actions: [
+                (.localized("Cancel"), .cancel, nil),
+                (checks.hasBlocking ? .localized("Sign Anyway") : .localized("Sign Again"), checks.hasBlocking ? .destructive : .default, {
+                    guard !_isResigning else { return }
+                    _isResigning = true
+                    Task {
+                        defer { _isResigning = false }
+                        switch await AutoSignManager.shared.sign(app) {
+                        case .success: Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
+                        case .failure(let error): Toast.error(LogRedaction.redact(error.localizedDescription), duration: .sticky)
+                        }
+                    }
+                })
+            ]
+        )
 	}
 
 	/// Duplicate this app under a new name and bundle ID.

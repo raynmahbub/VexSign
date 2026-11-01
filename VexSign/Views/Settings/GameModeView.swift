@@ -34,7 +34,7 @@ struct GameModeView: View {
 			Toggle(isOn: $_isEnabled) {
 				Label(.localized("Game Mode"), systemImage: "gamecontroller")
 			}
-			.onChange(of: _isEnabled) { enabled in
+			.nbOnChange(of: _isEnabled) { enabled in
 				enabled ? GameMode.enable() : GameMode.disable()
 			}
 		} footer: {
