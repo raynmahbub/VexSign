@@ -332,6 +332,24 @@ jobs:
           fi
           exit "${status}"
 
+      # The reporter only annotates diagnostics it recognises. When xcodebuild
+      # fails for another reason — a destination problem, a linker error, a test
+      # that crashed the runner — the log is the only evidence there is, and the
+      # Actions log CDN is not reachable from every reviewer environment. So the
+      # tail is emitted as annotations, where the PR page and the API can read it.
+      - name: Surface failures
+        if: failure() && steps.test.outcome == 'failure'
+        run: |
+          set +e
+          LOG="$TEST_LOG"
+          [ -f "$LOG" ] || { echo "::warning::No xcodebuild log was produced."; exit 0; }
+          grep -aE "error:|Failing tests:|Test Case .* failed|BUILD FAILED|TEST FAILED" "$LOG" \
+            | head -40 \
+            | sed -E 's/^(.{0,400}).*$/::error::\1/'
+          echo "--- last 40 lines of the log ---"
+          tail -n 40 "$LOG" | sed -E 's/^(.{0,400}).*$/::notice::\1/'
+          exit 0
+
       # Same reporter as the build job, so test failures are annotated inline
       # (file + line). The warnings gate is off here: `build` owns that verdict
       # and this job only needs to answer "did the tests pass".
