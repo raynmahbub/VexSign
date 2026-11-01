@@ -9,12 +9,14 @@ import SwiftUI
 
 public struct NBGrid<Content>: View where Content: View {
 	private var _content: Content
+    private var minimumWidth: CGFloat
 	
 	private var _adaptiveColumns: [GridItem] {
-		[GridItem(.adaptive(minimum: 340), spacing: 16)]
+		[GridItem(.adaptive(minimum: minimumWidth), spacing: 16)]
 	}
 	
-	public init(@ViewBuilder content: () -> Content) {
+	public init(minimumWidth: CGFloat = 340, @ViewBuilder content: () -> Content) {
+        self.minimumWidth = max(140, minimumWidth)
 		self._content = content()
 	}
 	

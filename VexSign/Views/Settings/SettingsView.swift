@@ -15,6 +15,7 @@ import NimbleExtensions
 struct SettingsView: View {
     @AppStorage("vexsign.selectedCert") private var _storedSelectedCert: Int = 0
     @AppStorage(GameMode.enabledKey) private var _gameMode: Bool = false
+    @State private var _settingsQuery = ""
     @State private var _currentIcon: String? = UIApplication.shared.alternateIconName
     @ObservedObject private var _selfUpdate = SelfUpdateManager.shared
     @ObservedObject private var _updateChecker = AppUpdateChecker.shared
@@ -37,32 +38,52 @@ struct SettingsView: View {
     var body: some View {
         NBNavigationView(.localized("Settings")) {
             Form {
-                #if !NIGHTLY && !DEBUG
-                SettingsDonationCellView(site: _donationsUrl)
-                #endif
+                Group {
+                if _settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Section {
+                    NavigationLink(destination: SetupHealthView()) {
+                        Label(.localized("Setup Health"), systemImage: "checklist")
+                    }
+                }
 
-                _aboutSection
-
-                // MARK: 1. Personalization & Interface
-                NBSection(.localized("Personalization"), systemName: "paintbrush.fill") {
-                    NavigationLink(destination: AppearanceView()) {
-                        Label(.localized("Appearance"), systemImage: "paintbrush.fill")
+                // MARK: 4. Signing & Tweaks Engine (Feather / FeatherPlus / MySign)
+                NBSection(.localized("Signing & Installation"), systemName: "signature") {
+                    if let cert = selectedCertificate {
+                        CertificatesCellView(cert: cert)
+                    } else {
+                        Text(.localized("No Certificate Configured"))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
-                    NavigationLink(destination: AppIconView(currentIcon: $_currentIcon)) {
-                        Label(.localized("App Icon"), systemImage: "app.badge.fill")
+                    NavigationLink(destination: CertificatesView()) {
+                        Label(.localized("Certificates Manager"), systemImage: "checkmark.seal.fill")
                     }
-                    NavigationLink(destination: TabBarSettingsView()) {
-                        Label(.localized("Tab Bar"), systemImage: "squares.below.rectangle")
+                    NavigationLink(destination: ConfigurationView()) {
+                        Label(.localized("Signing Options"), systemImage: "signature")
                     }
-                    NavigationLink(destination: NotificationsSettingsView()) {
-                        Label(.localized("Notifications & Dynamic Island"), systemImage: "bell.badge.fill")
+                    NavigationLink(destination: AdvancedSigningSettingsView()) {
+                        Label(.localized("Advanced Signing & Patches"), systemImage: "cpu.fill")
+                    }
+                    NavigationLink(destination: SigningProfilesView()) {
+                        Label(.localized("Signing Profiles"), systemImage: "person.crop.rectangle.stack.fill")
+                    }
+                    NavigationLink {
+                        TweakLibraryList().navigationTitle(.localized("Tweaks"))
+                    } label: {
+                        Label(.localized("Tweaks & Dylibs"), systemImage: "wrench.and.screwdriver.fill")
+                    }
+                    NavigationLink(destination: FilesCompressionView()) {
+                        Label(.localized("Compression & Packaging"), systemImage: "archivebox.fill")
+                    }
+                    NavigationLink(destination: InstallationView()) {
+                        Label(.localized("Installation Engine"), systemImage: "arrow.down.app.fill")
                     }
                 } footer: {
-                    Text(.localized("Customize themes, accent tints, home screen icon, the fixed tab shell, and Live Activities."))
+                    Text(.localized("Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites."))
                 }
 
                 // MARK: 2. App Store, Downloads & Updates (FlareStore / SideStore / Ksign)
-                NBSection(.localized("App Store & Updates"), systemName: "bag.fill") {
+                NBSection(.localized("Sources & Updates"), systemName: "bag.fill") {
                     NavigationLink(destination: RefreshAndDownloadsSettingsView()) {
                         Label(.localized("Refresh & Background Sync"), systemImage: "arrow.clockwise.icloud.fill")
                     }
@@ -94,14 +115,35 @@ struct SettingsView: View {
                             }
                         }
                     }
+                } footer: {
+                    Text(.localized("Background repository refreshing, download network settings, update matching rules, and automated signing."))
+                }
+
+                NBSection(.localized("Automation"), systemName: "bolt.badge.clock.fill") {
                     NavigationLink(destination: AutomationView()) {
                         Label(.localized("Background Automation"), systemImage: "bolt.badge.clock.fill")
                     }
                     NavigationLink(destination: ShortcutsSettingsView()) {
                         Label(.localized("Siri & Shortcuts"), systemImage: "waveform")
                     }
+                }
+
+                // MARK: 1. Personalization & Interface
+                NBSection(.localized("Appearance & Notifications"), systemName: "paintbrush.fill") {
+                    NavigationLink(destination: AppearanceView()) {
+                        Label(.localized("Appearance"), systemImage: "paintbrush.fill")
+                    }
+                    NavigationLink(destination: AppIconView(currentIcon: $_currentIcon)) {
+                        Label(.localized("App Icon"), systemImage: "app.badge.fill")
+                    }
+                    NavigationLink(destination: TabBarSettingsView()) {
+                        Label(.localized("Tab Bar"), systemImage: "squares.below.rectangle")
+                    }
+                    NavigationLink(destination: NotificationsSettingsView()) {
+                        Label(.localized("Notifications & Dynamic Island"), systemImage: "bell.badge.fill")
+                    }
                 } footer: {
-                    Text(.localized("Background repository refreshing, download network settings, update matching rules, and automated signing."))
+                    Text(.localized("Customize themes, accent tints, home screen icon, the fixed tab shell, and Live Activities."))
                 }
 
                 // MARK: 3. Security, Privacy & LiveContainer Vault
@@ -155,82 +197,7 @@ struct SettingsView: View {
                     }
                     .tint(Color.userTint)
                 } footer: {
-                    Text(.localized("Features from LiveContainer, AppNest, and FlareStore. Lock specific apps with Face ID, conceal hidden applications, and block Apple revocation endpoints. Repositories must use HTTPS; the insecure HTTP option exists only for local network repositories and is off by default."))
-                }
-
-                // MARK: 4. Signing & Tweaks Engine (Feather / FeatherPlus / MySign)
-                NBSection(.localized("Signing & Patches"), systemName: "signature") {
-                    if let cert = selectedCertificate {
-                        CertificatesCellView(cert: cert)
-                    } else {
-                        Text(.localized("No Certificate Configured"))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    NavigationLink(destination: CertificatesView()) {
-                        Label(.localized("Certificates Manager"), systemImage: "checkmark.seal.fill")
-                    }
-                    NavigationLink(destination: ConfigurationView()) {
-                        Label(.localized("Signing Options"), systemImage: "signature")
-                    }
-                    NavigationLink(destination: AdvancedSigningSettingsView()) {
-                        Label(.localized("Advanced Signing & Patches"), systemImage: "cpu.fill")
-                    }
-                    NavigationLink(destination: SigningProfilesView()) {
-                        Label(.localized("Signing Profiles"), systemImage: "person.crop.rectangle.stack.fill")
-                    }
-                    NavigationLink {
-                        TweakLibraryList().navigationTitle(.localized("Tweaks"))
-                    } label: {
-                        Label(.localized("Tweaks & Dylibs"), systemImage: "wrench.and.screwdriver.fill")
-                    }
-                    NavigationLink(destination: FilesCompressionView()) {
-                        Label(.localized("Compression & Packaging"), systemImage: "archivebox.fill")
-                    }
-                    NavigationLink(destination: InstallationView()) {
-                        Label(.localized("Installation Engine"), systemImage: "arrow.down.app.fill")
-                    }
-                } footer: {
-                    Text(.localized("Configure entitlements, PPQ protection, FlareStore iOS 26/27 build SDK spoofing, dylib injection, and local loopback installation."))
-                }
-
-                // MARK: 5. LiveContainer, JIT & Services (LiveContainer / SideStore / FlareStore)
-                NBSection(.localized("LiveContainer, JIT & Tools"), systemName: "bolt.badge.automatic.fill") {
-                    NavigationLink(destination: GuidesView()) {
-                        Label(.localized("Guides"), systemImage: "book.fill")
-                    }
-                    NavigationLink(destination: JITSettingsView()) {
-                        Label(.localized("JIT & On-Device Pairing"), systemImage: "bolt.badge.automatic.fill")
-                    }
-                    NavigationLink(destination: LocationSimulatorSettingsView()) {
-                        Label(.localized("Location Simulator"), systemImage: "location.fill")
-                    }
-                    NavigationLink(destination: WebManagerView()) {
-                        Label(.localized("Web Manager & File Server"), systemImage: "externaldrive.badge.wifi")
-                    }
-                    NavigationLink(destination: IPAExplorerHomeView()) {
-                        Label(.localized("IPA Explorer"), systemImage: "doc.text.magnifyingglass")
-                    }
-                    NavigationLink(destination: EcosystemView()) {
-                        Label("Ecosystem", systemImage: "square.stack.3d.up.fill")
-                    }
-                    NavigationLink(destination: CloudSigningView()) {
-                        Label(.localized("Cloud Signing"), systemImage: "cloud.fill")
-                    }
-                    NavigationLink(destination: CompanionSettingsView()) {
-                        Label(.localized("Companion Devices"), systemImage: "applewatch")
-                    }
-                    NavigationLink(destination: GameModeView()) {
-                        HStack {
-                            Label(.localized("Game Mode"), systemImage: "gamecontroller.fill")
-                            Spacer()
-                            Text(_gameMode ? .localized("On") : .localized("Off"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } footer: {
-                    Text(.localized("JIT attachment for emulators, FlareStore location simulator, browser drag-and-drop file upload, bundle inspection, and ecosystem synchronization."))
+                    Text(.localized("Protect access to VexSign and specific library apps. Repositories use HTTPS by default. DNS filtering does not guarantee protection from certificate revocation."))
                 }
 
                 // MARK: 6. Storage & Maintenance
@@ -264,6 +231,76 @@ struct SettingsView: View {
                 } footer: {
                     Text(.localized("Inspect storage footprint, wipe cached downloads, create full backup archives, browse firmware files, and export diagnostic logs."))
                 }
+                NBSection(.localized("Companion Apps & Devices"), systemName: "arrow.triangle.branch") {
+                    NavigationLink(destination: CompanionSigningWorkflowView()) {
+                        Label(.localized("SideStore & LiveContainer"), systemImage: "arrow.triangle.branch")
+                    }
+                    NavigationLink(destination: CompanionSettingsView()) {
+                        Label(.localized("Companion Devices"), systemImage: "applewatch")
+                    }
+                } footer: {
+                    Text(.localized("External SideStore and LiveContainer workflows, plus Apple TV, Vision Pro and Watch companions."))
+                }
+
+                // MARK: 5. LiveContainer, JIT & Services (LiveContainer / SideStore / FlareStore)
+                NBSection(.localized("Advanced Tools"), systemName: "bolt.badge.automatic.fill") {
+                    NavigationLink(destination: GuidesView()) {
+                        Label(.localized("Guides"), systemImage: "book.fill")
+                    }
+                    NavigationLink(destination: JITSettingsView()) {
+                        Label(.localized("JIT & On-Device Pairing"), systemImage: "bolt.badge.automatic.fill")
+                    }
+                    NavigationLink(destination: LocationSimulatorSettingsView()) {
+                        Label(.localized("Location Simulator"), systemImage: "location.fill")
+                    }
+                    NavigationLink(destination: WebManagerView()) {
+                        Label(.localized("Web Manager & File Server"), systemImage: "externaldrive.badge.wifi")
+                    }
+                    NavigationLink(destination: IPAExplorerHomeView()) {
+                        Label(.localized("IPA Explorer"), systemImage: "doc.text.magnifyingglass")
+                    }
+                    NavigationLink(destination: EcosystemView()) {
+                        Label("Ecosystem", systemImage: "square.stack.3d.up.fill")
+                    }
+                    NavigationLink(destination: CloudSigningView()) {
+                        Label(.localized("Cloud Signing"), systemImage: "cloud.fill")
+                    }
+                    NavigationLink(destination: GameModeView()) {
+                        HStack {
+                            Label(.localized("Game Mode"), systemImage: "gamecontroller.fill")
+                            Spacer()
+                            Text(_gameMode ? .localized("On") : .localized("Off"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    Text(.localized("Pairing tools, local file transfer, app inspection and optional service integrations. Some tools require additional setup or supported hardware."))
+                }
+
+                _aboutSection
+
+                #if !NIGHTLY && !DEBUG
+                SettingsDonationCellView(site: _donationsUrl)
+                #endif
+
+                } else {
+                    _searchResults
+                }
+                }
+                .listRowBackground(Theme.card)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
+            .searchable(text: $_settingsQuery, prompt: Text(.localized("Search Settings")))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: AutomationView()) {
+                        Label(.localized("Automation"), systemImage: "bolt.badge.clock.fill")
+                    }
+                    .labelStyle(.iconOnly)
+                    .modifier(VexToolbarActionStyle())
+                }
             }
         }
     }
@@ -272,6 +309,80 @@ struct SettingsView: View {
 // MARK: - Subviews
 
 private extension SettingsView {
+    var _matchingSettings: [SettingsSearchEntry] {
+        SettingsSearchIndex.entries.filter { SettingsSearchIndex.matches($0, query: _settingsQuery) }
+    }
+
+    @ViewBuilder
+    var _searchResults: some View {
+        Section {
+            if _matchingSettings.isEmpty {
+                Label(.localized("No matching settings"), systemImage: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(_matchingSettings) { entry in
+                NavigationLink {
+                    _searchDestination(entry.id)
+                } label: {
+                    Label(entry.title, systemImage: entry.icon)
+                }
+            }
+        } header: {
+            Text(.localized("Search Results"))
+        }
+    }
+
+    @ViewBuilder
+    func _searchDestination(_ id: SettingsSearchRoute) -> some View {
+        switch id {
+        case .setupHealth: SetupHealthView()
+        case .certificates: CertificatesView()
+        case .signingOptions: ConfigurationView()
+        case .advancedSigning: AdvancedSigningSettingsView()
+        case .signingProfiles: SigningProfilesView()
+        case .compression: FilesCompressionView()
+        case .installation: InstallationView()
+        case .automation: AutomationView()
+        case .shortcuts: ShortcutsSettingsView()
+        case .appearance: AppearanceView()
+        case .appIcon: AppIconView(currentIcon: $_currentIcon)
+        case .tabBar: TabBarSettingsView()
+        case .notifications: NotificationsSettingsView()
+        case .refresh: RefreshAndDownloadsSettingsView()
+        case .downloads: DownloadsSettingsView()
+        case .updateMatching: UpdateMatchingSettingsView()
+        case .autoUpdates: FavoritesAndAutoUpdatesSettingsView()
+        case .appUpdates: UpdatesSettingsView()
+        case .appLock: AppLockSettingsView()
+        case .specificAppLock: SpecificAppLockSettingsView()
+        case .hiddenApps: HiddenAppsSettingsView()
+        case .antiRevoke: AntiRevokeSettingsView()
+        case .expiryReminders: CertificateExpirySettingsView()
+        case .guides: GuidesView()
+        case .jit: JITSettingsView()
+        case .location: LocationSimulatorSettingsView()
+        case .webManager: WebManagerView()
+        case .ipaExplorer: IPAExplorerHomeView()
+        case .ecosystem: EcosystemView()
+        case .cloudSigning: CloudSigningView()
+        case .companions: CompanionSettingsView()
+        case .gameMode: GameModeView()
+        case .diagnostics: DiagnosticsCenterView()
+        case .storage: StorageView()
+        case .cleanup: CleanupView()
+        case .backup: BackupView()
+        case .firmware: IPSWBrowserView()
+        case .deviceDiagnostics: DeviceDiagnosticsView()
+        case .logs: LogsHistoryView()
+        case .reset: ResetView()
+        case .about: AboutView()
+        case .featureStatus: FeatureStatusView()
+        case .companionSigning: CompanionSigningWorkflowView()
+        case .companionDiagnostics: CompanionSetupDiagnosticsView()
+        case .tweaks: TweakLibraryList().navigationTitle(.localized("Tweaks"))
+        }
+    }
+
     var _aboutSection: some View {
         Section {
                     NavigationLink(destination: AboutView()) {
@@ -279,7 +390,7 @@ private extension SettingsView {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(verbatim: .localized("About %@", arguments: Bundle.main.name))
                                     .font(.headline)
-                                Text("Version \(Bundle.main.version) • FlareStore & LiveContainer Edition")
+                                Text("Version \(Bundle.main.version)")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -334,14 +445,14 @@ private extension SettingsView {
     func _makeGitHubIssueURL(url: String) -> String {
         var configurationSection = "### App Configuration:\n"
         switch UserDefaults.standard.integer(forKey: "VexSign.installationMethod") {
-        case 0:
+        case .setupHealth:
             let serverMethod = UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
             let ipFix = UserDefaults.standard.bool(forKey: "VexSign.ipFix")
             let serverType = (serverMethod == 0) ? "Fully Local" : "Semi Local"
             configurationSection += "- Install method: `Server`\n"
             configurationSection += "  - Server type: `\(serverType)`\n"
             configurationSection += "  - IP Fix: `\(ipFix)`\n"
-        case 1:
+        case .certificates:
             let pairingPath = HeartbeatManager.pairingFile()
             let pairingExists = FileManager.default.fileExists(atPath: pairingPath)
             configurationSection += "- Install method: `idevice`\n"

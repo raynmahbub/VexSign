@@ -5,6 +5,7 @@
   "VexSign/Backend/Observable/AppUpdateChecker.swift": 1,
   "VexSign/Backend/Observable/AppearanceStore.swift": 1,
   "VexSign/Backend/Observable/AutoSignManager.swift": 1,
+  "VexSign/Backend/Observable/BackgroundAutomation.swift": 1,
   "VexSign/Backend/Observable/BackupManager.swift": 1,
   "VexSign/Backend/Observable/BatchCertChecker.swift": 1,
   "VexSign/Backend/Observable/CertificateStatusManager.swift": 1,

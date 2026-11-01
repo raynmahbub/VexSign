@@ -2,6 +2,178 @@ import XCTest
 @testable import VexSign
 
 final class ImportAndInstallationTests: XCTestCase {
+    func testArchiveDestinationAcceptsPayloadDirectoryAndFiles() throws {
+        let root = FileManager.default.temporaryDirectory
+        for path in ["Payload/", "Payload/Test.app/", "Payload/Test.app/Info.plist"] {
+            XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(relativePath: path, root: root))
+        }
+    }
+
+    func testArchiveDestinationRejectsEscapesAndSiblingPrefixes() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vexsign-work")
+        for path in ["../outside", "../vexsign-work-other/file"] {
+            XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: path, root: root))
+        }
+    }
+
+    func testArchiveDestinationAcceptsSymlinkedTemporaryRoot() throws {
+        let manager = FileManager.default
+        let workspace = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: workspace, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: workspace) }
+        let real = workspace.appendingPathComponent("real")
+        let alias = workspace.appendingPathComponent("alias")
+        try manager.createDirectory(at: real, withIntermediateDirectories: true)
+        try manager.createSymbolicLink(at: alias, withDestinationURL: real)
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(relativePath: "Payload/", root: alias))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: "../outside", root: alias))
+    }
+
+    func testTaskRecoveryUsesFailureStageBeforeTaskKind() {
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .download, failureStage: .signing), .signing)
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .update, failureStage: .installing), .installation)
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .sign, failureStage: .extracting), .archive)
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .install, failureStage: .downloading), .download)
+    }
+
+    func testTaskRecoveryFallsBackWithoutGuessingUpdateFailure() {
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .update, failureStage: nil), .general)
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .export, failureStage: nil), .general)
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .importIPA, failureStage: nil), .archive)
+        XCTAssertEqual(TaskRecoveryGuide.resolve(kind: .sign, failureStage: nil), .signing)
+    }
+
+    func testSideStoreHandoffPreservesHostedQueryExactly() throws {
+        let original = "https://example.com/app.ipa?token=a%2Bb&name=Test%20App&redirect=https%3A%2F%2Fexample.com%2Fdone"
+        let link = try XCTUnwrap(CompanionHandoffLink.sideStoreInstall(original))
+        let components = try XCTUnwrap(URLComponents(url: link, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(components.scheme, "sidestore")
+        XCTAssertEqual(components.host, "install")
+        XCTAssertEqual(components.queryItems?.count, 1)
+        XCTAssertEqual(components.queryItems?.first?.value, original)
+    }
+
+    func testSideStoreHandoffRejectsUnsafeInputs() {
+        for input in ["", "http://example.com/app.ipa", "file:///tmp/app.ipa", "sidestore://install", "https://user:secret@example.com/app.ipa", "https://example.com/app.ipa#fragment", "https://example.com/app\n.ipa"] {
+            XCTAssertNil(CompanionHandoffLink.sideStoreInstall(input), input)
+        }
+        XCTAssertNotNil(CompanionHandoffLink.sideStoreInstall("  https://example.com/app.ipa  "))
+    }
+
+    func testSettingsSearchCoversEachRouteExactlyOnce() {
+        let entries = SettingsSearchIndex.entries
+        XCTAssertEqual(Set(entries.map(\.id)), Set(SettingsSearchRoute.allCases))
+        XCTAssertEqual(entries.count, SettingsSearchRoute.allCases.count)
+    }
+
+    func testSettingsSearchMatchesAllTermsAndCompanionKeywords() throws {
+        let companion = try XCTUnwrap(SettingsSearchIndex.entries.first { $0.id == .companionSigning })
+        XCTAssertTrue(SettingsSearchIndex.matches(companion, query: " APPLE  login "))
+        XCTAssertFalse(SettingsSearchIndex.matches(companion, query: "apple firmware"))
+        let appearance = try XCTUnwrap(SettingsSearchIndex.entries.first { $0.id == .appearance })
+        XCTAssertTrue(SettingsSearchIndex.matches(appearance, query: "liquid glass"))
+    }
+
+    func testCompanionURLValidationExplainsRejectedInput() {
+        XCTAssertEqual(CompanionHandoffLink.issue(for: " "), .empty)
+        XCTAssertEqual(CompanionHandoffLink.issue(for: "http://example.com/app.ipa"), .requiresHTTPS)
+        XCTAssertEqual(CompanionHandoffLink.issue(for: "https://user:password@example.com/app.ipa"), .credentials)
+        XCTAssertEqual(CompanionHandoffLink.issue(for: "https://example.com/app.ipa#section"), .fragment)
+        XCTAssertEqual(CompanionHandoffLink.issue(for: "https://example.com/app name.ipa"), .malformed)
+        XCTAssertNil(CompanionHandoffLink.issue(for: "https://example.com/app%20name.ipa"))
+    }
+
+    func testCompanionDestinationSummaryNeverIncludesQueryTokens() {
+        XCTAssertEqual(CompanionHandoffLink.destinationHost(for: "https://example.com/private/app.ipa?token=secret"), "example.com")
+        XCTAssertNil(CompanionHandoffLink.destinationHost(for: "https://user:password@example.com/app.ipa"))
+    }
+
+    func testCompanionIntegrityRequiresComputedMatchingHashWhenRequested() {
+        let hash = String(repeating: "a", count: 64)
+        XCTAssertEqual(CompanionIPAIntegrity.evaluate(expected: "", actual: nil), .notRequested)
+        XCTAssertTrue(CompanionIPAIntegrity.notRequested.allowsSharing)
+        XCTAssertEqual(CompanionIPAIntegrity.evaluate(expected: hash, actual: nil), .needsFingerprint)
+        XCTAssertFalse(CompanionIPAIntegrity.needsFingerprint.allowsSharing)
+        XCTAssertEqual(CompanionIPAIntegrity.evaluate(expected: "SHA256:" + hash.uppercased(), actual: hash), .matches)
+        XCTAssertTrue(CompanionIPAIntegrity.matches.allowsSharing)
+        XCTAssertEqual(CompanionIPAIntegrity.evaluate(expected: hash, actual: String(repeating: "b", count: 64)), .mismatch)
+        XCTAssertFalse(CompanionIPAIntegrity.mismatch.allowsSharing)
+    }
+
+    func testCompanionIntegrityRejectsMalformedExpectedHashes() {
+        for value in ["sha256:", "abc", String(repeating: "g", count: 64), String(repeating: "a", count: 63), String(repeating: "a", count: 65)] {
+            XCTAssertEqual(CompanionIPAIntegrity.evaluate(expected: value, actual: nil), .invalidExpectedHash)
+        }
+        XCTAssertFalse(CompanionIPAIntegrity.invalidExpectedHash.allowsSharing)
+    }
+
+    func testCompanionStagerCopiesBytesWithoutChangingSource() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) }
+        let source = root.appendingPathComponent("Test.ipa")
+        let contents = Data(repeating: 0xab, count: (1 << 20) + 17)
+        try contents.write(to: source)
+        let destination = try CompanionIPAStager.copy(source, temporaryRoot: root)
+        XCTAssertNotEqual(source, destination)
+        XCTAssertEqual(try Data(contentsOf: destination), contents)
+        XCTAssertEqual(try Data(contentsOf: source), contents)
+    }
+
+    func testCompanionStagerHonorsCancellationBeforeCreatingFiles() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let operation = Task.detached {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try CompanionIPAStager.copy(root.appendingPathComponent("missing.ipa"), temporaryRoot: root)
+        }
+        do {
+            _ = try await operation.value
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+        } catch {
+            XCTFail("Expected cancellation, received \(error)")
+        }
+    }
+
+    func testTaskHistorySearchMatchesEveryTermAndFailureStage() {
+        let task = UnifiedTask(id: "task", kind: .update, title: "Example App", phase: .failed)
+        task.failureStage = .signing
+        task.errorText = "Profile expired"
+        XCTAssertEqual(TaskHistoryQuery.results([task], query: "EXAMPLE expired", sort: .latest).count, 1)
+        XCTAssertTrue(TaskHistoryQuery.results([task], query: "example network", sort: .latest).isEmpty)
+        XCTAssertEqual(TaskHistoryQuery.results([task], query: "  ", sort: .latest).count, 1)
+    }
+
+    func testTaskHistorySortIsStableAndRemovesDuplicateIDs() {
+        let first = UnifiedTask(id: "a", kind: .download, title: "Zebra")
+        let second = UnifiedTask(id: "b", kind: .download, title: "Alpha")
+        first.updatedAt = Date(timeIntervalSince1970: 10)
+        second.updatedAt = Date(timeIntervalSince1970: 20)
+        let tasks = [first, second, first]
+        XCTAssertEqual(TaskHistoryQuery.results(tasks, query: "", sort: .latest).map(\.id), ["b", "a"])
+        XCTAssertEqual(TaskHistoryQuery.results(tasks, query: "", sort: .oldest).map(\.id), ["a", "b"])
+        XCTAssertEqual(TaskHistoryQuery.results(tasks, query: "", sort: .name).map(\.id), ["b", "a"])
+    }
+
+    func testCertificateInputReaderRejectsOversizeAndNonFiles() throws {
+        let file = try temporaryFile(Data(repeating: 0x41, count: 33))
+        XCTAssertThrowsError(try CertificateInputReader.read(file, maximumBytes: 32))
+        XCTAssertThrowsError(try CertificateInputReader.read(FileManager.default.temporaryDirectory))
+        XCTAssertThrowsError(try CertificateInputReader.read(file, maximumBytes: 0))
+        XCTAssertEqual(try CertificateInputReader.read(file, maximumBytes: 33).count, 33)
+    }
+
+    func testTruncatedPKCS12InputsFailWithoutNativeRevocationCheck() throws {
+        let profile = try temporaryFile(profileData())
+        let samples: [[UInt8]] = [[0x30], [0x30, 0x82, 0xff, 0xff], [0x30, 0x03, 0x02, 0x01, 0x03]]
+        for bytes in samples {
+            let key = try temporaryFile(Data(bytes))
+            XCTAssertFalse(FR.checkPasswordForCertificate(for: key, with: "", using: profile))
+        }
+    }
+
     private func profileData() throws -> Data {
         // Older valid profiles do not have DER-Encoded-Profile.
         let profile: [String: Any] = [

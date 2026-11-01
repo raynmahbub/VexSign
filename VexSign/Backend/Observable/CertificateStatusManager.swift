@@ -185,6 +185,7 @@ final class CertificateStatusManager: ObservableObject {
 	/// identifiers, never the p12 or its password.
 	func refreshRevocation(for cert: CertificatePair, force: Bool = true) {
 		guard
+            !cert.isDeleted, cert.managedObjectContext != nil,
 			let uuid = cert.uuid,
 			let p12URL = Storage.shared.getFile(.certificate, from: cert),
 			let profileURL = Storage.shared.getFile(.provision, from: cert)
@@ -197,7 +198,10 @@ final class CertificateStatusManager: ObservableObject {
 
 		refreshingRevocationIDs.insert(uuid)
 
-		let password = cert.signingPassword ?? ""
+        guard let password = cert.signingPassword else {
+            refreshingRevocationIDs.remove(uuid)
+            return
+        }
 		let name = cert.nickname ?? String.localized("Certificate")
 
 		Task {
@@ -214,6 +218,11 @@ final class CertificateStatusManager: ObservableObject {
 				return
 			}
 
+            guard !cert.isDeleted, cert.managedObjectContext != nil else { return }
+            if health.revocation == .revoked {
+                cert.revoked = true
+                Storage.shared.saveContext()
+            }
 			revocationSnapshots[uuid] = CertificateRevocationSnapshot(
 				status: CertificateStatusValue(revocation: health.revocation),
 				detail: health.detail,
@@ -223,22 +232,11 @@ final class CertificateStatusManager: ObservableObject {
 		}
 	}
 
-	/// Runs the stored-row revocation check and then the OCSP check.
-	func refreshStatus(for cert: CertificatePair, forceRevocation: Bool = true) {
-		guard let uuid = cert.uuid else { return }
-
-		if !refreshingDeviceStatusIDs.contains(uuid) {
-			refreshingDeviceStatusIDs.insert(uuid)
-
-			Storage.shared.revokagedCertificate(for: cert) { _ in
-				Task { @MainActor in
-					self.refreshingDeviceStatusIDs.remove(uuid)
-				}
-			}
-		}
-
-		refreshRevocation(for: cert, force: forceRevocation)
-	}
+    /// One system-trust check only; importing must not launch the unsafe native
+    /// checker in parallel with CertificateInspector.
+    func refreshStatus(for cert: CertificatePair, forceRevocation: Bool = true) {
+        refreshRevocation(for: cert, force: forceRevocation)
+    }
 
 	func removeRevocationSnapshot(for cert: CertificatePair) {
 		guard let uuid = cert.uuid else { return }

@@ -82,17 +82,22 @@ struct ArchiveSafetyValidator {
             }
             uncompressedBytes += entry.uncompressedSize
 
-            // Also verify the normalized destination stays contained. This is
-            // defense in depth for unusual Unicode or separator combinations.
-            let relativePath = components.map(String.init).joined(separator: "/")
-            let candidate = root.appendingPathComponent(relativePath)
-                .standardizedFileURL.path
-            let rootPath = root.standardizedFileURL.path.hasSuffix("/")
-                ? root.standardizedFileURL.path
-                : root.standardizedFileURL.path + "/"
-            if !candidate.hasPrefix(rootPath) && candidate != root.standardizedFileURL.path {
-                throw ValidationError.traversalPath(path)
-            }
+            try validateDestination(relativePath: components.map(String.init).joined(separator: "/"), root: root)
+
         }
     }
+    /// Normalize the base before appending, so Foundation cannot resolve an
+    /// alias such as /var -> /private/var on only one side of the comparison.
+    /// Compare path components, not string prefixes ("work-other" is not "work").
+    static func validateDestination(relativePath: String, root: URL) throws {
+        let base = root.resolvingSymlinksInPath().standardizedFileURL
+        let destination = base.appendingPathComponent(relativePath)
+            .resolvingSymlinksInPath().standardizedFileURL
+        let baseComponents = base.pathComponents
+        let destinationComponents = destination.pathComponents
+        guard destinationComponents.starts(with: baseComponents) else {
+            throw ValidationError.traversalPath(relativePath)
+        }
+    }
+
 }

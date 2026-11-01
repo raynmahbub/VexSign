@@ -171,7 +171,8 @@ final class CleanupManager: ObservableObject {
 	/// - Parameters:
 	///   - source: the app that was signed, when the caller did not already delete it.
 	///   - signed: the freshly signed copy.
-	///   - keepsSignedApp: `true` when the signed app was queued for install and must survive.
+	///   - keepsSignedApp: `true` when install/export needs the signed bundle, or the user
+	///     explicitly chose to keep and view it in Library.
 	func runAfterSign(
 		source: AppInfoPresentable?,
 		signed: AppInfoPresentable?,

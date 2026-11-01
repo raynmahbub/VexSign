@@ -41,12 +41,15 @@ struct LibraryCellView: View {
 	@State private var _cloneApp: AnyApp?
 	/// LiveContainer / AppNest customization sheet
 	@State private var _customizingApp: AnyApp?
+    @State private var _companionApp: AnyApp?
 
 	@Binding var selectedInfoAppPresenting: AnyApp?
 	@Binding var selectedSigningAppPresenting: AnyApp?
 	@Binding var selectedAppUUIDs: Set<String>
 	var isHighlighted: Bool = false
 	var onSelectMore: (() -> Void)?
+    var isIconTile = false
+    @State private var confirmDelete = false
 	
 	// MARK: Selections
 	private var _isSelected: Bool {
@@ -69,6 +72,10 @@ struct LibraryCellView: View {
 		let isRegular = horizontalSizeClass != .compact
 		let isEditing = editMode?.wrappedValue == .active
 		
+        Group {
+            if isIconTile {
+                iconTile
+            } else {
 		HStack(spacing: NBSpacing.row) {
 			if isEditing {
 				Button {
@@ -81,12 +88,12 @@ struct LibraryCellView: View {
 				.buttonStyle(.borderless)
 			}
 			
-			FRAppIconView(app: app, size: 57)
+			FRAppIconView(app: app, size: 48)
 			
 			NBTitleWithSubtitleView(
 				title: app.name ?? .localized("Unknown"),
 				subtitle: _desc,
-				linelimit: 0
+				linelimit: 2
 			)
 			
 			if !isEditing {
@@ -95,8 +102,23 @@ struct LibraryCellView: View {
 				_buttonActions(for: app)
 			}
 		}
-		.padding(isRegular ? NBSpacing.cellPadding : 0)
+            }
+        }
+		.padding(isIconTile ? 0 : (isRegular ? NBSpacing.cellPadding : 0))
 		.background(_cellBackground(isRegular: isRegular, isEditing: isEditing))
+        .confirmationDialog(.localized("Delete app?"), isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button(.localized("Delete"), role: .destructive) { Storage.shared.deleteApp(for: app) }
+            Button(.localized("Cancel"), role: .cancel) {}
+        } message: {
+            Text(.localized("This removes the stored copy from your Library, not the installed app on your device."))
+        }
+        .overlay {
+            if isIconTile {
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .stroke(Theme.separator, lineWidth: 0.5)
+                    .allowsHitTesting(false)
+            }
+        }
 		.contentShape(Rectangle())
 		.onAppear { _status.request(app) }
 		.onTapGesture {
@@ -148,6 +170,11 @@ struct LibraryCellView: View {
 		.sheet(item: $_customizingApp) { item in
 			AppCustomizationSheet(app: item.base)
 		}
+        .sheet(item: $_companionApp) { target in
+            NavigationStack {
+                CompanionSigningWorkflowView(libraryApp: target)
+            }
+        }
 		.contextMenu {
 			if !isEditing {
 				_contextActions(for: app)
@@ -189,13 +216,31 @@ struct LibraryCellView: View {
 		}
 	}
 
+    private var iconTile: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            FRAppIconView(app: app, size: 64)
+            Text(app.name ?? .localized("Application"))
+                .font(.headline).lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(_desc).font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) { _appStoreBadge }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(Theme.Spacing.cardPadding)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text(.localized("Open app details. More actions are available in the context menu.")))
+    }
+
 	// Single row background so highlight and card share one shape/radius.
 	@ViewBuilder
 	private func _cellBackground(isRegular: Bool, isEditing: Bool) -> some View {
-		let radius = isRegular ? NBRadius.card : NBRadius.medium
+        let radius = isIconTile ? Theme.Radius.card : (isRegular ? NBRadius.card : NBRadius.medium)
 		let fill: Color = {
 			if isHighlighted { return Color.accentColor.opacity(0.3) }
 			if _isSelected && isEditing { return Color.accentColor.opacity(0.1) }
+            if isIconTile { return Theme.card }
 			return isRegular ? Color(.quaternarySystemFill) : .clear
 		}()
 
@@ -278,21 +323,19 @@ struct LibraryCellView: View {
 	}
 
 	private var _desc: String {
-		if let version = app.version, let id = app.identifier {
-			return "\(version) • \(id)"
-		} else {
-			return .localized("Unknown")
-		}
-	}
+        let version = app.version ?? .localized("Unknown version")
+        let state: String = app.isSigned ? .localized("Signed copy") : .localized("Imported copy")
+        return version + " · " + state
+    }
 }
 
 // MARK: - Extension: View
 extension LibraryCellView {
 	@ViewBuilder
 	private func _actions(for app: AppInfoPresentable) -> some View {
-		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
-			Storage.shared.deleteApp(for: app)
-		}
+        Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
+            confirmDelete = true
+        }
 	}
 	
 	@ViewBuilder
@@ -337,6 +380,19 @@ extension LibraryCellView {
 	
 	@ViewBuilder
 	private func _contextActionsExtra(for app: AppInfoPresentable) -> some View {
+        Button(.localized("SideStore & LiveContainer"), systemImage: "arrow.triangle.branch") {
+            let present = {
+                Presentation.afterDismiss { _companionApp = AnyApp(base: app) }
+            }
+            if let uuid = app.uuid, lockManager.isAppLocked(uuid), !lockManager.isSessionUnlocked(uuid) {
+                lockManager.authenticateForApp(uuid: uuid, name: app.name ?? .localized("Application")) { success in
+                    if success { present() }
+                }
+            } else {
+                present()
+            }
+        }
+
 		Button(.localized("Browse Files"), systemImage: "doc.text.magnifyingglass") {
 			Presentation.afterDismiss { _explorerApp = AnyApp(base: app) }
 		}

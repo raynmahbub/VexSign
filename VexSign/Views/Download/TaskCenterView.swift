@@ -16,6 +16,9 @@ import NimbleExtensions
 struct TaskCenterView: View {
 	@ObservedObject private var center = UnifiedTaskCenter.shared
 	@State private var filter: TaskFilter = .active
+    @State private var confirmClear = false
+    @State private var query = ""
+    @State private var sort: TaskHistorySort = .latest
 
 	enum TaskFilter: String, CaseIterable, Identifiable {
 		case active = "Active"
@@ -23,9 +26,17 @@ struct TaskCenterView: View {
 		case history = "History"
 		case all = "All"
 		var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .active: return .localized("Active")
+            case .failed: return .localized("Failed")
+            case .history: return .localized("History")
+            case .all: return .localized("All")
+            }
+        }
 	}
 
-	private var filteredTasks: [UnifiedTask] {
+	private var scopedTasks: [UnifiedTask] {
 		switch filter {
 		case .active: return center.tasks.filter { $0.phase.isInProgress }
 		case .failed: return (center.tasks + center.history).filter { $0.phase == .failed }
@@ -34,13 +45,21 @@ struct TaskCenterView: View {
 		}
 	}
 
+    private var filteredTasks: [UnifiedTask] {
+        TaskHistoryQuery.results(scopedTasks, query: query, sort: sort)
+    }
+
+    private var isSearching: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
 	var body: some View {
 		NBNavigationView(.localized("Task Center"), displayMode: .inline) {
 			List {
 				Section {
 					Picker(.localized("Show"), selection: $filter) {
 						ForEach(TaskFilter.allCases) { f in
-							Text(f.rawValue).tag(f)
+							Text(f.title).tag(f)
 						}
 					}
 					.pickerStyle(.segmented)
@@ -48,11 +67,23 @@ struct TaskCenterView: View {
 					.listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
 				}
 
+                Section {
+                    Picker(.localized("Sort tasks"), selection: $sort) {
+                        ForEach(TaskHistorySort.allCases) { order in
+                            Text(order.title).tag(order)
+                        }
+                    }
+                    LabeledContent(.localized("In progress"), value: center.tasks.filter { $0.phase.isInProgress }.count.description)
+                    LabeledContent(.localized("Failed"), value: (center.tasks + center.history).filter { $0.phase == .failed }.count.description)
+                }
+
 				if filteredTasks.isEmpty {
 					NBContentUnavailable(
-						.localized("No Tasks"),
-						systemImage: "checkmark.circle",
-						description: .localized("Downloads, imports, signing jobs and installations appear here with their exact stage.")
+                        isSearching ? .localized("No matching tasks") : .localized("No Tasks"),
+                        systemImage: isSearching ? "magnifyingglass" : "checkmark.circle",
+                        description: isSearching
+                            ? .localized("Search applies to the selected filter. Try fewer words or switch to All.")
+                            : .localized("Downloads, imports, signing jobs and installations appear here with their exact stage.")
 					)
 					.listRowBackground(Color.clear)
 				} else {
@@ -64,7 +95,7 @@ struct TaskCenterView: View {
 				if !center.history.isEmpty {
 					Section {
 						Button(role: .destructive) {
-							center.clearHistory()
+							confirmClear = true
 						} label: {
 							Label(.localized("Clear Task History"), systemImage: "trash")
 						}
@@ -73,7 +104,13 @@ struct TaskCenterView: View {
 					}
 				}
 			}
+            .searchable(text: $query, prompt: Text(.localized("Search tasks, stages or errors")))
+            .scrollDismissesKeyboard(.interactively)
 		}
+        .confirmationDialog(.localized("Clear Task History?"), isPresented: $confirmClear) {
+            Button(.localized("Clear Task History"), role: .destructive) { center.clearHistory() }
+            Button(.localized("Cancel"), role: .cancel) {}
+        }
 	}
 }
 
@@ -82,8 +119,10 @@ struct TaskCenterView: View {
 private struct TaskRow: View {
 	@ObservedObject private var center = UnifiedTaskCenter.shared
 	let task: UnifiedTask
+    @State private var expanded = false
 
 	var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
 		HStack(spacing: 12) {
 			ZStack {
 				RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -96,9 +135,9 @@ private struct TaskRow: View {
 
 			VStack(alignment: .leading, spacing: 4) {
 				HStack(spacing: 6) {
-					Text(task.title)
+					Text(LogRedaction.redact(task.title))
 						.font(.subheadline.weight(.semibold))
-						.lineLimit(1)
+						.lineLimit(2)
 					phaseBadge
 				}
 
@@ -111,7 +150,7 @@ private struct TaskRow: View {
 
 				if let error = task.errorText, !error.isEmpty {
 					// Always icon + text, never color alone.
-					Label(error, systemImage: "exclamationmark.triangle.fill")
+					Label(LogRedaction.redact(error), systemImage: "exclamationmark.triangle.fill")
 						.font(.caption2)
 						.foregroundStyle(.orange)
 						.lineLimit(2)
@@ -125,7 +164,7 @@ private struct TaskRow: View {
 
 			Spacer(minLength: 8)
 
-			if task.phase == .failed || task.phase == .cancelled {
+			if center.canRetry(task) {
 				Button {
 					_ = center.retry(task)
 				} label: {
@@ -135,10 +174,73 @@ private struct TaskRow: View {
 				.accessibilityLabel(Text(.localized("Retry")))
 			}
 		}
-		.padding(.vertical, 2)
-		.accessibilityElement(children: .combine)
-		.accessibilityLabel(Text(verbatim: "\(task.title), \(task.phase.title)\(task.errorText.map { ", \($0)" } ?? "")"))
+        DisclosureGroup(.localized("Task Details"), isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                LabeledContent(.localized("Started")) { Text(task.createdAt, style: .time) }
+                LabeledContent(.localized("Last updated")) { Text(task.updatedAt, style: .relative) }
+                if let stage = task.failureStage {
+                    LabeledContent(.localized("Failure stage"), value: stage.title)
+                }
+                if let error = task.errorText, !error.isEmpty {
+                    Text(LogRedaction.redact(error)).font(.caption.monospaced()).textSelection(.enabled)
+                }
+                Text(TaskReceipt.outcome(for: task)).foregroundStyle(.secondary)
+                Button {
+                    UIPasteboard.general.string = TaskReceipt.report(for: task)
+                    Toast.success(.localized("Copied"))
+                } label: {
+                    Label(.localized("Copy Redacted Report"), systemImage: "doc.on.doc")
+                }
+                if task.phase == .failed {
+                    recoveryActions
+                }
+                if (task.phase == .failed || task.phase == .cancelled) && !center.canRetry(task) {
+                    Text(.localized("Retry is unavailable for this saved task. Restart the action from its original app or download screen."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if task.phase.isInProgress && task.progress < 0 {
+                    ProgressView().accessibilityLabel(Text(.localized("Working")))
+                }
+            }
+            .padding(.top, 6)
+        }
+        .font(.caption)
+        }
+        .padding(.vertical, 2)
 	}
+
+    @ViewBuilder
+    private var recoveryActions: some View {
+        let guide = TaskRecoveryGuide.resolve(kind: task.kind, failureStage: task.failureStage)
+        Text(.localized("Suggested next steps")).font(.caption.bold())
+        Text(guide.detail).font(.caption).foregroundStyle(.secondary)
+        switch guide {
+        case .download:
+            NavigationLink(destination: DownloadsSettingsView()) {
+                Label(.localized("Download Manager"), systemImage: "arrow.down.circle")
+            }
+        case .archive:
+            NavigationLink(destination: StorageView()) {
+                Label(.localized("Storage Breakdown"), systemImage: "internaldrive")
+            }
+        case .signing:
+            NavigationLink(destination: CertificatesView()) {
+                Label(.localized("Certificates Manager"), systemImage: "checkmark.seal")
+            }
+            NavigationLink(destination: ConfigurationView()) {
+                Label(.localized("Signing Options"), systemImage: "signature")
+            }
+        case .installation:
+            NavigationLink(destination: InstallationView()) {
+                Label(.localized("Installation Engine"), systemImage: "arrow.down.app")
+            }
+        case .general:
+            EmptyView()
+        }
+        NavigationLink(destination: LogsHistoryView()) {
+            Label(.localized("Activity Logs"), systemImage: "text.alignleft")
+        }
+    }
 
 	private var phaseColor: Color {
 		switch task.phase {

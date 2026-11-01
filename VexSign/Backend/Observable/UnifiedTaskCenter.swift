@@ -91,6 +91,44 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 	var isInProgress: Bool { !isTerminal }
 }
 
+/// Stage-based suggestions, not a diagnosis. Never infer security decisions
+/// from localized error text or recommend bypassing verification.
+enum TaskRecoveryGuide: Equatable {
+    case download, archive, signing, installation, general
+
+    static func resolve(kind: UnifiedTaskKind, failureStage: UnifiedTaskPhase?) -> Self {
+        switch failureStage {
+        case .downloading: return .download
+        case .extracting: return .archive
+        case .signing: return .signing
+        case .installing: return .installation
+        default:
+            switch kind {
+            case .download: return .download
+            case .importIPA: return .archive
+            case .sign: return .signing
+            case .install: return .installation
+            case .update, .export: return .general
+            }
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .download:
+            return .localized("Check connectivity, available storage and download conditions. Confirm the source still provides the file before retrying.")
+        case .archive:
+            return .localized("Download a fresh IPA from a trusted source and check available storage. Unsafe paths, unsupported links or a corrupt archive must be fixed at the source; do not disable archive validation.")
+        case .signing:
+            return .localized("Review certificate expiry, provisioning-profile scope, entitlements and injected tweaks. Use Activity Logs to identify the failing step before retrying.")
+        case .installation:
+            return .localized("Review the selected installation method. Local HTTPS needs device trust and connectivity; idevice needs a valid pairing file and running VPN. Signing success alone does not prove installation succeeded.")
+        case .general:
+            return .localized("Review the recorded failure stage and Activity Logs, then restart the action from its original screen if retry is unavailable.")
+        }
+    }
+}
+
 /// A single task. Reference type so in-place progress updates publish
 /// through the center without diffing the whole list.
 ///
@@ -255,11 +293,15 @@ final class UnifiedTaskCenter: ObservableObject {
 		retryHandlers[task.id] = handler
 	}
 
+    func canRetry(_ task: UnifiedTask) -> Bool {
+        (task.phase == .failed || task.phase == .cancelled) && retryHandlers[task.id] != nil
+    }
+
 	/// Retry a failed/cancelled task when its flow registered a handler.
 	/// Returns false when no live handler exists (e.g. after a relaunch).
 	@discardableResult
 	func retry(_ task: UnifiedTask) -> Bool {
-		guard let handler = retryHandlers[task.id] else { return false }
+		guard canRetry(task), let handler = retryHandlers[task.id] else { return false }
 		// Move back to the front as a fresh attempt.
 		retryHandlers.removeValue(forKey: task.id)
 		if let index = tasks.firstIndex(where: { $0.id == task.id }) {

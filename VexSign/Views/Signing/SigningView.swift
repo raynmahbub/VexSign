@@ -15,6 +15,17 @@ struct SigningView: View {
 	@State private var _temporaryOptions: Options = OptionsManager.shared.options
 	@State private var _temporaryCertificate: Int
 	@State private var _isSigning = false
+    @State private var _currentStage: SigningStage?
+    @State private var _reachedStages: Set<SigningStage> = []
+    @State private var _signingError: String?
+    @State private var _preflightResult: PreflightResult?
+    @State private var _showPreflight = false
+    @State private var _signAfterReview = false
+    @State private var _reviewedSetup: SigningPreflightSnapshot?
+    @State private var _didSign = false
+    @State private var _wasCancelled = false
+    @State private var _completionAction: ((SigningCompletionAction) -> Void)?
+    @Environment(\.accessibilityReduceMotion) private var _reduceMotion
 	@State private var _isLogPresenting = false
 	@State private var _postSignAction: (() -> Void)?
 	@State var appIcon: UIImage?
@@ -72,9 +83,37 @@ struct SigningView: View {
 
 	// MARK: Body
     var body: some View {
-		NBNavigationView("", displayMode: .inline) {
+		NBNavigationView(.localized("Signing"), displayMode: .inline) {
 			ScrollViewReader { proxy in
-				Form {
+                Form {
+                    Section {
+                        SigningWorkflowView(
+                            reached: _reachedStages, current: _currentStage,
+                            running: _isSigning, succeeded: _didSign || _postSignAction != nil,
+                            failed: _signingError != nil, cancelled: _wasCancelled
+                        )
+                    }
+                    if _didSign {
+                        Section {
+                            Label(.localized("Signing complete"), systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                                .font(.title2.weight(.semibold))
+                            Text(.localized("The signing pipeline completed. This does not confirm installation on your device."))
+                                .foregroundStyle(.secondary)
+                            Text(.localized("Install, share the IPA or view the signed copy in Library. Done applies your existing cleanup preferences."))
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        if let error = _signingError {
+                            Section {
+                                Label(.localized("Signing failed"), systemImage: "exclamationmark.triangle")
+                                    .font(.headline)
+                                Text(error).font(.caption.monospaced()).textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(.localized("Review the error and logs, adjust your options, then try again."))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
 					SigningCustomizationView(
 						app: app,
 						options: $_temporaryOptions,
@@ -88,79 +127,26 @@ struct SigningView: View {
 						certificate: _selectedCert(),
 						scrollProxy: proxy
 					)
-
-					// horrible
-					Rectangle()
-						.foregroundStyle(.clear)
-						.frame(height: 30)
-						.listRowBackground(EmptyView())
+                    }
 				}
+                .scrollContentBackground(.hidden)
+                .background(Theme.background)
 			}
 			.disabled(_isSigning)
-			.animation(.smooth, value: _isSigning)
-			.overlay {
-				VStack(spacing: 0) {
-					Spacer()
-					NBVariableBlurView()
-						.frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 60 : 80)
-						.rotationEffect(.degrees(180))
-						.overlay {
-							HStack(spacing: 12) {
-								if _isSigning {
-									Button {
-										_stopSigning()
-									} label: {
-										Image(systemName: "stop.fill")
-											.font(.headline)
-											.foregroundStyle(.red)
-											.frame(width: 46, height: 46)
-											.background(.ultraThinMaterial, in: Circle())
-									}
-									.buttonStyle(.plain)
-									.accessibilityLabel(.localized("Stop Signing"))
-									.accessibilityIdentifier(A11y.Signing.stop)
-									.transition(.scale.combined(with: .opacity))
-								}
-
-									Button {
-										if _isSigning {
-											_isLogPresenting = true
-										} else {
-											_start()
-										}
-									} label: {
-										NBSheetButton(title: .localized(_isSigning ? "Show Logs" : "Start Signing"), style: .prominent)
-											.overlay(alignment: .trailing) {
-												if _isSigning {
-													ProgressView()
-														.progressViewStyle(.circular)
-														.tint(.white)
-														.padding(.trailing, 28)
-														.allowsHitTesting(false)
-														.accessibilityIdentifier(A11y.Signing.progress)
-												}
-											}
-											.padding()
-									}
-									.buttonStyle(.plain)
-									.accessibilityIdentifier(A11y.Signing.start)
-								}
-							.offset(y: UIDevice.current.userInterfaceIdiom == .pad ? -20 : -40)
-							.animation(.smooth, value: _isSigning)
-						}
-				}
-				.ignoresSafeArea(edges: .bottom)
-			}
+            .animation(_reduceMotion ? nil : .easeInOut(duration: 0.18), value: _isSigning)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                signingActionPanel
+            }
 
 			.toolbar {
-				NBToolbarButton(role: .dismiss)
-				ToolbarItem(placement: .principal) {
-					Image("Glyph")
-						.resizable()
-						.scaledToFit()
-						.frame(height: 38)
-						.foregroundStyle(.primary)
-				}
+                if _didSign {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(.localized("Done")) { _finishCompletion() }
+                    }
+                } else {
+                    NBToolbarButton(role: .dismiss)
+                }
+
 				ToolbarItemGroup(placement: .topBarTrailing) {
 					Menu {
 						Button {
@@ -202,11 +188,36 @@ struct SigningView: View {
 					} label: {
 						Image(systemName: "ellipsis.circle")
 					}
+                    .disabled(_isSigning || _didSign)
 				}
 			}
+            .sheet(isPresented: $_showPreflight, onDismiss: {
+                if _signAfterReview {
+                    _signAfterReview = false
+                    let current = PreflightChecks.run(app: app, options: _temporaryOptions, certificate: _selectedCert())
+                    guard _reviewedSetup?.matches(options: _temporaryOptions,
+                        certificateUUID: _selectedCert()?.uuid, issues: current.issues) == true else {
+                        Toast.info(.localized("Signing setup changed. Review it again before starting."))
+                        return
+                    }
+                    _beginSign()
+                }
+            }) {
+                if let result = _preflightResult {
+                    SigningPreflightReviewView(
+                        app: app, options: _temporaryOptions, certificate: _selectedCert(), result: result,
+                        reviewOptions: { _showPreflight = false },
+                        sign: {
+                            _signAfterReview = true
+                            _showPreflight = false
+                        }
+                    )
+                }
+            }
 			.sheet(isPresented: $_isLogPresenting, onDismiss: {
-				_postSignAction?()
-				_postSignAction = nil
+                let action = _postSignAction
+                _postSignAction = nil
+                action?()
 			}) {
 				SigningLogView()
 				.accessibilityIdentifier(A11y.Signing.console)
@@ -215,12 +226,99 @@ struct SigningView: View {
 			}
 		}
 		.onAppear { _temporaryOptions = _temporaryOptions.resolved(for: app) }
-		.onDisappear { UIApplication.shared.endEditing() }
+        .interactiveDismissDisabled(_isSigning || _didSign)
+        .onDisappear {
+            UIApplication.shared.endEditing()
+            // Preserve cleanup if the parent removes this workspace after success.
+            if _completionAction != nil { _finishCompletion() }
+        }
     }
 }
 
 // MARK: - Extension: View
 extension SigningView {
+    private func _finishCompletion(_ intent: SigningCompletionAction = .done) {
+        let action = _completionAction
+        _completionAction = nil
+        action?(intent)
+    }
+
+    private var signingActionPanel: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            if _isSigning {
+                HStack(spacing: Theme.Spacing.medium) {
+                    ProgressView().accessibilityIdentifier(A11y.Signing.progress)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                        Text(_currentStage?.title ?? .localized("Preparing signing request"))
+                            .font(.headline)
+                        Text(.localized("Signing is separate from installation."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if _didSign {
+                Label(.localized("Signing complete — installation not confirmed"), systemImage: "checkmark.seal")
+                    .font(.subheadline.weight(.semibold))
+            } else if _signingError != nil {
+                Label(.localized("Signing failed. Review the details above or open logs."), systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.red)
+            } else if _wasCancelled {
+                Label(.localized("Signing cancelled"), systemImage: "stop.circle")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            WorkspaceActionGroup { signingPanelButtons }
+        }
+        .padding(Theme.Spacing.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.card)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    @ViewBuilder
+    private var signingPanelButtons: some View {
+        if _didSign {
+            Button { _finishCompletion(.install) } label: {
+                Label(.localized("Install"), systemImage: "square.and.arrow.down")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            Menu {
+                Button { _finishCompletion(.share) } label: {
+                    Label(.localized("Share IPA"), systemImage: "square.and.arrow.up")
+                }
+                Button { _finishCompletion(.library) } label: {
+                    Label(.localized("View in Library"), systemImage: "books.vertical")
+                }
+                Button(.localized("Done")) { _finishCompletion() }
+            } label: {
+                Label(.localized("More"), systemImage: "ellipsis.circle")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+        } else if _isSigning {
+            Button(role: .destructive) { _stopSigning() } label: {
+                Label(.localized("Stop Signing"), systemImage: "stop.fill")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier(A11y.Signing.stop)
+        } else {
+            Button { _start() } label: {
+                Label(.localized("Start Signing"), systemImage: "signature")
+                    .font(.headline).frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier(A11y.Signing.start)
+        }
+        if _isSigning || _signingError != nil || _didSign || _wasCancelled {
+            Button { _isLogPresenting = true } label: {
+                Label(.localized("Show Logs"), systemImage: "text.alignleft")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
 	@ViewBuilder
 	private func _cert() -> some View {
 		NBSection(.localized("Signing")) {
@@ -233,11 +331,13 @@ extension SigningView {
 						target: _compatibilityTarget
 					)
 				}
-			} else {
-				Text(.localized("No Certificate"))
-					.font(.footnote)
-					.foregroundColor(.disabled())
-			}
+            } else {
+                NavigationLink {
+                    CertificatesView(selectedCert: $_temporaryCertificate, target: _compatibilityTarget)
+                } label: {
+                    Label(.localized("Choose Certificate"), systemImage: "checkmark.seal")
+                }
+            }
 		}
 	}
 }
@@ -264,40 +364,10 @@ extension SigningView {
 			options: _temporaryOptions,
 			certificate: _selectedCert()
 		)
-		if preflight.hasBlocking {
-			let lines = preflight.issues
-				.filter { $0.severity == .blocking }
-				.map { "• \($0.title): \($0.detail)" }
-				.joined(separator: "\n")
-			UIAlertController.showAlertWithOptions(
-				title: .localized("Check Before Signing"),
-				message: lines,
-				actions: [
-					(.localized("Sign Anyway"), .destructive, {
-						_beginSign()
-					}),
-					(.localized("Cancel"), .cancel, nil)
-				]
-			)
-			return
-		} else if !preflight.issues.isEmpty {
-			let lines = preflight.issues
-				.map { "• \($0.title): \($0.detail)" }
-				.joined(separator: "\n")
-			UIAlertController.showAlertWithOptions(
-				title: .localized("Warnings"),
-				message: lines,
-				actions: [
-					(.localized("Sign"), .default, {
-						_beginSign()
-					}),
-					(.localized("Cancel"), .cancel, nil)
-				]
-			)
-			return
-		}
-
-		_beginSign()
+        _preflightResult = preflight
+        _reviewedSetup = SigningPreflightSnapshot(options: _temporaryOptions,
+            certificateUUID: _selectedCert()?.uuid, issues: preflight.issues)
+        _showPreflight = true
 	}
 
 	/// Stops the run in flight. The pipeline notices between stages (and inside the long bundle
@@ -308,6 +378,12 @@ extension SigningView {
 	}
 
 	private func _beginSign() {
+        guard !_isSigning && !_didSign else { return }
+        UIApplication.shared.endEditing()
+        _signingError = nil
+        _wasCancelled = false
+        _currentStage = nil
+        _reachedStages = []
 		_isSigning = true
 		if _autoShowLogs { _isLogPresenting = true }
 
@@ -315,7 +391,16 @@ extension SigningView {
 			app,
 			using: _temporaryOptions,
 			icon: appIcon,
-			certificate: _selectedCert()
+			certificate: _selectedCert(),
+            onStage: { stage in
+                let previousStep = _currentStage.map { SigningWorkspaceStep(stage: $0) }
+                _currentStage = stage
+                _reachedStages.insert(stage)
+                if UIAccessibility.isVoiceOverRunning, previousStep != SigningWorkspaceStep(stage: stage) {
+                    let announcement = NSAttributedString(string: stage.title, attributes: [.accessibilitySpeechQueueAnnouncement: true])
+                    UIAccessibility.post(notification: .announcement, argument: announcement)
+                }
+            }
 		) { result in
 			switch result {
 			case .failure(let error):
@@ -325,9 +410,12 @@ extension SigningView {
 				if error is CancellationError {
 					// Stopping on purpose is not a failure, and the run has already cleaned up
 					// after itself — say so quietly instead of showing an error the user caused.
+                    _wasCancelled = true
 					Toast.info(.localized("Signing cancelled"), systemImage: "stop.circle")
 				} else {
-					Toast.error(error.localizedDescription, duration: .sticky)
+                    let message = LogRedaction.redact(error.localizedDescription)
+                    _signingError = message
+                    Toast.error(message, duration: .sticky)
 				}
 			case .success(let signed):
 				_isSigning = false
@@ -341,7 +429,8 @@ extension SigningView {
 					for: app
 				)
 
-				let finish = {
+                let automaticInstall = _temporaryOptions.post_installAppAfterSigned
+                let finish: (SigningCompletionAction) -> Void = { intent in
 					let deletesSource = _temporaryOptions.post_deleteAppAfterSigned && !app.isSigned
 
 					if deletesSource {
@@ -354,21 +443,30 @@ extension SigningView {
 					CleanupManager.shared.runAfterSign(
 						source: remainingSource,
 						signed: signed,
-						keepsSignedApp: _temporaryOptions.post_installAppAfterSigned
+						keepsSignedApp: intent.keepsSignedApp(automaticInstall: automaticInstall)
 					)
 
-					if _temporaryOptions.post_installAppAfterSigned {
-						InstallQueue.shared.enqueue(signed)
-					}
+                    if intent.shouldInstall(automaticInstall: automaticInstall) {
+                        InstallQueue.shared.enqueue(signed)
+                    } else if intent == .share {
+                        InstallQueue.shared.enqueue(signed, exporting: true)
+                    } else if intent == .library {
+                        TabBarPreferences.shared.setHidden(.library, false)
+                        TabSelectionObserver.shared.selectedTab = .library
+                    }
 
 					dismiss()
 				}
 
-				// If the user is watching logs, hold the finish until they close the console.
-				if _isLogPresenting {
-					_postSignAction = finish
+                // Automatic install keeps its existing immediate (or log-deferred) handoff.
+                // Manual signing gets an explicit outcome before applying cleanup on Done.
+                if !_temporaryOptions.post_installAppAfterSigned {
+                    _completionAction = finish
+                    _didSign = true
+                } else if _isLogPresenting {
+					_postSignAction = { finish(.done) }
 				} else {
-					finish()
+                    finish(.done)
 				}
 			}
 		}

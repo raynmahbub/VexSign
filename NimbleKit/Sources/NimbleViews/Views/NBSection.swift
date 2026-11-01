@@ -48,39 +48,26 @@ where 	Content: View,
 				HStack(alignment: .center, spacing: 4) {
 					if let _systemName {
 						Image(systemName: _systemName)
-							.font(.system(size: 12))
+							.font(.caption)
 							.offset(y: -2)
 					}
 					
 					Text(_headerText)
-						.fontWeight(.bold)
-						.font(.title2)
+						.fontWeight(.semibold)
+						.font(.subheadline)
 						.foregroundStyle(.primary)
 						
 					
                     Spacer()
                     
 					if let _headerTextSecondary {
-						if #available(iOS 26.0, *) {
-							Text(_headerTextSecondary)
-								.font(.caption)
-								.foregroundStyle(.secondary)
-								.contentTransition(.numericText())
-								.padding(.horizontal, 8)
-								.padding(.vertical, 4.4)
-								.background(Color(uiColor: .quaternarySystemFill))
-								.clipShape(Capsule())
-								.glassEffect()
-						} else {
-							Text(_headerTextSecondary)
-								.font(.caption)
-								.foregroundStyle(.secondary)
-								.contentTransition(.numericText())
-								.padding(.horizontal, 8)
-								.padding(.vertical, 4.4)
-								.background(Color(uiColor: .quaternarySystemFill))
-								.clipShape(Capsule())
-						}
+                        Text(_headerTextSecondary)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(uiColor: .quaternarySystemFill), in: Capsule())
+
 					}
 				}
 				.offset(y: 2)
