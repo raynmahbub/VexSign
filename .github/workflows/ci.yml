@@ -453,8 +453,22 @@ jobs:
               lines = pathlib.Path(log).read_text(errors="replace").splitlines()
           except OSError:
               lines = []
-          pick = re.compile(r"error:|BUILD FAILED|TEST FAILED|crash|assertion")
-          hits = [line for line in lines if pick.search(line)][-25:]
+          # A Swift trap in the host app prints to stderr, which lands in this
+          # log a little above the `** TEST FAILED **` marker. Both are shown.
+          priority = re.compile(
+              r"Fatal error|Precondition failed|Terminating app|Assertion failed|signal trap|SIGABRT|EXC_BAD"
+          )
+          urgent = [line for line in lines if priority.search(line)]
+          for line in urgent[:20]:
+              annotate(f"host: {line.strip()[:400]}")
+
+          marker = next((i for i, l in enumerate(lines) if "** TEST FAILED **" in l), None)
+          if marker is not None:
+              for line in [l for l in lines[max(0, marker - 80):marker] if l.strip()][-35:]:
+                  annotate(f"before TEST FAILED: {line.strip()[:400]}")
+
+          pick = re.compile(r"error:|BUILD FAILED|crash|assertion")
+          hits = [line for line in lines if pick.search(line)][-15:]
           for line in hits:
               match = located.match(line.strip())
               if match:
