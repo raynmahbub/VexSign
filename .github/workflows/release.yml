@@ -265,7 +265,12 @@ jobs:
             echo "::warning::agvtool could not stamp the build number (${BUILD_NUMBER}); continuing with the committed CURRENT_PROJECT_VERSION."
           fi
 
-          make 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+          # The local install server's TLS identity is pinned (VX-12): `make deps-release`
+          # fetches the published pack and refuses to build unless its digest matches
+          # Scripts/local-tls/pinned-pack.sha256. A release must never ship an identity
+          # nobody reviewed — the trust users install on their device is only as good
+          # as this line.
+          { make deps-release; make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
 
           if ! ls packages/*.ipa >/dev/null 2>&1; then
             echo "::error::make finished but produced no .ipa in packages/."

@@ -9,6 +9,10 @@ name: Quick check (no build)
 #   * duplicate top-level types / duplicate file names inside one target
 #   * Info.plist, entitlements, *.xcstrings, *.json, *.xcscheme that no longer
 #     parse, and a corrupted project.pbxproj
+#   * a literal with no Localizable.xcstrings key (VX-17), a file whose
+#     unjustified `try?` count grew (VX-19), a new global singleton (VX-14)
+#     and a new `@unchecked Sendable` / `nonisolated(unsafe)` / `@preconcurrency`
+#     (VX-15) — see tools/
 #
 # Findings are annotated inline (file + line) and listed in the job summary
 # with the offending source lines, so they can be fixed straight away while
@@ -29,6 +33,13 @@ on:
       - '**.pbxproj'
       - '**.xcscheme'
       - '.github/scripts/quick_check.py'
+      - 'tools/sync-strings.py'
+      - 'tools/error-discipline.py'
+      - 'tools/error-discipline-baseline.json'
+      - 'tools/singleton-freeze.py'
+      - 'tools/singleton-baseline.json'
+      - 'tools/concurrency-discipline.py'
+      - 'tools/concurrency-baseline.json'
       - '.github/workflows/quick-check.yml'
   pull_request:
     branches: [main]
@@ -64,6 +75,27 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
           python3 .github/scripts/quick_check.py --root . --json "$RUNNER_TEMP/quick-check.json"
+
+      # VX-17: a literal without a catalogue key silently falls back to English, so the drift
+      # only shows up in another language. Fails on missing keys; `--write` adds them.
+      - name: Localisation catalogue
+        run: python3 tools/sync-strings.py --check
+
+      # VX-19: a silent `try?` at a user-visible boundary turns a real failure into nothing in the
+      # log. The check fails only when a file grows past its baseline; justify a deliberate one with
+      # `// try? ok: <reason>` on the same line.
+      - name: Error discipline
+        run: python3 tools/error-discipline.py
+
+      # VX-14: 56 `static let shared` globals decide what a view model can be tested with. The count
+      # may go down; a new one has to raise tools/singleton-baseline.json in the same commit.
+      - name: Singleton freeze
+        run: python3 tools/singleton-freeze.py
+
+      # VX-15: `@unchecked Sendable`, `nonisolated(unsafe)` and `@preconcurrency` stop the compiler
+      # from checking something. Freeze them; `make strict-concurrency` is the real leaf build.
+      - name: Concurrency discipline
+        run: python3 tools/concurrency-discipline.py
 
       - name: Upload findings
         if: always()

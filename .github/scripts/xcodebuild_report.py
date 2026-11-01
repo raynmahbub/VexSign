@@ -42,6 +42,9 @@ DIAG_RE = re.compile(r"^(?P<file>/[^:\n]+?):(?P<line>\d+):(?P<col>\d+): (?P<sev>
 BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 # xcbeautify / xcpretty style lines are ignored - we only parse the raw log.
 
+# Summary heading. build-check uses the default; the unit-test job passes its
+# own so a tests run does not report itself as a "Build check".
+DEFAULT_TITLE = "Build check"
 DEFAULT_FIRST_PARTY = ["VexSign", "VexSignWidgetExtension", "VexSignTests", "AltSourceKit", "NimbleKit", "Tweaks"]
 MAX_ANNOTATIONS = 200
 MAX_LISTED = 80
@@ -60,6 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--first-party", default=",".join(DEFAULT_FIRST_PARTY),
                         help="comma-separated top-level directories that count as our code")
     parser.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY"), help="markdown summary file")
+    parser.add_argument("--title", default=DEFAULT_TITLE, help='summary heading, e.g. "Unit tests"')
     return parser.parse_args()
 
 
@@ -254,7 +258,7 @@ def main() -> int:
     # ---- summary ---------------------------------------------------------
     verdict = "✅ passed"
     if build_failed:
-        verdict = "❌ build failed"
+        verdict = "❌ build failed" if args.title == DEFAULT_TITLE else "❌ failed"
     elif gate_tripped:
         verdict = (f"❌ {len(new_warnings)} new first-party warning(s) (treated as errors)" if mode == "baseline"
                    else "❌ first-party warnings (treated as errors)")
@@ -262,7 +266,7 @@ def main() -> int:
         verdict = f"✅ passed ({len(known_warnings)} known warnings in the baseline)"
 
     out: list[str] = []
-    out.append(f"## Build check — {verdict}")
+    out.append(f"## {args.title} — {verdict}")
     out.append("")
     out.append("| | Count |")
     out.append("|---|---:|")

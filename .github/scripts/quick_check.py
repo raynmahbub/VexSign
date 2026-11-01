@@ -14,6 +14,9 @@ features from other forks are cheap to detect long before that:
   5. broken resources              - Info.plist / entitlements / *.xcstrings /
                                      *.json / *.xcscheme that no longer parse
   6. project.pbxproj sanity        - unbalanced braces/parentheses
+  7. missing cross-module imports  - `swiftc -parse` does not resolve imports, so a file
+                                     that calls `String.localized` without importing
+                                     NimbleExtensions only breaks in a real build
 
 Every finding is emitted as a GitHub annotation (file + line), collected in
 the job summary with the offending source lines so it can be fixed right
@@ -53,6 +56,17 @@ SWIFT_MODULES: dict[str, str] = {
     "NimbleExtensions": "NimbleKit/Sources/NimbleExtensions",
     "NimbleJSON": "NimbleKit/Sources/NimbleJSON",
     "NimbleViews": "NimbleKit/Sources/NimbleViews",
+}
+
+# Symbols that are only visible when their module is imported. `-parse` cannot see this, and
+# neither can tree-sitter, so it is worth a dedicated check: `.localized` missing its import
+# has broken this repository's build more than once.
+CROSS_MODULE_SYMBOLS: dict[str, str] = {
+    "NimbleExtensions": r"(?:\.localized\(|\bNBHaptic\b)",
+    "NimbleViews": (
+        r"\bNB(?:Section|Grid|Button|NavigationView|ToolbarButton|ContentUnavailable|"
+        r"PillView|PillItem|TitleWithSubtitleView|SheetButton|VariableBlurView|Spacing|Radius)\b"
+    ),
 }
 
 # Directories that are never ours to check.
@@ -250,6 +264,33 @@ def check_duplicate_types(root: Path, report: Report) -> None:
     report.stats["duplicate_types"] = dupes
 
 
+def check_cross_module_imports(root: Path, report: Report) -> None:
+    """Flag symbols whose module is not imported in the file that uses them."""
+    offenders = 0
+    library_modules = {"NimbleExtensions", "NimbleViews", "AltSourceKit", "NimbleJSON"}
+    for module, module_dir in SWIFT_MODULES.items():
+        if module in library_modules:
+            continue  # the libraries define these symbols
+        for path in swift_files_for(root, module_dir):
+            source = path.read_text(encoding="utf-8", errors="replace")
+            imports = set(re.findall(r"^import (\w+)", source, re.M))
+            # Comments are not code: strip them before matching.
+            code = re.sub(r"//[^\n]*", "", source)
+            for provider, pattern in CROSS_MODULE_SYMBOLS.items():
+                if provider in imports:
+                    continue
+                match = re.search(pattern, code)
+                if not match:
+                    continue
+                line = code[: match.start()].count("\n") + 1
+                offenders += 1
+                report.add(Finding(
+                    "cross-module-imports", "error",
+                    f"uses {match.group(0).strip()} from {provider} but does not `import {provider}`",
+                    rel(root, path), line, 1, context_lines(path, line, 1)))
+    report.stats["cross_module_imports"] = offenders
+
+
 def check_duplicate_filenames(root: Path, report: Report) -> None:
     dupes = 0
     for module, module_dir in SWIFT_MODULES.items():
@@ -341,7 +382,8 @@ def render_summary(report: Report, swiftc_version: str) -> str:
     out.append("")
     out.append("| Check | Errors | Warnings |")
     out.append("|---|---:|---:|")
-    for check in ["conflict-markers", "swift-syntax", "duplicate-types", "duplicate-filenames", "resources", "pbxproj"]:
+    for check in ["conflict-markers", "swift-syntax", "duplicate-types", "duplicate-filenames",
+                  "cross-module-imports", "resources", "pbxproj"]:
         e = sum(1 for f in errors if f.check == check)
         w = sum(1 for f in warnings if f.check == check)
         out.append(f"| {check} | {e} | {w} |")
@@ -401,6 +443,7 @@ def main() -> int:
     check_swift_syntax(root, report, swiftc)
     check_duplicate_types(root, report)
     check_duplicate_filenames(root, report)
+    check_cross_module_imports(root, report)
     check_resources(root, report)
     check_pbxproj(root, report)
 

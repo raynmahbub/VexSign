@@ -1,0 +1,15 @@
+# Pinned release TLS identity for the local install server (VX-12).
+#
+# `make deps-release` fetches the pack and refuses to build unless its digest
+# matches the single `sha256:` line below. A mismatch means the identity every
+# IPA built from this commit would ship has changed — which is a decision, not an
+# accident: review it, or stop.
+#
+# Generate it once (and again whenever the identity is rotated on purpose):
+#
+#     make deps-pin       # fetches, prints the digest, rewrites this file
+#     git diff            # read it: cn, source, pinned-at, digest
+#
+# Until a digest is pinned here, `make deps-release` fails on purpose. The default
+# `make` target does not need it: it generates a development identity locally and
+# offline (Scripts/local-tls/make-dev-identity.sh).
