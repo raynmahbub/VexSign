@@ -395,7 +395,59 @@ jobs:
               annotate(f"{name} — {message}" if message else name)
           annotate(f"{len(seen)} failing test node(s) in the result bundle")
 
-          # 2. Anything in the log that looks like a diagnostic, at the end where
+          # 2. The crash report, when the test host died before the tests ran.
+          #    `export diagnostics` is the only way to see *why* it trapped.
+          try:
+              import glob, os
+              diag = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "xcresult-diagnostics")
+              subprocess.run(
+                  ["xcrun", "xcresulttool", "export", "diagnostics",
+                   "--path", bundle, "--output-path", diag],
+                  capture_output=True, text=True, timeout=180,
+              )
+              reports = sorted(
+                  glob.glob(os.path.join(diag, "**", "*.ips"), recursive=True)
+                  + glob.glob(os.path.join(diag, "**", "*.crash"), recursive=True),
+                  key=os.path.getmtime,
+              )
+              for report in reports[:2]:
+                  text = pathlib.Path(report).read_text(errors="replace")
+                  body = text
+                  if report.endswith(".ips"):
+                      inner = text.split("\n", 1)
+                      body = inner[1] if len(inner) > 1 else text
+                  try:
+                      parsed = json.loads(body)
+                  except Exception:  # noqa: BLE001 - a text crash log is fine
+                      parsed = None
+                  if isinstance(parsed, dict):
+                      for message in (parsed.get("asi") or {}).items():
+                          annotate(f"crash: {message[0]} = {message[1]}")
+                      termination = (parsed.get("termination") or {})
+                      if termination:
+                          annotate(f"termination: {termination.get('indicator') or termination}")
+                      exception = (parsed.get("exception") or {})
+                      if exception:
+                          annotate(f"exception: {exception}")
+                      threads = parsed.get("threads") or []
+                      index = parsed.get("faultingThread") or 0
+                      if 0 <= index < len(threads):
+                          frames = (threads[index].get("frames") or [])[:14]
+                          names = [
+                              frame.get("symbol") or f"image {frame.get('imageIndex')} + {frame.get('imageOffset')}"
+                              for frame in frames
+                          ]
+                          for depth, name in enumerate(names):
+                              annotate(f"crashed thread frame {depth}: {name}")
+                  else:
+                      for line in text.splitlines():
+                          lowered = line.lower()
+                          if any(word in lowered for word in ("exception", "termination", "assert", "fatal", "trap", "signal")):
+                              annotate(line)
+          except Exception as error:  # noqa: BLE001 - diagnostics must never fail the step
+              annotate(f"diagnostics could not be exported: {error}")
+
+          # 3. Anything in the log that looks like a diagnostic, at the end where
           #    the interesting lines are.
           try:
               lines = pathlib.Path(log).read_text(errors="replace").splitlines()
