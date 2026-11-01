@@ -95,7 +95,7 @@ struct BackupComponentsView: View {
 							Text(passwordFooter)
 							if _needsPasswordForCertificates {
 								Label(
-									.localized("Use at least %lld characters, typed the same twice, to include certificates.", arguments: Int64(BackupCrypto.minimumPasswordLength)),
+									String.localized("Use at least %lld characters, typed the same twice, to include certificates.", arguments: Int64(BackupCrypto.minimumPasswordLength)),
 									systemImage: "exclamationmark.triangle.fill"
 								)
 								.foregroundStyle(.orange)
@@ -123,7 +123,7 @@ struct BackupComponentsView: View {
 		.alert(.localized("Password needed"), isPresented: $_showPasswordNotice) {
 			Button(.localized("OK"), role: .cancel) {}
 		} message: {
-			Text(.localized("A backup that includes certificates contains private keys, so it is only written with a password of at least %lld characters.", arguments: Int64(BackupCrypto.minimumPasswordLength)))
+			Text(verbatim: String.localized("A backup that includes certificates contains private keys, so it is only written with a password of at least %lld characters.", arguments: Int64(BackupCrypto.minimumPasswordLength)))
 		}
 	}
 

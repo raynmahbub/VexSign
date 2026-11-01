@@ -249,7 +249,7 @@ struct LibraryView: View {
                 // One batched read of what the device has and what each stored bundle carries
                 // Rows also request their own on appear, throttled, so a recycled cell
                 // never blocks the list on a probe.
-                await LibraryStatusStore.shared.refresh(
+                LibraryStatusStore.shared.refresh(
                     _signedApps.map { $0 as AppInfoPresentable } + _importedApps.map { $0 as AppInfoPresentable }
                 )
 

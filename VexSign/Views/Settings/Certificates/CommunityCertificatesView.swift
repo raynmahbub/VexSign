@@ -72,7 +72,7 @@ struct CommunityCertificatesView: View {
 				Button(.localized("Cancel"), role: .cancel) { }
 			} message: { certificate in
 				Text(
-					.localized(
+					verbatim: String.localized(
 						"%@ downloads this certificate, its profile and its password from %@. Everyone using this catalogue signs with the same identity.",
 						arguments: certificate.name, NexCerts.sourceHost
 					)
@@ -92,7 +92,7 @@ extension CommunityCertificatesView {
 					.foregroundStyle(.orange)
 
 				Text(
-					.localized(
+					verbatim: String.localized(
 						"These certificates are not from Apple, from VexSign, or from a partner of either. They are published by a third party at %@, and everyone who uses this catalogue signs their apps with the same Apple Developer identity.",
 						arguments: NexCerts.sourceHost
 					)
@@ -181,7 +181,7 @@ extension CommunityCertificatesView {
 				Text(.localized("Unofficial · shared identity"))
 			} footer: {
 				Text(
-					.localized(
+					verbatim: String.localized(
 						"Certificates, profiles and passwords are downloaded from %@. Everyone using this catalogue signs with the same identity.",
 						arguments: NexCerts.sourceHost
 					)

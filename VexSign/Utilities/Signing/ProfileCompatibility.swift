@@ -392,9 +392,12 @@ extension CertificatePair {
 			return nil
 		}
 
-		// SecIdentity is a CF type: the compiler knows a conditional cast from `Any`
-		// can only succeed here, so the unchecked form is the honest one.
-		let secIdentity = identity as SecIdentity
+		// `SecPKCS12Import` hands the identity back as a `CFTypeRef` inside the
+		// dictionary. Swift rejects `as?` on a CF type ("will always succeed") and
+		// refuses the bare `as` from `Any`, so the forced cast is the spelling left;
+		// it cannot fail here for the same reason the conditional one could not.
+		// swiftlint:disable:next force_cast
+		let secIdentity = identity as! SecIdentity
 
 		var certificate: SecCertificate?
 		guard
