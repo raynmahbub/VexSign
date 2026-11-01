@@ -33,6 +33,19 @@ VexSign brings signing, IPA editing, repository discovery and device utilities i
 
 > **Requirements:** iOS 16 or later, a valid signing certificate and a compatible provisioning profile. Installation and entitlement support depend on your device and signing setup. Newer system UI and Live Activity features require supported iOS versions and hardware.
 
+## Latest changes — 1.1.0 (2026-11-01)
+
+The latest [changelog](CHANGELOG.md) focuses on signing, download and security hardening:
+
+- **Download integrity before import:** repository-provided sizes and hashes are checked before opening an IPA. A mismatch offers an explicit, logged **Import Anyway** override or **Delete**.
+- **Signed repository feeds:** optional Ed25519 signatures produce a **Signed by …** badge. An invalid claimed signature rejects the refresh and retains the previous catalog; unsigned feeds remain supported. See [source signing](docs/SOURCE_SIGNING.md).
+- **Installation preflight:** Settings → Installation shows prerequisites for local HTTPS, idevice, export and TrollStore. TrollStore is detected, not installed by VexSign.
+- **Bulk tweak defaults:** Tweaks → ⋯ → **Inject by Default** brings search, bulk toggles and per-tweak exception counts into one screen.
+- **Safer defaults:** Web Manager authentication is on by default, sensitive log values are redacted at the sink, and the anti-revoke rule endpoint is visible, HTTPS-only and configurable, with the feature off by default.
+- **More responsive workflows:** source decoding and library writes move off the main queue; installation confirmation checks device state instead of treating completed progress as proof of success.
+
+> **Implementation boundaries:** the new OCSP request/parser/signature-verification foundation is not wired to the UI and does not yet chain responder certificates to an issuer. Simulator and physical-device validation are still required for hardware-dependent workflows. See [feature status](docs/FEATURE_STATUS.md) and the [test plan](docs/TEST_PLAN.md).
+
 <a id="features"></a>
 ## ✨ Explore the toolkit
 
@@ -49,7 +62,7 @@ VexSign brings signing, IPA editing, repository discovery and device utilities i
 ### 🧩 Customization & IPA tools
 
 - **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support.
-- **Tweak management** to organize injection components, with dependency-aware ElleKit injection and legacy Substrate replacement.
+- **Tweak management** to organize injection components, with dependency-aware ElleKit injection, legacy Substrate replacement and a searchable bulk **Inject by Default** screen.
 - **Mach-O thinning** to remove non-target architectures from supported universal binaries.
 - **Document picker fixes**, keychain isolation and optional JIT entitlement settings. Entitlements alone do not guarantee JIT availability on a device.
 - **IPA Explorer** for browsing app contents and editing `Info.plist`, files and images.
@@ -89,8 +102,8 @@ Available from **Settings → Ecosystem**.
 
 - **Background downloads** with progress, speed tracking, Live Activities and Dynamic Island support.
 - **Wi-Fi-only and charging-only download conditions**.
-- **HTTP and WebDAV file transfer** through the built-in web manager.
-- **SHA-256 hashing** in download logs and file verification against a supplied hash.
+- **HTTP and WebDAV file transfer** through the built-in web manager, with authentication enabled by default and separate controls for sensitive certificate exports.
+- **SHA-256 hashing** in download logs and pre-import integrity checks against repository-provided sizes and hashes, with explicit mismatch handling.
 - **Game Mode** to pause downloads and background work.
 
 ### 🔐 Certificates & security
@@ -103,7 +116,7 @@ Available from **Settings → Ecosystem**.
 - **P12 password recovery tools** for your own password-protected certificates.
 - **Face ID / passcode app lock** when the app leaves the foreground.
 - **Keychain-backed secret storage and migration** for supported passwords and API credentials.
-- **Anti-Revoke DNS profile tools** for verification-host filtering; these do not guarantee protection from certificate revocation.
+- **Anti-Revoke DNS profile tools** for verification-host filtering, with a visible, configurable HTTPS rule endpoint and opt-in activation; these do not guarantee protection from certificate revocation.
 
 ### ⚡ Automation, cleanup & backup
 
@@ -154,7 +167,7 @@ See [web tools](docs/WEBTOOLS.md) for endpoints and the privacy stance.
 
 - SwiftUI navigation, search, material surfaces and availability-gated Liquid Glass styling.
 - Appearance and app-icon settings.
-- Configurable tab bar and library display preferences.
+- Six fixed primary tabs — Files, Library, Home, App Store, Downloads and Settings — with launch-tab and library display preferences.
 - Ecosystem tools grouped in a dedicated settings entry point.
 
 <details>
@@ -227,6 +240,8 @@ make deps-pin       # once (and after a deliberate rotation): fetch the publishe
 make deps-release   # fetch + verify that digest before packaging; fails loudly on a mismatch
 ```
 
+> **Release prerequisite:** this checkout does not yet contain a pinned release TLS digest. A maintainer must run `make deps-pin`, review and commit the digest before Release CI can package a build. Local development builds do not require that pin.
+
 Select the VexSign scheme and configure your development team in Xcode. To create the unsigned IPA using the repository’s build recipe:
 
 ```bash
@@ -236,6 +251,16 @@ make
 The packaged IPA is written to `packages/VexSign.ipa` and requires signing before installation.
 
 > Clone with `--recursive`: Zsign and IDeviceKitten are Git submodules. For an existing clone, run `git submodule update --init --recursive`.
+
+### Verify and test
+
+```bash
+make verify                # Toolchain-free repository, localization and architecture gates
+make test                  # Unit tests on an automatically selected iPhone simulator (macOS/Xcode)
+make strict-concurrency    # Package concurrency diagnostics (Swift toolchain)
+```
+
+`make verify` runs the same five gates as Quick check: repository checks, localization coverage, error discipline, singleton freeze and concurrency discipline. For simulator selection, device-only checks and release validation, follow the [test plan](docs/TEST_PLAN.md) and [release guide](docs/RELEASING.md). CI configuration is not a substitute for a completed device test pass.
 
 ### Project guide
 
@@ -248,6 +273,10 @@ The packaged IPA is written to `packages/VexSign.ipa` and requires signing befor
 - [`cloud-signing/`](cloud-signing/) — separate cloud orchestration services.
 - [`docs/PLATFORMS.md`](docs/PLATFORMS.md) — Apple TV / visionOS / watchOS companions.
 - [`docs/WEBTOOLS.md`](docs/WEBTOOLS.md) — the browser tools and their endpoints.
+- [`CHANGELOG.md`](CHANGELOG.md) — release changes and known limitations.
+- [`docs/FEATURE_STATUS.md`](docs/FEATURE_STATUS.md) — feature pipelines and device-validation boundaries.
+- [`docs/SOURCE_SIGNING.md`](docs/SOURCE_SIGNING.md) — signed feed format and publisher instructions.
+- [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md) — verification gates, simulator tests and physical-device checks.
 - [`docs/ECOSYSTEM.md`](docs/ECOSYSTEM.md) — implementation scope and release considerations.
 - [`docs/AUDIT_2026-10-31.md`](docs/AUDIT_2026-10-31.md) — source-code audit: verified findings, severities and evidence.
 - [`docs/REFERENCE_COMPARISON.md`](docs/REFERENCE_COMPARISON.md) — reference projects verified against source, with adoption decisions and the licence boundary.
