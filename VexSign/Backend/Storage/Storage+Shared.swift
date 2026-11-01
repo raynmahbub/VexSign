@@ -53,8 +53,8 @@ extension Storage {
 	}
 
 	func getAllApps() -> [AppInfoPresentable] {
-		let signed = (try? context.fetch(Signed.fetchRequest())) ?? []
-		let imported = (try? context.fetch(Imported.fetchRequest())) ?? []
+		let signed = fetchOnQueue(Signed.fetchRequest())
+		let imported = fetchOnQueue(Imported.fetchRequest())
 		return signed.map { $0 as AppInfoPresentable } + imported.map { $0 as AppInfoPresentable }
 	}
 

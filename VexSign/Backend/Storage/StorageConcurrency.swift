@@ -31,5 +31,11 @@ enum StorageConcurrency {
 		Logger.misc.error(
 			"Storage.\(function, privacy: .public) ran off the main queue (\(file, privacy: .public):\(line, privacy: .public)); writes belong on the write context."
 		)
+		#if DEBUG
+		// Also on stderr: `Logger` output lives in the unified log, which a CI
+		// run cannot read back, and this line is only interesting when it is
+		// followed by a Core Data assertion a hundred lines later.
+		NSLog("VexSign storage: %@ ran off the main queue (%@:%lu)", "\(function)", "\(file)", line)
+		#endif
 	}
 }

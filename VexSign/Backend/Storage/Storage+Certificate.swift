@@ -75,10 +75,8 @@ extension Storage {
 		let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
 		fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
 
-		guard
-			let results = try? context.fetch(fetchRequest),
-			index >= 0 && index < results.count
-		else {
+		let results = fetchOnQueue(fetchRequest)
+		guard index >= 0 && index < results.count else {
 			return nil
 		}
 		
@@ -139,6 +137,6 @@ extension Storage {
 	func getAllCertificates() -> [CertificatePair] {
 		let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
 		fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
-		return (try? context.fetch(fetchRequest)) ?? []
+		return fetchOnQueue(fetchRequest)
 	}
 }

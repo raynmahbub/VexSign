@@ -456,9 +456,13 @@ jobs:
           picked = []
           if marker is not None:
               picked = [l.strip() for l in lines[max(0, marker - 60):marker] if l.strip()][-6:]
+          offender = re.compile(r"ran off the main queue|CoreData: error|NSInternalInconsistencyException")
+          flagged = [l.strip() for l in lines if offender.search(l)][-4:]
+          picked = flagged + picked
           if not picked:
               pick = re.compile(r"error:|BUILD FAILED|Fatal error|Precondition failed|SIGABRT")
               picked = [l.strip() for l in lines if pick.search(l)][-6:]
+          picked = picked[-8:]
           for line in picked:
               print(line[:400])
           PYEOF

@@ -431,6 +431,9 @@ final class AppUpdateChecker: ObservableObject {
         }
     }
 
+    /// `@MainActor` because the three `Storage` reads below are view-context
+    /// fetches, and a nonisolated async function runs on the generic executor.
+    @MainActor
     func checkNow() async {
         let sources = Storage.shared.getSources()
         await SourcesViewModel.shared.fetchSources(sources, refresh: true)

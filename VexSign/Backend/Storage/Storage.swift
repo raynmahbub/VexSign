@@ -76,6 +76,23 @@ final class Storage: ObservableObject {
 		container.viewContext
 	}
 
+	/// Fetches on the view context's own queue, whoever the caller is.
+	///
+	/// `context.fetch` may only run on the queue that owns the context - the
+	/// main queue here - and a read accessor reached from a detached task used
+	/// to be a SIGTRAP in a debug build (`_PFAssertSafeMultiThreadedAccess`,
+	/// which is what killed the test host before the test bundle connected).
+	/// The caller stays synchronous; only the fetch changes queue, and
+	/// `performAndWait` runs inline when the caller is already on it.
+	func fetchOnQueue<T>(_ request: NSFetchRequest<T>) -> [T] {
+		let context = self.context
+		var results: [T] = []
+		context.performAndWait {
+			results = (try? context.fetch(request)) ?? [] // try? ok: an unreadable store yields no rows, which every caller already treats as empty
+		}
+		return results
+	}
+
 	/// Runs `changes` on the private-queue write context, saves it, and returns
 	/// the permanent object ID of the row the block inserted or updated.
 	///
