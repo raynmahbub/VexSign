@@ -38,7 +38,7 @@ every fork and VexSign). VexSign's copy is the only diverged one — `ASReposito
 lines there versus 683–698 in every fork inspected, i.e. VexSign already carries the newest
 schema handling in the family. There is nothing to import; VexSign's copy **is** the reference.
 Its `ASDecrypt`/`EsignSourceKey` pieces bundle third-party ESign decryption keys, which is worth a
-licence/ethics note (VX-25) rather than a feature.
+licence/ethics note (R25) rather than a feature.
 
 ### 1.1 Licence boundary (read before any code decision)
 
@@ -94,7 +94,7 @@ exposure of the app container (`FileManager+documents`, `URL+toSharedDocuments`)
 **VexSign state.** `BackupManager` + `BackupCrypto` produce a single encrypted `.vexbackup`
 container with AES-GCM + PBKDF2-200k, selectable components (certificates/sources/settings/tweaks)
 and a restore summary. That is strictly more capable — but it currently permits an *unencrypted*
-container holding private keys (audit AX-09 / VX-11).
+container holding private keys (audit F9 / R11).
 
 **Verdict: reference only.** Nothing to adopt. The lesson is the opposite one: a visible
 Files-app escape hatch is useful for users, and VexSign already exposes "move to shared
@@ -137,7 +137,7 @@ the deltas that are genuinely better.
 ### 5.1 KorSign — the single most valuable reference in the family
 
 `KorSign/.../InstalledAppProbe.swift` and `OTAInstallState.swift` (verified source) solve the
-problem VexSign gets wrong (audit AX-05):
+problem VexSign gets wrong (audit F5):
 
 - **Real installed-state evidence** through LaunchServices:
   `LSApplicationProxy.applicationProxyForIdentifier:` → `isInstalled`, `isPlaceholder`,
@@ -163,7 +163,7 @@ Also present: `InstallationArchive`, `ArchivePreparationGate`, `UploadWorkspace`
 adapter. Not the files verbatim — VexSign's installer has a different architecture
 (`AppInstaller` + `InstallQueue` + `InstallCardView`), and Bolting KorSign's view-layer
 assumptions onto it would create exactly the duplication this project must avoid. Implement
-`InstallConfirmation` as pure logic with tests (VX-05).
+`InstallConfirmation` as pure logic with tests (R5).
 
 **Do not adopt:** KorSign's Zsign call passes `removeProvision: _options.removeProvisioning`
 without the negation; against the pinned engine that embeds the profile when the user asked to
@@ -181,7 +181,7 @@ VexSign already has the *model* (`TweakModels.swift:222-274`: `injectByDefault`,
 task ledger, source news and the Nuke-backed image pipeline. The genuine gap is presentation:
 there is no single "which tweaks do I always want?" screen.
 
-**Adopt:** the consolidated default-tweaks screen as a small UI task (VX-23). **Reject:**
+**Adopt:** the consolidated default-tweaks screen as a small UI task (R23). **Reject:**
 duplicating caches/history — VexSign's existing services own that state.
 
 ### 5.3 RyukSign — closest layout, no unique capability
@@ -204,7 +204,7 @@ framework. Its one structurally new UI is `MoreView.swift`.
 **What VexSign actually took from it.** `NexCerts.swift` and `OfficialCertificatesView.swift`
 carry the header *"Free certificate catalog imported from NexStore (NovaDev404)"* and download
 third-party p12 + profile + password from `sideloading.net`. That is the single highest-risk
-inheritance in the codebase (audit AX-04 / VX-04) and is labelled "Official" in the UI.
+inheritance in the codebase (audit F4 / R4) and is labelled "Official" in the UI.
 
 **Verdict:** no capability to adopt; one liability to contain. NexStore should not be treated as
 an engineering reference for patching.
@@ -238,9 +238,9 @@ capability therefore **cannot** be brought into VexSign by code reuse. It would 
 credential-handling and ToS surface that is out of character for a tool whose model is "bring your
 own certificate".
 
-**Adopt (independently implemented, GPL-safe):** signed OCSP verification (VX-24). VexSign
+**Adopt (independently implemented, GPL-safe):** signed OCSP verification (R24). VexSign
 currently delegates trust to `SecPolicyCreateRevocation` (system OCSP) and, alternatively, sends
-the p12 to a third party (VX-03). A small, well-tested DER/OCSP implementation that verifies the
+the p12 to a third party (R3). A small, well-tested DER/OCSP implementation that verifies the
 responder signature and reports Valid/Revoked/Unknown would remove the third-party dependency and
 give per-certificate status with evidence. Odysseus is the behavioural reference; the
 implementation must be VexSign's own, with RFC-generated fixtures.
@@ -271,9 +271,9 @@ check.
 
 **Adopt (concepts, not code):**
 
-- The operation/pipeline model → VexSign's `SigningService`/`InstallService` design (VX-13).
+- The operation/pipeline model → VexSign's `SigningService`/`InstallService` design (R13).
 - "Validate the existing installation against the identity you are about to use" → the
-  certificate-lifecycle half of VX-07/VX-16. VexSign stores the certificate on `Signed`, so this
+  certificate-lifecycle half of R7/R16. VexSign stores the certificate on `Signed`, so this
   is implementable without an Apple ID, by parsing the signature of the stored bundle.
 - Evidence-first status vocabulary → reuse in the certificate UI (`Unknown` is not `Good`).
 
@@ -317,7 +317,7 @@ sandboxed App Store/enterprise-signed app cannot reproduce it, and nothing here 
 a bug that Apple fixes. What *is* possible and cheap: detect that
 TrollStore is installed and offer "Open in TrollStore" / "Install via TrollStore" for users who
 already have it. That is a small convenience, not a signing capability, and it belongs at the
-bottom of the backlog (VX-26).
+bottom of the backlog (R26).
 
 ---
 
@@ -331,7 +331,7 @@ document. VexSign consumes it through the `claration/Zsign-Package` Swift wrappe
 
 | Capability | Pinned wrapper (`6ffe703`) | Upstream today | Impact on VexSign |
 | --- | --- | --- | --- |
-| Per-extension provisioning (`-m` repeated) | ✗ (single `prov`) | ✓ | Apps with widgets/extensions need a wildcard profile (AX-08) |
+| Per-extension provisioning (`-m` repeated) | ✗ (single `prov`) | ✓ | Apps with widgets/extensions need a wildcard profile (F8) |
 | Inject dylibs into extensions (`-P`) | ✗ | ✓ | Tweak injection into appex requires manual work |
 | Certificate/OCSP check (`-C`) | ✗ (wrapper has `checkRevokage` only) | ✓ with OCSP | Could replace remote checker if adopted |
 | Metadata + icon extraction (`-x`) | ✗ | ✓ | VexSign has its own readers |
@@ -341,9 +341,9 @@ document. VexSign consumes it through the `claration/Zsign-Package` Swift wrappe
 | Ad-hoc signing | ✓ | ✓ | — |
 | SHA-256-only CD (`-2`) | ✗ | ✓ | Optional compatibility lever |
 
-**Verdict: upgrade (VX-09), after VX-06 provides a verification oracle.** The upgrade is not a
+**Verdict: upgrade (R9), after R6 provides a verification oracle.** The upgrade is not a
 one-line submodule bump: the wrapper is a separate API (`Zsign.sign(...)`) and the polarity/flag
-changes must be re-verified against the new engine's source. Multi-profile support (VX-08) is the
+changes must be re-verified against the new engine's source. Multi-profile support (R8) is the
 reason to do it at all.
 
 ---
@@ -378,7 +378,7 @@ Legend: ● present and verified in source · ◐ partial/heuristic · ○ absen
 The matrix is the point of the exercise: VexSign's differentiators (repository tooling, backup,
 companions, tester discipline) are real, and its deficits against the *non*-Feather references are
 concentrated in exactly three areas — signing verification, install confirmation, and identity
-lifecycle. Those are, in order, VX-06/07/08, VX-05/16, and VX-24.
+lifecycle. Those are, in order, R6/07/08, R5/16, and R24.
 
 ---
 
@@ -386,17 +386,17 @@ lifecycle. Those are, in order, VX-06/07/08, VX-05/16, and VX-24.
 
 | # | From | Item | Decision | Where |
 | --- | --- | --- | --- | --- |
-| 1 | KorSign | Install-confirmation state machine + LaunchServices probe | **Adopt model** (independent implementation, GPL attribution) | VX-05 |
-| 2 | SideStore | Operation/pipeline decomposition, refresh semantics | **Adopt concept** (no code, AGPL) | VX-13 |
-| 3 | SideStore / Odysseus | Validate existing install against current identity | **Adopt concept** | VX-07/16 |
-| 4 | Odysseus | Signed OCSP (RFC 6960) status | **Adopt behaviour, re-implement** (SideSign is AGPL) | VX-24 |
-| 5 | Zsign upstream | Multi-profile, `-P`, `-C`, cache | **Adopt** (MIT) after VX-06 | VX-08/09 |
-| 6 | MySign | Consolidated default-tweaks screen | **Adopt UX** (VexSign's model already exists) | VX-23 |
+| 1 | KorSign | Install-confirmation state machine + LaunchServices probe | **Adopt model** (independent implementation, GPL attribution) | R5 |
+| 2 | SideStore | Operation/pipeline decomposition, refresh semantics | **Adopt concept** (no code, AGPL) | R13 |
+| 3 | SideStore / Odysseus | Validate existing install against current identity | **Adopt concept** | R7/16 |
+| 4 | Odysseus | Signed OCSP (RFC 6960) status | **Adopt behaviour, re-implement** (SideSign is AGPL) | R24 |
+| 5 | Zsign upstream | Multi-profile, `-P`, `-C`, cache | **Adopt** (MIT) after R6 | R8/09 |
+| 6 | MySign | Consolidated default-tweaks screen | **Adopt UX** (VexSign's model already exists) | R23 |
 | 7 | Feather family | Tweak/file-manager/download behaviours | **Reference only** — already superseded | — |
-| 8 | NexStore | NexCerts catalogue | **Contain** (re-label + consent) or remove | VX-04 |
+| 8 | NexStore | NexCerts catalogue | **Contain** (re-label + consent) or remove | R4 |
 | 9 | Odysseus / SideStore | Apple ID provisioning + Anisette | **Reject** — AGPL, credentials, ToS, product fit | — |
 | 10 | LiveContainer | Container runtime / TweakLoader | **Reject** — AGPL + architecture | — |
-| 11 | TrollStore | CoreTrust install | **Reject** — infeasible; optional deep link only | VX-26 |
+| 11 | TrollStore | CoreTrust install | **Reject** — infeasible; optional deep link only | R26 |
 | 12 | AltStore/AltServer | Desktop daemon, minimuxer, XPC | **Reject** — AGPL + desktop model | — |
 
 ---

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep Localizable.xcstrings in step with the literals the app asks for (VX-17).
+"""Keep Localizable.xcstrings in step with the literals the app asks for.
 
 Every `"…".localized(…)` / `String.localized("…")` call is a catalogue key. When a key is missing
 from `VexSign/Resources/Localizable.xcstrings`, iOS falls back to the literal — which works in

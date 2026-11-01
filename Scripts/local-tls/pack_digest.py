@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Digest of a local-TLS identity, shared by the build and the app (VX-12).
+"""Digest of a local-TLS identity, shared by the build and the app.
 
 The identity is the three files the local install server reads:
 `server.pem`, `server.crt` and `commonName.txt`. The digest is SHA-256 over them

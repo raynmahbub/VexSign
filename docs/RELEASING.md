@@ -74,7 +74,7 @@ just stop at different points.
   VERSION=1.2.0 tools/generate-changelog.sh
   ```
 
-## Local install server TLS identity (VX-12)
+## Local install server TLS identity (R12)
 
 Every IPA carries a certificate and private key in `deps/`. The app's *Fully Local* install
 mode serves `itms-services` over HTTPS from the device with that pair, so it is shipped

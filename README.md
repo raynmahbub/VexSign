@@ -251,7 +251,7 @@ The packaged IPA is written to `packages/VexSign.ipa` and requires signing befor
 - [`docs/ECOSYSTEM.md`](docs/ECOSYSTEM.md) — implementation scope and release considerations.
 - [`docs/AUDIT_2026-10-31.md`](docs/AUDIT_2026-10-31.md) — source-code audit: verified findings, severities and evidence.
 - [`docs/REFERENCE_COMPARISON.md`](docs/REFERENCE_COMPARISON.md) — reference projects verified against source, with adoption decisions and the licence boundary.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — prioritized engineering roadmap (VX-01 … VX-27) with acceptance criteria and tests.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — prioritized engineering roadmap with acceptance criteria and tests.
 - [`docs/RELEASING.md`](docs/RELEASING.md) — how releases are cut (tag push) and how to test a build without publishing.
 
 Want to contribute? Read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md), or [open an issue](https://github.com/iamsmmh/VexSign/issues).

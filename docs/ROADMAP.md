@@ -10,10 +10,10 @@ Ordering rules used below:
 
 1. A defect that can leak a signing identity, corrupt the library, or crash on a plausible path
    comes before any feature.
-2. A change the CI cannot verify comes after the CI can verify it. (This is why VX-10 is in
+2. A change the CI cannot verify comes after the CI can verify it. (This is why R10 is in
    Phase 1 and the Zsign upgrade is not.)
 3. A change that requires the signing engine to move waits until an independent verification
-   exists to prove it did not break signing (VX-06 before VX-08/09).
+   exists to prove it did not break signing (R6 before R8/09).
 4. Architecture work is done one extraction at a time, each behind its own PR and tests — never as
    a repository-wide refactor.
 
@@ -25,9 +25,9 @@ and "done" means green CI plus the stated tests.
 
 ## Phase 1 — Trust boundaries and guardrails (do these first)
 
-### VX-01 · Move library writes off the main-queue Core Data context — **S**, P0
+### R1 · Move library writes off the main-queue Core Data context — **S**, P0
 
-**Finding:** AX-01. `addSigned`/`addImported` insert and fetch on `viewContext` from detached
+**Finding:** F1. `addSigned`/`addImported` insert and fetch on `viewContext` from detached
 tasks (`Storage+Signed.swift:13,29`; `Storage+Imported.swift:13,27`; call sites
 `SigningHandler.swift:205`, `AppFileHandler.swift:223`, `AppCloner.swift:120,132`). The save hops
 to main; the object graph does not.
@@ -96,7 +96,7 @@ compiler can actually check, but it re-isolates ~30 call sites (Vapor request
 handlers, the companion bridge, several managers) and this sandbox cannot compile
 Swift; it needs its own PR with an Xcode pass. A grep over `viewContext` cannot
 distinguish isolation and would fire on correct code, so the runtime assertion
-plus the tests below are what actually catch a regression. Tracked as **VX-01b**.
+plus the tests below are what actually catch a regression. Tracked as **R1b**.
 
 **Tests:** `VexSignTests/StorageConcurrencyTests.swift` - 20 concurrent imports,
 10+10 mixed signed/imported writes, ID resolution including the certificate
@@ -105,9 +105,9 @@ executed here (no toolchain); the Unit tests workflow is the oracle.
 
 ---
 
-### VX-01b · Make the storage boundary compiler-enforced — **S/M**, P1 (follows VX-01)
+### R1b · Make the storage boundary compiler-enforced — **S/M**, P1 (follows R1)
 
-**Motivation:** VX-01 put every background write on one private context and enabled the
+**Motivation:** R1 put every background write on one private context and enabled the
 runtime assertion in Debug, but `Storage.context` is still reachable from any queue and
 nothing in the type system says otherwise. The write API makes the dangerous pattern
 awkward; this task makes it impossible.
@@ -134,9 +134,9 @@ awkward; this task makes it impossible.
   diagnostic; each one, if it survives review, names what is actually safe.
 
 **Risk:** medium only in the sense that it touches many files without behavioural intent.
-**Rollback:** revert the annotations; VX-01 keeps working either way.
+**Rollback:** revert the annotations; R1 keeps working either way.
 
-**Status:** runtime half implemented; the annotation half is re-scoped to **VX-01c**.
+**Status:** runtime half implemented; the annotation half is re-scoped to **R1c**.
 
 What shipped:
 
@@ -167,15 +167,15 @@ without a compiler is a guess with a red build as the failure mode. The runtime 
 in the meantime: it names the offending call site in Debug, and the test action traps on it.
 
 **Tests:** the tripwire itself cannot be asserted (it is a log line), so the coverage is the
-deletion test above plus the existing VX-01 suite running with the concurrency assertion enabled.
+deletion test above plus the existing R1 suite running with the concurrency assertion enabled.
 Not executed here; the Unit tests workflow is the oracle.
 
 ---
 
-### VX-01c · Compiler-enforced isolation for the view context — **M**, P1 (follows VX-01b)
+### R1c · Compiler-enforced isolation for the view context — **M**, P1 (follows R1b)
 
-**Motivation:** VX-01b catches a background mutation at runtime. The type system should refuse to
-compile it. This is the half of VX-01b that needs an Xcode pass, split out so it is not smuggled in
+**Motivation:** R1b catches a background mutation at runtime. The type system should refuse to
+compile it. This is the half of R1b that needs an Xcode pass, split out so it is not smuggled in
 blind.
 
 **Files:** `Backend/Storage/Storage.swift`, `Storage+Certificate.swift`, `Storage+Shared.swift`,
@@ -213,13 +213,13 @@ blind.
 - No new entries in `.github/build-warnings-baseline.json`.
 
 **Risk:** medium; it is a wide, mechanical change with no behavioural intent.
-**Rollback:** revert the annotations; VX-01b's runtime guard still holds.
+**Rollback:** revert the annotations; R1b's runtime guard still holds.
 
 ---
 
-### VX-02 · Make the Web Manager authenticated by default and stop LAN certificate export — **S/M**, P0
+### R2 · Make the Web Manager authenticated by default and stop LAN certificate export — **S/M**, P0
 
-**Finding:** AX-02. `requireAuth` defaults to false (`WebManager.swift:51`); the Vapor server binds
+**Finding:** F2. `requireAuth` defaults to false (`WebManager.swift:51`); the Vapor server binds
 `0.0.0.0` (`WebManagerServer.swift:227-232`, `ServerInstaller+TLS.swift:44-50`);
 `GET /api/certs/:uuid/download` returns the p12 + profile (`WebManagerServer+HTTP.swift:169-176`);
 the API token protects only `/api/sign` (`WebManagerServer+API.swift:154`); `defaultMaxBodySize`
@@ -292,9 +292,9 @@ the oracle.
 
 ---
 
-### VX-03 · Remove the remote certificate checker; keep OCSP on-device — **S**, P0
+### R3 · Remove the remote certificate checker; keep OCSP on-device — **S**, P0
 
-**Finding:** AX-03. p12 + password POSTed to `certchecker.novadev.vip`
+**Finding:** F3. p12 + password POSTed to `certchecker.novadev.vip`
 (`CertificateStatusManager.swift:89,282-316`). On-device path already exists
 (`CertificateInspector.swift:65-80`, `SecPolicyCreateRevocation` + `kSecRevocationOCSPMethod`).
 
@@ -321,7 +321,7 @@ the oracle.
 **Tests:** extend `MissingFeatureTests.testCertCheckResultStatusMapping`; new test asserting the
 status store never contains a p12 (grep + unit); remove the remote-service test fixtures.
 
-**Risk:** users lose the remote verdict. It is redundant and unsafe; VX-24 restores better
+**Risk:** users lose the remote verdict. It is redundant and unsafe; R24 restores better
 evidence.
 
 **Status:** implemented in this PR. Not compiled here (no Xcode in this sandbox).
@@ -348,9 +348,9 @@ now exercises the OCSP initialiser. Not executed here; the Unit tests workflow i
 
 ---
 
-### VX-04 · Contain or remove the NexCerts third-party catalogue — **S/M**, P0/P1
+### R4 · Contain or remove the NexCerts third-party catalogue — **S/M**, P0/P1
 
-**Finding:** AX-04. `NexCerts` downloads p12 + profile + password from `sideloading.net`
+**Finding:** F4. `NexCerts` downloads p12 + profile + password from `sideloading.net`
 (`NexCerts.swift:14-60`); entry point labelled "Official (NexCerts)"
 (`CertificatesView.swift:121`).
 
@@ -388,7 +388,7 @@ host is visible before download.
   downloads anything.
 - `NexCerts.downloadURLs(for:)` is now the only place a catalogue URL is built, and it is pinned
   by a test; downloads are capped at 16 MB (declared length, then actual length — a host that lies
-  about its length can still overrun the buffer, which is why the streaming fix belongs in VX-21).
+  about its length can still overrun the buffer, which is why the streaming fix belongs in R21).
 - Also removed: the "NexCerts" branding from user-visible error text.
 
 **Tests:** `NexCertsSourceTests` in `VexSignTests/EcosystemTests.swift` — fresh install acknowledges
@@ -397,11 +397,11 @@ remembered, an acknowledgement for another host does not count, revoking forgets
 
 ---
 
-### VX-10 · Run the unit test suite in CI — **S**, P0 (blocks everything else)
+### R10 · Run the unit test suite in CI — **S**, P0 (blocks everything else)
 
-**Finding:** AX-10. 78 tests, 7 files; no workflow runs `xcodebuild test`.
+**Finding:** F10. 78 tests, 7 files; no workflow runs `xcodebuild test`.
 
-**Files:** new `.github/workflows/unit-tests.yml`, new `.github/scripts/select_simulator.py`,
+**Files:** new `.github/workflows/ci.yml`, new `.github/scripts/select_simulator.py`,
 `Makefile` (`make test`).
 
 **Approach** (as implemented — see *Status* below)
@@ -415,7 +415,7 @@ remembered, an acknowledgement for another host does not count, revoking forgets
    iPhone only → newest runtime → newest generation → booted → name). Pinning
    `name=iPhone 16` is what makes test jobs rot when Xcode renames the device list; the script
    also fails with an actionable message instead of an opaque destination error.
-3. Same cache key shape as `build-check.yml` (`spm-${{ runner.os }}-<xcode>-<Package.resolved>`),
+3. Same cache key shape as `ci.yml` (build job) (`spm-${{ runner.os }}-<xcode>-<Package.resolved>`),
    so the two jobs share one SwiftPM checkout.
 4. Annotate and summarise via `.github/scripts/xcodebuild_report.py` with
    `--warnings-as-errors false`: `build-check` owns the warnings verdict, this job only answers
@@ -446,9 +446,9 @@ toolchain. That is information, not a regression — fix forward in the same PR.
 
 ---
 
-### VX-11 · Never write an unencrypted backup containing private keys — **S**, P1
+### R11 · Never write an unencrypted backup containing private keys — **S**, P1
 
-**Finding:** AX-09. `BackupCrypto.seal` returns plaintext when the password is empty
+**Finding:** F9. `BackupCrypto.seal` returns plaintext when the password is empty
 (`:40-44`); the manifest includes `cert.signingPassword` (`BackupManager.swift:211`); the UI
 suggests an empty password (`BackupView.swift:67`).
 
@@ -501,9 +501,9 @@ oracle.
 
 ## Phase 2 — Signing correctness
 
-### VX-06 · Verify what was signed — **M**, P1
+### R6 · Verify what was signed — **M**, P1
 
-**Finding:** AX-06. After `Zsign.sign` returns, nothing inspects the result
+**Finding:** F6. After `Zsign.sign` returns, nothing inspects the result
 (`SigningHandler.swift:151-180`).
 
 **Files:** new `VexSign/Utilities/Signing/SignatureVerifier.swift` (+ tests), `SigningHandler.swift`,
@@ -567,7 +567,7 @@ release (log-only), then promote to blocking once the device pass confirms the r
   "there is no signature at all".
 - Deliberately *not* done here: the normal signed→`InstallQueue` path is not gated, because the
   verdict does not survive as far as the `Signed` row without a schema change. That promotion
-  (persist the verdict, block in `InstallQueue`, drop the allowance after a release) is VX-06b and
+  (persist the verdict, block in `InstallQueue`, drop the allowance after a release) is R6b and
   should follow the device pass this section asks for.
 
 **Tests:** new `VexSignTests/SignatureVerifierTests.swift` (16 cases) with synthetic fixtures — a
@@ -579,9 +579,9 @@ fixture. The byte layout was validated against `MachOEntitlements`' parsing rule
 
 ---
 
-### VX-07 · Certificate ↔ profile ↔ bundle compatibility engine — **M**, P1
+### R7 · Certificate ↔ profile ↔ bundle compatibility engine — **M**, P1
 
-**Finding:** AX-07. `PreflightChecks` never compares the app to the profile.
+**Finding:** F7. `PreflightChecks` never compares the app to the profile.
 
 **Files:** new `VexSign/Utilities/Signing/ProfileCompatibility.swift` (+ tests),
 `Backend/Observable/PreflightChecks.swift`,
@@ -635,16 +635,16 @@ profile fixtures) and for entitlement subsets; table-driven expectations.
   passes `nil` and the check stays silent. VexSign's UDID tool is a web session that is deliberately
   not stored; if that ever changes, this is the field to fill.
 - Nested identifiers are read from the app bundle (`PlugIns`, `Extensions`, `Watch`) so an uncovered
-  extension is a warning *before* signing rather than a broken install after it. VX-08 owns the fix.
+  extension is a warning *before* signing rather than a broken install after it. R8 owns the fix.
 - **Bug fixed, found while building this:** `SignatureVerifier.coverage` required the *bundle*
   identifier to carry the team prefix, so every explicit profile would have looked like a mismatch.
   The team prefix belongs to the profile and to entitlement values, not to bundle ids. Coverage is
-  now team-insensitive (team identity is checked separately, by this engine) and VX-06's tests were
+  now team-insensitive (team identity is checked separately, by this engine) and R6's tests were
   corrected — one of them had encoded the wrong rule.
 
 - **Guard added after this class of mistake bit twice:** `swiftc -parse` does not resolve imports,
   so a file that calls `String.localized` without `import NimbleExtensions` parses clean and fails
-  in a real build. Four files were in that state (two from VX-02, two from this work).
+  in a real build. Four files were in that state (two from R2, two from this work).
   `quick_check.py` now has a `cross-module-imports` check with a small symbol→module table, and it
   was verified by injecting a violation and watching it fail. All four files are fixed.
 
@@ -655,28 +655,28 @@ provisioning including the in-house and unknown-UDID cases.
 
 ---
 
-### VX-08 · Per-extension provisioning and nested signing — **L**, P1 (depends on VX-06, VX-09)
+### R8 · Per-extension provisioning and nested signing — **L**, P1 (depends on R6, R9)
 
-**Finding:** AX-08. One `provisionPath` for the whole tree (`ZsignHandler.swift:53-66`); pinned
+**Finding:** F8. One `provisionPath` for the whole tree (`ZsignHandler.swift:53-66`); pinned
 engine has no multi-profile support.
 
 **Approach (preferred):** bump `Zsign` to a commit whose wrapper accepts multiple profiles,
-extend `ZsignHandler.sign` to pass a profile mapping, and let `SignatureVerifier` (VX-06) prove the
+extend `ZsignHandler.sign` to pass a profile mapping, and let `SignatureVerifier` (R6) prove the
 result. **(Fallback):** sign nested bundles in a separate pass with their matching profile, then
 sign the outer bundle.
 
-**Blocked on the engine (verified in VX-09):** the `package` branch head does expose
+**Blocked on the engine (verified in R9):** the `package` branch head does expose
 `SignFolder(list<ZSignAsset>*, …)` (`src/bundle.cpp:750-764`), but it can no longer leave a profile
 in a bundle at all, so it cannot be adopted; the pinned `SignFolder` takes one asset. Either way the
 engine signs every nested symbol with the *outer* profile's entitlements, so the profile mapping
-needs an engine change first — see VX-09's status block for the evidence.
+needs an engine change first — see R9's status block for the evidence.
 
 **Files:** `.gitmodules` (pin), `Zsign` submodule, `ZsignHandler.swift`, `SigningHandler.swift`,
 `ProfileCompatibility.swift`, signing UI (profile picker per extension), `docs/FEATURE_STATUS.md`.
 
 **Acceptance criteria**
 
-- An app with a widget extension signs with per-extension profiles and passes VX-06 verification.
+- An app with a widget extension signs with per-extension profiles and passes R6 verification.
   **Not met** — needs the engine change below.
 - A user with only one profile still gets today's behaviour, with a warning when an extension is
   not covered. **Met**, and the warning now names the bundle, the App ID the profile carries and
@@ -684,18 +684,18 @@ needs an engine change first — see VX-09's status block for the evidence.
 - Signing time does not regress by more than ~10% on a fixture. Not measured here: the added work
   is one directory walk per folder, before the engine starts.
 
-**Risk:** engine change affects every sign. Mitigation: land VX-09 first behind a switch, run
+**Risk:** engine change affects every sign. Mitigation: land R9 first behind a switch, run
 both engines on fixtures, keep the old pin revertible.
 
 **Status:** the engine-independent half is implemented in this PR; the signing half stays blocked on
-the engine (see VX-09). Not compiled here; tests not run.
+the engine (see R9). Not compiled here; tests not run.
 
 - **What the pin can and cannot do.** `SignFolder` takes a single `ZSignAsset` and applies it to
   every node it walks (`Zsign/src/bundle.cpp:515-544`), so a nested bundle is always signed with the
   *outer* profile's identity and entitlements. Pre-placing per-extension profiles does not help:
   the outer pass rewrites each nested signature anyway, and re-signing the nested bundles afterwards
   invalidates the outer seal. The `package` head does have the C++ overload that takes a list of
-  assets (`src/bundle.cpp:750-764`), but it cannot leave a profile in a bundle at all (VX-09), so
+  assets (`src/bundle.cpp:750-764`), but it cannot leave a profile in a bundle at all (R9), so
   there is still nothing to adopt.
 - **What landed.** `VexSign/Utilities/Signing/NestedBundleAudit.swift` enumerates the nested bundles
   that actually need a profile — `.appex` under `PlugIns`/`Extensions`, `.app` under `Watch` —
@@ -724,7 +724,7 @@ an app with no nested bundles, and required identifiers with and without extensi
 
 ---
 
-### VX-09 · Zsign engine upgrade — **M**, P1 (after VX-06)
+### R9 · Zsign engine upgrade — **M**, P1 (after R6)
 
 **Finding:** engine pin `6ffe703` is from 2025-07-27; upstream (MIT, 2026-10-20) has multi-profile,
 `-P`, `-C`, cache improvements and a corrected `-R` meaning.
@@ -740,7 +740,7 @@ an app with no nested bundles, and required identifiers with and without extensi
 4. Add a `.zsign_cache` hygiene step: the engine writes it relative to the process CWD; clear it
    per sign or point it at the work directory.
 
-**Acceptance criteria:** all signing paths still pass VX-06; re-sign of an unchanged app is
+**Acceptance criteria:** all signing paths still pass R6; re-sign of an unchanged app is
 measurably faster (cache — **not met**, see Status: the pin never reads its own cache); the removal
 flag behaves as the toggle says on a device pass.
 
@@ -791,7 +791,7 @@ tests not run.
 - **Not done, and why.** `sign(..., profiles:)` is deliberately absent: the pin's `SignFolder`
   takes a single `ZSignAsset`, and writing per-extension profiles into nested bundles by hand would
   still sign every nested symbol with the outer profile's entitlements — producing a mismatched
-  extension rather than refusing it. VX-08 stays blocked on an engine that both embeds a profile
+  extension rather than refusing it. R8 stays blocked on an engine that both embeds a profile
   and exposes `list<ZSignAsset>`.
 
 **Tests:** new `VexSignTests/ZsignEngineTests.swift` (10 cases): the provisioning translation in both
@@ -802,9 +802,9 @@ leaving neighbours alone, clearing a clean directory, and clearing twice.
 
 ---
 
-### VX-13 · One signing service with events and cancellation — **M/L**, P2
+### R13 · One signing service with events and cancellation — **M/L**, P2
 
-**Finding:** AX-12. Unstructured `Task.detached` with a completion closure; no cancel; progress
+**Finding:** F12. Unstructured `Task.detached` with a completion closure; no cancel; progress
 constants (`FR.swift:47-120`); batch cancel only flips a flag.
 
 **Approach**
@@ -867,9 +867,9 @@ refused; cancelling stops an in-flight run; `cancelAll()` stops every run.
 
 ---
 
-### VX-12 · Take TLS key material out of the build — **S/M**, P2
+### R12 · Take TLS key material out of the build — **S/M**, P2
 
-**Finding:** AX-11. `make deps` downloads a private key from a Cloudflare Worker
+**Finding:** F11. `make deps` downloads a private key from a Cloudflare Worker
 (`Makefile:9,22-30`), and the app can re-download it at runtime (`FR.swift:190-200`,
 `ServerView.swift:57`).
 
@@ -942,9 +942,9 @@ bundle) plus the hostname table `ServerInstaller.normalizedHostname` already rel
 
 ## Phase 3 — Installation lifecycle
 
-### VX-05 · Confirm installs instead of guessing — **M**, P1
+### R5 · Confirm installs instead of guessing — **M**, P1
 
-**Finding:** AX-05. Success is inferred from `installProgress` returning to zero
+**Finding:** F5. Success is inferred from `installProgress` returning to zero
 (`AppInstaller.swift:372-380`; same pattern in `SelfUpdateManager.swift:342-357`).
 
 **Files:** new `VexSign/Utilities/Installing/InstallConfirmation.swift` (pure) and
@@ -979,7 +979,7 @@ stubbed proxy; regression test asserting no analytics on failure.
   placeholder, version, build, bundle URL), the `InstalledAppProbing` seam, a
   `LSApplicationProxy` adapter with every selector base64-encoded and `responds(to:)`-guarded the
   way the rest of the app's private lookups are, and `InstalledState.derive(from:expecting:)`
-  (`.installed` / `.installedOtherVersion` / `.notInstalled` / `.unknown`) — the derivation VX-16
+  (`.installed` / `.installedOtherVersion` / `.notInstalled` / `.unknown`) — the derivation R16
   renders in the library. A probe that cannot answer returns `nil`; nothing is guessed.
 - New `VexSign/Utilities/Installing/InstallConfirmation.swift`: a pure state machine —
   `.waitingForStart` → `.downloading` → `.verifying` → `.finished(Verdict)` — with the roadmap's
@@ -1001,7 +1001,7 @@ stubbed proxy; regression test asserting no analytics on failure.
   done; dismissed prompt → idle; installed but still on the old version, rolled back, or never
   finished → a failure with the existing **Try Again** action.
 - `InstallQueue` shows a toast when an install is proven but the device reports another version.
-  Library-row annotation is VX-16's job and now has the derivation it needs.
+  Library-row annotation is R16's job and now has the derivation it needs.
 - **Not done here:** `LSApplicationWorkspace` install-progress *phase/state* and
   `ls_expectedFinalInstallPhase` (what KorSign reads on the idevice path) are not wired — the
   IDevice install itself lives in `IDeviceSwift`, so that path is confirmed by evidence after the
@@ -1017,9 +1017,9 @@ end-to-end runs with a scripted counter and a fixed probe.
 
 ---
 
-### VX-16 · Library reflects real installation state and signature lifetime — **M**, P1
+### R16 · Library reflects real installation state and signature lifetime — **M**, P1
 
-**Depends on:** VX-05, VX-07.
+**Depends on:** R5, R7.
 
 **Approach**
 
@@ -1086,9 +1086,9 @@ rows; and the badges.
 
 ## Phase 4 — Maintainability, quality gates, performance
 
-### VX-14 · Extract services and split god files (incremental) — **L**, P2
+### R14 · Extract services and split god files (incremental) — **L**, P2
 
-**Finding:** AX-17 / §2.2–2.3 (1,567-line `AppStoreView`, 934-line `DownloadManager`, 54
+**Finding:** F17 / §2.2–2.3 (1,567-line `AppStoreView`, 934-line `DownloadManager`, 54
 singletons).
 
 **Approach**
@@ -1110,7 +1110,7 @@ with fakes; largest file under ~800 lines after the first three extractions.
 - **Singleton count frozen.** `tools/singleton-freeze.py` counts `static let/var shared` under
   `VexSign/` (currently **56 in 55 files**) against `tools/singleton-baseline.json` and fails when a
   file grows. Probe-verified: injecting one in an unrelated file fails the check, removing it
-  passes. Wired into `quick-check.yml` ("Singleton freeze"). This is acceptance criterion 3.
+  passes. Wired into `ci.yml` (quick job) ("Singleton freeze"). This is acceptance criterion 3.
 - **A testable seam exists.** `VexSign/Backend/Services/Downloading.swift` defines
   `PackageDownloading` — start a download, get the row back — implemented by `DownloadManager` as
   the production instance. `DiscoveryViewModel` now takes it in its initialiser
@@ -1137,7 +1137,7 @@ Honest note on acceptance criterion 1 (~800 lines): `AppStoreView` is at 1,387, 
 met yet. Splitting the remaining sections means changing who owns a dozen `@State`/`@FetchRequest`
 properties, which cannot be validated without a compiler — that is the next PR, not this one.
 
-### VX-15 · Swift 6 language mode, leaf first — **L**, P2
+### R15 · Swift 6 language mode, leaf first — **L**, P2
 
 **Approach:** enable `SWIFT_STRICT_CONCURRENCY=complete` warnings-only on `NimbleKit`, then
 `AltSourceKit`, then the app; fix by isolation, not by `@unchecked Sendable`. Adopt Swift 6 mode
@@ -1153,7 +1153,7 @@ concurrency warnings at zero for the touched files; CI enforces no increase.
   `@preconcurrency`. That is far better than the audit assumed, and it means the "no new
   `@unchecked Sendable`" criterion is cheap to hold.
 - `tools/concurrency-discipline.py` freezes those three per file against
-  `tools/concurrency-baseline.json`, wired into `quick-check.yml` ("Concurrency discipline"). It is a
+  `tools/concurrency-baseline.json`, wired into `ci.yml` (quick job) ("Concurrency discipline"). It is a
   counting gate by design: it runs where there is no compiler, and it does not pretend to prove
   isolation.
 - `make strict-concurrency` is the real check: builds `AltSourceKit` with
@@ -1162,15 +1162,15 @@ concurrency warnings at zero for the touched files; CI enforces no increase.
   leaf-first flip can be measured on a machine with a toolchain instead of guessed at.
 
 **Deliberately not flipped yet:** `SWIFT_STRICT_CONCURRENCY=complete` on the app target is *not*
-enabled. `build-check.yml` defaults to `BUILD_WARNINGS_AS_ERRORS=true`, so turning it on from a
+enabled. `ci.yml` (build job) defaults to `BUILD_WARNINGS_AS_ERRORS=true`, so turning it on from a
 sandbox with no compiler would either be a no-op claim or break `main` for everyone. The order is:
 run `make strict-concurrency`, fix the leaf warnings, enable `StrictConcurrency` in
 `AltSourceKit/Package.swift` (a one-line `swiftSettings:` addition), then the app target.
 
-### VX-17 · Localisation gate + catalogue sync — **M**, P2
+### R17 · Localisation gate + catalogue sync — **M**, P2
 
 **Fact:** 2,110 distinct literals vs 1,428 catalogue keys (799 missing, 490 English-only).
-*Measured again before VX-17: 2,281 literals vs 1,420 keys — 989 missing.*
+*Measured again before R17: 2,281 literals vs 1,420 keys — 989 missing.*
 
 **Approach:** a script (`tools/sync-strings.py`) that adds missing keys with the English value;
 a CI check that fails when source literals are absent from the catalogue (additions allowed, so
@@ -1189,7 +1189,7 @@ truncation. Do not machine-translate; leave new keys English and mark them for t
   (+989). The file is edited textually, so the diff is additive instead of a JSON round-trip that
   would reformat all 1 420 existing keys; the merge refuses to write unless the result parses and
   keeps every existing entry.
-- CI: `.github/workflows/quick-check.yml` runs `python3 tools/sync-strings.py --check` after the
+- CI: `.github/workflows/ci.yml` runs `python3 tools/sync-strings.py --check` after the
   syntax/resource check, and re-runs when the script or any `.xcstrings` file changes.
 - Verified here: `--check` exits 0 on the synced tree, and exits 1 naming the file when a literal
   is injected that has no key (`"A key that is deliberately missing"` → `VexSign/.../ZsignEngine.swift`),
@@ -1198,10 +1198,10 @@ truncation. Do not machine-translate; leave new keys English and mark them for t
   translations themselves — the catalogue now carries English for every key, which is the state
   Xcode presents to a translator.
 
-### VX-18 · Accessibility pass — **M**, P2
+### R18 · Accessibility pass — **M**, P2
 
 **Fact:** 108 fixed font sizes, 24 labels, 0 identifiers, 0 Dynamic Type handling.
-*Measured again before VX-18: 110 fixed sizes, 28 labels, 0 identifiers.*
+*Measured again before R18: 110 fixed sizes, 28 labels, 0 identifiers.*
 
 **Approach:** replace fixed sizes with semantic styles where layout allows; add labels to icon-only
 controls (sign, install, cancel, expiry pills); add `accessibilityIdentifier`s on the signing and
@@ -1234,7 +1234,7 @@ install flows for future UI tests; respect Reduce Motion in the animated surface
 **Tests:** new `VexSignTests/AccessibilityIdentifiersTests.swift` (4 cases): prefix, uniqueness,
 shape, and coverage of the signing/install/library flows.
 
-### VX-19 · Error-handling and logging discipline — **M**, P3
+### R19 · Error-handling and logging discipline — **M**, P3
 
 **Approach:** replace silent `try?` at user-visible boundaries with logged, typed failures
 (start with `FileManager` writes, plist/entitlement writes, Keychain writes, backup/restore);
@@ -1278,9 +1278,9 @@ targets, ordinary log lines and keyword-containing words are untouched, a URL ke
 losing its credentials, redaction is idempotent, every occurrence on a line is masked, and empty
 input stays empty.
 
-### VX-20 · Get repository decoding off the main thread — **S/M**, P2
+### R20 · Get repository decoding off the main thread — **S/M**, P2
 
-**Fact:** AX-16. `SourcesViewModel` decodes after the task group (`:270-300`).
+**Fact:** F16. `SourcesViewModel` decodes after the task group (`:270-300`).
 
 **Approach:** decode inside the group task, return a `Sendable` result, publish on the main actor;
 add a signpost around fetch/decode/publish and a test with a synthetic 5 MB feed asserting the
@@ -1290,7 +1290,7 @@ decode is not on the main thread.
 
 - **Confirmed first.** `fetchSources` is `@MainActor` (`SourcesViewModel.swift:95`) and decoded every
   payload *after* the task group returned, so a large repository was parsed on the thread that draws
-  the screen — AX-16, and why a big source made the store stutter.
+  the screen — F16, and why a big source made the store stutter.
 - **What changed.** `VexSign/Utilities/SourceFeedLoader.swift` owns fetch *and* decode in a value
   type that carries no isolation. `load(url:headers:identifier:)` awaits the injected fetcher, then
   decodes, and returns a `SourceFeedResult` whose outcome is `Sendable` (`ASRepository` already was:
@@ -1299,7 +1299,7 @@ decode is not on the main thread.
   publishing — with the dictionary keyed by identifier so a duplicate cannot trap.
 - **Snapshots too.** The offline prefill decoded every cached snapshot inside the same `@MainActor`
   method; those reads now run on a utility executor (`_cachedRepositories(for:)`) and only the
-  decoded models come back. Both decode sites of AX-16 are gone.
+  decoded models come back. Both decode sites of F16 are gone.
 - **Signposts.** `SourceFeedSignposts` brackets three phases — `source` (fetch + decode per source),
   `decode`, and `publish` — so a slow refresh is attributable in Instruments instead of guessed at.
 - **Testability.** The fetcher is an injected `@Sendable` closure, and `willDecode` reports
@@ -1313,9 +1313,9 @@ for the snapshot cache; a valid feed decoding with its payload intact; invalid J
 `invalid`; an empty body as a failure; HTTP 429 flagged rate-limited; another HTTP error not
 flagged; and the rate-limit classifier's edges.
 
-### VX-21 · Enforce download integrity where the source provides it — **S**, P3
+### R21 · Enforce download integrity where the source provides it — **S**, P3
 
-**Fact:** AX-20. `ASRepository` carries `size` per app/version; downloads compute a SHA-256 but do
+**Fact:** F20. `ASRepository` carries `size` per app/version; downloads compute a SHA-256 but do
 not enforce it.
 
 **Approach:** when a source declares `size`, reject a mismatching download before import with an
@@ -1375,9 +1375,9 @@ closing hint); `byteCount` on a real file and on a missing one.
 Not done, deliberately: no new settings, no per-source "trust" toggle, no hash prompt in the
 manual download sheet (that is a UI decision, not an integrity one).
 
-### VX-22 · Anti-revoke/DNS hardening — **S**, P3
+### R22 · Anti-revoke/DNS hardening — **S**, P3
 
-**Fact:** AX-19. `NovaDNSDynamic` uses `dns.novadev.vip` + `api.novadev.vip`.
+**Fact:** F19. `NovaDNSDynamic` uses `dns.novadev.vip` + `api.novadev.vip`.
 
 **Approach:** make the endpoint configurable, display it, keep the feature off by default, log when
 it rewrites resolution, and state plainly that it cannot guarantee anything about revocation. No
@@ -1428,7 +1428,7 @@ VexSign cannot test someone else's DNS from the device, and pretending otherwise
 
 ## Phase 5 — Deliberate differentiators (after the above is green)
 
-### VX-23 · Consolidated "inject by default" tweak screen — **S**, P3
+### R23 · Consolidated "inject by default" tweak screen — **S**, P3
 The model exists (`TweakModels.swift:222-274`); only the UI is missing. One list, one toggle per
 tweak, bulk select, search. Pattern from MySign (GPL-3.0), implemented against VexSign's manager.
 
@@ -1444,8 +1444,8 @@ the thing a user gets wrong when switching things on in bulk. The list logic
 tweaks, search-scoped apply, idempotence, exceptions surviving, and both directions of the
 `autoInjects(into:)` rule. No MySign code was used — the pattern is a list with toggles.
 
-### VX-24 · On-device signed OCSP verification — **M**, P2/P3
-Replace what VX-03 removed with real evidence: build an OCSP request (SHA-1 CertID from
+### R24 · On-device signed OCSP verification — **M**, P2/P3
+Replace what R3 removed with real evidence: build an OCSP request (SHA-1 CertID from
 issuer name/key hashes + serial), parse the BasicResponse, **verify the responder signature**
 against the issuer/Apple WWDR chain, check `thisUpdate`/`nextUpdate`, and report
 Valid / Revoked(date, reason) / Unknown with the raw evidence available in diagnostics. Pure DER
@@ -1503,7 +1503,7 @@ request is built, no UI shows the verdict, no warn/block/allow setting exists. T
 are `OCSPResponderVerifier` → `SecTrust` chain check → the setting and the evidence view. Until then
 this is a tested library, not a feature, and it changes no behaviour.
 
-### VX-25 · Repository trust and provenance — **M**, P3 (candidate)
+### R25 · Repository trust and provenance — **M**, P3 (candidate)
 VexSign documents that "trusted repository" badges are user-controlled and not cryptographic.
 Next step: optional Ed25519-signed catalog support (`source.json` signature + advertised key),
 verified before refresh, with the badge derived from the signature instead of a toggle. This is a
@@ -1539,7 +1539,7 @@ genuine differentiator no fork offers. Also document the ESign decryption-key pr
 Not done: no key pinning (a repository's key can change with its URL), no UI to manage keys, and the
 signature is not shown in the repository detail screen — only the row badge.
 
-### VX-26 · Install-method polish — **S**, P3
+### R26 · Install-method polish — **S**, P3
 One place that explains and chooses: local HTTPS (default), idevice with pairing, export/share,
 and — when TrollStore is detected — "Open in TrollStore" (deep link only; no CoreTrust
 reimplementation). Include a preflight that names the missing prerequisite for each method
@@ -1562,7 +1562,7 @@ setting lives in its own screen; duplicating it here would be a second control f
 TrollStore is detected but not offered as a deep link — a link needs an IPA URL, which this screen
 does not have.
 
-### VX-27 · Cloud signing — revisit only with a real signer — **parked**
+### R27 · Cloud signing — revisit only with a real signer — **parked**
 `cloud-signing/` is orchestration without a signer; a native client without a service is a dead
 end. Revisit if and when a signing sandbox and a threat model exist. Do not add UI for it before
 then.
@@ -1570,7 +1570,7 @@ then.
 Until that decision is made the client refuses to transmit a private key: `CloudSigningClient`
 throws `CloudSigningError.privateKeyUploadDisabled` from `signRemotely` and from any
 `upload(kind: .p12)`, so a future feature has to be built deliberately rather than switched on
-(VX-03 set that invariant, and `CertificateRevocationTests` asserts it).
+(R3 set that invariant, and `CertificateRevocationTests` asserts it).
 
 ---
 
@@ -1578,19 +1578,19 @@ throws `CloudSigningError.privateKeyUploadDisabled` from `signRemotely` and from
 
 | Release gate | Contents | Why this order |
 | --- | --- | --- |
-| **Gate A** (security + guardrails) | VX-10, VX-01, VX-02, VX-03, VX-11, VX-04 | Secrets stop leaving the device; the library stops being written off-main; CI can prove it |
-| **Gate B** (signing correctness) | VX-06, VX-07, VX-13 (adapter), VX-12 | Every sign is verified and understandable; the pipeline gains a cancel path |
-| **Gate C** (lifecycle) | VX-05, VX-16, VX-09 | Installs are confirmed; the engine moves only after verification exists |
-| **Gate D** (capability) | VX-08, VX-24 | Per-extension signing and real revocation evidence |
-| **Gate E** (maintainability) | VX-14, VX-15, VX-17, VX-18, VX-19, VX-20, VX-21, VX-22 | Debt paid while the surface is stable |
-| **Gate F** (differentiators) | VX-23, VX-25, VX-26 | Nice-to-haves that no fork matches |
+| **Gate A** (security + guardrails) | R10, R1, R2, R3, R11, R4 | Secrets stop leaving the device; the library stops being written off-main; CI can prove it |
+| **Gate B** (signing correctness) | R6, R7, R13 (adapter), R12 | Every sign is verified and understandable; the pipeline gains a cancel path |
+| **Gate C** (lifecycle) | R5, R16, R9 | Installs are confirmed; the engine moves only after verification exists |
+| **Gate D** (capability) | R8, R24 | Per-extension signing and real revocation evidence |
+| **Gate E** (maintainability) | R14, R15, R17, R18, R19, R20, R21, R22 | Debt paid while the surface is stable |
+| **Gate F** (differentiators) | R23, R25, R26 | Nice-to-haves that no fork matches |
 
-**Where the gates stand (2026-11-01).** A ✅ · B ✅ · C ✅ · **D — VX-24 has its OCSP request/parse/
+**Where the gates stand (2026-11-01).** A ✅ · B ✅ · C ✅ · **D — R24 has its OCSP request/parse/
 verify/policy core and 36 tests, but the responder certificate is not chained to an issuer yet and
-nothing calls it; VX-08's second half is blocked by the pinned engine (one `ZSignAsset` per
-`SignFolder`)** · **E — all seven landed; the follow-ups are recorded, not finished**: VX-14's
-remaining extractions (`AppStoreView` 1,386 → ~800), VX-15's app-target flip (needs
-`warnings-as-errors` off for a first measurement), VX-24's `SecTrust` step, and VX-27 parked · F ✅.
+nothing calls it; R8's second half is blocked by the pinned engine (one `ZSignAsset` per
+`SignFolder`)** · **E — all seven landed; the follow-ups are recorded, not finished**: R14's
+remaining extractions (`AppStoreView` 1,386 → ~800), R15's app-target flip (needs
+`warnings-as-errors` off for a first measurement), R24's `SecTrust` step, and R27 parked · F ✅.
 
 Everything above is verified only by the checks that run without a compiler
 (`make verify`: quick check, catalogue, `try?`, singleton and concurrency gates) and by the static
@@ -1607,10 +1607,10 @@ signing or installation — a device-pass checklist recorded in the PR.
 
 1. Scope in the PR matches the task; no drive-by refactors.
 2. New logic is unit-tested; the test is named for the behaviour, not the implementation.
-3. `xcodebuild test` green (VX-10 prerequisite), build-check green with warnings-as-errors
+3. `xcodebuild test` green (R10 prerequisite), build-check green with warnings-as-errors
    baseline unchanged or smaller.
 4. Failure paths produce a user-visible, actionable message — not `try?`.
-5. Strings added to `Localizable.xcstrings` (VX-17 gate once it exists).
+5. Strings added to `Localizable.xcstrings` (R17 gate once it exists).
 6. `docs/FEATURE_STATUS.md` updated with setting → persisted value → consumer → status.
 7. Licence/attribution recorded in the commit trailer when an idea or code came from a reference
    project (GPL family only; never AGPL).
@@ -1635,7 +1635,7 @@ signing or installation — a device-pass checklist recorded in the PR.
 
 ## Suggested first PR (small, high value)
 
-`VX-10` alone: add the unit-test workflow and fix whatever it reveals. It changes no product
+`R10` alone: add the unit-test workflow and fix whatever it reveals. It changes no product
 behaviour, gives every later task a regression oracle, and immediately turns 78 existing tests
 from documentation into enforcement.
 

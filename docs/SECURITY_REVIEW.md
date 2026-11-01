@@ -69,7 +69,7 @@ Archive entry names are attacker-controlled strings.
   evidence comes from `CertificateInspector` (`SecPolicyCreateRevocation` with
   `kSecRevocationOCSPMethod | kSecRevocationRequirePositiveResponse`), which
   sends certificate identifiers to the responder and nothing else. The legacy
-  multipart upload to a third-party checker was deleted in VX-03; its stored
+  multipart upload to a third-party checker was deleted in R3; its stored
   verdicts and its consent switch are erased on launch
   (`CertificateStatusManager.legacy*Key`), because a verdict produced from an
   uploaded p12 is not evidence this app can stand behind.
@@ -96,7 +96,7 @@ in `deinit`.
   and certificate **metadata** only — no private keys, no passwords
   (explicit `_sanitize` pass over logs, plus summaries that exclude
   secrets).
-- Backups are **always encrypted** (VX-11). A random per-backup content key
+- Backups are **always encrypted** (R11). A random per-backup content key
   encrypts the payload with AES-GCM; that key is wrapped either by a PBKDF2
   (SHA256, 200k iterations, 16-byte salt) key derived from the user's password
   or by a 32-byte device key held in the Keychain, never both. A backup that

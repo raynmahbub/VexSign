@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep concurrency escapes from spreading (VX-15).
+"""Keep concurrency escapes from spreading.
 
 `@unchecked Sendable`, `nonisolated(unsafe)` and `@preconcurrency import` are all the same trade:
 the compiler stops checking something, and nobody notices when the assumption later becomes false.

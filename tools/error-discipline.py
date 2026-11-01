@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep silent `try?` from spreading (VX-19).
+"""Keep silent `try?` from spreading.
 
 A `try?` throws the failure away. Most of the 400 sites in this app are deliberate — a best-effort
 cache write, a file that may not exist — but the ones at a user-visible boundary (a plist write, a

@@ -2,7 +2,7 @@
 #
 # make-dev-identity.sh — build the local install server a TLS identity, offline.
 #
-# VX-12: `make deps` used to curl a mutable endpoint for the private key that ends
+# `make deps` used to curl a mutable endpoint for the private key that ends
 # up in every build. That is gone. The default build now mints its own identity
 # here, with openssl and no network: a development Root CA plus a leaf, in the
 # shape the app expects (leaf first, CA last in server.crt; key in server.pem;

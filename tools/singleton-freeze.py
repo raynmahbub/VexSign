@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Freeze the number of global singletons (VX-14).
+"""Freeze the number of global singletons.
 
 The audit counted 54 `static let shared` globals; the tree has 56. Each one is a hidden dependency:
 it decides what a view model can be tested with, and it decides what has to be torn down between

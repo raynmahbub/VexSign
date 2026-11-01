@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # fetch-release-identity.sh — download the published TLS identity for the local
-# install server and write it in the layout `deps/` uses (VX-12).
+# install server and write it in the layout `deps/` uses.
 #
 # The caller is responsible for verifying the digest afterwards:
 #   make deps-release   fetch, verify against Scripts/local-tls/pinned-pack.sha256, install
