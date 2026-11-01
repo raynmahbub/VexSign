@@ -240,7 +240,7 @@ private struct AutomationPreviewView: View {
     var body: some View {
         NBList(.localized("Automation Preview")) {
             Section {
-                LabeledContent(.localized("Background Automation"), value: enabled ? .localized("Enabled") : .localized("Disabled"))
+                LabeledContent(.localized("Background Automation"), value: enabled ? String.localized("Enabled") : String.localized("Disabled"))
                 LabeledContent(.localized("Policy"), value: (BackgroundAutomationPolicy(rawValue: policyRaw) ?? .notifyOnly).localizedDescription)
                 if gameMode {
                     Label(.localized("Paused by Game Mode"), systemImage: "pause.circle")
@@ -334,7 +334,7 @@ private enum AutomationCandidateSnapshot {
             importedApps: Storage.shared.getImportedApps()
         ).filter { $0.hasUpdate }
         return UpdateAllManager.shared.makeTasks(from: entries).sorted {
-            $0.app.name.localizedStandardCompare($1.app.name) == .orderedAscending
+            ($0.app.name ?? "").localizedStandardCompare($1.app.name ?? "") == .orderedAscending
         }
     }
 }

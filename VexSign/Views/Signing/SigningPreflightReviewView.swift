@@ -61,7 +61,7 @@ struct SigningPreflightReviewView: View {
                     Button {
                         if result.hasBlocking { confirmOverride = true } else { sign() }
                     } label: {
-                        Label(result.hasBlocking ? .localized("Sign Anyway") : .localized("Start Signing"),
+                        Label(result.hasBlocking ? String.localized("Sign Anyway") : String.localized("Start Signing"),
                               systemImage: result.hasBlocking ? "exclamationmark.triangle" : "signature")
                             .frame(minHeight: 44)
                     }

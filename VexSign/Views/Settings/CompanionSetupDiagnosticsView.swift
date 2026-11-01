@@ -66,7 +66,7 @@ struct CompanionSetupDiagnosticsView: View {
 
     private func evidenceRow(_ title: String, present: Bool) -> some View {
         LabeledContent {
-            Label(present ? .localized("Detected") : .localized("Not detected"), systemImage: present ? "doc.text.magnifyingglass" : "questionmark.circle")
+            Label(present ? String.localized("Detected") : String.localized("Not detected"), systemImage: present ? "doc.text.magnifyingglass" : "questionmark.circle")
                 .foregroundStyle(.secondary)
         } label: { Text(title) }
     }
