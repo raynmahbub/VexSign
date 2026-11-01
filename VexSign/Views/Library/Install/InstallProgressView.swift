@@ -32,7 +32,7 @@ struct InstallProgressView: View {
 		}
 		.accessibilityElement(children: .combine)
 		.accessibilityLabel(.localized("Installing"))
-		.accessibilityIdentifier(AX.Install.progress)
+		.accessibilityIdentifier(A11y.Install.progress)
 	}
 	
 	@ViewBuilder

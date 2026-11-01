@@ -226,7 +226,7 @@ struct LibraryCellView: View {
 			.background(_badgeTint(badge.tone).opacity(0.16), in: Capsule())
 			.foregroundStyle(_badgeTint(badge.tone))
 			.accessibilityLabel(Text(badge.accessibilityLabel))
-			.accessibilityIdentifier(AX.Library.installedBadge)
+			.accessibilityIdentifier(A11y.Library.installedBadge)
 		}
 	}
 
@@ -250,7 +250,7 @@ struct LibraryCellView: View {
 				.padding(4)
 				.background(Color.secondary.opacity(0.12), in: Circle())
 				.accessibilityLabel(.localized("Locked"))
-				.accessibilityIdentifier(AX.Library.lockBadge)
+				.accessibilityIdentifier(A11y.Library.lockBadge)
 		}
 
 		if let update = updateChecker.hasUpdate(for: app) {
@@ -264,7 +264,7 @@ struct LibraryCellView: View {
 			.padding(.vertical, 3)
 			.background(Color.userTint.opacity(0.18), in: Capsule())
 			.foregroundStyle(Color.userTint)
-			.accessibilityIdentifier(AX.Library.updateBadge)
+			.accessibilityIdentifier(A11y.Library.updateBadge)
 		} else if
 			let info = appStoreTracker.info(for: app.identifier),
 			appStoreTracker.hasNewerVersion(than: app)
@@ -431,7 +431,7 @@ extension LibraryCellView {
 						revoked: certRevoked,
 						expiration: certInfo
 					)
-					.accessibilityIdentifier(AX.Install.start)
+					.accessibilityIdentifier(A11y.Install.start)
 				}
 			} else {
 				Button {

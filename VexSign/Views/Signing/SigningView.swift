@@ -118,7 +118,7 @@ struct SigningView: View {
 									}
 									.buttonStyle(.plain)
 									.accessibilityLabel(.localized("Stop Signing"))
-									.accessibilityIdentifier(AX.Signing.stop)
+									.accessibilityIdentifier(A11y.Signing.stop)
 									.transition(.scale.combined(with: .opacity))
 								}
 
@@ -137,13 +137,13 @@ struct SigningView: View {
 														.tint(.white)
 														.padding(.trailing, 28)
 														.allowsHitTesting(false)
-														.accessibilityIdentifier(AX.Signing.progress)
+														.accessibilityIdentifier(A11y.Signing.progress)
 												}
 											}
 											.padding()
 									}
 									.buttonStyle(.plain)
-									.accessibilityIdentifier(AX.Signing.start)
+									.accessibilityIdentifier(A11y.Signing.start)
 								}
 							.offset(y: UIDevice.current.userInterfaceIdiom == .pad ? -20 : -40)
 							.animation(.smooth, value: _isSigning)
@@ -209,7 +209,7 @@ struct SigningView: View {
 				_postSignAction = nil
 			}) {
 				SigningLogView()
-				.accessibilityIdentifier(AX.Signing.console)
+				.accessibilityIdentifier(A11y.Signing.console)
 					.presentationDetents([.medium, .large])
 					.presentationDragIndicator(.visible)
 			}

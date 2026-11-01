@@ -14,7 +14,7 @@
 
 import Foundation
 
-enum AX {
+enum A11y {
 	/// Every identifier starts with this, so a stale one is obvious in a UI-test log.
 	static let prefix = "vexsign"
 
