@@ -39,7 +39,9 @@ struct AnalyticsView: View {
                 storage = await Task.detached(priority: .utility) {
                     guard let directory, let files = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey], options: [.skipsHiddenFiles]) else { return Int64(0) }
                     var total: Int64 = 0
-                    for case let url as URL in files {
+                    // `nextObject()` rather than `for … in files`: NSEnumerator's
+                    // `makeIterator()` is unavailable from asynchronous contexts.
+                    while let url = files.nextObject() as? URL {
                         if Task.isCancelled { break }
                         if let value = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]), value.isRegularFile == true { total += Int64(value.fileSize ?? 0) }
                     }

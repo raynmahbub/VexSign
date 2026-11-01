@@ -206,11 +206,9 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 
 	private func requestNotificationPermissions() {
-		UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .providesAppNotificationSettings]) { granted, error in
-			if granted {
-			} else if let error = error {
-			}
-		}
+		// The prompt is the whole point; the answer is read back from
+		// `getNotificationSettings` when the UI actually needs it.
+		UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .providesAppNotificationSettings]) { _, _ in }
 		
 		UNUserNotificationCenter.current().delegate = self
 	}
