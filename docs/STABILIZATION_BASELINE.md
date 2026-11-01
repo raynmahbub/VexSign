@@ -74,9 +74,9 @@ today **no job builds or runs it on PRs**. Adding a unit-test job is a Phase
 
 | Target | Type | SDK | Deployment target | Bundle ID |
 | --- | --- | --- | --- | --- |
-| `VexSign` | application | iphoneos/auto | **iOS 16.0** | `com.vexsign.app` |
+| `VexSign` | application | iphoneos/auto | **iOS 16.0** (simulator 18.5) | `com.vexsign.app` |
 | `VexSignWidgetExtensionExtension` | app-extension | iphoneos | **iOS 26.0** | `com.vexsign.app.widget` |
-| `VexSignTests` | unit-test (testTarget = VexSign) | iphoneos | iOS 16.0 | `com.vexsign.appTests` |
+| `VexSignTests` | unit-test (testTarget = VexSign) | iphoneos | iOS 16.0 (simulator 18.5) | `com.vexsign.appTests` |
 | `VexSignTV` | application | appletvos | tvOS 17.0 | `com.vexsign.app.tv` |
 | `VexSignVision` | application | xros | visionOS 2.0 | `com.vexsign.app.vision` |
 | `VexSignWatch` | application | watchos | watchOS 10.0 | `com.vexsign.app.watch` |
@@ -93,6 +93,20 @@ Embedding: `VexSign` embeds `VexSignWidgetExtensionExtension` (Plugins) and
 > deployment target (iOS 26.0) is **higher** than the host app's (iOS 16.0).
 > CI currently builds it, but on-device behavior on iOS 16–25 hosts deserves a
 > dedicated check in Phase 13/17.
+
+> **Simulator builds link at iOS 18.5; device builds still link at iOS 16.0.**
+> The `IDevice` binary comes from jkcoxson/idevice (v0.1.57, via the
+> `IDeviceKitten` package) and its simulator slice contains objects built for a
+> newer minimum OS than the app's. A target whose simulator deployment target is
+> older is refused by the linker — *object file … was built for newer
+> 'iOS-simulator' version (18.5) than being linked (16.0)* — so all four
+> `VexSign` configurations (and `VexSignTests`, whose bundle loads the app)
+> carry `IPHONEOS_DEPLOYMENT_TARGET[sdk=iphonesimulator*] = 18.5`. Nothing
+> changes for devices: `IPHONEOS_DEPLOYMENT_TARGET` stays 16.0, so the shipped
+> app still runs on iOS 16. The consequence is only for development — the app
+> can be run in a simulator on an iOS 18.5 or newer runtime. Re-check this value
+> whenever the idevice package is bumped, and drop it once upstream stops
+> stamping its simulator objects with the SDK's default minimum.
 
 `VexSign` target build phases additionally include:
 `Copy Acknowledgements` (LicensePlist build tool), `Build FilePickerFix`
