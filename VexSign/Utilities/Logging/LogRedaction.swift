@@ -76,9 +76,12 @@ enum LogRedaction {
 			template: "$1$2\(marker)"
 		),
 		// `Authorization: <anything>` — covers the schemes the bearer rule does not name.
+		// The scheme word (`Basic`, `Digest`, …) is part of the header value and the
+		// credential follows it, so both have to go: masking only the scheme left the
+		// base64 credential standing on the line behind it.
 		Rule(
-			pattern: "(?i)\\bauthorization\\b\\s*:\\s*\\S+",
-			template: "authorization: \(marker)"
+			pattern: "(?i)(\\bauthorization\\b\\s*:\\s*)(?:(?:basic|bearer|digest|negotiate|token)\\s+)?\\S+",
+			template: "$1\(marker)"
 		)
 	].compactMap { $0 }
 }

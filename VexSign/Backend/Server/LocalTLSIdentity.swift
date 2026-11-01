@@ -173,7 +173,10 @@ enum LocalTLSIdentity {
 
 			switch key {
 			case "mode":
-				mode = Mode(rawValue: value)
+				// A value we do not know still says which mode was *not* used: the
+				// build wrote a marker, so report Unknown instead of throwing the
+				// whole file away. A marker with no `mode=` line stays unreadable.
+				mode = Mode(rawValue: value) ?? .unknown
 			case "cn":
 				commonName = value
 			case "digest":
