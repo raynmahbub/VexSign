@@ -260,6 +260,11 @@ jobs:
     needs: quick
     runs-on: macos-15
     timeout-minutes: 60
+    # Write access is for one thing: posting the failing log tail on the PR when
+    # the suite fails without a diagnostic the reporter can annotate.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -334,20 +339,37 @@ jobs:
 
       # The reporter only annotates diagnostics it recognises. When xcodebuild
       # fails for another reason — a destination problem, a linker error, a test
-      # that crashed the runner — the log is the only evidence there is, and the
-      # Actions log CDN is not reachable from every reviewer environment. So the
-      # tail is emitted as annotations, where the PR page and the API can read it.
+      # that crashed the runner — nothing is left on the check run but an exit
+      # code, and the Actions log CDN is not reachable from every reviewer
+      # environment. So the failing lines and the tail of the log are posted on
+      # the pull request, where they can be read (and copied) like any comment.
       - name: Surface failures
-        if: failure() && steps.test.outcome == 'failure'
+        if: failure() && steps.test.outcome == 'failure' && github.event.pull_request.number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set +e
           LOG="$TEST_LOG"
           [ -f "$LOG" ] || { echo "::warning::No xcodebuild log was produced."; exit 0; }
-          grep -aE "error:|Failing tests:|Test Case .* failed|BUILD FAILED|TEST FAILED" "$LOG" \
-            | head -40 \
-            | sed -E 's/^(.{0,400}).*$/::error::\1/'
-          echo "--- last 40 lines of the log ---"
-          tail -n 40 "$LOG" | sed -E 's/^(.{0,400}).*$/::notice::\1/'
+          {
+            echo "The simulator suite failed in [run ${GITHUB_RUN_ID}](${RUN_URL}). The failing lines:"
+            echo
+            echo '```'
+            grep -aE "error:|Failing tests:|Test Case .* failed|BUILD FAILED|TEST FAILED|\*\* TEST (FAILED|SUCCEEDED) \*\*" "$LOG" | head -60
+            echo '```'
+            echo
+            echo "<details><summary>Last 60 lines of the xcodebuild log</summary>"
+            echo
+            echo '```'
+            tail -n 60 "$LOG"
+            echo '```'
+            echo
+            echo "</details>"
+          } > "$RUNNER_TEMP/failure.md"
+          head -c 60000 "$RUNNER_TEMP/failure.md" > "$RUNNER_TEMP/failure-trim.md"
+          gh pr comment "$PR" --body-file "$RUNNER_TEMP/failure-trim.md"
           exit 0
 
       # Same reporter as the build job, so test failures are annotated inline
