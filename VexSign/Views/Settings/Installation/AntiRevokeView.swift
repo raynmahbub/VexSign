@@ -20,6 +20,8 @@ struct AntiRevokeView: View {
 	@State private var _isSyncingRules = false
 	@State private var _lastBuiltURL: URL?
 	@State private var _currentRules: DynamicDNSRules = NovaDNSDynamic.loadCachedRules()
+	/// The rule-list override as typed. Empty means "use the built-in default".
+	@State private var _rulesEndpointInput = ""
 
 	private var _hasProfile: Bool { AntiRevokeManager.shared.profileURL != nil }
 	private var _defaultEndpoint: String { _currentRules.primaryEndpoint }
@@ -34,8 +36,17 @@ struct AntiRevokeView: View {
 		}
 		.task {
 			_currentRules = NovaDNSDynamic.loadCachedRules()
+			_rulesEndpointInput = NovaDNSDynamic.customRulesURL ?? ""
 			if _endpoint.isEmpty {
 				_endpoint = _currentRules.primaryEndpoint
+			}
+		}
+		.onChange(of: _useNovaDNSDynamic) { enabled in
+			// switching this on changes how the device resolves Apple's checks, so it is logged.
+			if enabled {
+				FileLogger.log("NovaDNS Dynamic enabled — endpoint \(NovaDNSDynamic.effectiveRulesURLString)", category: "antirevoke")
+			} else {
+				FileLogger.log("NovaDNS Dynamic disabled", category: "antirevoke")
 			}
 		}
 	}
@@ -71,6 +82,41 @@ struct AntiRevokeView: View {
 				.buttonStyle(.plain)
 			}
 
+			// the endpoint is visible and replaceable. It used to be hard-coded to a
+			// third-party host with no way to see or change it.
+			LabeledContent(.localized("Endpoint")) {
+				Text(verbatim: NovaDNSDynamic.effectiveRulesURLString)
+					.font(.caption)
+					.foregroundColor(.secondary)
+					.multilineTextAlignment(.trailing)
+			}
+
+			TextField(.localized("Rule list URL (https)"), text: $_rulesEndpointInput)
+				.textInputAutocapitalization(.never)
+				.autocorrectionDisabled()
+				.keyboardType(.URL)
+				.onSubmit { _saveRulesEndpoint() }
+
+			HStack {
+				Button {
+					_saveRulesEndpoint()
+				} label: {
+					Text(.localized("Use This Endpoint"))
+				}
+
+				Spacer()
+
+				Button {
+					_rulesEndpointInput = ""
+					NovaDNSDynamic.setCustomRulesURL(nil)
+					Toast.success(.localized("Endpoint reset"), systemImage: "arrow.uturn.backward")
+				} label: {
+					Text(.localized("Reset"))
+						.foregroundColor(.secondary)
+				}
+			}
+			.font(.callout)
+
 			Button {
 				_syncRemoteRules()
 			} label: {
@@ -94,7 +140,7 @@ struct AntiRevokeView: View {
 		} header: {
 			Text(.localized("Dynamic Anti-Revoke"))
 		} footer: {
-			Text(.localized("NovaDNS Dynamic automatically temporarily unblocks Apple PPQ checks during installation so apps install smoothly while keeping revocation blocking active."))
+			Text(.localized("Off by default. When it is on, VexSign asks the endpoint above to let Apple's install-time checks through for the duration of an install. That is a third-party server acting on your device's behalf — VexSign cannot guarantee what it does with your queries, and none of this can restore or protect a certificate Apple has already revoked."))
 		}
 	}
 
@@ -158,6 +204,14 @@ struct AntiRevokeView: View {
 	}
 
 	// MARK: Actions
+
+	private func _saveRulesEndpoint() {
+		if NovaDNSDynamic.setCustomRulesURL(_rulesEndpointInput) {
+			Toast.success(.localized("Endpoint saved"), systemImage: "checkmark.seal")
+		} else {
+			Toast.error(.localized("Enter an https:// URL for the rule list."), duration: .sticky)
+		}
+	}
 
 	private func _syncRemoteRules() {
 		_isSyncingRules = true
