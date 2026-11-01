@@ -6,7 +6,6 @@
 //
 
 import CoreData
-import UIKit.UIImpactFeedbackGenerator
 import ZsignSwift
 
 // MARK: - Class extension: certificate
@@ -21,8 +20,7 @@ extension Storage {
 		isDefault: Bool = false,
 		completion: @escaping (Error?) -> Void
 	) {
-		let generator = UIImpactFeedbackGenerator(style: .light)
-
+		StorageConcurrency.requireMainQueue()
 		do {
 			try SecureSecretStore.write(Data((password ?? "").utf8), account: "certificate.password.\(uuid)")
 		} catch {
@@ -51,18 +49,19 @@ extension Storage {
 
 		CertificateStatusManager.shared.refreshStatus(for: new)
 		WidgetStatusPublisher.publish()
-		generator.impactOccurred()
+		Haptics.lightImpact()
 		Task { await AnalyticsStore.shared.record(.certificatesAdded) }
 		completion(nil)
 	}
 	
     func deleteCertificate(for cert: CertificatePair) {
+        StorageConcurrency.requireMainQueue()
         if let uuid = cert.uuid {
             do { try SecureSecretStore.delete("certificate.password.\(uuid)") }
             catch { return } // Keep the entry so deletion can be retried after unlock.
         }
 		Task { @MainActor in
-			CertificateStatusManager.shared.removeAppleStatus(for: cert)
+			CertificateStatusManager.shared.removeRevocationSnapshot(for: cert)
 		}
 
 		if let url = getUuidDirectory(for: cert) {

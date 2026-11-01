@@ -164,6 +164,17 @@ final class InstallQueue: ObservableObject {
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
 				UIActivityViewController.show(activityItems: [package])
 			}
+		case .success(.installedOtherVersion(let version)):
+			// The device proved an install, but not the version that was sent. That is a success
+			// with a footnote, so say the footnote.
+			if let current { outcomes[current.id] = .succeeded }
+			if let app = installer?.app { InstallCleanup.stage(app) }
+			Toast.info(.localized(
+				"Installed, but the device reports version %@.",
+				arguments: version ?? .localized("unknown")
+			))
+			_syncUnifiedTaskProgress()
+			DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?._advance() }
 		case .success:
 			if let current { outcomes[current.id] = .succeeded }
 			if let app = installer?.app { InstallCleanup.stage(app) }

@@ -7,9 +7,13 @@
 
 import SwiftUI
 import IDeviceSwift
+import NimbleExtensions
 
 struct InstallProgressView: View {
 	@State private var _isPulsing = false
+	/// A pulsing icon is decoration: with Reduce Motion on it stays still. The identifier and the
+	/// label are what a UI test and VoiceOver use.
+	@Environment(\.accessibilityReduceMotion) private var _reduceMotion
 
 	var app: AppInfoPresentable
 	@ObservedObject var viewModel: InstallerStatusViewModel
@@ -17,12 +21,18 @@ struct InstallProgressView: View {
 	var body: some View {
 		VStack(spacing: 12) {
 			_appIcon()
-				.scaleEffect(_isPulsing ? 0.85 : 0.81)
-				.animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: _isPulsing)
+				.scaleEffect(_reduceMotion ? 1 : (_isPulsing ? 0.85 : 0.81))
+				.animation(
+					_reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+					value: _isPulsing
+				)
 				.onAppear {
-					_isPulsing = true
+					_isPulsing = !_reduceMotion
 				}
 		}
+		.accessibilityElement(children: .combine)
+		.accessibilityLabel(.localized("Installing"))
+		.accessibilityIdentifier(AX.Install.progress)
 	}
 	
 	@ViewBuilder

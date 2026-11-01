@@ -98,6 +98,11 @@ struct CompanionSettingsView: View {
 					Text(.localized("Enter this address in the companion app. It reads the same status, library and update endpoints the automation API uses."))
 						.font(.caption)
 						.foregroundStyle(.secondary)
+					if _webManager.isRunning && _webManager.effectiveBindMode == .thisDevice {
+						Text(.localized("The server currently accepts connections from this device only. Turn on “Allow This Network” in Web Manager so the Apple TV can reach it."))
+							.font(.caption)
+							.foregroundStyle(.orange)
+					}
 				}
 			} icon: {
 				Image(systemName: "externaldrive.badge.wifi")

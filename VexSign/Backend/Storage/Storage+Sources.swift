@@ -8,7 +8,6 @@
 import CoreData
 import AltSourceKit
 import OSLog
-import UIKit.UIImpactFeedbackGenerator
 
 // MARK: - Class extension: Sources
 extension Storage {
@@ -27,6 +26,7 @@ extension Storage {
 		enforceTransportPolicy: Bool = true,
 		completion: @escaping (Error?) -> Void
 	) {
+		StorageConcurrency.requireMainQueue()
 		if sourceExists(identifier) {
 			completion(nil)
 			Logger.misc.debug("ignoring \(identifier)")
@@ -47,8 +47,6 @@ extension Storage {
 			}
 		}
 		
-		let generator = UIImpactFeedbackGenerator(style: .light)
-		
 		let new = AltSource(context: context)
 		new.name = name
 		new.date = Date()
@@ -60,7 +58,7 @@ extension Storage {
 			if !deferSave {
 				try context.save()
                 Task { await AnalyticsStore.shared.record(.repositoriesAdded) }
-                generator.impactOccurred()
+                Task { @MainActor in Haptics.lightImpact() }
 			}
 			completion(nil)
 		} catch {
@@ -93,8 +91,7 @@ extension Storage {
 		repos: [URL: ASRepository],
 		completion: @escaping (Error?) -> Void
 	) {
-		let generator = UIImpactFeedbackGenerator(style: .light)
-		
+		StorageConcurrency.requireMainQueue()
 		for (url, repo) in repos {
 			addSource(
 				url,
@@ -109,11 +106,12 @@ extension Storage {
 		}
 		
 		saveContext()
-		generator.impactOccurred()
+		Task { @MainActor in Haptics.lightImpact() }
 		completion(nil)
 	}
 
 	func deleteSource(for source: AltSource) {
+		StorageConcurrency.requireMainQueue()
 		if let url = source.sourceURL {
 			let remainingURLs = getSources()
 				.filter { $0 != source }

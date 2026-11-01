@@ -2,21 +2,20 @@
 //  ZsignHandler.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 17.04.2025.
+//  Created by VexSign Team on 17.04.2025.
 //
 
 import Foundation
-import ZsignSwift
 import UIKit
 import NimbleExtensions
 
 final class ZsignHandler {
 	var hadError: Error?
-	
+
 	private var _appUrl: URL
 	private var _options: Options
 	private var _certificate: CertificatePair?
-	
+
 	init(
 		appUrl: URL,
 		options: Options = OptionsManager.shared.options,
@@ -26,22 +25,22 @@ final class ZsignHandler {
 		self._options = options
 		self._certificate = cert
 	}
-	
+
 	func disinject() async throws {
 		guard !_options.disInjectionFiles.isEmpty else {
 			return
 		}
-		
+
 		SigningLog.shared.info(.localized("Removing injected dylibs"))
 
 		let bundle = Bundle(url: _appUrl)
 		let execPath = _appUrl.appendingPathComponent(bundle?.exec ?? "").relativePath
 
-		if !Zsign.removeDylibs(appExecutable: execPath, using: _options.disInjectionFiles) {
+		if !ZsignEngine.removeInjectedDylibs(_options.disInjectionFiles, fromExecutableAt: execPath) {
 			throw SigningFileHandlerError.disinjectFailed
 		}
 	}
-	
+
 	func sign() async throws {
 		guard let cert = _certificate else {
 			throw SigningFileHandlerError.missingCertifcate
@@ -50,44 +49,51 @@ final class ZsignHandler {
 		StdoutCapture.shared.start { SigningLog.shared.info($0) }
 		defer { StdoutCapture.shared.stop() }
 
-		let success = Zsign.sign(
-			appPath: _appUrl.relativePath,
-			provisionPath: Storage.shared.getFile(.provision, from: cert)?.path ?? "",
-			p12Path: Storage.shared.getFile(.certificate, from: cert)?.path ?? "",
-			p12Password: try cert.requireSigningPassword(),
-			entitlementsPath: _options.appEntitlementsFile?.path ?? "",
-			removeProvision: !_options.removeProvisioning,
-			completion: { _, error in
-				self.hadError = error
-			}
-		)
+		var request = ZsignEngine.Request(appPath: _appUrl.relativePath)
+		request.provisionPath = Storage.shared.getFile(.provision, from: cert)?.path ?? ""
+		request.p12Path = Storage.shared.getFile(.certificate, from: cert)?.path ?? ""
+		request.p12Password = try cert.requireSigningPassword()
+		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
+		request.removeProvisioning = _options.removeProvisioning
 
-		if let hadError {
-			throw hadError
-		}
-		if !success {
-			throw SigningFileHandlerError.signFailed
-		}
+		try run(request)
 	}
-	
+
 	func adhocSign() async throws {
 		StdoutCapture.shared.start { SigningLog.shared.info($0) }
 		defer { StdoutCapture.shared.stop() }
 
-		let success = Zsign.sign(
+		var request = ZsignEngine.Request(
 			appPath: _appUrl.relativePath,
-			entitlementsPath: _options.appEntitlementsFile?.path ?? "",
-			adhoc: true,
-			removeProvision: !_options.removeProvisioning,
-			completion: { _, error in
-				self.hadError = error
-			}
+			isAdHoc: true,
+			removeProvisioning: _options.removeProvisioning
 		)
+		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
 
-		if let hadError {
-			throw hadError
+		try run(request)
+	}
+
+	// MARK: - Private
+
+	/// Hands one request to the engine and turns its two failure signals into a thrown error.
+	private func run(_ request: ZsignEngine.Request) throws {
+		// The pinned engine writes its cache into the working directory and never reads it back
+		// (see `ZsignEngine.clearCache`), so clearing it first cannot lose a cache hit and keeps
+		// a stale entry from an earlier run out of the way.
+		ZsignEngine.clearCache()
+
+		let outcome = ZsignEngine.sign(request)
+
+		if let message = outcome.errorMessage {
+			let error = NSError(
+				domain: "app.vexsign.zsign",
+				code: 1,
+				userInfo: [NSLocalizedDescriptionKey: message]
+			)
+			hadError = error
+			throw error
 		}
-		if !success {
+		if !outcome.succeeded {
 			throw SigningFileHandlerError.signFailed
 		}
 	}

@@ -69,9 +69,11 @@ final class EcosystemTests: XCTestCase {
         XCTAssertThrowsError(try OTAExporter.installLink(manifestURL: XCTUnwrap(URL(string: "http://example.com/a"))))
     }
     func testUnsignedOrUnknownIsNotGoodCertificateEvidence() {
-        XCTAssertEqual(CertificateStatusValue(apiStatus: "unsigned"), .unknown)
-        XCTAssertEqual(CertificateStatusValue(apiStatus: "revoked"), .revoked)
-        XCTAssertEqual(CertificateStatusValue(apiStatus: "signed"), .signed)
+        // The reader that parsed a third-party verdict is gone; only the
+        // on-device OCSP result reaches the badge now, and a non-answer is Unknown.
+        XCTAssertEqual(CertificateStatusValue(revocation: .unknown), .unknown)
+        XCTAssertEqual(CertificateStatusValue(revocation: .revoked), .revoked)
+        XCTAssertEqual(CertificateStatusValue(revocation: .good), .signed)
     }
     func testRankingUsesFavoritesWithoutFabricatedGlobalDownloads() {
         let app = DiscoveryApp(id: "a", source: "s", bundleIdentifier: "com.example.app", name: "Example", summary: "", developer: "", category: "", version: "1", icon: nil, download: nil, updated: Date(), releases: 1)
@@ -161,4 +163,63 @@ final class EcosystemTests: XCTestCase {
         XCTAssertEqual(decoded.password, "pwd")
         XCTAssertEqual(decoded.webhook, "https://example.com/hook")
     }
+}
+
+// MARK: - Community catalogue disclosure
+/// The community catalogue (NexCerts) hands VexSign a shared Apple identity from a third-party
+/// host. These tests pin the two things the UI promises: the disclosure is bound to the host that
+/// actually serves the files, and "turn this source off" really forgets it.
+final class NexCertsSourceTests: XCTestCase {
+	private func _temporaryDefaults() -> UserDefaults {
+		let name = "test.nexcerts.\(UUID().uuidString)"
+		let defaults = UserDefaults(suiteName: name)!
+		addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+		return defaults
+	}
+
+	func testNothingIsAcknowledgedOnAFreshInstall() {
+		XCTAssertFalse(NexCertsAccess.hasAcknowledged(_temporaryDefaults()))
+	}
+
+	func testEveryDownloadStaysOnTheDisclosedHost() {
+		// If the catalogue ever moves, the disclosure copy is wrong until someone notices.
+		XCTAssertEqual(NexCerts.sourceHost, "sideloading.net")
+
+		let urls = NexCerts.downloadURLs(for: 7)
+
+		for url in [urls.p12, urls.provision, urls.password] {
+			XCTAssertEqual(url.host, NexCerts.sourceHost, "\(url) left the disclosed host")
+			XCTAssertEqual(url.scheme, "https", "\(url) is not encrypted in transit")
+			XCTAssertTrue(url.path.contains("/download/7/"), "unexpected path \(url.path)")
+		}
+	}
+
+	func testAcknowledgementIsRemembered() {
+		let defaults = _temporaryDefaults()
+
+		NexCertsAccess.acknowledge(defaults)
+
+		XCTAssertTrue(NexCertsAccess.hasAcknowledged(defaults))
+		XCTAssertEqual(defaults.string(forKey: NexCertsAccess.acknowledgementKey), NexCerts.sourceHost)
+	}
+
+	func testAcknowledgementDoesNotCarryOverToADifferentHost() {
+		let defaults = _temporaryDefaults()
+		defaults.set("example.invalid", forKey: NexCertsAccess.acknowledgementKey)
+
+		XCTAssertFalse(
+			NexCertsAccess.hasAcknowledged(defaults),
+			"an acknowledgement given for another host must not cover this one"
+		)
+	}
+
+	func testRevokingTheSourceForgetsTheAcknowledgement() {
+		let defaults = _temporaryDefaults()
+		NexCertsAccess.acknowledge(defaults)
+
+		NexCertsAccess.revoke(defaults)
+
+		XCTAssertFalse(NexCertsAccess.hasAcknowledged(defaults))
+		XCTAssertNil(defaults.string(forKey: NexCertsAccess.acknowledgementKey))
+	}
 }

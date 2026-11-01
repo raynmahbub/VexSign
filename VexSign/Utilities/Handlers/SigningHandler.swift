@@ -34,6 +34,12 @@ final class SigningHandler: NSObject {
 	private var _appDescription: String?
 	private var _didAddToDatabase = false
 	private(set) var signedApp: Signed?
+	/// What the post-sign inspection found. Written before the bundle is moved into the
+	/// library, so it describes the bytes that are actually kept.
+	private(set) var verification: SignatureVerifier.Report?
+	/// Called as each stage begins. Synchronous on purpose: it is delivered to
+	/// `SigningService`'s event queue, which preserves order.
+	var onStage: ((SigningStage) -> Void)?
 	
 	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options) {
 		self._app = app
@@ -45,6 +51,8 @@ final class SigningHandler: NSObject {
 	}
 	
 	func copy() async throws {
+		onStage?(.copying)
+
 		guard let appUrl = Storage.shared.getAppDirectory(for: _app) else {
 			throw SigningFileHandlerError.appNotFound
 		}
@@ -55,6 +63,9 @@ final class SigningHandler: NSObject {
 
 		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
 		_movedAppPath = movedAppURL
+
+		// A cancel during a large copy is common enough to check for straight away.
+		try Task.checkCancellation()
 		SigningLog.shared.info(.localized("Copied app bundle"))
 
 		// Capture the original bundle id BEFORE any modifications (PPQ protection, etc.).
@@ -67,9 +78,13 @@ final class SigningHandler: NSObject {
 	}
 	
 	func modify() async throws {
+		onStage?(.modifying)
+
 		guard let movedAppPath = _movedAppPath else {
 			throw SigningFileHandlerError.appNotFound
 		}
+
+		try Task.checkCancellation()
 		
 		let infoPlistURL = movedAppPath.appendingPathComponent("Info.plist")
 		guard
@@ -121,18 +136,24 @@ final class SigningHandler: NSObject {
 		}
 
 		if _options.thinMachOBinaries {
+			onStage?(.thinning)
 			SigningLog.shared.info(.localized("Thinning Mach-O binaries to ARM64"))
 			try await _locateMachosAndThin(for: movedAppPath)
+			try Task.checkCancellation()
 		}
 
 		let hasTweakSpecs = !(_options.tweakInjections ?? []).filter { $0.enabled }.isEmpty
 		if _options.experiment_replaceSubstrateWithEllekit {
+			onStage?(.injecting)
 			SigningLog.shared.info(.localized("Injecting tweaks"))
 			try await _inject(for: movedAppPath, with: _options)
+			try Task.checkCancellation()
 		} else {
 			if !_options.injectionFiles.isEmpty || hasTweakSpecs || _options.fixFilePicker {
+				onStage?(.injecting)
 				SigningLog.shared.info(.localized("Injecting tweaks"))
 				try await _inject(for: movedAppPath, with: _options)
+				try Task.checkCancellation()
 			}
 		}
 		
@@ -148,6 +169,11 @@ final class SigningHandler: NSObject {
 			try _applyJITEntitlements()
 		}
 
+		// Before the long sign: which extensions the selected profile can actually cover. The
+		// engine signs every nested bundle with the outer asset, so an extension the profile does
+		// not cover cannot come out correctly — better said now than after the install.
+		_auditNestedBundles(at: movedAppPath, certificate: appCertificate)
+
 		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate)
 		try await handler.disinject()
 		
@@ -155,6 +181,7 @@ final class SigningHandler: NSObject {
 			_options.signingOption == .default,
 			let cert = appCertificate {
 			let certName = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? .localized("certificate")
+			onStage?(.signing)
 			SigningLog.shared.info(.localized("Signing with %@", arguments: certName))
 			try await handler.sign()
 		} else if _options.signingOption == .onlyModify {
@@ -167,7 +194,20 @@ final class SigningHandler: NSObject {
 			throw error
 		}
 
+		if _options.signingOption == .default {
+			onStage?(.verifying)
+			_verifySignedBundle(at: movedAppPath)
+		}
+
+		// Past this point the run is either registered or cleaned up by `clean()`; a cancel here
+		// must not leave a bundle in the library that no row points at.
+		try Task.checkCancellation()
+
 		try await self.move()
+
+		onStage?(.registering)
+		try Task.checkCancellation()
+
 		try await self.addToDatabase()
 		
         if _options.signingOption == .default { await AnalyticsStore.shared.record(.appsSigned) }
@@ -175,6 +215,31 @@ final class SigningHandler: NSObject {
         if injectedCount > 0 { await AnalyticsStore.shared.record(.tweaksInjected, count: injectedCount) }
     }
 	
+	/// Checks the bundle that zsign just produced. Nothing here throws: a signature problem is
+	/// reported in the signing log and carried on `verification`, and the place that *acts* on
+	/// it is the install path (`DirectInstaller`), which can show the user what is wrong.
+	private func _verifySignedBundle(at path: URL) {
+		var expectation = SignatureVerifier.Expectation.freshlySigned
+		expectation.declaredBundleIdentifier = _options.appIdentifier
+		expectation.requiresEmbeddedProfile = !_options.removeProvisioning
+
+		let report = SignatureVerifier.verify(bundleAt: path, expectation: expectation)
+		verification = report
+
+		for issue in report.failures {
+			SigningLog.shared.error(.localized("Signature check: %@", arguments: issue.detail))
+		}
+		for issue in report.warnings {
+			SigningLog.shared.warn(.localized("Signature check: %@", arguments: issue.detail))
+		}
+
+		if report.isAcceptable {
+			SigningLog.shared.success(report.summary)
+		} else {
+			SigningLog.shared.warn(report.summary)
+		}
+	}
+
 	func move() async throws {
 		guard let movedAppPath = _movedAppPath else {
 			throw SigningFileHandlerError.appNotFound
@@ -199,23 +264,30 @@ final class SigningHandler: NSObject {
 			return
 		}
 
-		signedApp = await withCheckedContinuation { (continuation: CheckedContinuation<Signed, Never>) in
-			let bundle = Bundle(url: appUrl)
+		let bundle = Bundle(url: appUrl)
+		// Only a `.default` run is signed with the selected certificate; the
+		// modify-only and ad-hoc paths keep the row certificate-free. The ID is
+		// what crosses the queue boundary - never the managed object.
+		let certificateID = _options.signingOption == .default ? appCertificate?.objectID : nil
 
-			Storage.shared.addSigned(
-				uuid: _uuid,
-				certificate: _options.signingOption != .default ? nil : appCertificate,
-				appName: bundle?.name,
-				appIdentifier: bundle?.bundleIdentifier,
-				originalAppIdentifier: _originalBundleIdentifier,
-				appVersion: bundle?.version,
-				appIcon: bundle?.iconFileName,
-				appDescription: _appDescription
-			) { signed in
-				Logger.signing.info("[\(self._uuid)] Added to database (original ID: \(self._originalBundleIdentifier ?? "nil"), current ID: \(bundle?.bundleIdentifier ?? "nil"))")
-				continuation.resume(returning: signed)
-			}
-		}
+		try await Storage.shared.addSigned(
+			uuid: _uuid,
+			certificateID: certificateID,
+			appName: bundle?.name,
+			appIdentifier: bundle?.bundleIdentifier,
+			originalAppIdentifier: _originalBundleIdentifier,
+			appVersion: bundle?.version,
+			appIcon: bundle?.iconFileName,
+			appDescription: _appDescription
+		)
+
+		Logger.signing.info("[\(self._uuid)] Added to database (original ID: \(self._originalBundleIdentifier ?? "nil"), current ID: \(bundle?.bundleIdentifier ?? "nil"))")
+
+		// The write hands back an ID; the row itself is resolved on the view
+		// context. Looking it up by UUID keeps the closure free of managed
+		// objects and of a non-Sendable `self`.
+		let uuid = _uuid
+		signedApp = await MainActor.run { Storage.shared.app(withUuid: uuid) as? Signed }
 
 		_didAddToDatabase = true
 	}
@@ -480,6 +552,28 @@ extension SigningHandler {
 		}
 	}
 	
+	/// Logs what the selected profile can do for each nested bundle in the payload.
+	private func _auditNestedBundles(at app: URL, certificate: CertificatePair?) {
+		// Extensions that were stripped above are no longer in the payload, so there is nothing
+		// to audit and nothing to warn about.
+		guard !_options.removeAppExtensions else { return }
+
+		let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
+		let report = NestedBundleAudit.report(appBundle: app, profilePattern: pattern)
+		guard !report.isEmpty else { return }
+
+		for warning in report.warnings {
+			SigningLog.shared.warn(warning)
+		}
+		if let summary = report.summary {
+			if report.isClean {
+				SigningLog.shared.info(summary)
+			} else {
+				SigningLog.shared.warn(summary)
+			}
+		}
+	}
+
 	private func _removePresetFiles(for app: URL) async throws {
 		var files = [
 			"_CodeSignature", // Fallback for some reason the locate doesnt work

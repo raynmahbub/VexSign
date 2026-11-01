@@ -23,11 +23,13 @@ extension Storage {
 	}
 	
 	func deleteApp(for app: AppInfoPresentable) {
+		StorageConcurrency.requireMainQueue()
 		deleteApps([app])
 	}
 
 	/// One save for the whole batch: saving per item mid-edit blows up the SwiftUI list diff.
 	func deleteApps(_ apps: [AppInfoPresentable]) {
+		StorageConcurrency.requireMainQueue()
 		guard !apps.isEmpty else { return }
 
 		for app in apps {
@@ -76,6 +78,7 @@ extension Storage {
 	}
 
 	func updateDescription(for app: AppInfoPresentable, description: String?) {
+		StorageConcurrency.requireMainQueue()
 		if let imported = app as? Imported {
 			imported.appDescription = description
 			saveContext()
@@ -86,6 +89,7 @@ extension Storage {
 	}
 
 	func updateAppName(for app: AppInfoPresentable, name: String) {
+		StorageConcurrency.requireMainQueue()
 		if let imported = app as? Imported {
 			imported.name = name
 			saveContext()

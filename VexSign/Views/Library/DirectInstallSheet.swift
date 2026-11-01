@@ -155,6 +155,23 @@ struct DirectInstallSheet: View {
 			try DirectInstaller.shared.install(imported)
 			Toast.success(.localized("Installing without signing…"), systemImage: "bolt.badge.checkmark")
 			dismiss()
+		} catch DirectInstaller.DirectInstallError.verificationFailed(let issues) {
+			// Same rule as the library: name the failed checks and let the user decide.
+			UIAlertController.showAlertWithCancel(
+				title: .localized("Install Anyway?"),
+				message: issues.joined(separator: "\n"),
+				actions: [
+					UIAlertAction(title: .localized("Install Anyway"), style: .destructive) { _ in
+						do {
+							try DirectInstaller.shared.install(imported, allowingIssues: true)
+							Toast.success(.localized("Installing without signing…"), systemImage: "bolt.badge.checkmark")
+							dismiss()
+						} catch {
+							Toast.error(error.localizedDescription, duration: .sticky)
+						}
+					}
+				]
+			)
 		} catch {
 			Toast.error(error.localizedDescription, duration: .sticky)
 		}

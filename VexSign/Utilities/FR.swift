@@ -42,6 +42,12 @@ enum FR {
 		}
 	}
 	
+	/// Adapter over `SigningService`.
+	///
+	/// The signature is unchanged on purpose: six call sites do not have to care that signing is
+	/// now owned by a cancellable service rather than an unstructured task. What they get for
+	/// free is real stage progress and the ability to cancel — `SigningService.shared.cancelAll()`
+	/// from the UI, or `BatchJobRunner.cancel()` between batch items.
 	static func signPackageFile(
 		_ app: AppInfoPresentable,
 		using options: Options,
@@ -49,61 +55,78 @@ enum FR {
 		certificate: CertificatePair?,
 		completion: @escaping (Result<Signed, Error>) -> Void
 	) {
-		Task.detached {
-			let log = SigningLog.shared
-			log.reset()
-			log.info(.localized("Preparing to sign %@", arguments: app.name ?? .localized("app")))
+		let request = SigningRequest(app: app, options: options, icon: icon, certificate: certificate)
 
-			await SigningLiveActivityManager.shared.start(appName: app.name ?? "App")
+		Task { @MainActor in
+			let log = SigningLog.shared
+
+			// Re-signing with a different identity is legal, but it costs the user the in-place
+			// update and the app's keychain data. The signing sheet asks before it
+			// starts; the paths that never show a sheet — batch, Update All, automation — get
+			// the same explanation in the log rather than silence.
+			if
+				let certificate,
+				app.isSigned,
+				let detail = CertificateIdentity.match(for: app, certificate: certificate).detail
+			{
+				log.warn(detail)
+			}
+
+			SigningLiveActivityManager.shared.start(appName: request.name)
 
 			// Unified task pipeline: one record for the whole sign operation.
-			let task = await MainActor.run {
-				UnifiedTaskCenter.shared.begin(
-					kind: .sign,
-					title: app.name ?? .localized("App"),
-					subtitle: .localized("Signing"),
-					phase: .signing,
-					subjectID: app.uuid
-				)
-			}
+			let task = UnifiedTaskCenter.shared.begin(
+				kind: .sign,
+				title: request.name,
+				subtitle: .localized("Signing"),
+				phase: .signing,
+				subjectID: app.uuid
+			)
 
 			let keepAlive = BackgroundTaskManager(
 				taskName: "Signing",
 				expirationTitle: .localized("Signing continuing"),
 				expirationBody: .localized("The signing will continue when you reopen the app")
 			)
-			await MainActor.run { keepAlive.start() }
-			defer { Task { @MainActor in keepAlive.stop() } }
+			keepAlive.start()
 
-			let handler = SigningHandler(app: app, options: options)
-			handler.appCertificate = certificate
-			handler.appIcon = icon
+			let started = SigningService.shared.sign(request) { event in
+				switch event {
+				case .stage(let stage):
+					SigningLiveActivityManager.shared.update(progress: stage.progress, status: stage.title)
+					UnifiedTaskCenter.shared.transition(task, to: .signing, progress: stage.progress)
 
-			do {
-				try await handler.copy()
-				await SigningLiveActivityManager.shared.update(progress: 0.3, status: .localized("Modifying…"))
-				try await handler.modify()
-				await SigningLiveActivityManager.shared.update(progress: 0.8, status: .localized("Finalizing…"))
-				try? await handler.clean()
-
-				guard let signed = handler.signedApp else {
-					throw SigningFileHandlerError.appNotFound
-				}
-
-				log.success(.localized("Signed successfully"))
-				await SigningLiveActivityManager.shared.complete(appName: app.name)
-				await MainActor.run {
+				case .finished(let signed):
+					keepAlive.stop()
+					log.success(.localized("Signed successfully"))
+					SigningLiveActivityManager.shared.complete(appName: request.name)
 					UnifiedTaskCenter.shared.transition(task, to: .completed, progress: 1)
 					completion(.success(signed))
-				}
-			} catch {
-				try? await handler.clean()
-				log.error(error.localizedDescription)
-				await SigningLiveActivityManager.shared.cancel()
-				await MainActor.run {
+
+				case .cancelled:
+					keepAlive.stop()
+					log.warn(.localized("Signing cancelled"))
+					SigningLiveActivityManager.shared.cancel()
+					UnifiedTaskCenter.shared.transition(task, to: .cancelled)
+					completion(.failure(CancellationError()))
+
+				case .failed(let error):
+					keepAlive.stop()
+					log.error(error.localizedDescription)
+					SigningLiveActivityManager.shared.cancel()
 					UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
 					completion(.failure(error))
 				}
+			}
+
+			// The same app is already being signed: say so instead of queueing a second run that
+			// would fight the first for the same work directory.
+			if started == nil {
+				keepAlive.stop()
+				let error = SigningService.BusyError()
+				log.error(error.localizedDescription)
+				UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
+				completion(.failure(error))
 			}
 		}
 	}
@@ -183,27 +206,48 @@ enum FR {
 		HeartbeatManager.shared.start(true)
 	}
 	
+	/// Fetches the project's published certificate for the local install server and,
+	/// if it validates, replaces the identity on this device.
+	///
+	/// The order matters: everything is checked *before* anything is written, so a bad
+	/// or truncated download cannot leave the device without a working identity. The
+	/// caller is expected to have explained what this does — it swaps the identity the
+	/// server presents, which means the Root CA profile may have to be re-trusted.
 	static func downloadSSLCertificates(
 		from urlString: String,
-		completion: @escaping (Bool) -> Void
+		completion: @escaping (Result<LocalTLSIdentity.Summary, Error>) -> Void
 	) {
 		let generator = UINotificationFeedbackGenerator()
 		generator.prepare()
-		
+
 		NBFetchService().fetch(from: urlString) { (result: Result<ServerView.ServerPackModel, Error>) in
-			switch result {
-			case .success(let pack):
-				do {
-					try FileManager.forceWrite(content: pack.key, to: "server.pem")
-					try FileManager.forceWrite(content: [pack.cert, pack.ca].joined(separator: "\n"), to: "server.crt")
-					try FileManager.forceWrite(content: pack.info.domains.commonName, to: "commonName.txt")
-					generator.notificationOccurred(.success)
-					completion(true)
-				} catch {
-					completion(false)
-				}
-			case .failure:
-				completion(false)
+			guard case .success(let pack) = result else {
+				completion(.failure(NSError(
+					domain: "VexSign",
+					code: 7,
+					userInfo: [NSLocalizedDescriptionKey: .localized("Could not reach the certificate server. Check your connection and try again.")]
+				)))
+				return
+			}
+
+			// `cert` is the leaf, `ca` the issuer: the order `LocalCAProfile` relies on.
+			let certificate = [pack.cert, pack.ca].joined(separator: "\n")
+
+			do {
+				try LocalTLSIdentity.validate(
+					pem: pack.key,
+					cert: certificate,
+					commonName: pack.info.domains.commonName
+				)
+
+				try FileManager.forceWrite(content: pack.key, to: "server.pem")
+				try FileManager.forceWrite(content: certificate, to: "server.crt")
+				try FileManager.forceWrite(content: pack.info.domains.commonName, to: "commonName.txt")
+
+				generator.notificationOccurred(.success)
+				completion(.success(LocalTLSIdentity.current()))
+			} catch {
+				completion(.failure(error))
 			}
 		}
 	}
@@ -280,11 +324,27 @@ enum FR {
 			case .success(let data):
 				let id = data.id ?? url.absoluteString
 
-				if !Storage.shared.sourceExists(id) {
-					Storage.shared.addSource(url, repository: data, id: id) { _ in
-						let sourceName = data.name ?? url.absoluteString
-						competion(.success(sourceName))
+				// `NBFetchService` calls back on a global queue, and the source row is
+				// a view-context insert: it has to happen on the main queue.
+				var addError: Error?
+				var alreadyAdded = false
+				let addOnMain = {
+					if Storage.shared.sourceExists(id) {
+						alreadyAdded = true
+					} else {
+						Storage.shared.addSource(url, repository: data, id: id) { addError = $0 }
 					}
+				}
+				if Thread.isMainThread {
+					addOnMain()
+				} else {
+					DispatchQueue.main.sync(execute: addOnMain)
+				}
+
+				if let addError {
+					competion(.failure(addError))
+				} else if !alreadyAdded {
+					competion(.success(data.name ?? url.absoluteString))
 				} else {
 					let error = NSError(domain: "VexSign", code: 1, userInfo: [NSLocalizedDescriptionKey: "Repository already added."])
 					if showAlerts {

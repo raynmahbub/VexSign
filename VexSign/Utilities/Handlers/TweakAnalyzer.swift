@@ -234,7 +234,16 @@ enum TweakAnalyzer {
 
 			for arFile in arFiles {
 				let out = workDir.appendingPathComponent(arFile.name)
-				try? arFile.content.write(to: out)
+				do {
+					try arFile.content.write(to: out)
+				} catch {
+					// A member that cannot be written is a package this analysis under-reads — no
+					// control file, a wrong dylib count — so the reason belongs in the log.
+					FileLogger.error(
+						"Tweak analysis could not write \(arFile.name): \(error.localizedDescription)",
+						category: "tweaks"
+					)
+				}
 
 				if arFile.name.hasPrefix("control.tar") {
 					if let control = _readControl(fromTar: out) {

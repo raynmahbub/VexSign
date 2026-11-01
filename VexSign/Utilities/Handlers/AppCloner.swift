@@ -114,40 +114,35 @@ final class AppCloner {
             }
         }
 
-        // Register in database
-		let result: AppInfoPresentable = try await withCheckedThrowingContinuation { continuation in
-			if app.isSigned && !asUnsigned {
-				Storage.shared.addSigned(
-					uuid: newUUID,
-					appName: newName,
-					appIdentifier: newBundleId,
-					originalAppIdentifier: app.originalIdentifier ?? app.identifier,
-					appVersion: app.version,
-					appIcon: app.icon,
-					appDescription: app.appDescription
-				) { signed in
-					continuation.resume(returning: signed)
-				}
-			} else {
-				Storage.shared.addImported(
-					uuid: newUUID,
-					appName: newName,
-					appIdentifier: newBundleId,
-					appVersion: app.version,
-					appIcon: app.icon,
-					appDescription: app.appDescription
-				) { error in
-					if let error {
-						continuation.resume(throwing: error)
-					} else if let imported = Storage.shared.app(withUuid: newUUID) {
-						continuation.resume(returning: imported)
-					} else {
-						continuation.resume(throwing: CloneError.copyFailed)
-					}
-				}
-			}
+        // Register in database. The write runs off the main actor and returns
+        // an object ID; the row is resolved here, on the main actor.
+        if app.isSigned && !asUnsigned {
+            try await Storage.shared.addSigned(
+                uuid: newUUID,
+                appName: newName,
+                appIdentifier: newBundleId,
+                originalAppIdentifier: app.originalIdentifier ?? app.identifier,
+                appVersion: app.version,
+                appIcon: app.icon,
+                appDescription: app.appDescription
+            )
+        } else {
+            try await Storage.shared.addImported(
+                uuid: newUUID,
+                appName: newName,
+                appIdentifier: newBundleId,
+                appVersion: app.version,
+                appIcon: app.icon,
+                appDescription: app.appDescription
+            )
         }
+
         registered = true
+
+        guard let result: AppInfoPresentable = Storage.shared.app(withUuid: newUUID) else {
+            throw CloneError.copyFailed
+        }
+
         return result
     }
 }

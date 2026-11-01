@@ -6,51 +6,55 @@
 //
 
 import CoreData
-import UIKit.UIImpactFeedbackGenerator
 
 // MARK: - Class extension: Imported Apps
 extension Storage {
-    func addImported(
-        uuid: String,
-        source: URL? = nil,
+	/// Inserts an imported-app row from a detached task and returns its object ID.
+	///
+	/// Runs on the write context (see `write(_:)`); resolve the result with
+	/// `object(_:)` on the main actor, or look it up by `uuid`.
+	@discardableResult
+	func addImported(
+		uuid: String,
+		source: URL? = nil,
 
-        appName: String? = nil,
-        appIdentifier: String? = nil,
-        appVersion: String? = nil,
-        appIcon: String? = nil,
-        appDescription: String? = nil,
+		appName: String? = nil,
+		appIdentifier: String? = nil,
+		appVersion: String? = nil,
+		appIcon: String? = nil,
+		appDescription: String? = nil
+	) async throws -> NSManagedObjectID {
+		let id = try await write { context in
+			let new = Imported(context: context)
 
-        completion: @escaping (Error?) -> Void
-    ) {
-        let generator = UIImpactFeedbackGenerator(style: .light)
+			new.uuid = uuid
+			new.source = source
+			new.date = Date()
+			new.sortIndex = nextImportedSortIndex(in: context)
 
-        let new = Imported(context: context)
+			new.originalIdentifier = appIdentifier
+			new.identifier = appIdentifier
 
-        new.uuid = uuid
-        new.source = source
-        new.date = Date()
-        new.sortIndex = nextImportedSortIndex()
+			new.name = appName
+			new.icon = appIcon
+			new.version = appVersion
+			new.appDescription = appDescription
 
-        new.originalIdentifier = appIdentifier
-        new.identifier = appIdentifier
+			return new
+		}
 
-        new.name = appName
-        new.icon = appIcon
-        new.version = appVersion
-        new.appDescription = appDescription
+		Task { @MainActor in WidgetStatusPublisher.publish() }
+		return id
+	}
 
-        saveContext()
-        generator.impactOccurred()
-        completion(nil)
-    }
+	/// Below the current lowest so new apps land at the top.
+	/// Must run on the context that is doing the insert.
+	func nextImportedSortIndex(in context: NSManagedObjectContext) -> Int32 {
+		let request: NSFetchRequest<Imported> = Imported.fetchRequest()
+		request.sortDescriptors = [NSSortDescriptor(key: "sortIndex", ascending: true)]
+		request.fetchLimit = 1
 
-    // Below the current lowest so new apps land at the top
-    func nextImportedSortIndex() -> Int32 {
-        let request: NSFetchRequest<Imported> = Imported.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: "sortIndex", ascending: true)]
-        request.fetchLimit = 1
-
-        let lowest = (try? context.fetch(request))?.first?.sortIndex ?? 1
-        return lowest - 1
-    }
+		let lowest = (try? context.fetch(request))?.first?.sortIndex ?? 1
+		return lowest - 1
+	}
 }

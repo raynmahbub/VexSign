@@ -329,28 +329,66 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		let installURL = try await requestServerSign(version: release.version, certificate: certificate)
 		phase = .installing
 		guard await UIApplication.shared.open(installURL) else { return false }
-		return await pollInstallProgress()
+		return try await pollInstallProgress(expectedVersion: release.version)
 	}
 
-	/// True once the OTA install begins; false if it never starts (prompt dismissed) so the UI can reset.
+	/// Watches one OTA update to a verdict.
+	///
+	/// Returns true when the device reports the new version, false when the prompt was dismissed
+	/// (nothing installed, so the sheet can reset), and throws with an actionable reason when the
+	/// install started but the device does not show it. `progress == 0` used to be enough to call
+	/// this a success; it is not.
 	@MainActor
-	private func pollInstallProgress() async -> Bool {
+	private func pollInstallProgress(expectedVersion: String) async throws -> Bool {
 		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
-		var started = false
-		var ticks = 0
-		while ticks < 2400 && !Task.isCancelled {
-			let raw = await UIApplication.installProgress(for: bundleId) ?? 0
-			if raw > 0 { started = true }
-			_setInstallProgress(started ? min(1, max(0, (raw - 0.6) / 0.3)) : 0)
-			if started && raw == 0 {
-				_setInstallProgress(1)
-				return true
+
+		let probe = InstalledAppProbe()
+		let verdict = await InstallWatcher.watch(
+			InstallConfirmation(
+				expectation: .init(bundleIdentifier: bundleId, version: expectedVersion),
+				// The old loop gave the prompt 40 s before resetting the sheet; keep that.
+				limits: .init(start: 40, verify: 600, settle: 20)
+			),
+			probe: probe,
+			progress: { await UIApplication.installProgress(for: bundleId) },
+			onUpdate: { [weak self] raw, phase in
+				await MainActor.run {
+					guard let self else { return }
+					switch phase {
+					case .waitingForStart:
+						self._setInstallProgress(0)
+					case .downloading:
+						self._setInstallProgress(min(1, max(0, ((raw ?? 0) - 0.6) / 0.3)))
+					case .verifying, .finished:
+						self._setInstallProgress(0.99)
+					}
+				}
 			}
-			if !started && ticks > 160 { return false }
-			ticks += 1
-			try? await Task.sleep(nanoseconds: 250_000_000)
+		)
+
+		switch verdict {
+		case .installed:
+			_setInstallProgress(1)
+			return true
+
+		case .installedOtherVersion(let version):
+			_setInstallProgress(1)
+			throw Self.updateError(.localized(
+				"The update installed, but the device still reports version %@.",
+				arguments: version ?? .localized("unknown")
+			))
+
+		case .cancelled, .timedOutWaiting:
+			// Nothing was installed: the prompt was dismissed, or never appeared.
+			return false
+
+		case .notInstalled, .timedOutVerifying:
+			throw Self.updateError(verdict.message ?? .localized("The update could not be confirmed."))
 		}
-		return started
+	}
+
+	private static func updateError(_ message: String) -> Error {
+		NSError(domain: "SelfUpdate", code: -3, userInfo: [NSLocalizedDescriptionKey: message])
 	}
 
 	private func _setInstallProgress(_ value: Double) {

@@ -193,14 +193,20 @@ struct VisionConnectView: View {
 			Label("Connect to VexSign", systemImage: "wifi")
 				.font(.title3.bold())
 
-			Text("Start the Web Manager on your iPhone (Settings → Web Manager) and enter the address it prints.")
+			Text("Start the Web Manager on your iPhone (Settings → Web Manager → Allow This Network) and enter the address it prints, plus its password or API token.")
 				.font(.callout)
 				.foregroundStyle(.secondary)
 
 			TextField("http://192.168.1.20:8080", text: $store.address)
 				.textFieldStyle(.roundedBorder)
 
-			TextField("API token (optional)", text: $store.apiToken)
+			TextField("Web Manager username (if a password is set)", text: $store.username)
+				.textFieldStyle(.roundedBorder)
+
+			TextField("Web Manager password", text: $store.password)
+				.textFieldStyle(.roundedBorder)
+
+			TextField("API token (alternative to username and password)", text: $store.apiToken)
 				.textFieldStyle(.roundedBorder)
 
 			HStack {

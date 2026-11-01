@@ -11,6 +11,7 @@ struct UpdateMatchingSettingsView: View {
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
     @ObservedObject private var prefs = UpdateMatchingPreferences.shared
     @State private var isChecking = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showResetAlert = false
 
     var body: some View {
@@ -46,8 +47,13 @@ struct UpdateMatchingSettingsView: View {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(Color.userTint)
-                        .rotationEffect(.degrees(isChecking ? 360 : 0))
-                        .animation(isChecking ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isChecking)
+                        .rotationEffect(.degrees(isChecking && !reduceMotion ? 360 : 0))
+                        .animation(
+                            isChecking && !reduceMotion
+                                ? Animation.linear(duration: 1).repeatForever(autoreverses: false)
+                                : .default,
+                            value: isChecking
+                        )
                 }
 
                 VStack(alignment: .leading, spacing: 3) {

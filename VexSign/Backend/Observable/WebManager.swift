@@ -8,31 +8,72 @@ import UIKit
 import OSLog
 import NimbleExtensions
 
-final class WebManager: ObservableObject {
+/// NSObject because the background notification is delivered through an
+/// Objective-C selector; a plain Swift class would not respond to it.
+final class WebManager: NSObject, ObservableObject {
 	static let shared = WebManager()
+
+	/// UserDefaults keys. `auth` is read by the migration in
+	/// `WebManagerSettingsMigration`, which is why they live together.
+	enum Keys {
+		static let port = "VexSign.webManager.port"
+		static let auth = WebManagerSettingsMigration.Key.auth
+		static let user = "VexSign.webManager.user"
+		static let keepAlive = "VexSign.webManager.keepAlive"
+		static let bindMode = "VexSign.webManager.bindMode"
+		static let allowUnauthenticatedLAN = "VexSign.webManager.allowUnauthenticatedLAN"
+		static let certificateExport = "VexSign.webManager.certificateExport"
+		/// Legacy plaintext key, migrated into the Keychain on first launch.
+		static let legacyToken = "VexSign.apiToken"
+	}
 
 	@Published private(set) var isRunning = false
 	@Published private(set) var recentUploads: [String] = []
 	@Published var lastError: String?
 
+	/// Set once when an install that ran the server without a password is switched
+	/// to authenticated mode, so the change can be explained instead of happening
+	/// silently. The view clears it after showing the explanation.
+	@Published var needsAuthExplanation = false
+
 	@Published var port: Int {
-		didSet { UserDefaults.standard.set(port, forKey: "VexSign.webManager.port") }
+		didSet { UserDefaults.standard.set(port, forKey: Keys.port) }
 	}
 	@Published var requireAuth: Bool {
-		didSet { UserDefaults.standard.set(requireAuth, forKey: "VexSign.webManager.auth") }
+		didSet { UserDefaults.standard.set(requireAuth, forKey: Keys.auth) }
 	}
 	@Published var username: String {
-		didSet { UserDefaults.standard.set(username, forKey: "VexSign.webManager.user") }
+		didSet { UserDefaults.standard.set(username, forKey: Keys.user) }
 	}
 	@Published var password: String {
 		didSet {
-            do { try SecureSecretStore.write(Data(password.utf8), account: "webManager.password") } catch { lastError = "Password could not be saved to Keychain: \(error.localizedDescription)" }
-        }
+			do { try SecureSecretStore.write(Data(password.utf8), account: "webManager.password") } catch { lastError = "Password could not be saved to Keychain: \(error.localizedDescription)" }
+		}
+	}
+	/// Shared secret for scripts and companion devices. Same reach as the password,
+	/// so it lives in the Keychain rather than in UserDefaults.
+	@Published var apiToken: String {
+		didSet {
+			do { try SecureSecretStore.write(Data(apiToken.utf8), account: "webManager.apiToken") } catch { lastError = "API token could not be saved to Keychain: \(error.localizedDescription)" }
+		}
+	}
+	/// Where the server listens. Loopback is the fallback whenever the server has no
+	/// password, so "no auth" and "on the network" cannot combine by accident.
+	@Published var bindMode: WebManagerBindMode {
+		didSet { UserDefaults.standard.set(bindMode.rawValue, forKey: Keys.bindMode) }
+	}
+	/// Explicit opt-in for an unauthenticated server on the local network.
+	@Published var allowUnauthenticatedLAN: Bool {
+		didSet { UserDefaults.standard.set(allowUnauthenticatedLAN, forKey: Keys.allowUnauthenticatedLAN) }
+	}
+	/// Certificate download hands out the private key, so it is opt-in.
+	@Published var allowCertificateExport: Bool {
+		didSet { UserDefaults.standard.set(allowCertificateExport, forKey: Keys.certificateExport) }
 	}
 	/// Keep server reachable in background via silent-audio keep-alive.
 	@Published var keepAlive: Bool {
 		didSet {
-			UserDefaults.standard.set(keepAlive, forKey: "VexSign.webManager.keepAlive")
+			UserDefaults.standard.set(keepAlive, forKey: Keys.keepAlive)
 			_applyKeepAlive()
 		}
 	}
@@ -45,14 +86,28 @@ final class WebManager: ObservableObject {
 	private var _pendingToastName: String?
 	private var _toastWork: DispatchWorkItem?
 
-	private init() {
+	private override init() {
 		let defaults = UserDefaults.standard
-		self.port = defaults.object(forKey: "VexSign.webManager.port") as? Int ?? 8080
-		self.requireAuth = defaults.bool(forKey: "VexSign.webManager.auth")
-		self.username = defaults.string(forKey: "VexSign.webManager.user") ?? "vex"
+
+		// Runs before `requireAuth` is read: it seeds the key for fresh installs and
+		// flips it on once for installs that had the server open.
+		let migrated = WebManagerSettingsMigration.migrateAuthDefaultIfNeeded(defaults: defaults)
+
+		self.needsAuthExplanation = migrated
+		self.port = defaults.object(forKey: Keys.port) as? Int ?? 8080
+		self.requireAuth = defaults.bool(forKey: Keys.auth)
+		self.username = defaults.string(forKey: Keys.user) ?? "vex"
 		self.password = ""
-        self.keepAlive = defaults.bool(forKey: "VexSign.webManager.keepAlive")
-        do { self.password = try SecureSecretStore.migrateDefaults("VexSign.webManager.pass", account: "webManager.password") } catch { self.lastError = "Unlock the device to migrate the WebDAV password." }
+		self.apiToken = ""
+		self.bindMode = WebManagerBindMode(rawValue: defaults.string(forKey: Keys.bindMode) ?? "") ?? .localNetwork
+		self.allowUnauthenticatedLAN = defaults.bool(forKey: Keys.allowUnauthenticatedLAN)
+		self.allowCertificateExport = defaults.bool(forKey: Keys.certificateExport)
+		self.keepAlive = defaults.bool(forKey: Keys.keepAlive)
+
+		do { self.password = try SecureSecretStore.migrateDefaults("VexSign.webManager.pass", account: "webManager.password") } catch { self.lastError = "Unlock the device to migrate the WebDAV password." }
+		do { self.apiToken = try SecureSecretStore.migrateDefaults(Keys.legacyToken, account: "webManager.apiToken") } catch { self.lastError = "Unlock the device to migrate the API token." }
+
+		super.init()
 
 		NotificationCenter.default.addObserver(
 			self,
@@ -66,18 +121,25 @@ final class WebManager: ObservableObject {
 
 	func start() {
 		guard !isRunning else { return }
-        guard !requireAuth || (!username.isEmpty && !password.isEmpty) else {
-            lastError = "Authentication requires a username and password. Unlock Keychain or enter credentials."
-            return
-        }
+		guard !requireAuth || authActive else {
+			lastError = String.localized("Set a username and password first, or turn off Require Password to keep the server on this device.")
+			return
+		}
 		lastError = nil
 
-		let auth: WebManagerServer.Auth? = (requireAuth && !username.isEmpty && !password.isEmpty)
-			? .init(username: username, password: password)
+		let auth: WebManagerServer.Auth? = authActive
+			? WebManagerServer.Auth(username: username, password: password)
 			: nil
+		let token = apiToken.trimmingCharacters(in: .whitespacesAndNewlines)
 
 		do {
-			_server = try WebManagerServer(port: port, auth: auth) { [weak self] name in
+			_server = try WebManagerServer(
+				port: port,
+				auth: auth,
+				bindMode: effectiveBindMode,
+				token: token.isEmpty ? nil : token,
+				allowsCertificateExport: allowCertificateExport
+			) { [weak self] name in
 				DispatchQueue.main.async {
 					guard let self else { return }
 					self.recentUploads.removeAll { $0 == name }
@@ -113,7 +175,7 @@ final class WebManager: ObservableObject {
 		recentUploads.removeAll()
 	}
 
-	/// Restart so changed settings (port/auth) take effect.
+	/// Restart so changed settings (port/auth/bind/token) take effect.
 	func restartIfRunning() {
 		guard isRunning else { return }
 		stop()
@@ -123,11 +185,46 @@ final class WebManager: ObservableObject {
 	/// Password protection is only effective with a username AND a non-empty password.
 	var authActive: Bool { requireAuth && !username.isEmpty && !password.isEmpty }
 
+	/// A token is only used when it is non-empty.
+	var tokenActive: Bool { !apiToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+	/// The mode actually used - see `WebManagerAccessPolicy.effectiveBindMode`.
+	var effectiveBindMode: WebManagerBindMode {
+		WebManagerAccessPolicy.effectiveBindMode(
+			requested: bindMode,
+			authActive: authActive,
+			allowUnauthenticatedLAN: allowUnauthenticatedLAN
+		)
+	}
+
+	/// The bind mode was downgraded from the user's choice.
+	var isBindDowngraded: Bool { bindMode != effectiveBindMode }
+
 	// MARK: URLs
 
+	/// LAN address, shown next to the loopback one when it is available.
 	var localAddress: String { ServerInstaller.getLocalAddress() ?? "127.0.0.1" }
-	var httpURL: String { "http://\(localAddress):\(port)/" }
-	var webdavURL: String { "dav://\(localAddress):\(port)/" }
+
+	/// Host shown in the connection URLs: loopback when the server only listens on
+	/// loopback, otherwise the LAN address a peer would dial.
+	var displayHost: String {
+		effectiveBindMode == .thisDevice ? "127.0.0.1" : localAddress
+	}
+
+	var httpURL: String { "http://\(displayHost):\(port)/" }
+	var webdavURL: String { "dav://\(displayHost):\(port)/" }
+
+	/// One line the UI can show whenever the server runs, so a running server is
+	/// never presented without its exposure.
+	var exposureSummary: String {
+		let access = authActive
+			? String.localized("Password protected")
+			: (tokenActive ? String.localized("Token only") : String.localized("No password"))
+		let reach = effectiveBindMode == .thisDevice
+			? String.localized("this device only")
+			: String.localized("this network")
+		return "\(access) · \(reach)"
+	}
 
 	// MARK: Keep-alive
 
