@@ -74,6 +74,57 @@ just stop at different points.
   VERSION=1.2.0 tools/generate-changelog.sh
   ```
 
+## Local install server TLS identity (VX-12)
+
+Every IPA carries a certificate and private key in `deps/`. The app's *Fully Local* install
+mode serves `itms-services` over HTTPS from the device with that pair, so it is shipped
+material, not a build detail:
+
+| | Where it comes from | Used for |
+|---|---|---|
+| **Development identity** | `make deps` → `Scripts/local-tls/make-dev-identity.sh` (openssl, offline, random key, deterministic names) | building and testing on your own device |
+| **Release identity** | `make deps-release` → the published pack, verified against `Scripts/local-tls/pinned-pack.sha256` | every IPA that is handed to anyone else |
+
+**The trust assumption.** The device has to trust the issuing Root CA before `itms-services`
+accepts an HTTPS manifest: *Settings → Installation → Server & SSL → Export Root CA Profile*,
+then full trust under *Settings → General → About → Certificate Trust Settings*. The
+development identity is therefore self-contained but needs that one manual step; the release
+identity is the one users of the published IPA are expected to trust.
+
+**Why the build pins a digest.** The pack is fetched over HTTPS from a single mutable
+endpoint. Without a pin, whoever controls that endpoint controls the private key inside every
+IPA built by this repository — key material that can impersonate the install server to a
+device that trusted its CA. `make deps-release` computes the digest over the three identity
+files (`Scripts/local-tls/pack_digest.py`, rule documented in the script) and refuses to build
+unless it matches the pin. The alternative the roadmap also allowed — a self-signed identity
+for releases — was rejected: it would rotate the CA on every build and silently break the
+trust profile of every existing user.
+
+**Runbook**
+
+```sh
+# First time, and after a deliberate rotation:
+make deps-pin          # fetch, print cn + digest, rewrite Scripts/local-tls/pinned-pack.sha256
+git diff               # this diff IS the review: a changed digest = a changed key
+git commit -am "chore(tls): pin the release install-server identity"
+
+# Every release build (the Release workflow does this before `make`):
+make deps-release      # fetch + verify + install into deps/
+```
+
+Until a digest is pinned, `make deps-release` fails on purpose, and so does the Release
+workflow. That is the intended state: an unpinned release is worse than a red build.
+
+**What is *not* pinned, and why.** The in-app "Update SSL Certificates" action fetches the same
+pack on demand, because the certificate is short-lived and users need a working identity
+between releases. A digest baked into an old build would reject every legitimate refresh, so the
+runtime path validates instead of pinning: the chain must parse, the key must be present, the
+hostname must be usable, the leaf must not be expired — and nothing is written unless all of
+that passes. The action is explicitly confirmed by the user, and the app always shows which
+identity is live (source, mode, hostname, expiry) in *Server & SSL*.
+
+---
+
 ## Test a change without publishing (`build_only`)
 
 1. *Actions → Release → Run workflow*.
@@ -96,7 +147,7 @@ VexSign v0.0.18 FlareStore parity milestone (synthetic tag)
 ```
 
 They mark parity milestones and intentionally do **not** match
-`MARKETING_VERSION` (currently `1.0`). Pushing or re-pushing one therefore
+`MARKETING_VERSION` (currently `1.1.0`). Pushing or re-pushing one therefore
 must not fail the version checks and must never publish a release. The
 workflow detects the phrase *synthetic tag* in the tag annotation and:
 

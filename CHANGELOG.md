@@ -1,0 +1,89 @@
+# Changelog
+
+All notable changes to VexSign are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project uses
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
+[docs/RELEASING.md](docs/RELEASING.md).
+
+## [1.1.0] — 2026-11-01
+
+A hardening release. Most of it is not new surface: it is the app telling the truth about what it is
+doing, and refusing to do the wrong thing quietly.
+
+### Added
+
+- **Download integrity.** When a repository publishes a size for an app (and, when one exists, a
+  hash), the download is checked against it **before** the importer opens it. A mismatch is reported
+  with both byte counts and the file is never imported by accident: the alert offers *Import Anyway*
+  — one deliberate, logged bypass for that file — or *Delete*, which removes it unconditionally.
+  Previously a truncated download failed three steps later, inside the unarchiver, with a message
+  that said nothing about the download.
+- **Signed repositories.** A repository may now carry an Ed25519 signature over its catalogue. When
+  it verifies, the source is badged *Signed by …* and the badge is evidence rather than a switch.
+  When a source claims a signature that does not verify, the refresh is refused and the previous
+  catalogue stays. Unsigned sources keep working exactly as before. Format, canonicalisation rule
+  and an OpenSSL recipe: [docs/SOURCE_SIGNING.md](docs/SOURCE_SIGNING.md).
+- **Install-method preflight.** Settings → Installation now lists every way an app can reach the
+  device — local HTTPS, idevice, export, TrollStore — and names what each one is missing before the
+  install starts, instead of failing later with a socket error. TrollStore is detected, never
+  installed, and reimplementing CoreTrust is explicitly out of scope.
+- **One "Inject by Default" screen.** Every tweak's auto-injection flag in one list, with search,
+  bulk toggles and the exception count per row. It writes the same flag the tweak's own screen does.
+- **OCSP revocation evidence (foundation).** A self-contained ASN.1 reader/writer, OCSP request
+  builder, response parser, responder-signature verification and a revocation policy that never acts
+  on an unverified or stale answer. Not yet wired to any screen or setting; chaining the responder to
+  an issuer is the documented next step.
+- **Repository tooling for contributors:** `make verify` (the five gates Quick check runs),
+  `make strict-concurrency`, and four CI gates with baselines — localisation catalogue, unjustified
+  `try?`, global singletons, and concurrency escapes (`@unchecked Sendable`, `nonisolated(unsafe)`,
+  `@preconcurrency`).
+- **Docs:** [docs/TEST_PLAN.md](docs/TEST_PLAN.md) — what to run, in what order, and the device
+  checks no test can stand in for.
+
+### Changed
+
+- **The anti-revoke endpoint is configurable and visible.** The NovaDNS service host was hard-coded
+  to a third-party domain with no way to see or change it. It is now a default: the rule endpoint is
+  shown, replaceable (https only), resettable, and the feature stays **off** by default. Every
+  install that rewrites resolution logs it once, with the endpoint that is actually used, and the
+  settings screen says plainly what the feature cannot do.
+- **Feeds decode off the main thread**, with signposts around fetch, decode and publish so a slow
+  refresh can be attributed to a phase.
+- **Library writes leave the main queue**, and installs are confirmed by the device rather than
+  inferred from a progress bar ending.
+- **Logs are redacted at the sink.** Passwords, p12 passwords, tokens, bearer credentials, API keys
+  and URL userinfo never reach the log file a user can export.
+- **`AppStoreView` was split** (1,567 → 1,386 lines) and a view model can now be built with an
+  injected download seam, so it is testable without a live session.
+- The third-party certificate catalogue is **contained, not removed** — renamed to
+  `CommunityCertificatesView`, clearly marked as unverified community content.
+
+### Fixed
+
+- A download that failed its integrity check could never be imported deliberately, and its file was
+  left on disk. The choice now lives in the alert that reports the mismatch, and refusing it deletes
+  the file.
+- Four silent `try?` boundaries at user-visible points — the entitlements plist write, the IPA change
+  journal, tweak member writes and the backup encryption check — now log typed failures instead of
+  doing nothing.
+- The web manager no longer exports LAN certificates and is authenticated by default.
+- The remote certificate checker is gone; local OCSP helpers remain.
+- Source decoding no longer blocks the interface on large feeds.
+
+### Security
+
+- No new third-party dependencies behind any security toggle. The signature check uses CryptoKit, the
+  OCSP signature check uses Security.framework, and the endpoint validation is Foundation.
+
+### Known limitations
+
+- The OCSP evidence is a tested library, not a feature: nothing builds a request yet.
+- The responder certificate is not yet chained to an issuer or Apple's WWDR root.
+- `make deps-pin` has not been run in this tree, so Release CI needs it before the first tag.
+
+## [1.0] — 2026-09-19
+
+Previous release: signing, install queues, sources, backups and the tweak library. The audit findings
+that shaped 1.1.0 are written up in [docs/AUDIT_2026-10-31.md](docs/AUDIT_2026-10-31.md).
