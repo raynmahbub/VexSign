@@ -134,14 +134,17 @@ final class EcosystemTests: XCTestCase {
     }
 
     func testLocalCAProfileGeneratesValidMobileconfig() throws {
+        // A 16-byte DER prefix in base64. It has to be valid base64 — the extractor
+        // decodes it strictly — but not a certificate: what is under test is finding
+        // the last block and wrapping it in a profile, not validating X.509.
         let dummyPEM = """
         -----BEGIN CERTIFICATE-----
-        MIIBkzCCATigAwIBAgIUQ==
+        MIIBkzCCATigAwIBAgIUAA==
         -----END CERTIFICATE-----
         """
 
         let der = LocalCAProfile.extractRootCertificateDER(from: dummyPEM)
-        XCTAssertNotNil(der)
+        XCTAssertEqual(der?.count, 16, "the extractor must decode the PEM body")
 
         if let der {
             let configData = LocalCAProfile.buildMobileConfig(caCertificateDER: der, displayName: "Test Root CA")

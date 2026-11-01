@@ -268,6 +268,20 @@ final class StabilityAndArchitectureTests: XCTestCase {
 	/// nowhere else.
 	func testPasswordlessBackupsAreEncryptedNotPlain() throws {
 		let payload = Data("certificate-ish payload \(UUID().uuidString)".utf8)
+
+		// A passwordless container is wrapped by a key kept in the Keychain, and an
+		// unsigned test host has no keychain-access-group entitlement. Only skip when
+		// the Keychain really is unusable here: that path runs on a device, and every
+		// other host still has to prove the container is encrypted.
+		let probeAccount = "stability.keychainProbe.\(UUID().uuidString)"
+		do {
+			try SecureSecretStore.write(Data([0x01]), account: probeAccount)
+			try SecureSecretStore.delete(probeAccount)
+		} catch {
+			let status = (error as? SecureSecretStore.Failure)?.status
+			throw XCTSkip("This host has no usable Keychain (\(status.map { String($0) } ?? error.localizedDescription)).")
+		}
+
 		let packed = try BackupCrypto.seal(payload, password: "")
 
 		XCTAssertTrue(BackupCrypto.isEncrypted(packed), "Every backup this version writes is encrypted")
