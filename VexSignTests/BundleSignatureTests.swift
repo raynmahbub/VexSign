@@ -192,13 +192,16 @@ final class BundleSignatureTests: XCTestCase {
 
 	func testCMSWithoutACertificateSetIsEmptyNotNil() throws {
 		// SignedData with no `[0]` certificates: ad-hoc signing writes one of these.
+		// ContentInfo is the SEQUENCE around the content type, as in the fixture above.
 		let contentInfo = Data(der([
-			tlv(0x06, oidSignedData),
-			tlv(0xa0, der([
-				tlv(0x30, der([
-					tlv(0x02, [0x01]), // version
-					tlv(0x31, []),     // digestAlgorithms
-					tlv(0x30, [])      // encapContentInfo
+			tlv(0x30, der([
+				tlv(0x06, oidSignedData), // contentType: id-signedData
+				tlv(0xa0, der([          // [0] EXPLICIT SignedData
+					tlv(0x30, der([
+						tlv(0x02, [0x01]), // version
+						tlv(0x31, []),     // digestAlgorithms
+						tlv(0x30, [])      // encapContentInfo
+					]))
 				]))
 			]))
 		]))

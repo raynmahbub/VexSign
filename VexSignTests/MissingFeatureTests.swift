@@ -189,7 +189,10 @@ final class MissingFeatureTests: XCTestCase {
 		XCTAssertEqual(expired.status, .expired)
 		XCTAssertFalse(expired.supportsJIT)
 
-		let expiring = CertCheckResult.make(id: "c", name: "C", teamID: "T", expiryDate: now.addingTimeInterval(86_400 * 3),
+		// Half a day inside the three-day window: `daysRemaining` counts whole days
+		// against the wall clock, so an expiry of exactly `now + 3 days` is already
+		// 2.9999 days away by the time `make` reads `Date()` and floors to 2.
+		let expiring = CertCheckResult.make(id: "c", name: "C", teamID: "T", expiryDate: now.addingTimeInterval(86_400 * 3 + 43_200),
 											isRevoked: false, isPPQLess: false, revocationKnown: true)
 		XCTAssertEqual(expiring.status, .expiringSoon)
 		XCTAssertEqual(expiring.daysRemaining, 3)
@@ -350,7 +353,10 @@ final class MissingFeatureTests: XCTestCase {
 		}
 
 		XCTAssertEqual(WidgetStatusPayload.placeholder.certLabel, "30d")
-		XCTAssertEqual(payload.certTint, .green)
+		// Twelve days is inside the month window, so the badge warns rather than
+		// reassuring; green is reserved for a month or more.
+		XCTAssertEqual(payload.certTint, .orange)
+		XCTAssertEqual(WidgetStatusPayload.placeholder.certTint, .green)
 		XCTAssertEqual(WidgetStatusPayload(certDaysRemaining: 3, certName: nil, certRevoked: false,
 										   pendingUpdates: 0, installedCount: 0, signedCount: 0,
 										   availableBytes: nil, lastUpdated: Date()).certTint, .red)
