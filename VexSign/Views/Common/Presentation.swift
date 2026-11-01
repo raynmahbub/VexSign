@@ -15,8 +15,19 @@ enum Presentation {
 	private static let _maxTicks = 30
 
 	static func afterDismiss(_ work: @escaping () -> Void) {
-		guard let root = UIApplication.shared.keyWindow?.rootViewController else { return work() }
+		guard let root = _rootViewController() else { return work() }
 		_wait(root, 0, work)
+	}
+
+	/// Root view controller of the active scene's key window.
+	/// `UIApplication.keyWindow` is deprecated and spans every connected scene.
+	private static func _rootViewController() -> UIViewController? {
+		let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+		let keyWindow = scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+		let window = keyWindow
+			?? scenes.first { $0.activationState == .foregroundActive }?.windows.first
+			?? scenes.first?.windows.first
+		return window?.rootViewController
 	}
 
 	private static func _wait(_ root: UIViewController, _ tick: Int, _ work: @escaping () -> Void) {

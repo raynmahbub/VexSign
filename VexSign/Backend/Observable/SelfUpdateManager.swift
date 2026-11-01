@@ -206,7 +206,9 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 
 		let assets = json["assets"] as? [[String: Any]] ?? []
 		let ipa = assets.first { ($0["name"] as? String)?.lowercased().hasSuffix(".ipa") == true }
-		let downloadURL = (ipa?["browser_download_url"] as? String).flatMap(URL.init)
+		// `URL(string:)` spelled out: an unapplied `URL.init` grows new overloads with
+		// every SDK, and the newer ones make it ambiguous at a newer deployment target.
+		let downloadURL = (ipa?["browser_download_url"] as? String).flatMap { URL(string: $0) }
 
 		var published: Date?
 		if let str = json["published_at"] as? String {

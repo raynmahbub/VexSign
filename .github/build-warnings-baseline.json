@@ -1,6 +1,6 @@
 {
   "_comment": "Known first-party compiler warnings accepted by the Build check (.github/workflows/ci.yml). New warnings that are not listed here fail the check; fixed ones are reported so this file can be trimmed. Regenerate: download build-warnings-baseline.json from a Build check run artifact and replace this file. Matching ignores line numbers; 'count' is the number of occurrences allowed per file+message.",
-  "generated": "2026-09-20 from Build check run 35536522884 (macos-15, Xcode 26.3, Debug)",
+  "generated": "2026-09-20 from Build check run 35536522884 (macos-15, Xcode 26.3, Debug); trimmed 2026-11-01 (6 warnings fixed in code)",
   "warnings": [
     {
       "file": "AltSourceKit/Sources/AltSourceKit/Extensions/Color/Color+Codable.swift",
@@ -43,11 +43,6 @@
       "count": 1
     },
     {
-      "file": "NimbleKit/Sources/NimbleExtensions/UIAlertController/UIApplication+topController.swift",
-      "message": "'keyWindow' was deprecated in iOS 13.0: Should not be used for applications that support multiple scenes as it returns a key window across all connected scenes",
-      "count": 1
-    },
-    {
       "file": "NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
       "message": "capture of 'completion' with non-Sendable type '(Result<T, any Error>) -> Void' in a '@Sendable' closure",
       "count": 1
@@ -60,11 +55,6 @@
     {
       "file": "NimbleKit/Sources/NimbleViews/UIKit/FileImporterRepresentableView.swift",
       "message": "call to main actor-isolated instance method 'release()' in a synchronous nonisolated context",
-      "count": 1
-    },
-    {
-      "file": "VexSign/Analytics/AnalyticsView.swift",
-      "message": "instance method 'makeIterator' is unavailable from asynchronous contexts; this is an error in the Swift 6 language mode",
       "count": 1
     },
     {
@@ -98,11 +88,6 @@
       "count": 2
     },
     {
-      "file": "VexSign/Backend/Observable/DownloadManager.swift",
-      "message": "value 'error' was defined but never used; consider replacing with boolean test",
-      "count": 1
-    },
-    {
       "file": "VexSign/Backend/Observable/SelfUpdateManager.swift",
       "message": "no 'async' operations occur within 'await' expression",
       "count": 1
@@ -110,11 +95,6 @@
     {
       "file": "VexSign/Backend/Observable/UpdateAllManager.swift",
       "message": "value 'url' was defined but never used; consider replacing with boolean test",
-      "count": 1
-    },
-    {
-      "file": "VexSign/Backend/Server/ServerInstaller+TLS.swift",
-      "message": "no calls to throwing functions occur within 'try' expression",
       "count": 1
     },
     {
@@ -148,19 +128,9 @@
       "count": 1
     },
     {
-      "file": "VexSign/Utilities/Handlers/AppCloner.swift",
-      "message": "instance method 'makeIterator' is unavailable from asynchronous contexts; this is an error in the Swift 6 language mode",
-      "count": 1
-    },
-    {
       "file": "VexSign/Utilities/P12Cracker.swift",
       "message": "main actor-isolated static property 'commonPasswords' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode",
       "count": 2
-    },
-    {
-      "file": "VexSign/Views/Common/Presentation.swift",
-      "message": "'keyWindow' was deprecated in iOS 13.0: Should not be used for applications that support multiple scenes as it returns a key window across all connected scenes",
-      "count": 1
     },
     {
       "file": "VexSign/Views/Library/LibraryCellView.swift",

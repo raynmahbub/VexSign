@@ -11,6 +11,7 @@
 
 import Foundation
 import NimbleJSON
+import os
 import XCTest
 @testable import VexSign
 
@@ -163,19 +164,17 @@ final class SourceFeedLoaderTests: XCTestCase {
 
 /// Records which thread the loader decoded on. `willDecode` is `@Sendable` and several sources are
 /// in flight at once, so the box is locked. Test-only.
-private final class MainThreadRecorder: @unchecked Sendable {
-	private let lock = NSLock()
-	private var values: [Bool] = []
+///
+/// `OSAllocatedUnfairLock` instead of `NSLock`: scoped locking stays legal from async contexts,
+/// which `lock()`/`unlock()` are not (an error in the Swift 6 language mode).
+private final class MainThreadRecorder: Sendable {
+	private let values = OSAllocatedUnfairLock<[Bool]>(initialState: [])
 
 	func record(isMainThread: Bool) {
-		lock.lock()
-		values.append(isMainThread)
-		lock.unlock()
+		values.withLock { $0.append(isMainThread) }
 	}
 
 	var recorded: [Bool] {
-		lock.lock()
-		defer { lock.unlock() }
-		return values
+		values.withLock { $0 }
 	}
 }

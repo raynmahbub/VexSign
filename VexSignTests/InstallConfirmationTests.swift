@@ -11,6 +11,7 @@
 //
 
 import Foundation
+import os
 import XCTest
 @testable import VexSign
 
@@ -223,19 +224,22 @@ private struct FixedProbe: InstalledAppProbing {
 }
 
 /// A progress counter that plays back a fixed script, then reports zero.
-private final class ProgressScript: @unchecked Sendable {
-	private let lock = NSLock()
-	private var values: [Double?]
+///
+/// `OSAllocatedUnfairLock` rather than `NSLock`: `lock()`/`unlock()` are marked
+/// unavailable from asynchronous contexts — an error in the Swift 6 language mode —
+/// and `closure` hands progress back from exactly that kind of context.
+private final class ProgressScript: Sendable {
+	private let values: OSAllocatedUnfairLock<[Double?]>
 
 	init(_ values: [Double?]) {
-		self.values = values
+		self.values = OSAllocatedUnfairLock(initialState: values)
 	}
 
 	var closure: @Sendable () async -> Double? {
-		{ [self] in
-			lock.lock()
-			defer { lock.unlock() }
-			return values.isEmpty ? 0 : values.removeFirst()
+		{ [values] in
+			values.withLock { script in
+				script.isEmpty ? 0 : script.removeFirst()
+			}
 		}
 	}
 }

@@ -78,7 +78,10 @@ final class AppCloner {
         if asUnsigned, let oldID = app.identifier {
             try await Task.detached(priority: .userInitiated) {
                 guard let files = FileManager.default.enumerator(at: appBundle, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) else { throw CloneError.appNotFound }
-                for case let file as URL in files where file.lastPathComponent == "Info.plist" && file != infoPlistURL {
+                // `nextObject()` rather than `for … in files`: NSEnumerator's
+                // `makeIterator()` is unavailable from asynchronous contexts.
+                while let file = files.nextObject() as? URL {
+                    guard file.lastPathComponent == "Info.plist", file != infoPlistURL else { continue }
                     guard file.resolvingSymlinksInPath().path.hasPrefix(appBundle.resolvingSymlinksInPath().path + "/") else { throw CloneError.plistFailed }
                     var format = PropertyListSerialization.PropertyListFormat.binary
                     guard var plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: file), options: [], format: &format) as? [String: Any] else { continue }
