@@ -8,26 +8,39 @@
 #if canImport(UIKit)
 import UIKit
 
+/// Tactile feedback, fire-and-forget.
+///
+/// `UIFeedbackGenerator` is main-actor isolated, and the callers are a mix of
+/// button actions and `Binding` setters — the latter are `@Sendable` closures,
+/// so `@MainActor` here would push an isolation error onto every call site.
+/// The hop to the main actor is therefore done once, in this file: a haptic is
+/// a nudge felt a few milliseconds later, never a result anything waits on.
 public enum NBHaptic {
 	/// A light tap — for primary button presses (install, get, update, sign).
 	public static func tap(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .light) {
-		let generator = UIImpactFeedbackGenerator(style: style)
-		generator.prepare()
-		generator.impactOccurred()
+		Task { @MainActor in
+			let generator = UIImpactFeedbackGenerator(style: style)
+			generator.prepare()
+			generator.impactOccurred()
+		}
 	}
 
 	/// A semantic notification — for success/warning/error outcomes.
 	public static func notify(_ type: UINotificationFeedbackGenerator.FeedbackType) {
-		let generator = UINotificationFeedbackGenerator()
-		generator.prepare()
-		generator.notificationOccurred(type)
+		Task { @MainActor in
+			let generator = UINotificationFeedbackGenerator()
+			generator.prepare()
+			generator.notificationOccurred(type)
+		}
 	}
 
 	/// A selection change — for toggles / pickers.
 	public static func selection() {
-		let generator = UISelectionFeedbackGenerator()
-		generator.prepare()
-		generator.selectionChanged()
+		Task { @MainActor in
+			let generator = UISelectionFeedbackGenerator()
+			generator.prepare()
+			generator.selectionChanged()
+		}
 	}
 }
 #endif
