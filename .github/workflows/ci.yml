@@ -432,6 +432,7 @@ jobs:
               print("STACK " + stack)
 
           summary_path = os.path.join(diag_dir, "..", "summary.json")
+          summary = {}
           try:
               with open(os.environ.get("SUMMARY_JSON", "")) as handle:
                   summary = json.load(handle)
@@ -440,14 +441,41 @@ jobs:
                   if summary.get(key) is not None:
                       bits.append(f"{key}={summary[key]}")
               print("SUMMARY " + " ".join(str(b) for b in bits))
-              for failure in (summary.get("testFailures") or [])[:3]:
-                  text = failure.get("failureText") or failure.get("testName") or ""
-                  print("SUMMARY " + str(text).replace("\n", " ")[:300])
+
+              # Every failing test by name, not just the first three: the log is
+              # the only place these survive in full, and a message without the
+              # test that produced it costs a second run to find.
+              named = summary.get("testFailures") or []
+              print(f"failing tests: {len(named)}")
+              for failure in named:
+                  title = str(failure.get("testName") or "?")[:200]
+                  context = failure.get("sourceCodeContext") or {}
+                  location = context.get("location") or {}
+                  where = ""
+                  if location.get("filePath"):
+                      where = " @ %s:%s" % (location.get("filePath"), location.get("lineNumber", "?"))
+                  detail = str(failure.get("failureText") or "").replace("\n", " ")[:300]
+                  print("FAILED " + title + where + (" — " + detail if detail else ""))
+              for failure in named[:2]:
+                  # The assertion that failed, with its line, is in here; print it
+                  # for the first couple so a run needs no second run to explain it.
+                  print("RAW " + json.dumps(failure)[:700])
+              # Annotations are capped by GitHub at ten per step, so only the
+              # first few are re-emitted as ones a reader can click through.
+              for failure in named[:5]:
+                  title = str(failure.get("testName") or "?")[:200]
+                  detail = str(failure.get("failureText") or "").replace("\n", " ")[:300]
+                  print("TEST " + title + (" — " + detail if detail else ""))
           except Exception as error:
               print("SUMMARY unavailable: " + str(error)[:160])
 
-          for name, messages in failures()[:6]:
-              print("TEST " + name[:150] + (" — " + messages[0][:200] if messages else ""))
+          # Anything `test-results tests` knows about but the summary did not
+          # name. Without it a crash can report zero failing tests.
+          seen = {str(item.get("testName") or "") for item in (summary.get("testFailures") or [])}
+          for name, messages in failures():
+              if name in seen:
+                  continue
+              print("FAILED " + name[:200] + (" — " + messages[0][:300] if messages else ""))
           PYEOF
             )
             echo "::endgroup::"
@@ -459,6 +487,9 @@ jobs:
               STACK*) annotate "crash stack (callee <- caller): ${line#STACK }" ;;
               TEST*) annotate "${line#TEST }" ;;
               SUMMARY*) annotate "${line#SUMMARY }" ;;
+              # Kept out of the annotations: GitHub caps those at ten per step, and
+              # the log is where the complete list has to live.
+              FAILED*|RAW*) echo "${line}" ;;
             esac
           done <<< "$CRASH_STACK"
 
