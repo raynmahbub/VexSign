@@ -351,11 +351,15 @@ jobs:
           located = re.compile(r"^(?P<file>/[^:]+\.[a-z]{1,3}):(?P<line>\d+):(?:\d+:)?\s*(?P<msg>.*)$")
 
           hits = [l for l in lines if pick.search(l)]
-          for line in hits[:40] + [l for l in lines[-15:] if l not in hits[:40]]:
-              trimmed = line.strip()[:300].replace("%", "%25").replace("\r", "")
+          print(f"::error file=.github/workflows/ci.yml,line=1::{len(hits)} matching line(s) in {len(lines)} lines of log")
+          # The interesting ones are at the end: xcodebuild prints its own
+          # progress as `error:`-shaped text long before the tests start.
+          tail = [l for l in lines[-40:] if l not in hits[-60:]]
+          for line in hits[-60:] + tail:
+              trimmed = line.strip()[:500].replace("%", "%25").replace("\r", "")
               m = located.match(line.strip())
               if m:
-                  print(f"::error file={m['file']},line={m['line']}::{m['msg'][:300]}")
+                  print(f"::error file={m['file']},line={m['line']}::{m['msg'][:500]}")
               else:
                   print(f"::error file=.github/workflows/ci.yml,line=1::{trimmed}")
           PY
