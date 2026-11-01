@@ -138,7 +138,7 @@ struct DownloadButtonView: View {
 						Button {
 							NBHaptic.tap()
 							if let url = app.currentDownloadUrl {
-                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription)
+                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
 							}
 						} label: {
 							Text(.localized("Update"))
@@ -156,7 +156,7 @@ struct DownloadButtonView: View {
 						Button {
 							NBHaptic.tap()
 							if let url = app.currentDownloadUrl {
-								_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription)
+								_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
 							}
 						} label: {
 							HStack(spacing: 4) {
@@ -203,7 +203,7 @@ struct DownloadButtonView: View {
 						Button {
 							NBHaptic.tap()
 							if let url = app.currentDownloadUrl {
-                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription)
+                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
 							}
 						} label: {
 							Label(.localized("Download Again"), systemImage: "arrow.down.circle")
@@ -223,7 +223,7 @@ struct DownloadButtonView: View {
 					Button {
 						NBHaptic.tap()
 						if let url = app.currentDownloadUrl {
-							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription)
+							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
 						}
 					} label: {
 						Label(.localized("Download"), systemImage: "arrow.down.circle")
@@ -236,7 +236,7 @@ struct DownloadButtonView: View {
 							CleanupManager.shared.setOneTapInstall(true)
 						}
 						if let url = app.currentDownloadUrl {
-							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription)
+							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
 						}
 					} label: {
 						Label(.localized("Download, Sign & Install"), systemImage: "wand.and.stars")
