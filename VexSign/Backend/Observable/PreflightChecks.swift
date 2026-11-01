@@ -47,7 +47,7 @@ enum PreflightChecks {
 	private static let requiredInfoPlistKeys: [(key: String, label: String)] = [
 		("CFBundleIdentifier", "Bundle Identifier"),
 		("CFBundleName", "Bundle Name"),
-		("CFBundleExecutable", "Executable"),
+		("CFBundleExecutable", "Executable")
 	]
 
 	static func run(app: AppInfoPresentable, options: Options, certificate: CertificatePair?) -> PreflightResult {

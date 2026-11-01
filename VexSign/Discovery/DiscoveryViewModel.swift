@@ -78,7 +78,6 @@ final class DiscoveryViewModel: ObservableObject {
         await persistSignals()
     }
     private func persistSignals() async {
-        do { try await EcosystemDatabase.shared.write(signals, key: "discovery.signals") }
-        catch { self.error = error.localizedDescription }
+        do { try await EcosystemDatabase.shared.write(signals, key: "discovery.signals") } catch { self.error = error.localizedDescription }
     }
 }

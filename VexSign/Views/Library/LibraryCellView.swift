@@ -267,8 +267,7 @@ struct LibraryCellView: View {
 			.accessibilityIdentifier(A11y.Library.updateBadge)
 		} else if
 			let info = appStoreTracker.info(for: app.identifier),
-			appStoreTracker.hasNewerVersion(than: app)
-		{
+			appStoreTracker.hasNewerVersion(than: app) {
 			Text(String.localized("v%@", arguments: info.version))
 				.font(.caption2.weight(.semibold))
 				.padding(.horizontal, 6)

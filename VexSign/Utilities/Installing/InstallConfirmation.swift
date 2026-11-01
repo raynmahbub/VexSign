@@ -41,12 +41,6 @@ struct InstallConfirmation: Equatable, Sendable {
 		var verify: TimeInterval = 600
 		/// How long the device gets to show the app, or to report the new version.
 		var settle: TimeInterval = 20
-
-		init(start: TimeInterval = 120, verify: TimeInterval = 600, settle: TimeInterval = 20) {
-			self.start = start
-			self.verify = verify
-			self.settle = settle
-		}
 	}
 
 	enum Phase: Equatable, Sendable {

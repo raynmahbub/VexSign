@@ -26,7 +26,7 @@ struct DirectInstallVerification: Equatable {
 	let unsignedNestedBundles: [String]
 	/// The full result of the shared verifier. The three flags above predate it and are kept
 	/// because callers and tests read them; this is the complete picture.
-	var report: SignatureVerifier.Report? = nil
+	var report: SignatureVerifier.Report?
 
 	var isSigned: Bool {
 		bundlePath != nil && hasSignatureDirectory && hasSignedExecutable

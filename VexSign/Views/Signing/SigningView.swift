@@ -16,7 +16,7 @@ struct SigningView: View {
 	@State private var _temporaryCertificate: Int
 	@State private var _isSigning = false
 	@State private var _isLogPresenting = false
-	@State private var _postSignAction: (() -> Void)? = nil
+	@State private var _postSignAction: (() -> Void)?
 	@State var appIcon: UIImage?
 	@AppStorage("VexSign.autoShowSigningLogs") private var _autoShowLogs: Bool = false
 
@@ -240,7 +240,6 @@ extension SigningView {
 			}
 		}
 	}
-	
 }
 
 // MARK: - Extension: View (import)

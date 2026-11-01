@@ -256,8 +256,7 @@ enum ProfileCompatibility {
 		if
 			let expectedTeam = target.teamIdentifier,
 			let profileTeam = profile.TeamIdentifier.first,
-			expectedTeam != profileTeam
-		{
+			expectedTeam != profileTeam {
 			issues.append(
 				Issue(
 					code: .teamMismatch,
@@ -291,8 +290,7 @@ enum ProfileCompatibility {
 			profile.ProvisionsAllDevices != true,
 			let devices = profile.ProvisionedDevices,
 			!devices.isEmpty,
-			!devices.contains(deviceUDID)
-		{
+			!devices.contains(deviceUDID) {
 			issues.append(
 				Issue(
 					code: .deviceNotProvisioned,

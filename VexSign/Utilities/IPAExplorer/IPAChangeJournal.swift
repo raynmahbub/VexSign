@@ -81,8 +81,7 @@ final class IPAChangeJournal {
 		if
 			let existingIndex = changes.firstIndex(where: { $0.relativePath == path }),
 			case .added = changes[existingIndex].kind,
-			change.kind != .added
-		{
+			change.kind != .added {
 			// An "added" file that is now edited/replaced: keep the added entry (undo = remove).
 			// The bytes are user-provided, so there is no original to restore.
 			return

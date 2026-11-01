@@ -28,10 +28,10 @@ import NimbleExtensions
 /// Everything the library knows about one stored app.
 struct LibraryAppStatus: Equatable, Sendable {
 	/// The identifier the probe answered for — what invalidation matches on.
-	var bundleIdentifier: String? = nil
+	var bundleIdentifier: String?
 	var installed: InstalledState = .unknown
 	/// nil until the stored bundle's signature has been read; not needed for unsigned apps.
-	var signature: BundleSignature.State? = nil
+	var signature: BundleSignature.State?
 	var updatedAt: Date = .distantPast
 
 	/// The expiry to show instead of the certificate row's date, when the bundle answered.

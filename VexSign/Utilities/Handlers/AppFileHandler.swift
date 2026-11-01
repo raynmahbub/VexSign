@@ -277,7 +277,7 @@ struct ImportError: LocalizedError {
 			reason,
 			"",
 			"File: \(fileName)",
-			"Step: \(step.rawValue)",
+			"Step: \(step.rawValue)"
 		]
 		if let underlying = underlying {
 			lines.append("Detail: \(underlying.domain) (\(underlying.code))")

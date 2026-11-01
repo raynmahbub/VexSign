@@ -18,7 +18,7 @@ struct CertificatesCellView: View {
 	/// The app being signed, when this cell is shown in a signing context. Nil in Settings,
 	/// where there is no app to compare against. Declared last so the memberwise
 	/// initializer takes it after `cert`, which is how every call site passes it.
-	var target: ProfileCompatibility.Target? = nil
+	var target: ProfileCompatibility.Target?
 
 	// MARK: Body
 	var body: some View {

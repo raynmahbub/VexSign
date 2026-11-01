@@ -57,8 +57,7 @@ extension Storage {
     func deleteCertificate(for cert: CertificatePair) {
         StorageConcurrency.requireMainQueue()
         if let uuid = cert.uuid {
-            do { try SecureSecretStore.delete("certificate.password.\(uuid)") }
-            catch { return } // Keep the entry so deletion can be retried after unlock.
+            do { try SecureSecretStore.delete("certificate.password.\(uuid)") } catch { return } // Keep the entry so deletion can be retried after unlock.
         }
 		Task { @MainActor in
 			CertificateStatusManager.shared.removeRevocationSnapshot(for: cert)
@@ -96,7 +95,7 @@ extension Storage {
 			provisionPath: Storage.shared.getFile(.provision, from: cert)?.path ?? "",
 			p12Path: Storage.shared.getFile(.certificate, from: cert)?.path ?? "",
 			p12Password: cert.signingPassword ?? ""
-		) { (status, _, _) in
+		) { status, _, _ in
 			DispatchQueue.main.async {
 				if status == 1 {
 					cert.revoked = true

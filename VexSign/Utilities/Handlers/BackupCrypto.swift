@@ -198,7 +198,7 @@ enum BackupCrypto {
 		case .device:
 			// A failed Keychain read (locked, or a different device) is the same
 			// answer to the user: this file cannot be opened here.
-			guard let key = (try? _deviceKeyIfPresent()) ?? nil else { throw Failure.deviceBoundBackup }
+			guard let key = (try? _deviceKeyIfPresent()) else { throw Failure.deviceBoundBackup }
 			wrappingKey = key
 		}
 

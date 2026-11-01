@@ -27,8 +27,7 @@ struct WebManagerAuthMiddleware: AsyncMiddleware {
 		if
 			let basic = request.headers.basicAuthorization,
 			Self.constantTimeEquals(basic.username, username),
-			Self.constantTimeEquals(basic.password, password)
-		{
+			Self.constantTimeEquals(basic.password, password) {
 			return try await next.respond(to: request)
 		}
 

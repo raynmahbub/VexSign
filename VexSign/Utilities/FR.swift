@@ -67,8 +67,7 @@ enum FR {
 			if
 				let certificate,
 				app.isSigned,
-				let detail = CertificateIdentity.match(for: app, certificate: certificate).detail
-			{
+				let detail = CertificateIdentity.match(for: app, certificate: certificate).detail {
 				log.warn(detail)
 			}
 

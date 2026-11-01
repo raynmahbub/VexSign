@@ -35,7 +35,6 @@ enum DownloadIntegrity {
 			self.byteCount = byteCount
 			self.sha256 = sha256.map(FileIntegrity.normalize)
 		}
-
 	}
 
 	// MARK: Verdict

@@ -444,8 +444,7 @@ extension TweakLibraryList {
 	private func _row(for tweak: ManagedTweak) -> some View {
 		if _isEditing {
 			Button {
-				if _selection.contains(tweak.id) { _selection.remove(tweak.id) }
-				else { _selection.insert(tweak.id) }
+				if _selection.contains(tweak.id) { _selection.remove(tweak.id) } else { _selection.insert(tweak.id) }
 			} label: {
 				HStack(spacing: 12) {
 					Image(systemName: _selection.contains(tweak.id) ? "checkmark.circle.fill" : "circle")

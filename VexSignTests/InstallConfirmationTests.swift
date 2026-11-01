@@ -173,7 +173,7 @@ final class InstallConfirmationTests: XCTestCase {
 
 	// MARK: - Analytics
 
-	//'s regression: only a proven install may be counted.
+	// 's regression: only a proven install may be counted.
 	@MainActor
 	func testOnlyProvenOutcomesCountAsInstalls() {
 		XCTAssertTrue(AppInstaller.Outcome.installed.countsAsInstall)

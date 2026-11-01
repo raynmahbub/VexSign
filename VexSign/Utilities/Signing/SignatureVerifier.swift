@@ -56,7 +56,7 @@ enum SignatureVerifier {
 		let detail: String
 		/// The file or key the issue is about, when there is one — so a caller can group or
 		/// count issues without parsing `detail`.
-		var subject: String? = nil
+		var subject: String?
 
 		var id: String {
 			"\(code.rawValue):\(detail)"

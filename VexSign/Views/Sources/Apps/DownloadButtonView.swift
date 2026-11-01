@@ -45,7 +45,7 @@ struct DownloadButtonView: View {
 	@State private var downloadPhase: DownloadPhase = .queued
 	@State private var cancellable: AnyCancellable?
 
-	@State private var installedApp: InstalledAppInfo? = nil
+	@State private var installedApp: InstalledAppInfo?
 	@State private var isCheckingInstalled = true
 	@State private var hasAppeared = false
 
