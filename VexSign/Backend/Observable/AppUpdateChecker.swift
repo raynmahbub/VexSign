@@ -136,10 +136,11 @@ final class AppUpdateChecker: ObservableObject {
             let finalUpdatesSet = updatesSet
             let finalUpdateCount = uniqueApps.count
             let finalSourcedList = sourcedList
+            let finalCache = newCache
 
             await MainActor.run {
                 self.cacheQueue.sync(flags: .barrier) {
-                    self.updateCache = newCache
+                    self.updateCache = finalCache
                 }
                 self.appsWithUpdates = finalUpdatesSet
                 self.updateCount = finalUpdateCount

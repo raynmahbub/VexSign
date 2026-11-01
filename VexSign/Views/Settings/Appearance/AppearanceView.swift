@@ -233,12 +233,12 @@ struct AppearanceView: View {
             }
             Button(.localized("Cancel"), role: .cancel) {}
         }
-        .onChange(of: _userIntefacerStyle) { value in
+        .nbOnChange(of: _userIntefacerStyle) { value in
             if let style = UIUserInterfaceStyle(rawValue: value) {
                 UIApplication.topViewController()?.view.window?.overrideUserInterfaceStyle = style
             }
         }
-        .onChange(of: _selectedColorHex) { _ in
+        .nbOnChange(of: _selectedColorHex) { _ in
             UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
         }
     }

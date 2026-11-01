@@ -166,13 +166,13 @@ struct VexSignApp: App {
 
                 UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
             }
-            .onChange(of: customWorkspaceAccent) { _ in
+            .nbOnChange(of: customWorkspaceAccent) { _ in
                 UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
             }
-            .onChange(of: appearance.visualTheme) { _ in
+            .nbOnChange(of: appearance.visualTheme) { _ in
                 UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
             }
-            .onChange(of: scenePhase) { newPhase in
+            .nbOnChange(of: scenePhase) { newPhase in
                 if newPhase == .background {
                     EcosystemMaintenance.schedule()
                     appLock.lockIfNeeded()

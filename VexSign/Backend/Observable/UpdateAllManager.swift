@@ -70,7 +70,7 @@ final class UpdateAllManager: ObservableObject {
 		for source in repositories {
 			for app in source.apps {
 				guard !ignored.contains(app.id ?? "") else { continue }
-				guard let url = app.currentDownloadUrl else { continue }
+				guard app.currentDownloadUrl != nil else { continue }
 				guard seen.insert(app.currentUniqueId).inserted else { continue }
 				let hasUpdate = AppUpdateChecker.shared.appsWithUpdates.contains(app.currentUniqueId)
 				updates.append((app, source.name ?? "", hasUpdate))

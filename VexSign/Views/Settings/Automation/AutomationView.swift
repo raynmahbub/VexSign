@@ -111,7 +111,7 @@ struct AutomationView: View {
 	private var _enabledSection: some View {
 		NBSection(.localized("Scheduled Updates")) {
 			Toggle(.localized("Automatic Update Checks"), isOn: $_isEnabled)
-				.onChange(of: _isEnabled) { enabled in
+				.nbOnChange(of: _isEnabled) { enabled in
 					if enabled {
 						// Wrap the AppDelegate call on the main actor.
 						DispatchQueue.main.async {
