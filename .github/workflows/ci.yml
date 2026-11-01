@@ -2,12 +2,10 @@ name: CI
 
 # The one workflow that answers "is this commit good?".
 #
-# It replaced three workflows that each fired on their own trigger — a
-# syntax-only check on every push to every branch, a build job, and a test job
-# — so a single commit used to start six or seven runs (push *and* pull request,
-# per workflow) and every one of them queued a macOS runner. Now one push to a
-# pull request starts one run with three jobs, and the jobs are ordered so the
-# cheap one fails first:
+# No pull-request trigger: validate relevant changes once after they land on main,
+# or explicitly validate a selected branch before merging with workflow_dispatch.
+# Linux checks run first, then the unsigned build; simulator tests only start
+# after the build and its warning gate pass. Manual quick mode avoids macOS.
 #
 #   quick   ~1 min · Linux + the official Swift container. Swift syntax,
 #           duplicate types/file names, broken plists/xcstrings/pbxproj, and the
@@ -36,20 +34,38 @@ name: CI
 #   QUICK_CHECK_SWIFT_IMAGE   Swift container tag for the quick job.
 
 on:
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'LICENSE'
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'LICENSE'
+    paths:
+      - 'VexSign/**'
+      - 'VexSignTests/**'
+      - 'VexSignWidgetExtension/**'
+      - 'VexSign.xcodeproj/**'
+      - 'VexSign.xcworkspace/**'
+      - 'NimbleKit/**'
+      - 'AltSourceKit/**'
+      - 'Zsign'
+      - 'Zsign/**'
+      - 'IDeviceKitten'
+      - 'IDeviceKitten/**'
+      - 'Package.swift'
+      - 'Package.resolved'
+      - '.gitmodules'
+      - 'Makefile'
+      - 'Scripts/**'
+      - 'Tweaks/**'
+      - 'tools/**'
+      - '.github/scripts/**'
+      - '.github/build-warnings-baseline.json'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
     inputs:
+      validation:
+        description: 'quick: Linux checks only; full: checks, unsigned build and simulator tests'
+        type: choice
+        options: [full, quick]
+        default: full
+        required: true
       xcode:
         description: 'Xcode version prefix (e.g. "26.3", "16.4"). Empty = BUILD_XCODE variable or newest installed.'
         required: false
@@ -64,10 +80,9 @@ on:
 permissions:
   contents: read
 
-# A newer commit on the same branch/PR cancels the stale run: pushing twice in a
-# row costs one build, not two.
+# Newer runs for the same ref supersede stale work; other branches are independent.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -121,6 +136,9 @@ jobs:
       - name: Concurrency discipline
         run: python3 tools/concurrency-discipline.py
 
+      - name: Workflow trigger policy
+        run: python3 tools/test_workflow_policy.py
+
       - name: Upload findings
         if: always()
         uses: actions/upload-artifact@v6
@@ -136,6 +154,7 @@ jobs:
   build:
     name: build · VexSign Debug (unsigned)
     needs: quick
+    if: github.event_name != 'workflow_dispatch' || inputs.validation != 'quick'
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -260,7 +279,7 @@ jobs:
   # ---------------------------------------------------------------------------
   tests:
     name: tests · VexSignTests (simulator)
-    needs: quick
+    needs: build
     runs-on: macos-15
     timeout-minutes: 60
     steps:

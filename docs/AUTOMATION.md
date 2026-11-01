@@ -4,36 +4,53 @@ Everything under `.github/workflows/` and `.github/scripts/`. All of it runs on
 GitHub Actions; commits it creates are credited to the VexSign developer
 (the repository owner), never to a bot.
 
-| Workflow | When | What it does | Runner |
-| --- | --- | --- | --- |
-| **CI** — `ci.yml` | pull requests to `main` and pushes to `main`; not for docs-only changes | One run, three jobs, in that order. **quick** (~1 min): conflict markers, Swift syntax (`swiftc -parse`), duplicate types / file names, broken `Info.plist` / entitlements / `*.xcstrings` / JSON / schemes, corrupted `project.pbxproj`, plus the four repo gates in `tools/`. **build**: unsigned Debug `xcodebuild` of the VexSign scheme, failing on any compiler error and on any *new* first-party warning (see [Warnings as errors](#warnings-as-errors)). **tests**: `xcodebuild test` for `VexSignTests` on a simulator resolved at run time. | Linux (Swift container), macOS 15, macOS 15 |
-| **Platform check** — `platform-check.yml` | PRs touching a companion target, `VexSign/Companion/` or the project file; manual | Builds `VexSignTV` (tvOS), `VexSignVision` (visionOS) and `VexSignWatch` (watchOS) unsigned, in parallel. Catches shared-code changes that only break one SDK. | macOS 15 |
-| **Server tests** — `server-tests.yml` | push + PR to `main` touching `server/`; manual | `python -m pytest tests/ -q` for the premium API, the self-hosted source store and the browser tools. | Linux |
-| **Ecosystem contracts** — `ecosystem.yml` | PRs touching `cloud-signing/` or the modules that talk to it; Tuesdays for advisories; manual | `tsc --noEmit`, the TypeScript tests, `npm run build`, an OpenAPI drift check and `npm audit --omit=dev --audit-level=high`. The weekly run is what catches a new advisory in a dependency nobody touched. | Linux |
-| **Release** — `release.yml` | `v*` tag pushes and manual runs | Builds, validates the IPA's version against the tag and publishes. A manual run leaves `build_only` at its default and publishes nothing. | macOS 15 |
-| **Update Repository** — `update_repo.yml` | a published release; manual with a tag | Syncs `app-repo.json` from the release. | Linux |
+| Workflow | Automatic trigger | What it does | Runner |
+|---|---|---|---|
+| **CI** (`ci.yml`) | Relevant app, dependency, project or tooling changes pushed to `main` | Linux gates → unsigned iOS build + warning gate → simulator tests. Manual **quick** skips both macOS jobs; **full** is the default. | Linux, macOS 15 |
+| **Platform check** (`platform-check.yml`) | Companion/shared/project/dependency paths pushed to `main` | Unsigned tvOS, visionOS and watchOS builds in parallel. | macOS 15 |
+| **Server tests** (`server-tests.yml`) | `server/**` or its workflow pushed to `main` | Python tests. | Linux |
+| **Ecosystem contracts** (`ecosystem.yml`) | Cloud signer paths or its workflow pushed to `main`; weekly Tuesday audit | TypeScript check/test/build, contracts and dependency audit. Native-only changes do not run this workflow. | Linux |
+| **Release** (`release.yml`) | `v*` tags only | Publishes by default on manual dispatch; check build_only for testing. Approved TLS digest, protected release environment, read-only build and isolated publisher. See [release setup](RELEASING.md). | macOS 15 |
+| **Pin release TLS identity** (`pin-release-tls.yml`) | Manual only | Produces a public pin for one-time trust review/rotation; no commit, tag or release. | Linux |
+| **Update Repository** (`update_repo.yml`) | Published releases | Refreshes the AltStore-style repository listing; manual dispatch with a tag is also available. | Linux |
 | **Upstream feature radar** — `upstream-features.yml` | Mondays 06:00 UTC, manual | Scans Feather, FeatherPlus, Ksign, KorSign, RyukSign, MySignReincarnated, SideStore and LiveContainer; opens **one issue with a checklist** of candidate commits (author, date, files mapped onto VexSign, feasibility). | Linux |
 | **Upstream merge kit** — `upstream-merge-kit.yml` | `/prepare` comment or `prepare-merge` label on a radar issue, manual | Applies the ticked commits on a fresh `upstream-kit/issue-<n>` branch, opens a **draft PR** with a per-commit result table, attaches patches + conflict snapshots. Nothing is merged automatically. | Linux |
 
-## How many runs one push costs
+All four validation workflows also accept manual dispatch on a selected branch.
+**None runs automatically for pull requests.** Release publication and unrelated
+upstream automation keep their existing triggers.
 
-One commit used to start six or seven runs: three separate check workflows fired
-on their own triggers (a syntax check on *every* push to *every* branch, a build,
-a test job), `Release` built every pull request a second time, and SwiftLint
-pushed auto-fix commits that started the whole set again. A push to a pull
-request now starts **one** run with three jobs, and a docs-only change starts
-none.
+## Spend and pre-merge policy
 
-What is deliberately *not* on a commit:
+- Opening a PR or pushing more commits to it causes **zero automatic validation runs**.
+- A merge/push to `main` starts only workflows whose paths match. Docs-only changes
+  start none of the four validators. App-only changes do not run server/cloud tests.
+  A change spanning several components may intentionally run several workflows.
+- CI stops at the first failed stage: Linux checks before macOS compilation,
+  compilation and warning gate before simulator tests. Newer runs on the same ref
+  cancel stale work. Companion builds remain parallel on their separate workflow.
+- For a cheap review iteration, use **Actions → CI → Run workflow → select branch →
+  validation: quick**. This runs Linux gates plus trigger-policy regression tests,
+  **not** an iOS build. Use **full** for native pre-merge validation.
+- Before merging, dispatch **full** on the current head branch and any affected
+  component workflows. Confirm successful results apply to the exact commit being
+  merged; rerun after code changes. Manual dispatch requires the workflow to exist
+  on the default branch; the new input selector appears once this update lands there.
+- `python3 tools/test_workflow_policy.py` (also part of `make verify`) guards this
+  trigger policy without extra dependencies. These are source-layout regression
+  checks, not an Actions schema validator or native tests.
 
-* **Release** — tags only. A pull request is built once, by CI. Build-only runs
-  generate a development TLS identity offline, so they no longer depend on the
-  pinned release pack (`make deps-pin`).
-* **Platform check** — only when a companion or its shared sources change, and
-  only on the PR: the merge commit is the commit the PR already built.
-* **Server tests / Ecosystem contracts** — only when their sources change.
-* **SwiftLint** — `make lint` locally. A bot commit on every pull request was
-  noise (and it re-triggered CI).
+## Required-check migration (maintainer action)
+
+This deliberately removes automatic **pre-merge** validation. A failing main run
+reports a problem **after landing** and cannot protect the preceding merge.
+Before adopting this policy, review branch protection and rulesets under repository
+settings: remove or replace old PR-required CI/platform/server/cloud checks, or PRs
+can remain blocked waiting for checks that no longer run. A manual branch run is
+not guaranteed to satisfy PR/merge-queue check requirements. This change does not
+modify protection settings or enable automatic merging. If mandatory automatic
+pre-merge enforcement is required, retain/reintroduce a PR or merge-queue gate
+instead of assuming a manual run is equivalent.
 
 ## Fixing errors without a full build
 
@@ -51,8 +68,8 @@ merges break:
    catalogs, JSON, schemes — and an unbalanced `project.pbxproj`.
 
 Each finding is an inline annotation plus a snippet in the job summary, so it
-can be fixed from the PR page. Style is checked with `make lint`; real semantic errors (type mismatches, missing
-symbols) still need the compiler and surface in **Build check**, which
+can be fixed from the Actions run. Style is checked with `make lint`; real semantic errors (type mismatches, missing
+symbols) still need the compiler and surface in CI’s **build** job, which
 annotates them inline as well.
 
 Run the quick check locally on macOS (Xcode installed) or Linux (Swift

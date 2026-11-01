@@ -1,48 +1,21 @@
 name: Release
 
-# How this workflow is meant to be used
-# --------------------------------------
-# * Real releases: push a tag.
-#       git tag -a v1.2.0 -m "VexSign v1.2.0" && git push origin v1.2.0
-#   The tag pins the exact commit, the built app's CFBundleShortVersionString
-#   must equal the tag (minus the leading "v" and any -pre-release suffix), and
-#   the GitHub release is created for that tag at that commit. The same tag
-#   therefore always means the same source and the same version - and the
-#   Update Repository workflow syncs app-repo.json automatically afterwards.
-#
-# * Synthetic compatibility tags: the history contains milestone tags whose
-#   annotation says "synthetic tag" (e.g. "VexSign v0.0.18 FlareStore parity
-#   milestone (synthetic tag)"). Their versions deliberately do not match
-#   MARKETING_VERSION, so pushing (or re-pushing) one never publishes a
-#   release: the workflow detects the annotation, runs the full build +
-#   validation and attaches the IPA to the run as an artifact, marking the
-#   run as a compatibility milestone in its summary.
-#
-# * Testing changes: run the workflow manually with `build_only` left at
-#   `true` (the default). It compiles, packages and validates the IPA from
-#   whatever branch you picked and attaches it to the run as a workflow
-#   artifact. Nothing is published and no tag is created. Pull requests get
-#   exactly the same build-only treatment so `main` never merges red.
-#
-# * `build_only = false` on a manual run is an escape hatch (e.g. to create a
-#   draft release and review the notes before publishing). It publishes
-#   v<MARKETING_VERSION> from the exact commit that was built, and refuses to
-#   run if that tag already exists so a published release is never silently
-#   overwritten by a branch build. Prefer pushing a tag.
-#
-# See docs/RELEASING.md for the full procedure.
+# Run manually to publish v<MARKETING_VERSION> from the selected commit, or push
+# a release tag. Check build_only for an unpublished test IPA instead.
+# Publishing requires an approved TLS digest and a commit on the default branch.
+# Build with a read-only token; publish artifacts in a separate protected job.
+# Configure the release environment before use. See docs/RELEASING.md.
 
 on:
   workflow_dispatch:
     inputs:
       build_only:
         description: >-
-          Build and validate the IPA without publishing anything (the IPA is
-          attached to the run as an artifact). Untick only for a manual
-          publish - real releases should be published by pushing a tag.
+          Test only: check this to build an IPA WITHOUT publishing. Unchecked
+          (default) publishes a release for the selected branch version.
         required: false
         type: boolean
-        default: true
+        default: false
       xcode:
         description: >-
           Xcode version to build with (e.g. "26.3", "16.4"). Leave empty to use
@@ -69,16 +42,11 @@ on:
       - 'v[0-9]+.[0-9]+-*'
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
-  # No pull_request trigger on purpose: a PR is compiled and tested by ci.yml,
-  # once. Release used to build every PR too, which meant two macOS builds of
-  # the same commit (and a PR could never go green while the TLS identity was
-  # unpinned -- `make deps-release` fails on purpose until `make deps-pin`).
+  # No pull_request trigger. CI validates relevant main pushes or manual branch
+  # requests; Release remains explicitly tag/manual-only.
 
 permissions:
-  contents: write
-  # Only so a failing build can comment its own log tail on the PR (the Actions
-  # log CDN is not reachable from every reviewer environment).
-  pull-requests: write
+  contents: read
 
 # Publishing runs (tag pushes and manual publishes) share one group, so two
 # releases can never race each other and a publish in flight is never
@@ -91,11 +59,19 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
+    timeout-minutes: 90
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only && 'build-preview' || 'release' }}
+    outputs:
+      publish: ${{ steps.mode.outputs.publish }}
+      release_tag: ${{ steps.mode.outputs.release_tag }}
+      prerelease: ${{ steps.mode.outputs.prerelease }}
+      artifact_id: ${{ steps.bundle.outputs.artifact-id }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           submodules: recursive
+          persist-credentials: false
           # Full history is required for agvtool and for changelog generation
           # (we diff against the previous release tag).
           fetch-depth: 0
@@ -112,6 +88,7 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           BUILD_ONLY: ${{ inputs.build_only }}
           INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
 
@@ -147,8 +124,8 @@ jobs:
             pull_request)  MODE="pull-request" ;;
             workflow_dispatch)
               if [ "${BUILD_ONLY}" = "false" ]; then
-                # Dispatching a publish *on a tag* re-publishes that tag from
-                # the same source; from a branch it cuts v<MARKETING_VERSION>.
+                # A tag dispatch retries unpublished source; existing releases
+                # cannot be overwritten. Branch mode cuts v<MARKETING_VERSION>.
                 if [ "${REF_TYPE}" = "tag" ]; then MODE="tag"; else MODE="manual"; fi
               fi ;;
           esac
@@ -183,6 +160,17 @@ jobs:
               PUBLISH=true
               ;;
           esac
+
+          if [ "${PUBLISH}" = "true" ]; then
+            if [ "${REF_TYPE}" = "branch" ] && [ "${REF_NAME}" != "${DEFAULT_BRANCH}" ]; then
+              echo "::error::Publish from the default branch only. Other branches can use build_only."
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "${GITHUB_SHA}" "refs/remotes/origin/${DEFAULT_BRANCH}"; then
+              echo "::error::Release commit must be part of the default branch history."
+              exit 1
+            fi
+          fi
 
           EXPECTED_VERSION=""
           PRERELEASE=false
@@ -222,6 +210,9 @@ jobs:
             echo "synthetic=${SYNTHETIC}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Repository validation gates
+        run: make verify
+
       - name: Select Xcode
         env:
           # Manual input wins; otherwise the RELEASE_XCODE repository variable
@@ -256,6 +247,26 @@ jobs:
           xcodebuild -version
           echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
 
+      - name: Prepare release TLS pin
+        id: tls_pin
+        if: steps.mode.outputs.publish == 'true'
+        env:
+          RELEASE_TLS_SHA256: ${{ vars.RELEASE_TLS_SHA256 }}
+        run: |
+          set -euo pipefail
+          bash Scripts/local-tls/prepare-release-pin.sh
+          echo '### Release TLS identity' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The verified public pin is attached as an artifact and release asset. The approved committed/environment digest was enforced; no automatic rotation is permitted. No private key is attached.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save public release TLS pin
+        if: steps.mode.outputs.publish == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: release-tls-pin-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-tls-pin.sha256
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Compile VexSign
         id: build
         env:
@@ -269,11 +280,8 @@ jobs:
           fi
 
           if [ "${PUBLISH}" = "true" ]; then
-            # A published release ships the pinned identity: `make deps-release`
-            # fetches the published pack and refuses to build unless its digest
-            # matches Scripts/local-tls/pinned-pack.sha256. A release must never
-            # ship an identity nobody reviewed.
-            { make deps-release; make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+            # Enforce the committed or environment-approved pin prepared above.
+            { make deps-release && make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
           else
             # Build-only runs publish nothing, so they must not depend on the
             # pinned pack: generate the development identity offline, exactly as
@@ -289,6 +297,9 @@ jobs:
 
           mkdir -p upload
           mv packages/*.ipa upload/
+          if [ "${PUBLISH}" = "true" ]; then
+            cp "$RUNNER_TEMP/release-tls-pin.sha256" upload/
+          fi
 
       - name: Surface build errors
         if: failure() && steps.build.outcome == 'failure'
@@ -302,11 +313,6 @@ jobs:
             grep -E "error:" "$LOG" | grep -vE ":[0-9]+:[0-9]+:[[:space:]]*error:" | sed -E 's/^[[:space:]]*(.*)$/::error::\1/' | head -30
           fi
 
-          # A failure with no Swift diagnostics (bad project file, broken build
-          # phase, packaging) leaves nothing readable behind, and the log CDN
-          # is unreachable from some reviewer environments — post the tail.
-          python3 tools/post_build_log.py "$LOG" "${{ github.repository }}" \
-            "${{ github.event.pull_request.number }}"
           exit 0
 
       # Authoritative version check: what the packaged app actually reports
@@ -351,12 +357,12 @@ jobs:
             echo "short_sha=$(git rev-parse --short=7 HEAD)"
           } >> "$GITHUB_OUTPUT"
 
-      # Every successful build - PR, build-only or release - leaves a
+      # Every successful build-only or release run leaves a
       # downloadable IPA on the run page. This is how you test a change
       # without publishing it.
       - name: Upload IPA artifact
         id: artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: VexSign-${{ steps.get_version.outputs.version }}-${{ steps.get_version.outputs.short_sha }}
           path: upload/*.ipa
@@ -371,64 +377,111 @@ jobs:
         run: |
           set -euo pipefail
           bash tools/generate-changelog.sh > "$RUNNER_TEMP/CHANGELOG.md"
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          cat "$RUNNER_TEMP/CHANGELOG.md" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-          echo "--- Changelog preview ---"
-          cat "$RUNNER_TEMP/CHANGELOG.md"
-          echo "--- end ---"
+          cp "$RUNNER_TEMP/CHANGELOG.md" upload/CHANGELOG.md
+          (cd upload && shasum -a 256 ./*.ipa release-tls-pin.sha256 > SHA256SUMS)
+
+      - name: Package verified release assets
+        id: bundle
+        if: steps.mode.outputs.publish == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            upload/*.ipa
+            upload/release-tls-pin.sha256
+            upload/SHA256SUMS
+            upload/CHANGELOG.md
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove temporary TLS keys
+        if: always()
+        run: |
+          rm -rf -- deps /tmp/VexSign/tls-pin /tmp/VexSign/tls-release
+          rm -rf -- "${RUNNER_TEMP}/VexSign/tls-pin" "${RUNNER_TEMP}/VexSign/tls-release"
+
+  publish:
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      # No checkout or execution of repository build scripts with a write token.
+      - name: Download this run's verified release bundle
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: upload
+
+      - name: Verify asset checksums
+        working-directory: upload
+        run: sha256sum --check SHA256SUMS
+
+      - name: Refuse overwriting an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          # Listing must succeed: auth/network errors cannot be treated as absence.
+          gh api --paginate "repos/${GH_REPO}/releases" --jq '.[].tag_name' > "$RUNNER_TEMP/released-tags"
+          if grep -Fxq "$RELEASE_TAG" "$RUNNER_TEMP/released-tags"; then
+            echo "::error::Release already exists; publish a new version rather than overwriting assets."
+            exit 1
+          fi
+          # A tag created/moved during the build must not label different source.
+          gh api --paginate "repos/${GH_REPO}/tags" --jq '.[] | [.name, .commit.sha] | @tsv' > "$RUNNER_TEMP/tag-targets"
+          tagged_sha="$(awk -F '\t' -v tag="$RELEASE_TAG" '$1 == tag {print $2}' "$RUNNER_TEMP/tag-targets")"
+          if [ -n "$tagged_sha" ] && [ "$tagged_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Release tag no longer points to the built commit. Refusing publication."
+            exit 1
+          fi
 
       - name: Create Release
         id: release
-        if: steps.mode.outputs.publish == 'true'
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@5113cdc90fd4d541c801c55356214017bf5ae34b # v3
         with:
-          name: VexSign ${{ steps.mode.outputs.release_tag }}
-          tag_name: ${{ steps.mode.outputs.release_tag }}
-          # Always the exact commit that was built. For a tag push the tag
-          # already exists and this is ignored; for a manual publish GitHub
-          # creates the tag here instead of at whatever the branch head is by
-          # the time the build finishes.
+          name: VexSign ${{ needs.build.outputs.release_tag }}
+          tag_name: ${{ needs.build.outputs.release_tag }}
           target_commitish: ${{ github.sha }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          body_path: upload/CHANGELOG.md
           files: |
             upload/*.ipa
+            upload/release-tls-pin.sha256
+            upload/SHA256SUMS
           fail_on_unmatched_files: true
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft == true }}
-          prerelease: ${{ steps.mode.outputs.prerelease == 'true' }}
+          prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
-        if: always() && steps.get_version.outcome == 'success'
         env:
-          MODE: ${{ steps.mode.outputs.mode }}
-          PUBLISH: ${{ steps.mode.outputs.publish }}
-          RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
-          VERSION: ${{ steps.get_version.outputs.version }}
-          SHORT_SHA: ${{ steps.get_version.outputs.short_sha }}
-          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
           RELEASE_URL: ${{ steps.release.outputs.url }}
-          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+        run: echo "Published verified release assets at ${RELEASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+
+  sync-repository:
+    needs: [build, publish]
+    if: github.event_name != 'workflow_dispatch' || !inputs.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      # GITHUB_TOKEN-created releases do not emit downstream workflow events.
+      # Dispatch the existing updater explicitly; no repository code runs here.
+      - name: Queue repository listing update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
         run: |
-          {
-            echo "## VexSign ${VERSION} (\`${SHORT_SHA}\`)"
-            echo
-            case "${MODE}" in
-              tag)          echo "**Release from tag** \`${RELEASE_TAG}\`" ;;
-              synthetic-tag) echo "**Compatibility milestone** \`${RELEASE_TAG}\` - synthetic tag, validation only, nothing published" ;;
-              manual)       echo "**Manual publish** of \`${RELEASE_TAG}\` - for real releases, push a tag instead" ;;
-              pull-request) echo "**Pull request build** - nothing published" ;;
-              *)            echo "**Build only** - nothing published" ;;
-            esac
-            echo
-            if [ -n "${ARTIFACT_URL}" ]; then
-              echo "- IPA artifact: ${ARTIFACT_URL} (kept for 14 days)"
-            fi
-            if [ "${PUBLISH}" = "true" ]; then
-              case "${RELEASE_OUTCOME}" in
-                success) echo "- GitHub release: ${RELEASE_URL}" ;;
-                *)       echo "- GitHub release: **not created** (step outcome: ${RELEASE_OUTCOME:-skipped}) - the IPA artifact above is still available" ;;
-              esac
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          gh workflow run update_repo.yml --repo "$GH_REPO" --ref "$DEFAULT_BRANCH" -f "tag=$RELEASE_TAG"
+          echo 'Repository listing update queued. Check Update Repository for completion; a dispatch is not a completed sync.' >> "$GITHUB_STEP_SUMMARY"

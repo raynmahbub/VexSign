@@ -13,6 +13,7 @@
 #
 # Usage: CERT_PACK_URL=<url> Scripts/local-tls/fetch-release-identity.sh <directory>
 set -eu
+umask 077
 
 OUT_DIR="${1:?usage: fetch-release-identity.sh <directory>}"
 URL="${CERT_PACK_URL:-https://vexsign-install.vexsign.workers.dev/pack.json}"
@@ -21,6 +22,8 @@ SCRIPT_DIR="$(dirname "$0")"
 say() { printf '%s\n' "$*"; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
+case "$URL" in https://*) ;; *) fail "release TLS packs require an HTTPS URL" ;; esac
+command -v openssl >/dev/null 2>&1 || fail "openssl is required to validate release certificates"
 command -v curl >/dev/null 2>&1 || fail "curl is required to fetch the release TLS identity"
 command -v jq >/dev/null 2>&1 || fail "jq is required to unpack the release TLS identity"
 command -v python3 >/dev/null 2>&1 || fail "python3 is required to compute the identity digest"
@@ -31,12 +34,12 @@ mkdir -p "$OUT_DIR"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/vexsign-tls-pack.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT INT TERM
 
-curl -fsSL --retry 2 --max-time 60 "$URL" -o "$WORK/pack.json" || fail \
+curl --proto '=https' --proto-redir '=https' -fsSL --retry 2 --max-time 60 "$URL" -o "$WORK/pack.json" || fail \
 	"could not download $URL (no network, or the endpoint is down).
        Refusing to continue: a build without a TLS identity cannot serve HTTPS installs.
        For an offline development build use 'make deps' (a locally generated identity)."
 
-jq -e '.cert and .ca and .key1 and .key2 and .info.domains.commonName' "$WORK/pack.json" >/dev/null 2>&1 || fail \
+jq -e '([.cert, .ca, .key1, .key2, .info.domains.commonName] | all(.[]; type == "string" and length > 0)) and (.info.domains.commonName | test("^[A-Za-z0-9][A-Za-z0-9.-]*$"))' "$WORK/pack.json" >/dev/null 2>&1 || fail \
 	"$URL did not return cert, ca, key1, key2 and info.domains.commonName"
 
 jq -r '.cert, .ca' "$WORK/pack.json" > "$OUT_DIR/server.crt" || fail "could not unpack the certificate chain"
@@ -61,6 +64,12 @@ if command -v openssl >/dev/null 2>&1; then
 	openssl x509 -in "$OUT_DIR/server.crt" -noout -checkend 172800 >/dev/null 2>&1 || \
 		say "warning: the certificate in the pack expires within two days"
 fi
+
+# The reviewed digest anchors the bundled CA; system trust is not assumed.
+common_name="$(cat "$OUT_DIR/commonName.txt")"
+openssl verify -CAfile "$OUT_DIR/server.crt" -purpose sslserver \
+    -verify_hostname "$common_name" "$OUT_DIR/server.crt" >/dev/null 2>&1 || fail \
+    "the release chain is invalid for its declared server hostname"
 
 digest="$(python3 "$SCRIPT_DIR/pack_digest.py" "$OUT_DIR")" || fail "could not compute the identity digest"
 common_name="$(cat "$OUT_DIR/commonName.txt")"
