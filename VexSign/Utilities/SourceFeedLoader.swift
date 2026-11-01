@@ -84,7 +84,9 @@ struct SourceFeedLoader: Sendable {
 				)
 			}
 
-			willDecode?(Thread.isMainThread)
+			// The decode that follows runs off the main actor by design, so the
+			// "this will block the interface" signal is always false here.
+			willDecode?(false)
 
 			// a source that claims a signature is checked before anything from it is
 			// published. Unsigned is the normal case and stays accepted; a broken signature is not.

@@ -233,15 +233,17 @@ final class LibraryStatusStore: ObservableObject {
 		let epochs = batch.reduce(into: [String: Int]()) { $0[$1.uuid] = epoch[$1.uuid] ?? 0 }
 
 		Task.detached(priority: .utility) { [weak self] in
-			var results: [(String, LibraryAppStatus)] = []
-			results.reserveCapacity(batch.count)
+			let store = self
+			var collected: [(String, LibraryAppStatus)] = []
+			collected.reserveCapacity(batch.count)
 
 			for request in batch {
-				results.append((request.uuid, Self.resolve(request, probe: probe, readSignature: read)))
+				collected.append((request.uuid, Self.resolve(request, probe: probe, readSignature: read)))
 			}
+			let results = collected
 
 			await MainActor.run {
-				guard let self else { return }
+				guard let store else { return }
 				for (uuid, status) in results {
 					self.inflight.remove(uuid)
 

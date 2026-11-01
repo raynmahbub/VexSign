@@ -18,7 +18,6 @@ final class SourcesViewModel: ObservableObject {
 
 	typealias RepositoryDataHandler = Result<ASRepository, Error>
 
-	private let _dataService = NBFetchService()
 
 	/// `true` when no load is in progress (idle).
 	@Published var isFinished = true
@@ -58,9 +57,14 @@ final class SourcesViewModel: ObservableObject {
 	}
 
 	/// The production fetcher: `NBFetchService` behind the async closure the loader takes.
-	private static func _fetcher(for service: NBFetchService) -> SourceFeedLoader.Fetcher {
+	///
+	/// The service is constructed inside the closure rather than passed in: the
+	/// loader's fetcher is `@Sendable`, `NBFetchService` is a class that is not
+	/// `Sendable`, and it holds no per-instance state worth keeping anyway.
+	private static func _fetcher() -> SourceFeedLoader.Fetcher {
 		{ url, headers in
-			await withCheckedContinuation { continuation in
+			let service = NBFetchService()
+			return await withCheckedContinuation { continuation in
 				service.fetchRaw(from: url, headers: headers) { result in
 					continuation.resume(returning: result)
 				}
@@ -258,7 +262,7 @@ final class SourcesViewModel: ObservableObject {
 
 		// Fetch *and* decode happen in the loader, which has no isolation, so neither runs on the
 		// main actor. The task group only carries `SourceFeedResult` back.
-		let loader = SourceFeedLoader(fetcher: Self._fetcher(for: _dataService))
+		let loader = SourceFeedLoader(fetcher: Self._fetcher())
 
 		for startIndex in stride(from: 0, to: fetchable.count, by: batchSize) {
 			let endIndex = min(startIndex + batchSize, fetchable.count)

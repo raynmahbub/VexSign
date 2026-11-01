@@ -352,8 +352,8 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 			probe: probe,
 			progress: { await UIApplication.installProgress(for: bundleId) },
 			onUpdate: { [weak self] raw, phase in
+				guard let self else { return }
 				await MainActor.run {
-					guard let self else { return }
 					switch phase {
 					case .waitingForStart:
 						self._setInstallProgress(0)

@@ -92661,6 +92661,17 @@
           }
         }
       }
+    },
+    "The identity was written but could not be read back. Try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The identity was written but could not be read back. Try again."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

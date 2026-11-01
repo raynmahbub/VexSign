@@ -56,7 +56,7 @@ struct LibraryInfoView: View {
 			AppCloneSheet(app: app)
 		}
 		.task {
-			await LibraryStatusStore.shared.request(app, force: true)
+			LibraryStatusStore.shared.request(app, force: true)
 		}
 		.task {
 			guard AppStoreUpdateTracker.isEnabled else { return }

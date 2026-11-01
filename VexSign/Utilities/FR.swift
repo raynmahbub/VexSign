@@ -244,7 +244,15 @@ enum FR {
 				try FileManager.forceWrite(content: pack.info.domains.commonName, to: "commonName.txt")
 
 				generator.notificationOccurred(.success)
-				completion(.success(LocalTLSIdentity.current()))
+				guard let summary = LocalTLSIdentity.current() else {
+					completion(.failure(NSError(
+						domain: "VexSign",
+						code: 8,
+						userInfo: [NSLocalizedDescriptionKey: String.localized("The identity was written but could not be read back. Try again.")]
+					)))
+					return
+				}
+				completion(.success(summary))
 			} catch {
 				completion(.failure(error))
 			}

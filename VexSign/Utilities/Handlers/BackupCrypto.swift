@@ -121,7 +121,7 @@ enum BackupCrypto {
 		guard head.prefix(magic.count) == magic else { return false }
 
 		guard let flag = try? handle.read(upToCount: 1),
-			  let byte = flag?.first,
+			  let byte = flag.first,
 			  let wrap = Wrap(rawValue: byte) else {
 			return true
 		}

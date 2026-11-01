@@ -378,21 +378,22 @@ final class AppInstaller: ObservableObject {
 		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version)
 
 		_progressTask = Task.detached(priority: .background) { [weak self] in
+			let installer = self
 			let verdict = await InstallWatcher.watch(
 				InstallConfirmation(expectation: expectation),
 				probe: probe,
 				progress: { await UIApplication.installProgress(for: bundleID) },
 				onUpdate: { raw, phase in
-					await MainActor.run { [weak self] in
-						self?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
+					await MainActor.run {
+						installer?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
 					}
 				}
 			)
 
 			guard !Task.isCancelled else { return }
 
-			await MainActor.run { [weak self] in
-				self?._finishConfirmed(verdict)
+			await MainActor.run {
+				installer?._finishConfirmed(verdict)
 			}
 		}
 	}
