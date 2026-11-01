@@ -138,7 +138,7 @@ final class AppUpdateChecker: ObservableObject {
             let finalSourcedList = sourcedList
 
             await MainActor.run {
-                self.cacheQueue.async(flags: .barrier) {
+                self.cacheQueue.sync(flags: .barrier) {
                     self.updateCache = newCache
                 }
                 self.appsWithUpdates = finalUpdatesSet
@@ -213,8 +213,8 @@ final class AppUpdateChecker: ObservableObject {
     }
     
     func clearCache() {
-        cacheQueue.async(flags: .barrier) { [weak self] in
-            self?.updateCache.removeAll()
+        cacheQueue.sync(flags: .barrier) {
+            updateCache.removeAll()
         }
     }
     

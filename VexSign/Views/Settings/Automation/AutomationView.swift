@@ -258,11 +258,11 @@ private struct AutomationPreviewView: View {
                 ForEach(candidates) { task in
                     Button {
                         if let bundleID = task.app.id, !bundleID.isEmpty {
-                            editing = RuleSelection(id: bundleID, name: task.app.name, version: task.app.currentVersion)
+                            editing = RuleSelection(id: bundleID, name: task.app.name ?? .localized("Application"), version: task.app.currentVersion)
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(task.app.name).font(.headline)
+                            Text(task.app.name ?? .localized("Application")).font(.headline)
                             Text(task.sourceName).font(.caption).foregroundStyle(.secondary)
                             if let version = task.app.currentVersion {
                                 Text(version).font(.caption)

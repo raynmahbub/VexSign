@@ -117,8 +117,8 @@ struct FileManagerView: View {
 		}
 		.onAppear(perform: _load)
 		// An edit inside a subfolder changes the parent's listing when the user comes back.
-		.onChange(of: _sort) { _ in _load() }
-		.onChange(of: _showsHidden) { _ in _load() }
+		.nbOnChange(of: _sort) { _ in _load() }
+		.nbOnChange(of: _showsHidden) { _ in _load() }
 	}
 
 	// MARK: Header

@@ -225,60 +225,46 @@ class CertificateAutoImporter {
 		password: String,
 		completion: @escaping (Error?) -> Void
 	) {
-		Task.detached {
-			do {
-				let certReader = CertificateReader(provisionURL)
-				guard let certPair = certReader.decoded else {
-					throw CertificateUpdateError.invalidCertificate
-				}
-
-				// Reuse the existing UUID directory.
-				let certDir = await MainActor.run {
-					Storage.shared.getUuidDirectory(for: cert)
-				}
-
-				guard let certDir = certDir else {
-					throw CertificateUpdateError.directoryNotFound
-				}
-
-                let (p12Dest, provisionDest, previousPassword) = try await MainActor.run {
-                    (Storage.shared.getFile(.certificate, from: cert) ?? certDir.appendingPathComponent("cert.p12"),
-                     Storage.shared.getFile(.provision, from: cert) ?? certDir.appendingPathComponent("cert.mobileprovision"),
-                     try cert.requireSigningPassword())
+        Task { @MainActor in
+            do {
+                let reader = CertificateReader(provisionURL)
+                guard let decoded = reader.decoded else { throw CertificateUpdateError.invalidCertificate }
+                guard let directory = Storage.shared.getUuidDirectory(for: cert) else {
+                    throw CertificateUpdateError.directoryNotFound
                 }
-                let oldP12 = try Data(contentsOf: p12Dest)
-                let oldProvision = try Data(contentsOf: provisionDest)
-                let newP12 = try Data(contentsOf: p12URL)
-                let newProvision = try Data(contentsOf: provisionURL)
+                let p12Destination = Storage.shared.getFile(.certificate, from: cert) ?? directory.appendingPathComponent("cert.p12")
+                let provisionDestination = Storage.shared.getFile(.provision, from: cert) ?? directory.appendingPathComponent("cert.mobileprovision")
+                let previousPassword = try cert.requireSigningPassword()
+                // Only Sendable values cross the worker boundary, never CertificatePair.
+                let files = try await Task.detached {
+                    (try Data(contentsOf: p12Destination), try Data(contentsOf: provisionDestination),
+                     try Data(contentsOf: p12URL), try Data(contentsOf: provisionURL))
+                }.value
                 do {
-                    try newP12.write(to: p12Dest, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                    try newProvision.write(to: provisionDest, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                    try await MainActor.run {
-                        try cert.setSigningPassword(password)
-                        cert.ppQCheck = certPair.PPQCheck ?? false
-                        cert.expiration = certPair.ExpirationDate
-                        cert.revoked = false
-                        cert.date = Date()
-                        Storage.shared.saveContext()
-                        Storage.shared.revokagedCertificate(for: cert)
-                    }
+                    try await Task.detached {
+                        try files.2.write(to: p12Destination, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+                        try files.3.write(to: provisionDestination, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+                    }.value
+                    try cert.setSigningPassword(password)
+                    cert.ppQCheck = decoded.PPQCheck ?? false
+                    cert.expiration = decoded.ExpirationDate
+                    cert.revoked = false
+                    cert.date = Date()
+                    Storage.shared.saveContext()
+                    Storage.shared.revokagedCertificate(for: cert)
                 } catch {
-                    // Preserve the previous working identity on a Keychain/file error.
-                    try oldP12.write(to: p12Dest, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                    try oldProvision.write(to: provisionDest, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                    try await MainActor.run { try cert.setSigningPassword(previousPassword) }
+                    try await Task.detached {
+                        try files.0.write(to: p12Destination, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+                        try files.1.write(to: provisionDestination, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+                    }.value
+                    try cert.setSigningPassword(previousPassword)
                     throw error
                 }
-
-				await MainActor.run {
-					completion(nil)
-				}
-			} catch {
-				await MainActor.run {
-					completion(error)
-				}
-			}
-		}
+                completion(nil)
+            } catch {
+                completion(error)
+            }
+        }
 	}
 }
 

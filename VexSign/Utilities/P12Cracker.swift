@@ -24,7 +24,7 @@ final class P12Cracker: ObservableObject {
 	private var _cancelRequested = false
 
 	/// Common passwords observed across signing services, leaks, and enterprise dumps.
-	static let commonPasswords: [String] = [
+	nonisolated static let commonPasswords: [String] = [
 		"", // Blank / no password
 		// Short PINs / numeric
 		"1", "12", "123", "1234", "12345", "123456", "1234567", "12345678",

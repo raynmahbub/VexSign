@@ -17,3 +17,15 @@ public extension EnvironmentValues {
         set { self[WorkspaceCardKey.self] = newValue }
     }
 }
+
+/// Preserve the iOS 16 deployment target without deprecated call sites on newer SDKs.
+public extension View {
+    @ViewBuilder
+    func nbOnChange<Value: Equatable>(of value: Value, perform action: @escaping (Value) -> Void) -> some View {
+        if #available(iOS 17.0, tvOS 17.0, *) {
+            onChange(of: value) { _, newValue in action(newValue) }
+        } else {
+            onChange(of: value, perform: action)
+        }
+    }
+}

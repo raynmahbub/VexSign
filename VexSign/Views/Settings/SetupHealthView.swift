@@ -106,7 +106,7 @@ struct SetupHealthView: View {
             }
         }
         .onAppear(perform: refresh)
-        .onChange(of: scenePhase) { phase in
+        .nbOnChange(of: scenePhase) { phase in
             if phase == .active { refresh() }
         }
     }

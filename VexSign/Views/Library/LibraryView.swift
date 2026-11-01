@@ -221,7 +221,7 @@ struct LibraryView: View {
                 .alert(.localized("Import from URL"), isPresented: $_isDownloadingPresenting) {
                     urlImportAlert
                 }
-                .onChange(of: _editMode) { mode in
+                .nbOnChange(of: _editMode) { mode in
                     if mode == .inactive {
                         _selectedAppUUIDs.removeAll()
                     } else {
@@ -291,7 +291,7 @@ struct LibraryView: View {
                     await updateChecker.checkNow()
                 }
             }
-            .onChange(of: tabSelection.highlightedAppUUID) { newUUID in
+            .nbOnChange(of: tabSelection.highlightedAppUUID) { newUUID in
                 if let uuid = newUUID {
                     withAnimation(.easeInOut(duration: 0.5)) {
                         proxy.scrollTo(uuid, anchor: .center)

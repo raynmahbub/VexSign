@@ -199,7 +199,7 @@ struct CompanionSigningWorkflowView: View {
         }
         .interactiveDismissDisabled(preparingIPA)
         .onAppear(perform: refreshAvailability)
-        .onChange(of: scenePhase) { phase in if phase == .active { refreshAvailability() } }
+        .nbOnChange(of: scenePhase) { phase in if phase == .active { refreshAvailability() } }
         .confirmationDialog(.localized("Send this IPA URL to SideStore?"), isPresented: $confirmHandoff, titleVisibility: .visible) {
             Button(.localized("Continue in SideStore")) {
                 if let link = installLink { open(link.absoluteString) }
