@@ -260,11 +260,6 @@ jobs:
     needs: quick
     runs-on: macos-15
     timeout-minutes: 60
-    # Write access is for one thing: posting the failing log tail on the PR when
-    # the suite fails without a diagnostic the reporter can annotate.
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -337,39 +332,33 @@ jobs:
           fi
           exit "${status}"
 
-      # The reporter only annotates diagnostics it recognises. When xcodebuild
-      # fails for another reason — a destination problem, a linker error, a test
-      # that crashed the runner — nothing is left on the check run but an exit
-      # code, and the Actions log CDN is not reachable from every reviewer
-      # environment. So the failing lines and the tail of the log are posted on
-      # the pull request, where they can be read (and copied) like any comment.
+      # The reporter only annotates diagnostics it recognises, and an
+      # unfiled `::error::` does not survive onto the check run. So when the
+      # suite fails, the failing lines of the log are re-emitted as *filed*
+      # annotations (the log line's own file and line where it has one), which
+      # the pull request page and the API can both read.
       - name: Surface failures
-        if: failure() && steps.test.outcome == 'failure' && github.event.pull_request.number
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        if: failure() && steps.test.outcome == 'failure'
         run: |
           set +e
           LOG="$TEST_LOG"
           [ -f "$LOG" ] || { echo "::warning::No xcodebuild log was produced."; exit 0; }
-          {
-            echo "The simulator suite failed in [run ${GITHUB_RUN_ID}](${RUN_URL}). The failing lines:"
-            echo
-            echo '```'
-            grep -aE "error:|Failing tests:|Test Case .* failed|BUILD FAILED|TEST FAILED|\*\* TEST (FAILED|SUCCEEDED) \*\*" "$LOG" | head -60
-            echo '```'
-            echo
-            echo "<details><summary>Last 60 lines of the xcodebuild log</summary>"
-            echo
-            echo '```'
-            tail -n 60 "$LOG"
-            echo '```'
-            echo
-            echo "</details>"
-          } > "$RUNNER_TEMP/failure.md"
-          head -c 60000 "$RUNNER_TEMP/failure.md" > "$RUNNER_TEMP/failure-trim.md"
-          gh pr comment "$PR" --body-file "$RUNNER_TEMP/failure-trim.md"
+          python3 - "$LOG" <<'PY'
+          import re, sys, pathlib
+
+          lines = pathlib.Path(sys.argv[1]).read_text(errors="replace").splitlines()
+          pick = re.compile(r"error:|Failing tests:|Test Case .* failed|BUILD FAILED|TEST FAILED")
+          located = re.compile(r"^(?P<file>/[^:]+\.[a-z]{1,3}):(?P<line>\d+):(?:\d+:)?\s*(?P<msg>.*)$")
+
+          hits = [l for l in lines if pick.search(l)]
+          for line in hits[:40] + [l for l in lines[-15:] if l not in hits[:40]]:
+              trimmed = line.strip()[:300].replace("%", "%25").replace("\r", "")
+              m = located.match(line.strip())
+              if m:
+                  print(f"::error file={m['file']},line={m['line']}::{m['msg'][:300]}")
+              else:
+                  print(f"::error file=.github/workflows/ci.yml,line=1::{trimmed}")
+          PY
           exit 0
 
       # Same reporter as the build job, so test failures are annotated inline
