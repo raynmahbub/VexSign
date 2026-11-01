@@ -34,7 +34,7 @@ extension Storage {
 			new.uuid = uuid
 			new.source = source
 			new.date = Date()
-			new.sortIndex = nextSignedSortIndex(in: context)
+			new.sortIndex = self.nextSignedSortIndex(in: context)
 
 			if let certificateID {
 				// Re-fetch on the write context: the caller's instance belongs to
