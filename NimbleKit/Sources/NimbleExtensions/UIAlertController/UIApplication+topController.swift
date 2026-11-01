@@ -8,29 +8,22 @@
 import UIKit
 
 extension UIApplication {
-	/// This belongs to https://stackoverflow.com/a/30858591
-	public class func topViewController() -> UIViewController? {
-		topViewController(controller: keyWindowRootViewController)
-	}
-
-	/// The root controller of the window the user is currently looking at.
+	/// Root view controller of the key window in the active scene.
 	///
-	/// `UIApplication.keyWindow` is deprecated because it returns a key window
-	/// across *all* connected scenes, which is the wrong one on iPad or with a
-	/// second scene. Prefer the foreground-active scene and fall back to the
-	/// others only when nothing is active (during a transition, for instance).
-	internal class var keyWindowRootViewController: UIViewController? {
+	/// `UIApplication.shared.keyWindow` is deprecated: it returns a window across all
+	/// connected scenes, which is the wrong answer for a multi-scene app.
+	private static var _rootViewController: UIViewController? {
 		let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-		let ordered = scenes.filter { $0.activationState == .foregroundActive } + scenes.filter { $0.activationState != .foregroundActive }
-		for scene in ordered {
-			if let window = scene.windows.first(where: { $0.isKeyWindow }) {
-				return window.rootViewController
-			}
-		}
-		return ordered.first?.windows.first?.rootViewController
+		let keyWindow = scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+		let window = keyWindow
+			?? scenes.first { $0.activationState == .foregroundActive }?.windows.first
+			?? scenes.first?.windows.first
+		return window?.rootViewController
 	}
 
-	public class func topViewController(controller: UIViewController?) -> UIViewController? {
+	/// This belongs to https://stackoverflow.com/a/30858591
+	public class func topViewController(controller: UIViewController? = nil) -> UIViewController? {
+		guard let controller = controller ?? _rootViewController else { return nil }
 		if let navigationController = controller as? UINavigationController {
 			return topViewController(controller: navigationController.visibleViewController)
 		}
@@ -39,7 +32,7 @@ extension UIApplication {
 				return topViewController(controller: selected)
 			}
 		}
-		if let presented = controller?.presentedViewController {
+		if let presented = controller.presentedViewController {
 			return topViewController(controller: presented)
 		}
 		return controller
