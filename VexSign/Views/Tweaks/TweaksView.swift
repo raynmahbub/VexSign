@@ -43,6 +43,7 @@ struct TweakLibraryList: View {
 		case extractLibrary
 		case move(Set<UUID>)
 		case repository
+		case injectionDefaults
 
 		var id: String {
 			switch self {
@@ -50,6 +51,7 @@ struct TweakLibraryList: View {
 			case .extractLibrary: 	return "extractLibrary"
 			case .move: 			return "move"
 			case .repository: 		return "repository"
+			case .injectionDefaults: return "injectionDefaults"
 			}
 		}
 	}
@@ -187,6 +189,9 @@ struct TweakLibraryList: View {
 			TweakIPAExtractView(ipaURL: url)
 		case .extractLibrary:
 			TweakAppExtractPickerView()
+		case .injectionDefaults:
+			// every "inject by default" flag in one place.
+			TweakInjectionDefaultsView()
 		case .move(let ids):
 			TweakFolderPickerView(currentFolderId: nil) { target in
 				manager.moveTweaks(ids, toFolder: target)
@@ -325,6 +330,11 @@ extension TweakLibraryList {
 						_pickIPA()
 					} label: {
 						Label(.localized("Extract from IPA"), systemImage: "shippingbox")
+					}
+					Button {
+						_show(.injectionDefaults)
+					} label: {
+						Label(.localized("Inject by Default"), systemImage: "wand.and.rays")
 					}
 					Button {
 						_show(.extractLibrary)
