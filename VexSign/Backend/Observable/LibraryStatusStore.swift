@@ -245,12 +245,12 @@ final class LibraryStatusStore: ObservableObject {
 			await MainActor.run {
 				guard let store else { return }
 				for (uuid, status) in results {
-					self.inflight.remove(uuid)
+					store.inflight.remove(uuid)
 
 					// An install finished while this read was running: its answer is the newer
 					// one, so drop this.
-					guard (self.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0) else { continue }
-					self.statuses[uuid] = status
+					guard (store.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0) else { continue }
+					store.statuses[uuid] = status
 				}
 			}
 		}
