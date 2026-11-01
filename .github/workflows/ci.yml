@@ -344,6 +344,7 @@ jobs:
           RESULT_BUNDLE: ${{ runner.temp }}/VexSignTests.xcresult
           TEST_LOG: ${{ runner.temp }}/xcodebuild-test.log
           TEST_EXIT: ${{ steps.test.outputs.exit_code }}
+          SUMMARY_JSON: ${{ runner.temp }}/summary.json
         run: |
           # GitHub keeps at most 10 annotations per step, so the interesting
           # facts are packed into a handful of lines instead of one annotation
@@ -359,6 +360,7 @@ jobs:
 
           if [ -d "$RESULT_BUNDLE" ]; then
             echo "::group::failing tests"
+            xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE" --format json > "$RUNNER_TEMP/summary.json" 2>/dev/null
             xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" --format json > "$RUNNER_TEMP/tests.json" 2>/dev/null
 
             xcrun xcresulttool export diagnostics \
@@ -429,6 +431,21 @@ jobs:
           if stack:
               print("STACK " + stack)
 
+          summary_path = os.path.join(diag_dir, "..", "summary.json")
+          try:
+              with open(os.environ.get("SUMMARY_JSON", "")) as handle:
+                  summary = json.load(handle)
+              bits = [f"result={summary.get('result', '?')}"]
+              for key in ("totalTestCount", "passedTests", "failedTests", "skippedTests", "expectedFailures"):
+                  if summary.get(key) is not None:
+                      bits.append(f"{key}={summary[key]}")
+              print("SUMMARY " + " ".join(str(b) for b in bits))
+              for failure in (summary.get("testFailures") or [])[:3]:
+                  text = failure.get("failureText") or failure.get("testName") or ""
+                  print("SUMMARY " + str(text).replace("\n", " ")[:300])
+          except Exception as error:
+              print("SUMMARY unavailable: " + str(error)[:160])
+
           for name, messages in failures()[:6]:
               print("TEST " + name[:150] + (" — " + messages[0][:200] if messages else ""))
           PYEOF
@@ -441,6 +458,7 @@ jobs:
             case "$line" in
               STACK*) annotate "crash stack (callee <- caller): ${line#STACK }" ;;
               TEST*) annotate "${line#TEST }" ;;
+              SUMMARY*) annotate "${line#SUMMARY }" ;;
             esac
           done <<< "$CRASH_STACK"
 
@@ -455,7 +473,9 @@ jobs:
           marker = next((i for i, l in enumerate(lines) if "** TEST FAILED **" in l), None)
           picked = []
           if marker is not None:
-              picked = [l.strip() for l in lines[max(0, marker - 60):marker] if l.strip()][-6:]
+              before = [l.strip() for l in lines[max(0, marker - 40):marker] if l.strip()][-3:]
+              after = [l.strip() for l in lines[marker + 1:marker + 30] if l.strip()][:4]
+              picked = before + after
           offender = re.compile(r"ran off the main queue|CoreData: error|NSInternalInconsistencyException")
           flagged = [l.strip() for l in lines if offender.search(l)][-4:]
           picked = flagged + picked
@@ -476,6 +496,7 @@ jobs:
         if: always() && steps.test.outcome != 'skipped'
         env:
           TEST_EXIT: ${{ steps.test.outputs.exit_code }}
+          SUMMARY_JSON: ${{ runner.temp }}/summary.json
         run: |
           if [ ! -f "$TEST_LOG" ]; then
             echo "::warning::No xcodebuild log was produced."

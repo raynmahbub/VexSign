@@ -18,6 +18,25 @@ final class Storage: ObservableObject {
 	private let _name: String = "VexSign"
 	private let _legacyName: String = "Feather" // For migration from old installs
 	private let _inMemory: Bool
+
+	/// One model instance per process, shared by every `Storage`.
+	///
+	/// `NSPersistentContainer(name:)` builds a fresh `NSManagedObjectModel` on
+	/// every call, and two models describing the same entities make Core Data
+	/// choose between them when it faults a row in: it logs "Failed to find a
+	/// unique match for an NSEntityDescription to a managed object subclass" and
+	/// can hand back an unmapped `Imported`. The app's store and the in-memory
+	/// stores the test bundle creates live in one process, which is exactly that
+	/// situation - and the log from the test host has the message in it.
+	private static let _sharedModel: NSManagedObjectModel? = {
+		guard
+			let url = Bundle.main.url(forResource: "VexSign", withExtension: "momd"),
+			let model = NSManagedObjectModel(contentsOf: url)
+		else {
+			return nil
+		}
+		return model
+	}()
 	/// Private-queue context owned by `write(_:)`. Created at the end of `init`
 	/// and only ever touched from inside `perform`, which serialises writers.
 	private var _writeContext: NSManagedObjectContext!
@@ -30,7 +49,11 @@ final class Storage: ObservableObject {
 			Self._migrateLegacyStoreIfNeeded()
 		}
 
-		container = NSPersistentContainer(name: _name)
+		if let model = Self._sharedModel {
+			container = NSPersistentContainer(name: _name, managedObjectModel: model)
+		} else {
+			container = NSPersistentContainer(name: _name)
+		}
 
 		if inMemory {
 			// An in-memory description, not a SQLite store pointed at /dev/null:
