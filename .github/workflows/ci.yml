@@ -332,36 +332,83 @@ jobs:
           fi
           exit "${status}"
 
-      # The reporter only annotates diagnostics it recognises, and an
-      # unfiled `::error::` does not survive onto the check run. So when the
-      # suite fails, the failing lines of the log are re-emitted as *filed*
-      # annotations (the log line's own file and line where it has one), which
-      # the pull request page and the API can both read.
+      # Neither the reporter nor the raw log can say *which* test failed: newer
+      # Xcode writes per-test results into the xcresult bundle, not into
+      # xcodebuild's stdout (a 26,000-line log with one `** TEST FAILED **` in
+      # it and nothing else). Unfiled annotations also do not survive onto the
+      # check run, so every failing test is re-emitted as a filed annotation —
+      # which the pull request page and the API can both read.
       - name: Surface failures
         if: failure() && steps.test.outcome == 'failure'
         run: |
           set +e
-          LOG="$TEST_LOG"
-          [ -f "$LOG" ] || { echo "::warning::No xcodebuild log was produced."; exit 0; }
-          python3 - "$LOG" <<'PY'
-          import re, sys, pathlib
+          python3 - "$TEST_LOG" "$RESULT_BUNDLE" <<'PY'
+          import json, pathlib, re, subprocess, sys
 
-          lines = pathlib.Path(sys.argv[1]).read_text(errors="replace").splitlines()
-          pick = re.compile(r"error:|Failing tests:|Test Case .* failed|BUILD FAILED|TEST FAILED")
+          log, bundle = sys.argv[1], sys.argv[2]
           located = re.compile(r"^(?P<file>/[^:]+\.[a-z]{1,3}):(?P<line>\d+):(?:\d+:)?\s*(?P<msg>.*)$")
 
-          hits = [l for l in lines if pick.search(l)]
-          print(f"::error file=.github/workflows/ci.yml,line=1::{len(hits)} matching line(s) in {len(lines)} lines of log")
-          # The interesting ones are at the end: xcodebuild prints its own
-          # progress as `error:`-shaped text long before the tests start.
-          tail = [l for l in lines[-40:] if l not in hits[-60:]]
-          for line in hits[-60:] + tail:
-              trimmed = line.strip()[:500].replace("%", "%25").replace("\r", "")
-              m = located.match(line.strip())
-              if m:
-                  print(f"::error file={m['file']},line={m['line']}::{m['msg'][:500]}")
+          def annotate(message, file=".github/workflows/ci.yml", line=1):
+              message = str(message).strip()[:500].replace("%", "%25").replace("\n", " ")
+              print(f"::error file={file},line={line}::{message}")
+
+          # 1. Failing tests, straight out of the result bundle.
+          try:
+              raw = subprocess.run(
+                  ["xcrun", "xcresulttool", "get", "test-results", "tests",
+                   "--path", bundle, "--format", "json"],
+                  capture_output=True, text=True, timeout=120,
+              )
+              data = json.loads(raw.stdout or "{}")
+          except Exception as error:  # noqa: BLE001 - diagnostics must never fail the step
+              data = {}
+              annotate(f"xcresulttool could not be read: {error}")
+
+          failures = []
+
+          def walk(node, trail):
+              if isinstance(node, dict):
+                  result = str(node.get("result", ""))
+                  name = node.get("name") or node.get("nodeIdentifier")
+                  if result.lower() == "failed" and name:
+                      messages = []
+                      for key in ("failureMessages", "children"):
+                          value = node.get(key) or []
+                          if isinstance(value, list):
+                              for item in value:
+                                  if isinstance(item, dict):
+                                      messages.append(str(item.get("name") or item.get("message") or ""))
+                      failures.append((trail, str(name), "; ".join(m for m in messages if m)))
+                  for key, value in node.items():
+                      walk(value, trail + [str(name)] if name else trail)
+              elif isinstance(node, list):
+                  for item in node:
+                      walk(item, trail)
+
+          walk(data, [])
+          seen = set()
+          for trail, name, message in failures:
+              key = (name, message[:80])
+              if key in seen:
+                  continue
+              seen.add(key)
+              annotate(f"{name} — {message}" if message else name)
+          annotate(f"{len(seen)} failing test node(s) in the result bundle")
+
+          # 2. Anything in the log that looks like a diagnostic, at the end where
+          #    the interesting lines are.
+          try:
+              lines = pathlib.Path(log).read_text(errors="replace").splitlines()
+          except OSError:
+              lines = []
+          pick = re.compile(r"error:|BUILD FAILED|TEST FAILED|crash|assertion")
+          hits = [line for line in lines if pick.search(line)][-25:]
+          for line in hits:
+              match = located.match(line.strip())
+              if match:
+                  annotate(match["msg"], match["file"], match["line"])
               else:
-                  print(f"::error file=.github/workflows/ci.yml,line=1::{trimmed}")
+                  annotate(line.strip()[:400])
           PY
           exit 0
 
