@@ -148,8 +148,8 @@ strict-concurrency:
 	@echo "== app target =="
 	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe))."
 
-# Everything that can be checked without Xcode: the same five gates the quick-check workflow runs.
-# Use this before pushing instead of remembering five commands; `make test` is the half that needs a
+# Everything that can be checked without Xcode: six gates corresponding to CI’s quick job (without Swift syntax parsing).
+# Use this before pushing instead of remembering six commands; `make test` is the half that needs a
 # toolchain.  See docs/TEST_PLAN.md for the order the rest of the testing phase runs in.
 #   make verify
 verify:
@@ -163,6 +163,8 @@ verify:
 	@python3 tools/singleton-freeze.py
 	@echo "== concurrency discipline =="
 	@python3 tools/concurrency-discipline.py
+	@echo "== workflow trigger policy =="
+	@python3 tools/test_workflow_policy.py
 
 # Style, on demand. Nothing in CI runs SwiftLint any more: the auto-fix commits
 # it pushed onto pull requests were noise at best (see docs/STABILIZATION_BASELINE.md).

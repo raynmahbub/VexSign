@@ -61,15 +61,16 @@ Set your own team / enable automatic signing in Xcode's target settings, or use 
 
 - Keep contributions in their own branch, not `main`.
 - Don't be afraid of reviewers requesting changes.
-- Every PR is compiled by the `Release` workflow; the resulting unsigned IPA is attached to the run as an artifact if you want to try it on a device.
-- PRs also get a one-minute **Quick check** (syntax, duplicates, missing cross-module imports, broken resources), a Debug **Build check**, the **Unit tests** workflow (the `VexSignTests` scheme on a simulator, ~10 minutes with the SwiftPM cache) and automatic **SwiftLint** fixes. Features from related projects are collected by the **Upstream feature radar**; see [docs/AUTOMATION.md](docs/AUTOMATION.md).
-- Everything that needs no toolchain runs with one command: `make verify` — the quick check, the localisation catalogue, and the three discipline gates (`tools/error-discipline.py`, `tools/singleton-freeze.py`, `tools/concurrency-discipline.py`). It takes a minute and is exactly what **Quick check** runs, so a green `make verify` means CI's fast job will be green too.
+- **No automatic PR validation.** Relevant pushes to `main` run path-filtered checks once, after merge. Before merging app changes, manually dispatch **CI → full** on the PR's head branch and review the result for the exact commit being merged. **quick** runs Linux gates only, not compilation or simulator tests.
+- Manually run **Platform check**, **Server tests**, or **Ecosystem contracts** for affected components; their automatic runs are scoped to relevant `main` changes. The cloud dependency audit also runs weekly. **Release** stays tag/manual-only. SwiftLint is local (`make lint`), not a bot committing fixes.
+- Run `make verify` for the repository quick check, localisation catalogue, three discipline gates and workflow-trigger policy regression tests. `make verify` skips Swift parsing; CI also parses Swift syntax with a Swift toolchain. macOS/Xcode is needed for native builds and simulator tests.
+- **Branch protection migration:** old required PR checks must be removed or replaced in repository settings before merging, or PRs can remain blocked. Manual branch runs are review evidence, not a guaranteed substitute for PR/merge-queue required checks. See [automation policy](docs/AUTOMATION.md).
 - Run the same tests locally with `make test` (it picks an available iPhone simulator) or `make test SIMULATOR="platform=iOS Simulator,name=<device>"`. A new behaviour is expected to come with a test in `VexSignTests/`; the suite is the reason a change can be trusted without a device. Note that the simulator is resolved at run time by `.github/scripts/select_simulator.py`, so please don't hard-code a device name in a new workflow.
 - [docs/TEST_PLAN.md](docs/TEST_PLAN.md) is the order the testing phase runs in: the gates, the suite, and the device checks that no test can stand in for — with what a pass looks like and the known blockers.
 
 ## Releasing
 
-Releases are cut by pushing a tag (`vX.Y.Z`, matching `MARKETING_VERSION`); CI builds, verifies and publishes automatically. To try a build from any branch without publishing, run the `Release` workflow manually with `build_only` left ticked. See [docs/RELEASING.md](docs/RELEASING.md).
+Releases are cut by pushing a tag (`vX.Y.Z`, matching `MARKETING_VERSION`); CI builds, verifies and publishes automatically. To try a build from any branch without publishing, run the `Release` workflow manually with `build_only` checked. See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Contributing to Zsign
 

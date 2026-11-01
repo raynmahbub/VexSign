@@ -1,30 +1,23 @@
 name: Ecosystem contracts
 
-# The TypeScript cloud signer and the app-side modules that talk to it.
-# Path-filtered: a PR that touches none of these never starts it.
-#
-# The weekly run exists for `npm audit`: a new advisory is published against a
-# dependency that nobody touched, and that should surface on a Tuesday morning
-# rather than as a red check on an unrelated pull request.
+# Validate cloud changes once on main or on demand. Native app changes are
+# covered by ci.yml; do not spend a cloud run on unrelated Swift-only edits.
+# Keep the weekly audit to detect new advisories without a source change.
 on:
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - 'cloud-signing/**'
-      - 'VexSign/RepositoryBuilder/**'
-      - 'VexSign/RepositorySync/**'
-      - 'VexSign/Discovery/**'
-      - 'VexSign/CertificateDashboard/**'
-      - 'VexSign/Security/**'
-      - 'VexSign/OTA/**'
-      - 'VexSign/Analytics/**'
-      - 'VexSign/CloneWizard/**'
-      - 'VexSign/Ecosystem/**'
       - '.github/workflows/ecosystem.yml'
   schedule:
     - cron: '0 6 * * 2'   # Tuesdays 06:00 UTC: dependency advisories
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ecosystem-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cloud:
     runs-on: ubuntu-24.04
@@ -44,4 +37,4 @@ jobs:
       - run: npm run build
       - run: npm run contracts && git diff --exit-code -- openapi.json
       - run: npm audit --omit=dev --audit-level=high
-# The existing Release workflow builds the full iOS app on macOS for PRs.
+# Native app validation is handled by ci.yml on main or manual dispatch.

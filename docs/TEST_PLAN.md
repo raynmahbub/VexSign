@@ -26,7 +26,7 @@ singleton), `concurrency-discipline.py` (no new `@unchecked Sendable` / `nonisol
 Expected: five green lines. Current baseline: **2,463 catalogue keys · 404 unjustified `try?` in 112
 files · 56 singletons in 55 files · 3 concurrency escapes in 3 files**.
 
-These are the same checks CI runs on every push; a red one here is a red PR.
+These checks run automatically for relevant pushes to `main`, not pull requests. Before merging, run them locally or manually dispatch CI on the current head branch. Select `full` to include compilation and simulator tests; a passing `quick` run alone is not a passing native build. Also run `python3 tools/test_workflow_policy.py` (included in `make verify`) to guard the trigger policy.
 
 ---
 

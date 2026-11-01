@@ -1,16 +1,59 @@
 # Releasing VexSign
 
-Two rules cover almost everything:
+## Automated release with a one-time trust setup
 
-1. **Real releases are tag pushes.** Push `vX.Y.Z` and CI builds, verifies and
-   publishes it. Reproducible (the tag pins the commit and the version) and
-   automatic (no inputs to remember, and `app-repo.json` is synced afterwards).
-2. **Testing is `build_only = true`.** Run the Release workflow manually from any
-   branch, leave `build_only` ticked (the default), and download the IPA from
-   the run page. Nothing is published, no tag is created.
+After this workflow update is merged, publishing is **Actions → Release → select
+main → Run workflow**, leaving **build_only unchecked**. The current version is
+`v1.1.0`. Check **build_only** for an unpublished test IPA instead.
 
-Both run the same [`Release` workflow](../.github/workflows/release.yml); they
-just stop at different points.
+### One-time setup (entirely in the web UI)
+
+1. Under **Settings → Environments**, create **release**. Restrict deployment
+   branches/tags to the default branch and your release-tag pattern (`v*`).
+   Configure required reviewers and prevent self-review/admin bypass where your
+   plan supports it. Environment protection is NOT created by workflow YAML:
+   merely naming an environment does not secure it. Without reviewer support,
+   rely on reviewed committed pins and protected default-branch/tag rules instead.
+2. Run **Actions → Pin release TLS identity** from the reviewed default branch.
+   Review the source, common name, certificate expiry and public digest. Verify
+   the source/identity with the provider via an independently trusted channel;
+   fetching the same pack twice proves consistency, not authenticity.
+3. Set **RELEASE_TLS_SHA256** (the 64 lowercase hexadecimal digest characters)
+   under **Settings → Environments → release → Environment variables**.
+   Alternatively, commit the reviewed public pin through a PR. If both are set,
+   they must agree. The workflow never silently learns or replaces a trust anchor.
+4. Protect the default branch and release tags with repository rulesets; limit
+   who can change workflows/environment variables or trigger deployments. This
+   change does not edit those settings. No personal access token is required.
+
+### Every release afterwards
+
+Run **Release** on `main`. The workflow automatically:
+
+- restricts publication to commits in default-branch history;
+- enforces the approved digest, HTTPS transport, certificate chain/hostname,
+  expiry and key matching; unavailable/changed/invalid identities fail closed;
+- builds and verifies the app version with a read-only token;
+- transfers an immutable run-specific artifact to a separate protected publisher
+  that does not check out or execute repository build scripts;
+- verifies SHA-256 asset checksums and refuses to overwrite an existing release;
+- publishes the IPA, public TLS pin and `SHA256SUMS` at the exact built commit;
+- queues the repository-listing updater for non-draft releases using a separate
+  dispatch-only job (Actions write, no repository checkout).
+
+Release workflow actions are pinned to full commit SHAs. Both build and publisher
+use the **release** environment, so configured approvals may be requested at each
+job. Preview builds use **build-preview** and have no release-write permission.
+Checksums detect changed assets; they are not an independent code-signing identity.
+The IPA intentionally contains the local install-server identity as documented
+below; no raw pack or standalone private key is uploaded as an artifact.
+
+**A missing or changed approved pin blocks publication.** This is deliberate:
+secure automation cannot decide to trust a new key on its own. For a legitimate
+rotation, repeat the review helper and update the approved variable/committed pin.
+No local tools or manual tag creation are needed for routine releases, but builds
+and provider availability must still succeed. Existing published versions cannot
+be overwritten: bump `MARKETING_VERSION` for a new release.
 
 ## Publish a release (tag push)
 
@@ -22,8 +65,8 @@ just stop at different points.
    ```
 
    Commit it (`chore(release): bump version to 1.2.0`) and land it on `main`
-   through a normal PR. The PR build proves the release commit compiles before
-   it is tagged.
+   through a normal PR. Manually run CI with full validation on the release branch and review the
+   result for the exact commit before tagging; PR validation is not automatic.
 
 2. **Tag that commit and push the tag.**
 
@@ -38,11 +81,10 @@ just stop at different points.
      and release notes generated from the commits since the previous release;
    - the same IPA attached to the run as an artifact.
 
-4. **The source updates itself.** Publishing the release triggers the
-   [`Update Repository`](../.github/workflows/update_repo.yml) workflow, which
-   rewrites `app-repo.json` (version, download URL, size, notes, news card) and
-   commits it to `main`. Pre-releases are synced too - they are "published"
-   releases as far as GitHub is concerned.
+4. **Check source-listing sync.** The successful non-draft publisher explicitly
+   dispatches **Update Repository** for the released tag. Check that separate run
+   for completion. If it fails, rerun it with the tag; publication already happened
+   and should not be repeated. Pre-releases are synced too.
 
 ### Tag rules
 
@@ -100,7 +142,30 @@ unless it matches the pin. The alternative the roadmap also allowed — a self-s
 for releases — was rejected: it would rotate the CA on every build and silently break the
 trust profile of every existing user.
 
-**Runbook**
+### GitHub Actions-only setup (no local tools required)
+
+1. Land `.github/workflows/pin-release-tls.yml` on the default branch so its
+   manual dispatch button is available.
+2. Open **Actions → Pin release TLS identity → Run workflow** and choose the
+   branch whose release configuration you intend to use.
+3. Wait for success. This runs `make deps-pin`, then `make deps-release` to
+   verify a fresh download against the generated pin. If the endpoint is down,
+   malformed, expired or inconsistent, fix the endpoint rather than bypassing checks.
+4. Download the **release-tls-pin-<run-id>** artifact and unzip it. It contains
+   only `pinned-pack.sha256`, never the certificate pack or private key.
+5. Review the source, common name, expiry in the run log, and digest. Confirm
+   the source/identity is the one you intend to ship: consistency is not proof
+   of source trust. Using the repository web editor, replace
+   `Scripts/local-tls/pinned-pack.sha256` with that file and commit through a PR.
+6. Merge the reviewed pin and validate the release commit before publishing.
+   The bootstrap workflow itself does not commit, tag or release anything.
+
+The release workflow still downloads and verifies the approved identity. If the
+provider rotates it later, repeat this review; never blindly update a pin just
+because a release failed. Build-only runs use a development identity and do not
+prove that the release pin is ready.
+
+**Local runbook**
 
 ```sh
 # First time, and after a deliberate rotation:
@@ -112,8 +177,9 @@ git commit -am "chore(tls): pin the release install-server identity"
 make deps-release      # fetch + verify + install into deps/
 ```
 
-Until a digest is pinned, `make deps-release` fails on purpose, and so does the Release
-workflow. That is the intended state: an unpinned release is worse than a red build.
+`make deps-release` fails without a digest. Release can populate the build's pin
+from the approved `RELEASE_TLS_SHA256` variable before invoking it; it never
+bootstraps trust from an unapproved download.
 
 **What is *not* pinned, and why.** The in-app "Update SSL Certificates" action fetches the same
 pack on demand, because the certificate is short-lived and users need a working identity
@@ -128,14 +194,13 @@ identity is live (source, mode, hostname, expiry) in *Server & SSL*.
 ## Test a change without publishing (`build_only`)
 
 1. *Actions → Release → Run workflow*.
-2. Pick the branch (or tag) to build. Leave **`build_only` ticked**.
+2. Pick the branch (or tag) to build. Check **`build_only`** (it is unchecked by default).
    Optionally set `xcode` to try a specific toolchain.
 3. When the run finishes, the IPA is under *Artifacts* on the run page
    (`VexSign-<version>-<sha>`, kept for 14 days). The run summary links to it.
 
 Nothing else happens: no release, no tag, no `app-repo.json` change. Pull
-requests against `main` get exactly this treatment automatically, so a PR's
-run page also has an installable IPA.
+requests do not trigger this automatically; dispatch the build explicitly.
 
 ## Synthetic compatibility tags (validation-only runs)
 
@@ -160,23 +225,19 @@ Real releases are unaffected: a tag whose annotation does not say *synthetic
 tag* still has to match `MARKETING_VERSION` exactly, before *and* after the
 build.
 
-## Manual publish (escape hatch)
+## Manual publication details
 
-Unticking `build_only` publishes `v<MARKETING_VERSION>` from the head of the
-selected branch. It exists for the cases a tag push can't cover - mainly
-creating a **draft** release to review the notes before they go live (tick
-`draft`; GitHub creates the tag when you publish the draft). Guard rails:
+With `build_only` unchecked, the default branch run publishes
+`v<MARKETING_VERSION>` at the exact commit that was built. Check `draft` to stage
+an unpublished draft instead; draft runs do not queue the repository updater.
 
-- the tag is created at the **exact commit that was built**, not wherever the
-  branch head is by the time the build finishes;
-- it **refuses to run if the tag already exists**, so a published release is
-  never silently overwritten by a branch build. Bump `MARKETING_VERSION`, or
-  re-run the tag's own workflow run instead;
-- `prerelease` / `draft` inputs apply only to this mode.
-
-Dispatching with `build_only` unticked *on a tag* re-publishes that tag from
-the same source (the version checks still apply); it is equivalent to
-re-running the tag's run.
+- Branch publication refuses an already-existing tag.
+- A tag run may retry a build that failed before release creation, but it cannot
+  overwrite any existing release, including a partial/draft release. Inspect a
+  partial release manually before deciding how to recover.
+- A new public release requires a new version. Never move a published tag.
+- Tag targets are checked again before publication. Repository tag rulesets are
+  still required to prevent external tag mutations/races.
 
 ## When something goes wrong
 
@@ -184,7 +245,7 @@ re-running the tag's run.
 | --- | --- | --- |
 | `v1.2.0 does not match the project's MARKETING_VERSION (1.1.0)` | The tag was pushed before the version bump landed. | Bump the version, commit, move the tag onto that commit (`git tag -f v1.2.0 && git push -f origin v1.2.0`). |
 | `The built app reports CFBundleShortVersionString 1.1.0, but v1.2.0 promises 1.2.0` | Same thing, caught after the build (targets disagreed on the version, so the pre-build check was skipped). | Set the same `MARKETING_VERSION` on every target and re-tag. |
-| `v1.2.0 already exists on origin; refusing to overwrite` | A manual publish targeted a version that is already released. | Bump `MARKETING_VERSION` for a new release. To re-publish the existing one, re-run its tag's workflow run. |
+| `v1.2.0 already exists on origin; refusing to overwrite` | A manual publish targeted a version that is already released. | Bump `MARKETING_VERSION` for a new release. Existing releases cannot be overwritten by this workflow. |
 | Tag push did nothing | The tag doesn't match `v<major>.<minor>[.<patch>][-<suffix>]`. | Delete it and push a correctly named tag. |
-| Build failed on a tag push | Same failure a PR would have shown. | Fix on `main`, then re-tag the fixed commit. Nothing was published. |
+| Build failed on a tag push | A build or validation failure. | Inspect whether a release exists first. If none was created, fix on `main` and retry using an unpublished tag; never move a published tag. |
 | Release exists but `app-repo.json` didn't update | `Update Repository` failed or ran before the assets were visible. | *Actions → Update Repository → Run workflow* with `tag` = `v1.2.0`. |

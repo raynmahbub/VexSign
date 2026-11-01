@@ -10,18 +10,13 @@ on:
     paths:
       - 'server/**'
       - '.github/workflows/server-tests.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'server/**'
-      - '.github/workflows/server-tests.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: server-tests-${{ github.event.pull_request.number || github.ref }}
+  group: server-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
