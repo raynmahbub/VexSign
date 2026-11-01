@@ -8,46 +8,6 @@
       "count": 1
     },
     {
-      "file": "NimbleKit/Sources/NimbleExtensions/Binding/Binding+optional.swift",
-      "message": "capture of 'self' with non-Sendable type 'Binding<Value>' in a '@Sendable' closure",
-      "count": 2
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
-      "message": "call to main actor-isolated initializer 'init()' in a synchronous nonisolated context",
-      "count": 2
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
-      "message": "call to main actor-isolated initializer 'init(style:)' in a synchronous nonisolated context",
-      "count": 1
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
-      "message": "call to main actor-isolated instance method 'impactOccurred()' in a synchronous nonisolated context",
-      "count": 1
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
-      "message": "call to main actor-isolated instance method 'notificationOccurred' in a synchronous nonisolated context",
-      "count": 1
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
-      "message": "call to main actor-isolated instance method 'prepare()' in a synchronous nonisolated context",
-      "count": 3
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
-      "message": "call to main actor-isolated instance method 'selectionChanged()' in a synchronous nonisolated context",
-      "count": 1
-    },
-    {
-      "file": "NimbleKit/Sources/NimbleExtensions/UIAlertController/UIApplication+topController.swift",
-      "message": "'keyWindow' was deprecated in iOS 13.0: Should not be used for applications that support multiple scenes as it returns a key window across all connected scenes",
-      "count": 1
-    },
-    {
       "file": "NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
       "message": "capture of 'completion' with non-Sendable type '(Result<T, any Error>) -> Void' in a '@Sendable' closure",
       "count": 1

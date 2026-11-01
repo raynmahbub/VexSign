@@ -76,7 +76,10 @@ jobs:
   # ---------------------------------------------------------------------------
   quick:
     name: quick · syntax, resources, gates
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest`: that label moves to Ubuntu 26 and the Swift
+    # container this job runs in (noble, below) is built for 24.04. Bump both
+    # together when the image tag changes.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
       image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}
@@ -161,7 +164,7 @@ jobs:
       # slow part of a cold build. The cache is keyed on the resolved graph and
       # shared with the `tests` job.
       - name: Cache Swift packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -283,7 +286,7 @@ jobs:
       # Same key shape as the build job, so whichever runs second reuses the
       # other's SwiftPM checkout.
       - name: Cache Swift packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
