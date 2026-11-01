@@ -15,6 +15,8 @@ struct TVConnectView: View {
 
 	private enum Field: Hashable {
 		case address
+		case username
+		case password
 		case token
 	}
 
@@ -27,7 +29,7 @@ struct TVConnectView: View {
 			Text("Connect to VexSign")
 				.font(.title.bold())
 
-			Text("Open VexSign on your iPhone, go to Settings → Web Manager, start the server and enter the address it shows.")
+			Text("Open VexSign on your iPhone, go to Settings → Web Manager, turn on Allow This Network, then start the server and enter the address, password or API token it shows.")
 				.font(.callout)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
@@ -39,7 +41,15 @@ struct TVConnectView: View {
 					.keyboardType(.URL)
 					.disableAutocorrection(true)
 
-				TextField("API token (optional)", text: $store.apiToken)
+				TextField("Web Manager username (if a password is set)", text: $store.username)
+					.focused($_focused, equals: .username)
+					.disableAutocorrection(true)
+
+				TextField("Web Manager password", text: $store.password)
+					.focused($_focused, equals: .password)
+					.disableAutocorrection(true)
+
+				TextField("API token (alternative to username and password)", text: $store.apiToken)
 					.focused($_focused, equals: .token)
 					.disableAutocorrection(true)
 			}

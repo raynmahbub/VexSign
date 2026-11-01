@@ -13,9 +13,12 @@
 //      POST /api/cleanup    run the cleanup sweep, report the bytes reclaimed
 //      POST /api/widget     rewrite the Home Screen widget payload
 //
-//  Auth: the whole server already sits behind the optional Basic-auth middleware,
-//  and `/api/sign` additionally honours `X-VexSign-Token` when
-//  "VexSign.apiToken" is set, so a LAN box can require a shared secret.
+//  Auth: the whole server sits behind the Basic-auth middleware when a password is
+//  configured, and `WebManagerSensitiveAccessMiddleware` adds a second gate to the
+//  endpoints that expose signing identity or destroy content (`/api/sign`, every
+//  `/api/certs*` route, every DELETE). There a configured API token is mandatory;
+//  without a token the route requires Basic auth, and is refused outright when the
+//  server runs without a password.
 //
 
 import Foundation
@@ -151,12 +154,6 @@ extension WebManagerServer {
 				return req.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
 			}
 
-			guard self._apiTokenAccepted(req) else {
-				return req.eventLoop.makeSucceededFuture(
-					Response(status: .unauthorized, body: .init(string: "Missing or wrong X-VexSign-Token."))
-				)
-			}
-
 			let staging = FileManager.default.uniqueTemporaryDirectory("APISign")
 			let ipaURL = staging.appendingPathComponent("upload.ipa")
 			let promise = req.eventLoop.makePromise(of: Response.self)
@@ -253,14 +250,6 @@ extension WebManagerServer {
 	}
 
 	// MARK: Helpers
-
-	private func _apiTokenAccepted(_ request: Request) -> Bool {
-		let expected = UserDefaults.standard.string(forKey: "VexSign.apiToken")?.trimmingCharacters(in: .whitespacesAndNewlines)
-		// No token configured: the Basic-auth middleware (if any) is the only gate.
-		guard let expected, !expected.isEmpty else { return true }
-		guard let provided = request.headers.first(name: "X-VexSign-Token") else { return false }
-		return WebManagerAuthMiddleware.constantTimeEquals(provided, expected)
-	}
 
 	private static func _certificateIsValid(_ certificate: CertificatePair?) -> Bool {
 		guard let certificate, certificate.revoked != true else { return false }

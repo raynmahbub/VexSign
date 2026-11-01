@@ -6,7 +6,6 @@
 //
 
 import CoreData
-import UIKit.UIImpactFeedbackGenerator
 import ZsignSwift
 
 // MARK: - Class extension: certificate
@@ -21,8 +20,7 @@ extension Storage {
 		isDefault: Bool = false,
 		completion: @escaping (Error?) -> Void
 	) {
-		let generator = UIImpactFeedbackGenerator(style: .light)
-
+		StorageConcurrency.requireMainQueue()
 		do {
 			try SecureSecretStore.write(Data((password ?? "").utf8), account: "certificate.password.\(uuid)")
 		} catch {
@@ -51,18 +49,18 @@ extension Storage {
 
 		CertificateStatusManager.shared.refreshStatus(for: new)
 		WidgetStatusPublisher.publish()
-		generator.impactOccurred()
+		Haptics.lightImpact()
 		Task { await AnalyticsStore.shared.record(.certificatesAdded) }
 		completion(nil)
 	}
 	
     func deleteCertificate(for cert: CertificatePair) {
+        StorageConcurrency.requireMainQueue()
         if let uuid = cert.uuid {
-            do { try SecureSecretStore.delete("certificate.password.\(uuid)") }
-            catch { return } // Keep the entry so deletion can be retried after unlock.
+            do { try SecureSecretStore.delete("certificate.password.\(uuid)") } catch { return } // Keep the entry so deletion can be retried after unlock.
         }
 		Task { @MainActor in
-			CertificateStatusManager.shared.removeAppleStatus(for: cert)
+			CertificateStatusManager.shared.removeRevocationSnapshot(for: cert)
 		}
 
 		if let url = getUuidDirectory(for: cert) {
@@ -77,10 +75,8 @@ extension Storage {
 		let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
 		fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
 
-		guard
-			let results = try? context.fetch(fetchRequest),
-			index >= 0 && index < results.count
-		else {
+		let results = fetchOnQueue(fetchRequest)
+		guard index >= 0 && index < results.count else {
 			return nil
 		}
 		
@@ -97,7 +93,7 @@ extension Storage {
 			provisionPath: Storage.shared.getFile(.provision, from: cert)?.path ?? "",
 			p12Path: Storage.shared.getFile(.certificate, from: cert)?.path ?? "",
 			p12Password: cert.signingPassword ?? ""
-		) { (status, _, _) in
+		) { status, _, _ in
 			DispatchQueue.main.async {
 				if status == 1 {
 					cert.revoked = true
@@ -141,6 +137,6 @@ extension Storage {
 	func getAllCertificates() -> [CertificatePair] {
 		let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
 		fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
-		return (try? context.fetch(fetchRequest)) ?? []
+		return fetchOnQueue(fetchRequest)
 	}
 }

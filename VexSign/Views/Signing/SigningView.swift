@@ -16,7 +16,7 @@ struct SigningView: View {
 	@State private var _temporaryCertificate: Int
 	@State private var _isSigning = false
 	@State private var _isLogPresenting = false
-	@State private var _postSignAction: (() -> Void)? = nil
+	@State private var _postSignAction: (() -> Void)?
 	@State var appIcon: UIImage?
 	@AppStorage("VexSign.autoShowSigningLogs") private var _autoShowLogs: Bool = false
 
@@ -54,6 +54,22 @@ struct SigningView: View {
 		__temporaryCertificate = State(initialValue: storedCert)
 	}
 		
+	/// What the certificate picker compares against: the app as the current options will leave it.
+	private var _compatibilityTarget: ProfileCompatibility.Target {
+		let nested = Storage.shared.getAppDirectory(for: app)
+			.map {
+				NestedBundleAudit.requiredIdentifiers(
+					in: $0,
+					removeAppExtensions: _temporaryOptions.removeAppExtensions
+				)
+			} ?? []
+		return ProfileCompatibility.Target(
+			app: app,
+			options: _temporaryOptions,
+			nestedBundleIdentifiers: nested
+		)
+	}
+
 	// MARK: Body
     var body: some View {
 		NBNavigationView("", displayMode: .inline) {
@@ -89,27 +105,48 @@ struct SigningView: View {
 						.frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 60 : 80)
 						.rotationEffect(.degrees(180))
 						.overlay {
-							Button {
+							HStack(spacing: 12) {
 								if _isSigning {
-									_isLogPresenting = true
-								} else {
-									_start()
-								}
-							} label: {
-								NBSheetButton(title: .localized(_isSigning ? "Show Logs" : "Start Signing"), style: .prominent)
-									.overlay(alignment: .trailing) {
-										if _isSigning {
-											ProgressView()
-												.progressViewStyle(.circular)
-												.tint(.white)
-												.padding(.trailing, 28)
-												.allowsHitTesting(false)
-										}
+									Button {
+										_stopSigning()
+									} label: {
+										Image(systemName: "stop.fill")
+											.font(.headline)
+											.foregroundStyle(.red)
+											.frame(width: 46, height: 46)
+											.background(.ultraThinMaterial, in: Circle())
 									}
-									.padding()
-							}
-							.buttonStyle(.plain)
+									.buttonStyle(.plain)
+									.accessibilityLabel(.localized("Stop Signing"))
+									.accessibilityIdentifier(A11y.Signing.stop)
+									.transition(.scale.combined(with: .opacity))
+								}
+
+									Button {
+										if _isSigning {
+											_isLogPresenting = true
+										} else {
+											_start()
+										}
+									} label: {
+										NBSheetButton(title: .localized(_isSigning ? "Show Logs" : "Start Signing"), style: .prominent)
+											.overlay(alignment: .trailing) {
+												if _isSigning {
+													ProgressView()
+														.progressViewStyle(.circular)
+														.tint(.white)
+														.padding(.trailing, 28)
+														.allowsHitTesting(false)
+														.accessibilityIdentifier(A11y.Signing.progress)
+												}
+											}
+											.padding()
+									}
+									.buttonStyle(.plain)
+									.accessibilityIdentifier(A11y.Signing.start)
+								}
 							.offset(y: UIDevice.current.userInterfaceIdiom == .pad ? -20 : -40)
+							.animation(.smooth, value: _isSigning)
 						}
 				}
 				.ignoresSafeArea(edges: .bottom)
@@ -172,6 +209,7 @@ struct SigningView: View {
 				_postSignAction = nil
 			}) {
 				SigningLogView()
+				.accessibilityIdentifier(A11y.Signing.console)
 					.presentationDetents([.medium, .large])
 					.presentationDragIndicator(.visible)
 			}
@@ -188,10 +226,11 @@ extension SigningView {
 		NBSection(.localized("Signing")) {
 			if let cert = _selectedCert() {
 				NavigationLink {
-					CertificatesView(selectedCert: $_temporaryCertificate)
+					CertificatesView(selectedCert: $_temporaryCertificate, target: _compatibilityTarget)
 				} label: {
 					CertificatesCellView(
-						cert: cert
+						cert: cert,
+						target: _compatibilityTarget
 					)
 				}
 			} else {
@@ -201,7 +240,6 @@ extension SigningView {
 			}
 		}
 	}
-	
 }
 
 // MARK: - Extension: View (import)
@@ -262,6 +300,13 @@ extension SigningView {
 		_beginSign()
 	}
 
+	/// Stops the run in flight. The pipeline notices between stages (and inside the long bundle
+	/// walk), removes everything it copied, and reports back as cancelled — so the sheet stays
+	/// usable and nothing half-signed is left in the library.
+	private func _stopSigning() {
+		SigningService.shared.cancelAll()
+	}
+
 	private func _beginSign() {
 		_isSigning = true
 		if _autoShowLogs { _isLogPresenting = true }
@@ -276,7 +321,14 @@ extension SigningView {
 			case .failure(let error):
 				// Keep the sheet open so the user can fix and retry.
 				_isSigning = false
-				Toast.error(error.localizedDescription, duration: .sticky)
+
+				if error is CancellationError {
+					// Stopping on purpose is not a failure, and the run has already cleaned up
+					// after itself — say so quietly instead of showing an error the user caused.
+					Toast.info(.localized("Signing cancelled"), systemImage: "stop.circle")
+				} else {
+					Toast.error(error.localizedDescription, duration: .sticky)
+				}
 			case .success(let signed):
 				_isSigning = false
 				Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")

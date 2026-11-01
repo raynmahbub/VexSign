@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Security
 import NimbleViews
 import NimbleExtensions
 import CoreImage.CIFilterBuiltins
@@ -14,6 +15,9 @@ import CoreImage.CIFilterBuiltins
 struct WebManagerView: View {
 	@ObservedObject private var manager = WebManager.shared
 
+	@State private var showNetworkExposureConfirmation = false
+	@State private var showRemovePasswordConfirmation = false
+
 	// MARK: Body
 	var body: some View {
 		NBList(.localized("Web Manager")) {
@@ -21,12 +25,15 @@ struct WebManagerView: View {
 			if manager.isRunning {
 				_connectSection
 			}
-			_settingsSection
+			_accessSection
+			_serverSettingsSection
 			_recentSection
 		}
 		.dismissableKeyboard()
 		.animation(.smooth, value: manager.isRunning)
 		.animation(.smooth, value: manager.recentUploads)
+		.animation(.smooth, value: manager.authActive)
+		.animation(.smooth, value: manager.effectiveBindMode)
 	}
 }
 
@@ -48,13 +55,35 @@ extension WebManagerView {
 					.font(.footnote)
 			}
 
-			if manager.isRunning && !manager.authActive {
-				Label(.localized("No password set — anyone on this network can browse, upload and delete your apps and certificates."), systemImage: "lock.open")
-					.foregroundStyle(.orange)
+			// A running server always states its exposure.
+			if manager.isRunning {
+				Label(manager.exposureSummary, systemImage: manager.authActive ? "lock.fill" : "lock.open")
 					.font(.footnote)
+					.foregroundStyle(manager.authActive ? Color.secondary : Color.orange)
+			}
+
+			if manager.isBindDowngraded {
+				Label(
+					.localized("Network access is off because no password is set. Set a password, or allow it explicitly below."),
+					systemImage: "wifi.slash"
+				)
+				.foregroundStyle(.orange)
+				.font(.footnote)
 			}
 		} footer: {
-			Text(.localized("Open it in a browser on your computer to upload files and manage your apps, certificates and tweaks over your local network."))
+			Text(.localized("Upload files and manage your apps, certificates and tweaks from a browser or a mounted drive. Requires a username and password unless you choose to run it on this device only."))
+		}
+		// One-time explanation for installs that used to run the server open.
+		.alert(
+			.localized("Password protection is on"),
+			isPresented: Binding(
+				get: { manager.needsAuthExplanation },
+				set: { manager.needsAuthExplanation = $0 }
+			)
+		) {
+			Button(.localized("OK"), role: .cancel) { manager.needsAuthExplanation = false }
+		} message: {
+			Text(.localized("The Web Manager used to start without a password. It now requires one, because an open server on a local network can hand out your signing certificates and delete your apps. Set a username and password in Access — or turn Require Password off to keep the server on this device only."))
 		}
 	}
 
@@ -79,7 +108,11 @@ extension WebManagerView {
 			}
 			.listRowBackground(EmptyView())
 		} footer: {
-			Text(.localized("Scan the code to open the Web Manager, or mount the WebDAV address in Finder (Go → Connect to Server) or the Files app."))
+			if manager.effectiveBindMode == .thisDevice {
+				Text(.localized("Only this device can connect while the server listens on 127.0.0.1. Turn on “Allow this network” to reach it from a computer, the Files app on another device, or the Apple TV app."))
+			} else {
+				Text(.localized("Scan the code to open the Web Manager, or mount the WebDAV address in Finder (Go → Connect to Server) or the Files app. Traffic is unencrypted on the local network."))
+			}
 		}
 	}
 
@@ -105,24 +138,39 @@ extension WebManagerView {
 	}
 
 	@ViewBuilder
-	private var _settingsSection: some View {
-		NBSection(.localized("Settings")) {
-			HStack {
-				Label(.localized("Port"), systemImage: "number")
-				Spacer()
-				TextField("8080", text: Binding(
-					get: { String(manager.port) },
-					set: { manager.port = Int($0.filter(\.isNumber)) ?? manager.port }
-				))
-				.keyboardType(.numberPad)
-				.multilineTextAlignment(.trailing)
-				.frame(width: 80)
-				.onSubmit { manager.restartIfRunning() }
+	private var _accessSection: some View {
+		NBSection(.localized("Access")) {
+			Toggle(isOn: Binding(
+				get: { manager.effectiveBindMode == .localNetwork },
+				set: { wantsNetwork in
+					if wantsNetwork {
+						if manager.authActive {
+							manager.bindMode = .localNetwork
+							manager.restartIfRunning()
+						} else {
+							// Requires an explicit confirmation: no password + network.
+							showNetworkExposureConfirmation = true
+						}
+					} else {
+						manager.bindMode = .thisDevice
+						manager.allowUnauthenticatedLAN = false
+						manager.restartIfRunning()
+					}
+				}
+			)) {
+				Label(.localized("Allow This Network"), systemImage: "wifi.router")
 			}
 
 			Toggle(isOn: Binding(
 				get: { manager.requireAuth },
-				set: { manager.requireAuth = $0; manager.restartIfRunning() }
+				set: { enabled in
+					if enabled {
+						manager.requireAuth = true
+						manager.restartIfRunning()
+					} else {
+						showRemovePasswordConfirmation = true
+					}
+				}
 			)) {
 				Label(.localized("Require Password"), systemImage: "lock")
 			}
@@ -152,13 +200,95 @@ extension WebManagerView {
 				}
 
 				if manager.password.isEmpty {
-					Label(.localized("Set a password — until you do, the server stays open to anyone on the network."), systemImage: "exclamationmark.triangle.fill")
+					Label(.localized("Set a password — until you do, the server will not start."), systemImage: "exclamationmark.triangle.fill")
 						.foregroundStyle(.orange)
 						.font(.footnote)
 				}
 			}
+
+			Toggle(isOn: Binding(
+				get: { manager.allowCertificateExport },
+				set: { manager.allowCertificateExport = $0; manager.restartIfRunning() }
+			)) {
+				Label(.localized("Allow Certificate Download"), systemImage: "arrow.down.doc")
+			}
+
+			HStack {
+				Label(.localized("API Token"), systemImage: "key.horizontal")
+				Spacer()
+				SecureField(.localized("Optional"), text: Binding(
+					get: { manager.apiToken },
+					set: { manager.apiToken = $0 }
+				))
+				.textInputAutocapitalization(.never)
+				.autocorrectionDisabled()
+				.multilineTextAlignment(.trailing)
+				.onSubmit { manager.restartIfRunning() }
+			}
+
+			Button {
+				manager.apiToken = Self._randomToken()
+				manager.restartIfRunning()
+			} label: {
+				Label(.localized("Generate Token"), systemImage: "dice")
+			}
+
+			if manager.tokenActive {
+				Button(role: .destructive) {
+					manager.apiToken = ""
+					manager.restartIfRunning()
+				} label: {
+					Label(.localized("Remove Token"), systemImage: "trash")
+				}
+			}
 		} footer: {
-			Text(.localized("Changing the port or password restarts the server. Traffic is sent over your local network unencrypted, so only run this on a network you trust."))
+			Text(.localized("A token is a full credential: on every endpoint it stands in for the username and password, so the Apple TV app and scripts can hold their own secret instead of your password. Certificate download and every delete action are always locked — they need the password, and when a token is set they need that token too, which also locks the browser's certificate list. Changing any of these restarts the server."))
+		}
+		// No password + "reachable from the network" is an explicit decision, never a side effect.
+		.alert(
+			.localized("Expose this server without a password?"),
+			isPresented: $showNetworkExposureConfirmation
+		) {
+			Button(.localized("Allow This Network"), role: .destructive) {
+				manager.allowUnauthenticatedLAN = true
+				manager.bindMode = .localNetwork
+				manager.restartIfRunning()
+			}
+			Button(.localized("Cancel"), role: .cancel) {}
+		} message: {
+			Text(.localized("Anyone on this network could browse, upload and delete files, and reach the API. Certificate and signing endpoints stay locked until a password or API token is set. Use this only on a network you control."))
+		}
+		.alert(
+			.localized("Turn off the password?"),
+			isPresented: $showRemovePasswordConfirmation
+		) {
+			Button(.localized("Turn Off"), role: .destructive) {
+				manager.requireAuth = false
+				manager.restartIfRunning()
+			}
+			Button(.localized("Cancel"), role: .cancel) {}
+		} message: {
+			Text(.localized("Without a password the server only accepts connections from this device, and the certificate and signing endpoints stay locked until you set a password or an API token."))
+		}
+	}
+
+	@ViewBuilder
+	private var _serverSettingsSection: some View {
+		NBSection(.localized("Settings")) {
+			HStack {
+				Label(.localized("Port"), systemImage: "number")
+				Spacer()
+				TextField("8080", text: Binding(
+					get: { String(manager.port) },
+					set: { manager.port = Int($0.filter(\.isNumber)) ?? manager.port }
+				))
+				.keyboardType(.numberPad)
+				.multilineTextAlignment(.trailing)
+				.frame(width: 80)
+				.onSubmit { manager.restartIfRunning() }
+			}
+		} footer: {
+			Text(.localized("Changing the port restarts the server. Traffic is sent over your local network unencrypted, so only run this on a network you trust."))
 		}
 
 		NBSection(.localized("Background")) {
@@ -197,6 +327,19 @@ extension WebManagerView {
 		if n.hasSuffix(".dylib") { return "doc.badge.gearshape" }
 		if n.hasSuffix(".deb") { return "shippingbox" }
 		return "doc"
+	}
+
+	/// 24 random bytes, URL-safe. Long enough that guessing is not a thing.
+	private static func _randomToken() -> String {
+		var bytes = [UInt8](repeating: 0, count: 24)
+		guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+			return UUID().uuidString.replacingOccurrences(of: "-", with: "")
+		}
+		return Data(bytes)
+			.base64EncodedString()
+			.replacingOccurrences(of: "+", with: "-")
+			.replacingOccurrences(of: "/", with: "_")
+			.replacingOccurrences(of: "=", with: "")
 	}
 }
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Known first-party compiler warnings accepted by the Build check (.github/workflows/build-check.yml). New warnings that are not listed here fail the check; fixed ones are reported so this file can be trimmed. Regenerate: download build-warnings-baseline.json from a Build check run artifact and replace this file. Matching ignores line numbers; 'count' is the number of occurrences allowed per file+message.",
+  "_comment": "Known first-party compiler warnings accepted by the Build check (.github/workflows/ci.yml). New warnings that are not listed here fail the check; fixed ones are reported so this file can be trimmed. Regenerate: download build-warnings-baseline.json from a Build check run artifact and replace this file. Matching ignores line numbers; 'count' is the number of occurrences allowed per file+message.",
   "generated": "2026-09-20 from Build check run 35536522884 (macos-15, Xcode 26.3, Debug)",
   "warnings": [
     {

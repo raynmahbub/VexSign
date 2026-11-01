@@ -69,9 +69,10 @@ on:
       - 'v[0-9]+.[0-9]+-*'
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
-  # Compile-check every PR so `main` never merges red. PR runs do NOT publish.
-  pull_request:
-    branches: [main]
+  # No pull_request trigger on purpose: a PR is compiled and tested by ci.yml,
+  # once. Release used to build every PR too, which meant two macOS builds of
+  # the same commit (and a PR could never go green while the TLS identity was
+  # unpinned -- `make deps-release` fails on purpose until `make deps-pin`).
 
 permissions:
   contents: write
@@ -81,11 +82,11 @@ permissions:
 
 # Publishing runs (tag pushes and manual publishes) share one group, so two
 # releases can never race each other and a publish in flight is never
-# cancelled. Build-only and PR runs are grouped per ref instead: they don't
-# queue behind a release, and a newer push to the same PR cancels the stale run.
+# cancelled. Build-only runs are grouped per ref instead, so they don't queue
+# behind a release.
 concurrency:
   group: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.build_only)) && 'release-publish' || format('release-{0}', github.ref) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -257,6 +258,8 @@ jobs:
 
       - name: Compile VexSign
         id: build
+        env:
+          PUBLISH: ${{ steps.mode.outputs.publish }}
         run: |
           set -euo pipefail
 
@@ -265,7 +268,19 @@ jobs:
             echo "::warning::agvtool could not stamp the build number (${BUILD_NUMBER}); continuing with the committed CURRENT_PROJECT_VERSION."
           fi
 
-          make 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+          if [ "${PUBLISH}" = "true" ]; then
+            # A published release ships the pinned identity: `make deps-release`
+            # fetches the published pack and refuses to build unless its digest
+            # matches Scripts/local-tls/pinned-pack.sha256. A release must never
+            # ship an identity nobody reviewed.
+            { make deps-release; make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+          else
+            # Build-only runs publish nothing, so they must not depend on the
+            # pinned pack: generate the development identity offline, exactly as
+            # a local `make` does. This is what makes a manual dry run possible
+            # before `make deps-pin` has been run.
+            { make deps; make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+          fi
 
           if ! ls packages/*.ipa >/dev/null 2>&1; then
             echo "::error::make finished but produced no .ipa in packages/."

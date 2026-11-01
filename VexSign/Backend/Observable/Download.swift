@@ -48,6 +48,15 @@ class Download: Identifiable, @unchecked Sendable {
 	let onlyArchiving: Bool
 	let appDescription: String?
 
+	/// What the source promised about the file, checked before anything is unpacked.
+	/// Mutable so a resumed row can take a promise the first fetch did not know.
+	var integrity: DownloadIntegrity.Expectation?
+
+	/// The staged package a failed integrity check left alone. The row is removed when the check
+	/// fails — exactly like any other failed import — so the one deliberate override is offered in
+	/// the alert, and this is what it imports.
+	var retainedPackageURL: URL?
+
 	var isManual: Bool {
 		id.contains("VexSignManualDownload")
 	}
@@ -57,13 +66,15 @@ class Download: Identifiable, @unchecked Sendable {
 		url: URL,
 		onlyArchiving: Bool = false,
 		appName: String? = nil,
-		appDescription: String? = nil
+		appDescription: String? = nil,
+		integrity: DownloadIntegrity.Expectation? = nil
 	) {
 		self.id = id
 		self.url = url
 		self.onlyArchiving = onlyArchiving
 		self.fileName = appName ?? url.lastPathComponent
 		self.appDescription = appDescription
+		self.integrity = integrity
 	}
 
 	func beginImport() {

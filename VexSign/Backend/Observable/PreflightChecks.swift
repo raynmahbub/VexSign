@@ -47,7 +47,7 @@ enum PreflightChecks {
 	private static let requiredInfoPlistKeys: [(key: String, label: String)] = [
 		("CFBundleIdentifier", "Bundle Identifier"),
 		("CFBundleName", "Bundle Name"),
-		("CFBundleExecutable", "Executable"),
+		("CFBundleExecutable", "Executable")
 	]
 
 	static func run(app: AppInfoPresentable, options: Options, certificate: CertificatePair?) -> PreflightResult {
@@ -57,6 +57,8 @@ enum PreflightChecks {
 		versions(app: app, options: options, into: &issues)
 		plistKeys(app: app, into: &issues)
 		certificateExpiry(certificate: certificate, options: options, into: &issues)
+		profileCompatibility(app: app, options: options, certificate: certificate, into: &issues)
+		signerIdentity(app: app, options: options, certificate: certificate, into: &issues)
 		jitEntitlement(certificate: certificate, options: options, into: &issues)
 		dylibInjections(app: app, options: options, into: &issues)
 
@@ -155,6 +157,101 @@ enum PreflightChecks {
 				String.localized("The selected certificate expires %@.", arguments: RelativeDateTimeFormatter().localizedString(for: expiration, relativeTo: Date()))
 			))
 		}
+	}
+
+	// MARK: Profile compatibility
+
+	/// Compares the selected certificate with the app before the long sign. Nothing compared them
+	/// before: an explicit App ID that did not cover the bundle, an entitlement the profile never
+	/// granted, an uncovered extension, or a profile issued for a different certificate all
+	/// surfaced as an install failure two minutes later (see docs/AUDIT_2026-10-31.md).
+	private static func profileCompatibility(
+		app: AppInfoPresentable,
+		options: Options,
+		certificate: CertificatePair?,
+		into issues: inout [PreflightIssue]
+	) {
+		// Modify-only never uses the certificate, and a missing profile is reported by the
+		// signing path itself rather than guessed at here.
+		guard options.signingOption == .default, let certificate, let profile = certificate.decodedProfile else { return }
+
+		// Extensions the options strip before signing (`removeAppExtensions`) are gone by the
+		// time the engine runs, so they are not something the profile has to cover.
+		let nested = Storage.shared.getAppDirectory(for: app)
+			.map { NestedBundleAudit.requiredIdentifiers(in: $0, removeAppExtensions: options.removeAppExtensions) } ?? []
+
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: profile,
+			leafCertificateDER: certificate.appliedCertificateDER,
+			target: ProfileCompatibility.Target(app: app, options: options, nestedBundleIdentifiers: nested)
+		)
+
+		for issue in evaluation.issues {
+			issues.append(PreflightIssue(
+				title(for: issue.code),
+				issue.detail,
+				severity: issue.isBlocking ? .blocking : .warning
+			))
+		}
+	}
+
+	private static func title(for code: ProfileCompatibility.Issue.Code) -> String {
+		switch code {
+		case .profileMissing:
+			.localized("No provisioning profile")
+		case .profileExpired:
+			.localized("Profile expired")
+		case .appIdentifierMismatch:
+			.localized("Profile does not cover this app")
+		case .extensionNotCovered:
+			.localized("Extension not covered")
+		case .entitlementNotGranted:
+			.localized("Entitlement not granted")
+		case .teamMismatch:
+			.localized("Team mismatch")
+		case .certificateNotInProfile:
+			.localized("Certificate not in profile")
+		case .deviceNotProvisioned:
+			.localized("Device not provisioned")
+		}
+	}
+
+	// MARK: Signer identity
+
+	/// Warns before an app is re-signed with a certificate that is not the one it already
+	/// carries.
+	///
+	/// This is a warning, never a blocker: re-signing with a new identity is a legitimate thing
+	/// to want, and iOS will accept the bundle — just not as an update to the copy already on the
+	/// device. The message says what that costs, and the alert the user is looking at offers
+	/// Cancel.
+	private static func signerIdentity(
+		app: AppInfoPresentable,
+		options: Options,
+		certificate: CertificatePair?,
+		into issues: inout [PreflightIssue]
+	) {
+		guard options.signingOption == .default else { return }
+		guard let certificate, app.isSigned else { return }
+		guard let directory = Storage.shared.getAppDirectory(for: app) else { return }
+
+		let match = CertificateIdentity.match(forBundleAt: directory, certificate: certificate)
+		guard case .different(let signer, _) = match, let detail = match.detail else { return }
+
+		issues.append(PreflightIssue(
+			.localized("Signed by a different certificate"),
+			detail,
+			severity: .warning
+		))
+
+		// The fingerprint is the only unambiguous identifier when both certificates were issued
+		// to the same person — the common case for a re-issued Apple Development certificate.
+		SigningLog.shared.warn(
+			String.localized(
+				"Bundle was signed by %@ (%@); signing with %@.",
+				arguments: signer.displayName, signer.shortFingerprint, CertificateIdentity.label(for: certificate)
+			)
+		)
 	}
 
 	// MARK: JIT

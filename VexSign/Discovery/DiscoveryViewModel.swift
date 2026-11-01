@@ -9,7 +9,13 @@ final class DiscoveryViewModel: ObservableObject {
     @Published private(set) var loading = false
     @Published var error: String?
     private let index = DiscoveryIndex()
+    /// injected so a test can construct this view model with a fake.
+    private let downloads: PackageDownloading
     private var generation = 0
+
+    init(downloads: PackageDownloading = DownloadManager.shared) {
+        self.downloads = downloads
+    }
 
     var categories: [CategoryItem] {
         Dictionary(grouping: results, by: \.category).map { CategoryItem(name: $0.key, apps: $0.value) }.sorted { $0.name < $1.name }
@@ -67,12 +73,11 @@ final class DiscoveryViewModel: ObservableObject {
     }
     func download(_ app: DiscoveryApp) async {
         guard let url = app.download, RepositoryValidator.webURL(url.absoluteString) != nil else { error = "Invalid download URL."; return }
-        _ = DownloadManager.shared.startDownload(from: url, appName: app.name, appDescription: app.summary)
+        _ = downloads.startPackageDownload(from: url, appName: app.name, appDescription: app.summary, integrity: nil)
         signals.downloads[app.id, default: 0] += 1
         await persistSignals()
     }
     private func persistSignals() async {
-        do { try await EcosystemDatabase.shared.write(signals, key: "discovery.signals") }
-        catch { self.error = error.localizedDescription }
+        do { try await EcosystemDatabase.shared.write(signals, key: "discovery.signals") } catch { self.error = error.localizedDescription }
     }
 }

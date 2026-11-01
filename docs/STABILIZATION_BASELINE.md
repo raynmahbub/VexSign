@@ -22,10 +22,10 @@ documentation. No production code was changed in Phase 0.
 warnings) is executed through **GitHub Actions CI**, which is the project's
 existing and authoritative build oracle:
 
-* `quick-check.yml` — runs on **push to any branch** (fast Linux
+* `ci.yml` (quick job) — runs on **push to any branch** (fast Linux
   `swiftc -parse` syntax gate + duplicate/resource checks, image
   `swift:6.4-noble`).
-* `build-check.yml` — runs on **push to main and PRs to main**
+* `ci.yml` (build job) — runs on **push to main and PRs to main**
   (full `xcodebuild` Debug build of the `VexSign` scheme on `macos-15`,
   unsigned; first-party warnings are errors unless listed in
   `.github/build-warnings-baseline.json`).
@@ -34,7 +34,7 @@ existing and authoritative build oracle:
 * `ecosystem.yml` — PRs touching cloud-signing / repository subsystems
   (Node `npm ci && npm test && npm run contracts` + audit).
 * `server-tests.yml` — PRs touching `server/**` (Python pytest).
-* `lint-fix.yml` — SwiftLint auto-fix on PRs (non-blocking).
+* `make lint` — SwiftLint auto-fix on PRs (non-blocking).
 * `release.yml` — tag-driven release builds (not part of stabilization loop).
 
 Each phase therefore: change → push to `arena/01a0c12c-vexsign` (quick-check)
@@ -62,7 +62,7 @@ today **no job builds or runs it on PRs**. Adding a unit-test job is a Phase
 * **Xcode 26.x is required.** The code uses iOS 26 SDK APIs (e.g.
   `.glassEffect`), `SWIFT_APPROACHABLE_CONCURRENCY`, and an iOS 26 widget
   deployment target; Xcode 16 cannot build it (documented in
-  `.github/workflows/build-check.yml`).
+  `.github/workflows/ci.yml`).
 * CI builds with the newest Xcode on `macos-15`; the committed warnings
   baseline was generated with **Xcode 26.3** (run 35536522884, 2026-09-20).
 * **Swift language mode: `5.0` for every target.** No target uses Swift 6
@@ -171,7 +171,7 @@ CloudSigning, Companion, Observable, Server, Storage),
 * **Compiler warnings:** gated by
   `.github/build-warnings-baseline.json` (Xcode 26.3, generated 2026-09-20).
   New first-party warnings fail `build-check`; the baseline may only shrink.
-* **Lint:** `.swiftlint.yml` present; `lint-fix.yml` auto-fixes PRs
+* **Lint:** `.swiftlint.yml` present; `make lint` auto-fixes PRs
   (non-blocking).
 
 ---

@@ -134,6 +134,11 @@ final class BatchJobRunner: ObservableObject {
 
 	func cancel() {
 		_cancelled = true
+
+		// Stop the item that is already running too, not just the next one: the run is owned by
+		// `SigningService`, so this returns control to the queue once the in-flight item has
+		// cleaned up and reported `.cancelled`.
+		SigningService.shared.cancelAll()
 		isCancelled = true
 		currentInstaller?.stop()
 		_resumeInstall(.success(()))
@@ -201,6 +206,14 @@ final class BatchJobRunner: ObservableObject {
 				if !app.isSigned, options.post_deleteAppAfterSigned || CleanupManager.shared.deletesSourceAfterSign {
 					Storage.shared.deleteApp(for: app)
 				}
+			case .failure(let error) where error is CancellationError:
+				// Stopping mid-item is not a failure of that item: it was never signed, and the
+				// pipeline removed its work directory on the way out.
+				items[index].state = .skipped
+				SigningLog.shared.info(
+					.localized("Batch: cancelled %@", arguments: app.name ?? ""),
+					category: "batch"
+				)
 			case .failure(let error):
 				items[index].state = .failed(error.localizedDescription)
 				SigningLog.shared.error(
@@ -210,7 +223,11 @@ final class BatchJobRunner: ObservableObject {
 			}
 		}
 
-		SigningLiveActivityManager.shared.complete()
+		// After a cancel the activity was already ended by `cancel()`; completing it again would
+		// put a finished batch back on the Lock Screen.
+		if !_cancelled {
+			SigningLiveActivityManager.shared.complete()
+		}
 
 		// One shared sweep for the whole batch: the apps were handled above, so this only
 		// clears whichever storage toggles are on.

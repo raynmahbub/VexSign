@@ -43,6 +43,7 @@ struct TweakLibraryList: View {
 		case extractLibrary
 		case move(Set<UUID>)
 		case repository
+		case injectionDefaults
 
 		var id: String {
 			switch self {
@@ -50,6 +51,7 @@ struct TweakLibraryList: View {
 			case .extractLibrary: 	return "extractLibrary"
 			case .move: 			return "move"
 			case .repository: 		return "repository"
+			case .injectionDefaults: return "injectionDefaults"
 			}
 		}
 	}
@@ -187,6 +189,9 @@ struct TweakLibraryList: View {
 			TweakIPAExtractView(ipaURL: url)
 		case .extractLibrary:
 			TweakAppExtractPickerView()
+		case .injectionDefaults:
+			// every "inject by default" flag in one place.
+			TweakInjectionDefaultsView()
 		case .move(let ids):
 			TweakFolderPickerView(currentFolderId: nil) { target in
 				manager.moveTweaks(ids, toFolder: target)
@@ -327,6 +332,11 @@ extension TweakLibraryList {
 						Label(.localized("Extract from IPA"), systemImage: "shippingbox")
 					}
 					Button {
+						_show(.injectionDefaults)
+					} label: {
+						Label(.localized("Inject by Default"), systemImage: "wand.and.rays")
+					}
+					Button {
 						_show(.extractLibrary)
 					} label: {
 						Label(.localized("Extract from Library App"), systemImage: "square.grid.2x2")
@@ -434,8 +444,7 @@ extension TweakLibraryList {
 	private func _row(for tweak: ManagedTweak) -> some View {
 		if _isEditing {
 			Button {
-				if _selection.contains(tweak.id) { _selection.remove(tweak.id) }
-				else { _selection.insert(tweak.id) }
+				if _selection.contains(tweak.id) { _selection.remove(tweak.id) } else { _selection.insert(tweak.id) }
 			} label: {
 				HStack(spacing: 12) {
 					Image(systemName: _selection.contains(tweak.id) ? "checkmark.circle.fill" : "circle")

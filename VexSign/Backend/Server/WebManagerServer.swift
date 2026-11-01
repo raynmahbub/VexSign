@@ -14,16 +14,34 @@ import OSLog
 struct WebManagerAuthMiddleware: AsyncMiddleware {
 	let username: String
 	let password: String
+	/// A second credential accepted on every route. The Apple TV and Vision
+	/// companions, and any script, hold this instead of an account password, so a
+	/// token is as powerful as the password by design — the UI says so.
+	let token: String?
 
 	func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
+		guard !username.isEmpty, !password.isEmpty else {
+			return Self.unauthorized()
+		}
+
 		if
 			let basic = request.headers.basicAuthorization,
 			Self.constantTimeEquals(basic.username, username),
-			Self.constantTimeEquals(basic.password, password)
-		{
+			Self.constantTimeEquals(basic.password, password) {
 			return try await next.respond(to: request)
 		}
 
+		if let token, !token.isEmpty {
+			let provided = request.headers.first(name: WebManagerAccessPolicy.tokenHeader)
+			if WebManagerAccessPolicy.tokenMatches(expected: token, provided: provided) {
+				return try await next.respond(to: request)
+			}
+		}
+
+		return Self.unauthorized()
+	}
+
+	private static func unauthorized() -> Response {
 		var headers = HTTPHeaders()
 		headers.replaceOrAdd(name: .wwwAuthenticate, value: "Basic realm=\"VexSign Web Manager\"")
 		return Response(status: .unauthorized, headers: headers)
@@ -39,6 +57,48 @@ struct WebManagerAuthMiddleware: AsyncMiddleware {
 			diff |= Int(lhs[i]) ^ Int(rhs[i])
 		}
 		return diff == 0
+	}
+}
+
+/// Gate for the endpoints that expose signing identity or destroy content.
+///
+/// Registered after the Basic-auth middleware, so a configured password has already
+/// been checked by the time a request arrives here. It covers what Basic auth does
+/// not: a server running *without* a password (loopback only) still must not hand
+/// out certificates or delete library rows to whatever is on the machine, and a
+/// configured API token has to be presented on these routes.
+struct WebManagerSensitiveAccessMiddleware: AsyncMiddleware {
+	let hasBasicAuth: Bool
+	let token: String?
+
+	func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
+		guard WebManagerAccessPolicy.requiresSensitiveAccess(
+			path: request.url.path,
+			isDestructive: request.method == .DELETE
+		) else {
+			return try await next.respond(to: request)
+		}
+
+		if let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+			let provided = request.headers.first(name: WebManagerAccessPolicy.tokenHeader)
+			guard WebManagerAccessPolicy.tokenMatches(expected: token, provided: provided) else {
+				return Self.reject("Missing or wrong X-VexSign-Token.", status: .unauthorized)
+			}
+			return try await next.respond(to: request)
+		}
+
+		guard hasBasicAuth else {
+			return Self.reject(
+				"This endpoint needs a password or an API token. Set one in VexSign → Settings → Web Manager.",
+				status: .unauthorized
+			)
+		}
+
+		return try await next.respond(to: request)
+	}
+
+	private static func reject(_ message: String, status: HTTPResponseStatus) -> Response {
+		Response(status: status, body: .init(string: message))
 	}
 }
 
@@ -128,15 +188,28 @@ final class WebManagerServer {
 
 	let port: Int
 	let inbox: URL
+	/// Interface actually bound, resolved by `WebManagerAccessPolicy`.
+	let bindHost: String
+	/// Whether `GET /api/certs/:uuid/download` is reachable at all.
+	let allowsCertificateExport: Bool
 
 	private let _auth: Auth?
 	private let _onReceive: (String) -> Void
 	private var _app: Application?
 	private var _needsShutdown = false
 
-	init(port: Int, auth: Auth?, onReceive: @escaping (String) -> Void) throws {
+	init(
+		port: Int,
+		auth: Auth?,
+		bindMode: WebManagerBindMode = .localNetwork,
+		token: String? = nil,
+		allowsCertificateExport: Bool = false,
+		onReceive: @escaping (String) -> Void
+	) throws {
 		self.port = port
 		self.inbox = FileManager.default.webManagerInbox
+		self.bindHost = WebManagerAccessPolicy.bindHost(bindMode)
+		self.allowsCertificateExport = allowsCertificateExport
 		self._auth = auth
 		self._onReceive = onReceive
 
@@ -146,8 +219,13 @@ final class WebManagerServer {
 		self._app = app
 
 		if let auth = _auth {
-			app.middleware.use(WebManagerAuthMiddleware(username: auth.username, password: auth.password))
+			app.middleware.use(
+				WebManagerAuthMiddleware(username: auth.username, password: auth.password, token: token)
+			)
 		}
+		// After the Basic middleware: the sensitive gate only has to decide about
+		// what Basic auth does not cover.
+		app.middleware.use(WebManagerSensitiveAccessMiddleware(hasBasicAuth: _auth != nil, token: token))
 
 		_configureHTTP(app)
 		_configureWebDAV(app)
@@ -224,11 +302,15 @@ final class WebManagerServer {
 		// Reuse ServerInstaller.env — a second LoggingSystem bootstrap would crash.
 		let app = Application(ServerInstaller.env)
 		app.threadPool = .init(numberOfThreads: 2)
-		app.http.server.configuration.hostname = "0.0.0.0"
+		app.http.server.configuration.hostname = bindHost
 		app.http.server.configuration.tcpNoDelay = true
-		app.http.server.configuration.address = .hostname("0.0.0.0", port: port)
+		app.http.server.configuration.address = .hostname(bindHost, port: port)
 		app.http.server.configuration.port = port
-		app.routes.defaultMaxBodySize = "2gb"
+		// Collected bodies only. Uploads, `/api/sign` and WebDAV PUTs use
+		// `body: .stream` and go straight to disk, while `POST /api/certs` collects a
+		// multipart p12 + profile - a 2 GB default let that endpoint allocate
+		// gigabytes from one request.
+		app.routes.defaultMaxBodySize = "32mb"
 		app.routes.caseInsensitive = true
 		return app
 	}

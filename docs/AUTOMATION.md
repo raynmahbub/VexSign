@@ -6,15 +6,34 @@ GitHub Actions; commits it creates are credited to the VexSign developer
 
 | Workflow | When | What it does | Runner |
 | --- | --- | --- | --- |
-| **Quick check (no build)** — `quick-check.yml` | every push, and PRs to `main` (the merge result) | Finds build-breaking mistakes in ~1 minute: conflict markers, Swift syntax errors (`swiftc -parse`), duplicate types / file names inside a target, broken `Info.plist` / entitlements / `*.xcstrings` / JSON / schemes, corrupted `project.pbxproj`. Annotates file + line and shows the offending source lines in the job summary. | Linux (Swift container) |
-| **Build check** — `build-check.yml` | push + PR to `main` | `xcodebuild -workspace VexSign.xcworkspace -scheme VexSign -configuration Debug build` (unsigned). Fails on any compiler error and on any *new* warning in first-party code (see [Warnings as errors](#warnings-as-errors)). Uploads the `.xcresult` and raw log when it fails. | macOS 15 |
-| **Platform check** — `platform-check.yml` | push + PR to `main` touching a companion target, `VexSign/Companion/` or the project file | Builds `VexSignTV` (tvOS), `VexSignVision` (visionOS) and `VexSignWatch` (watchOS) unsigned, in parallel. Catches shared-code changes that only break one SDK. | macOS 15 |
-| **Server tests** — `server-tests.yml` | push + PR to `main` touching `server/` | `python -m pytest tests/ -q` for the premium API, the self-hosted source store and the browser tools. | Linux |
-| **SwiftLint auto-fix** — `lint-fix.yml` | PRs to `main` touching Swift | `swiftlint --fix` on the files the PR changed (`.swiftlint.yml`), commits `style: auto-fix SwiftLint violations` back to the PR branch, annotates what could not be fixed. | macOS 15 |
+| **CI** — `ci.yml` | pull requests to `main` and pushes to `main`; not for docs-only changes | One run, three jobs, in that order. **quick** (~1 min): conflict markers, Swift syntax (`swiftc -parse`), duplicate types / file names, broken `Info.plist` / entitlements / `*.xcstrings` / JSON / schemes, corrupted `project.pbxproj`, plus the four repo gates in `tools/`. **build**: unsigned Debug `xcodebuild` of the VexSign scheme, failing on any compiler error and on any *new* first-party warning (see [Warnings as errors](#warnings-as-errors)). **tests**: `xcodebuild test` for `VexSignTests` on a simulator resolved at run time. | Linux (Swift container), macOS 15, macOS 15 |
+| **Platform check** — `platform-check.yml` | PRs touching a companion target, `VexSign/Companion/` or the project file; manual | Builds `VexSignTV` (tvOS), `VexSignVision` (visionOS) and `VexSignWatch` (watchOS) unsigned, in parallel. Catches shared-code changes that only break one SDK. | macOS 15 |
+| **Server tests** — `server-tests.yml` | push + PR to `main` touching `server/`; manual | `python -m pytest tests/ -q` for the premium API, the self-hosted source store and the browser tools. | Linux |
+| **Ecosystem contracts** — `ecosystem.yml` | PRs touching `cloud-signing/` or the modules that talk to it; Tuesdays for advisories; manual | `tsc --noEmit`, the TypeScript tests, `npm run build`, an OpenAPI drift check and `npm audit --omit=dev --audit-level=high`. The weekly run is what catches a new advisory in a dependency nobody touched. | Linux |
+| **Release** — `release.yml` | `v*` tag pushes and manual runs | Builds, validates the IPA's version against the tag and publishes. A manual run leaves `build_only` at its default and publishes nothing. | macOS 15 |
+| **Update Repository** — `update_repo.yml` | a published release; manual with a tag | Syncs `app-repo.json` from the release. | Linux |
 | **Upstream feature radar** — `upstream-features.yml` | Mondays 06:00 UTC, manual | Scans Feather, FeatherPlus, Ksign, KorSign, RyukSign, MySignReincarnated, SideStore and LiveContainer; opens **one issue with a checklist** of candidate commits (author, date, files mapped onto VexSign, feasibility). | Linux |
 | **Upstream merge kit** — `upstream-merge-kit.yml` | `/prepare` comment or `prepare-merge` label on a radar issue, manual | Applies the ticked commits on a fresh `upstream-kit/issue-<n>` branch, opens a **draft PR** with a per-commit result table, attaches patches + conflict snapshots. Nothing is merged automatically. | Linux |
 
-The existing `Release` and `Update Repository` workflows are unchanged.
+## How many runs one push costs
+
+One commit used to start six or seven runs: three separate check workflows fired
+on their own triggers (a syntax check on *every* push to *every* branch, a build,
+a test job), `Release` built every pull request a second time, and SwiftLint
+pushed auto-fix commits that started the whole set again. A push to a pull
+request now starts **one** run with three jobs, and a docs-only change starts
+none.
+
+What is deliberately *not* on a commit:
+
+* **Release** — tags only. A pull request is built once, by CI. Build-only runs
+  generate a development TLS identity offline, so they no longer depend on the
+  pinned release pack (`make deps-pin`).
+* **Platform check** — only when a companion or its shared sources change, and
+  only on the PR: the merge commit is the commit the PR already built.
+* **Server tests / Ecosystem contracts** — only when their sources change.
+* **SwiftLint** — `make lint` locally. A bot commit on every pull request was
+  noise (and it re-triggered CI).
 
 ## Fixing errors without a full build
 
@@ -32,8 +51,7 @@ merges break:
    catalogs, JSON, schemes — and an unbalanced `project.pbxproj`.
 
 Each finding is an inline annotation plus a snippet in the job summary, so it
-can be fixed from the PR page. Style problems are fixed automatically by
-SwiftLint on pull requests; real semantic errors (type mismatches, missing
+can be fixed from the PR page. Style is checked with `make lint`; real semantic errors (type mismatches, missing
 symbols) still need the compiler and surface in **Build check**, which
 annotates them inline as well.
 

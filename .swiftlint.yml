@@ -1,11 +1,12 @@
 # SwiftLint configuration for VexSign.
 #
-# Style problems are *warnings* only: the "SwiftLint auto-fix" workflow
-# (.github/workflows/lint-fix.yml) corrects what it can on pull requests and
-# annotates the rest. Nothing here fails a build.
+# Linting is a local step: `make lint` reports, `make lint FIX=1` autocorrects.
+# CI does not run SwiftLint and never pushes fixes onto your branch -- the
+# auto-fix commits it used to make rewrote correct code into broken code (see
+# docs/STABILIZATION_BASELINE.md) and restarted the build every time.
 #
-# Run locally:   swiftlint            (report)
-#                swiftlint --fix      (auto-correct)
+# Run locally:   make lint            (report, --strict)
+#                make lint FIX=1      (auto-correct)
 
 # Only first-party Swift is linted. Submodules ship their own tooling and the
 # generated/vendored directories are not ours to fix.

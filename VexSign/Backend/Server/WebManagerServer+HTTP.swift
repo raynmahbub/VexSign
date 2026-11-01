@@ -59,7 +59,7 @@ private struct CertUpload: Content {
 
 extension WebManagerServer {
 	func _configureHTTP(_ app: Application) {
-		app.get { req -> Response in
+		app.get { _ -> Response in
 			var headers = HTTPHeaders()
 			headers.contentType = .html
 			return Response(status: .ok, headers: headers, body: .init(string: Self.pageHTML))
@@ -75,7 +75,7 @@ extension WebManagerServer {
 			return self.streamToFile(req, destination: destination, route: true, successStatus: .ok)
 		}
 
-		app.get("api", "files") { [weak self] req -> Response in
+		app.get("api", "files") { [weak self] _ -> Response in
 			guard let self else { return Response(status: .internalServerError) }
 			return Self.json(self._inboxFiles())
 		}
@@ -166,7 +166,16 @@ extension WebManagerServer {
 			return Self.json(infos)
 		}
 
-		app.get("api", "certs", ":uuid", "download") { req async -> Response in
+		app.get("api", "certs", ":uuid", "download") { [weak self] req async -> Response in
+			guard let self else { return Response(status: .internalServerError) }
+			// The archive contains the private key and its password file, so it stays
+			// off unless the user turned it on in Settings → Web Manager.
+			guard self.allowsCertificateExport else {
+				return Self.text(
+					"Certificate download is turned off. Enable it in VexSign → Settings → Web Manager.",
+					.forbidden
+				)
+			}
 			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
 			let zipURL: URL? = await MainActor.run {
 				guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == uuid }) else { return nil }
@@ -178,8 +187,7 @@ extension WebManagerServer {
 
 		app.on(.POST, "api", "certs") { req async -> Response in
 			let upload: CertUpload
-			do { upload = try req.content.decode(CertUpload.self) }
-			catch { return Self.text("Invalid upload.", .badRequest) }
+			do { upload = try req.content.decode(CertUpload.self) } catch { return Self.text("Invalid upload.", .badRequest) }
 
 			let dir = FileManager.default.uniqueTemporaryDirectory("CertUpload")
 			let p12URL = dir.appendingPathComponent("certificate.p12")

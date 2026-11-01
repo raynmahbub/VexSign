@@ -41,13 +41,6 @@ enum LibraryDisplayPreferences {
 	}
 }
 
-enum InstalledApps {
-	/// Best-effort: the same private launch path the Open button uses, without presenting.
-	static func isInstalled(_ identifier: String?) -> Bool {
-		guard let identifier, !identifier.isEmpty else { return false }
-		if let url = URL(string: "\(identifier)://"), UIApplication.shared.canOpenURL(url) {
-			return true
-		}
-		return false
-	}
-}
+// `InstalledApps.isInstalled` used to answer this with `canOpenURL("(identifier)://")`: wrong
+// for every app that registers no URL scheme, and wrong again the moment the app is deleted.
+// Installation state now comes from `LibraryStatusStore`, which asks the device.

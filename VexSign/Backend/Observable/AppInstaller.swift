@@ -16,7 +16,10 @@ import NimbleExtensions
 @MainActor
 final class AppInstaller: ObservableObject {
 	enum Outcome {
+		/// The device reports the app, at the version that was sent.
 		case installed
+		/// The device reports the app, at another version: installed, but not what was sent.
+		case installedOtherVersion(String?)
 		case cancelled
 		case exported(URL?)
 	}
@@ -46,12 +49,21 @@ final class AppInstaller: ObservableObject {
 	private var _declineCheck: DispatchWorkItem?
 	/// One idevice retry per install, so a genuinely broken pair doesn't loop.
 	private var _didAttemptIdeviceFallback = false
+	/// The device-side evidence that turns "progress ended" into an answer.
+	private let _probe: InstalledAppProbing
+	private var _lastPPQRefresh = Date()
 
 	var fallbackPageURL: URL? { _server?.pageEndpoint }
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
 
-	init(app: AppInfoPresentable, isSharing: Bool = false, useLocalhost: Bool = false) {
+	init(
+		app: AppInfoPresentable,
+		isSharing: Bool = false,
+		useLocalhost: Bool = false,
+		probe: InstalledAppProbing = InstalledAppProbe()
+	) {
+		self._probe = probe
 		self._serverMethod = useLocalhost ? 1 : UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
 		self.app = app
 		self._isSharing = isSharing
@@ -218,6 +230,12 @@ final class AppInstaller: ObservableObject {
 		case .completed(let result):
 			_progressTask?.cancel()
 			_progressTask = nil
+			// The IDevice path trusts installd's own phases; corroborate them with the device
+			// before telling the user it worked.
+			if _installationMethod == 1, case .success = result {
+				Task { await _confirmIdeviceInstall() }
+				return
+			}
 			_finish(result.map { .installed })
 		case .broken(let error):
 			_progressTask?.cancel()
@@ -241,6 +259,12 @@ final class AppInstaller: ObservableObject {
 		FileLogger.log("opening \(link)", category: "install")
 
 		if _useNovaDNSDynamic {
+			// rewriting resolution is a visible act, so it is logged once per install, with
+			// the endpoint that is actually being used.
+			FileLogger.log(
+				"NovaDNS Dynamic: rewriting resolution for this install via \(NovaDNSDynamic.effectiveRulesURLString) (PPQ enabled)",
+				category: "install"
+			)
 			Task {
 				await NovaDNSDynamic.sendRequest(endpoint: "enablePPQ")
 			}
@@ -323,7 +347,10 @@ final class AppInstaller: ObservableObject {
 	private func _finish(_ result: Result<Outcome, Error>) {
 		guard !_hasFinished else { return }
         _hasFinished = true
-        if case .success(.installed) = result { Task { await AnalyticsStore.shared.record(.appsInstalled) } }
+		// Only an install the device proved may be counted.
+		if case .success(let outcome) = result, outcome.countsAsInstall {
+			Task { await AnalyticsStore.shared.record(.appsInstalled) }
+		}
         _disarmDeclineWatch()
 		_statusObserver = nil
 
@@ -338,48 +365,129 @@ final class AppInstaller: ObservableObject {
 
 	// MARK: Progress
 
+	/// Watches one install: progress for the ring, the device for the answer.
+	///
+	/// This used to end with `if hasStarted, raw == 0 { completed }` — the exact guess audit
+	// is about. The loop still drives the ring and the PPQ heartbeat, but the verdict now
+	/// comes from `InstallConfirmation` and `InstalledAppProbe`.
 	private func _startProgressPolling() {
 		guard _progressTask == nil, let bundleID = app.identifier else { return }
+
+		let probe = _probe
 		let useNovaDNS = _useNovaDNSDynamic
+		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version)
 
-		_progressTask = Task.detached(priority: .background) { [viewModel] in
-			var hasStarted = false
-			var lastEnablePPQTime = Date()
-
-			while !Task.isCancelled {
-				let raw = await UIApplication.installProgress(for: bundleID) ?? 0.0
-
-				if raw > 0 { hasStarted = true }
-
-				Logger.misc.info("Install progress for \(bundleID): \(raw)")
-
-				let value = hasStarted ? min(1.0, max(0.0, (raw - 0.6) / 0.3)) : 0.0
-
-				await MainActor.run {
-					if viewModel.installProgress != value {
-						viewModel.installProgress = value
-					}
-				}
-
-				if useNovaDNS && hasStarted {
-					let now = Date()
-					if now.timeIntervalSince(lastEnablePPQTime) >= 10 {
-						await NovaDNSDynamic.sendRequest(endpoint: "enablePPQ")
-						lastEnablePPQTime = now
-					}
-				}
-
-				// Progress dropping back to zero after it started means installd is done.
-				if hasStarted, raw == 0 {
+		_progressTask = Task.detached(priority: .background) { [weak self] in
+			let installer = self
+			let verdict = await InstallWatcher.watch(
+				InstallConfirmation(expectation: expectation),
+				probe: probe,
+				progress: { await UIApplication.installProgress(for: bundleID) },
+				onUpdate: { raw, phase in
 					await MainActor.run {
-						viewModel.installProgress = 1.0
-						viewModel.status = .completed(.success(()))
+						installer?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
 					}
-					break
 				}
+			)
 
-				try? await Task.sleep(nanoseconds: 250_000_000)
+			guard !Task.isCancelled else { return }
+
+			await MainActor.run {
+				installer?._finishConfirmed(verdict)
 			}
+		}
+	}
+
+	/// The ring, and the PPQ heartbeat while the payload is being written.
+	private func _handleProgress(raw: Double?, phase: InstallConfirmation.Phase, useNovaDNS: Bool) {
+		let value: Double
+		switch phase {
+		case .waitingForStart:
+			value = 0
+		case .downloading:
+			// installd reports 0…1; the part users recognise as installing starts around 0.6.
+			value = min(1.0, max(0.0, ((raw ?? 0) - 0.6) / 0.3))
+		case .verifying, .finished:
+			// Deliberately not 1.0: the device has not confirmed anything yet.
+			value = 0.99
+		}
+
+		if viewModel.installProgress != value {
+			viewModel.installProgress = value
+		}
+
+		guard useNovaDNS, phase != .waitingForStart else { return }
+		let now = Date()
+		if now.timeIntervalSince(_lastPPQRefresh) >= 10 {
+			_lastPPQRefresh = now
+			Task { await NovaDNSDynamic.sendRequest(endpoint: "enablePPQ") }
+		}
+	}
+
+	/// The device has spoken: this is the only place an OTA install is reported as done.
+	private func _finishConfirmed(_ verdict: InstallConfirmation.Verdict) {
+		_progressTask = nil
+
+		// The device's answer just changed; anything the library cached about this identifier is
+		// now the version of the truth that would make it wrong.
+		if verdict.provesInstalled, let identifier = app.identifier {
+			LibraryStatusStore.shared.invalidate(bundleIdentifier: identifier)
+		}
+
+		switch verdict {
+		case .installed:
+			viewModel.installProgress = 1
+			_finish(.success(.installed))
+
+		case .installedOtherVersion(let version):
+			viewModel.installProgress = 1
+			SigningLog.shared.info(
+				.localized("Installed, but the device reports version %@.", arguments: version ?? .localized("unknown")),
+				category: "install"
+			)
+			_finish(.success(.installedOtherVersion(version)))
+
+		case .cancelled:
+			_finish(.success(.cancelled))
+
+		case .notInstalled, .timedOutWaiting, .timedOutVerifying:
+			let error = Self.error(verdict.message ?? .localized("The install could not be confirmed."))
+			FileLogger.error("install not confirmed: \(verdict)", category: "install")
+			// `.broken` keeps the existing recovery path: one idevice attempt, then a failure the
+			// queue offers to retry.
+			viewModel.status = .broken(error)
+		}
+	}
+
+	/// Corroborates the IDevice path's `.completed` with the same rules as the OTA path.
+	///
+	/// There is no progress counter to watch here — installd reported completion itself — so the
+	/// engine goes straight to verification and only the device's answer finishes the install.
+	private func _confirmIdeviceInstall() async {
+		guard let bundleID = app.identifier else {
+			_finish(.success(.installed))
+			return
+		}
+
+		var confirmation = InstallConfirmation(
+			expectation: .init(bundleIdentifier: bundleID, version: app.version)
+		)
+		_ = confirmation.beginVerifying(at: Date())
+
+		let verdict = await InstallWatcher.confirm(&confirmation, probe: _probe)
+		_finishConfirmed(verdict)
+	}
+}
+
+extension AppInstaller.Outcome {
+	/// Whether this outcome is an install the device proved. Counting or celebrating anything
+	/// else is what was.
+	var countsAsInstall: Bool {
+		switch self {
+		case .installed, .installedOtherVersion:
+			true
+		case .cancelled, .exported:
+			false
 		}
 	}
 }

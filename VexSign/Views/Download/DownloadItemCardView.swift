@@ -87,6 +87,9 @@ struct DownloadItemCardView: View {
                 }
             }
 
+            // a row cannot carry the "import anyway" override, because a failed import
+            // removes the row (see `finishImport`). The choice lives in the alert that reports the
+            // mismatch instead — one place, and it disappears when the user answers it.
             DownloadPhaseBar(phase: model.phase, progress: model.phaseProgress)
 
             HStack {

@@ -25,8 +25,12 @@ enum FileLogger {
 	}
 
 	static func log(_ message: String, category: String = "general") {
-		Logger.misc.info("[\(category, privacy: .public)] \(message, privacy: .public)")
-		let line = "\(_timestamp()) [\(category)] \(message)\n"
+		// The single choke point for everything that reaches the file and OSLog: one redaction here
+		// covers `SigningLog`, the signing console's mirror and every direct caller.
+		let redacted = LogRedaction.redact(message)
+
+		Logger.misc.info("[\(category, privacy: .public)] \(redacted, privacy: .public)")
+		let line = "\(_timestamp()) [\(category)] \(redacted)\n"
 		_queue.async {
 			let url = logFileURL
 			do {

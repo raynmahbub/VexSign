@@ -18,8 +18,19 @@ class DownloadManager: NSObject, ObservableObject {
 
 	protocol ErrorDelegate: AnyObject {
 		func showUIErrorMessage(title: String, message: String)
+
+		/// The same message with one explicit choice. Used where doing nothing is not a safe default
+		/// — a download that failed its integrity check has a file on disk that has to be either
+		/// imported deliberately or deleted.
+		func showUIErrorMessage(
+			title: String,
+			message: String,
+			actionTitle: String,
+			action: @escaping () -> Void,
+			dismissTitle: String,
+			onDismiss: (() -> Void)?
+		)
 	}
-	
 	weak var errorDelegate: ErrorDelegate?
 	
 	@Published var downloads: [Download] = []
@@ -530,27 +541,33 @@ class DownloadManager: NSObject, ObservableObject {
 	
 	// MARK: - Public Methods
 	
-	func startDownload(from url: URL, id: String = UUID().uuidString, appName: String? = nil, appDescription: String? = nil) -> Download {
+	func startDownload(
+		from url: URL,
+		id: String = UUID().uuidString,
+		appName: String? = nil,
+		appDescription: String? = nil,
+		integrity: DownloadIntegrity.Expectation? = nil
+	) -> Download {
 		// Game Mode (Settings → Game Mode): the one place every download funnels through, so
 		// nothing reaches the network while it is on. Callers discard the return value, and
 		// an unstarted download is never appended to `downloads`, so the UI stays on "Get".
 		if GameMode.isEnabled {
 			Task { @MainActor in GameMode.reportBlocked(.localized("Downloading")) }
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
 		}
 
 		if DownloadPreferences.wifiOnly, DownloadPreferences.isOnExpensivePath {
 			Task { @MainActor in
 				Toast.error(.localized("Wi-Fi only is on. Connect to Wi-Fi or turn the setting off."), duration: .long)
 			}
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
 		}
 
 		if DownloadPreferences.chargeOnly, !DownloadPreferences.isCharging {
 			Task { @MainActor in
 				Toast.error(.localized("Charge only is on. Plug in your device or turn the setting off."), duration: .long)
 			}
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
 		}
 
 		let running = downloads.filter { !$0.onlyArchiving && ($0.isActive || $0.progress > 0) && $0.progress < 1.0 && !$0.isPaused }.count
@@ -561,11 +578,16 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 
         if let existingDownload = downloads.first(where: { $0.url == url }) {
+            // Same URL: keep the row, but take the promise this call was given (a later source
+            // fetch may know a size the first one did not).
+            if let integrity {
+                existingDownload.integrity = integrity
+            }
             resumeDownload(existingDownload)
             return existingDownload
         }
 
-        let download = Download(id: id, url: url, appName: appName, appDescription: appDescription)
+        let download = Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
         download.isActive = true
 
 		let session = isAppInBackground ? _backgroundSession! : _foregroundSession!
@@ -811,6 +833,133 @@ class DownloadManager: NSObject, ObservableObject {
 	func handlePackageFile(url: URL, dl: Download) throws {
 		guard !dl.isImporting else { return }
 
+		let expectation = dl.integrity ?? DownloadIntegrity.Expectation()
+		guard !expectation.isEmpty else {
+			// Nothing was declared for this file: import it, and say what it was, exactly as before.
+			beginPackageImport(url: url, dl: dl)
+			return
+		}
+
+		// when the source declared a size (or a hash), check the file before anything is
+		// unpacked. A truncated IPA used to reach the importer and fail there, with a message that
+		// said nothing about the download. Reading and hashing a large file off the main thread
+		// keeps the row responsive; the import itself only starts once the verdict is in.
+		DispatchQueue.global(qos: .utility).async { [weak self] in
+			let verdict = DownloadIntegrity.verify(fileAt: url, expectation: expectation)
+
+			DispatchQueue.main.async {
+				guard let self else { return }
+
+				switch verdict {
+				case .verified(let checks):
+					SigningLog.shared.info(
+						.localized("%@ matches all %lld check(s) the source published.", arguments: dl.fileName, checks),
+						category: "download"
+					)
+					self.beginPackageImport(url: url, dl: dl)
+
+				case .unverified:
+					self.beginPackageImport(url: url, dl: dl)
+
+				case .mismatch(let failures):
+					let message = DownloadIntegrity.describe(failures, fileName: dl.fileName)
+					SigningLog.shared.error(message, category: "download")
+
+					// A failed check is a failed import: the row goes away, as it does for any other
+					// failure. The one deliberate override therefore has to be offered here, in the
+					// alert that reports the mismatch — see `presentIntegrityFailure`.
+					self.finishImport(of: dl, succeeded: false)
+					self.presentIntegrityFailure(for: dl, failures: failures, message: message, fileURL: url)
+				}
+			}
+		}
+	}
+
+	/// Asks the user what to do with a file that did not match its source.
+	///
+	/// Two outcomes, both final for this file: import it deliberately, or delete it. There is no
+	/// "dismiss and see" — leaving a rejected package on disk is how a stray file gets imported
+	/// later by something that is not this alert.
+	private func presentIntegrityFailure(
+		for dl: Download,
+		failures: [DownloadIntegrity.Failure],
+		message: String,
+		fileURL: URL
+	) {
+		guard !isAppInBackground else {
+			// Nobody to ask: discard it, and say so.
+			discardRejectedPackage(at: fileURL, fileName: dl.fileName)
+			sendCompletionNotification(for: dl, status: "❌ " + .localized("Download failed a check"))
+			return
+		}
+
+		dl.retainedPackageURL = fileURL
+
+		errorDelegate?.showUIErrorMessage(
+			title: .localized("Download failed a check"),
+			message: message,
+			actionTitle: .localized("Import Anyway"),
+			action: { [weak self, weak dl] in
+				guard let self, let dl else { return }
+				self.importAnyway(dl, failures: failures)
+			},
+			dismissTitle: .localized("Delete"),
+			onDismiss: { [weak self, weak dl] in
+				guard let self, let dl else { return }
+				dl.retainedPackageURL = nil
+				self.discardRejectedPackage(at: fileURL, fileName: dl.fileName)
+			}
+		)
+	}
+
+	/// Imports a download the user has explicitly accepted despite a failed integrity check.
+	///
+	/// This is the only bypass, it is per-file, and the expectation is *not* cleared: downloading the
+	/// same app again is checked again from scratch.
+	func importAnyway(_ dl: Download, failures: [DownloadIntegrity.Failure]) {
+		guard let url = dl.retainedPackageURL ?? dl.pendingFileURL else {
+			SigningLog.shared.error(
+				.localized("Nothing left to import for %@ — the rejected file is gone.", arguments: dl.fileName),
+				category: "download"
+			)
+			return
+		}
+
+		SigningLog.shared.warn(
+			.localized("Importing %@ anyway, at the user's request, despite: %@", arguments: dl.fileName, DownloadIntegrity.describe(failures, fileName: dl.fileName)),
+			category: "download"
+		)
+		dl.retainedPackageURL = nil
+
+		// The row was removed when the check failed. Put it back: the import is about to happen, the
+		// user should see it, and `finishImport` needs something to finish.
+		if !downloads.contains(where: { $0.id == dl.id }) {
+			downloads.append(dl)
+			objectWillChange.send()
+		}
+
+		beginPackageImport(url: url, dl: dl)
+	}
+
+	/// Deletes a file that failed its check. Unconditional, unlike `CleanupManager`: a file the user
+	/// just refused must not survive because a cleanup preference is off.
+	private func discardRejectedPackage(at url: URL, fileName: String) {
+		do {
+			try FileManager.default.removeItem(at: url)
+			SigningLog.shared.info(
+				.localized("Discarded %@ — it did not match what the source published.", arguments: fileName),
+				category: "download"
+			)
+		} catch {
+			SigningLog.shared.error(
+				.localized("Could not delete the rejected download %@: %@", arguments: fileName, error.localizedDescription),
+				category: "download"
+			)
+		}
+	}
+
+	/// The import path itself: hash for the Logs tab, then hand the file to the importer.
+	private func beginPackageImport(url: URL, dl: Download) {
 		// Integrity audit: record the SHA-256 of every downloaded package in the Logs
 		// tab, so it can be compared later against a hash the source published.
 		let label = dl.fileName
@@ -930,5 +1079,24 @@ class DownloadManager: NSObject, ObservableObject {
 		} else {
 			endLiveActivity()
 		}
+	}
+}
+
+// MARK: - ErrorDelegate default
+
+extension DownloadManager.ErrorDelegate {
+	/// A conformer that only knows the plain message still compiles: the override is then
+	/// unavailable and `onDismiss` runs, so the rejected file is deleted rather than imported
+	/// without anyone deciding to.
+	func showUIErrorMessage(
+		title: String,
+		message: String,
+		actionTitle: String,
+		action: @escaping () -> Void,
+		dismissTitle: String,
+		onDismiss: (() -> Void)?
+	) {
+		showUIErrorMessage(title: title, message: message)
+		onDismiss?()
 	}
 }

@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import NimbleExtensions
 
 // MARK: - Models
 
@@ -47,6 +48,22 @@ struct CloudJobStatus: Codable, Sendable {
 
 	var isTerminal: Bool { status == "completed" || status == "failed" }
 	var isSuccess: Bool { status == "completed" }
+}
+
+/// Refusals that are policy, not transport failures.
+enum CloudSigningError: LocalizedError, Equatable {
+	/// A p12 is a private key. Sending it to a signing cluster is a product
+	/// decision that needs its own consent surface, so the client refuses
+	/// until that exists — the certificate checker that used to do this from
+	/// behind a checkbox was removed.
+	case privateKeyUploadDisabled
+
+	var errorDescription: String? {
+		switch self {
+		case .privateKeyUploadDisabled:
+			String.localized("Cloud signing is not enabled for private keys. Sign on this device.")
+		}
+	}
 }
 
 struct CloudCertCheckResult: Codable, Sendable {
@@ -113,6 +130,8 @@ final class CloudSigningClient: ObservableObject {
 	// MARK: - Artifact Upload
 
 	func upload(fileURL: URL, kind: CloudArtifactKind) async throws -> CloudUploadResponse {
+		// Checked before anything else so no request object is ever built for it.
+		guard kind != .p12 else { throw CloudSigningError.privateKeyUploadDisabled }
 		guard let base = baseURL else { throw URLError(.badURL) }
 		let url = base.appendingPathComponent("api/upload")
 
@@ -201,50 +220,16 @@ final class CloudSigningClient: ObservableObject {
 
 	// MARK: - End-to-End Remote Sign & Download
 
+	/// Offloading a signature means handing the cluster the p12 **and** its
+	/// password. That is a product decision with its own consent surface, and it
+	/// does not exist yet (docs/ROADMAP.md), so the entry point refuses
+	/// instead of silently uploading a private key.
+	///
+	/// The intended shape, for when is scoped: upload the IPA, upload the
+	/// certificate and profile, queue `api/sign`, poll `api/jobs/:id`, download the
+	/// result. The uploader below still refuses `kind: .p12` on purpose.
 	func signRemotely(ipaURL: URL, cert: CertificatePair, progress: @escaping (Double, String) -> Void) async throws -> URL {
-		guard let p12URL = Storage.shared.getFile(.certificate, from: cert),
-		      let provURL = Storage.shared.getFile(.provision, from: cert) else {
-			throw NSError(domain: "CloudSigningClient", code: -2, userInfo: [NSLocalizedDescriptionKey: "Certificate files missing"])
-		}
-
-		let password = try cert.requireSigningPassword()
-
-		progress(0.1, "Uploading application package…")
-		let ipaUpload = try await upload(fileURL: ipaURL, kind: .ipa)
-
-		progress(0.3, "Uploading signing certificate…")
-		let p12Upload = try await upload(fileURL: p12URL, kind: .p12)
-		let provUpload = try await upload(fileURL: provURL, kind: .provision)
-
-		progress(0.4, "Queuing remote signing job…")
-		let jobId = try await submitSignJob(ipaId: ipaUpload.id, p12Id: p12Upload.id, provisionId: provUpload.id, password: password)
-
-		var completedJob: CloudJobStatus?
-		for _ in 0..<120 {
-			try await Task.sleep(nanoseconds: 2_000_000_000)
-			let status = try await getJobStatus(jobId: jobId)
-			if let currentProgress = status.progress {
-				let scaled = 0.4 + (currentProgress / 100.0) * 0.4
-				progress(scaled, status.step ?? "Signing in cloud…")
-			}
-			if status.isTerminal {
-				completedJob = status
-				break
-			}
-		}
-
-		guard let job = completedJob, job.isSuccess, let downloadURLString = job.downloadUrl, let downloadURL = URL(string: downloadURLString) else {
-			let msg = completedJob?.error ?? "Cloud signing timed out or failed"
-			throw NSError(domain: "CloudSigningClient", code: -3, userInfo: [NSLocalizedDescriptionKey: msg])
-		}
-
-		progress(0.85, "Downloading signed IPA…")
-		let (tempFile, _) = try await URLSession.shared.download(from: downloadURL)
-		let destination = FileManager.default.uniqueTemporaryDirectory("CloudSign").appendingPathComponent(ipaURL.lastPathComponent)
-		try FileManager.default.moveItem(at: tempFile, to: destination)
-
-		progress(1.0, "Ready")
-		return destination
+		throw CloudSigningError.privateKeyUploadDisabled
 	}
 
 	// MARK: - Connection Test

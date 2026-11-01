@@ -27,21 +27,16 @@ final class CertificateDashboardViewModel: ObservableObject {
 
 struct CertificateDashboardView: View {
     @StateObject private var model = CertificateDashboardViewModel()
-    @AppStorage("VexSign.security.allowLegacyCertificateUpload") private var legacyUpload = false
     @AppStorage("VexSign.ecosystem.certificateMonitoring") private var monitoring = false
-    @State private var showConsent = false
     var body: some View {
         List {
             Section {
                 Button("Validate with System OCSP") { Task { await model.refresh(online: true) } }.disabled(model.busy)
-                Text("Private keys stay on this device. OCSP sends certificate identifiers to responders. An unavailable response is Unknown, never Good.").font(.caption)
+                Text("Private keys stay on this device. OCSP sends certificate identifiers to responders, never the P12 or its password. An unavailable response is Unknown, never Good.").font(.caption)
                 Toggle("Daily Health Monitoring", isOn: $monitoring)
                     .onChange(of: monitoring) { enabled in
                         if enabled { Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]); EcosystemMaintenance.schedule() } }
                     }
-                Toggle("Legacy Third-Party Checker", isOn: Binding(get: { legacyUpload }, set: { value in
-                    if value { showConsent = true } else { legacyUpload = false }
-                }))
             }
             if model.busy { ProgressView("Inspecting certificates…") }
             ForEach(model.certificates) { cert in
@@ -71,10 +66,6 @@ struct CertificateDashboardView: View {
             ForEach(model.errors, id: \.self) { Text($0).foregroundStyle(.red) }
         }.navigationTitle("Certificate Health")
             .task { await model.refresh(online: false) }
-            .alert("Share Private Signing Material?", isPresented: $showConsent) {
-                Button("Cancel", role: .cancel) { }
-                Button("Allow Uploads", role: .destructive) { legacyUpload = true }
-            } message: { Text("The legacy certchecker.novadev.vip service receives your P12 private key and its password. Enable only if you trust this operator. Prefer the on-device OCSP check above.") }
     }
     private func row(_ title: String, _ value: String) -> some View { HStack { Text(title); Spacer(); Text(value).foregroundStyle(.secondary).multilineTextAlignment(.trailing) } }
 }

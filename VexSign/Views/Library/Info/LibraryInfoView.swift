@@ -17,6 +17,7 @@ struct LibraryInfoView: View {
 	@State private var _displayedDescription: String?
 	@State private var _isClonePresenting = false
 	@ObservedObject private var _appStoreTracker = AppStoreUpdateTracker.shared
+	@ObservedObject private var _status = LibraryStatusStore.shared
 
 	// MARK: Body
     var body: some View {
@@ -28,6 +29,7 @@ struct LibraryInfoView: View {
 				}
 
 				_infoSection(for: app)
+				_signatureSection(for: app)
 				_certSection(for: app)
 				_bundleSection(for: app)
 				_executableSection(for: app)
@@ -52,6 +54,9 @@ struct LibraryInfoView: View {
 		}
 		.sheet(isPresented: $_isClonePresenting) {
 			AppCloneSheet(app: app)
+		}
+		.task {
+			LibraryStatusStore.shared.request(app, force: true)
 		}
 		.task {
 			guard AppStoreUpdateTracker.isEnabled else { return }
@@ -190,6 +195,37 @@ extension LibraryInfoView {
 		}
 	}
 	
+	/// What the device and the stored signature actually say.
+	///
+	/// This is the sheet where a user asks "why is this not updating?" — so it shows the
+	/// certificate the bundle carries, its expiry, and whether it is the certificate the library
+	/// entry points at.
+	@ViewBuilder
+	private func _signatureSection(for app: AppInfoPresentable) -> some View {
+		let status = _status.status(for: app)
+		let rows = status.signatureRows(certificateRow: _certificateMatchRow(for: app, status: status))
+
+		if app.isSigned, !rows.isEmpty {
+			NBSection(.localized("Signature")) {
+				ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+					_infoCell(row.title, desc: row.value)
+				}
+			}
+		}
+	}
+
+	/// Whether the certificate on the entry is the one the bundle carries, in one sentence.
+	private func _certificateMatchRow(for app: AppInfoPresentable, status: LibraryAppStatus) -> String? {
+		guard
+			let certificate = Storage.shared.getCertificate(from: app),
+			let signature = status.signature
+		else {
+			return nil
+		}
+
+		return CertificateIdentity.match(state: signature, certificate: certificate).summary
+	}
+
 	@ViewBuilder
 	private func _certSection(for app: AppInfoPresentable) -> some View {
 		if let cert = Storage.shared.getCertificate(from: app) {

@@ -155,6 +155,7 @@
 
     <section class="panel" id="panel-certs">
       <p class="sub">A certificate needs all three: a <b>.p12</b>, its <b>.mobileprovision</b>, and the password.</p>
+      <p class="hint">Listing, downloading and deleting certificates requires the Web Manager password or API token. Downloading is off until it is enabled in VexSign → Settings → Web Manager.</p>
       <form class="add" id="certForm">
         <div class="field"><span class="lab">.p12 file <span class="req">*</span></span><label class="pick" id="p12Pick">Choose .p12<input id="p12File" type="file" accept=".p12"></label></div>
         <div class="field"><span class="lab">.mobileprovision file <span class="req">*</span></span><label class="pick" id="provPick">Choose .mobileprovision<input id="provFile" type="file" accept=".mobileprovision"></label></div>
@@ -229,7 +230,11 @@
     showDL(name, 'Preparing…');
     try {
       const res = await fetch(url);
-      if (!res.ok) { endDL('Failed', true); return; }
+      if (!res.ok) {
+        let msg = 'Failed (' + res.status + ')';
+        try { const body = (await res.text()).trim(); if (body) msg = body; } catch (_) {}
+        endDL(msg, true); return;
+      }
       const total = +res.headers.get('Content-Length') || 0;
       const reader = res.body.getReader();
       const chunks = []; let received = 0;
@@ -348,7 +353,11 @@
 
   // Certificates
   function refreshCerts() {
-    fetch('/api/certs').then(r => r.json()).then(list => {
+    fetch('/api/certs').then(async r => {
+      // 401: no password/token for a sensitive endpoint. 403: download disabled.
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    }).then(list => {
       $('certsCount').textContent = list.length;
       const el = $('certs');
       if (!list.length) { el.innerHTML = '<div class="empty">No certificates imported.</div>'; return; }
@@ -362,7 +371,9 @@
         row.querySelector('.del').onclick = () => { if (confirm('Delete certificate “' + c.name + '”?')) fetch('/api/certs/' + encodeURIComponent(c.uuid), { method: 'DELETE' }).then(refreshCerts); };
         el.appendChild(row);
       });
-    }).catch(() => { $('certs').innerHTML = '<div class="empty">Could not load certificates.</div>'; });
+    }).catch(() => {
+      $('certs').innerHTML = '<div class="empty">Certificates need a password or an API token. Set one in VexSign → Settings → Web Manager.</div>';
+    });
   }
 
   const p12File = $('p12File'), provFile = $('provFile'), certPass = $('certPass'), certNote = $('certNote');

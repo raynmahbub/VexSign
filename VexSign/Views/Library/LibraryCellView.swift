@@ -17,9 +17,17 @@ struct LibraryCellView: View {
 	@ObservedObject private var appStoreTracker = AppStoreUpdateTracker.shared
 	@ObservedObject private var updateChecker = AppUpdateChecker.shared
 	@ObservedObject private var lockManager = AppLockManager.shared
+	@ObservedObject private var _status = LibraryStatusStore.shared
 
+	/// The expiry the pill counts down.
+	///
+	/// The certificate row on the `Signed` entity records what the user signed *with*, not what
+	/// the stored bundle *carries* — they can differ after a re-sign or an import. When the
+	/// bundle answers, its own certificate wins; when it cannot, the row is still better than
+	/// nothing.
 	var certInfo: Date.ExpirationInfo? {
-		Storage.shared.getCertificate(from: app)?.expiration?.expirationInfo()
+		let status = _status.status(for: app)
+		return (status.expiresAt ?? Storage.shared.getCertificate(from: app)?.expiration)?.expirationInfo()
 	}
 	
 	var certRevoked: Bool {
@@ -90,6 +98,7 @@ struct LibraryCellView: View {
 		.padding(isRegular ? NBSpacing.cellPadding : 0)
 		.background(_cellBackground(isRegular: isRegular, isEditing: isEditing))
 		.contentShape(Rectangle())
+		.onAppear { _status.request(app) }
 		.onTapGesture {
 			if isEditing {
 				_toggleSelection()
@@ -195,15 +204,53 @@ struct LibraryCellView: View {
 			.animation(.easeInOut(duration: 0.3), value: isHighlighted)
 	}
 	
+	/// What the device reports, when it reports anything.
+	///
+	/// Silent for `.unknown` *and* for a probe that could not answer, on purpose: the library
+	/// used to infer "installed" from `canOpenURL`, which said no for every app without a URL
+	/// scheme. A badge that can be wrong is worse than no badge.
+	@ViewBuilder
+	private var _installBadge: some View {
+		if let badge = InstalledBadge(_status.status(for: app).installed) {
+			HStack(spacing: 3) {
+				Image(systemName: badge.systemImage)
+					.font(.system(size: 8, weight: .bold))
+
+				if let title = badge.title {
+					Text(title)
+						.font(.caption2.weight(.bold))
+				}
+			}
+			.padding(.horizontal, badge.title == nil ? 4 : 7)
+			.padding(.vertical, 3)
+			.background(_badgeTint(badge.tone).opacity(0.16), in: Capsule())
+			.foregroundStyle(_badgeTint(badge.tone))
+			.accessibilityLabel(Text(badge.accessibilityLabel))
+			.accessibilityIdentifier(A11y.Library.installedBadge)
+		}
+	}
+
+	private func _badgeTint(_ tone: InstalledBadge.Tone) -> Color {
+		switch tone {
+		case .positive: .green
+		case .warning: .orange
+		case .neutral: .secondary
+		}
+	}
+
 	/// Pill when an update is available (from AltSource repositories or App Store).
 	@ViewBuilder
 	private var _appStoreBadge: some View {
+		_installBadge
+
 		if let uuid = app.uuid, lockManager.isAppLocked(uuid) {
 			Image(systemName: "lock.fill")
 				.font(.system(size: 10, weight: .bold))
 				.foregroundStyle(.secondary)
 				.padding(4)
 				.background(Color.secondary.opacity(0.12), in: Circle())
+				.accessibilityLabel(.localized("Locked"))
+				.accessibilityIdentifier(A11y.Library.lockBadge)
 		}
 
 		if let update = updateChecker.hasUpdate(for: app) {
@@ -217,10 +264,10 @@ struct LibraryCellView: View {
 			.padding(.vertical, 3)
 			.background(Color.userTint.opacity(0.18), in: Capsule())
 			.foregroundStyle(Color.userTint)
+			.accessibilityIdentifier(A11y.Library.updateBadge)
 		} else if
 			let info = appStoreTracker.info(for: app.identifier),
-			appStoreTracker.hasNewerVersion(than: app)
-		{
+			appStoreTracker.hasNewerVersion(than: app) {
 			Text(String.localized("v%@", arguments: info.version))
 				.font(.caption2.weight(.semibold))
 				.padding(.horizontal, 6)
@@ -310,7 +357,9 @@ extension LibraryCellView {
 		}
 
 		if app.isSigned {
-			if let id = app.identifier {
+			// "Open" on an app the device says is gone is a dead button; on an app it cannot
+			// speak for, it is still the only way in.
+			if let id = app.identifier, _status.status(for: app).installed != .notInstalled {
 				Button(.localized("Open"), systemImage: "app.badge.checkmark") {
 					UIApplication.openApp(with: id)
 				}
@@ -343,9 +392,29 @@ extension LibraryCellView {
 	private func _installWithoutSigning(_ app: AppInfoPresentable) {
 		do {
 			try DirectInstaller.shared.install(app)
+		} catch DirectInstaller.DirectInstallError.verificationFailed(let issues) {
+			_confirmInstallAnyway(app, issues: issues)
 		} catch {
 			Toast.error(error.localizedDescription, duration: .sticky)
 		}
+	}
+
+	/// The only way past a failed signature check: the user is shown the checks that failed,
+	/// by name, and decides. Never offered for a bundle with no signature at all.
+	private func _confirmInstallAnyway(_ app: AppInfoPresentable, issues: [String]) {
+		UIAlertController.showAlertWithCancel(
+			title: .localized("Install Anyway?"),
+			message: issues.joined(separator: "\n"),
+			actions: [
+				UIAlertAction(title: .localized("Install Anyway"), style: .destructive) { _ in
+					do {
+						try DirectInstaller.shared.install(app, allowingIssues: true)
+					} catch {
+						Toast.error(error.localizedDescription, duration: .sticky)
+					}
+				}
+			]
+		)
 	}
 
 	@ViewBuilder
@@ -361,6 +430,7 @@ extension LibraryCellView {
 						revoked: certRevoked,
 						expiration: certInfo
 					)
+					.accessibilityIdentifier(A11y.Install.start)
 				}
 			} else {
 				Button {

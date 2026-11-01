@@ -24,13 +24,30 @@ struct DirectInstallVerification: Equatable {
 	let hasSignatureDirectory: Bool
 	let hasSignedExecutable: Bool
 	let unsignedNestedBundles: [String]
+	/// The full result of the shared verifier. The three flags above predate it and are kept
+	/// because callers and tests read them; this is the complete picture.
+	var report: SignatureVerifier.Report?
 
 	var isSigned: Bool {
 		bundlePath != nil && hasSignatureDirectory && hasSignedExecutable
 	}
 
+	/// What the verifier is sure is wrong. Installing past these means waiting out an install
+	/// that installd will reject.
+	var blockingIssues: [String] {
+		report?.failures.map(\.detail) ?? []
+	}
+
+	var hasBlockingIssues: Bool {
+		!blockingIssues.isEmpty
+	}
+
 	/// Human-readable reasons, shown before the install is offered.
 	var issues: [String] {
+		if let report, !report.issues.isEmpty {
+			return report.issues.map(\.detail)
+		}
+
 		// No bundle at all: the rest of the checks have nothing to look at.
 		guard bundlePath != nil else {
 			return [String.localized("No .app bundle found in this directory.")]
@@ -59,6 +76,9 @@ final class DirectInstaller {
 	enum DirectInstallError: LocalizedError {
 		case appNotFound
 		case notSigned([String])
+		/// Signed, but the post-sign checks found something installd will reject. The caller
+		/// may offer to install anyway, naming these.
+		case verificationFailed([String])
 
 		var errorDescription: String? {
 			switch self {
@@ -66,6 +86,8 @@ final class DirectInstaller {
 				String.localized("App files not found.")
 			case .notSigned(let issues):
 				String.localized("This app isn't signed:\n%@", arguments: issues.joined(separator: "\n"))
+			case .verificationFailed(let issues):
+				String.localized("This app has a signature problem:\n%@", arguments: issues.joined(separator: "\n"))
 			}
 		}
 	}
@@ -87,82 +109,50 @@ final class DirectInstaller {
 		return Self.verify(directory: directory)
 	}
 
-	/// Checks an unpacked app directory (…/<uuid>/ or the .app itself).
+	/// Checks an unpacked app directory (…/<uuid>/ or the .app itself) with the shared
+	/// verifier, so "install without signing" and "I just signed this" follow the same rules.
 	nonisolated static func verify(directory: URL) -> DirectInstallVerification {
-		let fm = FileManager.default
+		let report = SignatureVerifier.verify(bundleAt: directory, expectation: .alreadySigned)
 
-		let bundleURL: URL?
-		if directory.pathExtension == "app" {
-			bundleURL = directory
-		} else {
-			bundleURL = fm.getPath(in: directory, for: "app")
-		}
-
-		guard let bundleURL else {
+		guard let bundlePath = report.bundlePath else {
 			return DirectInstallVerification(
 				bundlePath: nil,
 				hasSignatureDirectory: false,
 				hasSignedExecutable: false,
-				unsignedNestedBundles: []
+				unsignedNestedBundles: [],
+				report: report
 			)
 		}
 
-		let signatureURL = bundleURL.appendingPathComponent("_CodeSignature")
-		var isDirectory: ObjCBool = false
-		let hasSignatureDirectory = fm.fileExists(atPath: signatureURL.path, isDirectory: &isDirectory) && isDirectory.boolValue
-
-		let executableURL = Bundle(url: bundleURL)?.executableURL
-		let hasSignedExecutable: Bool
-		if let executableURL {
-			hasSignedExecutable = MachOEntitlements.hasCodeSignature(forExecutableAt: executableURL)
-		} else {
-			hasSignedExecutable = false
-		}
+		let failures = Set(report.failures.map(\.code))
 
 		return DirectInstallVerification(
-			bundlePath: bundleURL.path,
-			hasSignatureDirectory: hasSignatureDirectory,
-			hasSignedExecutable: hasSignedExecutable,
-			unsignedNestedBundles: _unsignedNestedBundles(in: bundleURL)
+			bundlePath: bundlePath,
+			hasSignatureDirectory: !failures.contains(.missingCodeResources),
+			hasSignedExecutable: !failures.contains(.unsignedExecutable) && !failures.contains(.executableMissing),
+			unsignedNestedBundles: report.warnings
+				.filter { $0.code == .unsignedNestedBundle }
+				.compactMap(\.subject),
+			report: report
 		)
-	}
-
-	/// Frameworks and plug-ins ship their own signatures; a missing one fails the
-	/// whole install, so surface them as warnings rather than blocking silently.
-	nonisolated private static func _unsignedNestedBundles(in bundleURL: URL) -> [String] {
-		let fm = FileManager.default
-		var unsigned: [String] = []
-
-		for folder in ["Frameworks", "PlugIns", "Extensions"] {
-			let directory = bundleURL.appendingPathComponent(folder)
-			guard let contents = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else {
-				continue
-			}
-
-			for item in contents {
-				let extensionName = item.pathExtension.lowercased()
-				guard ["framework", "appex", "app", "bundle"].contains(extensionName) else { continue }
-
-				let signature = item.appendingPathComponent("_CodeSignature")
-				if !fm.fileExists(atPath: signature.path) {
-					unsigned.append(item.lastPathComponent)
-				}
-			}
-		}
-
-		return unsigned.sorted()
 	}
 
 	// MARK: Install
 
 	/// Verifies, then hands the app to the normal install queue (OTA or idevice,
 	/// exactly like a freshly signed app).
+	/// - Parameter allowingIssues: set only after the user has been shown the failing checks
+	///   and chosen to go ahead. It never bypasses "there is no signature at all".
 	@discardableResult
-	func install(_ app: AppInfoPresentable) throws -> DirectInstallVerification {
+	func install(_ app: AppInfoPresentable, allowingIssues: Bool = false) throws -> DirectInstallVerification {
 		let verification = verify(app)
 
 		guard verification.bundlePath != nil else { throw DirectInstallError.appNotFound }
 		guard verification.isSigned else { throw DirectInstallError.notSigned(verification.issues) }
+
+		if !allowingIssues, verification.hasBlockingIssues {
+			throw DirectInstallError.verificationFailed(verification.blockingIssues)
+		}
 
 		InstallQueue.shared.enqueue(app)
 		Logger.misc.info("Direct install queued for \(app.identifier ?? "unknown")")

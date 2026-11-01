@@ -120,7 +120,9 @@ final class SigningLog: ObservableObject {
 	// MARK: - Internal
 
 	private func _append(_ level: LogKind, _ rawMessage: String, category: String) {
-		let classified = LogParser.classify(rawMessage, level: level)
+		// Same text in the console as in the file: a secret masked in one place and shown in the
+		// other would be worse than not masking at all.
+		let classified = LogParser.classify(LogRedaction.redact(rawMessage), level: level)
 		guard !classified.text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
 		switch classified.kind {

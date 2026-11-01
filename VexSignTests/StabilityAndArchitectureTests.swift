@@ -252,7 +252,7 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		let payload = Data("certificate-ish payload \(UUID().uuidString)".utf8)
 
 		let sealed = try BackupCrypto.seal(payload, password: "correct horse battery staple")
-		XCTAssertTrue(BackupCrypto.isEncryptedStub(sealed))
+		XCTAssertTrue(BackupCrypto.isEncrypted(sealed))
 
 		let opened = try BackupCrypto.unseal(sealed, password: "correct horse battery staple")
 		XCTAssertEqual(opened, payload)
@@ -263,11 +263,64 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		XCTAssertThrowsError(try BackupCrypto.unseal(sealed, password: ""), "An encrypted backup must require its password")
 	}
 
-	func testBackupCryptoEmptyPasswordIsPlain() throws {
-		let payload = Data("plain".utf8)
+	/// a passwordless backup is still ciphertext. It is wrapped with a
+	/// device key instead of a derived one, so it opens without a prompt here and
+	/// nowhere else.
+	func testPasswordlessBackupsAreEncryptedNotPlain() throws {
+		let payload = Data("certificate-ish payload \(UUID().uuidString)".utf8)
 		let packed = try BackupCrypto.seal(payload, password: "")
+
+		XCTAssertTrue(BackupCrypto.isEncrypted(packed), "Every backup this version writes is encrypted")
+		XCTAssertFalse(
+			packed.prefix(7) == Data("VEXBK0\n".utf8),
+			"A produced backup must never start with the plaintext header"
+		)
+
 		let opened = try BackupCrypto.unseal(packed, password: "")
 		XCTAssertEqual(opened, payload)
+	}
+
+	/// A container that has been edited in transit fails closed instead of
+	/// returning half-decrypted bytes.
+	func testTamperedBackupFailsClosed() throws {
+		let payload = Data("payload \(UUID().uuidString)".utf8)
+		var packed = try BackupCrypto.seal(payload, password: "correct horse battery staple")
+
+		// Flip one byte inside the wrapped key: authenticated decryption must refuse.
+		packed[20] ^= 0xFF
+
+		XCTAssertThrowsError(try BackupCrypto.unseal(packed, password: "correct horse battery staple")) { error in
+			let failure = error as? BackupCrypto.Failure
+			XCTAssertTrue(failure == .wrongPassword || failure == .badFormat, "Tampering must not produce plaintext")
+		}
+	}
+
+	/// The old unencrypted container still opens, so nobody loses a backup made
+	/// before this version - but it is recognised as legacy, not as current.
+	func testLegacyPlaintextBackupIsStillReadableAndFlagged() throws {
+		let payload = Data("old payload".utf8)
+		var legacy = Data("VEXBK0\n".utf8)
+		legacy.append(payload)
+
+		let url = FileManager.default.temporaryDirectory
+			.appendingPathComponent("legacy-\(UUID().uuidString).vexbackup")
+		try legacy.write(to: url)
+		defer { try? FileManager.default.removeItem(at: url) }
+
+		XCTAssertTrue(BackupCrypto.isLegacyPlaintext(url))
+		XCTAssertFalse(BackupCrypto.isEncrypted(url), "A plaintext file is not encrypted evidence")
+		XCTAssertFalse(BackupCrypto.isEncrypted(url) || BackupCrypto.needsPassword(url), "A plaintext file asks for no password")
+		XCTAssertEqual(try BackupCrypto.unseal(legacy, password: ""), payload)
+	}
+
+	/// Inclusion policy: certificates need a real password, and the manager
+	/// refuses before it writes anything.
+	func testCertificateBackupsRequireARealPassword() {
+		XCTAssertGreaterThanOrEqual(BackupCrypto.minimumPasswordLength, 8)
+		XCTAssertFalse(
+			BackupCrypto.Failure.certificatesNeedPassword.errorDescription?.isEmpty ?? true,
+			"The refusal has to tell the user why"
+		)
 	}
 
 	// MARK: - Feature status registry
@@ -284,7 +337,8 @@ final class StabilityAndArchitectureTests: XCTestCase {
 			"resign-reinstall",
 			"asset-modification",
 			"dynamic-island",
-			"strict-hiding"
+			"strict-hiding",
+			"library-status"
 		]
 		for id in critical {
 			XCTAssertTrue(ids.contains(id), "The registry must track \(id) end-to-end")
@@ -306,8 +360,4 @@ final class StabilityAndArchitectureTests: XCTestCase {
 /// Backwards-compatible helper (the app target's `isEncrypted` takes a URL;
 /// tests check the bytes directly).
 private extension BackupCrypto {
-	static func isEncryptedStub(_ data: Data) -> Bool {
-		let magic = Data("VEXBK1\n".utf8)
-		return data.prefix(magic.count) == magic
-	}
 }

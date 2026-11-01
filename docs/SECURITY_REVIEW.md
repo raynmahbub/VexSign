@@ -65,6 +65,14 @@ Archive entry names are attacker-controlled strings.
 - The `vexsign://import-certificate` URL scheme accepts p12/profile/password
   in the query string — this is by design (compatibility with Feather), but
   passwords never reach logs, history or the task center.
+- **Private keys never leave the device for a status check.** Revocation
+  evidence comes from `CertificateInspector` (`SecPolicyCreateRevocation` with
+  `kSecRevocationOCSPMethod | kSecRevocationRequirePositiveResponse`), which
+  sends certificate identifiers to the responder and nothing else. The legacy
+  multipart upload to a third-party checker was deleted in R3; its stored
+  verdicts and its consent switch are erased on launch
+  (`CertificateStatusManager.legacy*Key`), because a verdict produced from an
+  uploaded p12 is not evidence this app can stand behind.
 
 ## 4. Downloaded tweaks and dylibs — VERIFIED / DOCUMENTED
 
@@ -88,12 +96,14 @@ in `deinit`.
   and certificate **metadata** only — no private keys, no passwords
   (explicit `_sanitize` pass over logs, plus summaries that exclude
   secrets).
-- Backups: certificates (including Keychain passwords for restore) are only
-  written into a backup when the user provides a password — the backup is
-  AES-GCM sealed with a PBKDF2 (SHA256, 200k iterations, 16-byte salt) key.
-  An empty password produces an explicitly unencrypted container; the UI
-  labels both paths. Recommendation retained: prefer always setting a
-  password when certificates are included.
+- Backups are **always encrypted** (R11). A random per-backup content key
+  encrypts the payload with AES-GCM; that key is wrapped either by a PBKDF2
+  (SHA256, 200k iterations, 16-byte salt) key derived from the user's password
+  or by a 32-byte device key held in the Keychain, never both. A backup that
+  includes certificates requires a password of at least 8 characters, typed
+  twice; a passwordless backup is device-bound and cannot be restored
+  elsewhere. Older `VEXBK0` plaintext files still restore, behind a warning
+  that names what they contain.
 
 ## 7. Temporary storage lifetime — FIXED
 
@@ -112,6 +122,30 @@ in `deinit`.
 The offline catalog cache (`Application Support/SourceSnapshots/`) stores the
 raw catalog JSON per source, capped at 64 snapshots, evicting by age, and is
 pruned to installed sources after every refresh. It contains no credentials.
+
+## 9. Community certificate catalogue — CONTAINED (new)
+
+Settings → Certificates offers a catalogue of shared Apple Developer identities
+published by a third party at `sideloading.net`, together with their passwords.
+These are not VexSign's certificates and they are not official in any sense.
+
+What the app now guarantees:
+
+- Nothing is downloaded until the user has read a disclosure that names the host
+  and explains that the identity and its password are public, that anyone can
+  sign an app claiming to come from it, and that its owner or Apple can revoke
+  it at any time.
+- The acknowledgement is stored against the host name, so pointing the catalogue
+  at a different host invalidates it. "Turn Off This Source" clears it.
+- Each import is confirmed individually and names the certificate and the host;
+  the confirmation states that the password is downloaded with the certificate.
+- Downloads are `https` only, go to one host, and are capped at 16 MB.
+
+Residual risk, accepted: the files themselves cannot be authenticated — there is
+no signature or pinning to check, only that the password opens the p12 and that
+the profile matches. A user who imports one of these identities is trusting
+`sideloading.net`, and the certificate can be revoked out from under every app
+signed with it. The UI says all of this before the first byte is downloaded.
 
 ## Remaining recommendations
 

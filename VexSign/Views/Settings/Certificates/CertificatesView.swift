@@ -11,7 +11,7 @@ import NimbleExtensions
 
 private enum CertificateAddSheet: String, Identifiable {
 	case certificateFiles
-	case official
+	case community
 
 	var id: String { rawValue }
 }
@@ -36,12 +36,15 @@ struct CertificatesView: View {
 	) private var _certificates: FetchedResults<CertificatePair>
 
 	private var _bindingSelectedCert: Binding<Int>?
+	/// Set only when the list is used to pick a certificate for a specific app.
+	private var _target: ProfileCompatibility.Target?
 	private var _selectedCertBinding: Binding<Int> {
 		_bindingSelectedCert ?? $_storedSelectedCert
 	}
 	
-	init(selectedCert: Binding<Int>? = nil) {
+	init(selectedCert: Binding<Int>? = nil, target: ProfileCompatibility.Target? = nil) {
 		self._bindingSelectedCert = selectedCert
+		self._target = target
 	}
 	
 	// MARK: Body
@@ -118,8 +121,8 @@ struct CertificatesView: View {
 extension CertificatesView {
 	@ViewBuilder
 	private func _addOptions() -> some View {
-		Button(.localized("Official (NexCerts)")) {
-			_addSheet = .official
+		Button(.localized("Community Certificates (Unofficial)")) {
+			_addSheet = .community
 		}
 
 		Button(.localized("Certificate Files")) {
@@ -133,8 +136,8 @@ extension CertificatesView {
 		case .certificateFiles:
 			CertificatesAddView()
 				.presentationDetents([.medium])
-		case .official:
-			OfficialCertificatesView()
+		case .community:
+			CommunityCertificatesView()
 				.presentationDetents([.large])
 		}
 	}
@@ -160,7 +163,7 @@ extension CertificatesView {
 			Text(verbatim: .localized("%lld signed apps in the library use a certificate from this list.", arguments: apps))
 				.font(.caption)
 				.foregroundStyle(.secondary)
-			Button(.localized("Refresh Apple Status")) {
+			Button(.localized("Check Revokage")) {
 				for cert in certs { Storage.shared.revokagedCertificate(for: cert) }
 				Toast.info(.localized("Checking certificates…"), systemImage: "person.text.rectangle")
 			}
@@ -188,7 +191,8 @@ extension CertificatesView {
 			_selectedCertBinding.wrappedValue = index
 		} label: {
 			CertificatesCellView(
-				cert: cert
+				cert: cert,
+				target: _target
 			)
 			.padding()
 			.background(
@@ -239,7 +243,7 @@ extension CertificatesView {
 			}
 		}
 		Divider()
-		Button(.localized("Refresh Apple Status"), systemImage: "arrow.clockwise") {
+		Button(.localized("Check Revocation (OCSP)"), systemImage: "checkmark.shield") {
 			CertificateStatusManager.shared.refreshStatus(for: cert)
 		}
 		Button(.localized("Check Revokage"), systemImage: "person.text.rectangle") {

@@ -102,7 +102,11 @@ enum CertificateInspector {
 	/// encoding. `SecCertificateCopyValues` and the `kSecOID*` keys it would
 	/// need are macOS-only, so on iOS the ASN.1 structure has to be walked
 	/// manually — this reaches the Validity sequence and decodes its times.
-	private static func notAfter(_ certificate: SecCertificate) -> Date? {
+	///
+	/// Internal rather than private since the local install server's
+	/// identity (`LocalTLSIdentity`) needs the same reading, and a second ASN.1
+	/// walker in the app would be one too many.
+	static func notAfter(_ certificate: SecCertificate) -> Date? {
 		var record = DERReader([UInt8](SecCertificateCopyData(certificate) as Data))
 		// Certificate ::= SEQUENCE { tbsCertificate, signatureAlgorithm, signatureValue }
 		guard var tbs = record.sequence() else { return nil }

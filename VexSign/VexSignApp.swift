@@ -525,6 +525,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 		_ application: UIApplication,
 		didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
 	) -> Bool {
+		// Create the store here, on the main thread, before anything else can
+		// reach for it: the certificate importer starts from a utility queue a
+		// few lines down, and whoever touches `Storage.shared` first is the
+		// thread that creates the container.
+		_ = Storage.shared
+
 		_createPipeline()
 		_createDocumentsDirectories()
 		StorageManager.purgeStaleTemporary()
@@ -556,6 +562,28 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 			UIAlertController.showErrorWithCopy(
 				title: .localized(title),
 				message: message
+			)
+		}
+	}
+
+	/// a download that failed its integrity check needs an answer, not an acknowledgement —
+	/// the file is either imported deliberately or deleted.
+	func showUIErrorMessage(
+		title: String,
+		message: String,
+		actionTitle: String,
+		action: @escaping () -> Void,
+		dismissTitle: String,
+		onDismiss: (() -> Void)?
+	) {
+		DispatchQueue.main.async {
+			UIAlertController.showAlertWithOptions(
+				title: .localized(title),
+				message: message,
+				actions: [
+					(actionTitle, .default, action),
+					(dismissTitle, .cancel, onDismiss)
+				]
 			)
 		}
 	}

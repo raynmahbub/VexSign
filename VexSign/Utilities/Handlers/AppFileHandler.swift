@@ -201,43 +201,24 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			throw _error(.database, reason: "The app bundle could not be read. It may be corrupted or incomplete.")
 		}
 
-		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-			// Guard against a double-resume (slow DB completion + timeout both firing → crash).
-			let lock = NSLock()
-			var didResume = false
-			func finish(_ result: Result<Void, Error>) {
-				lock.lock()
-				defer { lock.unlock() }
-				guard !didResume else { return }
-				didResume = true
-				continuation.resume(with: result)
-			}
-
-			let timeoutTask = DispatchWorkItem {
-				Logger.misc.error("[\(self._uuid)] Database operation timed out")
-				finish(.failure(self._error(.database, reason: "Saving to the library timed out. The app database may be busy — please try again.")))
-			}
-
-			DispatchQueue.global().asyncAfter(deadline: .now() + 10, execute: timeoutTask)
-
-			Storage.shared.addImported(
+		do {
+			// The write runs on the storage write context and returns an object ID;
+			// the row itself is resolved below on the view context. This used to be
+			// a continuation with a 10 second watchdog, because inserting on the view
+			// context from a detached task could block the main queue - the write
+			// boundary removes that failure mode instead of timing out around it.
+			try await Storage.shared.addImported(
 				uuid: _uuid,
 				appName: bundle.name,
 				appIdentifier: bundle.bundleIdentifier,
 				appVersion: bundle.version,
 				appIcon: bundle.iconFileName,
 				appDescription: _appDescription
-			) { error in
-				timeoutTask.cancel()
-
-				if let error = error {
-					Logger.misc.error("[\(self._uuid)] Database add failed: \(error.localizedDescription)")
-					finish(.failure(self._error(.database, reason: error.localizedDescription, underlying: error)))
-				} else {
-					Logger.misc.info("[\(self._uuid)] Added to database")
-					finish(.success(()))
-				}
-			}
+			)
+			Logger.misc.info("[\(self._uuid)] Added to database")
+		} catch {
+			Logger.misc.error("[\(self._uuid)] Database add failed: \(error.localizedDescription)")
+			throw _error(.database, reason: error.localizedDescription, underlying: error)
 		}
 
 		_didAddToDatabase = true
@@ -296,7 +277,7 @@ struct ImportError: LocalizedError {
 			reason,
 			"",
 			"File: \(fileName)",
-			"Step: \(step.rawValue)",
+			"Step: \(step.rawValue)"
 		]
 		if let underlying = underlying {
 			lines.append("Detail: \(underlying.domain) (\(underlying.code))")

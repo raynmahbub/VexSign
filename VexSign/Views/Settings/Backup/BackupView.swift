@@ -19,6 +19,7 @@ struct BackupView: View {
 	@State private var _showExportPicker = false
 	@State private var _pendingExport: (components: BackupComponents, password: String)?
 	@State private var _pendingSummary: BackupRestoreSummary?
+	@State private var _showLegacyWarning = false
 
 	// MARK: Body
 	var body: some View {
@@ -40,7 +41,11 @@ struct BackupView: View {
 						guard let url = urls.first else { return }
 						_pendingImportURL = url
 						_password = ""
-						if BackupCrypto.isEncrypted(url) {
+						if BackupCrypto.isLegacyPlaintext(url) {
+							// Written by an older version without encryption. It still
+							// restores, but the user should know what it is first.
+							_showLegacyWarning = true
+						} else if BackupCrypto.needsPassword(url) {
 							_showRestorePassword = true
 						} else {
 							_openBackup()
@@ -50,7 +55,7 @@ struct BackupView: View {
 					Label(.localized("Restore from Backup"), systemImage: "square.and.arrow.down")
 				}
 			} footer: {
-				Text(.localized("Open a backup file, then pick what comes back."))
+				Text(.localized("Open a backup file, then pick what comes back. Backups made without a password are encrypted for this device and cannot be restored on another one."))
 			}
 		}
 		.disabled(_isWorking)
@@ -64,7 +69,8 @@ struct BackupView: View {
 				available: available.components,
 				counts: available.counts,
 				footer: .localized("Choose what to include in this backup."),
-				passwordFooter: .localized("Leave it empty for an unencrypted backup."),
+				passwordFooter: .localized("Every backup is encrypted. With a password it can be restored on another device; without one it stays readable only on this one. A backup that includes certificates needs a password of at least %lld characters.", arguments: Int64(BackupCrypto.minimumPasswordLength)),
+				enforcesPasswordForCertificates: true,
 				onConfirm: { _pendingExport = ($0, $1) }
 			)
 		}
@@ -74,16 +80,18 @@ struct BackupView: View {
 				confirmTitle: .localized("Restore"),
 				available: archive.contents,
 				counts: _archiveCounts(archive),
-				detail: .localized(
-					"Created %@ · VexSign %@",
-					arguments: archive.manifest.createdAt.formatted(date: .abbreviated, time: .shortened),
-					archive.manifest.appVersion
-				),
+				detail: _archiveDetail(archive),
 				footer: .localized("Nothing is deleted. Anything already here is skipped."),
 				onConfirm: { components, _ in
 					_pendingSummary = BackupManager.shared.restore(archive, components: components)
 				}
 			)
+		}
+		.alert(.localized("Unencrypted backup"), isPresented: $_showLegacyWarning) {
+			Button(.localized("Cancel"), role: .cancel) {}
+			Button(.localized("Restore Anyway")) { _openBackup() }
+		} message: {
+			Text(.localized("This file was made by an older version of VexSign and is not encrypted. If it includes certificates, it holds private keys in the clear. Delete it once you have restored what you need."))
 		}
 		.alert(.localized("Backup Password"), isPresented: $_showRestorePassword) {
 			SecureField(.localized("Password"), text: $_password)
@@ -110,6 +118,15 @@ struct BackupView: View {
 			}
 			.transition(.opacity)
 		}
+	}
+
+	private func _archiveDetail(_ archive: BackupArchive) -> String {
+		let created = String.localized(
+			"Created %@ · VexSign %@",
+			arguments: archive.manifest.createdAt.formatted(date: .abbreviated, time: .shortened),
+			archive.manifest.appVersion
+		)
+		return created + "\n" + archive.integrity.summary
 	}
 
 	private func _archiveCounts(_ archive: BackupArchive) -> [BackupComponents: Int] {
