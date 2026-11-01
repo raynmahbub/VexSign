@@ -6,7 +6,7 @@ SCHEMES := VexSign
 TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
-# --- Local install server TLS identity (VX-12) -------------------------------
+# --- Local install server TLS identity --------------------------------------
 #
 # The local server serves itms-services over HTTPS, so every build needs a
 # certificate and key in deps/. There are two ways to get one, and a build must
@@ -24,7 +24,7 @@ LOCAL_TLS := Scripts/local-tls
 PIN_FILE := $(LOCAL_TLS)/pinned-pack.sha256
 PINNED_SHA := $(shell sed -n 's/^sha256:\([0-9a-f]\{64\}\)$$/\1/p' $(PIN_FILE) 2>/dev/null | tail -1)
 
-.PHONY: all deps deps-dev deps-release deps-pin clean test verify deploy-server strict-concurrency $(SCHEMES)
+.PHONY: all deps deps-dev deps-release deps-pin clean test verify lint deploy-server strict-concurrency $(SCHEMES)
 
 all: $(SCHEMES)
 
@@ -75,7 +75,7 @@ deps-pin:
 	@CERT_PACK_URL="$(CERT_PACK_URL)" sh $(LOCAL_TLS)/fetch-release-identity.sh "$(TMP)/tls-pin" || exit 1
 	@digest="$$(python3 $(LOCAL_TLS)/pack_digest.py "$(TMP)/tls-pin")" || exit 1; \
 	{ \
-		echo "# Pinned release TLS identity for the local install server (VX-12)."; \
+		echo "# Pinned release TLS identity for the local install server."; \
 		echo "#"; \
 		echo "# 'make deps-release' fetches the pack and refuses to build unless the digest"; \
 		echo "# matches the single sha256 line below. Regenerate with 'make deps-pin' and"; \
@@ -133,7 +133,7 @@ deploy-server:
 	@echo "  docker run -p 8080:8080 -e ADMIN_TOKEN=<secret> -e REPO_STORE_DIR=/data \\"
 	@echo "    -v vexsign-repo:/data $(IMAGE)"
 
-# VX-15: the leaf-first half of Swift 6 adoption, as a command rather than a promise.
+# The leaf-first half of Swift 6 adoption, as a command rather than a promise.
 # Compiles the two first-party packages with complete concurrency checking and prints what is
 # left. Warnings only — this is a report, not a gate, so it can be run on a branch that is still
 # being cleaned up.  Exit code is the build's, so a clean run is a real signal.
@@ -164,9 +164,19 @@ verify:
 	@echo "== concurrency discipline =="
 	@python3 tools/concurrency-discipline.py
 
-# Unit tests. Same command the "Unit tests" workflow runs
-# (.github/workflows/unit-tests.yml); the simulator is resolved at run time so
-# this does not rot when Xcode renames its device list.
+# Style, on demand. Nothing in CI runs SwiftLint any more: the auto-fix commits
+# it pushed onto pull requests were noise at best (see docs/STABILIZATION_BASELINE.md).
+#   make lint              # report (fails on any violation)
+#   make lint FIX=1        # auto-correct in place, then review the diff
+lint:
+	@command -v swiftlint >/dev/null 2>&1 || { \
+		echo "swiftlint is not installed: brew install swiftlint"; exit 1; }
+	@if [ "$(FIX)" = "1" ]; then swiftlint --fix; else swiftlint --strict; fi
+
+# Unit tests. Same command the CI `tests` job runs (.github/workflows/ci.yml);
+# a second way to run the suite should never exist.
+# The simulator is resolved at run time so this does not rot when Xcode renames
+# its device list.
 #   make test                     # newest available iPhone simulator
 #   make test SIMULATOR="platform=iOS Simulator,name=iPhone 16"   # explicit
 SIMULATOR ?= auto

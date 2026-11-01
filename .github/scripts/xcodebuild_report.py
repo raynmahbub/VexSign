@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn an xcodebuild log into GitHub annotations, a job summary and a verdict.
 
-Used by .github/workflows/build-check.yml after `xcodebuild ... build`.
+Used by .github/workflows/ci.yml after `xcodebuild ... build`.
 
     python3 xcodebuild_report.py --log build.log --build-exit 0 \
         --warnings-as-errors true --workspace "$GITHUB_WORKSPACE"
@@ -42,9 +42,9 @@ DIAG_RE = re.compile(r"^(?P<file>/[^:\n]+?):(?P<line>\d+):(?P<col>\d+): (?P<sev>
 BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 # xcbeautify / xcpretty style lines are ignored - we only parse the raw log.
 
-# Summary heading. build-check uses the default; the unit-test job passes its
-# own so a tests run does not report itself as a "Build check".
-DEFAULT_TITLE = "Build check"
+# Summary heading. The build job uses the default; the test job passes its
+# own so a test run does not report itself as a build.
+DEFAULT_TITLE = "Build"
 DEFAULT_FIRST_PARTY = ["VexSign", "VexSignWidgetExtension", "VexSignTests", "AltSourceKit", "NimbleKit", "Tweaks"]
 MAX_ANNOTATIONS = 200
 MAX_LISTED = 80
@@ -127,7 +127,7 @@ def write_baseline(path: str, warnings: list[dict], note: str) -> None:
         messages.setdefault(key, entry["msg"])
     payload = {
         "_comment": "Known first-party compiler warnings accepted by the Build check "
-                    "(.github/workflows/build-check.yml). New warnings that are not listed here fail the check; "
+                    "(.github/workflows/ci.yml). New warnings that are not listed here fail the check; "
                     "fixed ones are reported so this file can be trimmed. Regenerate: download "
                     "build-warnings-baseline.json from a Build check run artifact and replace this file. "
                     "Matching ignores line numbers; 'count' is the number of occurrences allowed per file+message.",

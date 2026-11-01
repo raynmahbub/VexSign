@@ -1,4 +1,11 @@
 name: Ecosystem contracts
+
+# The TypeScript cloud signer and the app-side modules that talk to it.
+# Path-filtered: a PR that touches none of these never starts it.
+#
+# The weekly run exists for `npm audit`: a new advisory is published against a
+# dependency that nobody touched, and that should surface on a Tuesday morning
+# rather than as a red check on an unrelated pull request.
 on:
   pull_request:
     paths:
@@ -13,6 +20,8 @@ on:
       - 'VexSign/CloneWizard/**'
       - 'VexSign/Ecosystem/**'
       - '.github/workflows/ecosystem.yml'
+  schedule:
+    - cron: '0 6 * * 2'   # Tuesdays 06:00 UTC: dependency advisories
   workflow_dispatch:
 permissions:
   contents: read

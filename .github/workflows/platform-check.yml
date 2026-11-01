@@ -1,9 +1,13 @@
 name: Platform check
 
 # Compiles the companion targets — Apple TV, Apple Vision Pro and Apple Watch —
-# which `build-check.yml` does not cover because it only builds the iOS scheme.
+# which `ci.yml` does not cover because it only builds the iOS scheme.
 # These are unsigned simulator-agnostic builds: they prove the sources type-check
 # for each SDK, nothing more.
+#
+# Runs on a pull request only, and only when a companion or its shared sources
+# change: the merge commit that lands on `main` is the commit the PR already
+# built, so a second run there would only spend another macOS runner.
 #
 # The companions are mirrors of the iPhone app (see docs/PLATFORMS.md), so this
 # job also guards the shared code: VexSign/Companion/* is compiled into the iOS,
@@ -11,16 +15,6 @@ name: Platform check
 # shows up here rather than on a device.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'VexSignTV/**'
-      - 'VexSignVision/**'
-      - 'VexSignWatch/**'
-      - 'VexSignWatchWidgets/**'
-      - 'VexSign/Companion/**'
-      - 'VexSign.xcodeproj/**'
-      - '.github/workflows/platform-check.yml'
   pull_request:
     branches: [main]
     paths:
