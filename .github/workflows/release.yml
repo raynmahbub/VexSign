@@ -2,7 +2,7 @@ name: Release
 
 # Run manually to publish v<MARKETING_VERSION> from the selected commit, or push
 # a release tag. Check build_only for an unpublished test IPA instead.
-# Publishing requires an approved TLS digest and a commit on the default branch.
+# Publishing requires a commit on the default branch. Device TLS is created on device.
 # Build with a read-only token; publish artifacts in a separate protected job.
 # Configure the release environment before use. See docs/RELEASING.md.
 
@@ -247,30 +247,8 @@ jobs:
           xcodebuild -version
           echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
 
-      - name: Prepare release TLS pin
-        id: tls_pin
-        if: steps.mode.outputs.publish == 'true'
-        env:
-          RELEASE_TLS_SHA256: ${{ vars.RELEASE_TLS_SHA256 }}
-        run: |
-          set -euo pipefail
-          bash Scripts/local-tls/prepare-release-pin.sh
-          echo '### Release TLS identity' >> "$GITHUB_STEP_SUMMARY"
-          echo 'The verified public pin is attached as an artifact and release asset. The approved committed/environment digest was enforced; no automatic rotation is permitted. No private key is attached.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Save public release TLS pin
-        if: steps.mode.outputs.publish == 'true'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: release-tls-pin-${{ github.run_id }}
-          path: ${{ runner.temp }}/release-tls-pin.sha256
-          if-no-files-found: error
-          retention-days: 30
-
       - name: Compile VexSign
         id: build
-        env:
-          PUBLISH: ${{ steps.mode.outputs.publish }}
         run: |
           set -euo pipefail
 
@@ -279,16 +257,7 @@ jobs:
             echo "::warning::agvtool could not stamp the build number (${BUILD_NUMBER}); continuing with the committed CURRENT_PROJECT_VERSION."
           fi
 
-          if [ "${PUBLISH}" = "true" ]; then
-            # Enforce the committed or environment-approved pin prepared above.
-            { make deps-release && make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
-          else
-            # Build-only runs publish nothing, so they must not depend on the
-            # pinned pack: generate the development identity offline, exactly as
-            # a local `make` does. This is what makes a manual dry run possible
-            # before `make deps-pin` has been run.
-            { make deps; make; } 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
-          fi
+          make 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
 
           if ! ls packages/*.ipa >/dev/null 2>&1; then
             echo "::error::make finished but produced no .ipa in packages/."
@@ -297,9 +266,6 @@ jobs:
 
           mkdir -p upload
           mv packages/*.ipa upload/
-          if [ "${PUBLISH}" = "true" ]; then
-            cp "$RUNNER_TEMP/release-tls-pin.sha256" upload/
-          fi
 
       - name: Surface build errors
         if: failure() && steps.build.outcome == 'failure'
@@ -378,7 +344,7 @@ jobs:
           set -euo pipefail
           bash tools/generate-changelog.sh > "$RUNNER_TEMP/CHANGELOG.md"
           cp "$RUNNER_TEMP/CHANGELOG.md" upload/CHANGELOG.md
-          (cd upload && shasum -a 256 ./*.ipa release-tls-pin.sha256 > SHA256SUMS)
+          (cd upload && shasum -a 256 ./*.ipa > SHA256SUMS)
 
       - name: Package verified release assets
         id: bundle
@@ -388,17 +354,11 @@ jobs:
           name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             upload/*.ipa
-            upload/release-tls-pin.sha256
             upload/SHA256SUMS
             upload/CHANGELOG.md
           if-no-files-found: error
           retention-days: 14
 
-      - name: Remove temporary TLS keys
-        if: always()
-        run: |
-          rm -rf -- deps /tmp/VexSign/tls-pin /tmp/VexSign/tls-release
-          rm -rf -- "${RUNNER_TEMP}/VexSign/tls-pin" "${RUNNER_TEMP}/VexSign/tls-release"
 
   publish:
     needs: build
@@ -451,7 +411,6 @@ jobs:
           body_path: upload/CHANGELOG.md
           files: |
             upload/*.ipa
-            upload/release-tls-pin.sha256
             upload/SHA256SUMS
           fail_on_unmatched_files: true
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft == true }}

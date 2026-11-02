@@ -247,24 +247,20 @@ Use macOS with **Xcode 26 or later** and the iOS SDK. The app targets iOS 16+ us
 ```bash
 git clone --recursive https://github.com/raynmahbub/VexSign.git
 cd VexSign
-make deps
 open VexSign.xcworkspace
 ```
 
-`make deps` needs no network: it generates a self-signed **development** identity for the
-local install server (certificate, key and hostname in `deps/`) with `openssl`, and keeps that
-identity on later builds so a profile you trusted once keeps working. Devices must trust its
-Root CA before HTTPS installs succeed — **Settings → Installation → Server & SSL → Export Root
-CA Profile**, then enable full trust in *Settings → General → About → Certificate Trust
-Settings*. Release builds do not use it:
+The local install server creates its own device-specific identity on first use,
+without fetching a certificate pack or shipping shared private keys. Export and
+trust its Root CA profile under **Settings → Installation → Server & SSL**, then
+turn on Full Trust in system Settings. The CA persists in the device-only Keychain
+across app updates; routine server-certificate renewal keeps that CA unchanged.
+Users migrating from an older shared identity must trust the new CA once.
 
-```bash
-make deps-pin       # once (and after a deliberate rotation): fetch the published identity,
-                    # print its digest and rewrite Scripts/local-tls/pinned-pack.sha256
-make deps-release   # fetch + verify that digest before packaging; fails loudly on a mismatch
-```
-
-> **Release:** run the Release workflow to publish; check `build_only` for testing instead. A one-time approved TLS digest (committed pin or `RELEASE_TLS_SHA256` in the protected `release` environment) is required. Subsequent runs verify it automatically and fail on changes. See the [release guide](docs/RELEASING.md).
+> **Release:** run the Release workflow to publish; check `build_only` for testing.
+> No TLS endpoint or pin setup is required. See the [release guide](docs/RELEASING.md)
+> for environment protections and device-testing requirements. Semi Local still
+> uses a remote manifest service.
 
 Select the VexSign scheme and configure your development team in Xcode. To create the unsigned IPA using the repository’s build recipe:
 

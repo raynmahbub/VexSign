@@ -207,60 +207,6 @@ enum FR {
 		HeartbeatManager.shared.start(true)
 	}
 	
-	/// Fetches the project's published certificate for the local install server and,
-	/// if it validates, replaces the identity on this device.
-	///
-	/// The order matters: everything is checked *before* anything is written, so a bad
-	/// or truncated download cannot leave the device without a working identity. The
-	/// caller is expected to have explained what this does — it swaps the identity the
-	/// server presents, which means the Root CA profile may have to be re-trusted.
-	static func downloadSSLCertificates(
-		from urlString: String,
-		completion: @escaping (Result<LocalTLSIdentity.Summary, Error>) -> Void
-	) {
-		let generator = UINotificationFeedbackGenerator()
-		generator.prepare()
-
-		NBFetchService().fetch(from: urlString) { (result: Result<ServerView.ServerPackModel, Error>) in
-			guard case .success(let pack) = result else {
-				completion(.failure(NSError(
-					domain: "VexSign",
-					code: 7,
-					userInfo: [NSLocalizedDescriptionKey: String.localized("Could not reach the certificate server. Check your connection and try again.")]
-				)))
-				return
-			}
-
-			// `cert` is the leaf, `ca` the issuer: the order `LocalCAProfile` relies on.
-			let certificate = [pack.cert, pack.ca].joined(separator: "\n")
-
-			do {
-				try LocalTLSIdentity.validate(
-					pem: pack.key,
-					cert: certificate,
-					commonName: pack.info.domains.commonName
-				)
-
-				try FileManager.forceWrite(content: pack.key, to: "server.pem")
-				try FileManager.forceWrite(content: certificate, to: "server.crt")
-				try FileManager.forceWrite(content: pack.info.domains.commonName, to: "commonName.txt")
-
-				generator.notificationOccurred(.success)
-				guard let summary = LocalTLSIdentity.current() else {
-					completion(.failure(NSError(
-						domain: "VexSign",
-						code: 8,
-						userInfo: [NSLocalizedDescriptionKey: String.localized("The identity was written but could not be read back. Try again.")]
-					)))
-					return
-				}
-				completion(.success(summary))
-			} catch {
-				completion(.failure(error))
-			}
-		}
-	}
-	
 	// MARK: - Premium repository API key wiring
 
 	/// Registers the app-wide repository fetch key provider and loads the effective key.

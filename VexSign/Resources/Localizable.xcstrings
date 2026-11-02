@@ -95994,6 +95994,105 @@
           }
         }
       }
+    },
+    "Check Local HTTPS Identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Local HTTPS Identity"
+          }
+        }
+      }
+    },
+    "Create a New Local CA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a New Local CA"
+          }
+        }
+      }
+    },
+    "Create a New Local CA?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a New Local CA?"
+          }
+        }
+      }
+    },
+    "Device-local identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device-local identity"
+          }
+        }
+      }
+    },
+    "Finish active installations first. This explicitly replaces this device's CA. You must export, install and trust its new profile; the previous profile will no longer authorize this server. Normal certificate renewal does not require this." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish active installations first. This explicitly replaces this device's CA. You must export, install and trust its new profile; the previous profile will no longer authorize this server. Normal certificate renewal does not require this."
+          }
+        }
+      }
+    },
+    "Fully Local uses this device's own HTTPS identity and loopback address. No certificate server is needed. Semi Local still requires an online manifest service." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fully Local uses this device's own HTTPS identity and loopback address. No certificate server is needed. Semi Local still requires an online manifest service."
+          }
+        }
+      }
+    },
+    "Install the exported Root CA profile, then enable Full Trust under Settings → General → About → Certificate Trust Settings. Your CA stays on this device across app updates; server certificates renew locally without changing that CA. Restoring to another device or changing signing identity may require new trust." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install the exported Root CA profile, then enable Full Trust under Settings → General → About → Certificate Trust Settings. Your CA stays on this device across app updates; server certificates renew locally without changing that CA. Restoring to another device or changing signing identity may require new trust."
+          }
+        }
+      }
+    },
+    "Replace CA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace CA"
+          }
+        }
+      }
+    },
+    "The local CA profile could not be exported. Nothing was downloaded or replaced." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The local CA profile could not be exported. Nothing was downloaded or replaced."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

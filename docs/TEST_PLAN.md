@@ -131,7 +131,7 @@ wired without this plan being updated — treat that as a defect.
 
 | Blocker | Owner | Effect |
 |---|---|---|
-| `make deps-pin` has not been run | maintainer | Release CI stays red; `deps/` is absent in a clean checkout |
+| Device-local TLS migration | device tester | Export/trust the device CA; verify offline install, persistence across updates, CA-preserving renewal and explicit rotation. Native/device validation is still required. |
 | `Zsign/`, `IDeviceKitten/` submodules empty | submodule init | Engine-dependent tests and any signing path cannot build |
 | second half | engine API | Per-extension profiles need a `SignFolder` that takes more than one asset; the pinned engine does not |
 | chain check | `SecTrust` + a captured live response | Revocation evidence stops at "signed by the responder" |
@@ -144,3 +144,24 @@ wired without this plan being updated — treat that as a defect.
 3. For a device-only failure, capture the log from Settings → Logs first: redaction means it
    is safe to share, and the category (`download`, `install`, `antirevoke`, `backup`, `tweaks`)
    usually says which subsystem to look at.
+
+## Device-local install-server TLS migration
+
+- Native suite: `DeviceTLSIdentityTests` must pass on the simulator (Security.framework
+  signature/hostname checks, unique keys, CA-preserving renewal, serialization and DER).
+  These tests generate throwaway identities and do not modify the app's Keychain.
+- Fresh device: export/install its Root CA profile, enable Full Trust, then perform
+  a Fully Local install with network access disabled. The server binds loopback.
+- App update/relaunch: verify the same root fingerprint is used and no new trust
+  prompt/profile is needed when the signing/Keychain access identity is unchanged.
+- Renewal: exercise the less-than-seven-days renewal branch in a native test build;
+  the CA must remain identical and the server certificate/key must change.
+- Locked/corrupt Keychain: show an error without falling back to shared/bundled keys
+  or generating a replacement CA. Do not corrupt a real user's Keychain for testing.
+- Explicit rotation: finish installs first, confirm Create a New Local CA, install
+  and trust the new profile, verify the old CA no longer authorizes the new server.
+- Migrating older installs: the shared downloaded/bundled identity is not reused.
+  One-time trust of this device's CA is expected. Semi Local still needs its remote
+  manifest service and is not an offline fallback.
+
+None of these device checks is implied by passing Linux repository checks.

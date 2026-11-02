@@ -2,17 +2,9 @@
 #
 # make-dev-identity.sh — build the local install server a TLS identity, offline.
 #
-# `make deps` used to curl a mutable endpoint for the private key that ends
-# up in every build. That is gone. The default build now mints its own identity
-# here, with openssl and no network: a development Root CA plus a leaf, in the
-# shape the app expects (leaf first, CA last in server.crt; key in server.pem;
-# the host the local server binds to in commonName.txt).
-#
-# This is a *development* identity. The device has to trust the CA it exports
-# (Settings → Installation → Server & SSL → Export Root CA Profile) before
-# itms-services will accept an HTTPS manifest from it. A release build uses
-# `make deps-release` instead, which fetches the project's published identity and
-# refuses it unless it matches the pinned digest (see docs/RELEASING.md).
+# Standalone offline fixture generator for development experiments. Not invoked
+# by application builds or releases, and its outputs must never be bundled.
+# Production identities are created on each device by DeviceTLSIdentity.swift.
 #
 # Written against the openssl that macOS actually ships (LibreSSL), so it uses a
 # config file rather than `-addext`, which LibreSSL does not have everywhere.
@@ -152,5 +144,5 @@ say "  leaf expires: $expires"
 say "  digest      : sha256:$digest"
 say "  files       : $OUT_DIR/server.crt, $OUT_DIR/server.pem, $OUT_DIR/commonName.txt, $OUT_DIR/tls-identity.txt"
 say "  trust       : Settings → Installation → Server & SSL → Export Root CA Profile, then enable full trust"
-say "  release     : use 'make deps-release' with a pinned digest instead (docs/RELEASING.md)"
+say "  release     : identities are generated on each device; do not bundle these files"
 say ""
