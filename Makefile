@@ -6,25 +6,7 @@ SCHEMES := VexSign
 TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
-# --- Local install server TLS identity --------------------------------------
-#
-# The local server serves itms-services over HTTPS, so every build needs a
-# certificate and key in deps/. There are two ways to get one, and a build must
-# never end up with neither:
-#
-#   make            -> deps: reuse deps/, else GENERATE a development identity
-#                           locally and offline (Scripts/local-tls)
-#   make deps-release -> fetch the published pack and verify its digest against
-#                           Scripts/local-tls/pinned-pack.sha256; mismatches and
-#                           network failures stop the build
-#
-# `make deps-pin` writes that digest. See docs/RELEASING.md.
-CERT_PACK_URL ?= https://vexsign-install.vexsign.workers.dev/pack.json
-LOCAL_TLS := Scripts/local-tls
-PIN_FILE := $(LOCAL_TLS)/pinned-pack.sha256
-PINNED_SHA := $(shell sed -n 's/^sha256:\([0-9a-f]\{64\}\)$$/\1/p' $(PIN_FILE) 2>/dev/null | tail -1)
-
-.PHONY: all deps deps-dev deps-release deps-pin clean test verify lint deploy-server strict-concurrency $(SCHEMES)
+.PHONY: all clean test verify lint deploy-server strict-concurrency $(SCHEMES)
 
 all: $(SCHEMES)
 
@@ -33,64 +15,8 @@ clean:
 	rm -rf packages
 	rm -rf Payload
 
-# Offline and idempotent: an identity that is already in deps/ is kept, so a
-# tester's trusted CA profile does not go stale on the next incremental build.
-deps:
-	@if [ -f deps/server.crt ] && [ -f deps/server.pem ] && [ -f deps/commonName.txt ]; then \
-		echo "deps: using the TLS identity already in deps/"; \
-		if command -v openssl >/dev/null 2>&1 && \
-		   ! openssl x509 -in deps/server.crt -noout -checkend 86400 >/dev/null 2>&1; then \
-			echo "warning: the bundled TLS certificate expires within a day."; \
-			echo "         Run 'make deps-release' (pinned) or 'make deps-dev' to replace it."; \
-		fi; \
-	else \
-		echo "deps: no TLS identity in deps/ — generating a development identity offline"; \
-		sh $(LOCAL_TLS)/make-dev-identity.sh deps || exit 1; \
-	fi
-
-# Always regenerate: a fresh development identity, for when the trusted one is stale.
-deps-dev:
-	@rm -f deps/server.crt deps/server.pem deps/commonName.txt deps/tls-identity.txt
-	@sh $(LOCAL_TLS)/make-dev-identity.sh deps
-
-# The release path. Fails loudly, by design, when the identity cannot be fetched or
-# is not the one that was reviewed — silently shipping a different key is worse.
-deps-release:
-	@if [ -z "$(PINNED_SHA)" ]; then \
-		echo ""; \
-		echo "error: no pinned digest in $(PIN_FILE)."; \
-		echo "       Run 'make deps-pin' once, review the change and commit it (docs/RELEASING.md)."; \
-		echo "       Release builds must not ship an identity nobody reviewed."; \
-		exit 1; \
-	fi
-	@mkdir -p "$(TMP)"
-	@CERT_PACK_URL="$(CERT_PACK_URL)" sh $(LOCAL_TLS)/fetch-release-identity.sh "$(TMP)/tls-release" || exit 1
-	@python3 $(LOCAL_TLS)/pack_digest.py --verify "$(TMP)/tls-release" "$(PINNED_SHA)" || exit 1
-	@rm -rf deps && mkdir -p deps && cp "$(TMP)/tls-release"/* deps/ && chmod 600 deps/server.pem
-	@echo "deps: release TLS identity installed from $(CERT_PACK_URL)"
-
-# Fetches the pack, prints its digest and rewrites the pin file. The diff is the review.
-deps-pin:
-	@mkdir -p "$(TMP)"
-	@CERT_PACK_URL="$(CERT_PACK_URL)" sh $(LOCAL_TLS)/fetch-release-identity.sh "$(TMP)/tls-pin" || exit 1
-	@digest="$$(python3 $(LOCAL_TLS)/pack_digest.py "$(TMP)/tls-pin")" || exit 1; \
-	{ \
-		echo "# Pinned release TLS identity for the local install server."; \
-		echo "#"; \
-		echo "# 'make deps-release' fetches the pack and refuses to build unless the digest"; \
-		echo "# matches the single sha256 line below. Regenerate with 'make deps-pin' and"; \
-		echo "# review the diff: a changed digest means every IPA from this commit ships a"; \
-		echo "# different key, and every installed Root CA profile may need re-trusting."; \
-		echo "#"; \
-		echo "# source = $(CERT_PACK_URL)"; \
-		echo "# cn     = $$(cat "$(TMP)/tls-pin/commonName.txt")"; \
-		echo "# pinned = $$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
-		echo "sha256:$$digest"; \
-	} > $(PIN_FILE); \
-	echo "pinned: sha256:$$digest"; \
-	echo "review $(PIN_FILE) and commit it — that diff is the decision."
-
-$(SCHEMES): deps
+# Install-server TLS is generated and persisted on each device, not in an IPA.
+$(SCHEMES):
 	xcodebuild \
 	    -project VexSign.xcodeproj \
 	    -scheme "$@" \
@@ -111,7 +37,6 @@ $(SCHEMES): deps
 	chmod -R 0755 "$(STAGE)/Payload/$@.app"
 	codesign --force --sign - --timestamp=none "$(STAGE)/Payload/$@.app"
 
-	cp deps/* "$(STAGE)/Payload/$@.app/" || true
 
 	rm -rf "$(STAGE)/Payload/$@.app/_CodeSignature"
 	ln -sf "$(STAGE)/Payload" Payload

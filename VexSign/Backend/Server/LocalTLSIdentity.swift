@@ -4,19 +4,9 @@
 //
 //  The identity the local install server serves HTTPS with (see docs/AUDIT_2026-10-31.md).
 //
-//  Three files: `server.crt` (leaf first, CA last), `server.pem` (leaf key) and
-//  `commonName.txt` (the host the server binds to). They come from one of two places:
-//
-//  - the app bundle, put there by `make deps` (a development identity generated
-//    locally, or the project's release identity fetched and digest-verified by
-//    `make deps-release`), or
-//  - Documents, written by "Update SSL Certificates" when the user asks for a new
-//    identity from the project's certificate server.
-//
-//  What this type is for: saying out loud which identity is in use, and refusing
-//  fetched material that could not possibly work before it replaces anything.
-//  Whether the material is usable at all is still `ServerInstaller.tls()`'s call —
-//  it is the one that has to load it into NIOSSL.
+//  Current identities are generated locally by DeviceTLSIdentity and cached in
+//  protected Application Support for NIOSSL. No bundle/download fallback is used.
+//  Digest/PEM helpers remain useful for diagnostics and certificate parsing tests.
 //
 
 import CryptoKit
@@ -29,7 +19,7 @@ enum LocalTLSIdentity {
 
 	/// Where the identity on disk came from.
 	enum Source: String {
-		/// Documents: downloaded on request, replaces the bundled identity.
+		/// The device-specific identity cached from the Keychain.
 		case installed
 		/// The app bundle: whatever the build produced.
 		case bundled
@@ -37,7 +27,7 @@ enum LocalTLSIdentity {
 		var title: String {
 			switch self {
 			case .installed:
-				.localized("Downloaded identity")
+				.localized("Device-local identity")
 			case .bundled:
 				.localized("Bundled identity")
 			}
@@ -283,7 +273,7 @@ enum LocalTLSIdentity {
 			return nil
 		}
 
-		let source: Source = certURL.path.contains("/Documents/") ? .installed : .bundled
+		let source: Source = .installed
 		let marker = source == .bundled ? bundledMarker() : nil
 
 		return Summary(

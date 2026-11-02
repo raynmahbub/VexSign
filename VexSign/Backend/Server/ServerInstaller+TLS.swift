@@ -45,7 +45,7 @@ extension ServerInstaller {
 
 		app.http.server.configuration.hostname = sni()
 		app.http.server.configuration.tcpNoDelay = true
-		app.http.server.configuration.address = .hostname("0.0.0.0", port: port)
+		app.http.server.configuration.address = .hostname(getServerMethod() == 1 ? "0.0.0.0" : "127.0.0.1", port: port)
 		app.http.server.configuration.port = port
 		app.routes.defaultMaxBodySize = "128mb"
 		app.routes.caseInsensitive = false
@@ -67,6 +67,7 @@ extension ServerInstaller {
 	}
 	
 	func tls() throws -> TLSConfiguration? {
+        try DeviceTLSIdentity.ensure()
 		guard
 			let crt = Self.getUrl("server", ext: "crt"),
 			let pem = Self.getUrl("server", ext: "pem")
@@ -120,22 +121,16 @@ extension ServerInstaller {
 
 extension ServerInstaller {
 	static func getUrl(_ name: String, ext: String) -> URL? {
-		let fileManager = FileManager.default
+        guard ["server.crt", "server.pem", "commonName.txt"].contains("\(name).\(ext)") else { return nil }
+        do { try DeviceTLSIdentity.ensure() }
+        catch {
+            FileLogger.error("Device TLS identity unavailable: \(error.localizedDescription)", category: "install")
+            return nil
+        }
+        let url = DeviceTLSIdentity.directory.appendingPathComponent("\(name).\(ext)")
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
 
-		let documentsURL = URL.documentsDirectory.appendingPathComponent("\(name).\(ext)")
-		let bundlesURL = Bundle.main.url(forResource: name, withExtension: ext)
-
-		if fileManager.fileExists(atPath: documentsURL.path) {
-			return documentsURL
-		}
-
-		if let bundlesURL, fileManager.fileExists(atPath: bundlesURL.path) {
-			return bundlesURL
-		}
-
-		return nil
-	}
-	
 	static func resolve(_ host: String) -> [String] {
 		var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM,
 							 ai_protocol: 0, ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)

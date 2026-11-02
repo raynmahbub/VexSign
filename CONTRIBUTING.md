@@ -31,16 +31,10 @@ Any contributions should follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
     ```
     - `Zsign` and `IDeviceKitten` are submodules — `--recursive` is required.
 
-2. Create the local-server TLS identity:
-    ```sh
-    cd VexSign && make deps
-    ```
-    - Offline, and no key is downloaded: `deps/` gets a self-signed development identity
-      generated with `openssl`, and it is kept across builds so a CA profile you trusted once
-      stays valid. Trust it on device via *Settings → Installation → Server & SSL → Export Root
-      CA Profile*, then enable full trust in *Certificate Trust Settings*.
-    - Release builds use the published identity with its digest pinned — `make deps-pin` then
-      `make deps-release`; see `docs/RELEASING.md`.
+2. Enter the checkout (`cd VexSign`). No certificate-pack endpoint, TLS pin or
+   build-time identity is needed. The app generates and preserves its own CA on
+   the device. For local HTTPS installs, export/install its CA profile and enable
+   Full Trust. See [release and device trust setup](docs/RELEASING.md).
 
 3. Open with Xcode:
     ```sh

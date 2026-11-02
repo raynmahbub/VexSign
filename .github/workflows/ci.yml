@@ -207,9 +207,8 @@ jobs:
         run: |
           set -uo pipefail
           # Unsigned generic iOS build: no certificates exist on the runner and
-          # none are needed to prove the code compiles. The local install
-          # server's TLS identity lives in deps/ and is only needed by `make`,
-          # not by a plain xcodebuild.
+          # none are needed to prove the code compiles. Install-server TLS is
+          # created on each device, not downloaded or bundled by CI.
           xcodebuild \
             -workspace VexSign.xcworkspace \
             -scheme VexSign \
