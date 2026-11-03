@@ -15,7 +15,7 @@ import OSLog
 @MainActor
 enum WidgetStatusPublisher {
 	/// Rebuilds the payload from live state, stores it and reloads every timeline.
-	static func publish() {
+	static func publish(includeRepository: Bool = true) {
 		let payload = currentPayload()
 
 		guard payload.store() else {
@@ -25,7 +25,7 @@ enum WidgetStatusPublisher {
 
 		// The repository widget keeps its own (heavier) snapshot: its icons have to
 		// be fetched into the app group before the extension can show them.
-		WidgetRepoPublisher.publish()
+		if includeRepository { WidgetRepoPublisher.publish() }
 
 		WidgetCenter.shared.reloadAllTimelines()
 	}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "livecontainer": {
+    "repository": "https://github.com/LiveContainer/LiveContainer.git",
+    "commit": "9108ae624ea001f7d7696d48407f890b48fa2653"
+  },
+  "sidestore": {
+    "repository": "LiveContainer/SideStore",
+    "commit": "ee3cc16a67f9fed766f79a0ed70938f0f8ad5a07",
+    "asset_id": 649969380,
+    "sha256": "f9d2d9af51285dcbdece08c51aadc02e8a2d756da6ca8dfca16724c801ae2fcd",
+    "license_path": "LICENSE"
+  },
+  "dylibify": {
+    "repository": "LiveContainer/dylibify",
+    "commit": "5daf713df9fb07724510490c88aa8e00061be14a",
+    "license_path": "LICENSE.md",
+    "source_sha256": {
+      "main.m": "0c30a8bd4088aa891eb172c5d3a3e185cc9d00572b60c7b29f30e08c6245acd8"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "NativeSigningLinkSmoke",
+    platforms: [.iOS(.v16), .macOS(.v13)],
+    products: [.library(name: "NativeSigningLinkSmoke", type: .dynamic, targets: ["NativeSigningLinkSmoke"])],
+    dependencies: [
+        .package(name: "SideSign", path: "Dependencies/sidesign"),
+        .package(name: "Zsign", path: "Dependencies/zsign-package")
+    ],
+    targets: [.target(name: "NativeSigningLinkSmoke", dependencies: [
+        .product(name: "SideSign", package: "SideSign"),
+        .product(name: "ZsignSwift", package: "Zsign")
+    ]), .testTarget(name: "NativeSigningCodecTests", dependencies: [
+        .target(name: "NativeSigningLinkSmoke"),
+        .product(name: "SideSign", package: "SideSign")
+    ])],
+    swiftLanguageModes: [.v6]
+)

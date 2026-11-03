@@ -1,6 +1,6 @@
 //
 //  TabBarSettingsView.swift
-//  VexSign — six fixed primary tabs + customizable legacy tabs
+//  VexSign — five fixed primary tabs + customizable legacy tabs
 //
 
 import SwiftUI
@@ -12,7 +12,7 @@ struct TabBarSettingsView: View {
 
     var body: some View {
         NBList(.localized("Tab Bar"), type: .list) {
-            // Live preview — Files·Library·Home·App Store·Downloads·Settings
+            // Live preview of the resolved defaults and optional destinations
             NBSection(.localized("Preview")) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
@@ -63,7 +63,7 @@ struct TabBarSettingsView: View {
                     }
                 }
             } footer: {
-                Text(.localized("Files, Library, Home, App Store, Downloads and Settings are the app's fixed navigation structure. They are always visible, in this order, and cannot be hidden or reordered."))
+                Text(.localized("Library, Home, App Store, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26."))
             }
 
             NBSection(.localized("Legacy Tabs"), systemName: "square.stack.3d.up.fill") {
@@ -80,7 +80,7 @@ struct TabBarSettingsView: View {
                     _prefs.moveSecondary(from: source, to: destination)
                 }
             } footer: {
-                Text(.localized("Optional destinations carried over from older versions. Show, hide and reorder them freely — they appear after the six primary tabs."))
+                Text(.localized("Optional destinations carried over from older versions. Show, hide and reorder them freely — they appear after the five primary tabs."))
             }
         }
         .toolbar {

@@ -44,7 +44,7 @@ VexSign brings signing, IPA editing, repository discovery and device utilities i
 - **Appearance controls:** live preview, custom accent colors, theme-accent reset, confirmed workspace reset and app-icon preferences.
 - **Accessible layout:** system typography by default, Dynamic Type, monospaced technical text and counts, adaptive action groups, shared spacing and Reduce Motion support.
 - **Organized Settings:** Setup Health first, followed by signing, sources, automation, appearance, security, storage, companions and advanced tools; About and support stay at the bottom. Search preserves access to existing destinations.
-- **Six primary tabs:** Files, Library, Home, App Store, Downloads and Settings, with launch-tab preferences.
+- **Five organized tabs:** Library (Apps + Files), Home, App Store (catalog + sources), Activity (Downloads + Tasks + Logs) and Settings. Native SwiftUI tabs provide iOS 26 Liquid Glass and an iPad sidebar. Optional standalone destinations and launch-tab preferences remain available.
 
 ### 📚 Library & app management
 
@@ -335,3 +335,14 @@ Want to contribute? Read [Contributing](CONTRIBUTING.md) and the [Code of Conduc
 <sub>VexSign is not affiliated with Apple Inc. Sideloading may conflict with Apple Developer Program terms; use at your own risk.</sub>
 
 </div>
+
+### Experimental guest-host prototype
+
+A separate upstream-derived host build now includes the real LiveContainer runtime,
+SideStore support/framework conversion and a bundled VexSign guest. It is not an
+external-app URL launcher. Native archive/device validation is still pending; it
+keeps the official host bundle identity and therefore conflicts with stock
+LiveContainer. The normal VexSign IPA/release path remains separate. See
+[build instructions, limits and source obligations](EmbeddedContainer/README.md).
+This prototype is not the final one-app architecture. The implementation target
+is [VexSign as the primary host with native account and certificate services](docs/NATIVE_SIGNING_ARCHITECTURE.md).

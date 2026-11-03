@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "status": "candidate; not promoted or natively compiled",
+  "vapor": {
+    "version": "4.122.3",
+    "revision": "48852309b11230e62a89b41a9c578c93f4d2d916",
+    "crypto_range": "1.0.0..<6.0.0",
+    "manifests": [
+      "Package.swift"
+    ],
+    "reviewed_files": {
+      "Package.swift": "1b1b557fbcd1bfb61399101af52e00da18ca66fcb55e404431d63826379a0736",
+      "Sources/Vapor/Application.swift": "ed3dc76e54899649f96934f024dc690831609c54c1b9c78d65aec1b87a247a0b",
+      "Sources/Vapor/HTTP/Server/HTTPServer.swift": "77ff1c927fc6612427c2ed8a468019fb8079a2573f19b6e80a42c1ae2bf72adc",
+      "Sources/Vapor/Routing/Routes.swift": "a5f7b52fb913bd07572645d26bfe0c625967217066a26c75fa63100b3f70b4cc",
+      "Sources/Vapor/Utilities/ByteCount.swift": "11da00b7ead5ce2f17d63e30f1321506d7ca1037bf7f767dd72104678158d329",
+      "Sources/Vapor/Core/Core.swift": "2c7baf4eaf97b084ee5cdda54d6b07efa9deb5c23b62e24e0f6bf24dad6ca6ee",
+      "Sources/Vapor/Server/Server.swift": "ce79e40898cd99ca92933c5d23c76bc644d7eb5d8ae59909395d980bbfade496"
+    }
+  },
+  "required_pins": {
+    "vapor": {
+      "version": "4.122.3",
+      "revision": "48852309b11230e62a89b41a9c578c93f4d2d916"
+    },
+    "swift-crypto": {
+      "version": "4.3.1",
+      "revision": "bb4ba815dab96d4edc1e0b86d7b9acf9ff973a84"
+    },
+    "swift-asn1": {
+      "version": "1.6.0",
+      "revision": "9f542610331815e29cc3821d3b6f488db8715517"
+    },
+    "swift-nio": {
+      "revision": "5e72fc102906ebe75a3487595a653e6f43725552",
+      "version": "2.94.0"
+    },
+    "swift-nio-ssl": {
+      "revision": "173cc69a058623525a58ae6710e2f5727c663793",
+      "version": "2.36.0"
+    }
+  },
+  "app_baseline_sha256": "3d046596d37d3f29f83183b423ab26fb242181dbd239bc34d69fea02fc20de68"
+}

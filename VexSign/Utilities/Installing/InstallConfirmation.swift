@@ -197,7 +197,7 @@ extension InstallConfirmation.Verdict {
 				arguments: version ?? .localized("unknown")
 			)
 		case .notInstalled:
-			.localized("iOS did not keep the app. The install was rolled back — usually a signing certificate or provisioning profile the device rejects. Sign again with a valid certificate and retry.")
+			.localized("The installation could not be confirmed: iOS did not report the expected app after the install attempt. A rejected signing certificate, incompatible profile or bundle, or an unavailable installation-status check can cause this. Review the task report and device installation logs before signing again.")
 		case .timedOutWaiting:
 			.localized("The install never started. iOS may not have shown its prompt — retry and keep VexSign in the foreground.")
 		case .timedOutVerifying:

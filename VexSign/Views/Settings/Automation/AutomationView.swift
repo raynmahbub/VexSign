@@ -30,6 +30,12 @@ struct AutomationView: View {
 	// MARK: Body
 	var body: some View {
 		NBList(.localized("Automation")) {
+            if !EmbeddedContainerRuntime.supportsScheduledGuestTasks {
+                Section {
+                    Text(.localized("Scheduled VexSign background tasks are unavailable in the container build. Use manual foreground automation. Configure SideStore renewal separately inside the embedded SideStore app."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
 			_enabledSection
 			_policySection
             Section {

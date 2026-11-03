@@ -10,6 +10,8 @@ import NimbleExtensions
 import UniformTypeIdentifiers
 
 struct DownloadsTabView: View {
+    /// False when embedded in a workspace or pushed from another navigation stack.
+    var ownsNavigationStack: Bool = true
     @StateObject private var downloadManager = DownloadManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var filter: Filter = .all
@@ -59,7 +61,7 @@ struct DownloadsTabView: View {
 
     var body: some View {
         // ONE navigation bar — NBNavigationView is the only NavigationStack in this tab
-        NBNavigationView(.localized("Downloads"), displayMode: .large) {
+        NBNavigationView(.localized("Downloads"), displayMode: .large, ownsNavigationStack: ownsNavigationStack) {
             List {
                 header
                 filterPills

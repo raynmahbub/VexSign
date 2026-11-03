@@ -188,13 +188,13 @@ extension ServerInstaller {
 		var errorDescription: String? {
 			switch self {
 			case .missingTLS:
-				return .localized("Fully Local requires SSL certificates. Go to Settings → Installation → Update SSL Certificates, then retry.")
+				return .localized("The device-local HTTPS identity is unavailable. Open Settings → Installation → Server & SSL, check the local identity, then export and trust its Root CA profile.")
 			case .invalidHostname:
-				return .localized("The local SSL hostname is missing or invalid. Update SSL Certificates in Settings → Installation.")
+				return .localized("The local HTTPS hostname is missing or invalid. Check the device identity in Settings → Installation → Server & SSL.")
 			case .unreachable:
 				return .localized("The local HTTPS server did not respond successfully.")
 			case .unavailable(let error):
-				return .localized("Fully Local could not start. Update SSL Certificates in Settings → Installation and check that your DNS/VPN allows the certificate hostname to reach this device. You can also retry with Semi Local (localhost); this uses an online manifest service, but the IPA stays on your device.")
+				return .localized("Fully Local could not verify the local HTTPS connection. In Settings → Installation → Server & SSL, export the Root CA profile and install it in system Settings. Then enable Full Trust under General → About → Certificate Trust Settings and retry. Do not replace the CA for a trust-only error. Semi Local is an optional online manifest-service fallback; the IPA stays on your device.")
 					+ "\n\n" + error.localizedDescription
 			}
 		}

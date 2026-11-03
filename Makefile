@@ -90,6 +90,10 @@ verify:
 	@python3 tools/concurrency-discipline.py
 	@echo "== workflow trigger policy =="
 	@python3 tools/test_workflow_policy.py
+	@echo "== embedded-container packaging =="
+	@python3 -m unittest discover -s EmbeddedContainer/tests -v
+	@echo "== native-signing preparation =="
+	@python3 -m unittest discover -s NativeSigning/tests -v
 
 # Style, on demand. Nothing in CI runs SwiftLint any more: the auto-fix commits
 # it pushed onto pull requests were noise at best (see docs/STABILIZATION_BASELINE.md).

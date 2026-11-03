@@ -76,8 +76,7 @@ class AppNavigationManager: ObservableObject {
 
     /// Opens the IPA Explorer home screen from anywhere (Shortcut / automation).
     func openIPAExplorer() {
-        TabSelectionObserver.shared.selectedTab = .library
-        NotificationCenter.default.post(name: .openIPAExplorer, object: nil)
+        TabSelectionObserver.shared.requestIPAExplorer()
     }
 }
 

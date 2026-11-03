@@ -14,6 +14,8 @@ import NimbleViews
 import NimbleExtensions
 
 struct TaskCenterView: View {
+    /// False when embedded in a workspace or pushed from another navigation stack.
+    var ownsNavigationStack: Bool = false
 	@ObservedObject private var center = UnifiedTaskCenter.shared
 	@State private var filter: TaskFilter = .active
     @State private var confirmClear = false
@@ -54,7 +56,7 @@ struct TaskCenterView: View {
     }
 
 	var body: some View {
-		NBNavigationView(.localized("Task Center"), displayMode: .inline) {
+		NBNavigationView(.localized("Task Center"), displayMode: .inline, ownsNavigationStack: ownsNavigationStack) {
 			List {
 				Section {
 					Picker(.localized("Show"), selection: $filter) {

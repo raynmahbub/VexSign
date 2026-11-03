@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "status": "source reviewed; implementation uncompiled/unrun; default verifier remains unavailable; no normal-app promotion",
+  "policy_source": {
+    "repository": "apple-oss-distributions/Security",
+    "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+    "path": "OSX/sec/Security/SecPolicy.c",
+    "sha256": "0bf1331ed6f076a3711f5c0e067eba02604d3fdcdbe576881027e82bc1771b45",
+    "function": "SecPolicyCreateiPhoneProvisioningProfileSigning",
+    "requirements": [
+      "three-certificate Apple-anchored chain",
+      "exact leaf and issuer common names",
+      "no networked revocation checks"
+    ]
+  },
+  "implementation_scope": [
+    "DER CMS SignedData v1, one issuer/serial signer",
+    "SHA256 payload digest and signed-attribute RSA PKCS1 v1.5 verification",
+    "public Security BasicX509 trust at supplied current time; no signingTime backdating",
+    "network fetch disabled, system trusted chain only, reject user trust overrides",
+    "exact chain length, purpose names and pinned production Apple root hash",
+    "unsupported BER/SHA1/ECDSA/detached/multi-signer rejected; not full CMS compatibility",
+    "no positive real Apple CMS fixture or native validation yet"
+  ],
+  "root_sources": [
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/shared_regressions/si-20-sectrust-policies-data/AppleRootCA.cer",
+      "sha256": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024"
+    },
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/shared_regressions/si-20-sectrust-policies-data/AppleRootG2.cer",
+      "sha256": "c2b9b042dd57830e7d117dac55ac8ae19407d38e41d88f3215bc3a890444a050"
+    },
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/shared_regressions/si-20-sectrust-policies-data/AppleRootG3.cer",
+      "sha256": "63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179"
+    }
+  ]
+}

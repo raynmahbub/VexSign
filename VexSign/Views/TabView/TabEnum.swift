@@ -1,6 +1,6 @@
 //
 //  TabEnum.swift
-//  VexSign — Files · Library · Home · App Store · Downloads · Settings
+//  VexSign — Library · Home · App Store · Downloads · Settings
 //  App Store merges Sources; single navigation bar per tab; Logs moved to Settings.
 //
 import SwiftUI
@@ -8,7 +8,7 @@ import NimbleViews
 import NimbleExtensions
 
 enum TabEnum: String, CaseIterable, Hashable, Codable {
-    // Primary 6 — requested order
+    // Main destinations (Files is optional)
     case files
     case library
     case home
@@ -27,7 +27,7 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
         case .library:      return .localized("Library")
         case .home:         return .localized("Home")
         case .appStore:     return .localized("App Store")
-        case .downloads:    return .localized("Downloads")
+        case .downloads:    return .localized("Activity")
         case .settings:     return .localized("Settings")
         // legacy titles (still localized if user has them hidden)
         case .sources:      return .localized("Sources")
@@ -71,10 +71,10 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
     static func view(for tab: TabEnum) -> some View {
         switch tab {
         case .files:        FilesTabView()
-        case .library:      LibraryView()
+        case .library:      LibraryWorkspaceView()
         case .home:         HomeView()
         case .appStore:     AppStoreView()
-        case .downloads:    DownloadsTabView()
+        case .downloads:    ActivityWorkspaceView()
         case .settings:     SettingsView()
         // legacy destinations retained for deep links and data migration
         case .sources:      SourcesView()
@@ -84,15 +84,15 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
         }
     }
 
-    /// Requested order: Files, Library, Home, App Store, Downloads, Settings
+    /// Five defaults, including Home; Files remains available as an optional tab.
     static var defaultTabs: [TabEnum] {
-        [.files, .library, .home, .appStore, .downloads, .settings]
+        [.library, .home, .appStore, .downloads, .settings]
     }
 
     /// Legacy/secondary destinations: the only customizable tabs. They appear
-    /// after the six primary tabs when the user surfaces them in
+    /// after the five primary tabs when the user surfaces them in
     /// Settings → Tab Bar (deep links and migration also rely on this list).
     static var customizableTabs: [TabEnum] {
-        [.sources, .logs, .tweaks, .certificates]
+        [.files, .sources, .logs, .tweaks, .certificates]
     }
 }

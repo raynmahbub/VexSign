@@ -300,19 +300,11 @@ final class WebManagerServer {
 
 	private func _setup() throws -> Application {
 		// Reuse ServerInstaller.env — a second LoggingSystem bootstrap would crash.
-		let app = Application(ServerInstaller.env)
-		app.threadPool = .init(numberOfThreads: 2)
-		app.http.server.configuration.hostname = bindHost
-		app.http.server.configuration.tcpNoDelay = true
-		app.http.server.configuration.address = .hostname(bindHost, port: port)
-		app.http.server.configuration.port = port
-		// Collected bodies only. Uploads, `/api/sign` and WebDAV PUTs use
-		// `body: .stream` and go straight to disk, while `POST /api/certs` collects a
-		// multipart p12 + profile - a 2 GB default let that endpoint allocate
-		// gigabytes from one request.
-		app.routes.defaultMaxBodySize = "32mb"
-		app.routes.caseInsensitive = true
-		return app
+		// Reuse the same bootstrap and shared server configuration path. Streaming
+		// uploads still bypass this collected-body cap, as before.
+		return ServerApplicationFactory.make(environment: ServerInstaller.env, threads: 2,
+			hostname: bindHost, bindHost: bindHost, port: port, transport: .http,
+			bodyLimit: "32mb", caseInsensitive: true)
 	}
 
 	// MARK: Shared helpers (used by +HTTP and +WebDAV)

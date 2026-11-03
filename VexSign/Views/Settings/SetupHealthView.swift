@@ -196,7 +196,8 @@ struct SetupHealthView: View {
             trollStoreDetected: ["apple-magnifier://", "trollstore://"].contains { scheme in
                 guard let url = URL(string: scheme) else { return false }
                 return UIApplication.shared.canOpenURL(url)
-            }
+            },
+            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted()
         )
     }
 }

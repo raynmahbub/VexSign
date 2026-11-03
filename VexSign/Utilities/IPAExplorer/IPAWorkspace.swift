@@ -483,7 +483,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 	}
 
 	private static func unzip(_ archive: URL, to destination: URL) async throws {
-		try ArchiveSafetyValidator.validate(archive)
+		try ArchiveSafetyValidator.validate(archive, destination: destination)
 		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
 			DispatchQueue.global(qos: .userInitiated).async {
 				do {

@@ -4,3 +4,5 @@
 
 #include "MachOUtils.h"
 #include "iconPoc.h"
+
+#import "../Backend/Companion/EmbeddedContainerRuntime.h"

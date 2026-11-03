@@ -44,7 +44,7 @@ struct ArchiveSafetyValidator {
     private static let maxEntries = 50_000
     private static let maxUncompressedBytes: UInt64 = 8 * 1024 * 1024 * 1024
 
-    static func validate(_ archiveURL: URL) throws {
+    static func validate(_ archiveURL: URL, destination: URL? = nil) throws {
         let archive: Archive
         do {
             archive = try Archive(url: archiveURL, accessMode: .read)
@@ -52,7 +52,7 @@ struct ArchiveSafetyValidator {
             throw ValidationError.unreadable
         }
 
-        let root = archiveURL.deletingLastPathComponent()
+        let root = destination ?? archiveURL.deletingLastPathComponent()
         var entryCount = 0
         var uncompressedBytes: UInt64 = 0
 
@@ -93,9 +93,19 @@ struct ArchiveSafetyValidator {
         let base = root.resolvingSymlinksInPath().standardizedFileURL
         let destination = base.appendingPathComponent(relativePath)
             .resolvingSymlinksInPath().standardizedFileURL
-        let baseComponents = base.pathComponents
-        let destinationComponents = destination.pathComponents
-        guard destinationComponents.starts(with: baseComponents) else {
+        let path = relativePath.replacingOccurrences(of: "\\", with: "/")
+        let parts = path.split(separator: "/", omittingEmptySubsequences: true)
+        guard !path.hasPrefix("/"), !path.hasPrefix("~"), !path.contains("\0"),
+              !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.contains(":") }) else {
+            throw ValidationError.traversalPath(relativePath)
+        }
+        // URL.pathComponents can retain a terminal directory marker on Darwin.
+        // Ignore separators consistently on BOTH sides (Payload/ is a directory,
+        // not a traversal), while preserving strict component boundaries.
+        let baseComponents = base.path.split(separator: "/", omittingEmptySubsequences: true)
+        let destinationComponents = destination.path.split(separator: "/", omittingEmptySubsequences: true)
+        guard destinationComponents.count > baseComponents.count,
+              destinationComponents.starts(with: baseComponents) else {
             throw ValidationError.traversalPath(relativePath)
         }
     }
