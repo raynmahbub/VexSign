@@ -90,6 +90,8 @@ verify:
 	@python3 tools/concurrency-discipline.py
 	@echo "== workflow trigger policy =="
 	@python3 tools/test_workflow_policy.py
+	@echo "== distribution metadata =="
+	@python3 tools/distribution-metadata.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="

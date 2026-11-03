@@ -535,3 +535,32 @@ class PreparationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DigestLiteralTests(unittest.TestCase):
+    """Pinned digests must be exactly full length.
+
+    A 65-character transcription of a root CA fingerprint (one extra hex digit)
+    still "contains" the reviewed value for a naive assertion, still looks like a
+    digest in review, and can never match a real certificate - the pin silently
+    rejects the legitimate chain instead of failing loudly. These checks keep
+    every pinned digest at the length its algorithm produces.
+    """
+
+    def test_pinned_digests_are_exactly_64_hex_characters(self):
+        for path in sorted(HERE.rglob('*')):
+            if path.suffix not in {'.swift', '.json', '.plist'} or not path.is_file():
+                continue
+            for match in re.finditer(r'[0-9a-f]{60,}', path.read_text(errors='ignore')):
+                self.assertEqual(64, len(match.group()),
+                                 f'{path.relative_to(HERE)}: pinned digest is {len(match.group())} characters')
+
+    def test_reviewed_root_digests_match_their_verifiers(self):
+        for review_name, verifier_name in [
+                ('apple-cms-policy-review.json', 'Provisioning/NativeAppleProfileCMSVerifier.swift'),
+                ('development-certificate-review.json', 'Identity/NativeDevelopmentCertificateVerifier.swift')]:
+            review = json.loads((HERE / review_name).read_text())
+            verifier = (HERE / verifier_name).read_text()
+            for root in review['root_sources']:
+                self.assertEqual(64, len(root['sha256']), review_name)
+                self.assertIn(root['sha256'], verifier)

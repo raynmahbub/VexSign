@@ -15,7 +15,8 @@
 #
 # Environment:
 #   RELEASE_REPO   owner/name to read releases from. Defaults to the origin
-#                  remote of the current checkout (or iamsmmh/VexSign).
+#                  remote of the current checkout. Required when there is no
+#                  origin remote; there is no fallback repository any more.
 #   RELEASE_TAG    the tag to sync. When unset, uses the latest *published*
 #                  release on RELEASE_REPO. In CI, the workflow passes this
 #                  from github.event.release.tag_name so a pre-release or a
@@ -45,7 +46,14 @@ origin_repo() {
 }
 
 RELEASE_REPO="${RELEASE_REPO:-$(origin_repo)}"
-[ -n "$RELEASE_REPO" ] || RELEASE_REPO="iamsmmh/VexSign"
+[ -n "$RELEASE_REPO" ] || handle_error "Cannot determine the release repository. Set RELEASE_REPO=owner/name."
+
+# Identity links are derived from the repository being synchronised. They used to
+# be literals, so a renamed/moved repository kept advertising the old account's
+# icons and website to every source client.
+REPO_WEB="https://github.com/${RELEASE_REPO}"
+REPO_RAW="https://raw.githubusercontent.com/${RELEASE_REPO}/main"
+REPO_ICON="${REPO_RAW}/icon.png"
 
 if [ -n "${RELEASE_TAG:-}" ]; then
   API_URL="https://api.github.com/repos/${RELEASE_REPO}/releases/tags/${RELEASE_TAG}"
@@ -229,19 +237,31 @@ jq --arg tag "$tag" \
    --arg name "${release_name:-VexSign ${version}}" \
    --arg url "${release_url:-"https://github.com/${RELEASE_REPO}/releases/tag/${tag}"}" \
    --arg caption "$news_caption" \
+   --arg icon "$REPO_ICON" \
    '.news = (
       [ { identifier: ("vexsign-" + $version),
           date: $date,
           title: ("VexSign " + $version),
           caption: $caption,
           tintColor: "C96FAD",
-          imageURL: "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
+          imageURL: $icon,
           notify: true,
           url: $url } ]
       + [ (.news // [])[] | select(.identifier != ("vexsign-" + $version)) ]
     )
     | .news |= .[0:10]' \
   "$JSON_FILE" > "${JSON_FILE}.tmp" && mv "${JSON_FILE}.tmp" "$JSON_FILE"
+
+# Keep every identity link on the repository that actually serves this source.
+jq --arg web "$REPO_WEB" --arg raw "$REPO_RAW" --arg icon "$REPO_ICON" \
+   '.website = $web
+    | .iconURL = $icon
+    | .headerURL = $icon
+    | .sourceURL = ($raw + "/app-repo.json")
+    | .apps |= map(.iconURL = $icon)
+    | .news |= map(.imageURL = $icon)' \
+  "$JSON_FILE" > "${JSON_FILE}.tmp" && mv "${JSON_FILE}.tmp" "$JSON_FILE" \
+  || handle_error "Could not normalise identity links in ${JSON_FILE}."
 
 echo "Repository update completed for v${version}."
 

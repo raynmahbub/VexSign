@@ -2,11 +2,11 @@
   "name": "VexSign",
   "subtitle": "On-device IPA signer — sign, tweak, install. No PC needed.",
   "description": "VexSign is an on-device iOS signer built on Feather (GPL-3.0). Sign & install IPAs with .p12/.mobileprovision, inject tweaks (.dylib/.deb/.framework), browse and edit IPAs (IPA Explorer), transfer files over HTTP/WebDAV, track downloads with Live Activities & Dynamic Island, auto-cleanup leftovers, batch sign, update all, and back up/restore. Open source. No ads, no tracking.",
-  "iconURL": "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
-  "headerURL": "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
-  "website": "https://github.com/iamsmmh/VexSign",
+  "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+  "headerURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
+  "website": "https://github.com/raynmahbub/VexSign",
   "tintColor": "C96FAD",
-  "sourceURL": "https://raw.githubusercontent.com/iamsmmh/VexSign/main/app-repo.json",
+  "sourceURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json",
   "apps": [
     {
       "name": "VexSign",
@@ -14,13 +14,13 @@
       "developerName": "iamsmmh",
       "subtitle": "On-device signer built on Feather",
       "localizedDescription": "VexSign is the most powerful on-device iOS signer. Built on Feather by @claration.\n\nFeatures: sign & install IPAs with .p12/.mobileprovision; tweak injection (.dylib/.deb/.framework/.bundle/.appex) via ElleKit; IPA Explorer (edit Info.plist, files, images inside any IPA); File Transfer Server (HTTP + WebDAV); Live Activities & Dynamic Island for downloads; Auto Cleanup; Batch Signing; Update All; Backup & Restore (.vexbackup); Anti-Revoke (DoH); Logs & File Manager; Game Mode.\n\nCredits: Feather (@claration) — base signing engine and UI; Zsign (zhlynn) — on-device signing; idevice (jkcoxson) — AFC/installd pairing; ElleKit (tealbathingsuit) — tweak injection; Vapor — local HTTPS server; Nuke, ZIPFoundation, SWCompression.",
-      "iconURL": "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
+      "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
       "tintColor": "C96FAD",
       "category": "utilities",
       "version": "1.0.0",
       "versionDate": "2026-09-19",
       "versionDescription": "Initial release of VexSign.",
-      "downloadURL": "https://github.com/iamsmmh/VexSign/releases/latest/download/VexSign.ipa",
+      "downloadURL": "https://github.com/raynmahbub/VexSign/releases/latest/download/VexSign.ipa",
       "size": 16895486,
       "screenshotURLs": [],
       "versions": [
@@ -28,7 +28,7 @@
           "version": "1.0.0",
           "date": "2026-09-19",
           "localizedDescription": "Initial release.",
-          "downloadURL": "https://github.com/iamsmmh/VexSign/releases/latest/download/VexSign.ipa",
+          "downloadURL": "https://github.com/raynmahbub/VexSign/releases/latest/download/VexSign.ipa",
           "size": 16895486
         }
       ],
@@ -45,9 +45,9 @@
       "title": "VexSign initial release",
       "caption": "The most powerful on-device signer is here. Built on Feather by @claration.",
       "tintColor": "C96FAD",
-      "imageURL": "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
+      "imageURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
       "notify": true,
-      "url": "https://github.com/iamsmmh/VexSign/releases"
+      "url": "https://github.com/raynmahbub/VexSign/releases"
     }
   ]
 }
