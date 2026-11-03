@@ -1,8 +1,8 @@
 //
 //  TabBarPreferences.swift
-//  VexSign — Files · Library · Home · App Store · Downloads · Settings
+//  VexSign — Library · Home · App Store · Downloads · Settings
 //
-//  The six primary tabs are a fixed, immutable navigation structure:
+//  The five primary tabs are a fixed, immutable navigation structure:
 //  they are always visible, always in the required order and cannot be
 //  hidden or reordered — user customization can never break it.
 //  Only the legacy/secondary tabs (Sources, Logs, Tweaks, Certificates)
@@ -14,7 +14,7 @@ import Foundation
 final class TabBarPreferences: ObservableObject {
     static let shared = TabBarPreferences()
 
-    /// The required six-tab order. Immutable: not reorderable, not hideable.
+    /// The required five-tab order. Immutable: not reorderable, not hideable.
     static let primaryTabs: [TabEnum] = TabEnum.defaultTabs
 
     /// Legacy/secondary tabs. These are the only customizable destinations:
@@ -39,17 +39,21 @@ final class TabBarPreferences: ObservableObject {
     }
 
     private let _key = "VexSign.tabBarPreferences"
+    private let defaults: UserDefaults
 
     private struct Stored: Codable {
+        var version: Int
         var order: [String]
         var hidden: [String]
         var defaultLaunch: String
         var minimal: Bool
         init(order: [String], hidden: [String], defaultLaunch: String, minimal: Bool) {
+            self.version = 2
             self.order = order; self.hidden = hidden; self.defaultLaunch = defaultLaunch; self.minimal = minimal
         }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
+            version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 0
             order = try c.decodeIfPresent([String].self, forKey: .order) ?? []
             hidden = try c.decodeIfPresent([String].self, forKey: .hidden) ?? []
             defaultLaunch = try c.decodeIfPresent(String.self, forKey: .defaultLaunch) ?? TabEnum.home.rawValue
@@ -57,10 +61,10 @@ final class TabBarPreferences: ObservableObject {
         }
     }
 
-    private init() {
-        let defaults = UserDefaults.standard
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         var loadedSecondaryOrder = Self.secondaryTabs
-        var loadedHidden: Set<TabEnum> = []
+        var loadedHidden = Set(Self.secondaryTabs)
         var loadedLaunch: TabEnum = .home
 
         if let data = defaults.data(forKey: _key),
@@ -85,6 +89,9 @@ final class TabBarPreferences: ObservableObject {
 
             loadedHidden = Set(stored.hidden.compactMap { TabEnum(rawValue: $0) })
                 .intersection(Self.secondaryTabs)
+            // Files used to be mandatory. Hide it on migration unless it was
+            // explicitly stored as an optional destination in the new format.
+            if stored.version < 2 { loadedHidden.insert(.files) }
 
             loadedLaunch = TabEnum(rawValue: stored.defaultLaunch) ?? .home
             // Legacy launch-tab remaps from earlier versions.
@@ -93,7 +100,7 @@ final class TabBarPreferences: ObservableObject {
             if loadedLaunch == .tweaks { loadedLaunch = .library }
         } else if defaults.object(forKey: "VexSign.showTweaksTab") != nil,
                   defaults.bool(forKey: "VexSign.showTweaksTab") == false {
-            loadedHidden = []
+            loadedHidden = Set(Self.secondaryTabs)
         }
 
         self.order = loadedSecondaryOrder
@@ -110,7 +117,7 @@ final class TabBarPreferences: ObservableObject {
         Self.primaryTabs + order
     }
 
-    /// What the tab bar shows: always all six primary tabs, then any
+    /// What the tab bar shows: always all five primary tabs, then any
     /// visible secondary tabs.
     var visibleTabs: [TabEnum] {
         Self.primaryTabs + visibleSecondaryTabs
@@ -185,7 +192,7 @@ final class TabBarPreferences: ObservableObject {
             minimal: false
         )
         if let data = try? JSONEncoder().encode(stored) {
-            UserDefaults.standard.set(data, forKey: _key)
+            defaults.set(data, forKey: _key)
         }
         objectWillChange.send()
     }

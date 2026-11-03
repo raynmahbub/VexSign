@@ -96093,6 +96093,589 @@
           }
         }
       }
+    },
+    "A local identity exists, but system trust has not been confirmed. Export and install its Root CA profile in Server & SSL, then enable Full Trust in system Settings → General → About → Certificate Trust Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A local identity exists, but system trust has not been confirmed. Export and install its Root CA profile in Server & SSL, then enable Full Trust in system Settings → General → About → Certificate Trust Settings."
+          }
+        }
+      }
+    },
+    "Fully Local could not verify the local HTTPS connection. In Settings → Installation → Server & SSL, export the Root CA profile and install it in system Settings. Then enable Full Trust under General → About → Certificate Trust Settings and retry. Do not replace the CA for a trust-only error. Semi Local is an optional online manifest-service fallback; the IPA stays on your device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fully Local could not verify the local HTTPS connection. In Settings → Installation → Server & SSL, export the Root CA profile and install it in system Settings. Then enable Full Trust under General → About → Certificate Trust Settings and retry. Do not replace the CA for a trust-only error. Semi Local is an optional online manifest-service fallback; the IPA stays on your device."
+          }
+        }
+      }
+    },
+    "Library, Home, App Store, Downloads and Settings are the five default tabs. Files and other optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library, Home, App Store, Downloads and Settings are the five default tabs. Files and other optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26."
+          }
+        }
+      }
+    },
+    "No local server certificate is available. Open Server & SSL to check the device identity, then export and trust its Root CA profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No local server certificate is available. Open Server & SSL to check the device identity, then export and trust its Root CA profile."
+          }
+        }
+      }
+    },
+    "Optional destinations carried over from older versions. Show, hide and reorder them freely — they appear after the five primary tabs." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional destinations carried over from older versions. Show, hide and reorder them freely — they appear after the five primary tabs."
+          }
+        }
+      }
+    },
+    "The device-local HTTPS identity is unavailable. Open Settings → Installation → Server & SSL, check the local identity, then export and trust its Root CA profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device-local HTTPS identity is unavailable. Open Settings → Installation → Server & SSL, check the local identity, then export and trust its Root CA profile."
+          }
+        }
+      }
+    },
+    "The installation could not be confirmed: iOS did not report the expected app after the install attempt. A rejected signing certificate, incompatible profile or bundle, or an unavailable installation-status check can cause this. Review the task report and device installation logs before signing again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The installation could not be confirmed: iOS did not report the expected app after the install attempt. A rejected signing certificate, incompatible profile or bundle, or an unavailable installation-status check can cause this. Review the task report and device installation logs before signing again."
+          }
+        }
+      }
+    },
+    "The local HTTPS hostname is missing or invalid. Check the device identity in Settings → Installation → Server & SSL." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The local HTTPS hostname is missing or invalid. Check the device identity in Settings → Installation → Server & SSL."
+          }
+        }
+      }
+    },
+    "Activity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activity"
+          }
+        }
+      }
+    },
+    "Activity workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activity workspace"
+          }
+        }
+      }
+    },
+    "Library workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library workspace"
+          }
+        }
+      }
+    },
+    "Tasks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks"
+          }
+        }
+      }
+    },
+    "Library, Home, App Store, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library, Home, App Store, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26."
+          }
+        }
+      }
+    },
+    "Built-in apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Built-in apps"
+          }
+        }
+      }
+    },
+    "Embedded import failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded import failed"
+          }
+        }
+      }
+    },
+    "Embedded runtime loaded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded runtime loaded"
+          }
+        }
+      }
+    },
+    "Embedded session could not open" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded session could not open"
+          }
+        }
+      }
+    },
+    "Finish active tasks before switching embedded sessions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish active tasks before switching embedded sessions."
+          }
+        }
+      }
+    },
+    "Import into the embedded container?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import into the embedded container?"
+          }
+        }
+      }
+    },
+    "Import prepared IPA into embedded LiveContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import prepared IPA into embedded LiveContainer"
+          }
+        }
+      }
+    },
+    "LiveContainer and SideStore are included in this combined app. Switching sessions restarts the host process. Finish active work first; account credentials stay inside SideStore." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer and SideStore are included in this combined app. Switching sessions restarts the host process. Finish active work first; account credentials stay inside SideStore."
+          }
+        }
+      }
+    },
+    "Manage embedded LiveContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage embedded LiveContainer"
+          }
+        }
+      }
+    },
+    "Open embedded SideStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open embedded SideStore"
+          }
+        }
+      }
+    },
+    "Prepare import and switch session" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare import and switch session"
+          }
+        }
+      }
+    },
+    "Preparing embedded import…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing embedded import…"
+          }
+        }
+      }
+    },
+    "Save your work. The current VexSign session closes while the embedded app opens. This does not confirm account login, signing or renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save your work. The current VexSign session closes while the embedded app opens. This does not confirm account login, signing or renewal."
+          }
+        }
+      }
+    },
+    "Scheduled VexSign background tasks are unavailable in the container build. Use manual foreground automation. Configure SideStore renewal separately inside the embedded SideStore app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled VexSign background tasks are unavailable in the container build. Use manual foreground automation. Configure SideStore renewal separately inside the embedded SideStore app."
+          }
+        }
+      }
+    },
+    "Switch embedded session?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch embedded session?"
+          }
+        }
+      }
+    },
+    "The IPA is staged, but the host could not restart. Open the container home to finish the prepared import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA is staged, but the host could not restart. Open the container home to finish the prepared import."
+          }
+        }
+      }
+    },
+    "The archive is checked and copied locally into the host inbox. Finish the import in LiveContainer. The host will restart this session; no upload or credential sharing occurs." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive is checked and copied locally into the host inbox. Finish the import in LiveContainer. The host will restart this session; no upload or credential sharing occurs."
+          }
+        }
+      }
+    },
+    "The host could not stage this IPA. Complete or discard any previous prepared import in LiveContainer, check free space, then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host could not stage this IPA. Complete or discard any previous prepared import in LiveContainer, check free space, then retry."
+          }
+        }
+      }
+    },
+    "The host did not accept the restart request. Return to the container home and check its signing or JIT setup. No external app was opened." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host did not accept the restart request. Return to the container home and check its signing or JIT setup. No external app was opened."
+          }
+        }
+      }
+    },
+    "This build includes the host and SideStore. VexSign runs as a guest; data and accounts remain isolated. Use the built-in controls to switch sessions or prepare a local guest import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build includes the host and SideStore. VexSign runs as a guest; data and accounts remain isolated. Use the built-in controls to switch sessions or prepare a local guest import."
+          }
+        }
+      }
+    },
+    "Use the prepared import button to copy the checked IPA directly into the embedded host inbox, then confirm import in LiveContainer. Host signing and JIT requirements still apply. A staged file is not a verified installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the prepared import button to copy the checked IPA directly into the embedded host inbox, then confirm import in LiveContainer. Host signing and JIT requirements still apply. A staged file is not a verified installation."
+          }
+        }
+      }
+    },
+    "Embedded runtime unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded runtime unavailable"
+          }
+        }
+      }
+    },
+    "Launch this guest from the compatible VexSign Container in main-process mode. External app launchers are not substituted for a missing embedded runtime." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch this guest from the compatible VexSign Container in main-process mode. External app launchers are not substituted for a missing embedded runtime."
+          }
+        }
+      }
+    },
+    "App hosting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App hosting"
+          }
+        }
+      }
+    },
+    "Apple-account signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple-account signing"
+          }
+        }
+      }
+    },
+    "Certificate-based signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate-based signing"
+          }
+        }
+      }
+    },
+    "Free and paid teams must be selected explicitly. Apple provisioning restrictions, expiry and background limits still apply." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free and paid teams must be selected explicitly. Apple provisioning restrictions, expiry and background limits still apply."
+          }
+        }
+      }
+    },
+    "Imported certificate signing is implemented" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported certificate signing is implemented"
+          }
+        }
+      }
+    },
+    "Installing VexSign with a free Apple account does not enable account signing inside VexSign. Native authentication, team selection, provisioning, installation and renewal still need integration. No Apple password is requested on this screen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installing VexSign with a free Apple account does not enable account signing inside VexSign. Native authentication, team selection, provisioning, installation and renewal still need integration. No Apple password is requested on this screen."
+          }
+        }
+      }
+    },
+    "Native Apple-account signing is not integrated yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native Apple-account signing is not integrated yet"
+          }
+        }
+      }
+    },
+    "Signing Methods" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing Methods"
+          }
+        }
+      }
+    },
+    "The experimental guest-host runtime is loaded. VexSign is still a guest in that prototype, not the primary host required by the all-in-one design." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The experimental guest-host runtime is loaded. VexSign is still a guest in that prototype, not the primary host required by the all-in-one design."
+          }
+        }
+      }
+    },
+    "This app does not contain the experimental guest-host runtime. External companion detection is not embedded hosting." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app does not contain the experimental guest-host runtime. External companion detection is not embedded hosting."
+          }
+        }
+      }
+    },
+    "This is an experimental guest copy, but its compatible host runtime is unavailable. It is not the final VexSign-primary-host architecture." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is an experimental guest copy, but its compatible host runtime is unavailable. It is not the final VexSign-primary-host architecture."
+          }
+        }
+      }
+    },
+    "Use an imported signing identity and provisioning profile. Validity, device authorization, entitlements and installation must be checked separately. An imported certificate is not automatically a paid certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use an imported signing identity and provisioning profile. Validity, device authorization, entitlements and installation must be checked separately. An imported certificate is not automatically a paid certificate."
+          }
+        }
+      }
+    },
+    "VexSign as the primary container host is not integrated yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign as the primary container host is not integrated yet"
+          }
+        }
+      }
+    },
+    "Account session storage is disabled in the experimental guest-host build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account session storage is disabled in the experimental guest-host build."
+          }
+        }
+      }
+    },
+    "Secure account storage failed (status %d). Unlock the device and retry; the account was not silently reset." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure account storage failed (status %d). Unlock the device and retry; the account was not silently reset."
+          }
+        }
+      }
+    },
+    "Secure account storage returned an invalid session record. Reauthenticate rather than treating it as a missing account." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure account storage returned an invalid session record. Reauthenticate rather than treating it as a missing account."
+          }
+        }
+      }
+    },
+    "The account session could not be stored because its size is invalid." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The account session could not be stored because its size is invalid."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

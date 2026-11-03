@@ -6,6 +6,7 @@ import Foundation
 enum EcosystemMaintenance {
     static let identifier = "com.vexsign.ecosystem.refresh"
     static func register() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
             let work = Task { @MainActor in
                 schedule()
@@ -16,6 +17,7 @@ enum EcosystemMaintenance {
         }
     }
     static func schedule() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         guard UserDefaults.standard.bool(forKey: "VexSign.ecosystem.certificateMonitoring") || UserDefaults.standard.bool(forKey: "VexSign.ecosystem.repositoryAutoRefresh") else {
             BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier); return
         }

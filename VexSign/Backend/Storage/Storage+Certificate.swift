@@ -46,8 +46,12 @@ extension Storage {
 			return
 		}
 
-		CertificateStatusManager.shared.refreshStatus(for: new)
-		WidgetStatusPublisher.publish()
+        // Finish the import transaction/UI completion before any widget refresh.
+        // Certificate changes do not require repository icon downloads.
+        Task { @MainActor in
+            await Task.yield()
+            WidgetStatusPublisher.publish(includeRepository: false)
+        }
 		Haptics.lightImpact()
 		Task { await AnalyticsStore.shared.record(.certificatesAdded) }
 		completion(nil)

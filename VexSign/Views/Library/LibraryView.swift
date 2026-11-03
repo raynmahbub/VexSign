@@ -12,6 +12,8 @@ import NimbleExtensions
 
 // MARK: - View
 struct LibraryView: View {
+    /// False when embedded in a workspace or pushed from another navigation stack.
+    var ownsNavigationStack: Bool = true
     @StateObject var downloadManager = DownloadManager.shared
     @ObservedObject private var tabSelection = TabSelectionObserver.shared
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
@@ -135,7 +137,7 @@ struct LibraryView: View {
 
     // MARK: Body
     var body: some View {
-        NBNavigationView(.localized("Library")) {
+        NBNavigationView(.localized("Library"), ownsNavigationStack: ownsNavigationStack) {
             mainContent
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -239,10 +241,18 @@ struct LibraryView: View {
                 } message: {
                     Text("This action cannot be undone.")
                 }
+                .onAppear { presentPendingExplorer() }
+                .onChange(of: tabSelection.ipaExplorerRequested) { _ in presentPendingExplorer() }
                 .onReceive(NotificationCenter.default.publisher(for: .openIPAExplorer)) { _ in
                     Presentation.afterDismiss { _isExplorerPresenting = true }
                 }
         }
+    }
+
+    private func presentPendingExplorer() {
+        guard tabSelection.ipaExplorerRequested else { return }
+        tabSelection.ipaExplorerRequested = false
+        Presentation.afterDismiss { _isExplorerPresenting = true }
     }
 
     private var deleteDialogTitle: String {

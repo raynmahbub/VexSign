@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "status": "combined dependency candidate, not app integration",
+  "idevicekit": {
+    "repository": "https://github.com/claration/IDeviceKit.git",
+    "commit": "837cf1e14d4875771dd5ee1b754a4c86215c5db3",
+    "manifest_sha256": "7213f941601c9e4057eff12bc61e35e64bb2da0ffa9da452e587be80adc5c8b2"
+  }
+}

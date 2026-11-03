@@ -56,6 +56,8 @@ struct InstallPreflightInputs: Equatable, Sendable {
 	var hasPairingFile: Bool = false
 	/// A TrollStore URL scheme answered `canOpenURL`.
 	var trollStoreDetected: Bool = false
+    /// Local identity presence alone does not mean the user trusted its profile.
+    var hasTrustedServerCertificate: Bool = false
 }
 
 // MARK: - Evaluation
@@ -71,8 +73,8 @@ enum InstallPreflight {
 		switch method {
 		case .server:
 			return inputs.hasServerCertificate
-				? .ready
-				: .missing(.localized("No server certificate yet. Open the Server section above and add one, or install over idevice instead."))
+				? (inputs.hasTrustedServerCertificate ? .ready : .unknown(.localized("A local identity exists, but system trust has not been confirmed. Export and install its Root CA profile in Server & SSL, then enable Full Trust in system Settings → General → About → Certificate Trust Settings.")))
+				: .missing(.localized("No local server certificate is available. Open Server & SSL to check the device identity, then export and trust its Root CA profile."))
 
 		case .idevice:
 			return inputs.hasPairingFile

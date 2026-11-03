@@ -55,6 +55,9 @@ struct SettingsView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                    NavigationLink(destination: SigningMethodsView()) {
+                        Label(.localized("Signing Methods"), systemImage: "person.badge.key")
+                    }
                     NavigationLink(destination: CertificatesView()) {
                         Label(.localized("Certificates Manager"), systemImage: "checkmark.seal.fill")
                     }
@@ -337,6 +340,7 @@ private extension SettingsView {
         switch id {
         case .setupHealth: SetupHealthView()
         case .certificates: CertificatesView()
+        case .signingMethods: SigningMethodsView()
         case .signingOptions: ConfigurationView()
         case .advancedSigning: AdvancedSigningSettingsView()
         case .signingProfiles: SigningProfilesView()

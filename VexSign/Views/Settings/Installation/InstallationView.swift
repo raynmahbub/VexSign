@@ -13,6 +13,7 @@ import NimbleExtensions
 
 // MARK: - View
 struct InstallationView: View {
+    @Environment(\.scenePhase) private var scenePhase
 	@AppStorage("VexSign.installationMethod") private var _installationMethod: Int = 0
 	@State private var _showMethodChangedAlert = false
 	@State private var _preflight = InstallPreflightInputs()
@@ -74,6 +75,9 @@ struct InstallationView: View {
 			))
 		}
 		.onAppear(perform: _refreshPreflight)
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { _refreshPreflight() }
+        }
 		.onChange(of: _installationMethod) { _ in _refreshPreflight() }
 		.animation(.default, value: _installationMethod)
     }
@@ -84,7 +88,8 @@ struct InstallationView: View {
 		_preflight = InstallPreflightInputs(
 			hasServerCertificate: LocalTLSIdentity.current() != nil,
 			hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
-			trollStoreDetected: _trollStoreDetected()
+			trollStoreDetected: _trollStoreDetected(),
+            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted()
 		)
 	}
 

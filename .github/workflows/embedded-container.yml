@@ -1,0 +1,79 @@
+name: Guest-host prototype · build only
+
+# Deliberately opt-in. No auto-publishing, signing secrets, PR triggers or changes
+# to the normal VexSign release pipeline. Install/re-sign the IPA as a host app.
+on:
+  workflow_dispatch:
+    inputs:
+      xcode:
+        description: 'Installed Xcode version prefix (26.2 or newer)'
+        required: true
+        default: '26.2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: embedded-container-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Repository and packaging regressions
+        run: |
+          make verify
+
+  build:
+    needs: checks
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Select installed Xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          candidates=(/Applications/Xcode_"${REQUESTED_XCODE}"*.app)
+          if [ "${#candidates[@]}" -eq 0 ]; then
+            echo "::error::Requested Xcode is not installed."
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "${candidates[0]}/Contents/Developer"
+          xcodebuild -version
+      - name: Install packaging tool
+        run: brew install ldid
+      - name: Build normal VexSign guest input
+        run: |
+          set -euo pipefail
+          make VexSign 2>&1 | tee "$RUNNER_TEMP/vexsign-build.log"
+      - name: Build native host and combined IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
+      - name: Upload combined build and integration sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: VexSign-LiveContainer-SideStore-unvalidated
+          if-no-files-found: error
+          path: |
+            packages/VexSign+LiveContainer+SideStore.ipa
+            packages/VexSign+LiveContainer+SideStore.integration-sources.tar.gz
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: embedded-container-build-logs
+          path: |
+            ${{ runner.temp }}/vexsign-build.log
+            ${{ runner.temp }}/combined-build.log

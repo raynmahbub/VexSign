@@ -1,0 +1,39 @@
+{
+  "reviewed": "2026-11-02",
+  "status": "review snapshot only; not linked, not a complete transitive dependency lock",
+  "candidate": "SideSign as vendored in Odysseus",
+  "upstream": {
+    "repository": "mirazbakis/Odysseus",
+    "commit": "2664dadedf9aca36fda0925a8aada92e2c79323f",
+    "package": "SideSign/Package.swift",
+    "license": "AGPL-3.0",
+    "swift_tools": "6.0"
+  },
+  "direct_dependencies": [
+    {
+      "repository": "apple/swift-crypto",
+      "reviewed_ref": "4.3.1",
+      "commit": "bb4ba815dab96d4edc1e0b86d7b9acf9ff973a84"
+    },
+    {
+      "repository": "mahee96/CodeSignKit",
+      "reviewed_ref": "main",
+      "commit": "d0c67710fda9a2646b9e829cb2cf443892728371"
+    },
+    {
+      "repository": "mahee96/GSACryptoKit",
+      "reviewed_ref": "main",
+      "commit": "eae2590eaf17fe98ce9c76b3ec2bd42b780eb123"
+    },
+    {
+      "repository": "SideStore/libdeflate",
+      "reviewed_ref": "master",
+      "commit": "da6c7dae03b78dc71af973664575e4209786fbfe"
+    },
+    {
+      "repository": "mahee96/AnisetteKit",
+      "reviewed_ref": "main",
+      "commit": "db8b41022697b6c19be8a5f01a1ce834145a2a26"
+    }
+  ]
+}

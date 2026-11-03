@@ -1,0 +1,136 @@
+diff --git a/LiveContainer/LCSharedUtils.h b/LiveContainer/LCSharedUtils.h
+index daf7b7b..c8a1a46 100644
+--- a/LiveContainer/LCSharedUtils.h
++++ b/LiveContainer/LCSharedUtils.h
+@@ -17,4 +17,7 @@
+ + (NSString*)findDefaultContainerWithBundleId:(NSString*)bundleId;
+ + (NSArray<NSString*>*)lcUnorderedUrlSchemes;
+ + (NSArray<NSString*>*)lcUrlSchemes;
++// VexSign combined-host bridge. No account/keychain values cross this API.
+++ (BOOL)vexSignCombinedHostAvailable;
+++ (BOOL)vexSignStageIPA:(NSURL *)source;
+ @end
+diff --git a/LiveContainer/LCSharedUtils.m b/LiveContainer/LCSharedUtils.m
+index 575205f..bd544bd 100644
+--- a/LiveContainer/LCSharedUtils.m
++++ b/LiveContainer/LCSharedUtils.m
+@@ -432,4 +432,46 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+ 
+     return result;
+ }
++
++// VexSign additions; distributed with the upstream AGPL-3.0 host.
+++ (BOOL)vexSignCombinedHostAvailable {
++    return [lcMainBundle.infoDictionary[@"VexSignCombinedHost"] boolValue]
++        && getenv("LC_HOME_PATH") != NULL;
++}
++
+++ (BOOL)vexSignStageIPA:(NSURL *)source {
++    @synchronized(self) {
++    if (![self vexSignCombinedHostAvailable] || !source.isFileURL
++        || [lcUserDefaults stringForKey:@"VexSignPendingImport"]) return NO;
++    NSURL *canonical = source.URLByStandardizingPath.URLByResolvingSymlinksInPath;
++    NSString *home = [NSURL fileURLWithPath:NSHomeDirectory()].URLByResolvingSymlinksInPath.path;
++    NSNumber *regular = nil;
++    if (![canonical.path hasPrefix:[home stringByAppendingString:@"/"]]
++        || ![canonical.pathExtension.lowercaseString isEqualToString:@"ipa"]
++        || ![canonical getResourceValue:&regular forKey:NSURLIsRegularFileKey error:nil]
++        || !regular.boolValue) return NO;
++    NSFileManager *fm = NSFileManager.defaultManager;
++    NSURL *documents = [[[NSURL fileURLWithPath:@(getenv("LC_HOME_PATH"))]
++                         URLByAppendingPathComponent:@"Documents" isDirectory:YES] URLByResolvingSymlinksInPath];
++    NSURL *inbox = [documents URLByAppendingPathComponent:@"Inbox" isDirectory:YES];
++    NSURL *resolvedInbox = inbox.URLByResolvingSymlinksInPath;
++    if (![resolvedInbox.URLByDeletingLastPathComponent.path isEqualToString:documents.path]
++        || ![resolvedInbox.lastPathComponent isEqualToString:@"Inbox"]) return NO;
++    if (![fm createDirectoryAtURL:inbox withIntermediateDirectories:YES attributes:nil error:nil]) return NO;
++    NSString *name = [NSString stringWithFormat:@"VexSign-%@.ipa", NSUUID.UUID.UUIDString];
++    NSURL *destination = [inbox URLByAppendingPathComponent:name];
++    if (![fm copyItemAtURL:canonical toURL:destination error:nil]) {
++        [fm removeItemAtURL:destination error:nil];
++        return NO;
++    }
++    [lcUserDefaults setObject:destination.path forKey:@"VexSignPendingImport"];
++    // A host session switch can terminate the guest immediately after staging.
++    if (![lcUserDefaults synchronize]) {
++        [lcUserDefaults removeObjectForKey:@"VexSignPendingImport"];
++        [fm removeItemAtURL:destination error:nil];
++        return NO;
++    }
++    return YES;
++    }
++}
+ @end
+diff --git a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift b/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
+index 94eeef1..eec26fe 100644
+--- a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
++++ b/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
+@@ -131,6 +131,17 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+                 })
+                 .hidden()
+                 
++                VexSignHostPanel(
++                    busy: installprogressVisible,
++                    installedBundleIdentifiers: sharedModel.apps.compactMap { $0.appInfo.bundleIdentifier() },
++                    install: { url in await installVexSignPreparedIPA(url) },
++                    launch: { identifier in
++                        if let app = sharedModel.apps.first(where: { $0.appInfo.bundleIdentifier() == identifier }) {
++                            await launchAppWithBundleId(bundleId: app.appInfo.relativeBundlePath, container: nil)
++                        }
++                    }
++                )
++
+                 LazyVStack {
+                     ForEach(filteredApps, id: \.self) { app in
+                         LCAppBanner(appModel: app, delegate: self)
+@@ -750,6 +761,11 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+             // enable SDK version spoof by defalut
+             finalNewApp.spoofSDKVersion = true
+         }
++        // VexSign's direct host controls switch the primary process session.
++        // Keep its initial mode out of LiveProcess; users may configure other guests normally.
++        if (Bundle(path: outputFolder.path)?.object(forInfoDictionaryKey: "VexSignEmbeddedGuest") as? Bool) == true {
++            finalNewApp.multitaskSpecified = .no
++        }
+         finalNewApp.installationDate = Date.now
+         
+         DispatchQueue.main.async {
+@@ -779,6 +795,22 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+         }
+     }
+     
++    @MainActor
++    func installVexSignPreparedIPA(_ url: URL) async -> Bool {
++        guard !installprogressVisible else { return false }
++        installprogressVisible = true
++        errorShow = false
++        defer { installprogressVisible = false }
++        do {
++            try await installIpaFile(url)
++            return !errorShow
++        } catch {
++            errorInfo = error.localizedDescription
++            errorShow = true
++            return false
++        }
++    }
++
+     func startInstallFromUrl() async {
+         guard let installUrlStr = await installUrlInput.open(), installUrlStr.count > 0 else {
+             return
+@@ -1186,6 +1218,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+     }
+     
+     func handleURL(url : URL) {
++        if ["vexsign", "feather"].contains(url.scheme?.lowercased() ?? "") {
++            guard let app = sharedModel.apps.first(where: { $0.appInfo.bundleIdentifier() == "com.vexsign.app" }) else {
++                errorInfo = "Install the embedded VexSign guest before opening this link."
++                errorShow = true
++                return
++            }
++            Task { await launchAppWithBundleId(bundleId: app.appInfo.relativeBundlePath, container: nil, urlStr: url.absoluteString) }
++            return
++        }
+         if url.isFileURL {
+             Task { await installFromUrl(urlStr: url.absoluteString) }
+             return

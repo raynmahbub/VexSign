@@ -119,7 +119,7 @@ enum TweakExtractor {
 	// MARK: - Internal
 
 	private static func _unzip(_ archive: URL, to destination: URL, progress: ((Double) -> Void)? = nil) async throws {
-		try ArchiveSafetyValidator.validate(archive)
+		try ArchiveSafetyValidator.validate(archive, destination: destination)
 		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
 			DispatchQueue.global(qos: .utility).async {
 				do {

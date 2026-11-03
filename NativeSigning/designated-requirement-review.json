@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "status": "immutable source-reviewed requirement dialect; native validation unrun; not install authority",
+  "sources": [
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/libsecurity_codesigning/lib/requirement.h",
+      "sha256": "282c27788cd0a7b740ec720534a50f616976e80056e382eafa6d58856ebb5117"
+    },
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/libsecurity_codesigning/lib/reqmaker.cpp",
+      "sha256": "df57022101485b5e1c8b013fab33ada0f56a444ece7f83f627774e3e8e4eb15e"
+    },
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/libsecurity_codesigning/lib/reqinterp.cpp",
+      "sha256": "a2a032682f0930da11f6e2b78bdb4e5d946f04c0304c160b138363939f4e3a09"
+    },
+    {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/libsecurity_codesigning/lib/CSCommon.h",
+      "sha256": "f67ea0a42d5bb3fb9812206c421e0942ee54a002bd48a0659fee36a794cf4a4f"
+    }
+  ],
+  "constants": {
+    "requirements_magic": "0xfade0c01",
+    "requirement_magic": "0xfade0c00",
+    "designated_type": 3,
+    "expr_form": 1,
+    "op_and": 6,
+    "op_ident": 2,
+    "op_anchor_hash": 4,
+    "leaf_slot": 0,
+    "alignment": 4,
+    "legacy_hash": "SHA1 of full DER certificate"
+  },
+  "policy": [
+    "exact one designated requirement, prefix AND exact identifier and exact leaf hash",
+    "exact canonical serialization; unknown/skip/OR/alternate certificate positions and additional clauses rejected",
+    "legacy SHA1 requirement is not chain/signature trust; exact expected DER and RSA SHA256 CMS plus fresh Apple purpose/status validation remain mandatory",
+    "renewed leaf regenerates designated requirement; device upgrade/refresh continuity unvalidated",
+    "strict signer adapter must emit this policy, not use SDK default requirements"
+  ],
+  "unfinished": [
+    "native compiler and positive/negative platform requirement evaluation",
+    "complete dyld/dependency/linkedit reference authorization",
+    "protected execution, workspace/sealed artifacts, paired install/renewal and UI integration"
+  ]
+}

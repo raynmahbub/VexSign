@@ -105,7 +105,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			Zip.addCustomFileExtension("tipa")
 		}
 
-		try ArchiveSafetyValidator.validate(_ipa)
+		try ArchiveSafetyValidator.validate(_ipa, destination: _uniqueWorkDir)
 
 		let download = self._download
 

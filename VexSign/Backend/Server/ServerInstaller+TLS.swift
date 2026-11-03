@@ -29,28 +29,18 @@ extension ServerInstaller {
 	}()
 	
 	func setupApp(port: Int) throws -> Application {
-		let app = Application(Self.env)
-		app.threadPool = .init(numberOfThreads: 1)
-		
-		do {
-			if getServerMethod() != 1 {
-				guard Self.readCommonName() != nil else { throw LocalInstallError.invalidHostname }
-				guard let configuration = try tls() else { throw LocalInstallError.missingTLS }
-				app.http.server.configuration.tlsConfiguration = configuration
-			}
-		} catch {
-			app.shutdown()
-			throw error
+		let transport: ServerApplicationFactory.Transport
+		if getServerMethod() != 1 {
+			guard Self.readCommonName() != nil else { throw LocalInstallError.invalidHostname }
+			guard let configuration = try tls() else { throw LocalInstallError.missingTLS }
+			transport = .https(configuration)
+		} else {
+			transport = .http
 		}
-
-		app.http.server.configuration.hostname = sni()
-		app.http.server.configuration.tcpNoDelay = true
-		app.http.server.configuration.address = .hostname(getServerMethod() == 1 ? "0.0.0.0" : "127.0.0.1", port: port)
-		app.http.server.configuration.port = port
-		app.routes.defaultMaxBodySize = "128mb"
-		app.routes.caseInsensitive = false
-		
-		return app
+		// Validate identity before allocating Application/thread-pool resources.
+		return ServerApplicationFactory.make(environment: Self.env, threads: 1,
+			hostname: sni(), bindHost: getServerMethod() == 1 ? "0.0.0.0" : "127.0.0.1",
+			port: port, transport: transport, bodyLimit: "128mb", caseInsensitive: false)
 	}
 	
 	// MARK: Files/IP

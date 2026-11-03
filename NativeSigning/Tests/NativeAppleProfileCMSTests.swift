@@ -1,0 +1,120 @@
+import Foundation
+import CryptoKit
+import Security
+import XCTest
+@testable import NativeSigningLinkSmoke
+
+/// Deferred fixtures: structural CMS is synthetic (certificate/signature are NOT
+/// Apple credentials); ephemeral Security key use occurs only when tests run.
+final class NativeAppleProfileCMSTests: XCTestCase {
+    private static let payload = Data("synthetic profile payload".utf8)
+    private static let oidData = Data([0x2a,0x86,0x48,0x86,0xf7,0x0d,1,7,1])
+    private static let oidSigned = Data([0x2a,0x86,0x48,0x86,0xf7,0x0d,1,7,2])
+    private static let oidSHA256 = Data([0x60,0x86,0x48,1,0x65,3,4,2,1])
+    private static func tlv(_ tag: UInt8, _ content: Data) -> Data {
+        var result = Data([tag])
+        if content.count < 128 { result.append(UInt8(content.count)) }
+        else {
+            var size = content.count; var bytes: [UInt8] = []
+            while size > 0 { bytes.insert(UInt8(size & 255), at: 0); size >>= 8 }
+            result.append(0x80 | UInt8(bytes.count)); result.append(contentsOf: bytes)
+        }
+        result.append(content); return result
+    }
+    private static func sequence(_ values: [Data]) -> Data { tlv(0x30, values.reduce(Data(), +)) }
+    private static func algorithm(_ oid: Data) -> Data { sequence([tlv(6, oid), tlv(5, Data())]) }
+    private static func cms(wrongDigest: Bool = false, duplicateAttribute: Bool = false, detached: Bool = false,
+                            weakAlgorithm: Bool = false, duplicateSigner: Bool = false,
+                            payload: Data = NativeAppleProfileCMSTests.payload) -> Data {
+        let one = tlv(2, Data([1]))
+        let sha = algorithm(weakAlgorithm ? Data([0x2b,0x0e,3,2,0x1a]) : oidSHA256)
+        let typeAttr = sequence([tlv(6, Data([0x2a,0x86,0x48,0x86,0xf7,0x0d,1,9,3])), tlv(0x31, tlv(6, oidData))])
+        let digest = wrongDigest ? Data(repeating: 0, count: 32) : Data(SHA256.hash(data: payload))
+        let digestAttr = sequence([tlv(6, Data([0x2a,0x86,0x48,0x86,0xf7,0x0d,1,9,4])), tlv(0x31, tlv(4, digest))])
+        var attrs = [typeAttr, digestAttr]; if duplicateAttribute { attrs.append(typeAttr) }
+        attrs.sort { $0.lexicographicallyPrecedes($1) }
+        let signer = sequence([one, sequence([sequence([]), one]), sha, tlv(0xa0, attrs.reduce(Data(), +)),
+            algorithm(Data([0x2a,0x86,0x48,0x86,0xf7,0x0d,1,1,1])), tlv(4, Data(repeating: 0, count: 256))])
+        let encapsulated = sequence(detached ? [tlv(6, oidData)] : [tlv(6, oidData), tlv(0xa0, tlv(4, payload))])
+        let signed = sequence([one, tlv(0x31, sha), encapsulated, tlv(0xa0, sequence([one])),
+                               tlv(0x31, duplicateSigner ? signer + signer : signer)])
+        return sequence([tlv(6, oidSigned), tlv(0xa0, signed)])
+    }
+
+    func testDetachedCodeRoleIsSeparateAndBindsExternalDirectory() throws {
+        let directory = Data(repeating: 3, count: 88)
+        let detached = Self.cms(detached: true, payload: directory)
+        let parsed = try NativeProfileCMSEnvelope.parseDetachedCodeSignature(detached, codeDirectory: directory)
+        XCTAssertEqual(parsed.payload, directory)
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(detached))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parseDetachedCodeSignature(Self.cms(payload: directory), codeDirectory: directory))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parseDetachedCodeSignature(detached, codeDirectory: Data(repeating: 4, count: 88)))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parseDetachedCodeSignature(detached, codeDirectory: Data()))
+    }
+
+    func testStructuralDetachedEnvelopeIsNotSignatureEvidence() throws {
+        let directory = Data(repeating: 3, count: 88)
+        XCTAssertThrowsError(try NativeDetachedCodeSignatureVerifier.verify(cms: Self.cms(detached: true, payload: directory),
+            codeDirectory: directory, expectedCertificate: Self.sequence([Self.tlv(2, Data([1]))])))
+    }
+
+    func testStructuralEnvelopeBindsDigestAndRestoresSignedSetTag() throws {
+        let parsed = try NativeProfileCMSEnvelope.parse(Self.cms())
+        XCTAssertEqual(parsed.payload, Self.payload)
+        XCTAssertEqual(parsed.signedAttributes.first, 0x31)
+        XCTAssertEqual(parsed.signature.count, 256)
+        XCTAssertEqual(parsed.certificates.count, 1)
+        // This is not an authenticated profile. Fake certs/signatures fail below.
+    }
+
+    func testPayloadDigestTamperingAndDuplicateAttributesAreRejected() {
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Self.cms(wrongDigest: true)))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Self.cms(duplicateAttribute: true)))
+    }
+
+    func testDetachedWeakAlgorithmAndMultipleSignersAreRejected() {
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Self.cms(detached: true)))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Self.cms(weakAlgorithm: true)))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Self.cms(duplicateSigner: true)))
+    }
+
+    func testTrailingTruncatedAndOversizeCMSCannotBeAccepted() {
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Self.cms() + Data([0])))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Data(Self.cms().dropLast())))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Data(repeating: 0, count: 1024 * 1024 + 1)))
+    }
+
+    func testDERIndefiniteNonMinimalAndHighTagFormsAreRejected() {
+        let cases: [[UInt8]] = [[0x30,0x80,0,0], [0x30,0x81,1,0], [0x30,0x82,0,0x80], [0x3f,0], [0x30,0x84,0xff,0xff,0xff,0xff]]
+        for bytes in cases {
+            XCTAssertThrowsError(try NativeProfileDER.one(Data(bytes), tag: 0x30))
+        }
+    }
+
+    func testSyntheticCertificateCannotBecomeAppleTrustedProfile() async {
+        do {
+            _ = try await NativeAppleProfileCMSVerifier().verifyAppleProvisioningCMS(Self.cms(), now: Date())
+            XCTFail("Structural parse does not grant Apple trust")
+        } catch { XCTAssertEqual(error as? NativeProfileValidationError, .cmsRejected) }
+    }
+
+    func testNonFiniteTrustTimeIsRejected() async {
+        do {
+            _ = try await NativeAppleProfileCMSVerifier().verifyAppleProvisioningCMS(Self.cms(), now: Date(timeIntervalSince1970: .nan))
+            XCTFail("Finite current time required")
+        } catch { XCTAssertEqual(error as? NativeProfileValidationError, .cmsRejected) }
+    }
+
+    func testEphemeralRSASignatureAndTamperingPrimitive() throws {
+        let attributes: [String: Any] = [kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits as String: 2048, kSecAttrIsPermanent as String: false]
+        let privateKey = try XCTUnwrap(SecKeyCreateRandomKey(attributes as CFDictionary, nil))
+        let publicKey = try XCTUnwrap(SecKeyCopyPublicKey(privateKey))
+        let message = Data("CMS signed attributes fixture".utf8)
+        let signed = try XCTUnwrap(SecKeyCreateSignature(privateKey, .rsaSignatureMessagePKCS1v15SHA256, message as CFData, nil)) as Data
+        XCTAssertNoThrow(try NativeAppleProfileCMSVerifier.verifySignature(key: publicKey, message: message, signature: signed))
+        XCTAssertThrowsError(try NativeAppleProfileCMSVerifier.verifySignature(key: publicKey, message: message + Data([0]), signature: signed))
+        var tampered = signed; tampered[tampered.startIndex] ^= 1
+        XCTAssertThrowsError(try NativeAppleProfileCMSVerifier.verifySignature(key: publicKey, message: message, signature: tampered))
+    }
+}

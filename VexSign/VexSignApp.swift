@@ -342,18 +342,10 @@ struct VexSignApp: App {
 			}
 			/// vexsign://library · vexsign://downloads · vexsign://appStore …
 			/// The Live Activities already emitted these; this is what receives them.
-			switch url.host?.lowercased() {
-			case "home": TabSelectionObserver.shared.selectedTab = .home
-			case "library": TabSelectionObserver.shared.selectedTab = .library
-			case "appstore": TabSelectionObserver.shared.selectedTab = .appStore
-			case "files": TabSelectionObserver.shared.selectedTab = .files
-			case "downloads": TabSelectionObserver.shared.selectedTab = .downloads
-			case "settings": TabSelectionObserver.shared.selectedTab = .settings
-			default: break
-			}
-			if let host = url.host?.lowercased(), ["home", "library", "appstore", "files", "downloads", "settings"].contains(host) {
-				return
-			}
+            if let route = WorkspaceRoute.resolve(host: url.host ?? "") {
+                TabSelectionObserver.shared.navigate(to: route)
+                return
+            }
 			/// vexsign://source/<url>
 			if let fullPath = url.validatedScheme(after: "/source/") {
 				FR.handleSource(fullPath) { _ in }
@@ -606,6 +598,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
     }
 	
 	private func _registerBackgroundTasks() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         if #available(iOS 19.0, *) {
             // BGContinuedProcessingTask: user-initiated download that starts foreground, continues backgrounded.
             BGTaskScheduler.shared.register(
@@ -667,6 +660,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 
     /// Schedules the next automated maintenance pass. Call after a run and on launch when enabled.
     func scheduleAutomationMaintenance() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         guard BackgroundAutomationPreferences.isEnabled else { return }
 
         let request = BGProcessingTaskRequest(identifier: "com.vexsign.background.maintenance")
@@ -755,6 +749,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
     }
 
     func _scheduleBackgroundDownloadTask() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         let request = BGProcessingTaskRequest(identifier: "com.vexsign.background.download")
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
@@ -769,6 +764,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
     // iOS 19+: for active foreground downloads that may be backgrounded.
     @available(iOS 19.0, *)
     func submitContinuedProcessingTask() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         let activeDownloads = DownloadManager.shared.downloads.filter {
             $0.isActive || ($0.progress > 0 && $0.progress < 1.0)
         }

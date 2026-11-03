@@ -9,6 +9,8 @@ import NimbleExtensions
 import UniformTypeIdentifiers
 
 struct FilesTabView: View {
+    /// False when embedded in a workspace or pushed from another navigation stack.
+    var ownsNavigationStack: Bool = true
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = FileBrowserViewModel(directory: URL.documentsDirectory)
     @ObservedObject private var storage = StorageManager.shared
@@ -22,7 +24,7 @@ struct FilesTabView: View {
     @State private var newFileName = ""
 
     private struct QuickFolder: Identifiable {
-        let id = UUID()
+        var id: String { url.standardizedFileURL.path }
         let title: String
         let icon: String
         let color: Color
@@ -42,7 +44,7 @@ struct FilesTabView: View {
 
     var body: some View {
         // ONE navigation bar — NBNavigationView is the only NavigationStack in this tab
-        NBNavigationView(.localized("Files"), displayMode: .large) {
+        NBNavigationView(.localized("Files"), displayMode: .large, ownsNavigationStack: ownsNavigationStack) {
             List {
                 storageHeader
                 quickAccessSection

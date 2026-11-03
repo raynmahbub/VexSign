@@ -38,9 +38,16 @@ final class InstallPreflightTests: XCTestCase {
 
 	// MARK: - Server
 
-	func testServerIsReadyWithACertificate() {
-		XCTAssertEqual(readiness(.server, cert: true), .ready)
-	}
+	func testCertificatePresenceDoesNotImplySystemTrust() {
+        guard case .unknown = readiness(.server, cert: true) else {
+            return XCTFail("A profile must be trusted, not merely present")
+        }
+    }
+
+    func testServerIsReadyOnlyWithConfirmedSystemTrust() {
+        let inputs = InstallPreflightInputs(hasServerCertificate: true, hasTrustedServerCertificate: true)
+        XCTAssertEqual(InstallPreflight.readiness(for: .server, inputs), .ready)
+    }
 
 	func testServerNamesTheMissingCertificate() {
 		guard case .missing(let message) = readiness(.server, cert: false) else {

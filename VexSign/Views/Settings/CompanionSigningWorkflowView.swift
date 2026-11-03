@@ -17,7 +17,9 @@ struct CompanionSigningWorkflowView: View {
     private var integrity: CompanionIPAIntegrity {
         CompanionIPAIntegrity.evaluate(expected: expectedFingerprint, actual: ipaFingerprint)
     }
-    private var preparingIPA: Bool { preparingLibraryIPA || stagingFileIPA || hashingIPA }
+    @State private var preparingEmbeddedIPA = false
+    private var embedded: Bool { EmbeddedContainerRuntime.isAvailable }
+    private var preparingIPA: Bool { preparingLibraryIPA || stagingFileIPA || hashingIPA || preparingEmbeddedIPA }
     @StateObject private var archiveStatus = InstallerStatusViewModel(isIdevice: false)
     @State private var exportTask: UnifiedTask?
     @Environment(\.dismiss) private var dismiss
@@ -35,13 +37,23 @@ struct CompanionSigningWorkflowView: View {
 
     var body: some View {
         NBList(.localized("SideStore & LiveContainer")) {
+            if embedded { EmbeddedContainerControls().disabled(preparingIPA) }
+            if EmbeddedContainerRuntime.isGuestBuild && !embedded {
+                Section {
+                    Label(.localized("Embedded runtime unavailable"), systemImage: "exclamationmark.triangle")
+                    Text(.localized("Launch this guest from the compatible VexSign Container in main-process mode. External app launchers are not substituted for a missing embedded runtime."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section {
                 DisclosureGroup(.localized("How the apps work together")) {
                     VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                         Label(.localized("VexSign prepares and shares IPA files"), systemImage: "archivebox")
                         Label(.localized("SideStore manages its Apple account, installs and renewals"), systemImage: "checkmark.seal")
                         Label(.localized("LiveContainer imports and runs compatible guests"), systemImage: "square.stack")
-                        Text(.localized("These are separate apps. Credentials, libraries and completion status are not automatically synchronized."))
+                        Text(EmbeddedContainerRuntime.isGuestBuild
+                             ? .localized("This build includes the host and SideStore. VexSign runs as a guest; data and accounts remain isolated. Use the built-in controls to switch sessions or prepare a local guest import.")
+                             : .localized("These are separate apps. Credentials, libraries and completion status are not automatically synchronized."))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .font(.subheadline)
@@ -59,6 +71,7 @@ struct CompanionSigningWorkflowView: View {
                     Button(.localized("Dismiss status")) { requestOpened = false }
                 }
             }
+            if !EmbeddedContainerRuntime.isGuestBuild {
             Section {
                 Text(.localized("Apple-account login stays in SideStore"))
                     .font(.headline)
@@ -92,6 +105,8 @@ struct CompanionSigningWorkflowView: View {
                 Text(.localized("Use a trusted LiveContainer IPA URL or another IPA you intend to install. SideStore performs authentication, signing and installation. Sending a link is not proof of success; verify the result in SideStore. Only apps managed by SideStore can be renewed by it."))
             }
 
+            }
+
             Section {
                 if let libraryApp {
                     Text(libraryApp.base.name ?? .localized("Application")).font(.headline)
@@ -121,6 +136,10 @@ struct CompanionSigningWorkflowView: View {
                     }
                 }
                 if let sharedIPA {
+                    if embedded {
+                        EmbeddedContainerImportButton(ipa: sharedIPA, staging: $preparingEmbeddedIPA)
+                            .disabled(preparingIPA || !integrity.allowsSharing)
+                    }
                     ShareLink(item: sharedIPA) {
                         Label(.localized("Share IPA to companion app"), systemImage: "square.and.arrow.up")
                     }
@@ -168,13 +187,17 @@ struct CompanionSigningWorkflowView: View {
                     }
                     .disabled(preparingIPA)
                 }
+                if !EmbeddedContainerRuntime.isGuestBuild {
                 Button(.localized("Open LiveContainer")) { open("livecontainer://") }
                     .disabled(!liveContainerAvailable)
                 Text(liveContainerAvailable ? .localized("LiveContainer URL handler detected") : .localized("LiveContainer URL handler not detected"))
                     .font(.caption).foregroundStyle(.secondary)
+                }
                 Link(.localized("LiveContainer project & instructions"), destination: URL(string: "https://github.com/LiveContainer/LiveContainer")!)
             } header: { Text(.localized("3. Import guest apps")) } footer: {
-                Text(.localized("Choose SideStore to install an IPA, or LiveContainer to import a guest, if offered in the system share sheet. Otherwise save to Files and import inside the target app. Signing, JIT and execution requirements belong to the receiving app. Sharing does not confirm installation or import."))
+                Text(embedded
+                     ? .localized("Use the prepared import button to copy the checked IPA directly into the embedded host inbox, then confirm import in LiveContainer. Host signing and JIT requirements still apply. A staged file is not a verified installation.")
+                     : .localized("Choose SideStore to install an IPA, or LiveContainer to import a guest, if offered in the system share sheet. Otherwise save to Files and import inside the target app. Signing, JIT and execution requirements belong to the receiving app. Sharing does not confirm installation or import."))
             }
             Section {
                 NavigationLink(destination: JITSettingsView()) {

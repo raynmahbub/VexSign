@@ -2,11 +2,8 @@
 //  TabbarView.swift
 //  VexSign
 //
-//  A stable six-item tab shell. SwiftUI's classic TabView promotes the sixth
-//  item into a "More" tab on iPhone, which is not the requested Files,
-//  Library, Home, App Store, Downloads, Settings layout. This small shell keeps
-//  all six destinations visible while retaining each destination's navigation
-//  stack and state.
+//  Five native default tabs. Optional extra destinations use the custom shell
+//  to avoid losing tabs to UIKit's More controller.
 //
 
 import SwiftUI
@@ -15,9 +12,12 @@ struct TabbarView: View {
     @ObservedObject private var tabSelection = TabSelectionObserver.shared
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
     @ObservedObject private var tweakManager = TweakManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var tabPrefs = TabBarPreferences.shared
     @AppStorage("VexSign.showSourcesUpdateBadge") private var showSourcesUpdateBadge = true
     @Namespace private var tabSelectionAnimation
+    @State private var visitedTabs: Set<TabEnum> = []
 
     private var visibleTabs: [TabEnum] {
         tabPrefs.visibleTabs
@@ -37,26 +37,72 @@ struct TabbarView: View {
     }
 
     var body: some View {
-        TabView(selection: selectionBinding) {
-            ForEach(visibleTabs, id: \.self) { tab in
-                TabEnum.view(for: tab)
-                    .tabItem {
-                        Label(tab.title, systemImage: tab.icon)
+        Group {
+            if visibleTabs.count <= 5 {
+                // Native UITabBar supplies real Liquid Glass on iOS 26, and
+                // the correct system appearance on older supported versions.
+                if #available(iOS 26.0, *) {
+                    tabContent.tabBarMinimizeBehavior(.onScrollDown)
+                } else {
+                    tabContent
+                }
+            } else {
+                // Optional extra destinations must not disappear into More.
+                // Do not create a >5-item UITabBarController and hide it:
+                // its More UINavigationController can add a second back bar.
+                extraTabContent
+                    .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
+            }
+        }
+        .onAppear { repairSelection() }
+        .onChange(of: visibleTabs) { _ in repairSelection() }
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        if #available(iOS 18.0, *) {
+            TabView(selection: selectionBinding) {
+                ForEach(visibleTabs, id: \.self) { tab in
+                    Tab(tab.title, systemImage: tab.icon, value: tab) {
+                        TabEnum.view(for: tab)
                     }
-                    .tag(tab)
+                    .badge(badge(for: tab) ?? 0)
+                }
+            }
+            .tabViewStyle(.sidebarAdaptable)
+            .tint(Color.userTint)
+        } else {
+            TabView(selection: selectionBinding) {
+                ForEach(visibleTabs, id: \.self) { tab in
+                    TabEnum.view(for: tab)
+                        .tabItem { Label(tab.title, systemImage: tab.icon) }
+                        .badge(badge(for: tab) ?? 0)
+                        .tag(tab)
+                }
+            }
+            .tint(Color.userTint)
+        }
+    }
+
+    private var extraTabContent: some View {
+        ZStack {
+            // Only create optional roots after visiting them, then retain their
+            // navigation/state. This avoids loading every file browser at launch.
+            ForEach(visibleTabs.filter { visitedTabs.contains($0) || $0 == currentTab }, id: \.self) { tab in
+                TabEnum.view(for: tab)
+                    .opacity(tab == currentTab ? 1 : 0)
+                    .allowsHitTesting(tab == currentTab)
+                    .accessibilityHidden(tab != currentTab)
+                    .zIndex(tab == currentTab ? 1 : 0)
             }
         }
-        // The system bar is hidden only visually; TabView still owns the
-        // navigation stacks for each destination. Our six-item bar below is
-        // the stable, always-visible presentation.
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            tabBar
-        }
-        .onAppear {
-            if !visibleTabs.contains(tabSelection.selectedTab) {
-                tabSelection.selectedTab = tabPrefs.resolvedLaunchTab
-            }
+        .onAppear { visitedTabs.insert(currentTab) }
+        .onChange(of: currentTab) { tab in visitedTabs.insert(tab) }
+    }
+
+    private func repairSelection() {
+        if !visibleTabs.contains(tabSelection.selectedTab) {
+            tabSelection.selectedTab = tabPrefs.resolvedLaunchTab
         }
     }
 
@@ -107,7 +153,7 @@ struct TabbarView: View {
         .padding(.horizontal, 4)
         .padding(.top, 5)
         .padding(.bottom, 2)
-        .animation(.snappy(duration: 0.28), value: currentTab)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: currentTab)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Rectangle()
@@ -131,7 +177,7 @@ struct TabbarView: View {
             return tweakManager.defaultInjectCount
         }
         if tab == .downloads {
-            return DownloadManager.shared.downloads.filter { $0.isActive }.count
+            return downloadManager.downloads.filter { $0.isActive }.count
         }
         return nil
     }

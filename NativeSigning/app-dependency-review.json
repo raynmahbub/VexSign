@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "scope": "Source review only; no merged SwiftPM resolution or native compilation. Main app pins unchanged.",
+  "app_pins_file": "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+  "app_pins_sha256": "3d046596d37d3f29f83183b423ab26fb242181dbd239bc34d69fea02fc20de68",
+  "confirmed_blocker": {
+    "identity": "vapor",
+    "version": "4.104.0",
+    "requirement": "1.0.0..<4.0.0",
+    "dependency": "swift-crypto",
+    "isolated_version": "4.3.1",
+    "alternate_manifest": "Package@swift-5.9.swift",
+    "alternate_manifest_sha256": "29d152e8b63e353b2afe843bf4e8e2c5b3bd8bfbe2ac1220902507176bc067aa"
+  },
+  "root_manifest_review": [
+    {
+      "identity": "apikit",
+      "revision": "b839e53b870104798035b279d2a6168b0a2227b1",
+      "manifest_sha256": "9e6d3373220804bacadd18c40cc774f1e45f4c26bb5ddc3c0401c0613e4e23c8"
+    },
+    {
+      "identity": "async-http-client",
+      "revision": "4b99975677236d13f0754339864e5360142ff5a1",
+      "manifest_sha256": "49883a7d0a1ffb720e12db24336bd8cbb80f93a2117b04dd8cb1404d749256b0"
+    },
+    {
+      "identity": "async-kit",
+      "revision": "6f3615ccf2ac3c2ae0c8087d527546e9544a43dd",
+      "manifest_sha256": "4d1a5f689f53ad7f6ad19d5e6d5459c398e163ad4d5f9e989aed567bf771200e"
+    },
+    {
+      "identity": "bitbytedata",
+      "revision": "cdcdc5177ad536cfb11b95c620f926a81014b7fe",
+      "manifest_sha256": "32e7d285369d2a0e0f3c2877cee013b21527176910c15aa16e47a49859dfec58"
+    },
+    {
+      "identity": "console-kit",
+      "revision": "742f624a998cba2a9e653d9b1e91ad3f3a5dff6b",
+      "manifest_sha256": "f1c2c771eb7ccac77db97c4fd87f0ab4148ba28ba1cf4e79bf0c81b9c1cf1205"
+    },
+    {
+      "identity": "heliumlogger",
+      "revision": "fc2a71597ae974da5282d751bcc11965964bccce",
+      "manifest_sha256": "87a16de2230785addc27a502d29c2379c6eb64177511225fd8bf7e27109686c1"
+    },
+    {
+      "identity": "licenseplist",
+      "revision": "ab1692c16f4ce50fc134a8f51179f3310d41c5ef",
+      "manifest_sha256": "bacfc81a001dd33ee3c960dbbd17d695d4590bc538953bf10328f0aa9efdf615"
+    },
+    {
+      "identity": "loggerapi",
+      "revision": "4e6b45e850ffa275e8e26a24c6454fd709d5b6ac",
+      "manifest_sha256": "a2a542cd6bdd669480a1b62814cfe0f836aa391095580b07a42c894029b20ff8"
+    },
+    {
+      "identity": "multipart-kit",
+      "revision": "3498e60218e6003894ff95192d756e238c01f44e",
+      "manifest_sha256": "7d3d6c1e9932713d5328e04b294b6a817fd78a15b6e3b4d9c937a9e4be35a35c"
+    },
+    {
+      "identity": "nuke",
+      "revision": "0ead44350d2737db384908569c012fe67c421e4d",
+      "manifest_sha256": "ca62325b5d552de9157d89338b025fc732641bf94af87bf02f505f0f55a657f9"
+    },
+    {
+      "identity": "openssl",
+      "revision": "e7d34385da795aaaeb2212e38c7401e5c333f792",
+      "manifest_sha256": "da0fb480c7944e515a15960ed87afdd0f8b5522e4f98fee191ce224f05248323"
+    },
+    {
+      "identity": "routing-kit",
+      "revision": "1a10ccea61e4248effd23b6e814999ce7bdf0ee0",
+      "manifest_sha256": "aca30840327e571f8d7f6b55fd2babac9a4a237b0ca87ec20d3cef008245fcfd"
+    },
+    {
+      "identity": "swcompression",
+      "revision": "390e0b0af8dd19a600005a242a89e570ff482e09",
+      "manifest_sha256": "9ac1ceaadb59c0b29a09a274932610a6a185405b6a02217a0e089006ae76f8c0"
+    },
+    {
+      "identity": "swift-algorithms",
+      "revision": "87e50f483c54e6efd60e885f7f5aa946cee68023",
+      "manifest_sha256": "a6477559e0eb388f6bbc251cab7c5bc1535ece2a863d67b2ff82ab36c32a16b8"
+    },
+    {
+      "identity": "swift-argument-parser",
+      "revision": "c5d11a805e765f52ba34ec7284bd4fcd6ba68615",
+      "manifest_sha256": "ad19af1a9e8e8ba963beab7c9b28602d1af33e7abe9b237ff65452ab65abefcb"
+    },
+    {
+      "identity": "swift-asn1",
+      "revision": "810496cf121e525d660cd0ea89a758740476b85f",
+      "manifest_sha256": "8537b2e6612b948392a9691547c3351b90da42be2c830558ea4c9cad23043f2b"
+    },
+    {
+      "identity": "swift-async-algorithms",
+      "revision": "6c050d5ef8e1aa6342528460db614e9770d7f804",
+      "manifest_sha256": "80d0760a78eebd535946cd0dc78d2282d113c94940002421814427d0dfec04fb"
+    },
+    {
+      "identity": "swift-atomics",
+      "revision": "b601256eab081c0f92f059e12818ac1d4f178ff7",
+      "manifest_sha256": "99359621b74cbd0aca68d494716770df91f8f774e11ab3066234009aa54780f0"
+    },
+    {
+      "identity": "swift-certificates",
+      "revision": "7d5f6124c91a2d06fb63a811695a3400d15a100e",
+      "manifest_sha256": "9f9abca50b55535aa873f7ef5e3be8528ca490a940dbd899274d7e7c4b6c8c7e"
+    },
+    {
+      "identity": "swift-collections",
+      "revision": "7b847a3b7008b2dc2f47ca3110d8c782fb2e5c7e",
+      "manifest_sha256": "d59d8bc922e1b3d248c59e7a4cfd6eae89e295c5571f57346104b6869215bba5"
+    },
+    {
+      "identity": "swift-crypto",
+      "revision": "95ba0316a9b733e92bb6b071255ff46263bbe7dc",
+      "manifest_sha256": "d51987333ca67380af875d853ff74a4a7bcb9095f220e7235aa2830706f96b54"
+    },
+    {
+      "identity": "swift-distributed-tracing",
+      "revision": "baa932c1336f7894145cbaafcd34ce2dd0b77c97",
+      "manifest_sha256": "f857657c9bb2517381bcb3f1af49ac9a83a2ca0436ed07ed978e3d1e397aa1d4"
+    },
+    {
+      "identity": "swift-html-entities",
+      "revision": "d8ca73197f59ce260c71bd6d7f6eb8bbdccf508b",
+      "manifest_sha256": "3da3f643ead03e898f40ed268fd2af50266c9af26f873bfa17319a5e82d41326"
+    },
+    {
+      "identity": "swift-http-structured-headers",
+      "revision": "76d7627bd88b47bf5a0f8497dd244885960dde0b",
+      "manifest_sha256": "228695eaf5064cd0c0d90eaeeafb50ff97b3cfc20d379b775732b3510c9fa674"
+    },
+    {
+      "identity": "swift-http-types",
+      "revision": "45eb0224913ea070ec4fba17291b9e7ecf4749ca",
+      "manifest_sha256": "eee95007beae33be3f0da02eca355ffd0597469244e109e54fed275ed9fe553f"
+    },
+    {
+      "identity": "swift-log",
+      "revision": "2778fd4e5a12a8aaa30a3ee8285f4ce54c5f3181",
+      "manifest_sha256": "eb022ae90b9a66d7aa14c0b70db9e5fd3b278f6476c0bde52f830969dedca6ac"
+    },
+    {
+      "identity": "swift-metrics",
+      "revision": "0743a9364382629da3bf5677b46a2c4b1ce5d2a6",
+      "manifest_sha256": "f3dfb9c39312c845d29d1779de79eb4e255f499ad665fa3fa1845b44dacc5ca8"
+    },
+    {
+      "identity": "swift-nio",
+      "revision": "5e72fc102906ebe75a3487595a653e6f43725552",
+      "manifest_sha256": "8c74532a2d2a3092d94dabfecdbb8da18e0078638d4bc11e3222548c37eed45a"
+    },
+    {
+      "identity": "swift-nio-extras",
+      "revision": "3df009d563dc9f21a5c85b33d8c2e34d2e4f8c3b",
+      "manifest_sha256": "113efd78a88dabf294b54ae8f817e29a0239b468e8e9f13ed07f4489e16c2d7d"
+    },
+    {
+      "identity": "swift-nio-http2",
+      "revision": "c2ba4cfbb83f307c66f5a6df6bb43e3c88dfbf80",
+      "manifest_sha256": "b4fb24b1340779d954e5cf7603324bca13eda5c9168337de2d520399a7c3577b"
+    },
+    {
+      "identity": "swift-nio-ssl",
+      "revision": "173cc69a058623525a58ae6710e2f5727c663793",
+      "manifest_sha256": "aa28831e4f0efdf906caf5b355e9ccef95a514abe6dc39b46b01a99945918686"
+    },
+    {
+      "identity": "swift-nio-transport-services",
+      "revision": "60c3e187154421171721c1a38e800b390680fb5d",
+      "manifest_sha256": "00aa13a786517d9ade6d6bc7a46945a6229b4da6f813cd58c69ebfd904874a89"
+    },
+    {
+      "identity": "swift-numerics",
+      "revision": "0c0290ff6b24942dadb83a929ffaaa1481df04a2",
+      "manifest_sha256": "a1613f1fdf148fb8c824c3a8f3e92928f8224bac25bfc3190d206c701087a6b9"
+    },
+    {
+      "identity": "swift-service-context",
+      "revision": "1983448fefc717a2bc2ebde5490fe99873c5b8a6",
+      "manifest_sha256": "30d55eb75c24e5d626e84dd228803bdbf1356bc47f808050c7d9254423d1ee76"
+    },
+    {
+      "identity": "swift-service-lifecycle",
+      "revision": "1de37290c0ab3c5a96028e0f02911b672fd42348",
+      "manifest_sha256": "8174e358d94922c05b98279e93a1ad8448149c87f725bb3c94045fb4443eb1de"
+    },
+    {
+      "identity": "swift-system",
+      "revision": "7c6ad0fc39d0763e0b699210e4124afd5041c5df",
+      "manifest_sha256": "caf90187521b0eb936761f689eafb6584b35a4e233fac160d7673be465cfaa30"
+    },
+    {
+      "identity": "vapor",
+      "revision": "236025b6a213f372f81b732ff792f95789c089d4",
+      "manifest_sha256": "710e980ecfe63d8558497ce56762b30f2502614d5d963dd1708cfab03c8fde1b"
+    },
+    {
+      "identity": "websocket-kit",
+      "revision": "8666c92dbbb3c8eefc8008c9c8dcf50bfd302167",
+      "manifest_sha256": "51cc3612a4646c63c5d2b7590c14990e6846371652567c7551987be03dac75b6"
+    },
+    {
+      "identity": "xcodeedit",
+      "revision": "0e550cdee72844b35431afc3a1e176042be6d0f0",
+      "manifest_sha256": "ab95d837c24c5998867bb8c180793b205f8eb8b872c64ad6d16555ddcc74cab5"
+    },
+    {
+      "identity": "yams",
+      "revision": "3d6871d5b4a5cd519adf233fbb576e0a2af71c17",
+      "manifest_sha256": "597593e7a5bbefb6f753d15770463e3a91b1789400b9468a15ae90b140755537"
+    },
+    {
+      "identity": "zip",
+      "revision": "67fa55813b9e7b3b9acee9c0ae501def28746d76",
+      "manifest_sha256": "186b4942ea5183a2a1c81fd623dac8932ace6a0ca81507d37c5249811cc5294a"
+    },
+    {
+      "identity": "zipfoundation",
+      "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+      "manifest_sha256": "2dd90c2f70b1f3d17a4d73bd32ac97e5fc002eecd5797586edaf170def789fff"
+    }
+  ]
+}

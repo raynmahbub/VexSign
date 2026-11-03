@@ -15,12 +15,29 @@ import CoreData
 class TabSelectionObserver: ObservableObject {
 	static let shared = TabSelectionObserver()
 	@Published var selectedTab: TabEnum = TabBarPreferences.shared.resolvedLaunchTab
+    @Published var librarySection: LibraryWorkspaceSection = .apps
+    @Published var activitySection: ActivityWorkspaceSection = .downloads
+    @Published var ipaExplorerRequested = false
 	@Published var highlightedAppUUID: String?
 	@Published var sourcesRetapped: Bool = false
 	
+    /// Route old standalone Files/Logs links into the merged workspaces.
+    func navigate(to route: WorkspaceRoute) {
+        if let section = route.librarySection { librarySection = section }
+        if let section = route.activitySection { activitySection = section }
+        selectedTab = route.tab
+    }
+
+    func requestIPAExplorer() {
+        navigate(to: .apps)
+        // Persist the intent until Library mounts (it may currently show Files).
+        ipaExplorerRequested = true
+    }
+
 	private var highlightTimer: Timer?
 	
 	func navigateToLibraryWithHighlight(uuid: String) {
+        librarySection = .apps
 		highlightedAppUUID = uuid
 		DispatchQueue.main.async {
 			self.selectedTab = .library

@@ -17,6 +17,5 @@ import SwiftUI
 struct VariedTabbarView: View {
     var body: some View {
         TabbarView()
-            .animation(.easeInOut(duration: 0.22), value: TabSelectionObserver.shared.selectedTab)
     }
 }

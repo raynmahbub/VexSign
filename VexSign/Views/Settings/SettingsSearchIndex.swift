@@ -4,6 +4,7 @@ import NimbleExtensions
 enum SettingsSearchRoute: String, CaseIterable {
     case setupHealth
     case certificates
+    case signingMethods
     case signingOptions
     case advancedSigning
     case signingProfiles
@@ -60,6 +61,7 @@ enum SettingsSearchIndex {
     static var entries: [SettingsSearchEntry] {
 [
             SettingsSearchEntry(id: .setupHealth, title: .localized("Setup Health"), icon: "checklist", keywords: "setup health readiness prerequisites"),
+            SettingsSearchEntry(id: .signingMethods, title: .localized("Signing Methods"), icon: "person.badge.key", keywords: "apple account free paid certificate native signing capability primary host"),
             SettingsSearchEntry(id: .certificates, title: .localized("Certificates Manager"), icon: "checkmark.seal.fill", keywords: "p12 mobileprovision profile expiry certificate"),
             SettingsSearchEntry(id: .signingOptions, title: .localized("Signing Options"), icon: "signature", keywords: "signing options"),
             SettingsSearchEntry(id: .advancedSigning, title: .localized("Advanced Signing & Patches"), icon: "cpu.fill", keywords: "advanced signing & patches"),

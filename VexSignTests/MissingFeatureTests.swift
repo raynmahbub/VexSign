@@ -367,15 +367,15 @@ final class MissingFeatureTests: XCTestCase {
 
 	// MARK: - Tab structure
 
-	/// The six primary tabs are an immutable navigation structure: fixed
+	/// The five primary tabs are an immutable navigation structure: fixed
 	/// order, always visible, never hideable or reorderable.
 	func testPrimaryTabsAreImmutableAndAlwaysVisible() {
 		let preferences = TabBarPreferences.shared
 
 		XCTAssertEqual(
 			TabBarPreferences.primaryTabs,
-			[.files, .library, .home, .appStore, .downloads, .settings],
-			"The required order is Files → Library → Home → App Store → Downloads → Settings"
+			[.library, .home, .appStore, .downloads, .settings],
+			"The required order is Library → Home → App Store → Downloads → Settings"
 		)
 
 		// Every primary tab is visible in the resolved bar, in order.

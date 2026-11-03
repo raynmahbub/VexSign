@@ -1,7 +1,37 @@
 import XCTest
+import ZIPFoundation
 @testable import VexSign
 
 final class ImportAndInstallationTests: XCTestCase {
+    func testRealIPAWithExplicitPayloadDirectoryEntries() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try manager.createDirectory(at: root.appendingPathComponent("input/Payload/Test.app"), withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) }
+        let input = root.appendingPathComponent("input")
+        try Data("fixture".utf8).write(to: input.appendingPathComponent("Payload/Test.app/Info.plist"))
+        let ipa = root.appendingPathComponent("Test.ipa")
+        do {
+            let archive = try Archive(url: ipa, accessMode: .create)
+            for path in ["Payload/", "Payload/Test.app/", "Payload/Test.app/Info.plist"] {
+                try archive.addEntry(with: path, relativeTo: input)
+            }
+        }
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validate(ipa, destination: root.appendingPathComponent("output", isDirectory: true)))
+    }
+
+    func testArchiveRejectsEmbeddedSymlinkEscape() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) }
+        try manager.createSymbolicLink(at: root.appendingPathComponent("escape"), withDestinationURL: root.deletingLastPathComponent())
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: "escape/outside", root: root))
+        for path in ["/Payload/", "../escape", "Payload/../escape", "C:/escape", "", "./Payload"] {
+            XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: path, root: root))
+        }
+    }
+
     func testArchiveDestinationAcceptsPayloadDirectoryAndFiles() throws {
         let root = FileManager.default.temporaryDirectory
         for path in ["Payload/", "Payload/Test.app/", "Payload/Test.app/Info.plist"] {
@@ -257,10 +287,10 @@ final class ImportAndInstallationTests: XCTestCase {
     }
 
     func testHomeIsAvailableInDefaultNavigation() {
-        // The required six-tab order is Files → Library → Home →
+        // The default five-tab order is Library → Home →
         // App Store → Downloads → Settings; Home is always present and
         // never hideable, along with the other primary tabs.
-        XCTAssertEqual(TabEnum.defaultTabs, [.files, .library, .home, .appStore, .downloads, .settings])
+        XCTAssertEqual(TabEnum.defaultTabs, [.library, .home, .appStore, .downloads, .settings])
         XCTAssertTrue(TabEnum.defaultTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.settings))

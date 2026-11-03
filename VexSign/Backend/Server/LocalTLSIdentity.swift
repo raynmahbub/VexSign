@@ -261,6 +261,21 @@ enum LocalTLSIdentity {
 		return expiry
 	}
 
+    /// Uses the SYSTEM trust store, including a user-installed and fully trusted
+    /// CA profile. Never adds our own CA as a trust anchor to bypass user consent.
+    static func isSystemTrusted() -> Bool {
+        guard let url = ServerInstaller.getUrl("server", ext: "crt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return false } // try? ok: inaccessible identity is not trusted.
+        let certificates = certificateDERs(fromPEM: text).compactMap { SecCertificateCreateWithData(nil, $0 as CFData) }
+        guard !certificates.isEmpty else { return false }
+        var trust: SecTrust?
+        guard SecTrustCreateWithCertificates(certificates as CFArray,
+                SecPolicyCreateSSL(true, "127.0.0.1" as CFString), &trust) == errSecSuccess,
+              let trust else { return false }
+        SecTrustSetNetworkFetchAllowed(trust, false)
+        return SecTrustEvaluateWithError(trust, nil)
+    }
+
 	// MARK: - Current identity
 
 	/// The identity the server would load right now, or nil when there is none.
