@@ -705,4 +705,4 @@ extension AnisetteProviderDescriptor {
             endpoint: endpoint
         )
     }
-}
+}// CI trigger
