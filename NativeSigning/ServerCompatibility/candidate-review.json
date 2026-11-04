@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "candidate; not promoted or natively compiled",
+  "status": "promoted to the app baseline (Vapor 4.122.3 / Crypto 4.3.1 / ASN1 1.6.0); retained as the source/API review for that graph",
   "vapor": {
     "version": "4.122.3",
     "revision": "48852309b11230e62a89b41a9c578c93f4d2d916",
@@ -40,5 +40,5 @@
       "version": "2.36.0"
     }
   },
-  "app_baseline_sha256": "3d046596d37d3f29f83183b423ab26fb242181dbd239bc34d69fea02fc20de68"
+  "app_baseline_sha256": "eb11eca40a10a68eee0b1c75a23a9fb871d1ae52423998d0f45ccd307f254081"
 }

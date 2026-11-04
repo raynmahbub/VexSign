@@ -1,16 +1,17 @@
 {
   "schema": 1,
-  "scope": "Source review only; no merged SwiftPM resolution or native compilation. Main app pins unchanged.",
+  "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Review regenerated for the new app baseline; the Xcode resolver remains the authority for transitive pins.",
   "app_pins_file": "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
-  "app_pins_sha256": "3d046596d37d3f29f83183b423ab26fb242181dbd239bc34d69fea02fc20de68",
+  "app_pins_sha256": "eb11eca40a10a68eee0b1c75a23a9fb871d1ae52423998d0f45ccd307f254081",
   "confirmed_blocker": {
     "identity": "vapor",
-    "version": "4.104.0",
-    "requirement": "1.0.0..<4.0.0",
+    "version": "4.122.3",
+    "requirement": "1.0.0..<6.0.0",
     "dependency": "swift-crypto",
     "isolated_version": "4.3.1",
-    "alternate_manifest": "Package@swift-5.9.swift",
-    "alternate_manifest_sha256": "29d152e8b63e353b2afe843bf4e8e2c5b3bd8bfbe2ac1220902507176bc067aa"
+    "alternate_manifest": "Package.swift",
+    "alternate_manifest_sha256": "1b1b557fbcd1bfb61399101af52e00da18ca66fcb55e404431d63826379a0736",
+    "status": "resolved by promotion: Vapor 4.122.3 permits the Crypto 4.3.1 graph SideSign requires"
   },
   "root_manifest_review": [
     {
@@ -90,7 +91,7 @@
     },
     {
       "identity": "swift-asn1",
-      "revision": "810496cf121e525d660cd0ea89a758740476b85f",
+      "revision": "9f542610331815e29cc3821d3b6f488db8715517",
       "manifest_sha256": "8537b2e6612b948392a9691547c3351b90da42be2c830558ea4c9cad23043f2b"
     },
     {
@@ -115,8 +116,8 @@
     },
     {
       "identity": "swift-crypto",
-      "revision": "95ba0316a9b733e92bb6b071255ff46263bbe7dc",
-      "manifest_sha256": "d51987333ca67380af875d853ff74a4a7bcb9095f220e7235aa2830706f96b54"
+      "revision": "bb4ba815dab96d4edc1e0b86d7b9acf9ff973a84",
+      "manifest_sha256": "291ff00a466ba82a611c9b2051b34c99a3fe16b1442313e353179f787e9283f9"
     },
     {
       "identity": "swift-distributed-tracing",
@@ -195,8 +196,8 @@
     },
     {
       "identity": "vapor",
-      "revision": "236025b6a213f372f81b732ff792f95789c089d4",
-      "manifest_sha256": "710e980ecfe63d8558497ce56762b30f2502614d5d963dd1708cfab03c8fde1b"
+      "revision": "48852309b11230e62a89b41a9c578c93f4d2d916",
+      "manifest_sha256": "1b1b557fbcd1bfb61399101af52e00da18ca66fcb55e404431d63826379a0736"
     },
     {
       "identity": "websocket-kit",

@@ -21,9 +21,11 @@ class CombinedSmokeTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.work = Path(self.temp.name)
 
-    def test_only_three_proposed_versions_change_from_app_baseline(self):
+    def test_promoted_candidate_versions_match_app_baseline(self):
+        # The Vapor 4.122.3 / Crypto 4.3.1 / ASN1 1.6.0 candidate was promoted
+        # into the app baseline, so the candidate no longer proposes changes.
         old = {p['identity']: p['state'] for p in self.app['pins']}
-        self.assertEqual({name for name in old if old[name] != self.expected[name]}, {'vapor', 'swift-crypto', 'swift-asn1'})
+        self.assertEqual({name for name in old if old[name] != self.expected[name]}, set())
         text = module.manifest(self.app, self.expected)
         for pin in self.app['pins']:
             self.assertIn('name: "%s", url: "%s", exact: "%s"' % (pin['identity'], pin['location'], self.expected[pin['identity']]['version']), text)

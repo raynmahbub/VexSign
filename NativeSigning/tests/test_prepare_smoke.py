@@ -461,8 +461,8 @@ class PreparationTests(unittest.TestCase):
         blocker = review['confirmed_blocker']
         self.assertEqual(blocker['identity'], 'vapor')
         self.assertEqual(blocker['isolated_version'], '4.3.1')
-        self.assertEqual(blocker['requirement'], '1.0.0..<4.0.0')
-        self.assertIn('version = 4.104.0;', (HERE.parent / 'VexSign.xcodeproj/project.pbxproj').read_text())
+        self.assertEqual(blocker['requirement'], '1.0.0..<6.0.0')
+        self.assertIn('version = 4.122.3;', (HERE.parent / 'VexSign.xcodeproj/project.pbxproj').read_text())
 
     def test_codec_revision_matches_reviewed_sdk_and_size_matches_vault(self):
         lock = json.loads((HERE / 'inputs.lock.json').read_text())
