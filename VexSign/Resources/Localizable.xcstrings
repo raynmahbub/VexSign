@@ -100185,6 +100185,17 @@
           }
         }
       }
+    },
+    "Last checked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last checked"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
