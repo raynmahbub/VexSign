@@ -5,7 +5,7 @@ import LocalAuthentication
 /// Per owner/subject device-only atomic intent. Target UDID/bundle, credentials,
 /// anisette data and private keys are not stored in this journal. Hashing names
 /// is not encryption. No fallback, sync, shared group, broad purge or reset API.
-struct NativeRegistrationKeychainStore<Client: AppleAccountJournalKeychainClient> {
+struct NativeRegistrationKeychainStore<Client: AppleAccountJournalKeychainClient & Sendable> {
     static var service: String { "com.vexsign.native-signing.registrations.v1" }
     let client: Client
 
@@ -73,5 +73,5 @@ struct NativeRegistrationKeychainStore<Client: AppleAccountJournalKeychainClient
     }
 }
 
-extension NativeRegistrationKeychainStore: Sendable where Client: Sendable {}
-extension NativeRegistrationKeychainStore: NativeRegistrationStorage where Client: Sendable {}
+extension NativeRegistrationKeychainStore: Sendable {}
+extension NativeRegistrationKeychainStore: NativeRegistrationStorage {}

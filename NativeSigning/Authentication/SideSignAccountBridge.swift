@@ -61,6 +61,8 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
     private var registrationEpoch = UUID()
     private let certificateStatusConsent = NativeCertificateStatusConsentGate()
     private var certificateStatusEpoch = UUID()
+    private let keyExportConsent = NativeKeyExportConsentGate()
+    private var keyExportEpoch = UUID()
     private var certificateStatusTask: Task<NativeAccountCertificateStatus, Error>?
     private var profileTask: Task<NativeAccountProfileResult, Error>?
     private var profileApproval: NativeAccountProfileApproval?
@@ -969,9 +971,6 @@ extension SideSignAccountBridge {
     }
 
     // MARK: - Key Export Consent
-
-    private let keyExportConsent = NativeKeyExportConsentGate()
-    private var keyExportEpoch = UUID()
 
     func recordExplicitKeyExportConsent(contextID: UUID, identityID: UUID,
                                          lifetime: TimeInterval = 120) async throws -> NativeKeyExportConsent {

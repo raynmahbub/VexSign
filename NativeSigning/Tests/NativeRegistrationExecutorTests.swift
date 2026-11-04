@@ -181,7 +181,7 @@ final class NativeRegistrationExecutorTests: XCTestCase {
         let count = await portal.count(); XCTAssertEqual(count, 1)
     }
 
-    private final class KeychainClient: AppleAccountJournalKeychainClient {
+    private final class KeychainClient: AppleAccountJournalKeychainClient, @unchecked Sendable {
         var attributes: [String: Any] = [:]
         var lastQuery: [String: Any] = [:]
         var status: OSStatus = errSecSuccess
