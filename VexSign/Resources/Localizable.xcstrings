@@ -100262,6 +100262,28 @@
           }
         }
       }
+    },
+    "%@/3 apps used" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/3 apps used"
+          }
+        }
+      }
+    },
+    "Team: %@ (%@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Team: %@ (%@)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

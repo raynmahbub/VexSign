@@ -210,13 +210,13 @@ struct SigningMethodsView: View {
                     }
                     if case .signedIn(let context) = snapshot.phase {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Team: \(context.team.identifier) (\(context.team.membership.displayName))")
+                            Text(.localized("Team: %@ (%@)", context.team.identifier, context.team.membership.displayName))
                                 .font(.caption).foregroundStyle(.secondary)
                             // 3-app limit indicator
                             HStack(spacing: 4) {
                                 Image(systemName: "app.badge")
                                     .font(.caption2)
-                                Text("\(nativeManager.freeAccountAppCount)/3 apps used")
+                                Text(.localized("%@/3 apps used", nativeManager.freeAccountAppCount))
                                     .font(.caption)
                             }
                             .foregroundStyle(nativeManager.freeAccountAppCount >= 3 ? .red : .secondary)
@@ -280,6 +280,7 @@ struct SigningMethodsView: View {
         .sheet(isPresented: $showProvisioningFlow) {
             ProvisioningFlowView()
         }
+    }
 
     private var trollStoreContent: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -453,12 +454,14 @@ private struct TeamSelectionView: View {
                             VStack(alignment: .leading) {
                                 Text(team.identifier)
                                     .font(.headline)
+                                    .foregroundStyle(.primary)
                                 Text(team.membership.displayName)
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
+                            Image(systemName: team.membership == .free ? "person" : "checkmark.seal")
+                                .foregroundStyle(team.membership == .free ? .orange : .green)
                         }
                     }
                 }
@@ -466,56 +469,11 @@ private struct TeamSelectionView: View {
             .navigationTitle(.localized("Select Team"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) {}
+                    Button(.localized("Cancel")) { onSelect("") }
                 }
             }
         }
         .presentationDetents([.medium])
-    }
-}
-
-// MARK: - Extensions
-
-extension NativeAccountPhase {
-    var icon: String {
-        switch self {
-        case .signedOut: return "person.crop.circle.badge.xmark"
-        case .authenticating: return "person.crop.circle.badge.questionmark"
-        case .awaitingTwoFactor: return "person.crop.circle.badge.exclamationmark"
-        case .awaitingTeamSelection: return "person.2.fill"
-        case .signedIn: return "person.crop.circle.fill.badge.checkmark"
-        case .expired: return "person.crop.circle.badge.clock"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .signedOut: return .secondary
-        case .authenticating, .awaitingTwoFactor, .awaitingTeamSelection: return .orange
-        case .signedIn: return .green
-        case .expired: return .red
-        }
-    }
-
-    var displayTitle: String {
-        switch self {
-        case .signedOut: return .localized("Signed Out")
-        case .authenticating: return .localized("Authenticating…")
-        case .awaitingTwoFactor: return .localized("Two-Factor Required")
-        case .awaitingTeamSelection: return .localized("Select Team")
-        case .signedIn(let context): return .localized("Signed In: %@", context.team.identifier)
-        case .expired(let date): return .localized("Session Expired")
-        }
-    }
-}
-
-extension NativeAccountMembership {
-    var displayName: String {
-        switch self {
-        case .free: return .localized("Free")
-        case .paidVerified: return .localized("Paid (Verified)")
-        case .developerProgramUnverified: return .localized("Developer Program (Unverified)")
-        }
     }
 }
 
@@ -732,4 +690,49 @@ private struct TrollStoreRefreshView: View {
             errorMessage = .localized("Failed to trigger refresh. Is TrollStore installed?")
         }
     }
-}}
+}
+
+// MARK: - Extensions
+
+extension NativeAccountPhase {
+    var icon: String {
+        switch self {
+        case .signedOut: return "person.crop.circle.badge.xmark"
+        case .authenticating: return "person.crop.circle.badge.questionmark"
+        case .awaitingTwoFactor: return "person.crop.circle.badge.exclamationmark"
+        case .awaitingTeamSelection: return "person.2.fill"
+        case .signedIn: return "person.crop.circle.fill.badge.checkmark"
+        case .expired: return "person.crop.circle.badge.clock"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .signedOut: return .secondary
+        case .authenticating, .awaitingTwoFactor, .awaitingTeamSelection: return .orange
+        case .signedIn: return .green
+        case .expired: return .red
+        }
+    }
+
+    var displayTitle: String {
+        switch self {
+        case .signedOut: return .localized("Signed Out")
+        case .authenticating: return .localized("Authenticating…")
+        case .awaitingTwoFactor: return .localized("Two-Factor Required")
+        case .awaitingTeamSelection: return .localized("Select Team")
+        case .signedIn(let context): return .localized("Signed In: %@", context.team.identifier)
+        case .expired(let date): return .localized("Session Expired")
+        }
+    }
+}
+
+extension NativeAccountMembership {
+    var displayName: String {
+        switch self {
+        case .free: return .localized("Free")
+        case .paidVerified: return .localized("Paid (Verified)")
+        case .developerProgramUnverified: return .localized("Developer Program (Unverified)")
+        }
+    }
+}
