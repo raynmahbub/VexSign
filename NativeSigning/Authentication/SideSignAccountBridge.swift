@@ -866,7 +866,7 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
             throw NativeProvisioningError.providerFailed
         }
         try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
-        let data = try await SideSignProvisioningAdapter(portal: adapter.provisioningPortal).downloadProvisioningProfile(
+        let data = try await adapter.provisioningPortal.downloadProvisioningProfile(
             encodedSession: candidate.encodedSession, headers: headers,
             teamIdentifier: candidate.context.team.identifier, profileUUID: profileUUID, now: clock())
         try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)

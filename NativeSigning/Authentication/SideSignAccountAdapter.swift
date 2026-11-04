@@ -265,10 +265,19 @@ extension SideSignNativePortal: SideSignPreparedCSRPortal {
 extension SideSignNativePortal: SideSignRegistrationTransport {
     func registrationInventory(subject: NativeRegistrationSubject, team: Team, session: Session) async throws -> [NativeRegistrationObservation] {
         do {
-            let kind: VexSignRegistrationKind = subject.kind == .device ? .device : .appID
+            // DeveloperPortal speaks SideSign's overlay types; the policies
+            // below speak this module's copies, so map at the boundary.
+            let kind: SideSign.VexSignRegistrationKind = subject.kind == .device ? .device : .appID
             let inventory = try await portal.vexsignRegistrationInventory(kind: kind, team: team, session: session)
             try Task.checkCancellation()
-            return try SideSignRegistrationInventoryPolicy.observations(inventory, subject: subject, now: Date())
+            let local: VexSignRegistrationInventory
+            switch inventory {
+            case .devices(let rows):
+                local = .devices(rows.map { VexSignRegistrationDevice(deviceNumber: $0.deviceNumber, deviceId: $0.deviceId, deviceClass: $0.deviceClass, status: $0.status) })
+            case .appIDs(let rows):
+                local = .appIDs(rows.map { VexSignRegistrationAppID(appIdId: $0.appIdId, identifier: $0.identifier, expirationDate: $0.expirationDate) })
+            }
+            return try SideSignRegistrationInventoryPolicy.observations(local, subject: subject, now: Date())
         } catch {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
             throw NativeRegistrationError.inventoryRejected
@@ -277,7 +286,7 @@ extension SideSignNativePortal: SideSignRegistrationTransport {
 
     func registerSubjectOnce(_ subject: NativeRegistrationSubject, operationID: UUID, team: Team, session: Session) async throws {
         do {
-            let kind: VexSignRegistrationKind = subject.kind == .device ? .device : .appID
+            let kind: SideSign.VexSignRegistrationKind = subject.kind == .device ? .device : .appID
             try await portal.vexsignRegisterOnce(kind: kind, value: subject.value, operationID: operationID, team: team, session: session)
         } catch {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
@@ -292,7 +301,8 @@ extension SideSignNativePortal: SideSignProfileTransport {
         do {
             let rows = try await portal.vexsignDevelopmentCertificates(team: team, session: session)
             try Task.checkCancellation()
-            return try NativeProfileCertificateInventoryPolicy.observations(rows)
+            return try NativeProfileCertificateInventoryPolicy.observations(
+                rows.map { VexSignDevelopmentCertificate(certificateId: $0.certificateId, certContent: $0.certContent) })
         } catch {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
             throw NativeProfileCreationError.inventoryRejected
@@ -305,14 +315,20 @@ extension SideSignNativePortal: SideSignProfileTransport {
             try await checkCurrent(); try Task.checkCancellation()
             let rows = try await portal.vexsignListProfiles(team: team, session: session)
             try await checkCurrent(); try Task.checkCancellation()
-            let candidates = try SideSignProfileInventoryPolicy.candidates(rows, request: request)
+            let candidates = try SideSignProfileInventoryPolicy.candidates(
+                rows.map { VexSignProfileListing(provisioningProfileId: $0.provisioningProfileId, uuid: $0.uuid,
+                                                 appId: .init(appIdId: $0.appId.appIdId, identifier: $0.appId.identifier)) },
+                request: request)
             var observations: [NativeProfileObservation] = []
             var total = 0
             for listing in candidates {
                 try await checkCurrent(); try Task.checkCancellation()
                 let downloaded = try await portal.vexsignDownloadProfile(id: listing.provisioningProfileId, team: team, session: session)
                 try await checkCurrent(); try Task.checkCancellation()
-                let observation = try SideSignProfileInventoryPolicy.observation(downloaded, listing: listing)
+                let observation = try SideSignProfileInventoryPolicy.observation(
+                    VexSignDownloadedProfile(provisioningProfileId: downloaded.provisioningProfileId, uuid: downloaded.uuid,
+                                             encodedProfile: downloaded.encodedProfile),
+                    listing: listing)
                 total += observation.cms.count
                 guard total <= 4 * 1024 * 1024 else { throw NativeProfileCreationError.inventoryRejected }
                 observations.append(observation)
