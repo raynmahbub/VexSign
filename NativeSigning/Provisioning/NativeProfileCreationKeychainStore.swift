@@ -69,18 +69,35 @@ struct NativeProfileCreationKeychainStore<Client: AppleAccountJournalKeychainCli
         var mutableQuery = query
         mutableQuery[kSecUseAuthenticationContext as String] = context
 
-        let result = client.copy(mutableQuery)
+        let result = client.copyAll(mutableQuery)
 
         if result.status == errSecItemNotFound {
             return []
         }
         guard result.status == errSecSuccess else { throw NativeProfileCreationError.storageUnavailable }
 
-        guard let data = result.data, !data.isEmpty else { return [] }
-        // The copy with kSecMatchLimitAll and kSecReturnAttributes returns a single item
-        // For multiple items, we need a different approach. For now, return empty.
-        // A full implementation would use SecItemCopyMatching with kSecReturnRef and iterate.
-        return []
+        // Rows are returned as attribute dictionaries; keep only this owner's
+        // rows and decode each one. A corrupt row fails closed, never as an
+        // empty journal (same policy as `read`).
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .millisecondsSince1970
+        var records: [NativeProfileCreationRecord] = []
+        for item in result.items {
+            guard let account = item[kSecAttrAccount as String] as? String,
+                  account.hasPrefix(ownerPrefix) else { continue }
+            guard let data = item[kSecValueData as String] as? Data,
+                  !data.isEmpty, data.count <= 4096,
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  Set(object.keys).isSubset(of: ["schema", "id", "ownerDigest", "targetDigest", "createdAt", "phase", "remoteIdentifierDigest", "profileUUID", "cmsSHA256"]),
+                  let record = try? decoder.decode(NativeProfileCreationRecord.self, from: data),
+                  record.schema == 1, record.ownerDigest == owner.digest,
+                  record.createdAt.timeIntervalSince1970.isFinite,
+                  (record.phase == .uncertain && record.remoteIdentifierDigest == nil && record.profileUUID == nil && record.cmsSHA256 == nil)
+                    || (record.phase == .recorded && record.remoteIdentifierDigest.map(NativeRegistrationRecord.validDigest) == true
+                        && record.profileUUID != nil && record.cmsSHA256.map(NativeRegistrationRecord.validDigest) == true)
+            else { throw NativeProfileCreationError.invalidJournal }
+            records.append(record)
+        }
+        return records
     }
 
     private func base(_ owner: NativeSigningIdentityOwner, _ request: NativeProfileCreationRequest) -> [String: Any] {

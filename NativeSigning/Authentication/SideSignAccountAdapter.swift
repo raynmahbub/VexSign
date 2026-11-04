@@ -341,13 +341,33 @@ extension SideSignNativePortal: SideSignProfileTransport {
         profileUUID: UUID,
         now: Date
     ) async throws -> Data {
-        // The encodedSession already contains the team info, but we verify it matches
-        // For now, we assume the session is for the correct team
-        let downloaded = try await portal.vexsignDownloadProfile(id: profileUUID.uuidString, team: team, session: session)
-        guard downloaded.provisioningProfileId == profileUUID.uuidString,
-              !downloaded.encodedProfile.isEmpty, downloaded.encodedProfile.count <= 1024 * 1024 else {
+        do {
+            try Task.checkCancellation()
+            let auth = try SideSignSessionCodec.decodeForRevalidation(encodedSession, freshAnisetteData: headers, now: now)
+            let account = try await fetchAccount(session: auth.session)
+            try Task.checkCancellation()
+            guard account.identifier == auth.account.identifier,
+                  account.appleID.lowercased() == auth.account.appleID.lowercased() else {
+                throw NativeProvisioningError.inventoryRejected
+            }
+            let teams = try await fetchTeams(for: account, session: auth.session)
+            try Task.checkCancellation()
+            guard teams.count <= 100, Set(teams.map(\.identifier)).count == teams.count,
+                  let team = teams.first(where: { $0.identifier == teamIdentifier }),
+                  team.account.map({ $0.identifier == account.identifier }) ?? true else {
+                throw NativeProvisioningError.inventoryRejected
+            }
+            let downloaded = try await portal.vexsignDownloadProfile(id: profileUUID.uuidString, team: team, session: auth.session)
+            try Task.checkCancellation()
+            guard downloaded.provisioningProfileId == profileUUID.uuidString,
+                  !downloaded.encodedProfile.isEmpty, downloaded.encodedProfile.count <= 1024 * 1024 else {
+                throw NativeProvisioningError.requestFailed
+            }
+            return downloaded.encodedProfile
+        } catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            if let safe = error as? NativeProvisioningError { throw safe }
             throw NativeProvisioningError.requestFailed
         }
-        return downloaded.encodedProfile
     }
 }

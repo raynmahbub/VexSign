@@ -439,16 +439,12 @@ public actor NativeAccountBackend {
             guard let context = context, context.id == contextID else {
                 return []
             }
-            let owner = try SideSignSessionCodec.identityOwner(
-                context.encodedSession,
-                teamIdentifier: context.team.identifier,
-                now: clock()
-            )
 
-            // List all profile records from storage
-            let records = try bridge.profileStore.listAllRecords(owner: owner)
+            // The bridge derives the owner from the current session and reads
+            // the durable profile journal; the store is never touched here.
+            let records = try await bridge.recordedProfileRecords(contextID: contextID)
 
-            // Filter for recorded profiles and convert to NativeProfileInfo
+            // Filter for recorded profiles and convert to NativeProfileInfo.
             var profiles: [NativeProfileInfo] = []
             for record in records {
                 guard record.phase == .recorded,
@@ -503,28 +499,16 @@ public actor NativeAccountBackend {
             guard let context = context, context.id == contextID else {
                 throw NativeAccountBackendError.sessionExpired
             }
-            let owner = try SideSignSessionCodec.identityOwner(
-                context.encodedSession,
-                teamIdentifier: context.team.identifier,
-                now: clock()
-            )
 
-            // Get the owned signing certificate (includes certificate DER)
-            let owned = try await bridge.signingIdentities.ownedSigningCertificate(
-                owner: owner,
-                identityID: identityID,
-                now: clock()
-            )
+            // The bridge derives the owner from the current session and
+            // returns its bound certificate + private key material.
+            let material = try await bridge.keyExportMaterial(contextID: contextID, identityID: identityID)
+            let owned = material.owned
 
             // Validate consent matches this identity and certificate
-            try consent.validate(owner: owner, identityID: identityID, certificate: owned.certificateDER, now: clock())
+            try consent.validate(owner: material.owner, identityID: identityID, certificate: owned.certificateDER, now: Date())
 
-            // Get the private key DER from the identity store
-            let privateKeyDER = try await bridge.signingIdentities.privateKeyDER(
-                owner: owner,
-                identityID: identityID,
-                now: clock()
-            )
+            let privateKeyDER = material.privateKeyDER
 
             // Export as PKCS#12
             let p12Data = try NativeSigningIdentityCrypto.exportPKCS12(
@@ -564,34 +548,14 @@ public actor NativeAccountBackend {
             guard let context = context, context.id == contextID else {
                 throw NativeAccountBackendError.sessionExpired
             }
-            let owner = try SideSignSessionCodec.identityOwner(
-                context.encodedSession,
-                teamIdentifier: context.team.identifier,
-                now: clock()
-            )
 
-            // Get provisioning candidate (encoded session + team)
-            guard let candidate = try await bridge.coordinator.provisioningCandidate(
+            // The bridge revalidates session/team/context, obtains fresh
+            // anisette headers and downloads through its provisioning portal.
+            return try await bridge.downloadProvisioningProfile(
                 contextID: contextID,
-                now: clock()
-            ) else {
-                throw NativeProvisioningError.contextChanged
-            }
-
-            // Get fresh anisette headers
-            let headers = try await bridge.provider.freshHeaders()
-
-            // Use the portal to download the profile
-            let portal = bridge.adapter.provisioningPortal
-            let profileData = try await portal.downloadProvisioningProfile(
-                encodedSession: candidate.encodedSession,
-                headers: headers,
-                teamIdentifier: candidate.context.team.identifier,
                 profileUUID: profileUUID,
-                now: clock()
+                consent: consent
             )
-
-            return profileData
         } catch {
             throw Self.safe(error)
         }
