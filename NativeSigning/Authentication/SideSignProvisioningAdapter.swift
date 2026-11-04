@@ -73,4 +73,44 @@ struct SideSignProvisioningAdapter<Portal: SideSignProvisioningPortal>: Sendable
             throw NativeProvisioningError.requestFailed
         }
     }
+
+    /// Downloads a provisioning profile by UUID from Apple's portal.
+    /// Returns the raw CMS-signed .mobileprovision data.
+    func downloadProvisioningProfile(
+        encodedSession: Data,
+        headers: AnisetteData,
+        teamIdentifier: String,
+        profileUUID: UUID,
+        now: Date
+    ) async throws -> Data {
+        do {
+            try Task.checkCancellation()
+            let auth = try SideSignSessionCodec.decodeForRevalidation(encodedSession, freshAnisetteData: headers, now: now)
+            let account = try await portal.fetchAccount(session: auth.session)
+            try Task.checkCancellation()
+            guard account.identifier == auth.account.identifier,
+                  account.appleID.lowercased() == auth.account.appleID.lowercased() else {
+                throw NativeProvisioningError.inventoryRejected
+            }
+            let teams = try await portal.fetchTeams(for: account, session: auth.session)
+            try Task.checkCancellation()
+            guard teams.count <= 100, Set(teams.map(\.identifier)).count == teams.count,
+                  let team = teams.first(where: { $0.identifier == teamIdentifier }),
+                  team.account.map({ $0.identifier == account.identifier }) ?? true else {
+                throw NativeProvisioningError.inventoryRejected
+            }
+            // Use the portal to download the profile
+            let downloaded = try await portal.vexsignDownloadProfile(id: profileUUID.uuidString, team: team, session: auth.session)
+            try Task.checkCancellation()
+            guard downloaded.provisioningProfileId == profileUUID.uuidString,
+                  !downloaded.encodedProfile.isEmpty, downloaded.encodedProfile.count <= 1024 * 1024 else {
+                throw NativeProvisioningError.requestFailed
+            }
+            return downloaded.encodedProfile
+        } catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            if let safe = error as? NativeProvisioningError { throw safe }
+            throw NativeProvisioningError.requestFailed
+        }
+    }
 }

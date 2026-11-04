@@ -208,16 +208,27 @@ enum BackgroundAutomation {
 			}
 		}
 
-		// 4. Run the Auto Cleanup sweep.
+		// 4. Free Apple ID profile renewal (if signed in)
+		await renewFreeAppleIDProfiles()
+
+		// 5. Run the Auto Cleanup sweep.
 		result.cleanup = CleanupManager.shared.cleanNow()
 
-		// 5. One summarizing notification.
+		// 6. One summarizing notification.
 		if fromBackground {
 			postSummary(result)
 		}
 
 		AutomationHistoryStore.shared.record(result.failed > 0 ? "partialFailure" : "completed", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
 		return result
+	}
+
+	/// Checks for expiring free Apple ID profiles and renews them.
+	/// Only runs when a free Apple ID session is active.
+	private static func renewFreeAppleIDProfiles() async {
+		let manager = NativeSigningManager.shared
+		guard manager.isBackendReady else { return }
+		await manager.renewExpiringProfiles()
 	}
 
 	private nonisolated static func postSummary(_ result: AutomationRunResult) {

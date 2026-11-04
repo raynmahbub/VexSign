@@ -968,6 +968,35 @@ extension SideSignAccountBridge {
         await certificateStatusConsent.revoke()
     }
 
+    // MARK: - Key Export Consent
+
+    private let keyExportConsent = NativeKeyExportConsentGate()
+    private var keyExportEpoch = UUID()
+
+    func recordExplicitKeyExportConsent(contextID: UUID, identityID: UUID,
+                                         lifetime: TimeInterval = 120) async throws -> NativeKeyExportConsent {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
+              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw NativeSigningIdentityError.busy }
+        let flow = generation; let epoch = keyExportEpoch
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        let owned = try await signingIdentities.ownedSigningCertificate(owner: owner, identityID: identityID, now: clock())
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        let grant = try await keyExportConsent.recordExplicitConsent(owner: owner, identityID: identityID, certificate: owned.certificateDER, flow: flow, now: clock(), lifetime: lifetime)
+        do {
+            try await requireIdentityContext(contextID: contextID, flow: flow)
+            guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        } catch { await keyExportConsent.revoke(); throw error }
+        return grant
+    }
+
+    func revokeKeyExportConsent() async {
+        keyExportEpoch = UUID()
+        await keyExportConsent.revoke()
+    }
+
     /// Offline positive cache unless a separate exact single-use status consent
     /// is supplied. Never submits a certificate/CSR/profile or changes quota.
     func evaluateSigningCertificateStatus(contextID: UUID, identityID: UUID,

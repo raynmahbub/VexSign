@@ -375,20 +375,21 @@
 				3379C1BB2DA869A1004372DA /* VexSign */,
 			);
 			name = VexSign;
-			packageProductDependencies = (
-				3371F7312DA9ECDD00281AC6 /* Zip */,
-				FADE000100000000000F0002 /* ZIPFoundation */,
-				33CF13382DB5ACFB0021D4C5 /* SWCompression */,
-				3305BBAB2DB8944200660D45 /* Vapor */,
-				330F68FB2DBF7C8600D8C35D /* NimbleExtensions */,
-				330F68FD2DBF7C8600D8C35D /* NimbleViews */,
-				3346F5C12DC329A200C7D508 /* ZsignSwift */,
-				3346F83A2DC6C6D100C7D508 /* NukeUI */,
-				3346F8482DC6D64800C7D508 /* NimbleJSON */,
-				33693A072DC8BF5B00730215 /* AltSourceKit */,
-				3349E7662DEFB46F00E317ED /* IDeviceSwift */,
-				3A2F0F0C2E976B67009DE4CE /* IDevice */,
-			);
+packageProductDependencies = (
+			3371F7312DA9ECDD00281AC6 /* Zip */,
+			FADE000100000000000F0002 /* ZIPFoundation */,
+			33CF13382DB5ACFB0021D4C5 /* SWCompression */,
+			3305BBAB2DB8944200660D45 /* Vapor */,
+			330F68FB2DBF7C8600D8C35D /* NimbleExtensions */,
+			330F68FD2DBF7C8600D8C35D /* NimbleViews */,
+			3346F5C12DC329A200C7D508 /* ZsignSwift */,
+			3346F83A2DC6C6D100C7D508 /* NukeUI */,
+			3346F8482DC6D64800C7D508 /* NimbleJSON */,
+			33693A072DC8BF5B00730215 /* AltSourceKit */,
+			3349E7662DEFB46F00E317ED /* IDeviceSwift */,
+			3A2F0F0C2E976B67009DE4CE /* IDevice */,
+			33BBAACC1122334455667789 /* NativeSigning */,
+		);
 			productName = VexSign;
 			productReference = 3379C1B92DA869A1004372DA /* VexSign.app */;
 			productType = "com.apple.product-type.application";
@@ -583,18 +584,19 @@
 			);
 			mainGroup = 3379C1B02DA869A1004372DA;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				3371F5152DA91FDC00281AC6 /* XCLocalSwiftPackageReference "Zsign" */,
-				3371F6F52DA9EBA500281AC6 /* XCRemoteSwiftPackageReference "Zip" */,
-				FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
-				33CF13372DB5ACFB0021D4C5 /* XCRemoteSwiftPackageReference "SWCompression" */,
-				3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */,
-				330F68FF2DC03DF400D8C35D /* XCLocalSwiftPackageReference "NimbleKit" */,
-				3346F8372DC6C68300C7D508 /* XCRemoteSwiftPackageReference "Nuke" */,
-				33693A062DC8BF5B00730215 /* XCLocalSwiftPackageReference "AltSourceKit" */,
-				339776052DC9D05C00642FFB /* XCRemoteSwiftPackageReference "LicensePlist" */,
-				3A2F0F0B2E976B67009DE4CE /* XCLocalSwiftPackageReference "IDeviceKitten" */,
-			);
+packageReferences = (
+			3371F5152DA91FDC00281AC6 /* XCLocalSwiftPackageReference "Zsign" */,
+			3371F6F52DA9EBA500281AC6 /* XCRemoteSwiftPackageReference "Zip" */,
+			FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			33CF13372DB5ACFB0021D4C5 /* XCRemoteSwiftPackageReference "SWCompression" */,
+			3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */,
+			330F68FF2DC03DF400D8C35D /* XCLocalSwiftPackageReference "NimbleKit" */,
+			3346F8372DC6C68300C7D508 /* XCRemoteSwiftPackageReference "Nuke" */,
+			33693A062DC8BF5B00730215 /* XCLocalSwiftPackageReference "AltSourceKit" */,
+			339776052DC9D05C00642FFB /* XCRemoteSwiftPackageReference "LicensePlist" */,
+			3A2F0F0B2E976B67009DE4CE /* XCLocalSwiftPackageReference "IDeviceKitten" */,
+			33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */,
+		);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3379C1BA2DA869A1004372DA /* Products */;
 			projectDirPath = "";
@@ -2160,17 +2162,21 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = IDeviceKitten;
 		};
+		33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = NativeSigning;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/vapor/vapor";
-			requirement = {
-				kind = exactVersion;
-				version = 4.104.0;
-			};
+3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */ = {
+		isa = XCRemoteSwiftPackageReference;
+		repositoryURL = "https://github.com/vapor/vapor";
+		requirement = {
+			kind = exactVersion;
+			version = 4.122.3;
 		};
+	};
 		3346F8372DC6C68300C7D508 /* XCRemoteSwiftPackageReference "Nuke" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kean/Nuke";
@@ -2267,15 +2273,20 @@
 			package = 33CF13372DB5ACFB0021D4C5 /* XCRemoteSwiftPackageReference "SWCompression" */;
 			productName = SWCompression;
 		};
-		3A2F0F0C2E976B67009DE4CE /* IDevice */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = IDevice;
-		};
-		FADE000100000000000F0002 /* ZIPFoundation */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
-			productName = ZIPFoundation;
-		};
+3A2F0F0C2E976B67009DE4CE /* IDevice */ = {
+		isa = XCSwiftPackageProductDependency;
+		productName = IDevice;
+	};
+	FADE000100000000000F0002 /* ZIPFoundation */ = {
+		isa = XCSwiftPackageProductDependency;
+		package = FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+		productName = ZIPFoundation;
+	};
+	33BBAACC1122334455667789 /* NativeSigning */ = {
+		isa = XCSwiftPackageProductDependency;
+		package = 33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */;
+		productName = NativeSigning;
+	};
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3379C1B12DA869A1004372DA /* Project object */;

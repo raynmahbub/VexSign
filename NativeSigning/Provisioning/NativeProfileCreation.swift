@@ -81,6 +81,10 @@ protocol NativeProfileCreationStorage: Sendable {
     func read(owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws -> NativeProfileCreationRecord?
     func insertIntent(_ record: NativeProfileCreationRecord, owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws
     func recordObservation(_ record: NativeProfileCreationRecord, owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws
+
+    /// Lists all recorded profile records for the given owner (context).
+    /// Returns empty array if not supported by the storage implementation.
+    func listAllRecords(owner: NativeSigningIdentityOwner) throws -> [NativeProfileCreationRecord]
 }
 
 struct NativeProfileObservation: Sendable, CustomStringConvertible, CustomDebugStringConvertible {
