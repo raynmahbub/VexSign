@@ -184,7 +184,7 @@ final class NativeSigningIdentityTests: XCTestCase {
         XCTAssertThrowsError(try NativeSigningIdentityCrypto.validateMaterial(corrupt))
     }
 
-    private final class Client: AppleAccountJournalKeychainClient {
+    private final class Client: AppleAccountJournalKeychainClient, @unchecked Sendable {
         var inserted: [String: Any] = [:]
         var lastQuery: [String: Any] = [:]
         var data: Data?
