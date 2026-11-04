@@ -50,7 +50,7 @@ final class NativeSigningManager: ObservableObject {
         Task { @MainActor in
             while !Task.isCancelled {
                 await refreshFreeAccountAppCount()
-                try? await Task.sleep(nanoseconds: 60_000_000_000) // 60 seconds
+                try? await Task.sleep(nanoseconds: 60_000_000_000) // try? ok: cancellation is checked in loop condition
             }
         }
     }

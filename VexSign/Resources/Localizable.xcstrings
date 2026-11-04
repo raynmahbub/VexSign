@@ -96676,6 +96676,3515 @@
           }
         }
       }
+    },
+    "00008030-001234567890ABCDEF" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "00008030-001234567890ABCDEF"
+          }
+        }
+      }
+    },
+    "1. Select App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Select App"
+          }
+        }
+      }
+    },
+    "2. Select Device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Select Device"
+          }
+        }
+      }
+    },
+    "3 apps / 7 days · Weekly refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 apps / 7 days · Weekly refresh"
+          }
+        }
+      }
+    },
+    "3. Review" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Review"
+          }
+        }
+      }
+    },
+    "4. Provisioning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4. Provisioning"
+          }
+        }
+      }
+    },
+    "5. Complete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5. Complete"
+          }
+        }
+      }
+    },
+    "6-digit code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6-digit code"
+          }
+        }
+      }
+    },
+    "A certificate or key with the same identifier already exists in the Keychain." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A certificate or key with the same identifier already exists in the Keychain."
+          }
+        }
+      }
+    },
+    "A required file (IPA, certificate, profile) could not be found." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A required file (IPA, certificate, profile) could not be found."
+          }
+        }
+      }
+    },
+    "Account Already Signed In" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account Already Signed In"
+          }
+        }
+      }
+    },
+    "Active Context" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active Context"
+          }
+        }
+      }
+    },
+    "Add a provider in Settings → Signing Methods → Free Apple ID → Anisette Provider." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a provider in Settings → Signing Methods → Free Apple ID → Anisette Provider."
+          }
+        }
+      }
+    },
+    "All Done!" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Done!"
+          }
+        }
+      }
+    },
+    "Allow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow"
+          }
+        }
+      }
+    },
+    "An Apple ID session is already active. Sign out first to switch accounts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An Apple ID session is already active. Sign out first to switch accounts."
+          }
+        }
+      }
+    },
+    "An app with the same bundle identifier is already installed on the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An app with the same bundle identifier is already installed on the device."
+          }
+        }
+      }
+    },
+    "An unexpected error occurred during the signing operation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An unexpected error occurred during the signing operation."
+          }
+        }
+      }
+    },
+    "Anisette Provider" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anisette Provider"
+          }
+        }
+      }
+    },
+    "Anisette Provider Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anisette Provider Error"
+          }
+        }
+      }
+    },
+    "Anisette Provider Not Configured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anisette Provider Not Configured"
+          }
+        }
+      }
+    },
+    "Another signing operation is already in progress. Please wait for it to complete or cancel it first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another signing operation is already in progress. Please wait for it to complete or cancel it first."
+          }
+        }
+      }
+    },
+    "App Already Installed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Already Installed"
+          }
+        }
+      }
+    },
+    "App ID Registration Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App ID Registration Failed"
+          }
+        }
+      }
+    },
+    "App limit reached (3/3). Revoke an app or wait for expiry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App limit reached (3/3). Revoke an app or wait for expiry."
+          }
+        }
+      }
+    },
+    "Apple ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple ID"
+          }
+        }
+      }
+    },
+    "Apple ID authentication failed. This may be due to incorrect credentials, 2FA issues, or Apple server problems." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple ID authentication failed. This may be due to incorrect credentials, 2FA issues, or Apple server problems."
+          }
+        }
+      }
+    },
+    "Apple has rejected the provisioning request due to quota limits (e.g., max 3 apps, 100 devices, 10 App IDs)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple has rejected the provisioning request due to quota limits (e.g., max 3 apps, 100 devices, 10 App IDs)."
+          }
+        }
+      }
+    },
+    "Architecture Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Architecture Error"
+          }
+        }
+      }
+    },
+    "Authenticating…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticating…"
+          }
+        }
+      }
+    },
+    "Authentication Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication Failed"
+          }
+        }
+      }
+    },
+    "Authentication Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication Required"
+          }
+        }
+      }
+    },
+    "Authentication succeeded but no team was selected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication succeeded but no team was selected."
+          }
+        }
+      }
+    },
+    "Backend Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backend Unavailable"
+          }
+        }
+      }
+    },
+    "Background automation encountered an error." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background automation encountered an error."
+          }
+        }
+      }
+    },
+    "Bundle ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle ID"
+          }
+        }
+      }
+    },
+    "CRL Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CRL Unavailable"
+          }
+        }
+      }
+    },
+    "Cannot Reach Server" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot Reach Server"
+          }
+        }
+      }
+    },
+    "Certificate Expired or Revoked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Expired or Revoked"
+          }
+        }
+      }
+    },
+    "Certificate Limit Reached" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Limit Reached"
+          }
+        }
+      }
+    },
+    "Certificate Revocation Status (OCSP/CRL)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Revocation Status (OCSP/CRL)"
+          }
+        }
+      }
+    },
+    "Certificate Status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Status"
+          }
+        }
+      }
+    },
+    "Certificate Status Consent Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Status Consent Required"
+          }
+        }
+      }
+    },
+    "Certificate status checks use Apple's OCSP/CRL responders. Positive cached responses are required; missing or unknown status never counts as valid. Explicit consent is required for each check." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate status checks use Apple's OCSP/CRL responders. Positive cached responses are required; missing or unknown status never counts as valid. Explicit consent is required for each check."
+          }
+        }
+      }
+    },
+    "Certificate-based Signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate-based Signing"
+          }
+        }
+      }
+    },
+    "Certificate/Key Not Found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate/Key Not Found"
+          }
+        }
+      }
+    },
+    "Change App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change App"
+          }
+        }
+      }
+    },
+    "Check Activity Log for the exact failing step. Common fixes: enable Thin Mach-O, check entitlements, verify certificate/profile validity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Activity Log for the exact failing step. Common fixes: enable Thin Mach-O, check entitlements, verify certificate/profile validity."
+          }
+        }
+      }
+    },
+    "Check Native Signing Health" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Native Signing Health"
+          }
+        }
+      }
+    },
+    "Check Settings → Signing Methods → Free Apple ID → Anisette Provider. Ensure the endpoint is correct and reachable." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Settings → Signing Methods → Free Apple ID → Anisette Provider. Ensure the endpoint is correct and reachable."
+          }
+        }
+      }
+    },
+    "Check automation history. Run manually from Settings → Automation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check automation history. Run manually from Settings → Automation."
+          }
+        }
+      }
+    },
+    "Check certificate/profile validity, entitlements, and architecture settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check certificate/profile validity, entitlements, and architecture settings."
+          }
+        }
+      }
+    },
+    "Check device registration, App ID limits, and quota. Retry provisioning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check device registration, App ID limits, and quota. Retry provisioning."
+          }
+        }
+      }
+    },
+    "Check installation method, device pairing, and network connectivity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check installation method, device pairing, and network connectivity."
+          }
+        }
+      }
+    },
+    "Check the Activity Log for details. Common issues: quota limits, device registration, App ID conflicts, or network errors." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the Activity Log for details. Common issues: quota limits, device registration, App ID conflicts, or network errors."
+          }
+        }
+      }
+    },
+    "Check the Activity Log for details. Try restarting the app and retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the Activity Log for details. Try restarting the app and retrying."
+          }
+        }
+      }
+    },
+    "Check the Activity tab for running tasks and cancel if needed, then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the Activity tab for running tasks and cancel if needed, then retry."
+          }
+        }
+      }
+    },
+    "Check the anisette provider URL in Settings. Ensure the server is running and reachable." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the anisette provider URL in Settings. Ensure the server is running and reachable."
+          }
+        }
+      }
+    },
+    "Check the anisette provider configuration. It should not require authentication." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the anisette provider configuration. It should not require authentication."
+          }
+        }
+      }
+    },
+    "Check the bundle identifier format (reverse DNS). If it exists, try a different one or revoke the old App ID in the Apple Developer portal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the bundle identifier format (reverse DNS). If it exists, try a different one or revoke the old App ID in the Apple Developer portal."
+          }
+        }
+      }
+    },
+    "Check the installation method (HTTPS, USB/IDevice, TrollStore). Verify device connectivity and pairing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the installation method (HTTPS, USB/IDevice, TrollStore). Verify device connectivity and pairing."
+          }
+        }
+      }
+    },
+    "Check your internet connection and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your internet connection and try again."
+          }
+        }
+      }
+    },
+    "Check your internet connection. Try again. If persistent, the Apple servers may be slow." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your internet connection. Try again. If persistent, the Apple servers may be slow."
+          }
+        }
+      }
+    },
+    "Checking All…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking All…"
+          }
+        }
+      }
+    },
+    "Checking Apple inventory…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking Apple inventory…"
+          }
+        }
+      }
+    },
+    "Choose an imported or signed app from your library. The app's bundle identifier will be registered with Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an imported or signed app from your library. The app's bundle identifier will be registered with Apple."
+          }
+        }
+      }
+    },
+    "Cleanup Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cleanup Required"
+          }
+        }
+      }
+    },
+    "Cleanup required — some operations need retry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cleanup required — some operations need retry"
+          }
+        }
+      }
+    },
+    "Complete the team selection step during sign-in, or sign out and sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete the team selection step during sign-in, or sign out and sign in again."
+          }
+        }
+      }
+    },
+    "Configure Provider" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure Provider"
+          }
+        }
+      }
+    },
+    "Configure the Anisette Provider in Settings → Signing Methods → Free Apple ID, then try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure the Anisette Provider in Settings → Signing Methods → Free Apple ID, then try again."
+          }
+        }
+      }
+    },
+    "Connect to Wi-Fi or cellular data and retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect to Wi-Fi or cellular data and retry."
+          }
+        }
+      }
+    },
+    "Connect your device via USB and trust it, or ensure a valid pairing file is configured in Settings → Installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect your device via USB and trust it, or ensure a valid pairing file is configured in Settings → Installation."
+          }
+        }
+      }
+    },
+    "Consent Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consent Required"
+          }
+        }
+      }
+    },
+    "Could not connect to the server (Apple or anisette provider)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not connect to the server (Apple or anisette provider)."
+          }
+        }
+      }
+    },
+    "Could not reach the installation server. The device and computer must be on the same network." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not reach the installation server. The device and computer must be on the same network."
+          }
+        }
+      }
+    },
+    "Create a signing identity by provisioning an app first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a signing identity by provisioning an app first."
+          }
+        }
+      }
+    },
+    "Creating development certificate…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creating development certificate…"
+          }
+        }
+      }
+    },
+    "Creating provisioning profile…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creating provisioning profile…"
+          }
+        }
+      }
+    },
+    "Credentials" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credentials"
+          }
+        }
+      }
+    },
+    "Current Session" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Session"
+          }
+        }
+      }
+    },
+    "Delete and re-import the certificate/profile. If persistent, reset Keychain data for VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete and re-import the certificate/profile. If persistent, reset Keychain data for VexSign."
+          }
+        }
+      }
+    },
+    "Delete the existing app from the device first, then retry installation. Or use a different bundle ID." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the existing app from the device first, then retry installation. Or use a different bundle ID."
+          }
+        }
+      }
+    },
+    "Delete the existing certificate from Settings → Certificates, then re-import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the existing certificate from Settings → Certificates, then re-import."
+          }
+        }
+      }
+    },
+    "Delete unused profiles in the Apple Developer portal (Profiles → Development), then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete unused profiles in the Apple Developer portal (Profiles → Development), then retry."
+          }
+        }
+      }
+    },
+    "Developer Program (Unverified)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Developer Program (Unverified)"
+          }
+        }
+      }
+    },
+    "Development (auto-generated)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Development (auto-generated)"
+          }
+        }
+      }
+    },
+    "Device Not Registered" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device Not Registered"
+          }
+        }
+      }
+    },
+    "Device Pairing Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device Pairing Required"
+          }
+        }
+      }
+    },
+    "Device UDID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device UDID"
+          }
+        }
+      }
+    },
+    "Display Name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display Name"
+          }
+        }
+      }
+    },
+    "Duplicate Keychain Item" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplicate Keychain Item"
+          }
+        }
+      }
+    },
+    "Enable 'Thin Mach-O Binaries' in signing options to strip non-ARM64 slices, or ensure the app has ARM64 code." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable 'Thin Mach-O Binaries' in signing options to strip non-ARM64 slices, or ensure the app has ARM64 code."
+          }
+        }
+      }
+    },
+    "Ensure Face ID/Touch ID is set up. If using a password-protected certificate, enter the correct password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure Face ID/Touch ID is set up. If using a password-protected certificate, enter the correct password."
+          }
+        }
+      }
+    },
+    "Ensure TrollStore is installed on iOS 14.0–16.6.1. Try opening TrollStore manually first. The IPA must be properly signed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure TrollStore is installed on iOS 14.0–16.6.1. Try opening TrollStore manually first. The IPA must be properly signed."
+          }
+        }
+      }
+    },
+    "Ensure both device and computer are on the same Wi-Fi. Check firewall settings. Try USB pairing instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure both device and computer are on the same Wi-Fi. Check firewall settings. Try USB pairing instead."
+          }
+        }
+      }
+    },
+    "Ensure internet for OCSP/CRL. Grant consent if prompted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure internet for OCSP/CRL. Grant consent if prompted."
+          }
+        }
+      }
+    },
+    "Ensure the app's bundle ID matches the one used during provisioning. Re-run provisioning with the correct bundle ID." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure the app's bundle ID matches the one used during provisioning. Re-run provisioning with the correct bundle ID."
+          }
+        }
+      }
+    },
+    "Ensure the device is registered in Settings → Signing Methods during provisioning, or register it manually in the Apple Developer portal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure the device is registered in Settings → Signing Methods during provisioning, or register it manually in the Apple Developer portal."
+          }
+        }
+      }
+    },
+    "Ensure you are running the standard VexSign app, not a guest/embedded build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ensure you are running the standard VexSign app, not a guest/embedded build."
+          }
+        }
+      }
+    },
+    "Enter UDID Manually" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter UDID Manually"
+          }
+        }
+      }
+    },
+    "Enter the UDID of the device where the app will be installed. The device must be registered with your Apple Developer account." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the UDID of the device where the app will be installed. The device must be registered with your Apple Developer account."
+          }
+        }
+      }
+    },
+    "Enter the verification code sent to your trusted device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the verification code sent to your trusted device"
+          }
+        }
+      }
+    },
+    "Entitlements Not Supported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entitlements Not Supported"
+          }
+        }
+      }
+    },
+    "Explicit consent is required before the anisette provider can be contacted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explicit consent is required before the anisette provider can be contacted."
+          }
+        }
+      }
+    },
+    "Export Signed IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export Signed IPA"
+          }
+        }
+      }
+    },
+    "Failed to authenticate with Apple ID." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to authenticate with Apple ID."
+          }
+        }
+      }
+    },
+    "Failed to check certificate revocation status." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to check certificate revocation status."
+          }
+        }
+      }
+    },
+    "Failed to create install URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to create install URL"
+          }
+        }
+      }
+    },
+    "Failed to install the app on the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to install the app on the device."
+          }
+        }
+      }
+    },
+    "Failed to load paired devices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to load paired devices"
+          }
+        }
+      }
+    },
+    "Failed to process the app's architectures. This may happen with universal binaries or unsupported architectures." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to process the app's architectures. This may happen with universal binaries or unsupported architectures."
+          }
+        }
+      }
+    },
+    "Failed to provision the app with Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to provision the app with Apple."
+          }
+        }
+      }
+    },
+    "Failed to sign the IPA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to sign the IPA."
+          }
+        }
+      }
+    },
+    "Failed to trigger refresh. Is TrollStore installed?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to trigger refresh. Is TrollStore installed?"
+          }
+        }
+      }
+    },
+    "File Not Found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File Not Found"
+          }
+        }
+      }
+    },
+    "For free Apple ID: re-run provisioning to create a new certificate. For paid: import a valid .p12/.mobileprovision." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For free Apple ID: re-run provisioning to create a new certificate. For paid: import a valid .p12/.mobileprovision."
+          }
+        }
+      }
+    },
+    "Free" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free"
+          }
+        }
+      }
+    },
+    "Free Apple ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free Apple ID"
+          }
+        }
+      }
+    },
+    "Free Apple ID Signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free Apple ID Signing"
+          }
+        }
+      }
+    },
+    "Free Apple ID profile expiring soon" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free Apple ID profile expiring soon"
+          }
+        }
+      }
+    },
+    "Free Apple ID: 3 apps per 7 days. Requires weekly profile refresh. Limited entitlements (no push, no iCloud, no app groups)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free Apple ID: 3 apps per 7 days. Requires weekly profile refresh. Limited entitlements (no push, no iCloud, no app groups)."
+          }
+        }
+      }
+    },
+    "Free up space in Settings → General → iPhone Storage, then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free up space in Settings → General → iPhone Storage, then retry."
+          }
+        }
+      }
+    },
+    "Go to Settings → Installation → Pairing File and import a valid pairing file from Xcode or Apple Configurator." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings → Installation → Pairing File and import a valid pairing file from Xcode or Apple Configurator."
+          }
+        }
+      }
+    },
+    "Go to Settings → Installation → Server & SSL, export the Root CA profile, install it in Settings → General → VPN & Device Management, and enable Full Trust." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings → Installation → Server & SSL, export the Root CA profile, install it in Settings → General → VPN & Device Management, and enable Full Trust."
+          }
+        }
+      }
+    },
+    "Go to Settings → Signing Methods and re-configure the Free Apple ID provider." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings → Signing Methods and re-configure the Free Apple ID provider."
+          }
+        }
+      }
+    },
+    "Go to Settings → Signing Methods → Diagnostics and tap 'Check Native Signing Health', then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings → Signing Methods → Diagnostics and tap 'Check Native Signing Health', then retry."
+          }
+        }
+      }
+    },
+    "Go to Settings → Signing Methods → Free Apple ID and tap Sign Out, then sign in with the new account." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings → Signing Methods → Free Apple ID and tap Sign Out, then sign in with the new account."
+          }
+        }
+      }
+    },
+    "HTTPS Endpoint URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS Endpoint URL"
+          }
+        }
+      }
+    },
+    "HTTPS Installation Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS Installation Error"
+          }
+        }
+      }
+    },
+    "I understand and consent to this status check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I understand and consent to this status check"
+          }
+        }
+      }
+    },
+    "IPA Archive Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPA Archive Error"
+          }
+        }
+      }
+    },
+    "Identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity"
+          }
+        }
+      }
+    },
+    "Import a .p12 certificate and .mobileprovision profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .p12 certificate and .mobileprovision profile"
+          }
+        }
+      }
+    },
+    "Import a .p12 certificate and .mobileprovision profile. No app limits, 1-year validity, full entitlement support." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .p12 certificate and .mobileprovision profile. No app limits, 1-year validity, full entitlement support."
+          }
+        }
+      }
+    },
+    "Install App via TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install App via TrollStore"
+          }
+        }
+      }
+    },
+    "Install via TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install via TrollStore"
+          }
+        }
+      }
+    },
+    "Installation Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation Failed"
+          }
+        }
+      }
+    },
+    "Invalid Configuration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid Configuration"
+          }
+        }
+      }
+    },
+    "Invalid Keychain Parameters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid Keychain Parameters"
+          }
+        }
+      }
+    },
+    "Invalid Server Response" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid Server Response"
+          }
+        }
+      }
+    },
+    "Invalid TrollStore URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid TrollStore URL"
+          }
+        }
+      }
+    },
+    "Invalid parameters passed to Keychain operation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid parameters passed to Keychain operation."
+          }
+        }
+      }
+    },
+    "Keychain Access Denied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain Access Denied"
+          }
+        }
+      }
+    },
+    "Keychain Data Corrupt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain Data Corrupt"
+          }
+        }
+      }
+    },
+    "Keychain Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain Error"
+          }
+        }
+      }
+    },
+    "Keychain authentication failed. The item may require a password or biometric that wasn't provided." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain authentication failed. The item may require a password or biometric that wasn't provided."
+          }
+        }
+      }
+    },
+    "Loading identities…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading identities…"
+          }
+        }
+      }
+    },
+    "Loading paired devices…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading paired devices…"
+          }
+        }
+      }
+    },
+    "Manage Certificates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Certificates"
+          }
+        }
+      }
+    },
+    "Manual Entry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual Entry"
+          }
+        }
+      }
+    },
+    "Maximum number of provisioning profiles reached for this team." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximum number of provisioning profiles reached for this team."
+          }
+        }
+      }
+    },
+    "Missing context or app selection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing context or app selection"
+          }
+        }
+      }
+    },
+    "Missing or unknown status never counts as valid. This consent is single-use and expires in 2 minutes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing or unknown status never counts as valid. This consent is single-use and expires in 2 minutes."
+          }
+        }
+      }
+    },
+    "Native Signing Status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native Signing Status"
+          }
+        }
+      }
+    },
+    "Native signing backend not initialized. Check diagnostics." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native signing backend not initialized. Check diagnostics."
+          }
+        }
+      }
+    },
+    "Native signing backend not initialized. Configure Anisette Provider first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native signing backend not initialized. Configure Anisette Provider first."
+          }
+        }
+      }
+    },
+    "Native signing requires the primary VexSign app runtime. It is not available in guest or prototype builds." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native signing requires the primary VexSign app runtime. It is not available in guest or prototype builds."
+          }
+        }
+      }
+    },
+    "Network Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Network Error"
+          }
+        }
+      }
+    },
+    "Next: Review" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next: Review"
+          }
+        }
+      }
+    },
+    "Next: Select Device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next: Select Device"
+          }
+        }
+      }
+    },
+    "No Active Signing Context" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Active Signing Context"
+          }
+        }
+      }
+    },
+    "No Apple ID session is active. You must sign in first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Apple ID session is active. You must sign in first."
+          }
+        }
+      }
+    },
+    "No Internet Connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Internet Connection"
+          }
+        }
+      }
+    },
+    "No Saved Session" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Saved Session"
+          }
+        }
+      }
+    },
+    "No Team Selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Team Selected"
+          }
+        }
+      }
+    },
+    "No active signing context" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No active signing context"
+          }
+        }
+      }
+    },
+    "No anisette provider configured. Free Apple ID authentication requires an anisette server." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No anisette provider configured. Free Apple ID authentication requires an anisette server."
+          }
+        }
+      }
+    },
+    "No anisette provider is set up. Free Apple ID signing requires an anisette server." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No anisette provider is set up. Free Apple ID signing requires an anisette server."
+          }
+        }
+      }
+    },
+    "No limits · 1 year · Full entitlements" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No limits · 1 year · Full entitlements"
+          }
+        }
+      }
+    },
+    "No paired devices found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No paired devices found"
+          }
+        }
+      }
+    },
+    "No previous Apple ID session was found to resume." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No previous Apple ID session was found to resume."
+          }
+        }
+      }
+    },
+    "No signed IPAs available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No signed IPAs available"
+          }
+        }
+      }
+    },
+    "No signing identities found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No signing identities found"
+          }
+        }
+      }
+    },
+    "OCSP Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OCSP Unavailable"
+          }
+        }
+      }
+    },
+    "Operation In Progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operation In Progress"
+          }
+        }
+      }
+    },
+    "Out of Storage Space" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Out of Storage Space"
+          }
+        }
+      }
+    },
+    "Paid (Verified)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid (Verified)"
+          }
+        }
+      }
+    },
+    "Paid Certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid Certificate"
+          }
+        }
+      }
+    },
+    "Paired Devices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired Devices"
+          }
+        }
+      }
+    },
+    "Permanent · No cert · iOS 14–16.6.1" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanent · No cert · iOS 14–16.6.1"
+          }
+        }
+      }
+    },
+    "Permission Denied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permission Denied"
+          }
+        }
+      }
+    },
+    "Policy Revision" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Policy Revision"
+          }
+        }
+      }
+    },
+    "Preparing signing identity…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing signing identity…"
+          }
+        }
+      }
+    },
+    "Previous operations left incomplete state that needs cleanup before proceeding." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous operations left incomplete state that needs cleanup before proceeding."
+          }
+        }
+      }
+    },
+    "Profile Bundle ID Mismatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile Bundle ID Mismatch"
+          }
+        }
+      }
+    },
+    "Profile Created Successfully" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile Created Successfully"
+          }
+        }
+      }
+    },
+    "Profile Limit Reached" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile Limit Reached"
+          }
+        }
+      }
+    },
+    "Provider Configuration Changed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provider Configuration Changed"
+          }
+        }
+      }
+    },
+    "Provider Identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provider Identity"
+          }
+        }
+      }
+    },
+    "Provision & Sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provision & Sign"
+          }
+        }
+      }
+    },
+    "Provision & Sign App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provision & Sign App"
+          }
+        }
+      }
+    },
+    "Provisioning Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning Failed"
+          }
+        }
+      }
+    },
+    "Provisioning Profile Expired/Invalid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning Profile Expired/Invalid"
+          }
+        }
+      }
+    },
+    "Provisioning Quota Exceeded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning Quota Exceeded"
+          }
+        }
+      }
+    },
+    "Provisioning complete!" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning complete!"
+          }
+        }
+      }
+    },
+    "Provisioning in Progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning in Progress"
+          }
+        }
+      }
+    },
+    "Provisioning…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning…"
+          }
+        }
+      }
+    },
+    "Query CRL distribution points if OCSP unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Query CRL distribution points if OCSP unavailable"
+          }
+        }
+      }
+    },
+    "Re-download the IPA from a trusted source. Ensure it's a valid .ipa file, not a .zip or other format." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-download the IPA from a trusted source. Ensure it's a valid .ipa file, not a .zip or other format."
+          }
+        }
+      }
+    },
+    "Re-import the .p12 certificate and .mobileprovision profile. Check Settings → Certificates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-import the .p12 certificate and .mobileprovision profile. Check Settings → Certificates."
+          }
+        }
+      }
+    },
+    "Re-import the missing file. Check Settings → Certificates or re-download the IPA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-import the missing file. Check Settings → Certificates or re-download the IPA."
+          }
+        }
+      }
+    },
+    "Refresh All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh All"
+          }
+        }
+      }
+    },
+    "Refresh All (TrollStore)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh All (TrollStore)"
+          }
+        }
+      }
+    },
+    "Refresh All Apps via TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh All Apps via TrollStore"
+          }
+        }
+      }
+    },
+    "Refresh Identities" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Identities"
+          }
+        }
+      }
+    },
+    "Refresh triggered successfully. Check TrollStore for progress." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh triggered successfully. Check TrollStore for progress."
+          }
+        }
+      }
+    },
+    "Refreshing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing…"
+          }
+        }
+      }
+    },
+    "Registering App ID…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registering App ID…"
+          }
+        }
+      }
+    },
+    "Registering device & App ID…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registering device & App ID…"
+          }
+        }
+      }
+    },
+    "Remove unsupported entitlements from the app, or use a paid certificate which supports all entitlements." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove unsupported entitlements from the app, or use a paid certificate which supports all entitlements."
+          }
+        }
+      }
+    },
+    "Request Consent & Check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request Consent & Check"
+          }
+        }
+      }
+    },
+    "Request Timed Out" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request Timed Out"
+          }
+        }
+      }
+    },
+    "Requesting certificate creation approval…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requesting certificate creation approval…"
+          }
+        }
+      }
+    },
+    "Require positive cached response (no network fetch)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require positive cached response (no network fetch)"
+          }
+        }
+      }
+    },
+    "Restart the app and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart the app and try again."
+          }
+        }
+      }
+    },
+    "Restart the app. If persistent, check iOS Settings → VexSign for file access permissions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart the app. If persistent, check iOS Settings → VexSign for file access permissions."
+          }
+        }
+      }
+    },
+    "Restart the app. If persistent, restart the device. Check Settings → Face ID & Passcode for Keychain access." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart the app. If persistent, restart the device. Check Settings → Face ID & Passcode for Keychain access."
+          }
+        }
+      }
+    },
+    "Restart the authentication flow from Settings → Signing Methods." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart the authentication flow from Settings → Signing Methods."
+          }
+        }
+      }
+    },
+    "Review & Provision" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review & Provision"
+          }
+        }
+      }
+    },
+    "Review the provisioning plan before submitting to Apple. This will register the device, create an App ID, generate a certificate, and create a provisioning profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the provisioning plan before submitting to Apple. This will register the device, create an App ID, generate a certificate, and create a provisioning profile."
+          }
+        }
+      }
+    },
+    "Revoke an unused development certificate in the Apple Developer portal (Certificates → Development), then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoke an unused development certificate in the Apple Developer portal (Certificates → Development), then retry."
+          }
+        }
+      }
+    },
+    "Revoke unused apps/devices/App IDs from the Apple Developer portal, then retry. Free accounts are limited to 3 active apps." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoke unused apps/devices/App IDs from the Apple Developer portal, then retry. Free accounts are limited to 3 active apps."
+          }
+        }
+      }
+    },
+    "Secure Storage Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Storage Unavailable"
+          }
+        }
+      }
+    },
+    "Select App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select App"
+          }
+        }
+      }
+    },
+    "Select Device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Device"
+          }
+        }
+      }
+    },
+    "Select Target Device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Target Device"
+          }
+        }
+      }
+    },
+    "Select Team" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Team"
+          }
+        }
+      }
+    },
+    "Select a free or individual developer team. Enterprise teams require paid certificates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a free or individual developer team. Enterprise teams require paid certificates."
+          }
+        }
+      }
+    },
+    "Select a paired device to use its UDID automatically. Pairing requires a valid pairing file configured in Settings → Installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a paired device to use its UDID automatically. Pairing requires a valid pairing file configured in Settings → Installation."
+          }
+        }
+      }
+    },
+    "Select a signed IPA to install permanently via TrollStore. The app must already be signed with a valid certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a signed IPA to install permanently via TrollStore. The app must already be signed with a valid certificate."
+          }
+        }
+      }
+    },
+    "Select an App to Provision" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an App to Provision"
+          }
+        }
+      }
+    },
+    "Send certificate serial/issuer to Apple's OCSP responder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send certificate serial/issuer to Apple's OCSP responder"
+          }
+        }
+      }
+    },
+    "Server Endpoint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server Endpoint"
+          }
+        }
+      }
+    },
+    "Session Expired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session Expired"
+          }
+        }
+      }
+    },
+    "Session Resume Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session Resume Required"
+          }
+        }
+      }
+    },
+    "Sign & Install App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign & Install App"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In"
+          }
+        }
+      }
+    },
+    "Sign Out" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign Out"
+          }
+        }
+      }
+    },
+    "Sign an app first, then return here to install via TrollStore." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign an app first, then return here to install via TrollStore."
+          }
+        }
+      }
+    },
+    "Sign in with Apple ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with Apple ID"
+          }
+        }
+      }
+    },
+    "Sign in with a Free Apple ID to check certificate status." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with a Free Apple ID to check certificate status."
+          }
+        }
+      }
+    },
+    "Sign in with your Apple ID from Settings → Signing Methods → Free Apple ID." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with your Apple ID from Settings → Signing Methods → Free Apple ID."
+          }
+        }
+      }
+    },
+    "Sign out and sign in again to establish a fresh session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out and sign in again to establish a fresh session."
+          }
+        }
+      }
+    },
+    "Sign out and sign in again to establish a new session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out and sign in again to establish a new session."
+          }
+        }
+      }
+    },
+    "Signed IPA file not found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed IPA file not found"
+          }
+        }
+      }
+    },
+    "Signed Out" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed Out"
+          }
+        }
+      }
+    },
+    "Signing Backend Busy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing Backend Busy"
+          }
+        }
+      }
+    },
+    "Signing Backend Not Ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing Backend Not Ready"
+          }
+        }
+      }
+    },
+    "Signing Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing Failed"
+          }
+        }
+      }
+    },
+    "Signing app with new profile…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing app with new profile…"
+          }
+        }
+      }
+    },
+    "Start Provisioning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Provisioning"
+          }
+        }
+      }
+    },
+    "Status Consent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status Consent"
+          }
+        }
+      }
+    },
+    "Storage Error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage Error"
+          }
+        }
+      }
+    },
+    "Submit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Submit"
+          }
+        }
+      }
+    },
+    "Test" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test"
+          }
+        }
+      }
+    },
+    "Test the provider in Settings → Signing Methods → Free Apple ID → Anisette Provider. Check server logs if self-hosted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test the provider in Settings → Signing Methods → Free Apple ID → Anisette Provider. Check server logs if self-hosted."
+          }
+        }
+      }
+    },
+    "The Apple ID session has expired and needs to be refreshed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Apple ID session has expired and needs to be refreshed."
+          }
+        }
+      }
+    },
+    "The IPA file is corrupt, not a valid archive, or uses unsupported compression." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA file is corrupt, not a valid archive, or uses unsupported compression."
+          }
+        }
+      }
+    },
+    "The Keychain is unavailable. This may happen after a device restart or if Keychain access was revoked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Keychain is unavailable. This may happen after a device restart or if Keychain access was revoked."
+          }
+        }
+      }
+    },
+    "The Keychain item could not be decoded. It may be corrupted or from an incompatible version." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Keychain item could not be decoded. It may be corrupted or from an incompatible version."
+          }
+        }
+      }
+    },
+    "The UDID can be found in Settings → General → About, or via Xcode/Finder when device is connected. Format: 40 hex chars (legacy) or 8-16-16-16-16 (modern)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The UDID can be found in Settings → General → About, or via Xcode/Finder when device is connected. Format: 40 hex chars (legacy) or 8-16-16-16-16 (modern)."
+          }
+        }
+      }
+    },
+    "The anisette provider configuration has changed since the operation started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The anisette provider configuration has changed since the operation started."
+          }
+        }
+      }
+    },
+    "The anisette provider failed to return valid headers. This may be a server issue or network problem." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The anisette provider failed to return valid headers. This may be a server issue or network problem."
+          }
+        }
+      }
+    },
+    "The anisette provider or backend configuration is invalid." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The anisette provider or backend configuration is invalid."
+          }
+        }
+      }
+    },
+    "The app doesn't have permission to write to the required location." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app doesn't have permission to write to the required location."
+          }
+        }
+      }
+    },
+    "The app has been signed and installed on your device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app has been signed and installed on your device."
+          }
+        }
+      }
+    },
+    "The app is not allowed to access the Keychain item (requires user interaction)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app is not allowed to access the Keychain item (requires user interaction)."
+          }
+        }
+      }
+    },
+    "The app requests entitlements not supported by free Apple ID provisioning (push notifications, iCloud, App Groups, Keychain sharing)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app requests entitlements not supported by free Apple ID provisioning (push notifications, iCloud, App Groups, Keychain sharing)."
+          }
+        }
+      }
+    },
+    "The app will attempt auto-renewal. If manual, re-run provisioning from Settings → Signing Methods." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app will attempt auto-renewal. If manual, re-run provisioning from Settings → Signing Methods."
+          }
+        }
+      }
+    },
+    "The app will prompt for consent automatically. If not, try signing in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app will prompt for consent automatically. If not, try signing in again."
+          }
+        }
+      }
+    },
+    "The bundle identifier could not be registered. It may already exist, be invalid, or exceed limits." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The bundle identifier could not be registered. It may already exist, be invalid, or exceed limits."
+          }
+        }
+      }
+    },
+    "The device UDID is not registered with your Apple Developer account, or the registration failed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device UDID is not registered with your Apple Developer account, or the registration failed."
+          }
+        }
+      }
+    },
+    "The device is not connected to the internet. Apple ID authentication and provisioning require internet access." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device is not connected to the internet. Apple ID authentication and provisioning require internet access."
+          }
+        }
+      }
+    },
+    "The device is not paired or the pairing file is missing/invalid." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device is not paired or the pairing file is missing/invalid."
+          }
+        }
+      }
+    },
+    "The device storage is full. Cannot save IPA, certificate, or profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device storage is full. Cannot save IPA, certificate, or profile."
+          }
+        }
+      }
+    },
+    "The endpoint must return the 10 required Apple anisette headers as JSON. See documentation for format." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The endpoint must return the 10 required Apple anisette headers as JSON. See documentation for format."
+          }
+        }
+      }
+    },
+    "The local HTTPS server certificate is not trusted by the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The local HTTPS server certificate is not trusted by the device."
+          }
+        }
+      }
+    },
+    "The native signing backend hasn't been initialized yet." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The native signing backend hasn't been initialized yet."
+          }
+        }
+      }
+    },
+    "The native signing backend is currently processing another request." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The native signing backend is currently processing another request."
+          }
+        }
+      }
+    },
+    "The previous session requires explicit resume due to a cleanup or configuration change." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The previous session requires explicit resume due to a cleanup or configuration change."
+          }
+        }
+      }
+    },
+    "The provisioning profile doesn't match the app's bundle identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile doesn't match the app's bundle identifier."
+          }
+        }
+      }
+    },
+    "The provisioning profile is expired or not valid for the current date/device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile is expired or not valid for the current date/device."
+          }
+        }
+      }
+    },
+    "The request to Apple's servers or the anisette provider timed out." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The request to Apple's servers or the anisette provider timed out."
+          }
+        }
+      }
+    },
+    "The requested certificate, key, or profile was not found in the Keychain." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The requested certificate, key, or profile was not found in the Keychain."
+          }
+        }
+      }
+    },
+    "The selected team type is not supported for free Apple ID signing (e.g., enterprise teams)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected team type is not supported for free Apple ID signing (e.g., enterprise teams)."
+          }
+        }
+      }
+    },
+    "The server requires authentication that wasn't provided." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server requires authentication that wasn't provided."
+          }
+        }
+      }
+    },
+    "The server returned an unexpected response." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server returned an unexpected response."
+          }
+        }
+      }
+    },
+    "The signing backend has been shut down. This may happen after signing out or a configuration change." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing backend has been shut down. This may happen after signing out or a configuration change."
+          }
+        }
+      }
+    },
+    "The signing certificate is expired, not yet valid, or has been revoked by Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing certificate is expired, not yet valid, or has been revoked by Apple."
+          }
+        }
+      }
+    },
+    "This is an internal error. Please report it with the error code." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is an internal error. Please report it with the error code."
+          }
+        }
+      }
+    },
+    "This may indicate an Apple server issue or an invalid anisette provider. Try again later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This may indicate an Apple server issue or an invalid anisette provider. Try again later."
+          }
+        }
+      }
+    },
+    "This will trigger TrollStore to refresh all installed apps, extending their validity. Requires TrollStore to be installed and accessible." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This will trigger TrollStore to refresh all installed apps, extending their validity. Requires TrollStore to be installed and accessible."
+          }
+        }
+      }
+    },
+    "This will:" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This will:"
+          }
+        }
+      }
+    },
+    "TrollStore Install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore Install"
+          }
+        }
+      }
+    },
+    "TrollStore Installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore Installation"
+          }
+        }
+      }
+    },
+    "TrollStore Installation Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore Installation Failed"
+          }
+        }
+      }
+    },
+    "TrollStore Refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore Refresh"
+          }
+        }
+      }
+    },
+    "TrollStore allows permanent, certificate-free installation of signed IPAs on iOS 14.0–16.6.1. No 7-day expiry, no Apple ID needed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore allows permanent, certificate-free installation of signed IPAs on iOS 14.0–16.6.1. No 7-day expiry, no Apple ID needed."
+          }
+        }
+      }
+    },
+    "TrollStore could not install the app. It may not be installed, the IPA may be incompatible, or the URL scheme failed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore could not install the app. It may not be installed, the IPA may be incompatible, or the URL scheme failed."
+          }
+        }
+      }
+    },
+    "TrollStore detected — permanent installation available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore detected — permanent installation available"
+          }
+        }
+      }
+    },
+    "TrollStore installation failed or was cancelled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore installation failed or was cancelled"
+          }
+        }
+      }
+    },
+    "TrollStore not available on this device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore not available on this device"
+          }
+        }
+      }
+    },
+    "TrollStore not detected on this device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore not detected on this device"
+          }
+        }
+      }
+    },
+    "TrollStore requires iOS 14.0–16.6.1 and a separate installation. VexSign can detect it but cannot install it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore requires iOS 14.0–16.6.1 and a separate installation. VexSign can detect it but cannot install it."
+          }
+        }
+      }
+    },
+    "Try restarting the app. If persistent, restart the device and re-import certificates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try restarting the app. If persistent, restart the device and re-import certificates."
+          }
+        }
+      }
+    },
+    "Two-Factor Authentication" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Two-Factor Authentication"
+          }
+        }
+      }
+    },
+    "Two-Factor Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Two-Factor Required"
+          }
+        }
+      }
+    },
+    "UDID (40 hex chars or 25-char format)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UDID (40 hex chars or 25-char format)"
+          }
+        }
+      }
+    },
+    "Unlock the device and ensure VexSign has Keychain access. Restart the app if needed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock the device and ensure VexSign has Keychain access. Restart the app if needed."
+          }
+        }
+      }
+    },
+    "Unsupported Environment" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsupported Environment"
+          }
+        }
+      }
+    },
+    "Unsupported Team Type" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsupported Team Type"
+          }
+        }
+      }
+    },
+    "Verify credentials, check 2FA, ensure internet connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify credentials, check 2FA, ensure internet connection."
+          }
+        }
+      }
+    },
+    "Verify your Apple ID and password. Ensure 2FA is working. Check Apple System Status page for outages." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify your Apple ID and password. Ensure 2FA is working. Check Apple System Status page for outages."
+          }
+        }
+      }
+    },
+    "Wait a moment and retry. If stuck, restart the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wait a moment and retry. If stuck, restart the app."
+          }
+        }
+      }
+    },
+    "Xcode Version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xcode Version"
+          }
+        }
+      }
+    },
+    "You have reached the maximum number of development certificates for this team." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have reached the maximum number of development certificates for this team."
+          }
+        }
+      }
+    },
+    "Your Apple ID and password are used only for authentication with Apple's servers. They are never stored, logged, or sent to any third party." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Apple ID and password are used only for authentication with Apple's servers. They are never stored, logged, or sent to any third party."
+          }
+        }
+      }
+    },
+    "iOS Development (auto-generated)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS Development (auto-generated)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
