@@ -25,7 +25,7 @@ struct SigningMethodsView: View {
     @State private var authError: String?
 
     var body: some View {
-        NBList(.localized("Signing Methods")) {
+        let base = NBList(.localized("Signing Methods")) {
             // MARK: - Paid Certificate Section
             Section {
                 signingMethodRow(
@@ -121,38 +121,40 @@ struct SigningMethodsView: View {
                 Text(.localized("Diagnostics"))
             }
         }
-        .sheet(isPresented: $showAppleIDLogin) {
-            AppleIDLoginView(
-                appleID: $appleID,
-                password: $password,
-                xcodeVersion: $xcodeVersion,
-                isAuthenticating: $isAuthenticating,
-                authError: $authError,
-                onSubmit: { Task { await performAppleIDLogin() } }
-            )
-        }
-        .sheet(isPresented: $showTeamSelection) {
-            if let operation = pendingOperation {
-                TeamSelectionView(
-                    teams: extractTeams(from: nativeManager.snapshot),
-                    onSelect: { teamID in
-                        Task { await selectTeam(teamID, operationID: operation.id) }
-                    }
+
+        return base
+            .sheet(isPresented: $showAppleIDLogin) {
+                AppleIDLoginView(
+                    appleID: $appleID,
+                    password: $password,
+                    xcodeVersion: $xcodeVersion,
+                    isAuthenticating: $isAuthenticating,
+                    authError: $authError,
+                    onSubmit: { Task { await performAppleIDLogin() } }
                 )
             }
-        }
-        .alert(.localized("Two-Factor Authentication"), isPresented: .constant(pendingChallenge != nil), presenting: pendingChallenge) { challenge in
-            TextField(.localized("6-digit code"), text: $twoFactorCode)
-            Button(.localized("Cancel"), role: .cancel) {
-                pendingChallenge = nil
+            .sheet(isPresented: $showTeamSelection) {
+                if let operation = pendingOperation {
+                    TeamSelectionView(
+                        teams: extractTeams(from: nativeManager.snapshot),
+                        onSelect: { teamID in
+                            Task { await selectTeam(teamID, operationID: operation.id) }
+                        }
+                    )
+                }
             }
-            Button(.localized("Submit")) {
-                Task { await submitTwoFactor(challenge) }
+            .alert(.localized("Two-Factor Authentication"), isPresented: .constant(pendingChallenge != nil), presenting: pendingChallenge) { challenge in
+                TextField(.localized("6-digit code"), text: $twoFactorCode)
+                Button(.localized("Cancel"), role: .cancel) {
+                    pendingChallenge = nil
+                }
+                Button(.localized("Submit")) {
+                    Task { await submitTwoFactor(challenge) }
+                }
+                .disabled(twoFactorCode.count != 6)
+            } message: { challenge in
+                Text(.localized("Enter the verification code sent to your trusted device"))
             }
-            .disabled(twoFactorCode.count != 6)
-        } message: { challenge in
-            Text(.localized("Enter the verification code sent to your trusted device"))
-        }
     }
 
     // MARK: - Subviews
@@ -280,6 +282,7 @@ struct SigningMethodsView: View {
         .sheet(isPresented: $showProvisioningFlow) {
             ProvisioningFlowView()
         }
+    }
 
     private var trollStoreContent: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -380,7 +383,7 @@ struct SigningMethodsView: View {
         } catch {
             authError = error.localizedDescription
         }
-    }
+}
 }
 
 // MARK: - Supporting Views
@@ -503,7 +506,7 @@ extension NativeAccountPhase {
         case .authenticating: return .localized("Authenticating…")
         case .awaitingTwoFactor: return .localized("Two-Factor Required")
         case .awaitingTeamSelection: return .localized("Select Team")
-        case .signedIn(let context): return .localized("Signed In: \(context.team.identifier)")
+        case .signedIn(let context): return String.localized("Signed In: %@", arguments: context.team.identifier)
         case .expired(let date): return .localized("Session Expired")
         }
     }
@@ -599,7 +602,7 @@ private struct TrollStoreInstallView: View {
                                 Text(.localized("Installing…"))
                             }
                         } else {
-                            Label(.localized("Install \(download.fileName)"), systemImage: "t.square.fill")
+                            Label(String.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
                         }
                     }
                     .buttonStyle(NBButtonStyle(.prominent))
