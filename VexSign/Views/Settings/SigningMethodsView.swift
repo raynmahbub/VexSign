@@ -733,3 +733,4 @@ private struct TrollStoreRefreshView: View {
         }
     }
 }
+}
