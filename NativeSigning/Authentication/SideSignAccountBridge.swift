@@ -996,6 +996,125 @@ extension SideSignAccountBridge {
         await keyExportConsent.revoke()
     }
 
+    // MARK: - Profile Listing
+
+    /// Lists all provisioning profiles for the given context.
+    func listProfiles(contextID: UUID) async throws -> [NativeProfileInfo] {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil,
+              provisioningTask == nil, identityTask == nil, identityDiscardTask == nil,
+              certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw Failure.flowBusy }
+
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+
+        let records = try profileStore.listAllRecords(owner: owner)
+
+        var profiles: [NativeProfileInfo] = []
+        for record in records {
+            guard record.phase == .recorded,
+                  let profileUUID = record.profileUUID,
+                  let remoteIdentifierDigest = record.remoteIdentifierDigest,
+                  let cmsSHA256 = record.cmsSHA256 else { continue }
+
+            let info = NativeProfileInfo(
+                profileUUID: profileUUID,
+                identityID: record.id,
+                createdAt: record.createdAt,
+                remoteIdentifierDigest: remoteIdentifierDigest,
+                cmsSHA256: cmsSHA256
+            )
+            profiles.append(info)
+        }
+        return profiles
+    }
+
+    // MARK: - Key Export
+
+    /// Exports the signing identity (private key + certificate) as a PKCS#12 (.p12) archive.
+    func exportSigningIdentity(
+        contextID: UUID,
+        identityID: UUID,
+        password: String,
+        consent: NativeKeyExportConsent
+    ) async throws -> Data {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil,
+              provisioningTask == nil, identityTask == nil, identityDiscardTask == nil,
+              certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw Failure.flowBusy }
+
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+
+        let owned = try await signingIdentities.ownedSigningCertificate(
+            owner: owner,
+            identityID: identityID,
+            now: clock()
+        )
+
+        try consent.validate(owner: owner, identityID: identityID, certificate: owned.certificateDER, now: clock())
+
+        let privateKeyDER = try await signingIdentities.privateKeyDER(
+            owner: owner,
+            identityID: identityID,
+            now: clock()
+        )
+
+        let p12Data = try NativeSigningIdentityCrypto.exportPKCS12(
+            privateKeyDER: privateKeyDER,
+            certificateDER: owned.certificateDER,
+            password: password
+        )
+
+        return p12Data
+    }
+
+    // MARK: - Profile Download
+
+    /// Downloads a provisioning profile by UUID as a .mobileprovision file.
+    func downloadProvisioningProfile(
+        contextID: UUID,
+        profileUUID: UUID,
+        consent token: AnisetteConsentToken
+    ) async throws -> Data {
+        guard !closed else { throw Failure.closed }
+        try consent.require(token, provider: provider.descriptor, now: clock())
+        guard !setupBusy, maintenanceCount == 0, active == nil,
+              provisioningTask == nil, identityTask == nil, identityDiscardTask == nil,
+              certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw Failure.flowBusy }
+
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+
+        guard let candidate = try await coordinator.provisioningCandidate(
+            contextID: contextID,
+            now: clock()
+        ) else {
+            throw NativeProvisioningError.contextChanged
+        }
+
+        let headers: AnisetteData
+        do { headers = try await provider.freshHeaders() }
+        catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            throw NativeProvisioningError.providerFailed
+        }
+
+        let portal = adapter.provisioningPortal
+        let profileData = try await portal.downloadProvisioningProfile(
+            encodedSession: candidate.encodedSession,
+            headers: headers,
+            teamIdentifier: candidate.context.team.identifier,
+            profileUUID: profileUUID,
+            now: clock()
+        )
+
+        return profileData
+    }
+
     /// Offline positive cache unless a separate exact single-use status consent
     /// is supplied. Never submits a certificate/CSR/profile or changes quota.
     func evaluateSigningCertificateStatus(contextID: UUID, identityID: UUID,
