@@ -8,6 +8,16 @@ protocol SideSignProfileTransport: SideSignRegistrationTransport {
     func profileInventory(request: NativeProfileCreationRequest, team: Team, session: Session,
                           checkCurrent: @escaping @Sendable () async throws -> Void) async throws -> [NativeProfileObservation]
     func createLimitedProfileOnce(request: NativeProfileCreationRequest, operationID: UUID, team: Team, session: Session) async throws
+
+    /// Downloads a provisioning profile by UUID from Apple's portal.
+    /// Returns the raw CMS-signed .mobileprovision data.
+    func downloadProvisioningProfile(
+        encodedSession: Data,
+        headers: AnisetteData,
+        teamIdentifier: String,
+        profileUUID: UUID,
+        now: Date
+    ) async throws -> Data
 }
 
 struct SideSignProfileInventoryPolicy {

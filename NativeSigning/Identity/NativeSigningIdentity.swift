@@ -149,6 +149,10 @@ protocol NativeSigningIdentityManaging: Actor {
     func ownedProfileIdentity(owner: NativeSigningIdentityOwner, identityID: UUID, bundleIdentifier: String,
                               deviceIdentifier: String, now: Date) async throws -> NativeOwnedProfileIdentity
 
+    /// Retrieves the private key DER for the given identity.
+    /// Only available for identities in .prepared or .certificateRecorded phase.
+    /// Requires explicit key export consent (handled by caller).
+    func privateKeyDER(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> Data
 }
 
 extension NativeSigningIdentityManaging {
@@ -163,6 +167,10 @@ extension NativeSigningIdentityManaging {
     // State-only fixtures cannot silently pretend they own a usable certificate.
     func profileValidationRequest(owner: NativeSigningIdentityOwner, identityID: UUID, bundleIdentifier: String,
                                   deviceIdentifier: String, now: Date) async throws -> NativeProfileValidationRequest {
+        throw NativeSigningIdentityError.reconciliationRequired
+    }
+
+    func privateKeyDER(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> Data {
         throw NativeSigningIdentityError.reconciliationRequired
     }
 }
@@ -295,6 +303,18 @@ actor NativeSigningIdentityCoordinator<Store: NativeSigningIdentityStorage, Gene
         guard record.phase == .prepared else { throw NativeSigningIdentityError.cannotDiscardSubmittedIdentity }
         try Task.checkCancellation()
         try store.deletePrepared(record, owner: owner)
+    }
+
+    func privateKeyDER(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> Data {
+        try Task.checkCancellation()
+        guard now.timeIntervalSince1970.isFinite else { throw NativeSigningIdentityError.invalidRecord }
+        guard let record = try store.read(owner: owner), record.id == identityID else { throw NativeSigningIdentityError.identityChanged }
+        guard record.phase == .prepared || record.phase == .certificateRecorded else { throw NativeSigningIdentityError.reconciliationRequired }
+        try record.validateShape(owner: owner)
+        guard record.createdAt <= now else { throw NativeSigningIdentityError.invalidRecord }
+        try NativeSigningIdentityCrypto.validateMaterial(record)
+        try Task.checkCancellation()
+        return record.privateKeyDER
     }
 }
 

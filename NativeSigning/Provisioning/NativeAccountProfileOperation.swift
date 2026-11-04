@@ -68,4 +68,7 @@ struct NativeProfileCreationStorageAdapter: NativeProfileCreationStorage {
     func recordObservation(_ record: NativeProfileCreationRecord, owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws {
         try base.recordObservation(record, owner: owner, request: request)
     }
+    func listAllRecords(owner: NativeSigningIdentityOwner) throws -> [NativeProfileCreationRecord] {
+        try base.listAllRecords(owner: owner)
+    }
 }

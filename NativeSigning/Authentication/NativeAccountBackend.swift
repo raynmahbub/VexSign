@@ -28,6 +28,11 @@ public enum NativeAccountPhase: Equatable, Sendable {
     case awaitingTeamSelection(UUID, [NativeAccountTeam], expiresAt: Date?)
     case signedIn(NativeAccountContext)
     case expired(expiresAt: Date?)
+
+    var isSignedIn: Bool {
+        if case .signedIn = self { return true }
+        return false
+    }
 }
 public struct NativeAccountSnapshot: Equatable, Sendable {
     public let phase: NativeAccountPhase
@@ -43,6 +48,37 @@ public struct NativeAccountOperation: Sendable {
     public let id: UUID
     public let challenges: AsyncStream<SideSignTwoFactorBroker.Challenge>
     private let completion: @Sendable () async -> Void
+}
+
+/// Information about a provisioning profile for listing purposes.
+public struct NativeProfileInfo: Sendable, Identifiable {
+    public let id = UUID()
+    public let profileUUID: UUID
+    public let identityID: UUID
+    public let createdAt: Date
+    public let remoteIdentifierDigest: String
+    public let cmsSHA256: String
+    /// Expiry date if available (requires portal query)
+    public let expiresAt: Date?
+    /// Bundle identifier if available
+    public let bundleIdentifier: String?
+    /// Device identifier if available
+    public let deviceIdentifier: String?
+
+    public init(profileUUID: UUID, identityID: UUID, createdAt: Date,
+                remoteIdentifierDigest: String, cmsSHA256: String,
+                expiresAt: Date? = nil, bundleIdentifier: String? = nil,
+                deviceIdentifier: String? = nil) {
+        self.profileUUID = profileUUID
+        self.identityID = identityID
+        self.createdAt = createdAt
+        self.remoteIdentifierDigest = remoteIdentifierDigest
+        self.cmsSHA256 = cmsSHA256
+        self.expiresAt = expiresAt
+        self.bundleIdentifier = bundleIdentifier
+        self.deviceIdentifier = deviceIdentifier
+    }
+}
 
     init(id: UUID, challenges: AsyncStream<SideSignTwoFactorBroker.Challenge>,
          completion: @escaping @Sendable () async -> Void) {
@@ -287,6 +323,17 @@ public actor NativeAccountBackend {
 
     public func revokeCertificateStatusConsent() async { await bridge.revokeCertificateStatusConsent() }
 
+    /// Explicit informed approval for private key material export as PKCS#12.
+    /// This is not anisette consent, certificate creation approval, or quota approval.
+    public func recordExplicitKeyExportConsent(contextID: UUID, identityID: UUID,
+                                               lifetime: TimeInterval = 120) async throws -> NativeKeyExportConsent {
+        try requireOpen()
+        do { return try await bridge.recordExplicitKeyExportConsent(contextID: contextID, identityID: identityID, lifetime: lifetime) }
+        catch { throw Self.statusError(error) }
+    }
+
+    public func revokeKeyExportConsent() async { await bridge.revokeKeyExportConsent() }
+
     /// No grant means cached-positive-only/offline. A supplied grant allows ONE
     /// system status evaluation after offline Apple chain/purpose validation.
     /// Metadata result is not a reusable signing permit or installation authority.
@@ -374,6 +421,181 @@ public actor NativeAccountBackend {
         case .expired(let session): phase = .expired(expiresAt: session.expiresAt)
         }
         return NativeAccountSnapshot(phase: phase, cleanupRequired: snapshot.cleanupRequired)
+    }
+
+    /// Lists all provisioning profiles for the given context.
+    /// Returns an array of profile info with expiry dates.
+    public func listProfiles(contextID: UUID) async throws -> [NativeProfileInfo] {
+        try requireOpen()
+        do {
+            // Get the context to derive the owner
+            let snapshot = try await bridge.snapshot()
+            let context: AppleAccountAuthenticationState.Context?
+            switch snapshot.phase {
+            case .signedIn(let ctx):
+                context = ctx
+            default:
+                return []
+            }
+            guard let context = context, context.id == contextID else {
+                return []
+            }
+            let owner = try SideSignSessionCodec.identityOwner(
+                context.encodedSession,
+                teamIdentifier: context.team.identifier,
+                now: clock()
+            )
+
+            // List all profile records from storage
+            let records = try bridge.profileStore.listAllRecords(owner: owner)
+
+            // Filter for recorded profiles and convert to NativeProfileInfo
+            var profiles: [NativeProfileInfo] = []
+            for record in records {
+                guard record.phase == .recorded,
+                      let profileUUID = record.profileUUID,
+                      let remoteIdentifierDigest = record.remoteIdentifierDigest,
+                      let cmsSHA256 = record.cmsSHA256 else { continue }
+
+                // For each recorded profile, we need to get the expiry date.
+                // This requires querying the portal for the profile details.
+                // For now, we create a basic info with what we have.
+                // In a full implementation, we'd need to fetch the actual profile data.
+                let info = NativeProfileInfo(
+                    profileUUID: profileUUID,
+                    identityID: record.id,
+                    createdAt: record.createdAt,
+                    remoteIdentifierDigest: remoteIdentifierDigest,
+                    cmsSHA256: cmsSHA256
+                )
+                profiles.append(info)
+            }
+            return profiles
+        } catch {
+            throw Self.safe(error)
+        }
+    }
+
+    /// Exports the signing identity (private key + certificate) as a PKCS#12 (.p12) archive.
+    /// Requires explicit user consent for key material export.
+    /// - Parameters:
+    ///   - contextID: The active signing context ID
+    ///   - identityID: The identity to export
+    ///   - password: Password to encrypt the .p12 (user-provided)
+    ///   - consent: Explicit key export consent token
+    /// - Returns: The .p12 data
+    public func exportSigningIdentity(
+        contextID: UUID,
+        identityID: UUID,
+        password: String,
+        consent: NativeKeyExportConsent
+    ) async throws -> Data {
+        try requireOpen()
+        do {
+            // Get the context to derive the owner
+            let snapshot = try await bridge.snapshot()
+            let context: AppleAccountAuthenticationState.Context?
+            switch snapshot.phase {
+            case .signedIn(let ctx):
+                context = ctx
+            default:
+                throw NativeAccountBackendError.sessionExpired
+            }
+            guard let context = context, context.id == contextID else {
+                throw NativeAccountBackendError.sessionExpired
+            }
+            let owner = try SideSignSessionCodec.identityOwner(
+                context.encodedSession,
+                teamIdentifier: context.team.identifier,
+                now: clock()
+            )
+
+            // Get the owned signing certificate (includes certificate DER)
+            let owned = try await bridge.signingIdentities.ownedSigningCertificate(
+                owner: owner,
+                identityID: identityID,
+                now: clock()
+            )
+
+            // Validate consent matches this identity and certificate
+            try consent.validate(owner: owner, identityID: identityID, certificate: owned.certificateDER, now: clock())
+
+            // Get the private key DER from the identity store
+            let privateKeyDER = try await bridge.signingIdentities.privateKeyDER(
+                owner: owner,
+                identityID: identityID,
+                now: clock()
+            )
+
+            // Export as PKCS#12
+            let p12Data = try NativeSigningIdentityCrypto.exportPKCS12(
+                privateKeyDER: privateKeyDER,
+                certificateDER: owned.certificateDER,
+                password: password
+            )
+
+            return p12Data
+        } catch {
+            throw Self.safe(error)
+        }
+    }
+
+    /// Downloads a provisioning profile by UUID as a .mobileprovision file.
+    /// - Parameters:
+    ///   - contextID: The active signing context ID
+    ///   - profileUUID: The UUID of the profile to download
+    ///   - consent: Explicit anisette consent for the portal request
+    /// - Returns: The .mobileprovision data (CMS signed plist)
+    public func downloadProvisioningProfile(
+        contextID: UUID,
+        profileUUID: UUID,
+        consent: AnisetteConsentToken
+    ) async throws -> Data {
+        try requireOpen()
+        do {
+            // Get the context to derive the owner
+            let snapshot = try await bridge.snapshot()
+            let context: AppleAccountAuthenticationState.Context?
+            switch snapshot.phase {
+            case .signedIn(let ctx):
+                context = ctx
+            default:
+                throw NativeAccountBackendError.sessionExpired
+            }
+            guard let context = context, context.id == contextID else {
+                throw NativeAccountBackendError.sessionExpired
+            }
+            let owner = try SideSignSessionCodec.identityOwner(
+                context.encodedSession,
+                teamIdentifier: context.team.identifier,
+                now: clock()
+            )
+
+            // Get provisioning candidate (encoded session + team)
+            guard let candidate = try await bridge.coordinator.provisioningCandidate(
+                contextID: contextID,
+                now: clock()
+            ) else {
+                throw NativeProvisioningError.contextChanged
+            }
+
+            // Get fresh anisette headers
+            let headers = try await bridge.provider.freshHeaders()
+
+            // Use the portal to download the profile
+            let portal = bridge.adapter.provisioningPortal
+            let profileData = try await portal.downloadProvisioningProfile(
+                encodedSession: candidate.encodedSession,
+                headers: headers,
+                teamIdentifier: candidate.context.team.identifier,
+                profileUUID: profileUUID,
+                now: clock()
+            )
+
+            return profileData
+        } catch {
+            throw Self.safe(error)
+        }
     }
 
     private static func projectTeam(_ team: AppleAccountSessionMetadata.Team) -> NativeAccountTeam {

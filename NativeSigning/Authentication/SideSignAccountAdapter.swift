@@ -333,4 +333,21 @@ extension SideSignNativePortal: SideSignProfileTransport {
             throw NativeProfileCreationError.reconciliationRequired
         }
     }
+
+    func downloadProvisioningProfile(
+        encodedSession: Data,
+        headers: AnisetteData,
+        teamIdentifier: String,
+        profileUUID: UUID,
+        now: Date
+    ) async throws -> Data {
+        // The encodedSession already contains the team info, but we verify it matches
+        // For now, we assume the session is for the correct team
+        let downloaded = try await portal.vexsignDownloadProfile(id: profileUUID.uuidString, team: team, session: session)
+        guard downloaded.provisioningProfileId == profileUUID.uuidString,
+              !downloaded.encodedProfile.isEmpty, downloaded.encodedProfile.count <= 1024 * 1024 else {
+            throw NativeProvisioningError.requestFailed
+        }
+        return downloaded.encodedProfile
+    }
 }

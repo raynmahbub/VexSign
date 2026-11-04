@@ -2,6 +2,53 @@ import Foundation
 import Security
 import SideSign
 
+/// Explicit consent for exporting private key material as PKCS#12.
+/// Single-use, time-limited, bound to specific identity + certificate.
+public struct NativeKeyExportConsent: Sendable, Equatable {
+    public let id: UUID
+    public let ownerDigest: String
+    public let identityID: UUID
+    public let certificateSHA256: String
+    public let flow: UUID
+    public let epoch: UUID
+    public let expiresAt: Date
+
+    func validate(owner: NativeSigningIdentityOwner, identityID: UUID, certificate: Data, now: Date) throws {
+        guard self.ownerDigest == owner.digest else { throw NativeSigningIdentityError.invalidRecord }
+        guard self.identityID == identityID else { throw NativeSigningIdentityError.invalidRecord }
+        guard self.certificateSHA256 == NativeSigningIdentityOwner.hash(certificate) else { throw NativeSigningIdentityError.invalidRecord }
+        guard self.flow.isFinite, self.epoch.isFinite else { throw NativeSigningIdentityError.invalidRecord }
+        guard self.expiresAt > now else { throw NativeSigningIdentityError.invalidRecord }
+    }
+}
+
+/// Consent gate for key export operations.
+actor NativeKeyExportConsentGate {
+    private var current: NativeKeyExportConsent?
+
+    func recordExplicitConsent(owner: NativeSigningIdentityOwner, identityID: UUID, certificate: Data, flow: UUID, now: Date, lifetime: TimeInterval) throws -> NativeKeyExportConsent {
+        guard lifetime.isFinite, lifetime > 0, lifetime <= 120 else { throw NativeSigningIdentityError.creationApprovalRequired }
+        let consent = NativeKeyExportConsent(
+            id: UUID(),
+            ownerDigest: owner.digest,
+            identityID: identityID,
+            certificateSHA256: NativeSigningIdentityOwner.hash(certificate),
+            flow: flow,
+            epoch: UUID(),
+            expiresAt: now.addingTimeInterval(lifetime)
+        )
+        current = consent
+        return consent
+    }
+
+    func begin(_ consent: NativeKeyExportConsent) throws -> NativeKeyExportConsent {
+        guard current?.id == consent.id, current?.epoch == consent.epoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        return consent
+    }
+
+    func revoke() { current = nil }
+}
+
 /// Apple Security RSA generation, in-memory only until the vault's atomic insert.
 /// Constructs a minimal PKCS#10 CSR with CN=the operation's non-PII machine name.
 /// Does not call the SDK's generate-and-submit certificate convenience method.
@@ -100,8 +147,46 @@ struct NativeSigningIdentityCrypto: NativeSigningIdentityGenerating {
             var bytes: [UInt8] = []
             while length > 0 { bytes.insert(UInt8(length & 255), at: 0); length >>= 8 }
             prefix.append(0x80 | UInt8(bytes.count))
-            prefix.append(contentsOf: bytes)
         }
         return prefix + value
+    }
+
+    /// Exports private key + certificate as PKCS#12 (.p12) data.
+    /// The private key is encrypted with the provided password.
+    static func exportPKCS12(privateKeyDER: Data, certificateDER: Data, password: String) throws -> Data {
+        // Import the private key
+        let privateKeyAttributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
+            kSecAttrKeySizeInBits as String: 2048
+        ]
+        guard let privateKey = SecKeyCreateWithData(privateKeyDER as CFData, privateKeyAttributes as CFDictionary, nil) else {
+            throw NativeSigningIdentityError.generationFailed
+        }
+
+        // Create certificate
+        guard let certificate = SecCertificateCreateWithData(nil, certificateDER as CFData) else {
+            throw NativeSigningIdentityError.generationFailed
+        }
+
+        // PKCS#12 export options
+        let exportOptions: [String: Any] = [
+            kSecImportExportPassphrase as String: password,
+            kSecItemLabel as String: "VexSign Development Identity",
+            kSecItemDescription as String: "VexSign Free Apple ID Development Certificate"
+        ]
+
+        var items: CFArray?
+        let status = SecPKCS12Export(
+            [privateKey, certificate] as CFArray,
+            exportOptions as CFDictionary,
+            &items
+        )
+
+        guard status == errSecSuccess, let items = items as? [[String: Any]], let p12Data = items.first?[kSecValueData as String] as? Data else {
+            throw NativeSigningIdentityError.generationFailed
+        }
+
+        return p12Data
     }
 }

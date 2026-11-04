@@ -51,6 +51,59 @@ struct NativeProfileCreationKeychainStore<Client: AppleAccountJournalKeychainCli
         }
     }
 
+    func listAllRecords(owner: NativeSigningIdentityOwner) throws -> [NativeProfileCreationRecord] {
+        try requirePrimary()
+        // Query for all items matching the owner prefix
+        let ownerPrefix = "owner." + owner.digest + ".target."
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecReturnData as String: true,
+            kSecReturnAttributes as String: true,
+            kSecAttrSynchronizable as String: false
+        ]
+
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        var mutableQuery = query
+        mutableQuery[kSecUseAuthenticationContext as String] = context
+
+        var result: AnyObject?
+        let status = client.copy(mutableQuery, result: &result)
+
+        if status == errSecItemNotFound {
+            return []
+        }
+        guard status == errSecSuccess else { throw NativeProfileCreationError.storageUnavailable }
+
+        guard let items = result as? [[String: Any]] else { return [] }
+        var records: [NativeProfileCreationRecord] = []
+
+        for item in items {
+            guard let account = item[kSecAttrAccount as String] as? String,
+                  account.hasPrefix(ownerPrefix),
+                  let data = item[kSecValueData as String] as? Data,
+                  !data.isEmpty, data.count <= 4096 else { continue }
+
+            do {
+                let keys: Set<String> = ["schema", "id", "ownerDigest", "targetDigest", "createdAt", "phase", "remoteIdentifierDigest", "profileUUID", "cmsSHA256"]
+                guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      Set(object.keys).isSubset(of: keys) else { continue }
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .millisecondsSince1970
+                let record = try decoder.decode(NativeProfileCreationRecord.self, from: data)
+                // We can't validate against a specific request here, so just do basic validation
+                guard record.schema == 1, record.ownerDigest == owner.digest,
+                      record.createdAt.timeIntervalSince1970.isFinite else { continue }
+                records.append(record)
+            } catch {
+                continue // Skip invalid records
+            }
+        }
+        return records
+    }
+
     private func base(_ owner: NativeSigningIdentityOwner, _ request: NativeProfileCreationRequest) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Self.service,
          kSecAttrAccount as String: "owner." + owner.digest + ".target." + request.digest,
