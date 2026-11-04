@@ -1,7 +1,6 @@
 import Foundation
 import Vapor
 import Crypto
-import CryptoExtras
 import SwiftASN1
 
 /// Exported function forces the Vapor application configuration and Crypto API

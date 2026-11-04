@@ -23,8 +23,6 @@ let package = Package(
             name: "NativeSigning",
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "CryptoExtras", package: "swift-crypto"),
-                .product(name: "_CryptoExtras", package: "swift-crypto"),
                 .product(name: "SwiftASN1", package: "swift-asn1"),
                 .product(name: "X509", package: "swift-certificates"),
                 .product(name: "OpenSSL", package: "OpenSSL"),
