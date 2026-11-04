@@ -381,7 +381,6 @@ struct SigningMethodsView: View {
             authError = error.localizedDescription
         }
     }
-}
 
 // MARK: - Supporting Views
 
