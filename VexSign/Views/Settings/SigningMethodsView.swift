@@ -732,4 +732,4 @@ private struct TrollStoreRefreshView: View {
             errorMessage = .localized("Failed to trigger refresh. Is TrollStore installed?")
         }
     }
-}
+}}
