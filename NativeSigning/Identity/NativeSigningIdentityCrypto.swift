@@ -152,38 +152,16 @@ struct NativeSigningIdentityCrypto: NativeSigningIdentityGenerating {
 
     /// Exports private key + certificate as PKCS#12 (.p12) data.
     /// The private key is encrypted with the provided password.
+    ///
+    /// There is no `SecPKCS12Export` in the Security framework (only the
+    /// import side, `SecPKCS12Import`, exists), so the archive is built with
+    /// SideSign's `PKCS12Parser.create` — the same builder the rest of the
+    /// app uses for .p12 creation.
     static func exportPKCS12(privateKeyDER: Data, certificateDER: Data, password: String) throws -> Data {
-        // Import the private key
-        let privateKeyAttributes: [String: Any] = [
-            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
-            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
-            kSecAttrKeySizeInBits as String: 2048
-        ]
-        guard let privateKey = SecKeyCreateWithData(privateKeyDER as CFData, privateKeyAttributes as CFDictionary, nil) else {
+        do {
+            return try PKCS12Parser.create(cert: certificateDER, key: privateKeyDER, password: password)
+        } catch {
             throw NativeSigningIdentityError.generationFailed
         }
-
-        // Create certificate
-        guard let certificate = SecCertificateCreateWithData(nil, certificateDER as CFData) else {
-            throw NativeSigningIdentityError.generationFailed
-        }
-
-        // PKCS#12 export options
-        let exportOptions: [String: Any] = [
-            kSecImportExportPassphrase as String: password
-        ]
-
-        var items: CFArray?
-        let status = SecPKCS12Export(
-            [privateKey, certificate] as CFArray,
-            exportOptions as CFDictionary,
-            &items
-        )
-
-        guard status == errSecSuccess, let items = items as? [[String: Any]], let p12Data = items.first?[kSecValueData as String] as? Data else {
-            throw NativeSigningIdentityError.generationFailed
-        }
-
-        return p12Data
     }
 }
