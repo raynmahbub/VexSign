@@ -25,7 +25,7 @@ struct SigningMethodsView: View {
     @State private var authError: String?
 
     var body: some View {
-        let base = NBList(.localized("Signing Methods")) {
+        NBList(.localized("Signing Methods")) {
             // MARK: - Paid Certificate Section
             Section {
                 signingMethodRow(
@@ -121,40 +121,38 @@ struct SigningMethodsView: View {
                 Text(.localized("Diagnostics"))
             }
         }
-
-        return base
-            .sheet(isPresented: $showAppleIDLogin) {
-                AppleIDLoginView(
-                    appleID: $appleID,
-                    password: $password,
-                    xcodeVersion: $xcodeVersion,
-                    isAuthenticating: $isAuthenticating,
-                    authError: $authError,
-                    onSubmit: { Task { await performAppleIDLogin() } }
+        .sheet(isPresented: $showAppleIDLogin) {
+            AppleIDLoginView(
+                appleID: $appleID,
+                password: $password,
+                xcodeVersion: $xcodeVersion,
+                isAuthenticating: $isAuthenticating,
+                authError: $authError,
+                onSubmit: { Task { await performAppleIDLogin() } }
+            )
+        }
+        .sheet(isPresented: $showTeamSelection) {
+            if let operation = pendingOperation {
+                TeamSelectionView(
+                    teams: extractTeams(from: nativeManager.snapshot),
+                    onSelect: { teamID in
+                        Task { await selectTeam(teamID, operationID: operation.id) }
+                    }
                 )
             }
-            .sheet(isPresented: $showTeamSelection) {
-                if let operation = pendingOperation {
-                    TeamSelectionView(
-                        teams: extractTeams(from: nativeManager.snapshot),
-                        onSelect: { teamID in
-                            Task { await selectTeam(teamID, operationID: operation.id) }
-                        }
-                    )
-                }
+        }
+        .alert(.localized("Two-Factor Authentication"), isPresented: .constant(pendingChallenge != nil), presenting: pendingChallenge) { challenge in
+            TextField(.localized("6-digit code"), text: $twoFactorCode)
+            Button(.localized("Cancel"), role: .cancel) {
+                pendingChallenge = nil
             }
-            .alert(.localized("Two-Factor Authentication"), isPresented: .constant(pendingChallenge != nil), presenting: pendingChallenge) { challenge in
-                TextField(.localized("6-digit code"), text: $twoFactorCode)
-                Button(.localized("Cancel"), role: .cancel) {
-                    pendingChallenge = nil
-                }
-                Button(.localized("Submit")) {
-                    Task { await submitTwoFactor(challenge) }
-                }
-                .disabled(twoFactorCode.count != 6)
-            } message: { challenge in
-                Text(.localized("Enter the verification code sent to your trusted device"))
+            Button(.localized("Submit")) {
+                Task { await submitTwoFactor(challenge) }
             }
+            .disabled(twoFactorCode.count != 6)
+        } message: { challenge in
+            Text(.localized("Enter the verification code sent to your trusted device"))
+        }
     }
 
     // MARK: - Subviews
@@ -212,13 +210,13 @@ struct SigningMethodsView: View {
                     }
                     if case .signedIn(let context) = snapshot.phase {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Team: \(context.team.identifier) (\(context.team.membership.displayName))")
+                            Text(.localized("Team: %@ (%@)", context.team.identifier, context.team.membership.displayName))
                                 .font(.caption).foregroundStyle(.secondary)
                             // 3-app limit indicator
                             HStack(spacing: 4) {
                                 Image(systemName: "app.badge")
                                     .font(.caption2)
-                                Text("\(nativeManager.freeAccountAppCount)/3 apps used")
+                                Text(.localized("%@/3 apps used", nativeManager.freeAccountAppCount))
                                     .font(.caption)
                             }
                             .foregroundStyle(nativeManager.freeAccountAppCount >= 3 ? .red : .secondary)
@@ -383,7 +381,7 @@ struct SigningMethodsView: View {
         } catch {
             authError = error.localizedDescription
         }
-}
+    }
 }
 
 // MARK: - Supporting Views
@@ -456,12 +454,14 @@ private struct TeamSelectionView: View {
                             VStack(alignment: .leading) {
                                 Text(team.identifier)
                                     .font(.headline)
+                                    .foregroundStyle(.primary)
                                 Text(team.membership.displayName)
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
+                            Image(systemName: team.membership == .free ? "person" : "checkmark.seal")
+                                .foregroundStyle(team.membership == .free ? .orange : .green)
                         }
                     }
                 }
@@ -469,56 +469,11 @@ private struct TeamSelectionView: View {
             .navigationTitle(.localized("Select Team"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) {}
+                    Button(.localized("Cancel")) { onSelect("") }
                 }
             }
         }
         .presentationDetents([.medium])
-    }
-}
-
-// MARK: - Extensions
-
-extension NativeAccountPhase {
-    var icon: String {
-        switch self {
-        case .signedOut: return "person.crop.circle.badge.xmark"
-        case .authenticating: return "person.crop.circle.badge.questionmark"
-        case .awaitingTwoFactor: return "person.crop.circle.badge.exclamationmark"
-        case .awaitingTeamSelection: return "person.2.fill"
-        case .signedIn: return "person.crop.circle.fill.badge.checkmark"
-        case .expired: return "person.crop.circle.badge.clock"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .signedOut: return .secondary
-        case .authenticating, .awaitingTwoFactor, .awaitingTeamSelection: return .orange
-        case .signedIn: return .green
-        case .expired: return .red
-        }
-    }
-
-    var displayTitle: String {
-        switch self {
-        case .signedOut: return .localized("Signed Out")
-        case .authenticating: return .localized("Authenticating…")
-        case .awaitingTwoFactor: return .localized("Two-Factor Required")
-        case .awaitingTeamSelection: return .localized("Select Team")
-        case .signedIn(let context): return .localized("Signed In: %@", arguments: [context.team.identifier])
-        case .expired(let date): return .localized("Session Expired")
-        }
-    }
-}
-
-extension NativeAccountMembership {
-    var displayName: String {
-        switch self {
-        case .free: return .localized("Free")
-        case .paidVerified: return .localized("Paid (Verified)")
-        case .developerProgramUnverified: return .localized("Developer Program (Unverified)")
-        }
     }
 }
 
@@ -602,7 +557,7 @@ private struct TrollStoreInstallView: View {
                                 Text(.localized("Installing…"))
                             }
                         } else {
-                            Label(.localized("Install %@", arguments: [download.fileName]), systemImage: "t.square.fill")
+                            Label(.localized("Install %@", download.fileName), systemImage: "t.square.fill")
                         }
                     }
                     .buttonStyle(NBButtonStyle(.prominent))
@@ -733,6 +688,51 @@ private struct TrollStoreRefreshView: View {
             refreshResult = .localized("Refresh triggered successfully. Check TrollStore for progress.")
         } else {
             errorMessage = .localized("Failed to trigger refresh. Is TrollStore installed?")
+        }
+    }
+}
+
+// MARK: - Extensions
+
+extension NativeAccountPhase {
+    var icon: String {
+        switch self {
+        case .signedOut: return "person.crop.circle.badge.xmark"
+        case .authenticating: return "person.crop.circle.badge.questionmark"
+        case .awaitingTwoFactor: return "person.crop.circle.badge.exclamationmark"
+        case .awaitingTeamSelection: return "person.2.fill"
+        case .signedIn: return "person.crop.circle.fill.badge.checkmark"
+        case .expired: return "person.crop.circle.badge.clock"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .signedOut: return .secondary
+        case .authenticating, .awaitingTwoFactor, .awaitingTeamSelection: return .orange
+        case .signedIn: return .green
+        case .expired: return .red
+        }
+    }
+
+    var displayTitle: String {
+        switch self {
+        case .signedOut: return .localized("Signed Out")
+        case .authenticating: return .localized("Authenticating…")
+        case .awaitingTwoFactor: return .localized("Two-Factor Required")
+        case .awaitingTeamSelection: return .localized("Select Team")
+        case .signedIn(let context): return .localized("Signed In: %@", context.team.identifier)
+        case .expired(let date): return .localized("Session Expired")
+        }
+    }
+}
+
+extension NativeAccountMembership {
+    var displayName: String {
+        switch self {
+        case .free: return .localized("Free")
+        case .paidVerified: return .localized("Paid (Verified)")
+        case .developerProgramUnverified: return .localized("Developer Program (Unverified)")
         }
     }
 }

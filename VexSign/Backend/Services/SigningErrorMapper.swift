@@ -445,7 +445,7 @@ struct SigningErrorMapper {
         default:
             return SigningError(
                 title: .localized("Keychain Error"),
-                message: .localized("A Keychain error occurred: %@ (Code: %d)", arguments: [error.localizedDescription, error.code]),
+                message: .localized("A Keychain error occurred: %@ (Code: %d)", error.localizedDescription, error.code),
                 recovery: .localized("Try restarting the app. If persistent, restart the device and re-import certificates."),
                 isRecoverable: true
             )
@@ -500,7 +500,7 @@ struct SigningErrorMapper {
             default:
                 return SigningError(
                     title: .localized("Network Error"),
-                    message: .localized("A network error occurred: %@", arguments: [error.localizedDescription]),
+                    message: .localized("A network error occurred: %@", error.localizedDescription),
                     recovery: .localized("Check your internet connection and try again."),
                     isRecoverable: true
                 )

@@ -141,7 +141,7 @@ final class NativeSigningManager: ObservableObject {
         // Create a unified task for tracking
         let task = UnifiedTaskCenter.shared.begin(
             kind: .update,
-            title: .localized("Renewing profile: %@", arguments: [bundleIdentifier]),
+            title: .localized("Renewing profile: %@", bundleIdentifier),
             subtitle: .localized("Free Apple ID profile expiring soon"),
             subjectID: bundleIdentifier
         )
@@ -705,4 +705,6 @@ extension AnisetteProviderDescriptor {
             endpoint: endpoint
         )
     }
-}
+}// CI trigger
+// CI trigger
+// CI trigger Wed Nov  4 17:16:38 UTC 2026

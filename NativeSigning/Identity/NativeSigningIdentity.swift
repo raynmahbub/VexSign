@@ -273,7 +273,7 @@ actor NativeSigningIdentityCoordinator<Store: NativeSigningIdentityStorage, Gene
                                         deviceIdentifier: deviceIdentifier, now: now)).validation
     }
 
-    func ownedSigningCertificate(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) throws -> NativeOwnedSigningCertificate {
+    func ownedSigningCertificate(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> NativeOwnedSigningCertificate {
         try Task.checkCancellation()
         guard now.timeIntervalSince1970.isFinite else { throw NativeSigningIdentityError.invalidRecord }
         guard let record = try store.read(owner: owner), record.id == identityID else { throw NativeSigningIdentityError.identityChanged }
@@ -289,7 +289,7 @@ actor NativeSigningIdentityCoordinator<Store: NativeSigningIdentityStorage, Gene
 
     func ownedProfileIdentity(owner: NativeSigningIdentityOwner, identityID: UUID, bundleIdentifier: String,
                               deviceIdentifier: String, now: Date) async throws -> NativeOwnedProfileIdentity {
-        let owned = try ownedSigningCertificate(owner: owner, identityID: identityID, now: now)
+        let owned = try await ownedSigningCertificate(owner: owner, identityID: identityID, now: now)
         let validation = try NativeProfileValidationRequest(teamIdentifier: owner.teamIdentifier, bundleIdentifier: bundleIdentifier,
                                                             deviceIdentifier: deviceIdentifier, certificateDER: owned.certificateDER)
         return NativeOwnedProfileIdentity(identityID: owned.identityID, certificateIdentifier: owned.certificateIdentifier, validation: validation)

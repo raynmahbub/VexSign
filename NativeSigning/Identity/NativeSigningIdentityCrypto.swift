@@ -168,7 +168,7 @@ struct NativeSigningIdentityCrypto: NativeSigningIdentityGenerating {
             throw NativeSigningIdentityError.generationFailed
         }
 
-        // PKCS#12 export options - only passphrase is supported by SecPKCS12Export
+        // PKCS#12 export options
         let exportOptions: [String: Any] = [
             kSecImportExportPassphrase as String: password
         ]

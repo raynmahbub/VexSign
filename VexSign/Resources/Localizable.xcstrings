@@ -100219,13 +100219,13 @@
         }
       }
     },
-    "Install %@" : {
+    "Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Install %@"
+            "value" : "Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders."
           }
         }
       }
@@ -100252,13 +100252,35 @@
         }
       }
     },
-    "Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders." : {
+    "Install %@" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders."
+            "value" : "Install %@"
+          }
+        }
+      }
+    },
+    "%@/3 apps used" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/3 apps used"
+          }
+        }
+      }
+    },
+    "Team: %@ (%@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Team: %@ (%@)"
           }
         }
       }
