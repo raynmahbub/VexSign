@@ -506,7 +506,7 @@ extension NativeAccountPhase {
         case .authenticating: return .localized("Authenticating…")
         case .awaitingTwoFactor: return .localized("Two-Factor Required")
         case .awaitingTeamSelection: return .localized("Select Team")
-        case .signedIn(let context): return String.localized("Signed In: %@", arguments: context.team.identifier)
+        case .signedIn(let context): return .localized("Signed In: %@", arguments: [context.team.identifier])
         case .expired(let date): return .localized("Session Expired")
         }
     }
@@ -602,7 +602,7 @@ private struct TrollStoreInstallView: View {
                                 Text(.localized("Installing…"))
                             }
                         } else {
-                            Label(String.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
+                            Label(.localized("Install %@", arguments: [download.fileName]), systemImage: "t.square.fill")
                         }
                     }
                     .buttonStyle(NBButtonStyle(.prominent))

@@ -141,7 +141,7 @@ final class NativeSigningManager: ObservableObject {
         // Create a unified task for tracking
         let task = UnifiedTaskCenter.shared.begin(
             kind: .update,
-            title: .localized("Renewing profile: \(bundleIdentifier)"),
+            title: .localized("Renewing profile: %@", arguments: [bundleIdentifier]),
             subtitle: .localized("Free Apple ID profile expiring soon"),
             subjectID: bundleIdentifier
         )
