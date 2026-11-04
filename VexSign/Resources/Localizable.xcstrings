@@ -100196,6 +100196,72 @@
           }
         }
       }
+    },
+    "A Keychain error occurred: %@ (Code: %d)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Keychain error occurred: %@ (Code: %d)"
+          }
+        }
+      }
+    },
+    "A network error occurred: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A network error occurred: %@"
+          }
+        }
+      }
+    },
+    "Install %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install %@"
+          }
+        }
+      }
+    },
+    "Renewing profile: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewing profile: %@"
+          }
+        }
+      }
+    },
+    "Signed In: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed In: %@"
+          }
+        }
+      }
+    },
+    "Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

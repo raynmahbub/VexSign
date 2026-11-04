@@ -263,7 +263,7 @@ private struct CertificateStatusConsentView: View {
                         Text(.localized("Certificate Status Consent Required"))
                             .font(.title2.weight(.bold))
 
-                        Text(.localized("Checking the revocation status of **\(identityName)** requires explicit consent for network disclosure to Apple's OCSP/CRL responders."))
+                        Text(.localized("Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders.", arguments: [identityName]))
                             .font(.body)
 
                         Text(.localized("This will:"))
