@@ -34,6 +34,8 @@
   "VexSign/Backend/Observable/UpdateAllManager.swift": 1,
   "VexSign/Backend/Observable/UpdateMatchingPreferences.swift": 1,
   "VexSign/Backend/Observable/WebManager.swift": 1,
+  "VexSign/Backend/Services/AnisetteProvider.swift": 1,
+  "VexSign/Backend/Services/NativeSigningManager.swift": 1,
   "VexSign/Backend/Storage/Storage.swift": 1,
   "VexSign/Companion/CompanionStore.swift": 1,
   "VexSign/RepositorySync/EcosystemDatabase.swift": 1,
@@ -53,6 +55,7 @@
   "VexSign/Views/Common/SelectionActionBar.swift": 1,
   "VexSign/Views/Common/Toast.swift": 2,
   "VexSign/Views/Library/Install/InstallQueueWindow.swift": 1,
+  "VexSign/Views/Settings/DevicePickerView.swift": 1,
   "VexSign/Views/Sources/Apps/DownloadButtonView.swift": 1,
   "VexSign/Views/Sources/SourcesViewModel.swift": 1
 }

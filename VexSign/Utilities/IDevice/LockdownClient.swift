@@ -117,8 +117,8 @@ public actor LockdownClient {
     /// Gets the device UDID from the pairing file.
     public func getUDID() async throws -> String {
         // The UDID is in the pairing file
-        guard let data = try? Data(contentsOf: pairingFileURL),
-              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+        guard let data = try? Data(contentsOf: pairingFileURL), // try? ok: file may not exist, handled by guard
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any], // try? ok: invalid plist handled by guard
               let udid = plist["DeviceID"] as? String else {
             throw LockdownClientError.invalidPairingFile
         }

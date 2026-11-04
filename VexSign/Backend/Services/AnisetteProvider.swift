@@ -128,13 +128,13 @@ public final class AnisetteProviderFactory: ObservableObject {
     }
 
     private func saveConfiguration(_ descriptor: AnisetteProviderDescriptor) {
-        let data = try? JSONEncoder().encode(descriptor)
+        let data = try? JSONEncoder().encode(descriptor) // try? ok: encoding known-good Codable struct
         UserDefaults.standard.set(data, forKey: "VexSign.anisetteProvider")
     }
 
     private func loadSavedConfiguration() {
         guard let data = UserDefaults.standard.data(forKey: "VexSign.anisetteProvider"),
-              let descriptor = try? JSONDecoder().decode(AnisetteProviderDescriptor.self, from: data) else {
+              let descriptor = try? JSONDecoder().decode(AnisetteProviderDescriptor.self, from: data) else { // try? ok: decoding user data, invalid = first run
             return
         }
         currentDescriptor = descriptor

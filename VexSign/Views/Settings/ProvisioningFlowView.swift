@@ -407,7 +407,7 @@ struct ProvisioningFlowView: View {
         // Then install via itms-services or AFC
 
         // For now, simulate completion
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        try? await Task.sleep(nanoseconds: 2_000_000_000) // try? ok: simulated delay, cancellation checked by Task
 
         await MainActor.run {
             provisioningProgress = 1.0
@@ -432,7 +432,7 @@ private struct AppSelectionCard: View {
     var body: some View {
         HStack(spacing: 12) {
             if let iconName = app.icon, let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("Icons/\(iconName)"),
-               let data = try? Data(contentsOf: url), let uiImage = UIImage(data: data) {
+               let data = try? Data(contentsOf: url), let uiImage = UIImage(data: data) { // try? ok: optional icon, falls back to placeholder
                 Image(uiImage: uiImage)
                     .resizable()
                     .frame(width: 56, height: 56)

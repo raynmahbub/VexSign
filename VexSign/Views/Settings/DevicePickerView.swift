@@ -217,7 +217,7 @@ final class IDeviceManager {
             }
         } catch {
             // Try reading as binary plist
-            if let plist = try? PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: path)), options: [], format: nil) as? [String: Any],
+            if let plist = try? PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: path)), options: [], format: nil) as? [String: Any], // try? ok: fallback parse, guard handles nil
                let deviceID = plist["DeviceID"] as? String {
                 return deviceID
             }
@@ -238,7 +238,7 @@ final class IDeviceManager {
         // In a full implementation, we'd connect via USB and query device details
 
         // Check if we can get more details via IDevice
-        let deviceInfo = try? await queryDeviceInfo(udid: udid)
+        let deviceInfo = try? await queryDeviceInfo(udid: udid) // try? ok: optional device info, guard handles nil
 
         let device = PairedDevice(
             udid: udid,

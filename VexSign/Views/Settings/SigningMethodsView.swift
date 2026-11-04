@@ -246,7 +246,7 @@ struct SigningMethodsView: View {
                     }
 
                     Button(role: .destructive) {
-                        Task { try? await nativeManager.signOut() }
+                        Task { try? await nativeManager.signOut() } // try? ok: sign out is best-effort, UI reflects state
                     } label: {
                         Label(.localized("Sign Out"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
