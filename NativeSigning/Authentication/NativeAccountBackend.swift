@@ -48,6 +48,14 @@ public struct NativeAccountOperation: Sendable {
     public let id: UUID
     public let challenges: AsyncStream<SideSignTwoFactorBroker.Challenge>
     private let completion: @Sendable () async -> Void
+
+    init(id: UUID, challenges: AsyncStream<SideSignTwoFactorBroker.Challenge>,
+         completion: @escaping @Sendable () async -> Void) {
+        self.id = id; self.challenges = challenges; self.completion = completion
+    }
+    /// Worker retirement, not a guarantee of success. Read events/latest snapshot.
+    /// Do not block UI dismissal on an uncooperative provider finishing.
+    public func waitUntilFinished() async { await completion() }
 }
 
 /// Information about a provisioning profile for listing purposes.
@@ -78,15 +86,6 @@ public struct NativeProfileInfo: Sendable, Identifiable {
         self.bundleIdentifier = bundleIdentifier
         self.deviceIdentifier = deviceIdentifier
     }
-}
-
-    init(id: UUID, challenges: AsyncStream<SideSignTwoFactorBroker.Challenge>,
-         completion: @escaping @Sendable () async -> Void) {
-        self.id = id; self.challenges = challenges; self.completion = completion
-    }
-    /// Worker retirement, not a guarantee of success. Read events/latest snapshot.
-    /// Do not block UI dismissal on an uncooperative provider finishing.
-    public func waitUntilFinished() async { await completion() }
 }
 
 protocol NativeAccountBackendLifetime: Sendable {}
