@@ -4,11 +4,31 @@ import LocalAuthentication
 
 protocol AppleAccountJournalKeychainClient: AppleAccountKeychainClient {
     func update(_ query: [String: Any], attributes: [String: Any]) -> OSStatus
+    /// All matching rows for a `kSecMatchLimitAll` query, each row's
+    /// attributes (including `kSecValueData`) as one dictionary.
+    func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]])
+}
+
+extension AppleAccountJournalKeychainClient {
+    /// Single-row fallback: test doubles that only model one row still
+    /// satisfy the requirement; production uses `SystemAppleAccountKeychainClient`.
+    func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]]) {
+        let result = copy(query)
+        guard result.status == errSecSuccess, let data = result.data else { return (result.status, []) }
+        return (errSecSuccess, [[kSecValueData as String: data]])
+    }
 }
 
 extension SystemAppleAccountKeychainClient: AppleAccountJournalKeychainClient {
     func update(_ query: [String: Any], attributes: [String: Any]) -> OSStatus {
         SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+    }
+
+    func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]]) {
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let items = result as? [[String: Any]] else { return (status, []) }
+        return (status, items)
     }
 }
 

@@ -843,6 +843,36 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
         return try await profileWork(contextID: contextID, target: target, grant: nil, token: token)
     }
 
+    /// Read-only download of an existing profile by UUID. Session, team and
+    /// context currency are revalidated inside the bridge, exactly as for
+    /// provisioning preflight; nothing is created or renewed here.
+    func downloadProvisioningProfile(contextID: UUID, profileUUID: UUID,
+                                     consent token: AnisetteConsentToken) async throws -> Data {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
+              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw Failure.flowBusy }
+        try consent.require(token, provider: provider.descriptor, now: clock())
+        let flow = generation
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        guard let candidate = try await coordinator.provisioningCandidate(contextID: contextID, now: clock()) else {
+            throw NativeProvisioningError.contextChanged
+        }
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        let headers: AnisetteData
+        do { headers = try await provider.freshHeaders() }
+        catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            throw NativeProvisioningError.providerFailed
+        }
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        let data = try await SideSignProvisioningAdapter(portal: adapter.provisioningPortal).downloadProvisioningProfile(
+            encodedSession: candidate.encodedSession, headers: headers,
+            teamIdentifier: candidate.context.team.identifier, profileUUID: profileUUID, now: clock())
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        return data
+    }
+
     private func requireProfileSlot(token: AnisetteConsentToken) throws {
         guard !closed else { throw Failure.closed }
         try profileValidator.requireCMSVerification()
@@ -994,6 +1024,38 @@ extension SideSignAccountBridge {
     func revokeKeyExportConsent() async {
         keyExportEpoch = UUID()
         await keyExportConsent.revoke()
+    }
+
+    /// Read-only inventory of the durable profile journal rows owned by this
+    /// context. The owner is derived inside the bridge from the current
+    /// session candidate; callers never touch the profile store directly.
+    func recordedProfileRecords(contextID: UUID) async throws -> [NativeProfileCreationRecord] {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
+              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw Failure.flowBusy }
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        let records = try profileStore.listAllRecords(owner: owner)
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        return records
+    }
+
+    /// Owner-bound certificate and private-key material for one explicitly
+    /// consented export. The caller must validate its consent token against
+    /// the returned owner/certificate before using the key material.
+    func keyExportMaterial(contextID: UUID, identityID: UUID) async throws
+        -> (owner: NativeSigningIdentityOwner, owned: NativeOwnedSigningCertificate, privateKeyDER: Data) {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
+              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw NativeSigningIdentityError.busy }
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        let owned = try await signingIdentities.ownedSigningCertificate(owner: owner, identityID: identityID, now: clock())
+        let privateKeyDER = try await signingIdentities.privateKeyDER(owner: owner, identityID: identityID, now: clock())
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        return (owner, owned, privateKeyDER)
     }
 
     /// Offline positive cache unless a separate exact single-use status consent
