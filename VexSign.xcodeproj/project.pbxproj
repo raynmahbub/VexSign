@@ -2169,14 +2169,14 @@ packageReferences = (
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */ = {
-		isa = XCRemoteSwiftPackageReference;
-		repositoryURL = "https://github.com/vapor/vapor";
-		requirement = {
-			kind = exactVersion;
-			version = 4.122.3;
+		3305BBAA2DB8944200660D45 /* XCRemoteSwiftPackageReference "vapor" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/vapor/vapor";
+			requirement = {
+				kind = exactVersion;
+				version = 4.104.0;
+			};
 		};
-	};
 		3346F8372DC6C68300C7D508 /* XCRemoteSwiftPackageReference "Nuke" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kean/Nuke";
@@ -2273,20 +2273,20 @@ packageReferences = (
 			package = 33CF13372DB5ACFB0021D4C5 /* XCRemoteSwiftPackageReference "SWCompression" */;
 			productName = SWCompression;
 		};
-3A2F0F0C2E976B67009DE4CE /* IDevice */ = {
-		isa = XCSwiftPackageProductDependency;
-		productName = IDevice;
-	};
-	FADE000100000000000F0002 /* ZIPFoundation */ = {
-		isa = XCSwiftPackageProductDependency;
-		package = FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
-		productName = ZIPFoundation;
-	};
-	33BBAACC1122334455667789 /* NativeSigning */ = {
-		isa = XCSwiftPackageProductDependency;
-		package = 33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */;
-		productName = NativeSigning;
-	};
+		3A2F0F0C2E976B67009DE4CE /* IDevice */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = IDevice;
+		};
+		FADE000100000000000F0002 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FADE000100000000000F0003 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+		33BBAACC1122334455667789 /* NativeSigning */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */;
+			productName = NativeSigning;
+		};
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3379C1B12DA869A1004372DA /* Project object */;
