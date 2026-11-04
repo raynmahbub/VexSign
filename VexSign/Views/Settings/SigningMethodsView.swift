@@ -381,6 +381,7 @@ struct SigningMethodsView: View {
             authError = error.localizedDescription
         }
     }
+}
 
 // MARK: - Supporting Views
 
@@ -732,6 +733,3 @@ private struct TrollStoreRefreshView: View {
         }
     }
 }
-}
-
-// MARK: - SigningMethodsView closing brace (was missing)
