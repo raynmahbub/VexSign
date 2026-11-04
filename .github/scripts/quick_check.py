@@ -58,6 +58,26 @@ SWIFT_MODULES: dict[str, str] = {
     "NimbleViews": "NimbleKit/Sources/NimbleViews",
 }
 
+# Parse-only coverage for the modules SWIFT_MODULES cannot describe: their
+# trees contain overlay/patch copies and staged smoke sources, so the
+# duplicate-type/filename checks (which are per-module) would false-positive.
+# Syntax is still worth gating — a stray brace in NativeSigning once reached
+# the macOS build because nothing here parsed it. Only the folders the
+# NativeSigning target actually compiles are listed (see its Package.swift),
+# plus the vendored SideSign target it now links.
+PARSE_ONLY_MODULES: dict[str, list[str]] = {
+    "NativeSigning": [
+        "NativeSigning/Authentication",
+        "NativeSigning/Codec",
+        "NativeSigning/Identity",
+        "NativeSigning/Provisioning",
+        "NativeSigning/Security",
+        "NativeSigning/Services",
+        "NativeSigning/Signing",
+    ],
+    "SideSign": ["SideSign/Sources"],
+}
+
 # Symbols that are only visible when their module is imported. `-parse` cannot see this, and
 # neither can tree-sitter, so it is worth a dedicated check: `.localized` missing its import
 # has broken this repository's build more than once.
@@ -191,8 +211,11 @@ def check_swift_syntax(root: Path, report: Report, swiftc: str | None) -> None:
                            "swiftc not found - the Swift syntax check was skipped (run inside the swift container)."))
         return
     total = 0
-    for module, module_dir in SWIFT_MODULES.items():
-        files = swift_files_for(root, module_dir)
+    module_dirs: dict[str, list[str]] = {name: [d] for name, d in SWIFT_MODULES.items()}
+    for name, dirs in PARSE_ONLY_MODULES.items():
+        module_dirs.setdefault(name, []).extend(dirs)
+    for module, dirs in module_dirs.items():
+        files = [p for d in dirs for p in swift_files_for(root, d)]
         if not files:
             continue
         total += len(files)
