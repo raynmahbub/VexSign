@@ -103,4 +103,4 @@ struct NativeSigningIdentityKeychainStore<Client: AppleAccountJournalKeychainCli
 }
 
 extension NativeSigningIdentityKeychainStore: Sendable where Client: Sendable {}
-extension NativeSigningIdentityKeychainStore: NativeSigningIdentityStorage where Client: Sendable {}
+extension NativeSigningIdentityKeychainStore: NativeSigningIdentityStorage {}

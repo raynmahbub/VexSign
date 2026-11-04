@@ -127,4 +127,4 @@ struct NativeProfileCreationKeychainStore<Client: AppleAccountJournalKeychainCli
 }
 
 extension NativeProfileCreationKeychainStore: Sendable where Client: Sendable {}
-extension NativeProfileCreationKeychainStore: NativeProfileCreationStorage where Client: Sendable {}
+extension NativeProfileCreationKeychainStore: NativeProfileCreationStorage {}

@@ -69,6 +69,8 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
     private let profileValidator: NativeProvisioningProfileValidator
     private let registrationStore: NativeRegistrationStorageAdapter
     private let signingIdentities: any NativeSigningIdentityManaging
+    private let keyExportConsent = NativeKeyExportConsentGate()
+    private var keyExportEpoch = UUID()
     private var maintenanceCount = 0
     private var observer: AsyncStream<Outcome>.Continuation?
 
@@ -969,9 +971,6 @@ extension SideSignAccountBridge {
     }
 
     // MARK: - Key Export Consent
-
-    private let keyExportConsent = NativeKeyExportConsentGate()
-    private var keyExportEpoch = UUID()
 
     func recordExplicitKeyExportConsent(contextID: UUID, identityID: UUID,
                                          lifetime: TimeInterval = 120) async throws -> NativeKeyExportConsent {

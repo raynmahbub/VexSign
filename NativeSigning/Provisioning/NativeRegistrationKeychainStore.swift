@@ -74,4 +74,4 @@ struct NativeRegistrationKeychainStore<Client: AppleAccountJournalKeychainClient
 }
 
 extension NativeRegistrationKeychainStore: Sendable where Client: Sendable {}
-extension NativeRegistrationKeychainStore: NativeRegistrationStorage where Client: Sendable {}
+extension NativeRegistrationKeychainStore: NativeRegistrationStorage {}
