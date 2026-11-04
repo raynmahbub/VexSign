@@ -53,6 +53,8 @@ let package = Package(
                 "Codec",
                 "Identity",
                 "Provisioning",
+                "Security",
+                "Services",
                 "Signing",
             ],
             swiftSettings: [
