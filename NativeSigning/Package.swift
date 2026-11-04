@@ -17,6 +17,7 @@ let package = Package(
         .package(url: "https://github.com/krzyzanowskim/OpenSSL.git", "3.6.1"..<"4.0.0"),
         .package(path: "../Zsign"),
         .package(path: "../NimbleKit"),
+        .package(path: "../SideSign"),
     ],
     targets: [
         .target(
@@ -28,6 +29,7 @@ let package = Package(
                 .product(name: "OpenSSL", package: "OpenSSL"),
                 .product(name: "ZsignSwift", package: "Zsign"),
                 .product(name: "NimbleExtensions", package: "NimbleKit"),
+                .product(name: "SideSign", package: "SideSign"),
             ],
             path: ".",
             exclude: [
@@ -59,7 +61,10 @@ let package = Package(
         ),
         .testTarget(
             name: "NativeSigningTests",
-            dependencies: ["NativeSigning"],
+            dependencies: [
+                "NativeSigning",
+                .product(name: "SideSign", package: "SideSign"),
+            ],
             path: "Tests"
         ),
     ]
