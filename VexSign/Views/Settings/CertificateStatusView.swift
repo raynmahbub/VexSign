@@ -218,7 +218,7 @@ private struct CertificateStatusRow: View {
             }
 
             if let checked = lastChecked {
-                Text("\(String.localized("Last checked")): \(checked.formatted(date: .abbreviated, time: .shortened))"
+                Text("\(String.localized("Last checked")): \(checked.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
