@@ -123,5 +123,5 @@ extension AppleAccountCredentialStore where Client == SystemAppleAccountKeychain
 }
 
 // Platform-specific conformances stay out of the Foundation-only lifecycle core.
-extension AppleAccountCredentialStore: AppleAccountSessionStorage where Client: Sendable {}
-extension AppleAccountCredentialStore: AppleAccountRecoverableSessionStorage where Client: Sendable {}
+extension AppleAccountCredentialStore: AppleAccountSessionStorage {}
+extension AppleAccountCredentialStore: AppleAccountRecoverableSessionStorage {}

@@ -88,7 +88,7 @@ struct AppleAccountResumeJournalStore<Client: AppleAccountJournalKeychainClient>
 }
 
 extension AppleAccountResumeJournalStore: Sendable where Client: Sendable {}
-extension AppleAccountResumeJournalStore: AppleAccountResumeJournalStorage where Client: Sendable {}
+extension AppleAccountResumeJournalStore: AppleAccountResumeJournalStorage {}
 
 extension AppleAccountResumeJournalStore where Client == SystemAppleAccountKeychainClient {
     init() { self.init(client: SystemAppleAccountKeychainClient()) }

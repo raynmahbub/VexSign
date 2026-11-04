@@ -4,7 +4,7 @@ import LocalAuthentication
 
 /// One device-only atomic blob per account/team owner. No access group, sync,
 /// preferences fallback, broad purge, certificate revocation or session storage.
-struct NativeSigningIdentityKeychainStore<Client: AppleAccountJournalKeychainClient & Sendable> {
+struct NativeSigningIdentityKeychainStore<Client: AppleAccountJournalKeychainClient> {
     static var service: String { "com.vexsign.native-signing.identities.v1" }
     static var maximumBytes: Int { 256 * 1024 }
     let client: Client
@@ -102,5 +102,5 @@ struct NativeSigningIdentityKeychainStore<Client: AppleAccountJournalKeychainCli
     }
 }
 
-extension NativeSigningIdentityKeychainStore: Sendable {}
+extension NativeSigningIdentityKeychainStore: Sendable where Client: Sendable {}
 extension NativeSigningIdentityKeychainStore: NativeSigningIdentityStorage {}
