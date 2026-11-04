@@ -17,7 +17,6 @@ public struct NativeKeyExportConsent: Sendable, Equatable {
         guard self.ownerDigest == owner.digest else { throw NativeSigningIdentityError.invalidRecord }
         guard self.identityID == identityID else { throw NativeSigningIdentityError.invalidRecord }
         guard self.certificateSHA256 == NativeSigningIdentityOwner.hash(certificate) else { throw NativeSigningIdentityError.invalidRecord }
-        guard self.flow.isFinite, self.epoch.isFinite else { throw NativeSigningIdentityError.invalidRecord }
         guard self.expiresAt > now else { throw NativeSigningIdentityError.invalidRecord }
     }
 }
@@ -171,9 +170,7 @@ struct NativeSigningIdentityCrypto: NativeSigningIdentityGenerating {
 
         // PKCS#12 export options
         let exportOptions: [String: Any] = [
-            kSecImportExportPassphrase as String: password,
-            kSecItemLabel as String: "VexSign Development Identity",
-            kSecItemDescription as String: "VexSign Free Apple ID Development Certificate"
+            kSecImportExportPassphrase as String: password
         ]
 
         var items: CFArray?
