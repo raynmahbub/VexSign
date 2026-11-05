@@ -5,8 +5,7 @@ name: Platform check
 # These are unsigned simulator-agnostic builds: they prove the sources type-check
 # for each SDK, nothing more.
 #
-# Builds relevant main-branch changes or a manually selected branch. No automatic
-# pull-request runs: pre-merge platform validation is an explicit maintainer action.
+# Builds relevant pull requests, main-branch changes or a manually selected branch.
 #
 # The companions are mirrors of the iPhone app (see docs/PLATFORMS.md), so this
 # job also guards the shared code: VexSign/Companion/* is compiled into the iOS,
@@ -15,6 +14,21 @@ name: Platform check
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'VexSignTV/**'
+      - 'VexSignVision/**'
+      - 'VexSignWatch/**'
+      - 'VexSignWatchWidgets/**'
+      - 'VexSign/Companion/**'
+      - 'VexSign.xcodeproj/**'
+      - 'VexSign.xcworkspace/**'
+      - 'NimbleKit/**'
+      - 'AltSourceKit/**'
+      - 'Vendor/**'
+      - '.github/scripts/select_xcode.sh'
+      - '.github/workflows/platform-check.yml'
+  pull_request:
     branches: [main]
     paths:
       - 'VexSignTV/**'

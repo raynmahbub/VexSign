@@ -31,7 +31,7 @@ artifact but no tag or release.
 The **Release** workflow runs every day at 03:00 UTC from the default branch. It
 publishes a dated pre-release such as `v1.1.0-nightly.20261107.428.1` and never
 moves or reuses that tag, so an installation can be pinned to the exact build it
-downloaded. Nightly runs also execute the simulator tests before uploading; a
+downloaded. All release runs (stable, nightly and build-only) execute simulator tests before uploading; a
 failed nightly can be re-run safely, and the run attempt makes the next tag
 unique.
 
@@ -134,3 +134,7 @@ certificate trust, key uniqueness, CA-preserving renewal, serialization and DER
 lengths without touching the production Keychain. Device tests must also cover
 profile installation/trust, offline Fully Local installation, relaunch/update
 persistence, renewal, explicit rotation and locked-device failures.
+
+Use the [real-device acceptance procedure](DEVICE_TESTING.md) to record the
+exact candidate commit, artifact checksum and observed installation results.
+Simulator success alone is not device acceptance.

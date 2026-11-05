@@ -58,7 +58,7 @@ on:
   # nightly and a failed build can be retried safely.
   schedule:
     - cron: '0 3 * * *'   # daily 03:00 UTC
-  # No pull_request trigger. CI validates relevant main pushes or manual branch
+  # No pull_request trigger. CI validates relevant PRs, main pushes or manual branch
   # requests; stable Release remains tag/manual-only, nightly is scheduled.
 
 permissions:
@@ -199,7 +199,7 @@ jobs:
             fi
 
             if [ -n "${PROJECT_VERSION}" ] && [ "${PROJECT_VERSION}" != "${EXPECTED_VERSION}" ]; then
-              echo "::error::${RELEASE_TAG} does not match the project's MARKETING_VERSION (${PROJECT_VERSION}). A release tag must be v<MARKETING_VERSION>, optionally followed by -<pre-release>. Bump the version (Xcode > VexSign target > General > Version, or: agvtool new-marketing-version ${EXPECTED_VERSION}), commit, and move the tag onto that commit: git tag -f ${RELEASE_TAG} && git push -f origin ${RELEASE_TAG}"
+              echo "::error::${RELEASE_TAG} does not match the project's MARKETING_VERSION (${PROJECT_VERSION}). A release tag must be v<MARKETING_VERSION>, optionally followed by -<pre-release>. Bump the version (Xcode > VexSign target > General > Version, or: agvtool new-marketing-version ${EXPECTED_VERSION}), commit, and create a new matching tag. Never move a published tag"
               exit 1
             fi
           fi
@@ -302,10 +302,8 @@ jobs:
           mkdir -p upload
           mv packages/*.ipa upload/
 
-      # A nightly is published unattended, so it gets a simulator-test gate as
-      # well as the compile. Stable releases rely on the CI run for the commit.
-      - name: Nightly simulator tests
-        if: github.event_name == 'schedule' || inputs.channel == 'nightly'
+      # Validate the exact packaged commit for every channel, including previews.
+      - name: Release simulator tests
         run: make test
 
       - name: Surface build errors

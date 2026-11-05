@@ -1,6 +1,6 @@
 # Dependabot keeps every supported dependency graph current without a robot
-# committing to main. It opens focused pull requests; CI is dispatched manually
-# for the branch (this repository deliberately has no pull_request workflow).
+# committing to main. It opens focused pull requests; path-filtered validators
+# check affected components before maintainers review and merge.
 #
 # The Xcode app's own packages are declared in project.pbxproj, not Package.swift,
 # so they are audited separately by docs/MAINTENANCE.md.

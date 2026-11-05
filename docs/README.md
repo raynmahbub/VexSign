@@ -26,6 +26,7 @@ versioned with the code.
 
 | Guide | Use it when |
 | --- | --- |
+| [Device acceptance](DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |
@@ -40,3 +41,25 @@ versioned with the code.
   components in `VexSign/DesignSystem/`.
 - Third-party source lives in `Vendor/` with its licence and pinned commit.
   See [Vendor/README.md](../Vendor/README.md).
+
+## Component guides
+
+Keep deployment instructions beside the component they describe:
+
+- [Repository server and web tools](../server/README.md)
+- [Cloud signing service](../cloud-signing/README.md)
+- [Anisette service](../AnisetteServer/README.md)
+- [Native signing package](../NativeSigning/README.md)
+- [Experimental embedded container](../EmbeddedContainer/README.md)
+- [Vendored dependencies and licenses](../Vendor/README.md)
+
+## Why separate documents?
+
+The root README is the product overview, not a second operations manual. Build,
+release and security details have different audiences and need precise caveats;
+collapsing them would hide important limits. Use this index instead of duplicating
+instructions. Update the existing authoritative guide before adding a new one.
+Keep legal/security/community files at the root for GitHub discoverability.
+
+Run `make docs-check` for offline file-link validation. It does not check remote
+URLs, heading anchors or claims about feature behaviour.
