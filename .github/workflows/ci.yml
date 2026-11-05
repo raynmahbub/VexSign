@@ -131,7 +131,7 @@ jobs:
       image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Toolchain
         run: |
@@ -204,7 +204,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       # The `runner` context is not available in job-level env, so the scratch
       # paths are exported from a step instead.
       - name: Paths
@@ -330,7 +330,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
       - name: Paths
         run: |
           {
