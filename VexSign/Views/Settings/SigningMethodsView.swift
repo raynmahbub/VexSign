@@ -211,13 +211,13 @@ struct SigningMethodsView: View {
                     }
                     if case .signedIn(let context) = snapshot.phase {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(.localized("Team: %@ (%@)", context.team.identifier, context.team.membership.displayName))
+                            Text(.localized("Team: %@ (%@)", arguments: context.team.identifier, context.team.membership.displayName))
                                 .font(.caption).foregroundStyle(.secondary)
                             // 3-app limit indicator
                             HStack(spacing: 4) {
                                 Image(systemName: "app.badge")
                                     .font(.caption2)
-                                Text(.localized("%@/3 apps used", nativeManager.freeAccountAppCount))
+                                Text(.localized("%lld/3 apps used", arguments: nativeManager.freeAccountAppCount))
                                     .font(.caption)
                             }
                             .foregroundStyle(nativeManager.freeAccountAppCount >= 3 ? .red : .secondary)
@@ -560,7 +560,7 @@ private struct TrollStoreInstallView: View {
                                 Text(.localized("Installing…"))
                             }
                         } else {
-                            Label(.localized("Install %@", download.fileName), systemImage: "t.square.fill")
+                            Label(.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
                         }
                     }
                     .buttonStyle(NBButtonStyle(.prominent))
@@ -724,7 +724,7 @@ extension NativeAccountPhase {
         case .authenticating: return .localized("Authenticating…")
         case .awaitingTwoFactor: return .localized("Two-Factor Required")
         case .awaitingTeamSelection: return .localized("Select Team")
-        case .signedIn(let context): return .localized("Signed In: %@", context.team.identifier)
+        case .signedIn(let context): return .localized("Signed In: %@", arguments: context.team.identifier)
         case .expired(let date): return .localized("Session Expired")
         }
     }
