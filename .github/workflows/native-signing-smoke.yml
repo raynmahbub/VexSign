@@ -99,7 +99,7 @@ jobs:
             build 2>&1 | tee "$RUNNER_TEMP/native-signing-simulator.log"
       - name: Upload diagnostic logs and provenance only
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: native-signing-link-diagnostics
           if-no-files-found: warn
