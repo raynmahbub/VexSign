@@ -3,6 +3,7 @@
 /// user-friendly, actionable messages with recovery guidance.
 
 import Foundation
+import CoreData
 import OSLog
 import NativeSigning
 import NimbleExtensions
@@ -36,7 +37,7 @@ struct SigningErrorMapper {
 
         // Zsign/Crypto errors
         if isZsignError(nsError) || isCryptoError(nsError) {
-            return mapZsignError(nsError, context: context)
+            return mapZsignFailure(nsError.localizedDescription, context: context)
         }
 
         // Core Data / Storage errors
