@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # The `release` event fires on refs/tags/<tag>; we need the default
           # branch checked out so the resulting commit can be pushed back.

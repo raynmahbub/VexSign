@@ -131,7 +131,7 @@ jobs:
       image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Toolchain
         run: |
@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload findings
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: quick-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/quick-check.json
@@ -204,7 +204,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       # The `runner` context is not available in job-level env, so the scratch
       # paths are exported from a step instead.
       - name: Paths
@@ -300,7 +300,7 @@ jobs:
       # .github/build-warnings-baseline.json (after fixing what is new).
       - name: Upload regenerated warnings baseline
         if: always() && steps.report.outputs.baseline_changed == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: build-warnings-baseline-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/build-warnings-baseline.json
@@ -309,7 +309,7 @@ jobs:
 
       - name: Upload xcresult and log
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -330,7 +330,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Paths
         run: |
           {
@@ -619,7 +619,7 @@ jobs:
 
       - name: Upload xcresult and log
         if: failure() && steps.test.outcome != 'skipped'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: tests-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
