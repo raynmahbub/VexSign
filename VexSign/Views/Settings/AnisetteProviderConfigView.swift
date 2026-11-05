@@ -20,7 +20,7 @@ struct AnisetteProviderConfigView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "server.rack")
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                 Text(.localized("Anisette Provider"))
                     .font(.headline)
             }
@@ -44,14 +44,14 @@ struct AnisetteProviderConfigView: View {
                         } label: {
                             Label(.localized("Edit"), systemImage: "pencil")
                         }
-                        .buttonStyle(NBButtonStyle(.bordered))
+                        .buttonStyle(.bordered)
 
                         Button(role: .destructive) {
                             factory.clearConfiguration()
                         } label: {
                             Label(.localized("Remove"), systemImage: "trash")
                         }
-                        .buttonStyle(NBButtonStyle(.bordered))
+                        .buttonStyle(.bordered)
 
                         Button {
                             testProvider()
@@ -62,7 +62,7 @@ struct AnisetteProviderConfigView: View {
                                 Label(.localized("Test"), systemImage: "checkmark.shield")
                             }
                         }
-                        .buttonStyle(NBButtonStyle(.bordered))
+                        .buttonStyle(.bordered)
                         .disabled(isTesting)
                     }
 
@@ -84,7 +84,7 @@ struct AnisetteProviderConfigView: View {
                     } label: {
                         Label(.localized("Configure Provider"), systemImage: "plus.circle.fill")
                     }
-                    .buttonStyle(NBButtonStyle(.prominent))
+                    .buttonStyle(.borderedProminent)
                 }
             }
         }

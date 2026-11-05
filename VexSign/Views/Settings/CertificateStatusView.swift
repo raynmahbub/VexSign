@@ -45,7 +45,7 @@ struct CertificateStatusView: View {
                 if !identities.isEmpty {
                     ForEach(identities) { identity in
                         CertificateStatusRow(
-                            identity: identity,
+                            identityName: identity.displayName,
                             status: statusResults[identity.identityID] == nil ? .notChecked : .verified,
                             lastChecked: statusResults[identity.identityID]?.checkedAt,
                             onCheck: { checkIdentity(identity) },
@@ -75,7 +75,7 @@ struct CertificateStatusView: View {
                             } label: {
                                 Label(.localized("Refresh"), systemImage: "arrow.clockwise")
                             }
-                            .buttonStyle(NBButtonStyle(.bordered))
+                            .buttonStyle(.bordered)
                         }
                         .padding()
                     }
@@ -104,7 +104,7 @@ struct CertificateStatusView: View {
                             Label(.localized("Check All Certificates"), systemImage: "checkmark.shield")
                         }
                     }
-                    .buttonStyle(NBButtonStyle(.prominent))
+                    .buttonStyle(.borderedProminent)
                     .disabled(isChecking)
                 }
 
@@ -113,7 +113,7 @@ struct CertificateStatusView: View {
                 } label: {
                     Label(.localized("Refresh Identities"), systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(NBButtonStyle(.bordered))
+                .buttonStyle(.bordered)
                 .disabled(isLoadingIdentities)
 
                 if let error = errorMessage {
@@ -240,14 +240,14 @@ private struct CertificateStatusRow: View {
                 } label: {
                     Label(.localized("Request Consent & Check"), systemImage: "hand.raised.fill")
                 }
-                .buttonStyle(NBButtonStyle(.borderedProminent))
+                .buttonStyle(.borderedProminent)
 
                 Button {
                     onCheck()
                 } label: {
                     Label(.localized("Refresh"), systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(NBButtonStyle(.bordered))
+                .buttonStyle(.bordered)
             }
         }
         .padding()

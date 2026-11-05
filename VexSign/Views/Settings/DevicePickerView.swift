@@ -57,7 +57,7 @@ struct DevicePickerView: View {
                             Button(.localized("Retry")) {
                                 Task { await loadPairedDevices() }
                             }
-                            .buttonStyle(NBButtonStyle(.bordered))
+                            .buttonStyle(.bordered)
                         }
                     } else if pairedDevices.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
@@ -70,7 +70,7 @@ struct DevicePickerView: View {
                             Button(.localized("Refresh")) {
                                 Task { await loadPairedDevices() }
                             }
-                            .buttonStyle(NBButtonStyle(.bordered))
+                            .buttonStyle(.bordered)
                         }
                     } else {
                         ForEach(pairedDevices) { device in
@@ -96,7 +96,7 @@ struct DevicePickerView: View {
                                     Spacer()
                                     if selectedDevice?.udid == device.udid {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.accentColor)
+                                            .foregroundStyle(Color.accentColor)
                                     }
                                 }
                             }
