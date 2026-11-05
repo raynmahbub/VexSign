@@ -11,9 +11,9 @@ import NimbleViews
 import NimbleExtensions
 
 struct AboutView: View {
-    private let sourceURL = "https://github.com/iamsmmh/VexSign"
-    private let releasesURL = "https://github.com/iamsmmh/VexSign/releases"
-    private let licenseURL = "https://github.com/iamsmmh/VexSign/blob/main/LICENSE"
+    private let sourceURL = "https://github.com/raynmahbub/VexSign"
+    private let releasesURL = "https://github.com/raynmahbub/VexSign/releases"
+    private let licenseURL = "https://github.com/raynmahbub/VexSign/blob/main/LICENSE"
 
     var body: some View {
         NBList(.localized("About")) {

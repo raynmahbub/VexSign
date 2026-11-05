@@ -105,9 +105,12 @@ def prepare(work, lock, candidate, combined):
         raise ValueError('App baseline changed; review before preparing')
     base.check_app_baseline(lock)
     base.check_codec_baseline(lock)
-    entry = subprocess.check_output(['git', 'ls-files', '--stage', 'IDeviceKitten'], cwd=ROOT, text=True).split()
-    if len(entry) < 2 or entry[1] != combined['idevicekit']['commit']:
-        raise ValueError('IDeviceKitten gitlink changed; review before preparing')
+    vendored = json.loads((ROOT / 'Vendor/manifest.json').read_text())
+    entry = next((item for item in vendored['packages'] if item['name'] == 'IDeviceKitten'), None)
+    if entry is None or entry['commit'] != combined['idevicekit']['commit']:
+        raise ValueError('Vendored IDeviceKitten pin changed; review before preparing')
+    if base.digest((ROOT / 'Vendor/IDeviceKitten/Package.swift').read_bytes()) != combined['idevicekit']['manifest_sha256']:
+        raise ValueError('Vendored IDeviceKit manifest changed; review before preparing')
     app = json.loads(raw)
     expected = required_pins(app, candidate)
     root_manifest = manifest(app, expected)

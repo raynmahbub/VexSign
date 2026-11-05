@@ -38,11 +38,17 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
-    def test_no_automatic_pull_request_validation(self):
+    def test_only_ci_validates_pull_requests(self):
+        # CI must run before a merge: a branch that has never been compiled
+        # makes main the first place a build error appears. Other workflows
+        # stay on their own schedules so a PR cannot fan out every validator.
         for path in WORKFLOWS.glob('*.yml'):
             with self.subTest(workflow=path.name):
                 events = block(path.read_text(), 'on', 0)
-                self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
+                if path.name == 'ci.yml':
+                    self.assertRegex(events, r'(?m)^  pull_request:')
+                else:
+                    self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
 
     def test_validators_are_manual_or_path_filtered_main_pushes(self):
         for name in VALIDATORS:
@@ -57,10 +63,11 @@ class WorkflowPolicyTests(unittest.TestCase):
                 self.assertFalse(covers(name, 'README.md'))
                 self.assertFalse(covers(name, 'CHANGELOG.md'))
 
-    def test_app_dependencies_and_submodule_pointer_changes_are_covered(self):
+    def test_app_dependencies_and_vendored_package_changes_are_covered(self):
         for path in ('VexSign/VexSignApp.swift', 'VexSignTests/DesignSystemTests.swift',
                      'NimbleKit/Package.swift', 'AltSourceKit/Package.swift',
-                     'VexSign.xcodeproj/project.pbxproj', 'Zsign', 'IDeviceKitten',
+                     'VexSign.xcodeproj/project.pbxproj', 'Vendor/Zsign/Package.swift',
+                     'Vendor/IDeviceKitten/Package.swift',
                      'Makefile', 'tools/test_workflow_policy.py'):
             with self.subTest(path=path):
                 self.assertTrue(covers('ci.yml', path))
@@ -114,7 +121,8 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('persist-credentials: false', build)
         self.assertIn('git merge-base --is-ancestor', build)
         self.assertIn('contents: write', publish)
-        self.assertIn('environment: release', publish)
+        self.assertIn("needs.build.outputs.channel == 'nightly'", publish)
+        self.assertIn("'nightly' || 'release'", publish)
         self.assertNotIn('actions/checkout@', publish)
         self.assertIn('artifact-ids: ${{ needs.build.outputs.artifact_id }}', publish)
         self.assertIn('sha256sum --check SHA256SUMS', publish)
@@ -122,6 +130,30 @@ class WorkflowPolicyTests(unittest.TestCase):
         for name in ('release.yml',):
             for use in re.findall(r'uses: ([^\s]+)', (WORKFLOWS / name).read_text()):
                 self.assertRegex(use, r'@[a-f0-9]{40}$')
+
+    def test_nightly_release_is_scheduled_and_immutable(self):
+        text = (WORKFLOWS / 'release.yml').read_text()
+        events = block(text, 'on', 0)
+        self.assertIn('  schedule:', events)
+        self.assertIn("cron: '0 3 * * *'", events)
+        self.assertIn('MODE="nightly"', text)
+        self.assertIn('nightly.${NIGHTLY_DATE}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}', text)
+        self.assertIn('channel=${CHANNEL}', text)
+        self.assertIn('prerelease: ${{ needs.build.outputs.prerelease ==', text)
+
+    def test_nightly_does_not_update_the_stable_listing(self):
+        update = (WORKFLOWS / 'update_repo.yml').read_text()
+        self.assertIn("github.event.release.prerelease == false", update)
+        release = (WORKFLOWS / 'release.yml').read_text()
+        self.assertIn("needs.build.outputs.channel == 'stable'", release)
+
+    def test_automation_workflows_do_not_validate_pull_requests(self):
+        # Dependabot and maintenance work through branches/issues; a PR-triggered
+        # workflow would bypass the repository's main-only validation model.
+        self.assertTrue((ROOT / '.github/dependabot.yml').is_file())
+        for name in ('repo-maintenance.yml', 'ci-triage.yml', 'dependency-audit.yml'):
+            events = block((WORKFLOWS / name).read_text(), 'on', 0)
+            self.assertNotIn('pull_request', events)
 
     def test_security_schedule_and_release_boundaries_are_preserved(self):
         events = block((WORKFLOWS / 'ecosystem.yml').read_text(), 'on', 0)

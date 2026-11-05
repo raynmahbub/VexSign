@@ -20,7 +20,7 @@ links to all of them from **Settings → Ecosystem → Web Tools**.
 
 ## 1. Signer console
 
-A browser UI for the phone's on-device signer — the piece FlareStore has and
+A browser UI for the phone's on-device signer — the piece sideloading tools have and
 VexSign did not. It does **not** sign in the browser: it relays.
 
 | Endpoint | Purpose |

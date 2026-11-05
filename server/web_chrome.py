@@ -150,7 +150,7 @@ def page(title: str, body: str, request: Request, subtitle: str = "", scripts: s
   {body}
 </main>
 <footer>
-  VexSign is open source: <a href="https://github.com/iamsmmh/VexSign">github.com/iamsmmh/VexSign</a>.
+  VexSign is open source: <a href="https://github.com/raynmahbub/VexSign">github.com/raynmahbub/VexSign</a>.
   These tools run on your own deployment and keep no logs of what you upload.
 </footer>
 {scripts}

@@ -207,9 +207,13 @@ def apply_certificate_inventory_overlay(deps, lock):
 
 
 def check_app_baseline(lock):
-    entry = subprocess.check_output(['git', 'ls-files', '--stage', 'Zsign'], cwd=ROOT, text=True).split()
-    if len(entry) < 2 or entry[0] != '160000' or entry[1] != lock['packages']['zsign-package']['commit']:
-        raise ValueError('Existing Zsign gitlink changed; update/review the native smoke lock')
+    manifest = json.loads((ROOT / 'Vendor/manifest.json').read_text())
+    entry = next((item for item in manifest['packages'] if item['name'] == 'Zsign'), None)
+    if entry is None or entry['commit'] != lock['packages']['zsign-package']['commit']:
+        raise ValueError('Vendored Zsign pin changed; update/review the native smoke lock')
+    package = ROOT / 'Vendor/Zsign/Package.swift'
+    if not package.is_file() or digest(package.read_bytes()) != lock['packages']['zsign-package']['manifest_sha256']:
+        raise ValueError('Vendored Zsign manifest changed; update/review the native smoke lock')
     resolved = json.loads((ROOT / 'VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved').read_text())
     pins = {pin['identity']: pin['state']['revision'] for pin in resolved['pins']}
     if pins.get('openssl') != lock['packages']['openssl']['commit']:

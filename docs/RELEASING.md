@@ -1,19 +1,44 @@
 # Releasing VexSign
 
-## One-workflow release
+## Release channels
 
-After this update is merged into the default branch:
+| Channel | Trigger | Tag | GitHub release | Repository listing |
+| --- | --- | --- | --- | --- |
+| **Stable** | Push a `v<MARKETING_VERSION>` tag, or **Actions → Release** with channel `stable` | `v1.1.0` | Latest release | Updated after publish |
+| **Nightly** | Daily schedule at **03:00 UTC**, or a manual dispatch with channel `nightly` | `v1.1.0-nightly.<date>.<run>.<attempt>` | Pre-release | Never updated |
 
-1. Open **Actions → Release → Run workflow**.
-2. Select **main**. Leave **build_only unchecked** to publish (the default).
-3. Approve any configured release-environment deployments. The workflow builds,
-   checks the version, publishes the IPA at the exact built commit, then queues
-   **Update Repository**. Check that separate run for completion.
+Both channels build the same unsigned IPA, verify the built `CFBundleShortVersionString`
+against the tag, and attach `SHA256SUMS` plus a generated changelog. The IPA still
+requires a signing identity to install.
 
-The current version is **1.1.0**. For subsequent releases, first update all
-`MARKETING_VERSION` settings and land the changes on main. Published versions
-cannot be overwritten. For a test IPA instead, check **build_only**; that run
-creates an artifact but no tag or release. The IPA still requires signing to install.
+## Stable release
+
+1. Bump every `MARKETING_VERSION` setting on main when you want a new version.
+2. Push the matching tag, for example `git tag v1.1.0 && git push origin v1.1.0`.
+   Tag pushes are the automated stable path. **Actions → Release → Run workflow**
+   with channel `stable` is the equivalent manual path for a version that has no
+   tag yet.
+3. Approve the configured **release** environment. The workflow builds, checks
+   the packaged version, publishes the IPA at the exact built commit, then queues
+   **Update Repository** for stable releases only.
+
+The current version is **1.1.0**. Published versions and tags cannot be
+overwritten. For a test IPA instead, check **build_only**; that run creates an
+artifact but no tag or release.
+
+## Nightly pre-release
+
+The **Release** workflow runs every day at 03:00 UTC from the default branch. It
+publishes a dated pre-release such as `v1.1.0-nightly.20261107.428.1` and never
+moves or reuses that tag, so an installation can be pinned to the exact build it
+downloaded. Nightly runs also execute the simulator tests before uploading; a
+failed nightly can be re-run safely, and the run attempt makes the next tag
+unique.
+
+Nightly builds use the **nightly** environment and do **not** update
+`app-repo.json`: a pre-release must never become the installation listing's
+latest version. Select **nightly** in the manual **Run workflow** form to build
+one outside the schedule.
 
 ## No certificate-pack service or build-time TLS secret
 
@@ -59,12 +84,17 @@ certificate generation alone does not prove successful installation.
 
 ## Repository security setup
 
-Configure the **release** environment under Settings → Environments. Restrict
-branches/tags to main and your release-tag pattern, and enable required reviewers,
-prevent self-review/admin bypass where your plan supports these controls. YAML
-names an environment but does not configure its protection rules. Protect the
-default branch and release tags with repository rulesets, and restrict who may
-modify workflows or trigger deployments. No personal access token is needed.
+Configure these environments under Settings → Environments:
+
+| Environment | Used by | Suggested protection |
+| --- | --- | --- |
+| `release` | Stable build + publish | Restrict to main and `v*` tags; require reviewers and prevent admin bypass where available. |
+| `nightly` | Nightly publish | Restrict to main; no required reviewers so the schedule can run unattended; still restrict who may modify workflows. |
+| `build-preview` | `build_only` and nightly build | No write permissions; no deployment approval required. |
+
+YAML names environments but does not configure their rules. Protect the default
+branch and release tags with repository rulesets, and restrict who may modify
+workflows or trigger deployments. No personal access token is needed.
 
 The workflow retains:
 
@@ -73,7 +103,8 @@ The workflow retains:
 - immutable action SHAs, a run-specific artifact and SHA-256 asset checksums;
 - a separate protected write-enabled publisher with no repository checkout;
 - refusal to overwrite existing releases or publish a moved tag;
-- a separate dispatch-only job to queue the listing updater for non-draft releases.
+- unique, immutable nightly tags and pre-release marking;
+- a separate dispatch-only job to queue the listing updater for stable releases only.
 
 Configured environment approvals may occur for both build and publish. Preview
 builds use **build-preview** and do not have release-write permissions. Checksums
@@ -81,18 +112,16 @@ are integrity evidence, not independent developer code signatures.
 
 ## Tag releases and drafts
 
-Tag pushes remain supported: tag the tested main commit as `v<MARKETING_VERSION>`,
-for example `v1.1.0`. Optional prerelease suffixes (`v1.1.0-beta.1`) do not change
-the numeric bundle version. Never move a published tag. A tag run can retry only
-if no release was created; existing partial/draft releases need manual inspection.
+Tag pushes remain supported and are the preferred stable path: tag the tested
+main commit as `v<MARKETING_VERSION>`, for example `v1.1.0`. Optional prerelease
+suffixes (`v1.1.0-beta.1`) mark the GitHub release as a pre-release and are not
+synced to the repository listing. Never move a published tag. A tag run can retry
+only if no release was created; existing partial/draft releases need manual
+inspection.
 
 For a draft, select **draft** in the manual workflow. Drafts do not queue the
 repository updater. After publishing a draft through the web UI, check whether
 **Update Repository** ran and dispatch it with the tag if needed.
-
-Synthetic annotated tags whose messages contain `synthetic tag` remain
-validation-only compatibility milestones, never publications. Their intentional
-version mismatch is tolerated; real release versions must match the built bundle.
 
 `RELEASE_XCODE` may pin the Xcode version; the manual `xcode` input overrides it.
 Build numbers are stamped with the source commit SHA by the existing workflow.

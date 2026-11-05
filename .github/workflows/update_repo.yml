@@ -20,6 +20,9 @@ concurrency:
 
 jobs:
   update:
+    # Nightly and other pre-releases must never become the installation
+    # listing's latest version. Only published stable releases sync.
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

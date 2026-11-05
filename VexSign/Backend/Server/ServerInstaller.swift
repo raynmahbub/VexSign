@@ -54,7 +54,9 @@ class ServerInstaller: Identifiable, ObservableObject {
 			_server = server
 			_needsShutdown = true
 			_configureRoutes()
-			try await server.server.start()
+			// Vapor's listener start is synchronous; only creation and shutdown have
+			// async variants.
+			try server.server.start()
 			FileLogger.log("server listening on \(sni()):\(port), payload=\(payloadEndpoint.absoluteString)", category: "install")
 		} catch {
 			FileLogger.error("server failed to start: \(error)", category: "install")
@@ -106,13 +108,19 @@ class ServerInstaller: Identifiable, ObservableObject {
 				return try await req.fileio.asyncStreamFile(
 					at: packageUrl.path
 				) { result in
+					// The stream completion is @Sendable and runs off the main actor, so
+					// status changes have to hop back explicitly.
 					switch result {
 					case .success:
-						self._updateStatus(.installing)
+						Task { @MainActor [weak self] in
+							self?._updateStatus(.installing)
+						}
 					case .failure(let error):
-						self._updateStatus(.broken(error))
-						self.backgroundTaskManager?.stop()
-						self.backgroundTaskManager = nil
+						Task { @MainActor [weak self] in
+							self?._updateStatus(.broken(error))
+							self?.backgroundTaskManager?.stop()
+							self?.backgroundTaskManager = nil
+						}
 					}
 				}
 			case "/healthz":

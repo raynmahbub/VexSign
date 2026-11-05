@@ -74,6 +74,10 @@ enum Theme {
     enum Radius {
         static let large: CGFloat = NBRadius.large // 28 on iOS26, 12 otherwise
         static let card: CGFloat = 18
+        static let cardWide: CGFloat = 22
+        static let rail: CGFloat = 20
+        static let hero: CGFloat = 30
+        static let mark: CGFloat = 14
         static let medium: CGFloat = 12
         static let pill: CGFloat = 999
     }

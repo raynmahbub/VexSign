@@ -16,13 +16,13 @@ manual:
     body: |-
       MIT
   - name: "Zsign"
-    file: "Zsign/LICENSE"
+    file: "Vendor/Zsign/LICENSE"
     
   - name: "ElleKit"
     file: "LICENSE_ELLEKIT"
 
   - name: "LiveContainer"
-    file: "Zsign/LICENSE_LC"
+    file: "Vendor/Zsign/LICENSE_LC"
 
 exclude:
   - swift-html-entities

@@ -425,7 +425,7 @@ def _landing_page(base: str, endpoints: list[str], show_admin: bool) -> str:
     {admin_note}
   </div>
   <p class="muted">VexSign is open source:
-  <a href="https://github.com/iamsmmh/VexSign">github.com/iamsmmh/VexSign</a>.
+  <a href="https://github.com/raynmahbub/VexSign">github.com/raynmahbub/VexSign</a>.
   Keys: @iamSMMH on Telegram.</p>
 </main>
 <script>

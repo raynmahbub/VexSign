@@ -2148,11 +2148,11 @@ packageReferences = (
 		};
 		3371F5152DA91FDC00281AC6 /* XCLocalSwiftPackageReference "Zsign" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Zsign;
+			relativePath = Vendor/Zsign;
 		};
 		3A2F0F0B2E976B67009DE4CE /* XCLocalSwiftPackageReference "IDeviceKitten" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = IDeviceKitten;
+			relativePath = Vendor/IDeviceKitten;
 		};
 		33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */ = {
 			isa = XCLocalSwiftPackageReference;

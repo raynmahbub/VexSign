@@ -60,7 +60,7 @@ enum VexSignAPI {
 
 	// MARK: - Repos
 
-	static let reposListURL = URL(string: "https://raw.githubusercontent.com/iamsmmh/VexSign/refs/heads/main/repos.json")!
+	static let reposListURL = URL(string: "https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/repos.json")!
 
 	// MARK: - Device Identity
 
@@ -84,7 +84,7 @@ enum VexSignAPI {
 
 	// MARK: - Self-managed / local premium mode
 	//
-	// If you don't own a key from https://github.com/iamsmmh/VexSign, you can run your own
+	// If you don't own a key from https://github.com/raynmahbub/VexSign, you can run your own
 	// "premium" setup without that server. Set `localModePremiumKey` to any
 	// VEX-…-formatted key you invent, and `localModePremiumURLs` to the repository
 	// feeds that key should unlock. Then redeeming that exact key in the app skips

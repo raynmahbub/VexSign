@@ -2,7 +2,7 @@
   "name": "VexSign Premium",
   "identifier": "com.yourname.premium",
   "subtitle": "Your private premium source",
-  "iconURL": "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
+  "iconURL": "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
   "sourceURL": "https://YOUR-HOST/repo/premium.json",
   "apps": [
     {

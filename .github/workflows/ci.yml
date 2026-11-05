@@ -2,8 +2,9 @@ name: CI
 
 # The one workflow that answers "is this commit good?".
 #
-# No pull-request trigger: validate relevant changes once after they land on main,
-# or explicitly validate a selected branch before merging with workflow_dispatch.
+# Pull requests run the same validation as main, so a merge is never the first
+# time a commit is compiled. `workflow_dispatch` remains available for an
+# explicit run on any selected branch.
 # Linux checks run first, then the unsigned build and simulator tests run in
 # parallel on separate macOS runners. Manual quick mode avoids macOS.
 #
@@ -44,13 +45,36 @@ on:
       - 'VexSign.xcworkspace/**'
       - 'NimbleKit/**'
       - 'AltSourceKit/**'
-      - 'Zsign'
-      - 'Zsign/**'
-      - 'IDeviceKitten'
-      - 'IDeviceKitten/**'
+      - 'Vendor/**'
       - 'Package.swift'
       - 'Package.resolved'
-      - '.gitmodules'
+      - 'Makefile'
+      - 'Scripts/**'
+      - 'Tweaks/**'
+      - 'tools/**'
+      - 'EmbeddedContainer/*.py'
+      - 'EmbeddedContainer/tests/**'
+      - 'EmbeddedContainer/HostOverlay/**'
+      - 'EmbeddedContainer/patches/**'
+      - 'EmbeddedContainer/inputs.lock.json'
+      - 'NativeSigning/**'
+      - 'SideSign/**'
+      - '.github/scripts/**'
+      - '.github/build-warnings-baseline.json'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'VexSign/**'
+      - 'VexSignTests/**'
+      - 'VexSignWidgetExtension/**'
+      - 'VexSign.xcodeproj/**'
+      - 'VexSign.xcworkspace/**'
+      - 'NimbleKit/**'
+      - 'AltSourceKit/**'
+      - 'Vendor/**'
+      - 'Package.swift'
+      - 'Package.resolved'
       - 'Makefile'
       - 'Scripts/**'
       - 'Tweaks/**'
@@ -173,9 +197,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
       # The `runner` context is not available in job-level env, so the scratch
       # paths are exported from a step instead.
       - name: Paths
@@ -302,9 +323,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
       - name: Paths
         run: |
           {

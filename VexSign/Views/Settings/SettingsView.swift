@@ -32,8 +32,8 @@ struct SettingsView: View {
         return _certificates[_storedSelectedCert]
     }
 
-    private let _githubUrl = "https://github.com/iamsmmh/VexSign"
-    private let _donationsUrl = "https://github.com/iamsmmh/VexSign"
+    private let _githubUrl = "https://github.com/raynmahbub/VexSign"
+    private let _donationsUrl = "https://github.com/raynmahbub/VexSign"
 
     var body: some View {
         NBNavigationView(.localized("Settings")) {

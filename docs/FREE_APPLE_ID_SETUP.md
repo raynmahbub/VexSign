@@ -310,4 +310,4 @@ See `AnisetteServer/README.md` for deployment details.
 
 ---
 
-*Last updated: 2024. See [CHANGELOG.md](../CHANGELOG.md) for version history.*
+See [CHANGELOG.md](../CHANGELOG.md) for release notes.

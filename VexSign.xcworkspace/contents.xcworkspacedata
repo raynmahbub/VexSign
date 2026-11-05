@@ -11,7 +11,7 @@
       location = "group:VexSign.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:Zsign">
+      location = "group:Vendor/Zsign">
    </FileRef>
    <FileRef
       location = "container:AltSourceKit">
@@ -20,6 +20,6 @@
       location = "group:NimbleKit">
    </FileRef>
    <FileRef
-      location = "container:IDeviceKitten">
+      location = "container:Vendor/IDeviceKitten">
    </FileRef>
 </Workspace>

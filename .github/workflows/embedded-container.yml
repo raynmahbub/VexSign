@@ -33,8 +33,6 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Select installed Xcode
         env:
           REQUESTED_XCODE: ${{ inputs.xcode }}
