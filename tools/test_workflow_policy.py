@@ -138,6 +138,20 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('python3 tools/check-docs.py', quick)
         self.assertIn('python3 tools/test_docs.py', quick)
 
+    def test_listing_bot_uses_a_review_branch(self):
+        text = (WORKFLOWS / 'update_repo.yml').read_text()
+        self.assertIn('pull-requests: write', text)
+        self.assertIn('BRANCH="automation/release-listing"', text)
+        self.assertIn('gh pr create --base "$DEFAULT_BRANCH"', text)
+        self.assertNotIn('git symbolic-ref --short HEAD', text)
+
+    def test_release_visuals_metadata_and_notes_are_bundled(self):
+        text = (WORKFLOWS / 'release.yml').read_text()
+        self.assertIn('python3 tools/prepare-release-assets.py', text)
+        for asset in ('CHANGELOG.md', 'RELEASE.json', 'VexSign-icon.png', 'Home-layout-preview.svg'):
+            self.assertIn('upload/' + asset, block(text, 'build', 2))
+            self.assertIn('upload/' + asset, block(text, 'publish', 2))
+
     def test_every_release_runs_simulator_tests(self):
         text = (WORKFLOWS / 'release.yml').read_text()
         step = text.split('      - name: Release simulator tests\n', 1)[1].split('      - name:', 1)[0]

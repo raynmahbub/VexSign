@@ -76,12 +76,7 @@ elif [ -z "$PREVIOUS_TAG" ]; then
         PREVIOUS_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' \
             --exclude "v${VERSION}" --exclude 'v*-*' HEAD 2>/dev/null | filter_candidate_tags | head -n 1)"
     fi
-    # Nothing reachable (shallow clone, or a release branch that never had a
-    # tag): fall back to the newest release tag by creation date.
-    if [ -z "$PREVIOUS_TAG" ]; then
-        PREVIOUS_TAG="$(git tag --sort=-creatordate --list 'v[0-9]*' 2>/dev/null \
-            | filter_candidate_tags | head -n 1)"
-    fi
+
 fi
 
 if [ -z "$RANGE" ]; then
@@ -112,9 +107,7 @@ if [ -n "$RANGE" ] && [ "$RANGE" != "HEAD" ]; then
 fi
 
 COMMITS="$(git log --no-merges --pretty=format:'%h %s' "$RANGE" 2>/dev/null || true)"
-if [ -z "$COMMITS" ]; then
-    COMMITS="$(git log -1 --no-merges --pretty=format:'%h %s' HEAD 2>/dev/null || true)"
-fi
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -190,6 +183,8 @@ if [ "$PREVIOUS_TAG" = "(first release)" ]; then
 else
     printf 'Changes since %s:\n' "$PREVIOUS_TAG"
 fi
+
+[ -n "$COMMITS" ] || printf '\nNo source changes since the previous release.\n'
 
 emit_section "✨ Features"        "$TMP/features"
 emit_section "🐛 Fixes"           "$TMP/fixes"

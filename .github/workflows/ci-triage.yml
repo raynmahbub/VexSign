@@ -6,7 +6,7 @@ name: CI triage
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Platform check", "Server tests", "Ecosystem contracts", "Release", "Repository autopilot", "Automatic stable release", "Update Repository", "Repository maintenance"]
     types: [completed]
 
 permissions:

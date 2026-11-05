@@ -138,3 +138,56 @@ persistence, renewal, explicit rotation and locked-device failures.
 Use the [real-device acceptance procedure](DEVICE_TESTING.md) to record the
 exact candidate commit, artifact checksum and observed installation results.
 Simulator success alone is not device acceptance.
+
+## Release presentation and traceability
+
+Stable and nightly publication both use `tools/prepare-release-assets.py` after
+build and simulator validation. Each attaches:
+
+- the unsigned IPA;
+- `CHANGELOG.md`: channel warning, source commit, installation guidance, optional
+  reviewed highlights and grouped conventional-commit changes/contributors;
+- `RELEASE.json`: source commit, channel/version, run/attempt and IPA checksum;
+- the app icon and Home **design illustration**, not a device screenshot;
+- `SHA256SUMS` covering the IPA, notes, metadata and both visual assets.
+
+The publisher verifies checksums before publishing. These are integrity checks,
+not cryptographic attestations or independent proof of installation. Optional
+version-specific highlights belong in `docs/releases/<version>.md`; see the
+[authoring guide](releases/README.md). Images in notes are commit-pinned so future
+main-branch changes do not alter old release presentations.
+
+## PR-only source updates and GitHub setup
+
+The stable listing updater now opens/refreshes `automation/release-listing`; it
+never pushes the listing directly to main. A stable release can be published
+before its listing PR is merged, so inspect and merge that PR to update the source.
+Nightly releases never create stable-listing updates.
+
+Bot commits on feature/automation branches are normal and precede their PR. To
+forbid direct main commits by *any* actor, configure a main ruleset requiring a
+PR and checks, without bot/admin bypass. Protect `v*` tags and the release
+environment separately. YAML alone cannot enable these protections.
+
+Enable **Allow GitHub Actions to create and approve pull requests** in repository
+Actions settings (the workflows only create PRs; they do not approve them).
+`GITHUB_TOKEN`-created PRs do not generally trigger downstream PR workflows;
+review/dispatch the relevant validators manually, or use a narrowly scoped GitHub
+App installation token if fully automatic bot-PR validation is required. Do not
+replace it with a broad personal token or `pull_request_target` execution.
+
+Nightlies are automatic daily at 03:00 UTC (09:00 Dhaka). Stable packaging and
+publication are automatic **after a reviewed version is selected** via tag/manual
+Release. There is deliberately no daily stable release or automatic version bump:
+that would promote unreviewed changes, repeat versions or blur the channel boundary.
+The implementation borrows the build/artifact/publication separation seen in
+[Lawnicons](https://github.com/LawnchairLauncher/lawnicons/tree/develop/.github/workflows),
+not its Android signing setup or secrets. External workflows are references, not
+actions dynamically downloaded/executed by this repository.
+
+## Automatic stable dispatch
+
+[Autopilot](AUTOPILOT.md) can dispatch stable packaging after a reviewed, unanimous
+marketing-version increase reaches main and its full build/simulator CI passes.
+It never selects a new version itself, publishes an obsolete main candidate or
+bypasses the release environment. Set `AUTORELEASE_STABLE=false` to pause it.

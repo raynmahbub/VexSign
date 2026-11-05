@@ -88,11 +88,13 @@ scripts depend on them. Generated IPAs, credentials and build caches do not belo
 - **CI:** relevant PRs/main changes get portable policy checks, an unsigned build
   and simulator tests. Component workflows validate their own paths separately.
 - **Stable:** reviewed version bump, matching `v<MARKETING_VERSION>` tag or manual
-  Release run, validation/build/tests, protected publishing and stable source update.
+  Release run, validation/build/tests, protected publishing and a stable-source update PR.
 - **Nightly:** daily **03:00 UTC**, immutable dated pre-release, build/tests and
   checksums; never promoted into the stable source listing.
-- **Maintenance:** grouped dependency PRs, weekly localisation maintenance and CI
-  failure triage. Humans review merges, security-sensitive changes and stable releases.
+- **Autopilot:** grouped dependency PRs, hourly validation/merging of narrow green
+  bot updates, weekly localisation maintenance and failure triage. Reviewed version
+  bumps can trigger stable releases automatically; risky changes stay manual.
+  See [one-time setup and limits](docs/AUTOPILOT.md).
 
 [Release/version rules](docs/RELEASING.md) · [Automation policy](docs/MAINTENANCE.md)
 

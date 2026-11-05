@@ -181,6 +181,12 @@ jobs:
       - name: Device acceptance report regressions
         run: python3 tools/test_device_acceptance.py
 
+      - name: Release asset regressions
+        run: python3 tools/test_release_assets.py
+
+      - name: Autopilot policy regressions
+        run: python3 tools/test_autopilot.py
+
       - name: Workflow trigger policy
         run: python3 tools/test_workflow_policy.py
 
