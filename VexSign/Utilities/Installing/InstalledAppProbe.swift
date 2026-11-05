@@ -2,7 +2,7 @@
 //  InstalledAppProbe.swift
 //  VexSign
 //
-//  What the device actually has installed (see docs/AUDIT_2026-10-31.md).
+//  What the device actually has installed.
 //
 //  The install paths used to call an install "done" when installd's progress counter fell back
 //  to zero. iOS rolls an install back when it rejects the signature or the provisioning

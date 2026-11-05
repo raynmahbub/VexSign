@@ -73,13 +73,15 @@ strict-concurrency:
 	@echo "== app target =="
 	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe))."
 
-# Everything that can be checked without Xcode: six gates corresponding to CI’s quick job (without Swift syntax parsing).
-# Use this before pushing instead of remembering six commands; `make test` is the half that needs a
-# toolchain.  See docs/TEST_PLAN.md for the order the rest of the testing phase runs in.
+# Everything that can be checked without Xcode: the same gates as CI's quick
+# job, minus Swift syntax parsing. Use this before pushing; `make test` and
+# `make` are the parts that need a toolchain.
 #   make verify
 verify:
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --no-swiftc
+	@echo "== Xcode project structure =="
+	@python3 tools/check-pbxproj.py
 	@echo "== localisation catalogue =="
 	@python3 tools/sync-strings.py --check
 	@echo "== error discipline =="
@@ -96,7 +98,7 @@ verify:
 	@python3 -m unittest discover -s NativeSigning/tests -v
 
 # Style, on demand. Nothing in CI runs SwiftLint any more: the auto-fix commits
-# it pushed onto pull requests were noise at best (see docs/STABILIZATION_BASELINE.md).
+# it pushed onto pull requests were noise at best (see CHANGELOG.md).
 #   make lint              # report (fails on any violation)
 #   make lint FIX=1        # auto-correct in place, then review the diff
 lint:
@@ -131,11 +133,12 @@ test:
 	    -destination "$$dest" \
 	    -derivedDataPath "$(TMP)/TestDerivedData" \
 	    -only-testing:VexSignTests \
-	    -parallel-testing-enabled NO \
+	    -parallel-testing-enabled YES \
 	    -skipPackagePluginValidation \
 	    -skipMacroValidation \
 	    CODE_SIGNING_ALLOWED=NO \
 	    CODE_SIGNING_REQUIRED=NO \
 	    CODE_SIGN_IDENTITY="" \
 	    COMPILER_INDEX_STORE_ENABLE=NO \
+	    ONLY_ACTIVE_ARCH=YES \
 	    test

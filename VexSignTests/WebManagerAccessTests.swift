@@ -2,7 +2,7 @@
 //  WebManagerAccessTests.swift
 //  VexSignTests
 //
-//  Covers the Web Manager access rules (docs/ROADMAP.md): which endpoints
+//  Covers the Web Manager access rules: which endpoints
 //  require credentials, how the token is compared, when the server is allowed to
 //  listen on the network, and the one-time switch to authenticated-by-default.
 //

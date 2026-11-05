@@ -43,7 +43,7 @@ struct BackgroundAutomationTests {
         #expect(BackgroundAutomationPolicy.signAndQueue.localizedDescription == .localized("Sign & queue"))
 
         #expect(BackgroundAutomationPolicy.notifyOnly.localizedDetail.contains("Nothing is signed or downloaded"))
-        #expect(BackgroundAutomationPolicy.signAndQueue.localizedDetail.contains("Sign & queue"))
+        #expect(BackgroundAutomationPolicy.signAndQueue.localizedDetail.contains("queues the installs"))
     }
 
     // MARK: - AutomationRunResult Tests

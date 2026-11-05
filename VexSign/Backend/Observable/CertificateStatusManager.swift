@@ -9,7 +9,7 @@
 //  There is no remote verdict service. A certificate's private key and its
 //  password never leave the device: revocation evidence comes from
 //  `CertificateInspector`, which asks the OCSP responder using certificate
-//  identifiers only (docs/ROADMAP.md). The cache below holds a status
+//  identifiers only. The cache below holds a status
 //  word, a sentence and a date — never key material.
 //
 

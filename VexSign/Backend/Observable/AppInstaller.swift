@@ -37,10 +37,6 @@ final class AppInstaller: ObservableObject {
 	private let _useNovaDNSDynamic = UserDefaults.standard.bool(forKey: "VexSign.useNovaDNSDynamic")
 
 	private var _server: ServerInstaller?
-	/// Kept when the server object could not even be constructed (missing/invalid
-	/// SSL certificates in Fully Local) so the user sees the real cause and the
-	/// idevice fallback still gets a chance, instead of a generic link failure.
-	private var _serverStartupError: Error?
 	private var _progressTask: Task<Void, Never>?
 	private var _statusObserver: AnyCancellable?
 	private var _completion: ((Result<Outcome, Error>) -> Void)?
@@ -70,14 +66,10 @@ final class AppInstaller: ObservableObject {
 		self.viewModel = InstallerStatusViewModel(isIdevice: _installationMethod == 1)
 
 		if !isSharing, _installationMethod == 0 {
-			do {
-				_server = try ServerInstaller(
-					app: app, viewModel: viewModel,
-					serverMethod: _serverMethod, localhostOnly: useLocalhost ? true : nil
-				)
-			} catch {
-				_serverStartupError = error
-			}
+			_server = ServerInstaller(
+				app: app, viewModel: viewModel,
+				serverMethod: _serverMethod, localhostOnly: useLocalhost ? true : nil
+			)
 		}
 	}
 
@@ -166,8 +158,7 @@ final class AppInstaller: ObservableObject {
 		guard let server = _server else {
 			_handleServerFailure(
 				packageUrl: packageUrl,
-				_serverStartupError
-					?? Self.error(.localized("Could not build the installation link, check your connection and try again."))
+				Self.error(.localized("Could not build the installation link, check your connection and try again."))
 			)
 			return
 		}
@@ -178,6 +169,8 @@ final class AppInstaller: ObservableObject {
 			viewModel.status = .sendingManifest
 			server.manifestUrl = await ManifestService.resolve(for: app, payload: server.payloadEndpoint)
 		}
+
+		await server.start()
 
 		var failure = server.startupError
 		if failure == nil {
@@ -328,8 +321,10 @@ final class AppInstaller: ObservableObject {
 		_declineCheck?.cancel()
 
 		let work = DispatchWorkItem { [weak self] in
-			guard let self, case .sendingManifest = self.viewModel.status else { return }
-			self._finish(.success(.cancelled))
+			Task { @MainActor [weak self] in
+				guard let self, case .sendingManifest = self.viewModel.status else { return }
+				self._finish(.success(.cancelled))
+			}
 		}
 
 		_declineCheck = work

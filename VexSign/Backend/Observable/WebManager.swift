@@ -79,6 +79,7 @@ final class WebManager: NSObject, ObservableObject {
 	}
 
 	private var _server: WebManagerServer?
+	private var _startTask: Task<Void, Never>?
 	private var _keepAliveTask: BackgroundTaskManager?
 
 	// Coalesce a burst of uploads (e.g. a folder copy) into one toast.
@@ -120,7 +121,7 @@ final class WebManager: NSObject, ObservableObject {
 	// MARK: Lifecycle
 
 	func start() {
-		guard !isRunning else { return }
+		guard !isRunning, _startTask == nil else { return }
 		guard !requireAuth || authActive else {
 			lastError = String.localized("Set a username and password first, or turn off Require Password to keep the server on this device.")
 			return
@@ -132,8 +133,9 @@ final class WebManager: NSObject, ObservableObject {
 			: nil
 		let token = apiToken.trimmingCharacters(in: .whitespacesAndNewlines)
 
+		let server: WebManagerServer
 		do {
-			_server = try WebManagerServer(
+			server = try WebManagerServer(
 				port: port,
 				auth: auth,
 				bindMode: effectiveBindMode,
@@ -150,17 +152,47 @@ final class WebManager: NSObject, ObservableObject {
 					self._queueReceiveToast(name)
 				}
 			}
-			isRunning = true
-			if keepAlive { _startKeepAlive() }
 		} catch {
-			Logger.misc.error("WebManagerServer failed to start: \(error.localizedDescription)")
 			lastError = error.localizedDescription
-			_server = nil
-			isRunning = false
+			return
+		}
+
+		_server = server
+		_startTask = Task { @MainActor in
+			do {
+				try await server.start()
+				guard self._server === server else {
+					// `stop()` detached us while the server was starting.
+					await server.shutdownAsync()
+					return
+				}
+				self._startTask = nil
+				self.isRunning = true
+				if self.keepAlive { self._startKeepAlive() }
+			} catch {
+				guard self._server === server else { return }
+				self._startTask = nil
+				Logger.misc.error("WebManagerServer failed to start: \(error.localizedDescription)")
+				self.lastError = error.localizedDescription
+				self._server = nil
+				self.isRunning = false
+			}
 		}
 	}
 
 	func stop() {
+		// A start in flight owns its application; cancelling it makes the task
+		// shut the server down asynchronously. Tearing it down here as well
+		// would race the Vapor lifecycle.
+		if let task = _startTask {
+			_startTask = nil
+			task.cancel()
+			_server = nil
+			_stopKeepAlive()
+			isRunning = false
+			return
+		}
+
 		_stopKeepAlive()
 		_server?.shutdown()
 		_server = nil
@@ -168,7 +200,7 @@ final class WebManager: NSObject, ObservableObject {
 	}
 
 	func toggle() {
-		isRunning ? stop() : start()
+		(isRunning || _startTask != nil) ? stop() : start()
 	}
 
 	func clearRecent() {
@@ -177,6 +209,8 @@ final class WebManager: NSObject, ObservableObject {
 
 	/// Restart so changed settings (port/auth/bind/token) take effect.
 	func restartIfRunning() {
+		// A start in flight already reads the current settings; restarting it
+		// would make two attempts bind the same port.
 		guard isRunning else { return }
 		stop()
 		start()

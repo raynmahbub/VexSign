@@ -91,14 +91,26 @@ struct ArchiveSafetyValidator {
     /// Compare path components, not string prefixes ("work-other" is not "work").
     static func validateDestination(relativePath: String, root: URL) throws {
         let base = root.resolvingSymlinksInPath().standardizedFileURL
-        let destination = base.appendingPathComponent(relativePath)
-            .resolvingSymlinksInPath().standardizedFileURL
         let path = relativePath.replacingOccurrences(of: "\\", with: "/")
         let parts = path.split(separator: "/", omittingEmptySubsequences: true)
         guard !path.hasPrefix("/"), !path.hasPrefix("~"), !path.contains("\0"),
               !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.contains(":") }) else {
             throw ValidationError.traversalPath(relativePath)
         }
+
+        // `resolvingSymlinksInPath()` cannot resolve an intermediate link when
+        // the final component does not exist yet, which is exactly the archive
+        // case (`escape/outside`). Walk the existing prefixes under the base and
+        // reject any symlink: a write must never be redirected through one.
+        var prefix = base
+        for part in parts {
+            prefix.appendPathComponent(String(part))
+            if (try? prefix.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { // try? ok: a missing prefix is not a symlink
+                throw ValidationError.symbolicLink(relativePath)
+            }
+        }
+
+        let destination = base.appendingPathComponent(relativePath).standardizedFileURL
         // URL.pathComponents can retain a terminal directory marker on Darwin.
         // Ignore separators consistently on BOTH sides (Payload/ is a directory,
         // not a traversal), while preserving strict component boundaries.

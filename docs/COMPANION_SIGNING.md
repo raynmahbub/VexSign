@@ -40,8 +40,7 @@ signing or an embedded guest runtime.
   `sidestore://install?url=<encoded URL>`; `AltStore/Info.plist` declares `sidestore`.
 - LiveContainer: `LiveContainer/Info.plist` on `main` declares `livecontainer`.
 - Only protocol facts were used; no third-party implementation code was copied.
-  Native auth/runtime integration remains outside the scope described in
-  [REFERENCE_COMPARISON.md](REFERENCE_COMPARISON.md).
+  Native account authentication and runtime integration remain experimental.
 
 ## Deferred device checks
 

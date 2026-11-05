@@ -67,10 +67,6 @@ private struct APICleanupResponse: Content {
 	let removedApps: [String]
 }
 
-private struct APIError: Content {
-	let error: String
-}
-
 // MARK: - Routes
 
 extension WebManagerServer {
@@ -229,8 +225,14 @@ extension WebManagerServer {
 		}
 
 		// Stream the signed package back without loading multi-GB archives into RAM.
-		let response = request.fileio.streamFile(at: output.path) { _ in
-			try? FileManager.default.removeItem(at: staging)
+		let response: Response
+		do {
+			response = try await request.fileio.asyncStreamFile(at: output.path) { _ in
+				try? FileManager.default.removeItem(at: staging)
+			}
+		} catch {
+			try? FileManager.default.removeItem(at: staging) // try? ok: best-effort staging cleanup
+			return Response(status: .internalServerError, body: .init(string: error.localizedDescription))
 		}
 		response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(output.lastPathComponent)\"")
 		let body = APISignResponse(
@@ -257,21 +259,6 @@ extension WebManagerServer {
 		var headers = HTTPHeaders()
 		headers.contentType = .json
 		return Response(status: .ok, headers: headers, body: .init(data: data))
-	}
-
-	private static func apiDownload(_ url: URL, as filename: String) -> Response {
-		let handle = try? FileHandle(forReadingFrom: url)
-		var headers = HTTPHeaders()
-		headers.contentType = .binary
-		headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
-
-        if let handle {
-            defer { try? handle.close() }
-            if let data = try? handle.readToEnd() {
-                return Response(status: .ok, headers: headers, body: .init(data: data))
-            }
-        }
-		return Response(status: .internalServerError, body: .init(string: "Could not read the signed IPA."))
 	}
 
 	private static func apiDirectorySize(_ url: URL?) -> Int {

@@ -12,10 +12,8 @@ enum ServerApplicationFactory {
 
     static func make(environment: Environment, threads: Int, hostname: String,
                      bindHost: String, port: Int, transport: Transport,
-                     bodyLimit: ByteCount, caseInsensitive: Bool) -> Application {
-        // Preserve the existing synchronous server lifecycle. Vapor 4.122.3 still
-        // supports it (deprecated); an async lifecycle migration is separate work.
-        let app = Application(environment)
+                     bodyLimit: ByteCount, caseInsensitive: Bool) async throws -> Application {
+        let app = try await Application.make(environment)
         app.threadPool = .init(numberOfThreads: threads)
         switch transport {
         case .http: break

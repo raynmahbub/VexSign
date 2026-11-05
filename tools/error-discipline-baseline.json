@@ -28,7 +28,7 @@
   "VexSign/Backend/Server/ManifestService.swift": 1,
   "VexSign/Backend/Server/ServerInstaller+Compute.swift": 1,
   "VexSign/Backend/Server/ServerInstaller+TLS.swift": 1,
-  "VexSign/Backend/Server/WebManagerServer+API.swift": 14,
+  "VexSign/Backend/Server/WebManagerServer+API.swift": 11,
   "VexSign/Backend/Server/WebManagerServer+HTTP.swift": 10,
   "VexSign/Backend/Server/WebManagerServer+WebDAV.swift": 5,
   "VexSign/Backend/Server/WebManagerServer.swift": 11,

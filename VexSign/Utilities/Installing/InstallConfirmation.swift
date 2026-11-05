@@ -2,7 +2,7 @@
 //  InstallConfirmation.swift
 //  VexSign
 //
-//  Decides when an install is really finished, and on what evidence (see docs/AUDIT_2026-10-31.md).
+//  Decides when an install is really finished, and on what evidence.
 //
 //  The rule this replaces: "progress went back to zero, therefore installed". installd's counter
 //  reaching zero means installd stopped — it does not mean the app is on the device. iOS rolls

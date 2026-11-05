@@ -4,13 +4,13 @@ name: CI
 #
 # No pull-request trigger: validate relevant changes once after they land on main,
 # or explicitly validate a selected branch before merging with workflow_dispatch.
-# Linux checks run first, then the unsigned build; simulator tests only start
-# after the build and its warning gate pass. Manual quick mode avoids macOS.
+# Linux checks run first, then the unsigned build and simulator tests run in
+# parallel on separate macOS runners. Manual quick mode avoids macOS.
 #
 #   quick   ~1 min · Linux + the official Swift container. Swift syntax,
-#           duplicate types/file names, broken plists/xcstrings/pbxproj, and the
-#           four repo gates in tools/ (localisation, error discipline, singleton
-#           freeze, concurrency escapes).
+#           duplicate types/file names, broken plists/xcstrings, deeper Xcode
+#           project structure, and the four repo gates in tools/ (localisation,
+#           error discipline, singleton freeze, concurrency escapes).
 #   build   macOS · unsigned Debug build of the VexSign scheme, then the warnings
 #           gate: a new first-party warning fails, warnings listed in
 #           .github/build-warnings-baseline.json are tolerated.
@@ -119,6 +119,12 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
           python3 .github/scripts/quick_check.py --root . --json "$RUNNER_TEMP/quick-check.json"
 
+      # Deeper than quick_check's brace balance: every object id resolves, every
+      # target has its configurations/product/group, embedded apps match, and
+      # deployment targets fit their SDK. Still no Xcode.
+      - name: Xcode project structure
+        run: python3 tools/check-pbxproj.py
+
       # A literal without a catalogue key silently falls back to English, so the
       # drift only shows up in another language. Fails on missing keys;
       # `--write` adds them.
@@ -186,28 +192,17 @@ jobs:
           REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
         run: bash .github/scripts/select_xcode.sh
 
-      # Swift package and binary targets (Vapor, Nuke, ZIPFoundation, …) are the
-      # slow part of a cold build. The cache is keyed on the resolved graph and
-      # shared with the `tests` job.
-      - name: Cache Swift packages
-        uses: actions/cache@v5
+      # Package checkouts are shared with the test job. Only this job saves the
+      # cache, avoiding competing post-job uploads when both runners finish.
+      - name: Restore Swift packages
+        id: packages
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-
             spm-${{ runner.os }}-
-
-      - name: Resolve Swift packages
-        run: |
-          set -euo pipefail
-          xcodebuild -resolvePackageDependencies \
-            -workspace VexSign.xcworkspace \
-            -scheme VexSign \
-            -derivedDataPath "$DERIVED_DATA" \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
-            | tail -n 20
 
       - name: Build (Debug)
         id: build
@@ -216,6 +211,12 @@ jobs:
           # Unsigned generic iOS build: no certificates exist on the runner and
           # none are needed to prove the code compiles. Install-server TLS is
           # created on each device, not downloaded or bundled by CI.
+          #
+          # libunicorn.a is AnisetteKit's prebuilt binary. Upstream's
+          # build_xcframework.sh never sets CMAKE_OSX_DEPLOYMENT_TARGET, so
+          # CMake stamps it with the runner's macOS version (26.5) and ld
+          # repeats one warning per archive member. Filter that known
+          # third-party noise from the live log; the raw log keeps every line.
           xcodebuild \
             -workspace VexSign.xcworkspace \
             -scheme VexSign \
@@ -229,13 +230,22 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            build 2>&1 | tee "$BUILD_LOG" | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; }
+            build 2>&1 | tee "$BUILD_LOG" \
+              | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; } \
+              | { grep -v -F 'libunicorn.a' || true; }
           status=${PIPESTATUS[0]}
           echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
           if [ "${status}" -ne 0 ]; then
             echo "::error::xcodebuild exited with status ${status} - see the annotations and the summary."
           fi
           exit "${status}"
+
+      - name: Save Swift packages
+        if: success() && steps.packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/DerivedData/SourcePackages
+          key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
 
       # Annotates errors/warnings inline, writes the summary and enforces the
       # warnings gate. Runs even when the build step failed so the diagnostics
@@ -285,7 +295,8 @@ jobs:
   # ---------------------------------------------------------------------------
   tests:
     name: tests · VexSignTests (simulator)
-    needs: build
+    needs: quick
+    if: github.event_name != 'workflow_dispatch' || inputs.validation != 'quick'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -308,10 +319,9 @@ jobs:
           REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
         run: bash .github/scripts/select_xcode.sh
 
-      # Same key shape as the build job, so whichever runs second reuses the
-      # other's SwiftPM checkout.
-      - name: Cache Swift packages
-        uses: actions/cache@v5
+      # Read the same cache as the build job; the build job owns cache writes.
+      - name: Restore Swift packages
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -337,6 +347,8 @@ jobs:
           SIM_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -uo pipefail
+          # Filter only the known libunicorn.a deployment-version lines from
+          # the live log (see the build step); $TEST_LOG keeps every line.
           xcodebuild \
             -workspace VexSign.xcworkspace \
             -scheme VexSignTests \
@@ -345,14 +357,17 @@ jobs:
             -derivedDataPath "$DERIVED_DATA" \
             -resultBundlePath "$RESULT_BUNDLE" \
             -only-testing:VexSignTests \
-            -parallel-testing-enabled NO \
+            -parallel-testing-enabled YES \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            test 2>&1 | tee "$TEST_LOG" | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; }
+            ONLY_ACTIVE_ARCH=YES \
+            test 2>&1 | tee "$TEST_LOG" \
+              | { if command -v xcbeautify >/dev/null; then xcbeautify --quiet --renderer terminal --disable-logging; else cat; fi; } \
+              | { grep -v -F 'libunicorn.a' || true; }
           status=${PIPESTATUS[0]}
           echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
           if [ "${status}" -ne 0 ]; then
@@ -368,6 +383,7 @@ jobs:
       # which the pull request page and the API can both read.
       - name: Surface failures
         if: failure()
+        continue-on-error: true
         env:
           RESULT_BUNDLE: ${{ runner.temp }}/VexSignTests.xcresult
           TEST_LOG: ${{ runner.temp }}/xcodebuild-test.log
@@ -553,6 +569,7 @@ jobs:
           exit 0
       - name: Report diagnostics
         if: always() && steps.test.outcome != 'skipped'
+        continue-on-error: true
         env:
           TEST_EXIT: ${{ steps.test.outputs.exit_code }}
           SUMMARY_JSON: ${{ runner.temp }}/summary.json
@@ -575,7 +592,7 @@ jobs:
         run: xcodebuild -workspace VexSign.xcworkspace -scheme VexSignTests -showdestinations || true
 
       - name: Upload xcresult and log
-        if: always() && steps.test.outcome != 'skipped'
+        if: failure() && steps.test.outcome != 'skipped'
         uses: actions/upload-artifact@v6
         with:
           name: tests-${{ github.run_id }}-${{ github.run_attempt }}

@@ -80,11 +80,11 @@ extension WebManagerServer {
 			return Self.json(self._inboxFiles())
 		}
 
-		app.get("download", ":name") { [weak self] req -> Response in
+		app.get("download", ":name") { [weak self] req async throws -> Response in
 			guard let self, let raw = req.parameters.get("name") else { return Response(status: .badRequest) }
 			let url = self.inbox.appendingPathComponent(self.sanitizedFilename(raw))
 			guard FileManager.default.fileExists(atPath: url.path) else { return Response(status: .notFound) }
-			let response = req.fileio.streamFile(at: url.path)
+			let response = try await req.fileio.asyncStreamFile(at: url.path)
 			response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(url.lastPathComponent)\"")
 			return response
 		}
@@ -135,7 +135,7 @@ extension WebManagerServer {
 				return TweakManager.shared.exportableURL(for: tweak, version: version)
 			}
 			guard let url else { return Response(status: .notFound) }
-			return Self.download(req, file: url, as: url.lastPathComponent)
+			return try await Self.download(req, file: url, as: url.lastPathComponent)
 		}
 
 		app.on(.DELETE, "api", "tweaks", ":id") { req async -> Response in
@@ -182,7 +182,7 @@ extension WebManagerServer {
 				return CertificateExporter.makeZip(for: cert)
 			}
 			guard let zipURL else { return Response(status: .notFound) }
-			return Self.download(req, file: zipURL, as: zipURL.lastPathComponent)
+			return try await Self.download(req, file: zipURL, as: zipURL.lastPathComponent)
 		}
 
 		app.on(.POST, "api", "certs") { req async -> Response in
@@ -284,7 +284,7 @@ extension WebManagerServer {
 			} catch {
 				return Self.text("Could not package the app.", .internalServerError)
 			}
-			return Self.download(req, file: ipaURL, as: filename)
+			return try await Self.download(req, file: ipaURL, as: filename)
 		}
 
 		app.on(.DELETE, "api", "apps", ":uuid") { req async -> Response in
@@ -328,8 +328,8 @@ extension WebManagerServer {
 		Response(status: status, body: .init(string: message))
 	}
 
-	private static func download(_ req: Request, file: URL, as filename: String) -> Response {
-		let response = req.fileio.streamFile(at: file.path)
+	private static func download(_ req: Request, file: URL, as filename: String) async throws -> Response {
+		let response = try await req.fileio.asyncStreamFile(at: file.path)
 		response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
 		return response
 	}

@@ -55,7 +55,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                 self.assertTrue(push_paths(name))
                 self.assertIn('  cancel-in-progress: true', text)
                 self.assertFalse(covers(name, 'README.md'))
-                self.assertFalse(covers(name, 'docs/UI_POLISH.md'))
+                self.assertFalse(covers(name, 'CHANGELOG.md'))
 
     def test_app_dependencies_and_submodule_pointer_changes_are_covered(self):
         for path in ('VexSign/VexSignApp.swift', 'VexSignTests/DesignSystemTests.swift',
@@ -75,14 +75,18 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertTrue(covers('platform-check.yml', 'VexSign/Companion/CompanionStatus.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSignWatch/VexSignWatchApp.swift'))
 
-    def test_manual_quick_mode_and_fail_fast_job_order(self):
+    def test_manual_quick_mode_and_parallel_macos_jobs(self):
         text = (WORKFLOWS / 'ci.yml').read_text()
         self.assertIn('options: [full, quick]', text)
         self.assertIn('default: full', block(text, 'validation', 6))
         build = block(text, 'build', 2)
         self.assertIn('needs: quick', build)
         self.assertIn("inputs.validation != 'quick'", build)
-        self.assertIn('needs: build', block(text, 'tests', 2))
+        tests = block(text, 'tests', 2)
+        self.assertIn('needs: quick', tests)
+        self.assertIn("inputs.validation != 'quick'", tests)
+        self.assertIn('-parallel-testing-enabled YES', tests)
+        self.assertNotIn('needs: build', tests)
         self.assertIn('python3 tools/test_workflow_policy.py', block(text, 'quick', 2))
 
     def test_identity_is_neither_downloaded_nor_bundled(self):

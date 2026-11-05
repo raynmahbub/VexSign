@@ -37,26 +37,29 @@ class ServerInstaller: Identifiable, ObservableObject {
 		viewModel: InstallerStatusViewModel,
 		serverMethod: Int? = nil,
 		localhostOnly: Bool? = nil
-	) throws {
+	) {
 		self._serverMethod = serverMethod ?? UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
 		self._localhostOnly = localhostOnly ?? UserDefaults.standard.bool(forKey: "VexSign.ipFix")
 		self.app = app
 		self.viewModel = viewModel
 
 		let mode = getServerMethod() == 1 ? "semi-local" : "fully-local"
-		FileLogger.log("installer starting: mode=\(mode) host=\(sni()) port=\(port) ipFix=\(getIPFix())", category: "install")
+		FileLogger.log("installer prepared: mode=\(mode) host=\(sni()) port=\(port) ipFix=\(getIPFix())", category: "install")
+	}
 
+	func start() async {
+		guard _server == nil, startupError == nil else { return }
 		do {
-			let server = try setupApp(port: port)
+			let server = try await setupApp(port: port)
 			_server = server
 			_needsShutdown = true
-			try _configureRoutes()
-			try server.server.start()
+			_configureRoutes()
+			try await server.server.start()
 			FileLogger.log("server listening on \(sni()):\(port), payload=\(payloadEndpoint.absoluteString)", category: "install")
 		} catch {
 			FileLogger.error("server failed to start: \(error)", category: "install")
 			startupError = error
-			_shutdownServer()
+			await _shutdownServerAsync()
 		}
 	}
 	
@@ -65,8 +68,8 @@ class ServerInstaller: Identifiable, ObservableObject {
 		backgroundTaskManager?.stop()
 	}
 	
-	private func _configureRoutes() throws {
-		_server?.get("*") { [weak self] req in
+	private func _configureRoutes() {
+		_server?.get("*") { [weak self] req async throws -> Response in
 			guard let self else { return Response(status: .badGateway) }
 
 			FileLogger.log("request: \(req.method.rawValue) \(req.url.path)", category: "install")
@@ -100,7 +103,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 
 				self._updateStatus(.sendingPayload)
 
-				return req.fileio.streamFile(
+				return try await req.fileio.asyncStreamFile(
 					at: packageUrl.path
 				) { result in
 					switch result {
@@ -153,12 +156,29 @@ class ServerInstaller: Identifiable, ObservableObject {
 		}
 	}
 	
+	/// Synchronous teardown for `deinit`, where awaiting is impossible.
+	/// Vapor marks these calls `noasync`; the async twin below is used from
+	/// `start()` so the server is never torn down from an async context.
 	private func _shutdownServer() {
-		guard _needsShutdown else { return }
-		
+		guard _needsShutdown, let server = _server else { return }
+
 		_needsShutdown = false
-		_server?.server.shutdown()
-		_server?.shutdown()
+		_server = nil
+		server.server.shutdown()
+		server.shutdown()
+	}
+
+	private func _shutdownServerAsync() async {
+		guard _needsShutdown, let server = _server else { return }
+
+		_needsShutdown = false
+		_server = nil
+		await server.server.shutdown()
+		do {
+			try await server.asyncShutdown()
+		} catch {
+			FileLogger.error("server shutdown failed: \(error)", category: "install")
+		}
 	}
 	
 	private func _updateStatus(_ newStatus: InstallerStatusViewModel.InstallerStatus) {

@@ -62,7 +62,7 @@ jobs:
           set -euo pipefail
           python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
       - name: Upload combined build and integration sources
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: VexSign-LiveContainer-SideStore-unvalidated
           if-no-files-found: error
@@ -71,7 +71,7 @@ jobs:
             packages/VexSign+LiveContainer+SideStore.integration-sources.tar.gz
       - name: Upload build logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: embedded-container-build-logs
           path: |

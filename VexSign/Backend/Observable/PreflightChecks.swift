@@ -164,7 +164,7 @@ enum PreflightChecks {
 	/// Compares the selected certificate with the app before the long sign. Nothing compared them
 	/// before: an explicit App ID that did not cover the bundle, an entitlement the profile never
 	/// granted, an uncovered extension, or a profile issued for a different certificate all
-	/// surfaced as an install failure two minutes later (see docs/AUDIT_2026-10-31.md).
+	/// surfaced as an install failure two minutes later.
 	private static func profileCompatibility(
 		app: AppInfoPresentable,
 		options: Options,

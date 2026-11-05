@@ -19,6 +19,23 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - Certificate and provisioning-profile reads are bounded to 10 MiB before parsing
   to avoid excessive allocation from oversized selections. Pending status results
   are discarded when their certificate row has been deleted.
+- Provisioning failures now map certificate-limit, profile-limit, device and App ID
+  conflicts before the generic quota message, and free-account expiry rounds up so a
+  profile with 2 days and 20 hours left is reported as 3 days, not 2.
+- Archive extraction rejects a path whose existing prefix is a symbolic link, closing
+  an escape where `escape/outside` resolved outside the workspace because the final
+  component did not exist yet.
+
+### Changed
+
+- The simulator target now uses the same iOS 16 deployment target as the device
+  target. The separate 18.5 override only produced deprecation warnings for APIs the
+  app already guards at runtime.
+- CI runs the unsigned build and simulator tests concurrently after the Linux checks,
+  shares one SwiftPM cache across the companion-platform matrix, reuses the release
+  package cache, and builds only the active simulator architecture. The known
+  third-party `libunicorn.a` deployment-version lines are filtered from the live log
+  while the full log stays in the failure artifact.
 
 ## [1.1.0] — 2026-11-01
 
@@ -48,12 +65,12 @@ doing, and refusing to do the wrong thing quietly.
   builder, response parser, responder-signature verification and a revocation policy that never acts
   on an unverified or stale answer. Not yet wired to any screen or setting; chaining the responder to
   an issuer is the documented next step.
-- **Repository tooling for contributors:** `make verify` (the five gates Quick check runs),
+- **Repository tooling for contributors:** `make verify` (the repository gates the Quick check runs),
   `make strict-concurrency`, and four CI gates with baselines — localisation catalogue, unjustified
   `try?`, global singletons, and concurrency escapes (`@unchecked Sendable`, `nonisolated(unsafe)`,
   `@preconcurrency`).
-- **Docs:** [docs/TEST_PLAN.md](docs/TEST_PLAN.md) — what to run, in what order, and the device
-  checks no test can stand in for.
+- **Docs:** [CONTRIBUTING.md](CONTRIBUTING.md) — what to run, and the device checks no test can
+  stand in for.
 
 ### Changed
 
@@ -98,5 +115,4 @@ doing, and refusing to do the wrong thing quietly.
 
 ## [1.0] — 2026-09-19
 
-Previous release: signing, install queues, sources, backups and the tweak library. The audit findings
-that shaped 1.1.0 are written up in [docs/AUDIT_2026-10-31.md](docs/AUDIT_2026-10-31.md).
+Previous release: signing, install queues, sources, backups and the tweak library.

@@ -1,71 +1,64 @@
 # Contributing
 
-VexSign is a modern on-device iOS signer and installer built with SwiftUI and open source components.
+Follow the [Code of Conduct](CODE_OF_CONDUCT.md). For large changes, open an [issue](https://github.com/raynmahbub/VexSign/issues) first.
 
-Any contributions should follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
+## Ground rules
 
-## Rules
+- Do not submit exploits, stolen certificates, or certificate-retrieval services.
+- Discuss changes to hard-coded service links before opening a PR.
+- Preserve upstream licenses and attribution. VexSign is GPL-3.0; dependencies retain their own licenses.
+- Keep pull requests focused and include regression tests for behavior changes.
+- Never commit private keys, certificates, provisioning profiles, tokens, or local environment files.
 
-- **No usage of any exploits of any kind.**
-- **No contributions related to retrieving any signing certificates owned by companies.**
-- **Modifying any hardcoded links should be discussed before changing.**
-- **If you're planning on making a large contribution, please [make an issue](https://github.com/iamsmmh/VexSign/issues) beforehand.**
-- **Your contributions should be licensed appropriately.**
-  - VexSign: GPLv3
-  - AltSourceKit / NimbleKit / Zsign / IDeviceKitten: MIT
-  - ElleKit: BSD-3-Clause
-- **Typo contributions are okay**, just make sure they are appropriate.
-- **Code cleaning contributions are okay.**
+## Set up
 
-## Building from source
+```bash
+git clone --recursive https://github.com/raynmahbub/VexSign.git
+cd VexSign
+open VexSign.xcworkspace
+```
 
-#### Requirements
+Use a supported current Xcode and the iOS 16+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
 
-- Xcode 16.0+ (synchronized groups, `objectVersion 77`)
-- Swift 6.0
-- iOS 16.0 deployment target
+## Validate changes
 
-1. Clone the repository with submodules:
-    ```sh
-    git clone https://github.com/iamsmmh/VexSign --recursive
-    ```
-    - `Zsign` and `IDeviceKitten` are submodules — `--recursive` is required.
+```bash
+make verify
+make test
+make lint        # when SwiftLint is installed
+```
 
-2. Enter the checkout (`cd VexSign`). No certificate-pack endpoint, TLS pin or
-   build-time identity is needed. The app generates and preserves its own CA on
-   the device. For local HTTPS installs, export/install its CA profile and enable
-   Full Trust. See [release and device trust setup](docs/RELEASING.md).
+`make verify` runs repository checks without Xcode. `make test` selects an available iPhone simulator. Do not hard-code simulator names in automation.
 
-3. Open with Xcode:
-    ```sh
-    open VexSign.xcworkspace
-    ```
+Before merging, manually dispatch **CI → full** on the branch. Run **Platform check**, **Server tests**, or **Ecosystem contracts** when those components change. CI runs automatically on relevant `main` pushes; it does not replace physical-device validation for installation, Keychain, provisioning, background execution, or hardware-specific behavior.
 
-#### Signing for development
+## Known build warnings
 
-Set your own team / enable automatic signing in Xcode's target settings, or use the unsigned CLI path (`make`, which builds with `CODE_SIGNING_ALLOWED=NO`).
+`ld` may print one line per archive member when linking the simulator app:
 
-#### Localizations
+```text
+libunicorn.a[arm64][n](....o) was built for newer 'iOS-simulator' version (26.5) than being linked (16.0)
+```
 
-- Localizations live in `VexSign/Resources/Localizable.xcstrings` (String Catalog). You need Xcode 15+.
-- **Do NOT edit the catalog by hand** — use Xcode's String Catalog editor.
-- After localizing, please have another native speaker review your work.
+That archive is the prebuilt Unicorn binary shipped by AnisetteKit. Upstream's
+`build_xcframework.sh` sets the SDK and architecture but not
+`CMAKE_OSX_DEPLOYMENT_TARGET`, so CMake stamps the slice with the runner's
+macOS version. It is a packaging defect in the dependency, not an error in
+VexSign; the simulator test suite never exercises local anisette provisioning.
+CI filters only those `libunicorn.a` lines from the live log and keeps the
+complete log in the failure artifact. The correct long-term fix is an upstream
+rebuild with an explicit deployment target (for example `15.0`).
 
-#### Making a pull request
+## Style and localization
 
-- Keep contributions in their own branch, not `main`.
-- Don't be afraid of reviewers requesting changes.
-- **No automatic PR validation.** Relevant pushes to `main` run path-filtered checks once, after merge. Before merging app changes, manually dispatch **CI → full** on the PR's head branch and review the result for the exact commit being merged. **quick** runs Linux gates only, not compilation or simulator tests.
-- Manually run **Platform check**, **Server tests**, or **Ecosystem contracts** for affected components; their automatic runs are scoped to relevant `main` changes. The cloud dependency audit also runs weekly. **Release** stays tag/manual-only. SwiftLint is local (`make lint`), not a bot committing fixes.
-- Run `make verify` for the repository quick check, localisation catalogue, three discipline gates and workflow-trigger policy regression tests. `make verify` skips Swift parsing; CI also parses Swift syntax with a Swift toolchain. macOS/Xcode is needed for native builds and simulator tests.
-- **Branch protection migration:** old required PR checks must be removed or replaced in repository settings before merging, or PRs can remain blocked. Manual branch runs are review evidence, not a guaranteed substitute for PR/merge-queue required checks. See [automation policy](docs/AUTOMATION.md).
-- Run the same tests locally with `make test` (it picks an available iPhone simulator) or `make test SIMULATOR="platform=iOS Simulator,name=<device>"`. A new behaviour is expected to come with a test in `VexSignTests/`; the suite is the reason a change can be trusted without a device. Note that the simulator is resolved at run time by `.github/scripts/select_simulator.py`, so please don't hard-code a device name in a new workflow.
-- [docs/TEST_PLAN.md](docs/TEST_PLAN.md) is the order the testing phase runs in: the gates, the suite, and the device checks that no test can stand in for — with what a pass looks like and the known blockers.
+- Prefer small, testable components and dependency injection over new global singletons.
+- Do not add silent `try?` at user-visible failure boundaries.
+- Preserve strict-concurrency boundaries; document any justified exception.
+- Edit `VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor, then run `make verify`.
+- Keep documentation concise and update only guides affected by the change.
 
-## Releasing
+## Releases
 
-Releases are cut by pushing a tag (`vX.Y.Z`, matching `MARKETING_VERSION`); CI builds, verifies and publishes automatically. To try a build from any branch without publishing, run the `Release` workflow manually with `build_only` checked. See [docs/RELEASING.md](docs/RELEASING.md).
+Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [docs/RELEASING.md](docs/RELEASING.md).
 
-## Contributing to Zsign
-
-Zsign is maintained upstream at [claration/Zsign-Package](https://github.com/claration/Zsign-Package/tree/package).
+Zsign changes belong upstream at [claration/Zsign-Package](https://github.com/claration/Zsign-Package/tree/package) unless they are VexSign-specific integration changes.

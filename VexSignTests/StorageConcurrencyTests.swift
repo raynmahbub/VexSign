@@ -2,7 +2,7 @@
 //  StorageConcurrencyTests.swift
 //  VexSignTests
 //
-//  Covers the storage write boundary (docs/ROADMAP.md): writes started
+//  Covers the storage write boundary: writes started
 //  from detached tasks run on the private-queue write context, hand back object
 //  IDs instead of managed objects, and leave nothing behind when they fail.
 //

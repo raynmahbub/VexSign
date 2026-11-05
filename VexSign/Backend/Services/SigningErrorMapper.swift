@@ -217,33 +217,8 @@ struct SigningErrorMapper {
     private static func mapProvisioningFailure(_ message: String, context: SigningContext) -> SigningError {
         let lower = message.lowercased()
 
-        if lower.contains("quota") || lower.contains("limit") || lower.contains("maximum") {
-            return SigningError(
-                title: .localized("Provisioning Quota Exceeded"),
-                message: .localized("Apple has rejected the provisioning request due to quota limits (e.g., max 3 apps, 100 devices, 10 App IDs)."),
-                recovery: .localized("Revoke unused apps/devices/App IDs from the Apple Developer portal, then retry. Free accounts are limited to 3 active apps."),
-                isRecoverable: true
-            )
-        }
-
-        if lower.contains("device") && (lower.contains("not found") || lower.contains("invalid") || lower.contains("unregistered")) {
-            return SigningError(
-                title: .localized("Device Not Registered"),
-                message: .localized("The device UDID is not registered with your Apple Developer account, or the registration failed."),
-                recovery: .localized("Ensure the device is registered in Settings → Signing Methods during provisioning, or register it manually in the Apple Developer portal."),
-                isRecoverable: true
-            )
-        }
-
-        if lower.contains("app id") && (lower.contains("not found") || lower.contains("invalid") || lower.contains("duplicate")) {
-            return SigningError(
-                title: .localized("App ID Registration Failed"),
-                message: .localized("The bundle identifier could not be registered. It may already exist, be invalid, or exceed limits."),
-                recovery: .localized("Check the bundle identifier format (reverse DNS). If it exists, try a different one or revoke the old App ID in the Apple Developer portal."),
-                isRecoverable: true
-            )
-        }
-
+        // Specific limits first: "certificate limit" and "profile limit" also
+        // contain the generic words matched by the quota branch below.
         if lower.contains("certificate") && (lower.contains("limit") || lower.contains("max")) {
             return SigningError(
                 title: .localized("Certificate Limit Reached"),
@@ -258,6 +233,33 @@ struct SigningErrorMapper {
                 title: .localized("Profile Limit Reached"),
                 message: .localized("Maximum number of provisioning profiles reached for this team."),
                 recovery: .localized("Delete unused profiles in the Apple Developer portal (Profiles → Development), then retry."),
+                isRecoverable: true
+            )
+        }
+
+        if lower.contains("device") && (lower.contains("not found") || lower.contains("invalid") || lower.contains("unregistered")) {
+            return SigningError(
+                title: .localized("Device Not Registered"),
+                message: .localized("The device UDID is not registered with your Apple Developer account, or the registration failed."),
+                recovery: .localized("Ensure the device is registered in Settings → Signing Methods during provisioning, or register it manually in the Apple Developer portal."),
+                isRecoverable: true
+            )
+        }
+
+        if lower.contains("app id") && (lower.contains("not found") || lower.contains("invalid") || lower.contains("duplicate") || lower.contains("already exists") || lower.contains("conflict")) {
+            return SigningError(
+                title: .localized("App ID Registration Failed"),
+                message: .localized("The bundle identifier could not be registered. It may already exist, be invalid, or exceed limits."),
+                recovery: .localized("Check the bundle identifier format (reverse DNS). If it exists, try a different one or revoke the old App ID in the Apple Developer portal."),
+                isRecoverable: true
+            )
+        }
+
+        if lower.contains("quota") || lower.contains("limit") || lower.contains("maximum") {
+            return SigningError(
+                title: .localized("Provisioning Quota Exceeded"),
+                message: .localized("Apple has rejected the provisioning request due to quota limits (e.g., max 3 apps, 100 devices, 10 App IDs)."),
+                recovery: .localized("Revoke unused apps/devices/App IDs from the Apple Developer portal, then retry. Free accounts are limited to 3 active apps."),
                 isRecoverable: true
             )
         }
