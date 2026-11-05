@@ -132,6 +132,12 @@ class WorkflowPolicyTests(unittest.TestCase):
             for use in re.findall(r'uses: ([^\s]+)', (WORKFLOWS / name).read_text()):
                 self.assertRegex(use, r'@[a-f0-9]{40}$')
 
+    def test_quick_container_checks_do_not_require_make(self):
+        quick = block((WORKFLOWS / 'ci.yml').read_text(), 'quick', 2)
+        self.assertNotRegex(quick, r'(?m)^\s+(?:run: )?make ')
+        self.assertIn('python3 tools/check-docs.py', quick)
+        self.assertIn('python3 tools/test_docs.py', quick)
+
     def test_every_release_runs_simulator_tests(self):
         text = (WORKFLOWS / 'release.yml').read_text()
         step = text.split('      - name: Release simulator tests\n', 1)[1].split('      - name:', 1)[0]

@@ -174,7 +174,9 @@ jobs:
         run: python3 tools/concurrency-discipline.py
 
       - name: Documentation file links and checker tests
-        run: make docs-check
+        run: |
+          python3 tools/check-docs.py
+          python3 tools/test_docs.py
 
       - name: Device acceptance report regressions
         run: python3 tools/test_device_acceptance.py
