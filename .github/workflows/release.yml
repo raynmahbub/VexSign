@@ -373,11 +373,12 @@ jobs:
         if: steps.mode.outputs.publish == 'true'
         env:
           VERSION: ${{ steps.mode.outputs.release_version }}
+          CHANNEL: ${{ steps.mode.outputs.channel }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          bash tools/generate-changelog.sh > "$RUNNER_TEMP/CHANGELOG.md"
-          cp "$RUNNER_TEMP/CHANGELOG.md" upload/CHANGELOG.md
-          (cd upload && shasum -a 256 ./*.ipa > SHA256SUMS)
+          python3 tools/prepare-release-assets.py --output upload \
+            --version "$VERSION" --channel "$CHANNEL" --repository "$RELEASE_REPOSITORY"
 
       - name: Package verified release assets
         id: bundle
@@ -389,6 +390,9 @@ jobs:
             upload/*.ipa
             upload/SHA256SUMS
             upload/CHANGELOG.md
+            upload/RELEASE.json
+            upload/VexSign-icon.png
+            upload/Home-layout-preview.svg
           if-no-files-found: error
           retention-days: 14
 
@@ -445,6 +449,10 @@ jobs:
           files: |
             upload/*.ipa
             upload/SHA256SUMS
+            upload/CHANGELOG.md
+            upload/RELEASE.json
+            upload/VexSign-icon.png
+            upload/Home-layout-preview.svg
           fail_on_unmatched_files: true
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft == true }}
           prerelease: ${{ needs.build.outputs.prerelease == 'true' }}

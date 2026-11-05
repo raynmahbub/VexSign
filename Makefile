@@ -102,6 +102,8 @@ strict-concurrency:
 # `make` are the parts that need a toolchain.
 #   make verify
 verify: docs-check
+	@python3 tools/test_autopilot.py
+	@python3 tools/test_release_assets.py
 	@python3 tools/test_device_acceptance.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --no-swiftc

@@ -85,6 +85,15 @@ and tag rulesets in GitHub; workflow YAML alone cannot enforce those settings.
 - Stable channel: tag push or **Actions → Release**, channel `stable`
 - Nightly channel: daily 03:00 UTC, or channel `nightly` manually
 - Nightly releases are pre-releases and never update `app-repo.json`
+- Stable listing changes go through an `automation/release-listing` review PR
 
 See [Releasing](RELEASING.md) for the exact tag, environment and verification
 rules.
+
+## Optional low-maintenance operation
+
+The [autopilot guide](AUTOPILOT.md) supersedes manual merge guidance for its narrow
+allowlist only. Eligible service patch/minor and known metadata PRs may merge after
+full checks; other updates and sensitive changes remain reviewed. Stable version
+increases on green main commits can dispatch Release automatically. Repository
+rules and required release reviewers are never bypassed.
