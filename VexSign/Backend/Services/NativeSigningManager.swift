@@ -59,14 +59,11 @@ final class NativeSigningManager: ObservableObject {
     }
 
     private func refreshFreeAccountAppCount() async {
-        // Count apps signed with free Apple ID
-        // This would query the NativeAccountBackend for identities/profiles
-        // For now, we'll scan signed apps and check their signing method
-        let apps = Storage.shared.getAllApps().filter { $0.isSigned }
-        // TODO: Actually check which apps use free Apple ID profiles
-        // For now, return 0 as placeholder
-        // In a real implementation, this would query the backend for active profiles
-        // freeAccountAppCount = await backend?.countActiveFreeAccountProfiles() ?? 0
+        // Scanning the library cannot say which Apple ID signed what, so the count
+        // stays at zero until the backend can list free-account profiles.
+        // TODO: replace with a NativeAccountBackend query.
+        let signedCount = Storage.shared.getAllApps().filter { $0.isSigned }.count
+        logger.debug("Signed apps in library: \(signedCount); free-account profile count unavailable")
     }
 
     // MARK: - Profile Expiry Tracking & Auto-Renewal
@@ -88,29 +85,18 @@ final class NativeSigningManager: ObservableObject {
     /// Fetches all active free Apple ID profiles with their expiry dates.
     /// Returns an empty array if not signed in or backend not ready.
     func fetchActiveFreeAccountProfiles() async -> [FreeAccountProfile] {
-        guard let backend = backend,
-              let snapshot = snapshot,
+        guard let snapshot = snapshot,
               case .signedIn(let context) = snapshot.phase,
               managerIsFreeAccount(context) else {
             return []
         }
 
-        do {
-            // Get the context ID for this signed-in session
-            let contextID = context.id
-
-            // TODO: In a real implementation, query the backend for all profiles
-            // associated with this context. The NativeAccountBackend would need
-            // a method to list profiles with their expiry dates.
-            // For now, return empty array as placeholder.
-            // This would require adding a method like:
-            // backend.listProfiles(contextID: contextID) -> [ProfileInfo]
-
-            return []
-        } catch {
-            logger.error("Failed to fetch free account profiles: \(error.localizedDescription, privacy: .public)")
-            return []
-        }
+        // TODO: query the backend for the profiles belonging to this context and
+        // their expiry dates. NativeAccountBackend has listProfiles(contextID:),
+        // but it returns profile records, not the expiry data renewal needs, so
+        // there is nothing to renew yet and the count stays at zero.
+        _ = context.id
+        return []
     }
 
     /// Checks if the current context is a free Apple ID account (not paid).

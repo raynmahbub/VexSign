@@ -1,6 +1,6 @@
 {
   "_comment": "Known first-party compiler warnings accepted by the Build check (.github/workflows/ci.yml). New warnings that are not listed here fail the check; fixed ones are reported so this file can be trimmed. Regenerate: download build-warnings-baseline.json from a Build check run artifact and replace this file. Matching ignores line numbers; 'count' is the number of occurrences allowed per file+message.",
-  "generated": "2026-09-20 from Build check run 35536522884 (macos-15, Xcode 26.3, Debug); trimmed 2026-11-01 (6 warnings fixed in code)",
+  "generated": "2026-09-20 from Build check run 35536522884 (macos-15, Xcode 26.3, Debug); trimmed 2026-11-01 (6 warnings fixed in code); 2026-11-05 added 6 Vapor async-migration deprecations (see ServerApplicationFactory)",
   "warnings": [
     {
       "file": "AltSourceKit/Sources/AltSourceKit/Extensions/Color/Color+Codable.swift",
@@ -98,13 +98,38 @@
       "count": 1
     },
     {
+      "file": "VexSign/Backend/Server/ServerApplicationFactory.swift",
+      "message": "'init(_:_:)' is deprecated: Migrate to using the async APIs. Use use Application.make(_:_:) instead",
+      "count": 1
+    },
+    {
+      "file": "VexSign/Backend/Server/ServerInstaller.swift",
+      "message": "'streamFile(at:chunkSize:mediaType:onCompleted:)' is deprecated: Migrate to asyncStreamFile",
+      "count": 1
+    },
+    {
       "file": "VexSign/Backend/Server/WebManagerServer+API.swift",
       "message": "'catch' block is unreachable because no errors are thrown in 'do' block",
       "count": 1
     },
     {
       "file": "VexSign/Backend/Server/WebManagerServer+API.swift",
+      "message": "'streamFile(at:chunkSize:mediaType:onCompleted:)' is deprecated: Migrate to asyncStreamFile",
+      "count": 1
+    },
+    {
+      "file": "VexSign/Backend/Server/WebManagerServer+API.swift",
       "message": "no calls to throwing functions occur within 'try' expression",
+      "count": 1
+    },
+    {
+      "file": "VexSign/Backend/Server/WebManagerServer+HTTP.swift",
+      "message": "'streamFile(at:chunkSize:mediaType:onCompleted:)' is deprecated: Migrate to asyncStreamFile",
+      "count": 2
+    },
+    {
+      "file": "VexSign/Backend/Server/WebManagerServer+WebDAV.swift",
+      "message": "'streamFile(at:chunkSize:mediaType:onCompleted:)' is deprecated: Migrate to asyncStreamFile",
       "count": 1
     },
     {
