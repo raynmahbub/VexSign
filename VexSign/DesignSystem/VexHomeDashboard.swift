@@ -170,10 +170,9 @@ struct VexHomeDashboard: View {
         .shadow(color: Theme.tint.opacity(0.24), radius: 22, y: 10)
     }
 
-    @ViewBuilder
     private var certificatePill: some View {
         let state = certificateState
-        Label(state.title, systemImage: state.icon)
+        return Label(state.title, systemImage: state.icon)
             .font(.caption.weight(.semibold))
             .lineLimit(1)
             .minimumScaleFactor(0.8)
