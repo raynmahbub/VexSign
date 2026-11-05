@@ -6,6 +6,9 @@ import Testing
 import NimbleExtensions
 @testable import VexSign
 
+/// `NativeSigningManager` is main-actor isolated, and Swift Testing does not run suites on
+/// the main actor unless the suite says so.
+@MainActor
 @Suite("NativeSigningManager Tests")
 struct NativeSigningManagerTests {
 

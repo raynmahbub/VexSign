@@ -1,9 +1,27 @@
 // MARK: - LockdownClient
-/// IDeviceSwift-based Lockdown client for querying device information via USB.
-//  Used by DevicePickerView to get paired device details (name, iOS version, device type).
+/// Answers "which device is this?" from evidence the app actually holds.
+///
+/// Two sources, and the difference between them matters:
+///
+/// * **The pairing file** — the record imported in Settings → Installation. It is the evidence that
+///   a pairing exists at all, and it carries the UDID (`DeviceID`). Nothing else in it names the
+///   device.
+/// * **The running device** — VexSign installs onto the device it runs on, so that record describes
+///   this device. Its name, iOS version, build number and hardware model come from the local system.
+///
+/// A live lockdownd session over USB would answer the same questions from the device itself. The
+/// `IDevice` binary this target links does export one, but as a C FFI — `idevice_pairing_file_read`
+/// → `usbmuxd_provider_new` → `lockdownd_connect` → `lockdownd_start_session` →
+/// `lockdownd_get_value`, with the answers arriving as `plist_t` — and not as the libimobiledevice
+/// API (`lockdown_client_new_with_pairing_file`, `lockdown_get_value`, `lockdown_free_value`,
+/// `lockdown_client_free`) this file used to call. Those symbols are not in the pinned xcframework
+/// (jkcoxson/idevice v0.1.57), so the calls never compiled, and the FFI needs a real device on the
+/// other end of the cable to be worth writing. Until then these queries answer from the two sources
+/// above.
 
 import Foundation
-import IDeviceSwift
+import UIKit
+import os
 
 /// Errors that can occur when communicating with the device via Lockdown.
 public enum LockdownClientError: LocalizedError, Equatable {
@@ -35,16 +53,13 @@ public enum LockdownClientError: LocalizedError, Equatable {
     }
 }
 
-/// Lockdown client for querying device information.
-/// Uses IDeviceSwift's lockdown service over USB/TCPIP.
+/// Client for querying information about the device VexSign signs for.
 public actor LockdownClient {
     private let pairingFileURL: URL
-    private var lockdownClient: LockdownClientHandle?
     private let logger = Logger(subsystem: "com.vexsign", category: "LockdownClient")
-
-    // IDeviceSwift C types
-    private typealias LockdownClientHandle = OpaquePointer
-    private typealias LockdownError = Int32
+    /// Set by `connect()`. Every query refuses to run before a pairing file has been accepted, so
+    /// an unconnected client reports the missing connection instead of answering anyway.
+    private var isConnected = false
 
     /// Creates a new LockdownClient with the given pairing file.
     /// - Parameter pairingFileURL: URL to the .mobiledevicepairing or pairingFile.plist
@@ -52,74 +67,70 @@ public actor LockdownClient {
         self.pairingFileURL = pairingFileURL
     }
 
-    /// Connects to the device via USB using the pairing file.
+    /// Accepts the pairing file. A missing file and an unreadable one have different fixes, so the
+    /// read happens here rather than being deferred to the first query.
     public func connect() async throws {
         guard FileManager.default.fileExists(atPath: pairingFileURL.path) else {
             throw LockdownClientError.pairingFileNotFound
         }
 
-        try await Task.detached(priority: .utility) { [pairingFileURL] in
-            var client: LockdownClientHandle?
-            var pairingFile: OpaquePointer?
+        guard let data = try? Data(contentsOf: pairingFileURL), // try? ok: the unreadable file is the failure being reported
+              let udid = Self.udid(in: data) else {
+            logger.error("Pairing file at \(self.pairingFileURL.path, privacy: .public) is not a readable pairing record")
+            throw LockdownClientError.invalidPairingFile
+        }
 
-            // Read the pairing file
-            let result = idevice_pairing_file_read(pairingFileURL.path, &pairingFile)
-            guard result == 0, let pairingFile = pairingFile else {
-                throw LockdownClientError.invalidPairingFile
-            }
-            defer { idevice_pairing_file_free(pairingFile) }
-
-            // Create lockdown client
-            let error = lockdown_client_new_with_pairing_file(pairingFile, &client)
-            guard error == 0, let client = client else {
-                throw LockdownClientError.connectionFailed("lockdown_client_new_with_pairing_file returned \(error)")
-            }
-
-            await MainActor.run {
-                self.lockdownClient = client
-            }
-        }.value
+        isConnected = true
+        logger.debug("Pairing record accepted for \(udid, privacy: .public)")
     }
 
-    /// Disconnects from the device.
+    /// Ends the session. Nothing to release: no device handle is held open.
     public func disconnect() {
-        if let client = lockdownClient {
-            lockdown_client_free(client)
-            lockdownClient = nil
-        }
+        isConnected = false
     }
 
     /// Gets the device name.
     public func getDeviceName() async throws -> String {
-        try await queryValue(key: "DeviceName")
+        try requireConnection()
+        return await LocalDeviceIdentity.read().name
     }
 
     /// Gets the device type (e.g., "iPhone", "iPad").
     public func getDeviceType() async throws -> String {
-        try await queryValue(key: "DeviceClass")
+        try requireConnection()
+        return deviceType(forHardwareModel: hardwareModelIdentifier())
     }
 
     /// Gets the iOS version (e.g., "17.2").
     public func getProductVersion() async throws -> String {
-        try await queryValue(key: "ProductVersion")
+        try requireConnection()
+        return await LocalDeviceIdentity.read().systemVersion
     }
 
-    /// Gets the build version (e.g., "21C62").
+    /// Gets the build version (e.g., "21C62"), when the system reports one.
     public func getBuildVersion() async throws -> String {
-        try await queryValue(key: "BuildVersion")
+        try requireConnection()
+        return buildNumber(from: ProcessInfo.processInfo.operatingSystemVersionString) ?? "unknown"
     }
 
-    /// Gets the model number (e.g., "iPhone15,2").
+    /// Gets the hardware model identifier (e.g., "iPhone15,2").
+    ///
+    /// Lockdown's `ModelNumber` is the order number ("MQ6M3LL/A"); the identifier is what the rest
+    /// of the app matches hardware against — `IPSWBrowser` keys its catalogue off the same string.
     public func getModelNumber() async throws -> String {
-        try await queryValue(key: "ModelNumber")
+        try requireConnection()
+        let model = hardwareModelIdentifier()
+        return model.isEmpty ? "unknown" : model
     }
 
     /// Gets the device UDID from the pairing file.
     public func getUDID() async throws -> String {
-        // The UDID is in the pairing file
-        guard let data = try? Data(contentsOf: pairingFileURL), // try? ok: file may not exist, handled by guard
-              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any], // try? ok: invalid plist handled by guard
-              let udid = plist["DeviceID"] as? String else {
+        guard FileManager.default.fileExists(atPath: pairingFileURL.path) else {
+            throw LockdownClientError.pairingFileNotFound
+        }
+
+        guard let data = try? Data(contentsOf: pairingFileURL), // try? ok: missing or unreadable file is the failure being reported
+              let udid = Self.udid(in: data) else {
             throw LockdownClientError.invalidPairingFile
         }
         return udid
@@ -141,38 +152,24 @@ public actor LockdownClient {
             iosVersion: iosVersion,
             buildVersion: buildVersion,
             modelNumber: modelNumber,
-            isTrusted: true // If we can connect, the device is trusted
+            isTrusted: true // If the pairing record is readable, the device is trusted
         )
     }
 
-    /// Queries a single value from Lockdown.
-    private func queryValue(key: String) async throws -> String {
-        guard let client = lockdownClient else {
+    // MARK: - Internals
+
+    private func requireConnection() throws {
+        guard isConnected else {
             throw LockdownClientError.connectionFailed("Not connected")
-        }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            var value: UnsafeMutablePointer<CChar>? = nil
-            let error = lockdown_get_value(client, key, &value)
-
-            if error != 0 {
-                continuation.resume(throwing: LockdownClientError.queryFailed("lockdown_get_value(\(key)) returned \(error)"))
-                return
-            }
-
-            guard let value = value else {
-                continuation.resume(throwing: LockdownClientError.invalidResponse)
-                return
-            }
-
-            let string = String(cString: value)
-            lockdown_free_value(value)
-            continuation.resume(returning: string)
         }
     }
 
-    deinit {
-        disconnect()
+    /// The `DeviceID` entry of a pairing record, which is the device's UDID.
+    private static func udid(in data: Data) -> String? {
+        guard let plist = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) as? [String: Any] else { // try? ok: an unparseable record is reported as invalidPairingFile by the caller
+            return nil
+        }
+        return plist["DeviceID"] as? String
     }
 }
 
@@ -186,4 +183,53 @@ public func getPairedDeviceInfo() async throws -> DeviceInfo {
     let info = try await client.getDeviceInfo()
     await client.disconnect()
     return info
+}
+
+// MARK: - Local identity
+
+/// What the running device reports about itself.
+///
+/// `UIDevice` is a main-actor API, so the reads are taken as one snapshot there instead of hopping
+/// for each value.
+@MainActor
+private struct LocalDeviceIdentity: Sendable {
+    let name: String
+    let systemVersion: String
+
+    static func read() -> LocalDeviceIdentity {
+        LocalDeviceIdentity(
+            name: UIDevice.current.name,
+            systemVersion: UIDevice.current.systemVersion
+        )
+    }
+}
+
+/// `utsname.machine` — the hardware identifier, spelled the way the firmware catalogue spells it.
+private func hardwareModelIdentifier() -> String {
+    var system = utsname()
+    uname(&system)
+    let mirror = Mirror(reflecting: system.machine)
+    let identifier = mirror.children.reduce(into: "") { partial, element in
+        guard let value = element.value as? Int8, value != 0 else { return }
+        partial.append(Character(UnicodeScalar(UInt8(value))))
+    }
+    return identifier.trimmingCharacters(in: .whitespaces)
+}
+
+/// The family the hardware identifier belongs to. `DevicePickerView` picks its row icon off the
+/// lowercased form of this string.
+private func deviceType(forHardwareModel model: String) -> String {
+    if model.hasPrefix("iPhone") { return "iPhone" }
+    if model.hasPrefix("iPad") { return "iPad" }
+    if model.hasPrefix("iPod") { return "iPod touch" }
+    return "iOS Device"
+}
+
+/// The build number out of `operatingSystemVersionString` — "Version 17.2 (Build 21C62)".
+private func buildNumber(from versionString: String) -> String? {
+    guard let open = versionString.range(of: "(Build ") else { return nil }
+    let rest = versionString[open.upperBound...]
+    guard let close = rest.range(of: ")") else { return nil }
+    let build = String(rest[rest.startIndex..<close.lowerBound]).trimmingCharacters(in: .whitespaces)
+    return build.isEmpty ? nil : build
 }

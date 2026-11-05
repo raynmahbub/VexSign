@@ -88,16 +88,18 @@ struct DevicePickerTests {
 
     // MARK: - IDeviceManager Tests
 
-    @Test("IDeviceManager pairing file path")
-    func testPairingFilePath() {
-        let manager = IDeviceManager.shared
-        // Use reflection to access private property or test via public API
-        // The pairing file path should be in Documents
-        let expectedPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("pairingFile.plist").path
+    @MainActor
+    @Test("IDeviceManager answers from the pairing file and nothing else")
+    func testPairedDevicesComeFromPairingFile() async throws {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let pairingFile = documents.appendingPathComponent("pairingFile.plist")
+        #expect(pairingFile.path.contains("Documents"))
+        #expect(pairingFile.path.contains("pairingFile.plist"))
 
-        // We can't directly test the private property, but we can verify the format
-        #expect(expectedPath.contains("pairingFile.plist"))
-        #expect(expectedPath.contains("Documents"))
+        // One device per pairing record and none without one: the manager never
+        // invents a device out of a UDID it could not read.
+        let expected = FileManager.default.fileExists(atPath: pairingFile.path) ? 1 : 0
+        let devices = try await IDeviceManager.shared.getPairedDevices()
+        #expect(devices.count == expected)
     }
 }

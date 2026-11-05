@@ -3,6 +3,7 @@
 
 import Foundation
 import Testing
+import NativeSigning
 import NimbleExtensions
 @testable import VexSign
 

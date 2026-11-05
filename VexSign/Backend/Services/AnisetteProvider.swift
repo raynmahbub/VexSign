@@ -1,54 +1,16 @@
-// MARK: - SystemAnisetteHeaderTransport
-/// Default HTTP transport for fetching anisette headers from a configured endpoint.
-/// Uses ephemeral URLSession with redirect denial, no cookies/cache, and strict timeouts.
+// MARK: - AnisetteProvider
+/// What the app adds around NativeSigning's anisette pieces.
+///
+/// The HTTPS transport is *not* re-declared here. `NativeSigning` already ships
+/// `SystemAnisetteHeaderTransport` — bounded streaming, no cookies or cache, redirects
+/// refused — and `HTTPSAnisetteProvider.init(descriptor:)` only exists for that exact
+/// transport (`extension HTTPSAnisetteProvider where Transport == SystemAnisetteHeaderTransport`).
+/// A same-named app type would shadow it inside this module and leave every
+/// `HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor:)` call without an
+/// initializer, so the dependency's transport is the only one.
 
 import Foundation
 import NativeSigning
-
-public struct SystemAnisetteHeaderTransport: AnisetteHeaderTransport {
-    private let session: URLSession
-
-    public init() {
-        let config = URLSessionConfiguration.ephemeral
-        config.httpCookieAcceptPolicy = .never
-        config.httpShouldSetCookies = false
-        config.urlCache = nil
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 45
-        self.session = URLSession(configuration: config, delegate: RedirectDenyingDelegate(), delegateQueue: nil)
-    }
-
-    public func fetch(from endpoint: URL, maximumBytes: Int) async throws -> AnisetteHeaderResponse {
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("VexSign/1.0", forHTTPHeaderField: "User-Agent")
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw HTTPSAnisetteProviderError.networkFailure
-        }
-        let mimeType = httpResponse.mimeType
-        return AnisetteHeaderResponse(
-            url: endpoint,
-            status: httpResponse.statusCode,
-            mimeType: mimeType,
-            body: data
-        )
-    }
-}
-
-/// Delegate that denies all redirects to prevent header leakage.
-private final class RedirectDenyingDelegate: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask,
-                    willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest,
-                    completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil) // Deny redirect
-    }
-}
 
 // MARK: - LocalAnisetteProvider
 /// A local/default anisette provider that can be used for testing.
