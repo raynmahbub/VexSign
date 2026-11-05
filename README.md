@@ -21,20 +21,155 @@ Local signing uses the bundled Zsign engine; optional companion/cloud paths are
 separate, opt-in flows. Open source means you can inspect the implementation and
 self-host the optional services—not that every feature is production-ready.
 
-| Workspace | Features |
-| --- | --- |
-| **Sign & install** | Import `.p12` certificates and `.mobileprovision` profiles; inspect expiry, revocation and compatibility; edit bundle ID, version, name and entitlements; sign and verify; local HTTPS, idevice and companion installation flows. |
-| **Manage apps** | Imported/signed Library, favourites, batch signing, cloning, thinning, export, update tracking, storage cleanup previews and biometric protection. |
-| **Discover** | AltStore-compatible sources, app browsing/search, update rules, repository creation/validation and signed source metadata. |
-| **Inspect & extend** | IPA and Mach-O inspection, tweak injection and bundle review. |
-| **Automate & transfer** | Shortcuts, App Intents, widgets, Live Activities, authenticated browser Web Manager, API and WebDAV. |
-| **Make it yours** | System, Midnight Violet, Graphite, Paper, OLED, Luna and Flare appearances; Dynamic Type, VoiceOver and Reduce Motion support. |
-| **Connect devices** | TV/visionOS status and library views; Watch status, remote commands and complications. See [platform limits](docs/PLATFORMS.md). |
-| **Self-host & experiment** | Optional Python repository/web-tools server, TypeScript cloud signer, native account/provisioning package and guest-host container. See the [component guides](docs/README.md#component-guides). |
+## Features
 
-These are project capabilities, not a claim that every device or third-party IPA
-is supported. Prefer a simpler tool if you only need one-off signing; prefer a
-mature provisioning workflow if experimental Apple ID support is a deal-breaker.
+### ✍️ Signing & installation
+
+- **On-device IPA signing** powered by Zsign.
+- **Batch signing and install queues** for processing multiple apps with per-app settings.
+- **Reusable signing profiles** and named presets for repeat workflows.
+- **Signing options and entitlement management**, with preflight checks and signing logs.
+- **Local HTTPS installation** using `itms-services://`, plus paired installation through the AFC / `installd` backend.
+- **Signing Live Activities** to follow progress on supported devices.
+- **Auto-sign workflows** and **Update All** for re-signing source updates.
+
+### 🧩 Customization & IPA tools
+
+- **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support.
+- **Tweak management** to organize injection components, with dependency-aware ElleKit injection and legacy Substrate replacement.
+- **Mach-O thinning** to remove non-target architectures from supported universal binaries.
+- **Document picker fixes**, keychain isolation and optional JIT entitlement settings. Entitlements alone do not guarantee JIT availability on a device.
+- **IPA Explorer** for browsing app contents and editing `Info.plist`, files and images.
+- **Clone Wizard** to create 1–20 numbered clones from a library app, rewriting identifiers and display names.
+- **Clone icon badges** when a writable PNG icon is available; cloned apps still need compatible signing options and profiles.
+- **File manager**, document browsing, QuickLook previews and file/compression settings.
+
+### 📚 Sources, discovery & updates
+
+- **AltStore-compatible repositories** through AltSourceKit, including the existing encrypted ESign parsing support.
+- **Source management and preferences**, repository refresh and app update tracking.
+- **HTTPS-only repository transport**, with an explicit opt-in for local HTTP repositories.
+- **Source health dashboard** — last successful refresh, failure reasons, retry counts, rate-limit status, priority and duplicate-app resolution.
+- **Discovery** with multi-term search, suggestions, favorites, categories and collections.
+- **Featured, recommended, locally ranked trending and recently updated views** with app cards and carousels.
+- **Bundle-ID grouping and multi-source version selection** for apps offered by multiple repositories.
+- **Offline repository catalog** — the last successful snapshot of every source is kept on disk, clearly marked as a saved copy when a refresh fails, so browsing keeps working with no network.
+- **Conditional repository sync** using ETag / Last-Modified, unchanged-content detection and coalesced refreshes.
+- **Last-known-good source retention** when refreshes fail, plus opt-in startup/background refresh.
+- **Per-app update rules** — ignore a version, ignore or prefer a source, pin a certificate, disable automatic updates and preserve custom signing options across updates.
+- **Premium activation, restore and device recovery** through the configured backend, with premium catalog filters.
+- **App self-update checking** and controls for skipped source updates.
+
+### 🛠️ Repository Builder & sharing
+
+Available from **Settings → Ecosystem**.
+
+- Create, edit, save and delete repository projects.
+- Import repository JSON from files or HTTPS URLs.
+- Export `source.json` and `apps.json`, with format selection and conversion for supported public JSON fields.
+- Validate entries, probe links and apply supported URL/screenshot fixes.
+- Generate and export **OTA manifests, installation links and QR codes**.
+
+> OTA export does not upload your files or configure hosting. Installation requires a reachable HTTPS host and a correctly signed IPA. Repository conversion supports a common public JSON subset, not every provider-specific field.
+
+### ⬇️ Downloads & file transfer
+
+- **Background downloads** with progress, speed tracking, pause/resume/stop controls, Live Activities and Dynamic Island support where available. Download controls are not a promise of resumable IPA extraction.
+- **Wi-Fi-only and charging-only download conditions**.
+- **HTTP and WebDAV file transfer** through the built-in web manager.
+- **SHA-256 hashing** in download logs and file verification against a supplied hash.
+- **Game Mode** to pause downloads and background work.
+
+### 🔐 Certificates & security
+
+- Import and manage signing certificates and provisioning profiles.
+- **Certificate status monitoring**, batch checks and expiry reminders.
+- **Certificate Dashboard** with profile payloads, entitlements, team information, expiry countdowns and device/bundle scope.
+- **Local trust / OCSP checks**, status indicators and opt-in best-effort daily checks and alerts.
+- **Local HTTPS trust setup** using a device-generated TLS identity; no shared certificate pack is downloaded by the normal build.
+- **P12 password recovery tools** for your own password-protected certificates.
+- **Face ID / passcode app lock** when the app leaves the foreground.
+- **Keychain-backed secret storage and migration** for supported passwords and API credentials.
+- **Profile compatibility, nested-bundle coverage and output verification** to surface identity/extension mismatches and invalid signed outputs.
+- **Signed source metadata verification** for supported publisher signatures; a verified publisher is not proof that an IPA is safe.
+- **Authenticated Web Manager** with explicit network access, API-token controls and separate certificate-export permission.
+- **Anti-Revoke DNS profile tools** for verification-host filtering; these do not guarantee protection from certificate revocation.
+
+### ⚡ Automation, cleanup & backup
+
+- **Scheduled automation** for updates, cleanup and summaries, subject to iOS background execution limits.
+- **Siri & Shortcuts**: App Intents for signing a chosen app, installation, repository refresh, certificate checks, URL downloads, section navigation, Game Mode, Update All, cleanup and signing the latest download; library-summary actions expose status to automations. See **Settings → Siri & Shortcuts**.
+- **Widgets**: certificate/update status **and a configurable Repository Apps widget** (pick a repository, sort by name or updates-first, tap a row to open that app), plus **Live Activities** for supported signing/download workflows.
+- **Automatic post-install cleanup**, delete-after-install/cache settings, cleanup history, storage breakdown and cleanup previews. Batch-install behaviour still needs device acceptance.
+- **Encrypted `.vexbackup` backup and restore**.
+- **Local analytics** with daily, weekly and monthly charts for recorded signing/install activity, certificate/source events and storage gauges.
+- **Console and signing logs** for troubleshooting, plus diagnostic ZIP export with secret-redaction filters. Review diagnostics before sharing.
+
+### 📺 Companion platforms
+
+Apple TV, Apple Vision Pro and Apple Watch apps mirror what the phone is doing.
+They cannot sign or install — no certificate, no IPA storage, no `installd` — so
+they show certificate health, library and update state instead, and the watch can
+trigger a refresh, a certificate check, Update All or a cleanup on the phone.
+
+- **Apple TV** (tvOS 17+): focus-first status screen over the Web Manager API.
+- **Apple Vision Pro** (visionOS 2+): spatial glass panels, same data.
+- **Apple Watch** (watchOS 10+): certificate countdown, counts, four remote
+  commands over WatchConnectivity, plus a complication widget.
+
+See [companion platforms](docs/PLATFORMS.md) for pairing, build commands and the
+limits.
+
+### 🌐 Web tools
+
+Served by the backend under `/tools`, and linked from **Settings → Ecosystem →
+Web Tools**:
+
+- **Signer Console** — queue IPAs in a browser and get signed ones back; the
+  page relays to the phone's Web Manager, so signing still happens on-device.
+- **Repository Creator** — build, validate and export a source feed plus OTA
+  manifests in the browser.
+- **Repository Decoder** — read any feed (AltStore, SideStore, flat schema,
+  `apps.json`, legacy appdata XML), see what it contains, export it in another
+  dialect.
+- **App Installer** — turn a hosted IPA into an `itms-services://` link and
+  probe the URL so a spinner that never resolves is caught here instead.
+- **Certificate Status Checker** — expiry, team, entitlements and device scope
+  from a provisioning profile; never accepts a `.p12` or a password.
+- **UDID Grabber** — one-time enrolment profile, in-memory session, no storage.
+
+See [web tools](docs/WEBTOOLS.md) for endpoints and the privacy stance.
+
+### 🎨 A native workspace
+
+- SwiftUI navigation, search, material surfaces and availability-gated Liquid Glass styling.
+- System, Midnight Violet, Graphite, Paper, OLED, Luna and Flare appearances, tint and app-icon settings.
+- Dynamic Type, VoiceOver and Reduce Motion support; setup health and searchable settings.
+- Configurable tab bar and library display preferences.
+- Ecosystem tools grouped in a dedicated settings entry point.
+
+<details>
+<summary><strong>Developer components & implementation status</strong></summary>
+
+This repository also contains optional services and experimental tooling beyond the everyday signing workflow:
+
+- **Native account provisioning:** experimental Apple-account authentication/provisioning and anisette-provider configuration; not a complete, device-validated Apple ID signer.
+- **Guest-host packaging:** a separately built LiveContainer/SideStore prototype with pinned inputs; not the normal VexSign IPA. See [current scope](EmbeddedContainer/README.md).
+
+- **Python backend:** premium key validation, device binding, recovery, gated feeds, admin key management and IPA catalog endpoints. See [`server/`](server/).
+- **Native cloud bridge:** endpoint/token configuration and connection testing, with client methods for remote signing jobs. Requires a compatible deployed backend.
+- **Cloud-signing infrastructure:** a separate TypeScript/Fastify API with JWT authorization, PostgreSQL, Redis/BullMQ queues, private S3 storage, worker contracts, webhook retries and OTA endpoints. See [`cloud-signing/`](cloud-signing/).
+- **OTA server pages:** manifest/download endpoints, installation links and QR codes, with optional app images, screenshots and changelogs.
+- **Tests and CI:** iOS test sources, backend tests and cloud-service tests alongside build/deployment tooling.
+
+**Cloud signing is not a turnkey feature:** no signing engine/sandbox launcher is bundled. The native client bridge and settings do not by themselves provide a deployed signing service. It requires infrastructure, a signer integration and end-to-end validation. Discovery rankings are local, not global popularity statistics; background schedules are controlled by iOS.
+
+For detailed feature boundaries, security caveats and remaining device/release testing, read the [architecture](docs/ARCHITECTURE.md), [native-signing status](docs/NATIVE_SIGNING_ARCHITECTURE.md) and [device acceptance guide](docs/DEVICE_TESTING.md).
+
+</details>
+
+For upstream changes and porting considerations, see the
+[dated upstream feature review](docs/UPSTREAM_REVIEW.md).
 
 ## Get started
 
@@ -67,23 +202,6 @@ make help                 # all supported entry points
 ```
 
 See [Build](docs/BUILD.md) for toolchain selection and troubleshooting.
-
-## Repository layout
-
-| Location | Responsibility |
-| --- | --- |
-| `VexSign/`, `VexSignTests/` | Main app and simulator tests |
-| `AltSourceKit/`, `NimbleKit/`, `NativeSigning/`, `SideSign/` | Local Swift packages and signing integration |
-| `VexSignTV/`, `VexSignVision/`, `VexSignWatch*/`, `VexSignWidgetExtension/` | Companions and extensions |
-| `Vendor/`, `Tweaks/`, `EmbeddedContainer/` | Third-party sources, injection and experimental host packaging |
-| `server/`, `cloud-signing/`, `AnisetteServer/` | Optional services; each has its own setup/limitations |
-| `tools/`, `.github/` | Bootstrap, validation, maintenance and workflows |
-| `docs/` | Task-oriented guides and presentation assets; start at the [index](docs/README.md) |
-
-Keep source paths stable: Xcode target membership, package manifests and packaging
-scripts depend on them. `tools/` holds all developer commands; `.github/` is only
-GitHub configuration and runner helpers. Root metadata/feeds stay stable for tool
-discovery and published URLs. Generated IPAs, credentials and caches do not belong in Git.
 
 ## Quality & releases
 

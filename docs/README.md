@@ -29,6 +29,7 @@ versioned with the code.
 | [Device acceptance](DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
+| [Upstream review](UPSTREAM_REVIEW.md) | You want the dated upstream feature snapshot and porting caveats—not a list of shipped VexSign features. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |
 | [Changelog](../CHANGELOG.md) | You need the user-visible history. |
 
