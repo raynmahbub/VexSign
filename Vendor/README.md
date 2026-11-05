@@ -5,14 +5,15 @@ plain `git clone` and CI never need an extra checkout to build VexSign.
 
 | Package | Upstream | Pinned commit | License |
 | --- | --- | --- | --- |
-| `Zsign` | [claration/Zsign-Package](https://github.com/claration/Zsign-Package) (`package`) | `6ffe703` · 2025-07-27 | MIT |
+| `Zsign` | [claration/Zsign-Package](https://github.com/claration/Zsign-Package) (`package`) | `6ffe703` · 2025-07-28 | MIT + Apache-2.0 component notice |
 | `IDeviceKitten` | [claration/IDeviceKit](https://github.com/claration/IDeviceKit) (`main`) | `837cf1e` · 2026-04-14 | MIT |
 
 The exact pins, paths and licence files are in [`manifest.json`](manifest.json).
 `IDeviceKit`'s `Package.swift` still resolves its `IDevice` binary target from
 the upstream release URL; the Swift sources and manifest are vendored here.
 `Zsign`'s `Package.swift` still declares its OpenSSL SwiftPM dependency. Both
-are ordinary SwiftPM dependencies.
+are ordinary SwiftPM dependencies. This is a source snapshot, not a completely
+offline build.
 
 ## Why
 
@@ -30,7 +31,7 @@ are ordinary SwiftPM dependencies.
    git clone https://github.com/claration/Zsign-Package.git /tmp/zsign
    git -C /tmp/zsign fetch --depth 1 origin <commit>
    rm -rf Vendor/Zsign/src Vendor/Zsign/Sources
-   git -C /tmp/zsign archive <commit> src Sources Package.swift LICENSE LICENSE_LC \
+   git -C /tmp/zsign archive <commit> src Sources Package.swift README.md LICENSE LICENSE_LC \
      | tar -x -C Vendor/Zsign
    ```
 
@@ -41,3 +42,16 @@ are ordinary SwiftPM dependencies.
    `CHANGELOG.md`.
 
 Do not add upstream build output, tests, `.git`, or generated artifacts.
+
+## Layout and notices
+
+Keep upstream package paths intact: `Sources/IDeviceSwift/` is SwiftPM target
+layout, and `src/` plus `Sources/` are explicitly selected by Zsign's manifest.
+The upstream `Utilties/` spelling is intentional here for snapshot fidelity; do
+not rename it just to change GitHub's compact-folder display. `IDeviceKitten` is
+the checkout folder, while its upstream package name remains `IDeviceKit`.
+
+Zsign carries both `LICENSE` (MIT) and `LICENSE_LC` (Apache-2.0); preserve both.
+Commit dates in the table/manifest are UTC dates. When checking a refresh, compare
+file blobs with the declared upstream tree, not merely the short commit label.
+Dependency/binary downloads still require network access and upstream availability.
