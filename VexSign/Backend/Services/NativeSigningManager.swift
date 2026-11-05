@@ -200,8 +200,13 @@ final class NativeSigningManager: ObservableObject {
             let profileApproval = try await recordProfileCreationApproval(contextID: contextID, target: target)
             let profileResult = try await createProvisioningProfile(contextID: contextID, target: target, approval: profileApproval)
 
-            // 8. Re-sign and queue the app for installation
-            await reSignAppWithNewProfile(bundleIdentifier: bundleIdentifier, profileResult: profileResult)
+            // 8. The renewed profile is now recorded by the backend. Re-signing stays
+            // with the normal signing pipeline (FR.signPackageFile -> SigningService),
+            // which owns the live activity, the unified task record and the signing
+            // log. A second Zsign path here would bypass all three, and there is no
+            // stored original IPA to feed it: import extracts the payload, it does not
+            // keep the archive.
+            logger.info("Renewed profile for \(bundleIdentifier); re-sign it from the library")
 
             await MainActor.run {
                 UnifiedTaskCenter.shared.transition(task, to: .completed)
@@ -230,182 +235,6 @@ final class NativeSigningManager: ObservableObject {
 
         // For now, throw an error indicating manual input needed
         throw NativeSigningError.provisioningFailed("Device UDID required for renewal. Please run provisioning manually.")
-    }
-
-    /// Re-signs an app with the newly created profile and queues for installation.
-    /// This integrates with the existing Zsign signing pipeline and InstallQueue.
-    private func reSignAppWithNewProfile(bundleIdentifier: String, profileResult: NativeAccountProfileResult) async {
-        guard let backend = backend,
-              let snapshot = snapshot,
-              case .signedIn(let context) = snapshot.phase else {
-            logger.error("Cannot re-sign: no active signing context")
-            return
-        }
-
-        do {
-            // 1. Find the app in the library
-            let apps = Storage.shared.getAllApps()
-            guard let app = apps.first(where: { $0.identifier == bundleIdentifier && $0.isSigned }) else {
-                logger.error("App not found in library: \(bundleIdentifier)")
-                return
-            }
-
-            // 2. Get the identity and certificate for this context
-            // We need to find the identity that was used to create this profile
-            let identities = try await backend.listProfiles(contextID: context.id)
-            guard let identity = identities.first else {
-                logger.error("No signing identity found for re-signing")
-                return
-            }
-
-            // 3. Export certificate and private key as .p12
-            let keyExportConsent = try await backend.recordExplicitKeyExportConsent(
-                contextID: context.id,
-                identityID: identity.identityID
-            )
-            let (p12Data, p12Password) = try await exportSigningIdentityAsP12(
-                contextID: context.id,
-                identityID: identity.identityID,
-                password: generateRandomPassword(),
-                consent: keyExportConsent
-            )
-
-            // 4. Download the provisioning profile as .mobileprovision
-            let anisetteConsent = try await backend.recordExplicitAnisetteConsent()
-            let profileData = try await downloadProvisioningProfile(
-                contextID: context.id,
-                profileUUID: profileResult.profileUUID,
-                consent: anisetteConsent
-            )
-
-            // 5. Create Zsign request and sign
-            let signedIPAURL = try await signWithZsign(
-                app: app,
-                p12Data: p12Data,
-                p12Password: p12Password,
-                profileData: profileData
-            )
-
-            // 6. Update the app record with the new signed IPA and enqueue for installation
-            await updateAppAndEnqueueForInstallation(app: app, signedIPAURL: signedIPAURL)
-
-            logger.info("Successfully re-signed \(bundleIdentifier) with new profile \(profileResult.profileUUID)")
-
-        } catch {
-            logger.error("Failed to re-sign \(bundleIdentifier): \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    /// Generates a random password for the .p12 file.
-    private func generateRandomPassword() -> String {
-        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-        return String((0..<32).map { _ in characters.randomElement()! })
-    }
-
-    /// Exports the signing identity (private key + certificate) as a .p12 file.
-    private func exportSigningIdentityAsP12(
-        contextID: UUID,
-        identityID: UUID,
-        password: String,
-        consent: NativeKeyExportConsent
-    ) async throws -> (Data, String) {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
-        let p12Data = try await backend.exportSigningIdentity(
-            contextID: contextID,
-            identityID: identityID,
-            password: password,
-            consent: consent
-        )
-        return (p12Data, password)
-    }
-
-    /// Downloads the provisioning profile from Apple as a .mobileprovision file.
-    private func downloadProvisioningProfile(
-        contextID: UUID,
-        profileUUID: UUID,
-        consent: AnisetteConsentToken
-    ) async throws -> Data {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
-        return try await backend.downloadProvisioningProfile(
-            contextID: contextID,
-            profileUUID: profileUUID,
-            consent: consent
-        )
-    }
-
-    /// Signs an app using Zsign with the provided certificate and profile.
-    private func signWithZsign(
-        app: AppInfoPresentable,
-        p12Data: Data,
-        p12Password: String,
-        profileData: Data
-    ) async throws -> URL {
-        // Create temporary files for Zsign
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("VexSignReSign_\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-
-        let appPath = tempDir.appendingPathComponent("app.ipa")
-        let p12Path = tempDir.appendingPathComponent("cert.p12")
-        let profilePath = tempDir.appendingPathComponent("profile.mobileprovision")
-        let outputPath = tempDir.appendingPathComponent("signed.ipa")
-
-        // Copy the original IPA
-        let originalIPAURL = app.localURL
-        try FileManager.default.copyItem(at: originalIPAURL, to: appPath)
-
-        // Write certificate and profile
-        try p12Data.write(to: p12Path)
-        try profileData.write(to: profilePath)
-
-        // Create Zsign request
-        var request = ZsignEngine.Request(appPath: appPath.path)
-        request.p12Path = p12Path.path
-        request.p12Password = p12Password
-        request.provisionPath = profilePath.path
-        request.removeProvisioning = false // Keep the new profile
-
-        // Run Zsign
-        let outcome = ZsignEngine.sign(request)
-        if let errorMessage = outcome.errorMessage {
-            throw NativeSigningError.signingFailed("Zsign failed: \(errorMessage)")
-        }
-        if !outcome.succeeded {
-            throw NativeSigningError.signingFailed("Zsign signing failed")
-        }
-
-        // Zsign typically modifies the app in place
-        return appPath
-    }
-
-    /// Updates the app record with the new signed IPA and enqueues for installation.
-    private func updateAppAndEnqueueForInstallation(app: AppInfoPresentable, signedIPAURL: URL) async {
-        // Move the signed IPA to the app's directory
-        let appDir = Storage.shared.getAppDirectory(for: app) ?? Storage.shared.getImportedAppDirectory(for: app)
-        guard let appDir = appDir else {
-            logger.error("Could not find app directory for \(app.identifier)")
-            return
-        }
-
-        let destinationURL = appDir.appendingPathComponent("\(app.fileName).ipa")
-        do {
-            // Remove old IPA if exists
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                try FileManager.default.removeItem(at: destinationURL)
-            }
-            // Move new signed IPA
-            try FileManager.default.moveItem(at: signedIPAURL, to: destinationURL)
-
-            // Update the app record in storage (mark as signed with new profile)
-            // The Signed app record will be updated when the installation completes
-            // For now, enqueue the app for installation using the existing pipeline
-            await MainActor.run {
-                InstallQueue.shared.enqueue(app, exporting: false)
-            }
-
-            logger.info("Enqueued \(app.identifier) for installation with new profile")
-        } catch {
-            logger.error("Failed to update app and enqueue: \(error.localizedDescription, privacy: .public)")
-        }
     }
 
     // MARK: - Backend Initialization
