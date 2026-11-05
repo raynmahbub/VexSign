@@ -629,7 +629,7 @@ final class NativeSigningManager: ObservableObject {
         let id: UUID
         let identityID: UUID
         let teamIdentifier: String
-        let phase: NativeSigningIdentityTicket.Phase
+        let phase: NativeSigningIdentityPhase
         let publicKeyHash: String
         let csrHash: String?
         let certificateHash: String?

@@ -1,8 +1,13 @@
 // MARK: - AnisetteProviderTests
 /// Unit tests for the AnisetteProvider functionality.
+///
+/// The descriptor, its consent errors and the HTTPS provider all live in `NativeSigning`;
+/// the factory and the local provider are the app's. Both modules are named here, so the
+/// import list is longer than a pure app-level test file.
 
 import Foundation
 import Testing
+import NativeSigning
 import NimbleExtensions
 @testable import VexSign
 
@@ -42,66 +47,111 @@ struct AnisetteProviderTests {
         #expect(descriptor.endpoint == endpoint)
     }
 
-    // MARK: - AnisetteProviderFactory Tests
-
-    @Test("AnisetteProviderFactory initial state")
-    func testFactoryInitialState() {
-        let factory = AnisetteProviderFactory.shared
-        // Initially no descriptor is configured
-        #expect(factory.currentDescriptor == nil)
-        #expect(factory.isConfigured == false)
+    @Test("AnisetteProviderDescriptor refuses a non-HTTPS endpoint")
+    func testRejectsInsecureEndpoint() {
+        var thrown: Error?
+        do {
+            _ = try AnisetteProviderDescriptor(
+                identifier: "test.anisette",
+                displayName: "Test Anisette Server",
+                policyRevision: "1",
+                endpoint: URL(string: "http://example.com/anisette")!
+            )
+        } catch {
+            thrown = error
+        }
+        #expect(thrown as? AnisetteConsentError == .invalidProvider)
     }
 
-    // MARK: - SystemAnisetteHeaderTransport Tests
+    @Test("AnisetteProviderDescriptor refuses credentials in the endpoint")
+    func testRejectsSecretBearingEndpoint() {
+        var thrown: Error?
+        do {
+            _ = try AnisetteProviderDescriptor(
+                identifier: "test.anisette",
+                displayName: "Test Anisette Server",
+                policyRevision: "1",
+                endpoint: URL(string: "https://user:password@example.com/anisette")!
+            )
+        } catch {
+            thrown = error
+        }
+        #expect(thrown as? AnisetteConsentError == .invalidProvider)
+    }
 
-    @Test("SystemAnisetteHeaderTransport denies redirects")
-    func testTransportRedirectDenial() async throws {
-        let endpoint = URL(string: "https://example.com/anisette")!
-        let transport = SystemAnisetteHeaderTransport(endpoint: endpoint)
+    // MARK: - AnisetteProviderFactory Tests
 
-        // The transport should deny redirects by design
-        // We can't easily test the actual network call, but we verify the type exists
-        #expect(transport.endpoint == endpoint)
+    @MainActor
+    @Test("AnisetteProviderFactory has no provider before configuration")
+    func testFactoryInitialState() {
+        let factory = AnisetteProviderFactory.shared
+        factory.clearConfiguration()
+
+        #expect(factory.currentDescriptor == nil)
+        #expect(factory.isConfigured == false)
+        #expect(factory.makeProvider() == nil)
+    }
+
+    @MainActor
+    @Test("AnisetteProviderFactory configures and clears a custom HTTPS endpoint")
+    func testFactoryConfigureAndClear() throws {
+        let factory = AnisetteProviderFactory.shared
+        defer { factory.clearConfiguration() }
+
+        try factory.configureHTTPS(endpoint: URL(string: "https://my-server.com/anisette")!)
+
+        #expect(factory.isConfigured == true)
+        #expect(factory.currentDescriptor?.identifier == "vexsign.local")
+        #expect(factory.currentDescriptor?.displayName == "Custom Anisette Server")
+        #expect(factory.currentDescriptor?.policyRevision == "1")
+
+        factory.clearConfiguration()
+
+        #expect(factory.isConfigured == false)
+        #expect(factory.currentDescriptor == nil)
+    }
+
+    @MainActor
+    @Test("AnisetteProviderFactory builds the provider its descriptor describes")
+    func testFactoryMakesProvider() throws {
+        let factory = AnisetteProviderFactory.shared
+        defer { factory.clearConfiguration() }
+
+        try factory.configureHTTPS(endpoint: URL(string: "https://my-server.com/anisette")!)
+
+        // Same construction the factory does internally; if the transport and the
+        // provider's constrained initializer ever drift apart this stops compiling.
+        let descriptor = AnisetteProviderDescriptor.defaultHTTPS(
+            endpoint: URL(string: "https://my-server.com/anisette")!,
+            identity: "vexsign.local",
+            policyRevision: 1
+        )
+        let provider = try HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor: descriptor)
+
+        #expect(provider.descriptor == descriptor)
+        #expect(factory.makeProvider() != nil)
     }
 
     // MARK: - LocalAnisetteProvider Tests
 
-    @Test("LocalAnisetteProvider for testing")
-    func testLocalProvider() {
-        let headers = [
-            "X-Apple-I-MD": "test123",
-            "X-Apple-I-MD-M": "test456",
-            "X-Apple-I-MD-RINFO": "1710000000",
-            "X-Apple-I-MD-LU": "1710000000",
-            "X-Apple-I-SRL-NO": "123456",
-            "X-Apple-I-Client-Time": "2024-01-15T10:30:00Z",
-            "X-Apple-I-Timezone": "America/New_York",
-            "X-Apple-Locale": "en_US",
-            "X-Apple-Device-ID": "ABCDEF12-3456-7890-ABCD-EF1234567890",
-            "X-Mme-Device-Id": "ABCDEF12-3456-7890-ABCD-EF1234567890"
-        ]
-
-        let provider = LocalAnisetteProvider(headers: headers)
-        #expect(provider.headers.count == 10)
-        #expect(provider.headers["X-Apple-I-MD"] == "test123")
-    }
-
-    // MARK: - AnisetteConsentToken Tests
-
-    @Test("AnisetteConsentToken expiration")
-    func testConsentTokenExpiration() {
-        let now = Date()
-        let token = AnisetteConsentToken(
-            descriptor: AnisetteProviderDescriptor(
-                identifier: "test",
-                displayName: "Test",
-                policyRevision: "1",
-                endpoint: URL(string: "https://example.com")!
-            ),
-            expiresAt: now.addingTimeInterval(3600) // 1 hour
+    @Test("LocalAnisetteProvider refuses to invent headers")
+    func testLocalProviderWithoutStaticHeaders() async {
+        let descriptor = AnisetteProviderDescriptor.defaultHTTPS(
+            endpoint: URL(string: "https://my-server.com/anisette")!,
+            identity: "vexsign.local",
+            policyRevision: 1
         )
+        let provider = LocalAnisetteProvider(descriptor: descriptor)
+        #expect(provider.descriptor == descriptor)
 
-        #expect(token.expiresAt > now)
-        #expect(token.expiresAt.timeIntervalSince(now) <= 3600)
+        // No static headers and no endpoint of its own: it must fail rather than
+        // hand back a plausible-looking anisette response.
+        var thrown: Error?
+        do {
+            _ = try await provider.freshHeaders()
+        } catch {
+            thrown = error
+        }
+        #expect(thrown as? HTTPSAnisetteProviderError == .remoteEndpointRequired)
     }
 }

@@ -46,7 +46,7 @@ struct CertificateStatusView: View {
                     ForEach(identities) { identity in
                         CertificateStatusRow(
                             identity: identity,
-                            status: statusResults[identity.identityID]?.status ?? .unknown,
+                            status: statusResults[identity.identityID] == nil ? .notChecked : .verified,
                             lastChecked: statusResults[identity.identityID]?.checkedAt,
                             onCheck: { checkIdentity(identity) },
                             onConsent: { requestConsentForIdentity(identity) }
@@ -194,9 +194,20 @@ struct CertificateStatusView: View {
     }
 }
 
+/// What a row can honestly claim.
+///
+/// `NativeAccountCertificateStatus` is metadata on purpose — the certificate hash and when it
+/// was checked, never a verdict the UI could over-read (`evaluateSigningCertificateStatus`
+/// throws on a rejected certificate, so a returned record *is* the pass). Revocation evidence
+/// belongs to the certificate record, not to this row.
+private enum CertificateStatusKind {
+    case verified
+    case notChecked
+}
+
 private struct CertificateStatusRow: View {
     let identityName: String
-    let status: NativeAccountCertificateStatus.Status
+    let status: CertificateStatusKind
     let lastChecked: Date?
     let onCheck: () -> Void
     let onConsent: () -> Void
@@ -306,37 +317,25 @@ private struct CertificateStatusConsentView: View {
 
 // MARK: - Extensions
 
-extension NativeAccountCertificateStatus.Status {
+extension CertificateStatusKind {
     var icon: String {
         switch self {
-        case .good: return "checkmark.shield.fill"
-        case .revoked: return "xmark.shield.fill"
-        case .expired: return "clock.shield.fill"
-        case .unknown: return "questionmark.shield.fill"
-        case .ocspUnavailable: return "wifi.slash"
-        case .crlUnavailable: return "doc.text.magnifyingglass"
+        case .verified: return "checkmark.shield.fill"
+        case .notChecked: return "questionmark.shield.fill"
         }
     }
 
     var color: Color {
         switch self {
-        case .good: return .green
-        case .revoked: return .red
-        case .expired: return .orange
-        case .unknown: return .secondary
-        case .ocspUnavailable: return .orange
-        case .crlUnavailable: return .orange
+        case .verified: return .green
+        case .notChecked: return .secondary
         }
     }
 
     var displayName: String {
         switch self {
-        case .good: return .localized("Valid")
-        case .revoked: return .localized("Revoked")
-        case .expired: return .localized("Expired")
-        case .unknown: return .localized("Unknown")
-        case .ocspUnavailable: return .localized("OCSP Unavailable")
-        case .crlUnavailable: return .localized("CRL Unavailable")
+        case .verified: return .localized("Valid")
+        case .notChecked: return .localized("Unknown")
         }
     }
 }
