@@ -86,7 +86,7 @@ jobs:
       # first leg saves it, every leg restores into its own DerivedData.
       - name: Restore Swift packages
         id: packages
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
           key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
@@ -120,7 +120,7 @@ jobs:
 
       - name: Save Swift packages
         if: success() && matrix.scheme == 'VexSignTV' && steps.packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
           key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
