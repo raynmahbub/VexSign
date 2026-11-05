@@ -26,8 +26,8 @@
 
 VexSign is an on-device IPA signing and app-management workspace. Import a
 certificate and a provisioning profile, sign an app, inspect its archive, and
-install it — without a Mac in the loop and without uploading your signing
-identity anywhere.
+install it — without a Mac in the loop. Local signing stays on the device;
+companion and cloud flows are explicit, documented and opt-in.
 
 > [!IMPORTANT]
 > VexSign needs a valid signing identity, and installation support depends on
@@ -43,7 +43,7 @@ identity anywhere.
 | **Private by default** | Signing happens on device. Certificates, profiles and passwords stay in the app's protected storage; there is no VexSign signing cloud. |
 | **One coherent workflow** | Import, inspect, sign, install and update share the same task model, progress UI and error guidance. |
 | **At home on iOS** | Built with SwiftUI and the system design language across iOS, iPadOS, tvOS, watchOS and visionOS, with Dynamic Type, VoiceOver and Reduce Motion support. |
-| **Open and inspectable** | Every source file, build check and third-party package is in this repository. The signing engine and device bridge are vendored, not hidden behind submodules. |
+| **Open and inspectable** | Every first-party source file and build check is in this repository. The signing engine and device bridge are vendored, not hidden behind submodules; normal SwiftPM dependencies still resolve from their upstreams. |
 
 ## The workspace
 
@@ -174,7 +174,8 @@ First time here? Read [Free Apple ID setup](docs/FREE_APPLE_ID_SETUP.md),
 ## Build from source
 
 **Requirements:** macOS with a current Xcode, or the matching CI runner. No Git
-submodules, recursive clone or extra package checkout is required.
+submodules or recursive clone is required. `make bootstrap` resolves the
+remaining SwiftPM packages.
 
 ```bash
 git clone https://github.com/raynmahbub/VexSign.git

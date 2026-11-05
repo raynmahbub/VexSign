@@ -13,8 +13,9 @@ Git are available; the app and simulator tests need macOS with Xcode.
 | Tools | `git`, `make`, Python 3, and the Xcode command-line tools |
 | Optional | `swiftlint` for `make lint`; Docker for `make deploy-server` |
 
-No Git submodules or recursive clone is required. Third-party sources are
-vendored under [`Vendor/`](../Vendor/README.md).
+No Git submodules or recursive clone is required. The signing engine and
+device bridge are vendored under [`Vendor/`](../Vendor/README.md); other
+packages resolve through SwiftPM.
 
 ## 1. Clone
 
@@ -35,8 +36,8 @@ the Swift package graph. `make bootstrap` does not build or launch the app.
 
 If package resolution reports a network error, note that
 `Vendor/IDeviceKitten/Package.swift` declares an upstream `IDevice` binary
-target. Xcode downloads that xcframework once and caches it; all other
-third-party source is already in the repository.
+target. Xcode downloads that xcframework once and caches it. The remaining
+SwiftPM packages resolve from their upstreams and are cached by Xcode.
 
 ## 3. Open and run
 

@@ -19,8 +19,9 @@ make bootstrap
 open VexSign.xcworkspace
 ```
 
-No Git submodules are used; third-party sources live in `Vendor/`. Use a
-supported current Xcode and the iOS 16+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
+No Git submodules are used. The signing engine and device bridge live in
+`Vendor/`; other SwiftPM packages resolve normally. Use a supported current
+Xcode and the iOS 16+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
 
 ## Validate changes
 

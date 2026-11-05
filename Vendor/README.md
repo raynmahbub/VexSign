@@ -12,6 +12,8 @@ ordinary local SwiftPM packages, so `git clone` and CI never need
 The exact pins, paths and licence files are in [`manifest.json`](manifest.json).
 `IDeviceKit`'s `Package.swift` still resolves its `IDevice` binary target from
 the upstream release URL; the Swift sources and manifest are vendored here.
+`Zsign`'s `Package.swift` still declares its OpenSSL SwiftPM dependency. Both
+are ordinary SwiftPM dependencies, not Git submodules.
 
 ## Why
 
