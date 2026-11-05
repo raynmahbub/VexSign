@@ -738,7 +738,7 @@ extension NativeAccountPhase {
         case .awaitingTwoFactor: return .localized("Two-Factor Required")
         case .awaitingTeamSelection: return .localized("Select Team")
         case .signedIn(let context): return .localized("Signed In: %@", arguments: context.team.identifier)
-        case .expired(let date): return .localized("Session Expired")
+        case .expired: return .localized("Session Expired")
         }
     }
 }

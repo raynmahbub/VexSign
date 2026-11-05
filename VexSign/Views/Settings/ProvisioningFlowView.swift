@@ -332,7 +332,7 @@ struct ProvisioningFlowView: View {
 
         do {
             // 1. Provisioning preflight
-            await updateStage(.localized("Checking Apple inventory…"), 0.1)
+            updateStage(.localized("Checking Apple inventory…"), 0.1)
             let request = try NativeAccountProvisioningRequest(
                 deviceIdentifier: deviceIdentifier.uppercased(),
                 bundleIdentifiers: [bundleID]
@@ -342,15 +342,15 @@ struct ProvisioningFlowView: View {
             let plan = try await manager.provisioningPreflight(contextID: contextID, request: request)
 
             // 2. Prepare signing identity (key + CSR)
-            await updateStage(.localized("Preparing signing identity…"), 0.25)
+            updateStage(.localized("Preparing signing identity…"), 0.25)
             let identityTicket = try await manager.prepareSigningIdentity(contextID: contextID)
 
             // 3. Certificate creation approval
-            await updateStage(.localized("Requesting certificate creation approval…"), 0.4)
+            updateStage(.localized("Requesting certificate creation approval…"), 0.4)
             let certApproval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.id)
 
             // 4. Create certificate
-            await updateStage(.localized("Creating development certificate…"), 0.55)
+            updateStage(.localized("Creating development certificate…"), 0.55)
             _ = try await manager.createDevelopmentCertificate(
                 contextID: contextID,
                 identityID: identityTicket.id,
@@ -358,19 +358,19 @@ struct ProvisioningFlowView: View {
             )
 
             // 5. Device/App ID registration
-            await updateStage(.localized("Registering device & App ID…"), 0.7)
+            updateStage(.localized("Registering device & App ID…"), 0.7)
             let subject = try NativeRegistrationSubject(kind: .device, value: deviceIdentifier)
             let regApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: subject)
             _ = try await manager.registerResource(contextID: contextID, subject: subject, approval: regApproval)
 
             // 6. App ID registration
-            await updateStage(.localized("Registering App ID…"), 0.8)
+            updateStage(.localized("Registering App ID…"), 0.8)
             let appIDSubject = try NativeRegistrationSubject(kind: .appID, value: bundleID)
             let appIDApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: appIDSubject)
             _ = try await manager.registerResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval)
 
             // 7. Profile creation
-            await updateStage(.localized("Creating provisioning profile…"), 0.9)
+            updateStage(.localized("Creating provisioning profile…"), 0.9)
             // Get registered IDs from plan
             let target = try NativeAccountProfileTarget(
                 identityID: identityTicket.id,
@@ -396,7 +396,7 @@ struct ProvisioningFlowView: View {
     }
 
     private func signAndInstall(profile: NativeAccountProfileResult) async {
-        await updateStage(.localized("Signing app with new profile…"), 0.2)
+        updateStage(.localized("Signing app with new profile…"), 0.2)
         // TODO: Integrate with Zsign signing pipeline
         // This would use the created profile + certificate to sign the selected app
         // Then install via itms-services or AFC

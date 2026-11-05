@@ -157,7 +157,7 @@ struct CertificateStatusView: View {
     }
 
     private func checkIdentity(_ identity: NativeSigningManager.SigningIdentity) {
-        guard let contextID = getContextID() else { return }
+        guard getContextID() != nil else { return }
         selectedIdentity = identity
         showConsentSheet = true
     }
