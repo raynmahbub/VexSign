@@ -248,6 +248,18 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('cancel-in-progress: false', text)
         self.assertIn('WORKFLOW_NAME:', text)
 
+    def test_developer_entry_points_share_the_tools_directory(self):
+        makefile = (ROOT / 'Makefile').read_text()
+        self.assertIn('bash tools/bootstrap.sh', makefile)
+        self.assertIn('bash tools/device-smoke.sh', makefile)
+        self.assertIn('./tools/update-repo.sh', (WORKFLOWS / 'update_repo.yml').read_text())
+        for name in ('bootstrap.sh', 'device-smoke.sh', 'update-repo.sh', 'tls-pack-digest.py'):
+            self.assertTrue((ROOT / 'tools' / name).is_file())
+        self.assertFalse((ROOT / 'Scripts').exists())
+        self.assertFalse((ROOT / 'update-repo.sh').exists())
+        self.assertTrue((ROOT / 'docs/assets/logo.svg').is_file())
+        self.assertTrue((ROOT / 'icon.png').is_file())  # published feed compatibility
+
     def test_security_schedule_and_release_boundaries_are_preserved(self):
         events = block((WORKFLOWS / 'services.yml').read_text(), 'on', 0)
         self.assertIn('  schedule:', events)

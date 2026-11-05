@@ -77,11 +77,13 @@ See [Build](docs/BUILD.md) for toolchain selection and troubleshooting.
 | `VexSignTV/`, `VexSignVision/`, `VexSignWatch*/`, `VexSignWidgetExtension/` | Companions and extensions |
 | `Vendor/`, `Tweaks/`, `EmbeddedContainer/` | Third-party sources, injection and experimental host packaging |
 | `server/`, `cloud-signing/`, `AnisetteServer/` | Optional services; each has its own setup/limitations |
-| `Scripts/`, `tools/`, `.github/` | Bootstrap, validation, maintenance and workflows |
-| `docs/` | Task-oriented guides; start at the [index](docs/README.md) |
+| `tools/`, `.github/` | Bootstrap, validation, maintenance and workflows |
+| `docs/` | Task-oriented guides and presentation assets; start at the [index](docs/README.md) |
 
 Keep source paths stable: Xcode target membership, package manifests and packaging
-scripts depend on them. Generated IPAs, credentials and build caches do not belong in Git.
+scripts depend on them. `tools/` holds all developer commands; `.github/` is only
+GitHub configuration and runner helpers. Root metadata/feeds stay stable for tool
+discovery and published URLs. Generated IPAs, credentials and caches do not belong in Git.
 
 ## Quality & releases
 

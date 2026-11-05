@@ -39,7 +39,7 @@ clean:
 # Validate a fresh checkout and resolve packages without building.
 #   make bootstrap
 bootstrap:
-	@bash Scripts/bootstrap.sh
+	@bash tools/bootstrap.sh
 
 # Install-server TLS is generated and persisted on each device, not in an IPA.
 $(SCHEMES):
@@ -189,4 +189,4 @@ test-cloud:
 
 .PHONY: device-smoke
 device-smoke:
-	@bash Scripts/device-smoke.sh
+	@bash tools/device-smoke.sh

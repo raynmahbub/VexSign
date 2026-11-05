@@ -196,3 +196,11 @@ Do not flatten required tool layouts or add placeholder files just to hide arrow
 Swift syntax parsing remains in CI's Swift container; full SDK builds, simulator
 results and [physical-device acceptance](DEVICE_TESTING.md) remain separate gates.
 No static check can guarantee a perfect build on every Xcode/device combination.
+
+
+Developer entry points are grouped in `tools/`: `bootstrap.sh`, `device-smoke.sh`,
+`update-repo.sh`, verification tools and their tests. Prefer `make help` for the
+supported commands; no generated files or placeholder directory markers belong
+in these folders. Presentation graphics belong in `docs/assets/`. Root `icon.png`
+and repository feeds are retained as published compatibility URLs; `render.yaml`
+and `license_plist.yml` remain where their consumers discover them.

@@ -132,7 +132,7 @@ enum LocalTLSIdentity {
 
 	/// SHA-256 over the three identity files, trimmed and joined with newlines.
 	///
-	/// This is the rule `Scripts/local-tls/pack_digest.py` enforces at build time and
+	/// This is the rule `tools/tls-pack-digest.py` checks for offline fixtures and
 	/// the one `VexSignTests/LocalTLSIdentityTests.swift` holds both implementations to.
 	static func packDigest(pem: String, cert: String, commonName: String) -> String {
 		let joined = [pem, cert, commonName]

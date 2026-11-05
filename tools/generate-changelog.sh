@@ -2,7 +2,7 @@
 # Generate a markdown changelog for the release currently being built.
 #
 # Output goes to stdout. Used by the Release workflow to populate the GitHub
-# release body and (via update-repo.sh) the versionDescription fields in
+# release body and (via tools/update-repo.sh) the versionDescription fields in
 # app-repo.json.
 #
 # Commits since the previous release tag are grouped by conventional-commit

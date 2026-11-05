@@ -46,7 +46,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ./update-repo.sh
+          ./tools/update-repo.sh
           TAG="${RELEASE_TAG:-$(jq -r '.apps[0].version' app-repo.json)}"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 

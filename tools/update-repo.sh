@@ -5,13 +5,13 @@
 # published. It can also be run locally:
 #
 #   # Pick up the latest published release on the repo:
-#   ./update-repo.sh
+#   ./tools/update-repo.sh
 #
 #   # Target a specific release tag (e.g. to backfill):
-#   RELEASE_TAG=v1.2.0 ./update-repo.sh
+#   RELEASE_TAG=v1.2.0 ./tools/update-repo.sh
 #
 #   # Mirror releases from another repo:
-#   RELEASE_REPO=owner/name ./update-repo.sh
+#   RELEASE_REPO=owner/name ./tools/update-repo.sh
 #
 # Environment:
 #   RELEASE_REPO   owner/name to read releases from. Defaults to the origin
@@ -24,6 +24,10 @@
 #                  limited to 60 unauthenticated requests/hour.
 
 set -eu
+
+# Resolve the checkout from this script, not the caller's working directory.
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+cd "$ROOT"
 
 JSON_FILE="app-repo.json"
 

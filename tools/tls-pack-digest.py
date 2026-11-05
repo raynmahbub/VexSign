@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Digest of a local-TLS identity, shared by the build and the app.
+"""Offline TLS-digest fixture utility shared with the app tests.
 
 The identity is the three files the local install server reads:
 `server.pem`, `server.crt` and `commonName.txt`. The digest is SHA-256 over them
@@ -13,8 +13,8 @@ computes the same value in the app, and `VexSignTests/LocalTLSIdentityTests.swif
 holds both to it.
 
 Usage:
-    pack_digest.py <directory>        # prints the lowercase hex digest
-    pack_digest.py --verify <dir> <hex>
+    tls-pack-digest.py <directory>        # prints the lowercase hex digest
+    tls-pack-digest.py --verify <dir> <hex>
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def digest(directory: Path) -> str:
 def main(argv: list[str]) -> int:
     if len(argv) >= 2 and argv[1] == "--verify":
         if len(argv) != 4:
-            raise SystemExit("usage: pack_digest.py --verify <directory> <expected-hex>")
+            raise SystemExit("usage: tls-pack-digest.py --verify <directory> <expected-hex>")
         actual = digest(Path(argv[2]))
         expected = argv[3].strip().lower().removeprefix("sha256:")
         if actual != expected:
@@ -49,7 +49,7 @@ def main(argv: list[str]) -> int:
                 f"error: TLS identity digest mismatch\n"
                 f"  expected: sha256:{expected}\n"
                 f"  actual  : sha256:{actual}\n"
-                f"Refusing to build with an identity that is not the pinned one.",
+                f"The supplied fixture does not match the expected digest.",
                 file=sys.stderr,
             )
             return 1
@@ -57,7 +57,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     if len(argv) != 2:
-        raise SystemExit("usage: pack_digest.py <directory>")
+        raise SystemExit("usage: tls-pack-digest.py <directory>")
     print(digest(Path(argv[1])))
     return 0
 

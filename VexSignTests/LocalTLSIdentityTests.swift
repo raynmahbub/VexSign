@@ -30,7 +30,7 @@ final class LocalTLSIdentityTests: XCTestCase {
 
 	// MARK: - Digest
 
-	/// The vector `Scripts/local-tls/pack_digest.py` produces for the same three
+	/// The vector `tools/tls-pack-digest.py` produces for the same three
 	/// inputs. If either implementation changes the rule, this fails.
 	func testPackDigestMatchesTheBuildScriptVector() {
 		XCTAssertEqual(
