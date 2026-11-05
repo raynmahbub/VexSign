@@ -11,6 +11,10 @@
 
 import Foundation
 import NativeSigning
+// `AnisetteData` is SideSign's, reached here through NativeSigning's
+// `ConsentedAnisetteProvider.freshHeaders()`. Conforming to that protocol means naming the
+// type, so the module has to be imported rather than merely linked.
+import SideSign
 
 // MARK: - LocalAnisetteProvider
 /// A local/default anisette provider that can be used for testing.
@@ -105,7 +109,7 @@ public final class AnisetteProviderFactory: ObservableObject {
 }
 
 // MARK: - AnisetteProviderDescriptor Codable
-extension AnisetteProviderDescriptor: Codable {
+extension AnisetteProviderDescriptor: @retroactive Codable {
     enum CodingKeys: String, CodingKey {
         case identifier, displayName, policyRevision, endpoint
     }

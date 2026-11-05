@@ -6,6 +6,7 @@ import SwiftUI
 import NimbleViews
 import NimbleExtensions
 import NativeSigning
+import SideSign
 
 struct SigningMethodsView: View {
     @StateObject private var nativeManager = NativeSigningManager.shared
@@ -369,7 +370,9 @@ struct SigningMethodsView: View {
 
     private func submitTwoFactor(_ challenge: SideSignTwoFactorBroker.Challenge) async {
         guard let operation = pendingOperation else { return }
-        let response = TwoFactorResponse(code: twoFactorCode, challengeID: challenge.id)
+        // The challenge travels beside the response: `submitTwoFactor` takes the
+        // challenge id as its own argument, and `TwoFactorResponse` carries only the code.
+        let response = TwoFactorResponse.verificationCode(twoFactorCode)
         do {
             _ = try await nativeManager.submitTwoFactor(response, operationID: operation.id, challengeID: challenge.id)
             twoFactorCode = ""
