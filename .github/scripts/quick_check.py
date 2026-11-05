@@ -14,7 +14,8 @@ features from other forks are cheap to detect long before that:
   5. broken resources              - Info.plist / entitlements / *.xcstrings /
                                      *.json / *.xcscheme that no longer parse
   6. project.pbxproj sanity        - unbalanced braces/parentheses
-  7. missing cross-module imports  - `swiftc -parse` does not resolve imports, so a file
+  7. repository layout / script syntax / build script inputs
+  8. missing cross-module imports  - `swiftc -parse` does not resolve imports, so a file
                                      that calls `String.localized` without importing
                                      NimbleExtensions only breaks in a real build
 
@@ -37,6 +38,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
@@ -183,6 +185,107 @@ def context_lines(path: Path, line: int, radius: int = 2) -> list[str]:
 # --------------------------------------------------------------------------
 # checks
 # --------------------------------------------------------------------------
+
+def layout_findings(paths: list[str]) -> list[Finding]:
+    """Check project-owned path hygiene without flattening standard tool layouts."""
+    findings = []
+    children: dict[str, set[str]] = defaultdict(set)
+    spellings: dict[str, str] = {}
+    packages = {p.rsplit("/", 1)[0] for p in paths if p.endswith("/Package.swift")}
+    for path in sorted(paths):
+        parts = path.split("/")
+        for index, name in enumerate(parts):
+            prefix = "/".join(parts[:index + 1])
+            if name != name.strip() or any(ord(c) < 32 for c in name):
+                findings.append(Finding("repository-layout", "error",
+                    "Path contains leading/trailing whitespace or control characters.", path, 1, 1))
+                break
+            key = unicodedata.normalize("NFC", prefix).casefold()
+            previous = spellings.setdefault(key, prefix)
+            if previous != prefix:
+                findings.append(Finding("repository-layout", "error",
+                    f"Path collides with {previous!r} on case-insensitive filesystems.", path, 1, 1))
+                break
+            if index:
+                children["/".join(parts[:index])].add(name)
+    for parent, names in sorted(children.items()):
+        if len(names) != 1:
+            continue
+        child = next(iter(names))
+        if parent + "/" + child not in children:
+            continue  # A directory with a single FILE is fine.
+        if parent == "Vendor" or parent.startswith("Vendor/") or any(
+                p.endswith((".xcodeproj", ".xcworkspace")) for p in parent.split("/")):
+            continue  # Preserve upstream/Xcode-owned hierarchies.
+        if parent.endswith("/Sources") and parent.rsplit("/", 1)[0] in packages:
+            continue  # SwiftPM requires Sources/<target>; it is not redundant.
+        findings.append(Finding("repository-layout", "error",
+            f"Redundant single-child folder chain {parent}/{child}; flatten it unless required by a tool layout.",
+            parent, 1, 1))
+    return findings
+
+
+def check_repository_layout(root: Path, report: Report) -> list[str]:
+    # Git excludes generated trees; include new files so the pre-commit command
+    # sees a move before git add. Deleted paths in the index are not inspected.
+    result = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+                            cwd=root, capture_output=True, check=False)
+    if result.returncode:
+        report.add(Finding("repository-layout", "error", "Cannot inventory repository paths; run inside a Git checkout."))
+        return []
+    paths = sorted({os.fsdecode(p) for p in result.stdout.split(b"\0") if p and (root / os.fsdecode(p)).exists()})
+    for finding in layout_findings(paths):
+        report.add(finding)
+    report.stats["repository_paths_checked"] = len(paths)
+    return paths
+
+
+def check_tool_syntax(root: Path, paths: list[str], report: Report) -> None:
+    """Compile Python syntax and parse shell scripts, without running their code."""
+    bash = shutil.which("bash")
+    checked = 0
+    for name in paths:
+        path = root / name
+        if name.startswith("Vendor/") or path.suffix not in {".py", ".sh"}:
+            continue
+        if path.is_symlink():
+            continue
+        checked += 1
+        if path.suffix == ".py":
+            try:
+                compile(path.read_bytes(), name, "exec")
+            except (SyntaxError, UnicodeError, ValueError) as exc:
+                report.add(Finding("tool-syntax", "error", f"Python syntax: {exc}", name,
+                                   getattr(exc, "lineno", 1), 1))
+        elif bash:
+            try:
+                result = subprocess.run([bash, "-n", "--", str(path)], capture_output=True, text=True, timeout=20)
+                if result.returncode:
+                    report.add(Finding("tool-syntax", "error", f"Shell syntax: {result.stderr.strip()}", name, 1, 1))
+            except subprocess.TimeoutExpired:
+                report.add(Finding("tool-syntax", "error", "Shell syntax check timed out.", name, 1, 1))
+        else:
+            report.add(Finding("tool-syntax", "warning", "bash unavailable; shell syntax not checked.", name, 1, 1))
+    report.stats["tool_files_checked"] = checked
+
+
+def check_script_inputs(root: Path, project: Path, text: str, report: Report) -> None:
+    """Validate declared source inputs, not generated output/runtime paths."""
+    for block in re.finditer(r"inputPaths = \((.*?)\);", text, re.S):
+        for match in re.finditer(r'"([^"\n]+)"', block.group(1)):
+            value = match.group(1)
+            relative = None
+            for prefix in ("$(SRCROOT)/", "${SRCROOT}/", "$(PROJECT_DIR)/", "${PROJECT_DIR}/"):
+                if value.startswith(prefix):
+                    relative = value[len(prefix):]
+                    break
+            if relative is None or "$" in relative:
+                continue  # Unknown runtime variables cannot be resolved offline.
+            if not (root / relative).exists():
+                line = text[:block.start()].count("\n") + 1
+                report.add(Finding("pbxproj", "error", f"Build script source input does not exist: {value}",
+                                   rel(root, project), line, 1))
+
 
 def check_conflict_markers(root: Path, report: Report) -> None:
     count = 0
@@ -363,6 +466,7 @@ def check_resources(root: Path, report: Report) -> None:
 def check_pbxproj(root: Path, report: Report) -> None:
     for path in iter_files(root, {".pbxproj"}):
         text = path.read_text(encoding="utf-8", errors="replace")
+        check_script_inputs(root, path, text, report)
         # Strip comments and quoted strings before counting delimiters.
         stripped = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
         stripped = re.sub(r'"(?:\\.|[^"\\])*"', '""', stripped)
@@ -405,7 +509,7 @@ def render_summary(report: Report, swiftc_version: str) -> str:
     out.append("")
     out.append("| Check | Errors | Warnings |")
     out.append("|---|---:|---:|")
-    for check in ["conflict-markers", "swift-syntax", "duplicate-types", "duplicate-filenames",
+    for check in ["repository-layout", "tool-syntax", "conflict-markers", "swift-syntax", "duplicate-types", "duplicate-filenames",
                   "cross-module-imports", "resources", "pbxproj"]:
         e = sum(1 for f in errors if f.check == check)
         w = sum(1 for f in warnings if f.check == check)
@@ -426,7 +530,7 @@ def render_summary(report: Report, swiftc_version: str) -> str:
         if len(errors) > MAX_CONTEXT_ISSUES:
             out.append(f"- … {len(errors) - MAX_CONTEXT_ISSUES} more (see annotations / quick-check.json)")
         out.append("")
-        out.append("These are the same errors Xcode would stop on, minus the wait. "
+        out.append("These checks catch source/resource errors and repository drift before Xcode. "
                    "Push a fix and this check re-runs in about a minute; the full build follows once it is clean.")
         out.append("")
 
@@ -442,14 +546,81 @@ def render_summary(report: Report, swiftc_version: str) -> str:
     return "\n".join(out)
 
 
+def run_self_tests() -> int:
+    import tempfile
+    import unittest
+
+    class RepositoryChecksTests(unittest.TestCase):
+        def test_single_file_is_not_redundant(self):
+            self.assertEqual(layout_findings(["Tweaks/FilePickerFix.m"]), [])
+
+        def test_redundant_chain_detected(self):
+            findings = layout_findings(["Tweaks/FilePickerFix/FilePickerFix.m"])
+            self.assertTrue(any("single-child" in f.message for f in findings))
+
+        def test_standard_layouts_preserved(self):
+            paths = ["Kit/Package.swift", "Kit/Sources/Kit/File.swift",
+                     "Vendor/Bridge/Sources/Target/File.swift",
+                     "App.xcodeproj/xcshareddata/xcschemes/App.xcscheme",
+                     "App.xcworkspace/xcshareddata/swiftpm/Package.resolved"]
+            self.assertEqual(layout_findings(paths), [])
+
+        def test_case_and_unicode_collisions(self):
+            for paths in (["Views/A.swift", "views/B.swift"],
+                          ["Views/Café.swift", "Views/Cafe\u0301.swift"]):
+                self.assertTrue(any("collides" in f.message for f in layout_findings(paths)))
+
+        def test_hidden_whitespace(self):
+            self.assertTrue(layout_findings(["Sources/ bad.swift"]))
+
+        def test_tool_syntax_does_not_execute_code(self):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "good.py").write_text("raise RuntimeError('must not run')\n")
+                (root / "good.sh").write_text("exit 99\n")
+                report = Report(root)
+                check_tool_syntax(root, ["good.py", "good.sh"], report)
+                self.assertEqual(report.errors, [])
+
+        def test_tool_syntax_reports_errors(self):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "bad.py").write_text("def broken(:\n")
+                (root / "bad.sh").write_text("if then\n")
+                report = Report(root)
+                check_tool_syntax(root, ["bad.py", "bad.sh"], report)
+                expected = 2 if shutil.which("bash") else 1
+                self.assertEqual(len(report.errors), expected)
+
+        def test_script_input_rename(self):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "Tweaks").mkdir()
+                (root / "Tweaks/FilePickerFix.m").touch()
+                project = root / "Project.xcodeproj/project.pbxproj"
+                for value, errors in (("$(SRCROOT)/Tweaks/FilePickerFix.m", 0),
+                                      ("$(SRCROOT)/Tweaks/FilePickerFix/FilePickerFix.m", 1),
+                                      ("$(BUILT_PRODUCTS_DIR)/FilePickerFix.dylib", 0)):
+                    report = Report(root)
+                    check_script_inputs(root, project, 'inputPaths = ("' + value + '");', report)
+                    self.assertEqual(len(report.errors), errors)
+
+    result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(RepositoryChecksTests))
+    return 0 if result.wasSuccessful() else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--self-test", action="store_true", help="run offline layout/build-input regressions")
     parser.add_argument("--root", default=".", help="repository root")
     parser.add_argument("--json", help="write findings as JSON to this path")
     parser.add_argument("--no-swiftc", action="store_true", help="skip the swiftc -parse check")
     parser.add_argument("--summary", default=os.environ.get("GITHUB_STEP_SUMMARY"))
     parser.add_argument("--no-annotations", action="store_true")
     args = parser.parse_args()
+
+    if args.self_test:
+        return run_self_tests()
 
     root = Path(args.root).resolve()
     report = Report(root)
@@ -462,6 +633,8 @@ def main() -> int:
         except Exception:  # noqa: BLE001
             swiftc_version = swiftc
 
+    paths = check_repository_layout(root, report)
+    check_tool_syntax(root, paths, report)
     check_conflict_markers(root, report)
     check_swift_syntax(root, report, swiftc)
     check_duplicate_types(root, report)

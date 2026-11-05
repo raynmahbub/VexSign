@@ -143,6 +143,7 @@ jobs:
       - name: Quick check
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+          python3 .github/scripts/quick_check.py --self-test
           python3 .github/scripts/quick_check.py --root . --json "$RUNNER_TEMP/quick-check.json"
 
       # Deeper than quick_check's brace balance: every object id resolves, every

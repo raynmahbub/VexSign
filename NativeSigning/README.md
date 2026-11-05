@@ -22,7 +22,7 @@ The package links Swift Crypto, ASN.1, Certificates, OpenSSL, Zsign, NimbleKit, 
 ## Validate
 
 ```bash
-python3 -m unittest discover -s NativeSigning/tests -v
+python3 -m unittest discover -s NativeSigning/PythonTests -v
 swift test --package-path NativeSigning
 ```
 
