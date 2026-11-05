@@ -21,9 +21,10 @@ concurrency:
 
 jobs:
   update:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false)
     # Nightly and other pre-releases must never become the installation
     # listing's latest version. Only published stable releases sync.
-    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

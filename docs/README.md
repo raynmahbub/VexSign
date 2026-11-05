@@ -28,7 +28,8 @@ versioned with the code.
 | --- | --- |
 | [Device acceptance](DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
-| [Repair agent](REPAIR_AGENT.md) | You want bounded AI repair proposals, budgets and activation instructions. |
+| [Free-only mode](FREE_ONLY.md) | You want cost controls and account setup guidance. |
+| [Repair diagnostics](REPAIR_AGENT.md) | You need failure reporting without hosted AI costs. |
 | [Autopilot](AUTOPILOT.md) | You want one-time setup and low-maintenance operation. |
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |

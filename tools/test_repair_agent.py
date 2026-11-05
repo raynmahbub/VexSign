@@ -90,6 +90,13 @@ class RepairPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent.validate(proposal, self.root)
 
+    def test_hosted_inference_is_hard_disabled(self):
+        with patch.object(agent, 'api') as api, patch.object(agent, 'command') as command:
+            with self.assertRaisesRegex(RuntimeError, 'free-only'):
+                agent.propose(1, self.root)
+            api.assert_not_called()
+            command.assert_not_called()
+
     def test_common_credentials_are_redacted(self):
         text = agent.redact('Bearer abc123 token=secret password: hidden ghp_abcdefgh sk-exampleKEY a@example.com')
         for secret in ('abc123', '=secret', 'hidden', 'ghp_abcdefgh', 'sk-exampleKEY', 'a@example.com'):

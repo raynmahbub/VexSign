@@ -182,26 +182,22 @@ class WorkflowPolicyTests(unittest.TestCase):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)
             self.assertNotIn('pull_request', events)
 
-    def test_repair_agent_is_opt_in_and_separates_model_from_writes(self):
-        text = (WORKFLOWS / 'repair-agent.yml').read_text()
-        events = block(text, 'on', 0)
-        self.assertNotIn('pull_request', events)
-        self.assertNotIn('issue_comment', events)
-        admit = block(text, 'admit', 2)
-        self.assertIn("vars.REPAIR_AGENT_ENABLED == 'true'", admit)
-        self.assertIn("github.run_attempt == '1'", admit)
-        propose = block(text, 'propose', 2)
-        self.assertIn('models: read', propose)
-        self.assertNotIn('write', block(propose, 'permissions', 4))
-        self.assertIn("github.run_attempt == '1'", propose)
-        publish = block(text, 'publish', 2)
-        self.assertNotIn('models:', publish)
-        self.assertIn('contents: write', publish)
-        self.assertIn('artifact-ids: ${{ needs.propose.outputs.artifact_id }}', publish)
-        self.assertNotRegex(publish, r'(?m)^\s+run: (?:make|npm|swift|bash) ')
-        self.assertNotIn('pull_request_target', events)
-        for use in re.findall(r'uses: ([^\s]+)', text):
-            self.assertRegex(use, r'@[a-f0-9]{40}$')
+    def test_free_only_workflow_policy(self):
+        for path in WORKFLOWS.glob('*.yml'):
+            text = path.read_text()
+            for job in re.findall(r'^  ([A-Za-z0-9_-]+):$', block(text, 'jobs', 0), re.MULTILINE):
+                self.assertIn('github.event.repository.private == false', block(block(text, 'jobs', 0), job, 2))
+                self.assertIn("github.event.repository.visibility == 'public'", block(block(text, 'jobs', 0), job, 2))
+            self.assertNotIn('models: read', text)
+            for runner in re.findall(r'runs-on: (.+)', text):
+                self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
+            for retention in re.findall(r'retention-days: (\d+)', text):
+                self.assertLessEqual(int(retention), 3)
+        repair = (WORKFLOWS / 'repair-agent.yml').read_text()
+        self.assertNotIn('repair-agent.py propose', repair)
+        self.assertNotIn('repair-agent.py publish', repair)
+        self.assertIn('repair-agent.py admit', repair)
+        self.assertNotIn('models.github.ai', (ROOT / 'tools/repair-agent.py').read_text())
 
     def test_security_schedule_and_release_boundaries_are_preserved(self):
         events = block((WORKFLOWS / 'ecosystem.yml').read_text(), 'on', 0)

@@ -74,6 +74,8 @@ concurrency:
 
 jobs:
   build:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
     runs-on: macos-15
     timeout-minutes: 90
     environment: ${{ (github.event_name == 'schedule' || inputs.channel == 'nightly') && 'build-preview' || (github.event_name == 'workflow_dispatch' && inputs.build_only && 'build-preview' || 'release') }}
@@ -366,7 +368,7 @@ jobs:
           name: VexSign-${{ steps.get_version.outputs.version }}-${{ steps.get_version.outputs.short_sha }}
           path: upload/*.ipa
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Generate Changelog
         id: changelog
@@ -394,12 +396,13 @@ jobs:
             upload/VexSign-icon.png
             upload/Home-layout-preview.svg
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
 
   publish:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (needs.build.outputs.publish == 'true')
     needs: build
-    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: ${{ needs.build.outputs.channel == 'nightly' && 'nightly' || 'release' }}
@@ -465,8 +468,9 @@ jobs:
         run: echo "Published verified release assets at ${RELEASE_URL}" >> "$GITHUB_STEP_SUMMARY"
 
   sync-repository:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (needs.build.outputs.channel == 'stable' && (github.event_name != 'workflow_dispatch' || !inputs.draft))
     needs: [build, publish]
-    if: needs.build.outputs.channel == 'stable' && (github.event_name != 'workflow_dispatch' || !inputs.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

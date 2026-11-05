@@ -98,6 +98,6 @@ full checks; other updates and sensitive changes remain reviewed. Stable version
 increases on green main commits can dispatch Release automatically. Repository
 rules and required release reviewers are never bypassed.
 
-The optional [repair agent](REPAIR_AGENT.md) can propose bounded presentation-layer
-fixes for supported current-main failures. It cannot edit workflows, dependencies,
-signing code or existing tests, and does not merge its own proposals.
+[Free-only diagnostics](REPAIR_AGENT.md) replaces hosted AI repair with failure
+issues. Standard public-repository workflows remain automated; no inference API
+is called. Follow the [account-level zero-spend checklist](FREE_ONLY.md).

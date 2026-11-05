@@ -25,6 +25,8 @@ concurrency:
 
 jobs:
   cloud:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:

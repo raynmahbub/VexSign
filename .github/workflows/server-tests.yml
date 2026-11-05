@@ -26,6 +26,8 @@ concurrency:
 
 jobs:
   pytest:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
     name: pytest · server
     runs-on: ubuntu-24.04
     timeout-minutes: 15

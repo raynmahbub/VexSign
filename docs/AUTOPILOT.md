@@ -87,12 +87,10 @@ nightlies. A workflow already running may need cancellation in Actions. Secrets,
 release approvals, physical-device checks and feature design still need people.
 
 
-## Optional repair proposals
+## Free-only failure diagnostics
 
-The [bounded repair agent](REPAIR_AGENT.md) adds opt-in model-generated Swift
-presentation fixes and **new** regression tests for eligible current-main failures.
-It uses isolated admission/inference/publication jobs, durable attempt budgets,
-read-only inference and explicit PR validation. It never merges its own repairs.
-Enable `REPAIR_AGENT_ENABLED=true` only after enabling GitHub Models and reviewing
-billing/data-flow settings. No model request is made while this variable is unset.
-Repair branches are deliberately excluded from this autopilot's auto-merge policy.
+The [free-only policy](FREE_ONLY.md) disables hosted inference and gates all jobs
+to public repositories/standard runners. [Repair diagnostics](REPAIR_AGENT.md)
+records bounded failure issues instead of generating code. No model-access opt-in
+variable can restore the removed inference client. Fixes require human/local work;
+the deterministic maintenance/release automation above remains available.
