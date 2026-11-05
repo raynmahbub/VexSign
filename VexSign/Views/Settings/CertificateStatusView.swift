@@ -71,7 +71,7 @@ struct CertificateStatusView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             Button {
-                                loadIdentities()
+                                Task { await loadIdentities() }
                             } label: {
                                 Label(.localized("Refresh"), systemImage: "arrow.clockwise")
                             }
@@ -109,7 +109,7 @@ struct CertificateStatusView: View {
                 }
 
                 Button {
-                    loadIdentities()
+                    Task { await loadIdentities() }
                 } label: {
                     Label(.localized("Refresh Identities"), systemImage: "arrow.clockwise")
                 }
@@ -274,7 +274,7 @@ private struct CertificateStatusConsentView: View {
                         Text(.localized("Certificate Status Consent Required"))
                             .font(.title2.weight(.bold))
 
-                        Text(.localized("Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders.", arguments: identityName))
+                        Text(String.localized("Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders.", arguments: identityName))
                             .font(.body)
 
                         Text(.localized("This will:"))

@@ -83,9 +83,8 @@ struct DevicePickerView: View {
                                             .font(.headline)
                                             .foregroundStyle(.primary)
                                         Text(device.udid)
-                                            .font(.caption)
+                                            .font(.caption.monospaced())
                                             .foregroundStyle(.secondary)
-                                            .fontDesign(.monospaced)
                                         HStack(spacing: 8) {
                                             Label(device.deviceType, systemImage: deviceTypeIcon(device.deviceType))
                                             Label(device.iosVersion, systemImage: "iphone.gen3")
