@@ -57,6 +57,14 @@ rebuild with an explicit deployment target (for example `15.0`).
 - Edit `VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor, then run `make verify`.
 - Keep documentation concise and update only guides affected by the change.
 
+## History maintenance
+
+Rewriting `main` is exceptional. If merge commit messages must change, use the
+reviewed runbook in [docs/REWRITING_HISTORY.md](docs/REWRITING_HISTORY.md): the
+script rewrites in a throwaway clone, verifies the tree and commit count, writes
+a bundle, and leaves the force-push to a maintainer. Coordinate with everyone
+who has a clone before pushing.
+
 ## Releases
 
 Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [docs/RELEASING.md](docs/RELEASING.md).
