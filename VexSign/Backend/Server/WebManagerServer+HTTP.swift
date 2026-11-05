@@ -124,7 +124,7 @@ extension WebManagerServer {
 			return Self.json(infos)
 		}
 
-		app.get("api", "tweaks", ":id", "download") { req async -> Response in
+		app.get("api", "tweaks", ":id", "download") { req async throws -> Response in
 			guard let raw = req.parameters.get("id"), let id = UUID(uuidString: raw) else { return Response(status: .badRequest) }
 			let url: URL? = await MainActor.run {
 				guard
@@ -166,7 +166,7 @@ extension WebManagerServer {
 			return Self.json(infos)
 		}
 
-		app.get("api", "certs", ":uuid", "download") { [weak self] req async -> Response in
+		app.get("api", "certs", ":uuid", "download") { [weak self] req async throws -> Response in
 			guard let self else { return Response(status: .internalServerError) }
 			// The archive contains the private key and its password file, so it stays
 			// off unless the user turned it on in Settings → Web Manager.
@@ -258,7 +258,7 @@ extension WebManagerServer {
 			return Self.json(options)
 		}
 
-		app.get("api", "apps", ":uuid", "download") { req async -> Response in
+		app.get("api", "apps", ":uuid", "download") { req async throws -> Response in
 			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
 			let info: (dir: URL, name: String, version: String)? = await MainActor.run {
 				guard

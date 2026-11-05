@@ -235,9 +235,11 @@ final class WebManagerServer {
 		_configureWebDAV(app)
 
 		do {
-			try await app.server.start()
+			// Vapor's listener start is synchronous; only creation and shutdown have
+			// async variants.
+			try app.server.start()
 			try Task.checkCancellation()
-			Logger.misc.info("WebManagerServer started on port \(port)")
+			Logger.misc.info("WebManagerServer started on port \(self.port)")
 		} catch {
 			await shutdownAsync()
 			throw error
