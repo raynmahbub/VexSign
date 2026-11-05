@@ -97,3 +97,7 @@ allowlist only. Eligible service patch/minor and known metadata PRs may merge af
 full checks; other updates and sensitive changes remain reviewed. Stable version
 increases on green main commits can dispatch Release automatically. Repository
 rules and required release reviewers are never bypassed.
+
+The optional [repair agent](REPAIR_AGENT.md) can propose bounded presentation-layer
+fixes for supported current-main failures. It cannot edit workflows, dependencies,
+signing code or existing tests, and does not merge its own proposals.

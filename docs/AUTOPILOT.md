@@ -85,3 +85,14 @@ Set these repository Actions variables to the literal string `false`:
 Unset means enabled. Disable the Release schedule workflow separately to stop
 nightlies. A workflow already running may need cancellation in Actions. Secrets,
 release approvals, physical-device checks and feature design still need people.
+
+
+## Optional repair proposals
+
+The [bounded repair agent](REPAIR_AGENT.md) adds opt-in model-generated Swift
+presentation fixes and **new** regression tests for eligible current-main failures.
+It uses isolated admission/inference/publication jobs, durable attempt budgets,
+read-only inference and explicit PR validation. It never merges its own repairs.
+Enable `REPAIR_AGENT_ENABLED=true` only after enabling GitHub Models and reviewing
+billing/data-flow settings. No model request is made while this variable is unset.
+Repair branches are deliberately excluded from this autopilot's auto-merge policy.

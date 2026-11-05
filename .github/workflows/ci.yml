@@ -187,6 +187,9 @@ jobs:
       - name: Autopilot policy regressions
         run: python3 tools/test_autopilot.py
 
+      - name: Repair agent policy regressions
+        run: python3 tools/test_repair_agent.py
+
       - name: Workflow trigger policy
         run: python3 tools/test_workflow_policy.py
 

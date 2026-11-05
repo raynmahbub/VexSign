@@ -94,7 +94,9 @@ scripts depend on them. Generated IPAs, credentials and build caches do not belo
 - **Autopilot:** grouped dependency PRs, hourly validation/merging of narrow green
   bot updates, weekly localisation maintenance and failure triage. Reviewed version
   bumps can trigger stable releases automatically; risky changes stay manual.
-  See [one-time setup and limits](docs/AUTOPILOT.md).
+  See [one-time setup and limits](docs/AUTOPILOT.md). Optional
+  [bounded repair agent](docs/REPAIR_AGENT.md) proposes small UI fixes with regression
+  tests; its PRs require human review.
 
 [Release/version rules](docs/RELEASING.md) · [Automation policy](docs/MAINTENANCE.md)
 

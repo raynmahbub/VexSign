@@ -64,6 +64,14 @@ class AutopilotTests(unittest.TestCase):
         pr['head']['ref'] = 'automation/unknown'
         self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
 
+    def test_agent_repair_branches_never_auto_merge(self):
+        pr = self.pr()
+        pr['user']['login'] = 'github-actions[bot]'
+        pr['head']['ref'] = 'automation/repair-' + 'a' * 12
+        self.assertFalse(controller.eligible(pr, self.files('VexSign/DesignSystem/Card.swift',
+            'VexSignTests/RepairCardTests.swift'), 'main'))
+        self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
+
     def test_required_workflows(self):
         self.assertEqual(controller.required_workflows(['cloud-signing/package.json']), ['ci.yml', 'ecosystem.yml'])
         self.assertEqual(controller.required_workflows(['server/requirements.txt']), ['ci.yml', 'server-tests.yml'])

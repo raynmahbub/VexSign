@@ -182,6 +182,27 @@ class WorkflowPolicyTests(unittest.TestCase):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)
             self.assertNotIn('pull_request', events)
 
+    def test_repair_agent_is_opt_in_and_separates_model_from_writes(self):
+        text = (WORKFLOWS / 'repair-agent.yml').read_text()
+        events = block(text, 'on', 0)
+        self.assertNotIn('pull_request', events)
+        self.assertNotIn('issue_comment', events)
+        admit = block(text, 'admit', 2)
+        self.assertIn("vars.REPAIR_AGENT_ENABLED == 'true'", admit)
+        self.assertIn("github.run_attempt == '1'", admit)
+        propose = block(text, 'propose', 2)
+        self.assertIn('models: read', propose)
+        self.assertNotIn('write', block(propose, 'permissions', 4))
+        self.assertIn("github.run_attempt == '1'", propose)
+        publish = block(text, 'publish', 2)
+        self.assertNotIn('models:', publish)
+        self.assertIn('contents: write', publish)
+        self.assertIn('artifact-ids: ${{ needs.propose.outputs.artifact_id }}', publish)
+        self.assertNotRegex(publish, r'(?m)^\s+run: (?:make|npm|swift|bash) ')
+        self.assertNotIn('pull_request_target', events)
+        for use in re.findall(r'uses: ([^\s]+)', text):
+            self.assertRegex(use, r'@[a-f0-9]{40}$')
+
     def test_security_schedule_and_release_boundaries_are_preserved(self):
         events = block((WORKFLOWS / 'ecosystem.yml').read_text(), 'on', 0)
         self.assertIn('  schedule:', events)
