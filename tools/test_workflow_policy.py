@@ -38,11 +38,17 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
-    def test_no_automatic_pull_request_validation(self):
+    def test_only_ci_validates_pull_requests(self):
+        # CI must run before a merge: a branch that has never been compiled
+        # makes main the first place a build error appears. Other workflows
+        # stay on their own schedules so a PR cannot fan out every validator.
         for path in WORKFLOWS.glob('*.yml'):
             with self.subTest(workflow=path.name):
                 events = block(path.read_text(), 'on', 0)
-                self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
+                if path.name == 'ci.yml':
+                    self.assertRegex(events, r'(?m)^  pull_request:')
+                else:
+                    self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
 
     def test_validators_are_manual_or_path_filtered_main_pushes(self):
         for name in VALIDATORS:
