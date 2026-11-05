@@ -107,8 +107,7 @@ final class NativeSigningManager: ObservableObject {
     /// Checks for expiring profiles and triggers renewal for each.
     /// Called by BackgroundAutomation during scheduled maintenance.
     func renewExpiringProfiles() async {
-        guard let backend = backend,
-              let snapshot = snapshot,
+        guard let snapshot = snapshot,
               case .signedIn(let context) = snapshot.phase,
               managerIsFreeAccount(context),
               isBackendReady else {
@@ -192,7 +191,7 @@ final class NativeSigningManager: ObservableObject {
             // log. A second Zsign path here would bypass all three, and there is no
             // stored original IPA to feed it: import extracts the payload, it does not
             // keep the archive.
-            logger.info("Renewed profile for \(bundleIdentifier); re-sign it from the library")
+            logger.info("Renewed profile \(profileResult.profileUUID.uuidString, privacy: .public) for \(bundleIdentifier); re-sign it from the library")
 
             await MainActor.run {
                 UnifiedTaskCenter.shared.transition(task, to: .completed)
@@ -212,14 +211,8 @@ final class NativeSigningManager: ObservableObject {
         // for the device UDID associated with this app's profile.
         // For now, we'll need to get it from the paired device or user input.
 
-        // Try to get from Storage if available
-        if let app = Storage.shared.getAllApps().first(where: { $0.identifier == bundleIdentifier && $0.isSigned }),
-           let uuid = app.uuid {
-            // This is the app's UUID, not the device UDID
-            // We need the actual device UDID
-        }
-
-        // For now, throw an error indicating manual input needed
+        // The library stores the app's own UUID, which is not the device UDID, so
+        // nothing in storage can answer this.
         throw NativeSigningError.provisioningFailed("Device UDID required for renewal. Please run provisioning manually.")
     }
 
@@ -453,17 +446,14 @@ final class NativeSigningManager: ObservableObject {
     /// Lists all signing identities for the current context.
     /// Returns an empty array if not signed in or backend not ready.
     func listSigningIdentities() async -> [SigningIdentity] {
-        guard let backend = backend,
-              let snapshot = snapshot,
-              case .signedIn(let context) = snapshot.phase else {
+        guard let snapshot = snapshot,
+              case .signedIn = snapshot.phase else {
             return []
         }
 
-        // TODO: In a real implementation, this would query the backend for all identities
-        // associated with this context. The NativeAccountBackend would need a method like:
-        // backend.listIdentities(contextID: context.id) -> [IdentityInfo]
-
-        // For now, return empty array as placeholder
+        // TODO: list the identities belonging to this context. NativeAccountBackend
+        // exposes listProfiles(contextID:), which returns profile records rather than
+        // identities, so there is nothing to enumerate yet.
         return []
     }
 
