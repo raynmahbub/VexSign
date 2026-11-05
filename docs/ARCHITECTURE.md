@@ -75,7 +75,7 @@ DocumentPicker / repository URL
 | `NimbleKit` | Shared SwiftUI helpers, logging, extensions and policy-friendly utilities. |
 | `AltSourceKit` | AltStore-compatible source parsing, isolated from the app target. |
 | `NativeSigning` | Experimental account/provisioning backend with its own tests. |
-| `Vendor/Zsign` | Pinned signing engine. Vendored so builds never need submodules. |
+| `Vendor/Zsign` | Pinned signing engine, vendored in-repo. |
 | `Vendor/IDeviceKitten` | Pinned Swift device bridge; its `IDevice` binary target still resolves from upstream. |
 | `SideSign` | Device-local identity and overlay support. |
 | `EmbeddedContainer` | Experimental guest-host packaging, tested separately. |
@@ -115,4 +115,4 @@ DocumentPicker / repository URL
 - **New repository field:** extend `AltSourceKit` with decoding tests before
   wiring it into Discover.
 - **New third-party code:** vendor it under `Vendor/` with its licence and pin;
-  do not add a submodule.
+  keep dependency source in `Vendor/` and update its manifest.

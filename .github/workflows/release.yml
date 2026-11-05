@@ -121,20 +121,6 @@ jobs:
             PROJECT_VERSION=""
           fi
 
-          # Compatibility (synthetic) tags: the repository history carries
-          # synthetic milestone tags (e.g. v0.0.1 … v0.0.18, v1.0.0 - FlareStore
-          # parity milestones) whose versions do NOT match MARKETING_VERSION
-          # and which must never be published as releases. They are detected
-          # by their annotation, downgraded to a validation-only run and
-          # marked as compatibility milestones in the summary.
-          SYNTHETIC=false
-          if [ "${EVENT_NAME}" = "push" ] && [ "$(git cat-file -t "${REF_NAME}" 2>/dev/null || true)" = "tag" ]; then
-            TAG_MESSAGE="$(git tag -l --format='%(contents)' "${REF_NAME}" 2>/dev/null || true)"
-            if printf '%s' "${TAG_MESSAGE}" | grep -qi 'synthetic tag'; then
-              SYNTHETIC=true
-            fi
-          fi
-
           MODE="build-only"
           case "${EVENT_NAME}" in
             push)          MODE="tag" ;;
@@ -164,13 +150,7 @@ jobs:
                 echo "::error::'${RELEASE_TAG}' is not a release tag. Release tags are v<MARKETING_VERSION>, e.g. v1.2.0 or v1.2.0-beta.1."
                 exit 1
               fi
-              if [ "${SYNTHETIC}" = "true" ]; then
-                # Compatibility milestone: validate the build, publish nothing.
-                echo "::notice::${RELEASE_TAG} is a synthetic compatibility tag (see its annotation) - running validation only, nothing will be published."
-                MODE="synthetic-tag"
-              else
-                PUBLISH=true
-              fi
+              PUBLISH=true
               ;;
             manual)
               if [ -z "${PROJECT_VERSION}" ]; then
@@ -218,11 +198,7 @@ jobs:
               PRERELEASE=true
             fi
 
-            # Synthetic compatibility tags intentionally carry versions that
-            # do not match MARKETING_VERSION; the mismatch is expected and
-            # must not fail their validation run. Every real release tag
-            # still has to match exactly.
-            if [ -n "${PROJECT_VERSION}" ] && [ "${PROJECT_VERSION}" != "${EXPECTED_VERSION}" ] && [ "${SYNTHETIC}" != "true" ]; then
+            if [ -n "${PROJECT_VERSION}" ] && [ "${PROJECT_VERSION}" != "${EXPECTED_VERSION}" ]; then
               echo "::error::${RELEASE_TAG} does not match the project's MARKETING_VERSION (${PROJECT_VERSION}). A release tag must be v<MARKETING_VERSION>, optionally followed by -<pre-release>. Bump the version (Xcode > VexSign target > General > Version, or: agvtool new-marketing-version ${EXPECTED_VERSION}), commit, and move the tag onto that commit: git tag -f ${RELEASE_TAG} && git push -f origin ${RELEASE_TAG}"
               exit 1
             fi
@@ -237,7 +213,6 @@ jobs:
 
           case "${MODE}" in
             tag)          echo "Mode: publish release ${RELEASE_TAG} from tag (commit ${GITHUB_SHA})" ;;
-            synthetic-tag) echo "Mode: compatibility milestone ${RELEASE_TAG} - validation only, nothing will be published" ;;
             manual)       echo "Mode: MANUAL publish of ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA}) - prefer pushing a tag for real releases" ;;
             nightly)      echo "Mode: NIGHTLY pre-release ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA})" ;;
             pull-request) echo "Mode: pull request build - nothing will be published" ;;
@@ -252,7 +227,6 @@ jobs:
             echo "expected_version=${EXPECTED_VERSION}"
             echo "prerelease=${PRERELEASE}"
             echo "channel=${CHANNEL}"
-            echo "synthetic=${SYNTHETIC}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Repository validation gates
@@ -349,9 +323,7 @@ jobs:
           exit 0
 
       # Authoritative version check: what the packaged app actually reports
-      # must be what the release tag promises. Synthetic compatibility tags
-      # make no version promise, so for them the check only asserts that the
-      # bundle reports a version at all.
+      # must be what the release tag promises.
       - name: Verify built version
         id: get_version
         env:
@@ -375,13 +347,9 @@ jobs:
           fi
           BUILD="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "${plists[0]}" 2>/dev/null || true)"
 
-          if [ -n "${EXPECTED_VERSION}" ] && [ "${VERSION}" != "${EXPECTED_VERSION}" ] && [ "${MODE}" != "synthetic-tag" ]; then
+          if [ -n "${EXPECTED_VERSION}" ] && [ "${VERSION}" != "${EXPECTED_VERSION}" ]; then
             echo "::error::The built app reports CFBundleShortVersionString ${VERSION}, but ${RELEASE_TAG} promises ${EXPECTED_VERSION}. Bump MARKETING_VERSION to ${EXPECTED_VERSION}, commit, and move the tag onto that commit."
             exit 1
-          fi
-
-          if [ "${MODE}" = "synthetic-tag" ]; then
-            echo "::notice::Compatibility milestone ${RELEASE_TAG}: built VexSign ${VERSION} - version mismatch with the synthetic tag is expected and does not fail validation."
           fi
 
           echo "Built VexSign ${VERSION} (build ${BUILD:-?}) from ${GITHUB_SHA}"

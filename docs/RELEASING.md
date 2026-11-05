@@ -123,10 +123,6 @@ For a draft, select **draft** in the manual workflow. Drafts do not queue the
 repository updater. After publishing a draft through the web UI, check whether
 **Update Repository** ran and dispatch it with the tag if needed.
 
-Synthetic annotated tags whose messages contain `synthetic tag` remain
-validation-only compatibility milestones, never publications. Their intentional
-version mismatch is tolerated; real release versions must match the built bundle.
-
 `RELEASE_XCODE` may pin the Xcode version; the manual `xcode` input overrides it.
 Build numbers are stamped with the source commit SHA by the existing workflow.
 

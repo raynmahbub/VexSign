@@ -15,7 +15,7 @@
 #
 # Environment:
 #   RELEASE_REPO   owner/name to read releases from. Defaults to the origin
-#                  remote of the current checkout (or iamsmmh/VexSign).
+#                  remote of the current checkout (or raynmahbub/VexSign).
 #   RELEASE_TAG    the tag to sync. When unset, uses the latest *published*
 #                  release on RELEASE_REPO. In CI, the workflow passes this
 #                  from github.event.release.tag_name so a pre-release or a
@@ -45,7 +45,7 @@ origin_repo() {
 }
 
 RELEASE_REPO="${RELEASE_REPO:-$(origin_repo)}"
-[ -n "$RELEASE_REPO" ] || RELEASE_REPO="iamsmmh/VexSign"
+[ -n "$RELEASE_REPO" ] || RELEASE_REPO="raynmahbub/VexSign"
 
 if [ -n "${RELEASE_TAG:-}" ]; then
   API_URL="https://api.github.com/repos/${RELEASE_REPO}/releases/tags/${RELEASE_TAG}"
@@ -235,7 +235,7 @@ jq --arg tag "$tag" \
           title: ("VexSign " + $version),
           caption: $caption,
           tintColor: "C96FAD",
-          imageURL: "https://raw.githubusercontent.com/iamsmmh/VexSign/main/icon.png",
+          imageURL: "https://raw.githubusercontent.com/raynmahbub/VexSign/main/icon.png",
           notify: true,
           url: $url } ]
       + [ (.news // [])[] | select(.identifier != ("vexsign-" + $version)) ]

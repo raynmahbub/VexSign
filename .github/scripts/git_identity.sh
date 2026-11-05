@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Configure the git identity used for commits made by automation.
 #
-# Every commit the workflows create (SwiftLint fixes, upstream merge kits) is
+# Every commit a workflow creates is
 # credited to the VexSign developer - the repository owner - instead of to
 # "github-actions[bot]". The identity is resolved in this order:
 #

@@ -99,4 +99,4 @@ decorative.
 `AltSourceKit` ships `ASDecrypt` and `EsignSourceKey` for repositories that distribute
 ESign-encrypted catalogs. Those keys are published by the repository, are not secrets VexSign holds,
 and do not authenticate anything — decrypting a document says only that someone could encrypt it.
-See `LICENSE` and `docs/SECURITY_REVIEW.md` for the distribution note.
+See `LICENSE` and [`SECURITY.md`](../SECURITY.md) for the distribution note.

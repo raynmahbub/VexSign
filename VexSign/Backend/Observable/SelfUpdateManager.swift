@@ -52,7 +52,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	@Published var installProgress: Double = 0
 	@Published var presentUpdatePrompt = false
 
-	private let _repo = "iamsmmh/VexSign"
+	private let _repo = "raynmahbub/VexSign"
 	private let _perPage = 30
 
 	private enum Keys {

@@ -10,7 +10,7 @@ name: Repository maintenance
 
 on:
   schedule:
-    - cron: '40 4 * * 1'   # Mondays 04:40 UTC, after the upstream radar
+    - cron: '40 4 * * 1'   # Mondays 04:40 UTC
   workflow_dispatch:
 
 permissions:

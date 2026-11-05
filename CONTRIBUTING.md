@@ -19,8 +19,8 @@ make bootstrap
 open VexSign.xcworkspace
 ```
 
-No Git submodules are used. The signing engine and device bridge live in
-`Vendor/`; other SwiftPM packages resolve normally. Use a supported current
+The signing engine and device bridge live in `Vendor/`; other SwiftPM packages
+resolve normally. Use a supported current
 Xcode and the iOS 16+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
 
 ## Validate changes
@@ -60,18 +60,6 @@ rebuild with an explicit deployment target (for example `15.0`).
 - Edit `VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 tools/sync-strings.py --write`), then run `make verify`.
 - Follow [Design](docs/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `VexSign/DesignSystem/` instead of adding another card style.
 - Keep documentation concise and update only guides affected by the change.
-
-## History maintenance
-
-Rewriting `main` is exceptional. If merge commit messages must change, use the
-reviewed runbook in [docs/REWRITING_HISTORY.md](docs/REWRITING_HISTORY.md): the
-script rewrites the branch and its tags in a throwaway clone, verifies every
-tree and tag, writes a bundle, and leaves the atomic force-push to a maintainer.
-Coordinate with everyone who has a clone before pushing.
-
-For new work, prefer squash merges: each PR lands as one commit and history
-stays linear from here without replaying the old conflict resolutions. See the
-same document for the repository settings.
 
 ## Releases
 

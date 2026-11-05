@@ -43,7 +43,7 @@ companion and cloud flows are explicit, documented and opt-in.
 | **Private by default** | Signing happens on device. Certificates, profiles and passwords stay in the app's protected storage; there is no VexSign signing cloud. |
 | **One coherent workflow** | Import, inspect, sign, install and update share the same task model, progress UI and error guidance. |
 | **At home on iOS** | Built with SwiftUI and the system design language across iOS, iPadOS, tvOS, watchOS and visionOS, with Dynamic Type, VoiceOver and Reduce Motion support. |
-| **Open and inspectable** | Every first-party source file and build check is in this repository. The signing engine and device bridge are vendored, not hidden behind submodules; normal SwiftPM dependencies still resolve from their upstreams. |
+| **Open and inspectable** | Every first-party source file and build check is in this repository. The signing engine and device bridge are vendored; normal SwiftPM dependencies still resolve from their upstreams. |
 
 ## The workspace
 
@@ -173,9 +173,8 @@ First time here? Read [Free Apple ID setup](docs/FREE_APPLE_ID_SETUP.md),
 
 ## Build from source
 
-**Requirements:** macOS with a current Xcode, or the matching CI runner. No Git
-submodules or recursive clone is required. `make bootstrap` resolves the
-remaining SwiftPM packages.
+**Requirements:** macOS with a current Xcode, or the matching CI runner. A plain
+clone is enough; `make bootstrap` resolves the SwiftPM packages.
 
 ```bash
 git clone https://github.com/raynmahbub/VexSign.git
@@ -303,8 +302,7 @@ use the tokens and accessibility rules in [Design](docs/DESIGN.md).
 
 ## Credits
 
-VexSign builds on [Feather](https://github.com/claration/Feather) and the work of
-the sideloading community. Third-party code includes
+VexSign is an independent project. Third-party code includes
 [Zsign](https://github.com/zhlynn/zsign),
 [idevice](https://github.com/jkcoxson/idevice),
 [ElleKit](https://github.com/everythingappletech/ElleKit), Vapor, Nuke,

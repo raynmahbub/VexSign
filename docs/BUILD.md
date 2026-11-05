@@ -13,9 +13,8 @@ Git are available; the app and simulator tests need macOS with Xcode.
 | Tools | `git`, `make`, Python 3, and the Xcode command-line tools |
 | Optional | `swiftlint` for `make lint`; Docker for `make deploy-server` |
 
-No Git submodules or recursive clone is required. The signing engine and
-device bridge are vendored under [`Vendor/`](../Vendor/README.md); other
-packages resolve through SwiftPM.
+A plain clone is enough. The signing engine and device bridge are vendored
+under [`Vendor/`](../Vendor/README.md); other packages resolve through SwiftPM.
 
 ## 1. Clone
 

@@ -229,5 +229,5 @@ fi
 
 printf '\n---\n\n'
 printf -- '- 📦 Download: `VexSign.ipa` attached below\n'
-printf -- '- 📲 AltStore source: `https://raw.githubusercontent.com/iamsmmh/VexSign/main/app-repo.json`\n'
-printf -- '- 💬 Report issues: https://github.com/iamsmmh/VexSign/issues\n'
+printf -- '- 📲 AltStore source: `https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json`\n'
+printf -- '- 💬 Report issues: https://github.com/raynmahbub/VexSign/issues\n'

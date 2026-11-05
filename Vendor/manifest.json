@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Third-party SwiftPM sources vendored into the repository so a build never needs Git submodules.",
+  "description": "Third-party SwiftPM sources vendored into the repository so a plain clone builds VexSign.",
   "packages": [
     {
       "name": "Zsign",
@@ -10,7 +10,10 @@
       "commit": "6ffe703df73ef9069adacdbb19d571f11a69a801",
       "commitDate": "2025-07-27",
       "license": "MIT",
-      "licenseFiles": ["LICENSE", "LICENSE_LC"]
+      "licenseFiles": [
+        "LICENSE",
+        "LICENSE_LC"
+      ]
     },
     {
       "name": "IDeviceKitten",
@@ -20,7 +23,9 @@
       "commit": "837cf1e14d4875771dd5ee1b754a4c86215c5db3",
       "commitDate": "2026-04-14",
       "license": "MIT",
-      "licenseFiles": ["LICENSE"]
+      "licenseFiles": [
+        "LICENSE"
+      ]
     }
   ]
 }

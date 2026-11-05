@@ -1,8 +1,7 @@
 # Vendored packages
 
-These packages used to be Git submodules. They now live in the repository as
-ordinary local SwiftPM packages, so `git clone` and CI never need
-`--recursive` (or a working submodule remote) to build VexSign.
+These packages live in the repository as ordinary local SwiftPM packages, so a
+plain `git clone` and CI never need an extra checkout to build VexSign.
 
 | Package | Upstream | Pinned commit | License |
 | --- | --- | --- | --- |
@@ -13,11 +12,11 @@ The exact pins, paths and licence files are in [`manifest.json`](manifest.json).
 `IDeviceKit`'s `Package.swift` still resolves its `IDevice` binary target from
 the upstream release URL; the Swift sources and manifest are vendored here.
 `Zsign`'s `Package.swift` still declares its OpenSSL SwiftPM dependency. Both
-are ordinary SwiftPM dependencies, not Git submodules.
+are ordinary SwiftPM dependencies.
 
 ## Why
 
-- A clone builds without Git submodule state, credentials or recursive fetches.
+- A clone builds without extra repository state, credentials or recursive fetches.
 - The exact third-party source is reviewable in the same diff as the code that
   uses it.
 - CI caches a stable package graph instead of depending on two extra remotes.
