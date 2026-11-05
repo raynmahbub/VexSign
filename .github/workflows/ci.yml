@@ -20,8 +20,8 @@ name: CI
 # Deliberately not here:
 #   * release builds          release.yml — tags and manual runs only
 #   * companion SDKs          platform-check.yml — only when their sources change
-#   * Python backend          server-tests.yml — only when server/ changes
-#   * TypeScript cloud signer ecosystem.yml — only when its sources change
+#   * Python backend          services.yml — when server/ or cloud-signing/ changes
+#   * TypeScript cloud signer services.yml — shared with Python service checks
 #   * SwiftLint               `make lint` locally; no bot commits on your branch
 #
 # Markdown- and docs-only changes do not start this workflow at all.
@@ -49,7 +49,6 @@ on:
       - 'Package.swift'
       - 'Package.resolved'
       - 'Makefile'
-      - 'Scripts/**'
       - 'Tweaks/**'
       - 'tools/**'
       - 'EmbeddedContainer/*.py'
@@ -76,7 +75,6 @@ on:
       - 'Package.swift'
       - 'Package.resolved'
       - 'Makefile'
-      - 'Scripts/**'
       - 'Tweaks/**'
       - 'tools/**'
       - 'EmbeddedContainer/*.py'
@@ -121,6 +119,8 @@ jobs:
   # Fast gate: everything that can be decided without Xcode.
   # ---------------------------------------------------------------------------
   quick:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
     name: quick · syntax, resources, gates
     # Pinned, not `ubuntu-latest`: that label moves to Ubuntu 26 and the Swift
     # container this job runs in (noble, below) is built for 24.04. Bump both
@@ -141,6 +141,7 @@ jobs:
       - name: Quick check
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+          python3 .github/scripts/quick_check.py --self-test
           python3 .github/scripts/quick_check.py --root . --json "$RUNNER_TEMP/quick-check.json"
 
       # Deeper than quick_check's brace balance: every object id resolves, every
@@ -197,15 +198,16 @@ jobs:
           name: quick-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/quick-check.json
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 3
 
   # ---------------------------------------------------------------------------
   # Does it compile?
   # ---------------------------------------------------------------------------
   build:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick')
     name: build · VexSign Debug (unsigned)
     needs: quick
-    if: github.event_name != 'workflow_dispatch' || inputs.validation != 'quick'
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -311,7 +313,7 @@ jobs:
           name: build-warnings-baseline-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/build-warnings-baseline.json
           if-no-files-found: ignore
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload xcresult and log
         if: failure()
@@ -322,16 +324,17 @@ jobs:
             ${{ runner.temp }}/VexSign.xcresult
             ${{ runner.temp }}/xcodebuild.log
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 3
 
   # ---------------------------------------------------------------------------
   # Do the tests pass? Host-only suite, unsigned simulator run: no certificates
   # exist on the runner and none are needed to exercise signing *logic*.
   # ---------------------------------------------------------------------------
   tests:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick')
     name: tests · VexSignTests (simulator)
     needs: quick
-    if: github.event_name != 'workflow_dispatch' || inputs.validation != 'quick'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -632,4 +635,4 @@ jobs:
             ${{ runner.temp }}/VexSignTests.xcresult
             ${{ runner.temp }}/xcodebuild-test.log
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 3

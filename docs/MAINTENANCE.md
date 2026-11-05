@@ -1,99 +1,142 @@
-# Repository automation and maintenance
+# Repository operations
 
-VexSign uses automation for work that is deterministic, reviewable and safe to
-repeat. It does **not** silently rewrite application behaviour: a signing or
-SwiftUI bug needs a reproducer, a regression test and a build.
+One guide for free-only automation, dependency maintenance and occasional human
+checks. Build commands live in [Build](BUILD.md); version/channel/environment
+rules live in [Releasing](RELEASING.md). Security and device acceptance stay separate.
 
-## Dependency updates
+## Your normal routine
 
-[`.github/dependabot.yml`](../.github/dependabot.yml) keeps the supported
-dependency graphs current:
+1. Add features in a PR and review the relevant build/test results.
+2. To ship stable, increase **all** `MARKETING_VERSION` values consistently to a
+   higher `major.minor.patch`. Optionally add `docs/releases/<version>.md` highlights.
+3. Merge. Full CI validates main; a successful current-main version increase queues
+   Release, which builds/tests again before protected publishing. Nightlies run
+   independently every day at 03:00 UTC / 09:00 Dhaka.
+4. Occasionally review failure issues, major upgrades, conflicts and pending
+   approvals. Signing/provisioning/security changes and real-device tests need you.
 
-| Ecosystem | Path | Cadence |
-| --- | --- | --- |
-| GitHub Actions | `/` | Daily |
-| Python (`server/requirements.txt`) | `/server` | Weekly |
-| npm (`cloud-signing/package-lock.json`) | `/cloud-signing` | Weekly |
-| SwiftPM | `/NativeSigning`, `/SideSign`, `/Vendor/Zsign` | Weekly |
-| Docker | `/server`, `/cloud-signing` | Weekly |
+There is no hosted AI agent, paid model API or automatic arbitrary code repair.
+The GitHub Actions bot performs deterministic tasks; it does not invent fixes.
 
-Patch and minor updates are grouped to keep the PR queue small; major updates
-arrive separately so their migration notes are not hidden in a bundle. Dependabot
-never pushes to `main`.
+## Workflow map
 
-The Xcode app's own Swift packages are declared in
-`VexSign.xcodeproj/project.pbxproj`, not in a `Package.swift`, so Dependabot
-cannot update them directly. Refresh them deliberately on a macOS checkout:
+| Workflow | Responsibility / cadence |
+| --- | --- |
+| **CI** | Relevant app PRs/main changes: portable gates, unsigned iOS build, simulator tests. |
+| **Service checks** | Server/cloud edits: Python tests, TypeScript build/tests/contracts and production dependency audit. Also weekly Tuesday advisories; both cheap suites run together. |
+| **Platform check** | Relevant companion/shared-package changes: tvOS, watchOS and visionOS builds. |
+| **Documentation** | Documentation edits: cheap offline file-link checks; no macOS work. |
+| **Release** | Daily nightlies, tag/manual stable builds, CI-driven version-bump dispatch and isolated protected publication. |
+| **Repository maintenance** | Hourly bot-PR controller; weekly Monday localisation sync and root Xcode dependency audit. Manual task selector. |
+| **CI triage** | Main workflow failures become one issue per source commit, with run/job links; no guessed patches. |
+| **Update Repository** | Published stable metadata → listing review PR, never a direct main push. |
+| **Guest-host prototype · build only** | Manual experimental container preparation/build; no normal release publication. |
+| **Native account signing · link smoke** | Manual native-package compatibility/link checks; no Apple login or signing secrets. |
+
+Separate files remain where triggers, SDK costs or permissions differ. Existing
+app/server/cloud/documentation check names are retained. If an organisation rule
+selects workflows by **file**, update its service selection to `services.yml`;
+repository YAML cannot inspect or migrate live protection rules automatically.
+
+## Deterministic bot maintenance
+
+**Repository maintenance → bot-prs** runs hourly. The trusted-default-branch
+controller accepts only same-repository, non-draft PRs from:
+
+- Dependabot: patch/minor service dependency updates restricted to
+  `server/requirements.txt` or `cloud-signing/package*.json`, with update metadata;
+- GitHub Actions: `automation/repo-maintenance` changing only the localisation
+  catalogue, or `automation/release-listing` changing only `app-repo.json`.
+
+It refreshes a stale branch only when GitHub can merge main without conflicts,
+then validates the new head on a later pass. It explicitly dispatches full CI and
+service checks where needed, merges at most one green/current PR per pass with a
+pinned head SHA, then explicitly dispatches main validation. Explicit dispatch is
+necessary because `GITHUB_TOKEN`-created PRs/merges do not trigger ordinary events.
+No personal token, external GitHub App or autonomous approval is required.
+
+Human features, major upgrades, Docker/Actions updates, Swift packages, application
+source, workflow/signing/security changes, forks, conflicts and unknown bot
+branches are **not** auto-merged. Failed checks are not repeatedly retried. Required
+reviews/queues/environment protections are never bypassed.
+
+**Repository maintenance → hygiene** runs weekly, adds missing English
+localisation keys, runs `make verify`, and opens/refreshes a PR only when the
+catalogue changes. **audit** is a separate read-only-source job that reports root
+Xcode package updates in an issue. Hourly runs do not repeat these weekly jobs.
+Manual tasks: `all`, `bot-prs`, `hygiene`, `audit`.
+
+## Dependencies
+
+Dependabot groups patch/minor updates and opens majors separately. It covers
+Actions daily and server Python, cloud npm, local SwiftPM packages and Docker
+weekly; see [the configuration](../.github/dependabot.yml).
+
+The app's root SwiftPM requirements live in `project.pbxproj`, outside Dependabot's
+SwiftPM support. For a reviewed root update on macOS:
 
 ```bash
-make audit-packages   # read-only report, also runs weekly in Actions
+make audit-packages
 make bootstrap
-# bump the relevant repository/requirement in project.pbxproj, then:
-xcodebuild -workspace VexSign.xcworkspace -scheme VexSign \
-  -resolvePackageDependencies
+# Deliberately update the requirement in project.pbxproj, then resolve:
+xcodebuild -workspace VexSign.xcworkspace -scheme VexSign -resolvePackageDependencies
 make verify
 make test
 ```
 
-Review the resolved graph in
-`VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` and
-build before committing. Root packages are pinned because Xcode, iOS SDK and
-SwiftUI compatibility matter more than being newest.
+Review the resolved package graph and build before merging. Enable Dependabot
+alerts/security updates in GitHub's repository settings for advisory-driven fixes.
 
-Enable **Dependabot alerts** and **security updates** under Settings → Code
-security for advisory-driven fixes. GitHub Actions are also reviewed by the
-pinned-SHA policy in `tools/test_workflow_policy.py`.
+## One-time activation and occasional checks
 
-## Automated hygiene, not automated guessing
+1. Merge the configuration to the default branch; scheduled/controller workflows
+   activate there. No live protection or billing settings are changed by YAML.
+2. Allow Actions to create PRs. Organisation policies may restrict requested token
+   permissions. Bots do not approve their own PRs.
+3. Protect main with PR/check requirements and protect release tags/workflows.
+   Required human reviews deliberately block unattended bot merges; choose rules
+   appropriate to narrow metadata/service updates without adding admin bypasses.
+4. Configure `build-preview`, `nightly` and `release` environments per
+   [Releasing](RELEASING.md). Required stable reviewers pause publication by design;
+   keep them unless you explicitly choose unattended stable publication.
+5. Run **Repository maintenance → all** once and inspect its log. Enable Actions
+   and issue notifications. GitHub can delay schedules or disable inactive ones.
+6. Cancel obsolete runs when replacing workflows. Lower retention affects new
+   uploads, not old artifacts. Existing model/agent integrations, if any, should
+   be disabled separately; the unused repair-agent workflow/code is removed here.
 
-**Repository maintenance** (`.github/workflows/repo-maintenance.yml`) runs on
-Mondays and on demand. It:
+If main advances before version-bump CI finishes, stable dispatch skips the old
+candidate. Review the current commit and use the normal manual Release dispatch.
+No version bump means nightly-only; published versions/tags are never overwritten.
 
-1. runs `python3 tools/sync-strings.py --write` to add missing English
-   localisation keys;
-2. runs `make verify`;
-3. opens or refreshes a review PR **only if files changed**.
+## Free-only cost controls
 
-It never commits to `main` and never edits Swift behaviour. `sync-strings` is a
-mechanical, idempotent tool; that is why it is safe to automate.
+Every job requires an explicitly **public** repository before runner allocation.
+Private copies skip jobs rather than using private-repository minutes. Only
+standard `ubuntu-24.04` / `macos-15` runners are allowed; Actions uploads retain
+artifacts for at most **three days**. There are no model permissions, inference
+calls, larger runners, paid agents or provisioned self-hosted services.
 
-**CI triage** (`.github/workflows/ci-triage.yml`) watches the `CI` workflow. A
-failure on `main` opens (or comments on) an issue containing the commit, run URL
-and failed jobs, so a red run is not lost in the Actions tab. It does not invent
-a patch.
+For a strict zero-spend account setup, also:
 
-## What is intentionally manual
+- Confirm standard public-repository Actions are covered under your current GitHub
+  account's terms. Pricing/allowances can change.
+- Disable paid usage or use enforced zero-spend/stop-usage controls where offered;
+  an alert-only budget does not prevent charges. If a service has no enforceable
+  spending control, disable it rather than assuming the budget is a cap.
+- Review/delete unneeded existing caches/artifacts and check account usage
+  occasionally. Other repositories, old runs, historical charges and independently
+  hosted optional services are outside this repository's control.
 
-- Merging Dependabot or maintenance PRs. Path-filtered app, server, cloud and companion validators run on PRs
-  automatically. Review all affected build/test results, not just the app check.
-- Updating the root Xcode SwiftPM requirements (see above).
-- Changing signing, provisioning, entitlements or installation behaviour.
-- Publishing a stable release. Pushing a `v<MARKETING_VERSION>` tag is the
-  automated path; the version bump itself is a reviewed commit.
+These are cost-avoidance controls, not a financial or availability guarantee.
+Physical-device acceptance remains required: use [Device testing](DEVICE_TESTING.md).
 
-## Automation boundaries
+## Pause switches
 
-Automate checks, packaging, immutable nightlies and mechanical maintenance PRs.
-Do not auto-merge signing/security changes or promote nightlies to stable. A green
-build is not proof of real-device installation, entitlement correctness or safe
-credential handling. Configure required checks, protected release environments
-and tag rulesets in GitHub; workflow YAML alone cannot enforce those settings.
+Set Actions variables to the literal `false`:
 
-## Current release state
+- `AUTOPILOT_ENABLED`: stop hourly bot validation/merging (weekly audit/hygiene remain).
+- `AUTORELEASE_STABLE`: stop CI-driven stable dispatch (manual/tag release remains).
 
-- `MARKETING_VERSION`: **1.1.0**
-- Stable channel: tag push or **Actions → Release**, channel `stable`
-- Nightly channel: daily 03:00 UTC, or channel `nightly` manually
-- Nightly releases are pre-releases and never update `app-repo.json`
-- Stable listing changes go through an `automation/release-listing` review PR
-
-See [Releasing](RELEASING.md) for the exact tag, environment and verification
-rules.
-
-## Optional low-maintenance operation
-
-The [autopilot guide](AUTOPILOT.md) supersedes manual merge guidance for its narrow
-allowlist only. Eligible service patch/minor and known metadata PRs may merge after
-full checks; other updates and sensitive changes remain reviewed. Stable version
-increases on green main commits can dispatch Release automatically. Repository
-rules and required release reviewers are never bypassed.
+Unset means enabled. Disable the relevant workflow to stop scheduled operations
+entirely, and cancel already-running jobs separately. Never commit credentials.

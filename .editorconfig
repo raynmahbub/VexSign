@@ -11,3 +11,24 @@ insert_final_newline = true
 [*.{yml,yaml}]
 indent_style = space
 indent_size = 2
+
+# Match existing language conventions rather than applying tabs to Python/JSON.
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.sh]
+indent_style = space
+indent_size = 4
+
+[*.json]
+indent_style = space
+indent_size = 2
+
+[*.md]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+indent_size = 4

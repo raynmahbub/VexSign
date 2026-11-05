@@ -687,7 +687,7 @@ packageReferences = (
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Tweaks/FilePickerFix/FilePickerFix.m",
+				"$(SRCROOT)/Tweaks/FilePickerFix.m",
 			);
 			name = "Build FilePickerFix";
 			outputPaths = (
@@ -695,7 +695,7 @@ packageReferences = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nxcrun --sdk iphoneos clang -dynamiclib -fobjc-arc -Os -target arm64-apple-ios14.0 -isysroot \"$(xcrun --sdk iphoneos --show-sdk-path)\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/Tweaks/FilePickerFix/FilePickerFix.m\"\n";
+			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nxcrun --sdk iphoneos clang -dynamiclib -fobjc-arc -Os -target arm64-apple-ios14.0 -isysroot \"$(xcrun --sdk iphoneos --show-sdk-path)\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/Tweaks/FilePickerFix.m\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -173,3 +173,34 @@ make test-cloud
 Cloud checks compile TypeScript, run tests and regenerate the OpenAPI contract;
 contract drift fails the command and leaves a diff to review. These checks do not
 prove a deployed PostgreSQL/Redis/object-store/signing-worker installation works.
+
+
+## Repository layout and early error checks
+
+`Tweaks/FilePickerFix.m` is the source of the injected picker-fix dylib. Its Xcode
+build phase declares the same path as a source input; keep both references in sync
+when moving it. Native-signing Python preparation tests live in
+`NativeSigning/PythonTests/`, separate from Swift `Tests/` to avoid case-insensitive
+macOS filesystem collisions.
+
+`make verify` and the existing CI quick checker now reject unnecessary single-child
+folder chains, case/Unicode-normalised path collisions, hidden path whitespace,
+missing declared Xcode source inputs and Python/shell syntax errors. Python checks
+compile syntax without importing/running code; shell checks use `bash -n`.
+Generated/untracked ignored trees are not inventoried. The checker includes its
+own offline regressions (`quick_check.py --self-test`), with no extra workflow.
+
+SwiftPM `Sources/<target>`, Xcode workspace/project metadata and pinned `Vendor/`
+layouts are intentional exceptions: GitHub may still compact those in its browser.
+Do not flatten required tool layouts or add placeholder files just to hide arrows.
+Swift syntax parsing remains in CI's Swift container; full SDK builds, simulator
+results and [physical-device acceptance](DEVICE_TESTING.md) remain separate gates.
+No static check can guarantee a perfect build on every Xcode/device combination.
+
+
+Developer entry points are grouped in `tools/`: `bootstrap.sh`, `device-smoke.sh`,
+`update-repo.sh`, verification tools and their tests. Prefer `make help` for the
+supported commands; no generated files or placeholder directory markers belong
+in these folders. Presentation graphics belong in `docs/assets/`. Root `icon.png`
+and repository feeds are retained as published compatibility URLs; `render.yaml`
+and `license_plist.yml` remain where their consumers discover them.

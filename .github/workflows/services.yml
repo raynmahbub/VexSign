@@ -1,0 +1,77 @@
+name: Service checks
+
+# Cheap service suites share an entry point, preserving the check names.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'cloud-signing/**'
+      - '.github/workflows/services.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'cloud-signing/**'
+      - '.github/workflows/services.yml'
+  schedule:
+    - cron: '0 6 * * 2'   # weekly dependency advisories, even without source edits
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: services-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    name: pytest · server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Install dependencies
+        # cryptography enables the full X.509 certificate-checker tests.
+        run: python -m pip install -r requirements.txt pytest cryptography
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+  cloud:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: cloud-signing
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud-signing/package-lock.json
+      - run: npm ci
+      # `build` is `tsc -p ...`; it type-checks and emits, so the old
+      # `check` (`tsc --noEmit`) step was the same work twice.
+      - run: npm run build
+      - run: npm test
+      - run: npm run contracts && git diff --exit-code -- openapi.json
+      - run: npm audit --omit=dev --audit-level=high

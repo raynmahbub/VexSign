@@ -6,9 +6,13 @@ name: Release
 # a commit on the default branch; nightly releases are unique, dated tags so a
 # bad nightly is never retried over a good one. Device TLS is created on device.
 # Build with a read-only token; publish artifacts in a separate protected job.
+# CI-completion events only detect version bumps; they cannot build directly.
 # Configure the release environment before use. See docs/RELEASING.md.
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   workflow_dispatch:
     inputs:
       build_only:
@@ -73,7 +77,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  version-bump:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (vars.AUTORELEASE_STABLE != 'false' &&
+      github.event_name == 'workflow_run' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+      github.event.workflow_run.conclusion == 'success')
+    permissions:
+      contents: read
+      actions: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Release reviewed version increase after full CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN: ${{ github.event.workflow_run.id }}
+        run: python3 tools/auto-stable-release.py
+
   build:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.event_name != 'workflow_run'
     runs-on: macos-15
     timeout-minutes: 90
     environment: ${{ (github.event_name == 'schedule' || inputs.channel == 'nightly') && 'build-preview' || (github.event_name == 'workflow_dispatch' && inputs.build_only && 'build-preview' || 'release') }}
@@ -366,7 +403,7 @@ jobs:
           name: VexSign-${{ steps.get_version.outputs.version }}-${{ steps.get_version.outputs.short_sha }}
           path: upload/*.ipa
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Generate Changelog
         id: changelog
@@ -394,12 +431,15 @@ jobs:
             upload/VexSign-icon.png
             upload/Home-layout-preview.svg
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
 
   publish:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (needs.build.outputs.publish == 'true')
     needs: build
-    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: ${{ needs.build.outputs.channel == 'nightly' && 'nightly' || 'release' }}
@@ -465,8 +505,12 @@ jobs:
         run: echo "Published verified release assets at ${RELEASE_URL}" >> "$GITHUB_STEP_SUMMARY"
 
   sync-repository:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (needs.build.outputs.channel == 'stable' &&
+      (github.event_name != 'workflow_dispatch' || !inputs.draft))
     needs: [build, publish]
-    if: needs.build.outputs.channel == 'stable' && (github.event_name != 'workflow_dispatch' || !inputs.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

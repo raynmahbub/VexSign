@@ -15,14 +15,14 @@
 | `Services/` | Authentication state and account-session coordination |
 | `Signing/` | Strict archive, Mach-O, entitlements, and signature verification |
 | `Tests/` | Swift package tests |
-| `tests/` | Dependency-free preparation and policy regression tests |
+| `PythonTests/` | Dependency-free preparation and policy regression tests |
 
 The package links Swift Crypto, ASN.1, Certificates, OpenSSL, Zsign, NimbleKit, and SideSign. Zsign is vendored under `Vendor/Zsign`, so the package graph needs no Git submodules.
 
 ## Validate
 
 ```bash
-python3 -m unittest discover -s NativeSigning/tests -v
+python3 -m unittest discover -s NativeSigning/PythonTests -v
 swift test --package-path NativeSigning
 ```
 

@@ -39,7 +39,7 @@ clean:
 # Validate a fresh checkout and resolve packages without building.
 #   make bootstrap
 bootstrap:
-	@bash Scripts/bootstrap.sh
+	@bash tools/bootstrap.sh
 
 # Install-server TLS is generated and persisted on each device, not in an IPA.
 $(SCHEMES):
@@ -106,6 +106,7 @@ verify: docs-check
 	@python3 tools/test_release_assets.py
 	@python3 tools/test_device_acceptance.py
 	@echo "== quick check (syntax-independent) =="
+	@python3 .github/scripts/quick_check.py --self-test
 	@python3 .github/scripts/quick_check.py --no-swiftc
 	@echo "== Xcode project structure =="
 	@python3 tools/check-pbxproj.py
@@ -122,7 +123,7 @@ verify: docs-check
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="
-	@python3 -m unittest discover -s NativeSigning/tests -v
+	@python3 -m unittest discover -s NativeSigning/PythonTests -v
 
 # Read-only upstream check for the root Xcode SwiftPM requirements (Dependabot
 # covers Package.swift, but not project.pbxproj). Never edits the project.
@@ -188,4 +189,4 @@ test-cloud:
 
 .PHONY: device-smoke
 device-smoke:
-	@bash Scripts/device-smoke.sh
+	@bash tools/device-smoke.sh

@@ -172,9 +172,9 @@ environment separately. YAML alone cannot enable these protections.
 Enable **Allow GitHub Actions to create and approve pull requests** in repository
 Actions settings (the workflows only create PRs; they do not approve them).
 `GITHUB_TOKEN`-created PRs do not generally trigger downstream PR workflows;
-review/dispatch the relevant validators manually, or use a narrowly scoped GitHub
-App installation token if fully automatic bot-PR validation is required. Do not
-replace it with a broad personal token or `pull_request_target` execution.
+the deterministic maintenance controller explicitly dispatches validators for its
+allowlisted bot PRs. Others need a manual validation run. No external App or broad
+personal token is required; do not execute untrusted code through `pull_request_target`.
 
 Nightlies are automatic daily at 03:00 UTC (09:00 Dhaka). Stable packaging and
 publication are automatic **after a reviewed version is selected** via tag/manual
@@ -187,7 +187,8 @@ actions dynamically downloaded/executed by this repository.
 
 ## Automatic stable dispatch
 
-[Autopilot](AUTOPILOT.md) can dispatch stable packaging after a reviewed, unanimous
-marketing-version increase reaches main and its full build/simulator CI passes.
+The Release workflow detects a reviewed, unanimous marketing-version increase
+after its full main build/simulator CI passes and dispatches stable packaging.
+See [repository operations](MAINTENANCE.md) for the normal workflow.
 It never selects a new version itself, publishes an obsolete main candidate or
 bypasses the release environment. Set `AUTORELEASE_STABLE=false` to pause it.

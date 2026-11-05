@@ -54,6 +54,8 @@ concurrency:
 
 jobs:
   build:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
     name: ${{ matrix.label }}
     runs-on: macos-15
     timeout-minutes: 60
@@ -145,4 +147,4 @@ jobs:
           name: platform-build-log-${{ matrix.scheme }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/${{ matrix.scheme }}-build.log
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 3

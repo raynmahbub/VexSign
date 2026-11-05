@@ -28,7 +28,6 @@ versioned with the code.
 | --- | --- |
 | [Device acceptance](DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
-| [Autopilot](AUTOPILOT.md) | You want one-time setup and low-maintenance operation. |
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |
 | [Changelog](../CHANGELOG.md) | You need the user-visible history. |

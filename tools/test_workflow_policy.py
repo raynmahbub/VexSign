@@ -11,7 +11,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / '.github/workflows'
-VALIDATORS = ('ci.yml', 'platform-check.yml', 'server-tests.yml', 'ecosystem.yml')
+VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml')
 
 
 def block(text, key, indent):
@@ -76,10 +76,10 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertFalse(covers('ci.yml', 'cloud-signing/src/main.ts'))
 
     def test_component_checks_do_not_follow_unrelated_changes(self):
-        self.assertTrue(covers('server-tests.yml', 'server/main.py'))
-        self.assertFalse(covers('server-tests.yml', 'VexSign/VexSignApp.swift'))
-        self.assertTrue(covers('ecosystem.yml', 'cloud-signing/src/main.ts'))
-        self.assertFalse(covers('ecosystem.yml', 'VexSign/CertificateDashboard/CertificateInspector.swift'))
+        self.assertTrue(covers('services.yml', 'server/main.py'))
+        self.assertFalse(covers('services.yml', 'VexSign/VexSignApp.swift'))
+        self.assertTrue(covers('services.yml', 'cloud-signing/src/main.ts'))
+        self.assertFalse(covers('services.yml', 'VexSign/CertificateDashboard/CertificateInspector.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSign/Companion/CompanionStatus.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSignWatch/VexSignWatchApp.swift'))
 
@@ -178,12 +178,90 @@ class WorkflowPolicyTests(unittest.TestCase):
         # Dependabot and maintenance work through branches/issues; a PR-triggered
         # workflow must not execute privileged maintenance code from PRs.
         self.assertTrue((ROOT / '.github/dependabot.yml').is_file())
-        for name in ('repo-maintenance.yml', 'ci-triage.yml', 'dependency-audit.yml'):
+        for name in ('repo-maintenance.yml', 'ci-triage.yml'):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)
             self.assertNotIn('pull_request', events)
 
+    def test_free_only_workflow_policy(self):
+        for path in WORKFLOWS.glob('*.yml'):
+            text = path.read_text()
+            for job in re.findall(r'^  ([A-Za-z0-9_-]+):$', block(text, 'jobs', 0), re.MULTILINE):
+                self.assertIn('github.event.repository.private == false', block(block(text, 'jobs', 0), job, 2))
+                self.assertIn("github.event.repository.visibility == 'public'", block(block(text, 'jobs', 0), job, 2))
+            self.assertNotIn('models: read', text)
+            for runner in re.findall(r'runs-on: (.+)', text):
+                self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
+            for retention in re.findall(r'retention-days: (\d+)', text):
+                self.assertLessEqual(int(retention), 3)
+        for removed in ('repair-agent.yml', 'autopilot.yml', 'auto-stable.yml',
+                        'dependency-audit.yml', 'server-tests.yml', 'ecosystem.yml'):
+            self.assertFalse((WORKFLOWS / removed).exists())
+        for removed in ('repair-agent.py', 'test_repair_agent.py'):
+            self.assertFalse((ROOT / 'tools' / removed).exists())
+
+    def test_maintenance_jobs_keep_independent_permissions_and_cadence(self):
+        text = (WORKFLOWS / 'repo-maintenance.yml').read_text()
+        self.assertEqual(block(text, 'permissions', 0).strip(), 'permissions:\n  contents: read')
+        jobs = block(text, 'jobs', 0)
+        maintain = block(jobs, 'maintain', 2)
+        self.assertIn("github.event.schedule == '17 * * * *'", maintain)
+        self.assertIn("inputs.task == 'bot-prs'", maintain)
+        self.assertIn('actions: write', block(maintain, 'permissions', 4))
+        for job in ('hygiene', 'audit'):
+            content = block(jobs, job, 2)
+            self.assertIn("github.event.schedule == '40 4 * * 1'", content)
+            self.assertNotIn("github.event.schedule == '17 * * * *'", content)
+            self.assertNotIn('actions: write', block(content, 'permissions', 4))
+        audit_permissions = block(block(jobs, 'audit', 2), 'permissions', 4)
+        self.assertIn('contents: read', audit_permissions)
+        self.assertNotIn('contents: write', audit_permissions)
+        self.assertNotIn('pull-requests: write', audit_permissions)
+
+    def test_ci_completion_only_dispatches_release_and_cannot_start_build(self):
+        text = (WORKFLOWS / 'release.yml').read_text()
+        self.assertIn('workflows: [CI]', block(text, 'on', 0))
+        self.assertIn("github.event_name != 'workflow_run'", block(text, 'build', 2))
+        version = block(text, 'version-bump', 2)
+        self.assertIn("github.event_name == 'workflow_run'", version)
+        self.assertIn('head_repository.full_name == github.repository', version)
+        self.assertIn("workflow_run.conclusion == 'success'", version)
+        self.assertIn('contents: read', block(version, 'permissions', 4))
+        self.assertNotIn('contents: write', block(version, 'permissions', 4))
+
+    def test_existing_validation_check_names_are_retained(self):
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        self.assertIn('name: quick · syntax, resources, gates', ci)
+        self.assertIn('name: build · VexSign Debug (unsigned)', ci)
+        self.assertIn('name: tests · VexSignTests (simulator)', ci)
+        services = (WORKFLOWS / 'services.yml').read_text()
+        self.assertIn('name: pytest · server', block(services, 'pytest', 2))
+        self.assertIn('  cloud:', services)  # implicit check name is still cloud
+        self.assertIn('  links:', (WORKFLOWS / 'docs.yml').read_text())
+
+    def test_failure_reporting_uses_real_workflow_names_and_serializes_issues(self):
+        text = (WORKFLOWS / 'ci-triage.yml').read_text()
+        watched = re.search(r'workflows: \[(.*)\]', text)[1]
+        real_names = {re.search(r'^name: (.+)', p.read_text())[1] for p in WORKFLOWS.glob('*.yml')}
+        for name in re.findall(r'"([^"]+)"', watched):
+            self.assertIn(name, real_names)
+        self.assertNotIn('"CI triage"', watched)
+        self.assertIn('cancel-in-progress: false', text)
+        self.assertIn('WORKFLOW_NAME:', text)
+
+    def test_developer_entry_points_share_the_tools_directory(self):
+        makefile = (ROOT / 'Makefile').read_text()
+        self.assertIn('bash tools/bootstrap.sh', makefile)
+        self.assertIn('bash tools/device-smoke.sh', makefile)
+        self.assertIn('./tools/update-repo.sh', (WORKFLOWS / 'update_repo.yml').read_text())
+        for name in ('bootstrap.sh', 'device-smoke.sh', 'update-repo.sh', 'tls-pack-digest.py'):
+            self.assertTrue((ROOT / 'tools' / name).is_file())
+        self.assertFalse((ROOT / 'Scripts').exists())
+        self.assertFalse((ROOT / 'update-repo.sh').exists())
+        self.assertTrue((ROOT / 'docs/assets/logo.svg').is_file())
+        self.assertTrue((ROOT / 'icon.png').is_file())  # published feed compatibility
+
     def test_security_schedule_and_release_boundaries_are_preserved(self):
-        events = block((WORKFLOWS / 'ecosystem.yml').read_text(), 'on', 0)
+        events = block((WORKFLOWS / 'services.yml').read_text(), 'on', 0)
         self.assertIn('  schedule:', events)
         self.assertIn("cron: '0 6 * * 2'", events)
         release = block((WORKFLOWS / 'release.yml').read_text(), 'on', 0)

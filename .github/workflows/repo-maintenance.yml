@@ -1,28 +1,60 @@
 name: Repository maintenance
 
-# Deterministic clean-up that is safe to automate: add missing localisation
-# keys, run every dependency-free gate, and open a review PR only when files
-# actually changed. It never pushes to main and never edits application code.
-#
-# This is intentionally not a "fix all bugs" bot. Behavioural fixes still need
-# a failing test, a reviewed diff and a build. CI failures are triaged into
-# issues by ci-triage.yml.
-
+# Trusted default-branch code only. Jobs have separate least-privilege tokens.
 on:
   schedule:
-    - cron: '40 4 * * 1'   # Mondays 04:40 UTC
+    - cron: '17 * * * *'   # bot PRs: hourly
+    - cron: '40 4 * * 1'   # hygiene + Xcode package audit: weekly
   workflow_dispatch:
+    inputs:
+      task:
+        description: 'Maintenance operation'
+        type: choice
+        options: [all, bot-prs, hygiene, audit]
+        default: all
+        required: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: repo-maintenance
   cancel-in-progress: false
 
 jobs:
+  maintain:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (vars.AUTOPILOT_ENABLED != 'false') &&
+      (github.event.schedule == '17 * * * *' || github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'all' || inputs.task == 'bot-prs'))
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Validate eligible bot PRs and merge green candidates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 tools/repository-autopilot.py
+
   hygiene:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (github.event.schedule == '40 4 * * 1' || github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'all' || inputs.task == 'hygiene'))
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -82,4 +114,65 @@ jobs:
               --title "chore: automated repository maintenance" \
               --body $'Deterministic maintenance only:\n\n- synchronised missing English localisation keys;\n- ran `make verify` successfully.\n\nNo application behaviour was changed. Review the diff and run the CI/quick gate for the branch before merging.'
             echo "Opened a review PR for ${BRANCH}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  audit:
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (github.event.schedule == '40 4 * * 1' || github.event_name == 'workflow_dispatch' &&
+      (inputs.task == 'all' || inputs.task == 'audit'))
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Check root Xcode packages
+        id: audit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          python3 tools/check-xcode-packages.py --format markdown --fail-on-outdated > "$RUNNER_TEMP/report.md"
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -eq 1 ]; then
+            echo "outdated=true" >> "$GITHUB_OUTPUT"
+          elif [ "$STATUS" -ne 0 ]; then
+            echo "::error::The package audit could not parse the project."
+            cat "$RUNNER_TEMP/report.md"
+            exit "$STATUS"
+          else
+            echo "outdated=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or refresh the audit issue
+        if: steps.audit.outputs.outdated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TITLE='Xcode package audit: updates available'
+          BODY="$(printf 'A compatible update is available for one or more root Xcode SwiftPM packages.\n\n%s\n\nThis is a review prompt, not an automatic bump: root packages are pinned because they must build against the current Xcode and iOS SDK. Use the refresh procedure in `docs/MAINTENANCE.md`, then build and test on macOS.\n\nAudit run: %s/%s/actions/runs/%s\n' "$(cat "$RUNNER_TEMP/report.md")" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}")"
+
+          EXISTING="$(gh issue list --state open --search 'Xcode package audit in:title' --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Updated issue #${EXISTING}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+            echo "Opened: ${TITLE}" >> "$GITHUB_STEP_SUMMARY"
           fi
