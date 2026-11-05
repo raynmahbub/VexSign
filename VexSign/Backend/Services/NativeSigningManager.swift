@@ -17,6 +17,9 @@ import Foundation
 import Combine
 import OSLog
 import NativeSigning
+// `TwoFactorResponse` is SideSign's; NativeSigning's backend takes it as an argument, so this
+// file has to name a type from that module rather than only passing values through.
+import SideSign
 import NimbleExtensions
 
 @MainActor
