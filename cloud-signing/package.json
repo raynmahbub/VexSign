@@ -23,7 +23,7 @@
     "@fastify/jwt": "^10.2.2",
     "@fastify/multipart": "^9.2.1",
     "@fastify/rate-limit": "^10.3.0",
-    "bullmq": "^5.58.5",
+    "bullmq": "^6.5.4",
     "fastify": "^5.8.0",
     "ioredis": "^5.7.0",
     "pg": "^8.16.3",
