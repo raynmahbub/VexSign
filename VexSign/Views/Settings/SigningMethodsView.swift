@@ -589,8 +589,12 @@ private struct TrollStoreInstallView: View {
         installError = nil
         defer { isInstalling = false }
 
-        // Get the signed IPA path
-        let ipaURL = download.localURL
+        // Same resolution order DownloadManager uses: the retained package first,
+        // then the staged download. `Download` has no localURL property.
+        guard let ipaURL = download.retainedPackageURL ?? download.pendingFileURL else {
+            installError = .localized("Signed IPA file not found")
+            return
+        }
         guard FileManager.default.fileExists(atPath: ipaURL.path) else {
             installError = .localized("Signed IPA file not found")
             return
