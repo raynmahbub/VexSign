@@ -1,8 +1,8 @@
 # Exact pins: Render reinstalls on every deploy, so floating versions could pull
 # a breaking FastAPI/Starlette release with no code change on our side.
-fastapi==0.141.1
-uvicorn==0.53.0
-python-multipart==0.0.32
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.33
 # Outbound HTTP for the browser tools: the signer console relays to the phone's
 # Web Manager, the repository decoder fetches feeds, and the app installer probes
 # IPA URLs. Streaming support is what rules out urllib here.
