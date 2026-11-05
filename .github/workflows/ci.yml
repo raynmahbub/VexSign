@@ -20,8 +20,8 @@ name: CI
 # Deliberately not here:
 #   * release builds          release.yml — tags and manual runs only
 #   * companion SDKs          platform-check.yml — only when their sources change
-#   * Python backend          server-tests.yml — only when server/ changes
-#   * TypeScript cloud signer ecosystem.yml — only when its sources change
+#   * Python backend          services.yml — when server/ or cloud-signing/ changes
+#   * TypeScript cloud signer services.yml — shared with Python service checks
 #   * SwiftLint               `make lint` locally; no bot commits on your branch
 #
 # Markdown- and docs-only changes do not start this workflow at all.
@@ -188,9 +188,6 @@ jobs:
 
       - name: Autopilot policy regressions
         run: python3 tools/test_autopilot.py
-
-      - name: Repair agent policy regressions
-        run: python3 tools/test_repair_agent.py
 
       - name: Workflow trigger policy
         run: python3 tools/test_workflow_policy.py

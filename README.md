@@ -94,8 +94,7 @@ scripts depend on them. Generated IPAs, credentials and build caches do not belo
 - **Autopilot:** grouped dependency PRs, hourly validation/merging of narrow green
   bot updates, weekly localisation maintenance and failure triage. Reviewed version
   bumps can trigger stable releases automatically; risky changes stay manual.
-  See [one-time setup and limits](docs/AUTOPILOT.md). [Free-only mode](docs/FREE_ONLY.md) uses standard public-repository runners
-  and diagnostic issues; hosted AI repair calls are disabled.
+  See [operations, one-time setup and free-only limits](docs/MAINTENANCE.md).
 
 [Release/version rules](docs/RELEASING.md) · [Automation policy](docs/MAINTENANCE.md)
 

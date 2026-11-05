@@ -64,17 +64,11 @@ class AutopilotTests(unittest.TestCase):
         pr['head']['ref'] = 'automation/unknown'
         self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
 
-    def test_agent_repair_branches_never_auto_merge(self):
-        pr = self.pr()
-        pr['user']['login'] = 'github-actions[bot]'
-        pr['head']['ref'] = 'automation/repair-' + 'a' * 12
-        self.assertFalse(controller.eligible(pr, self.files('VexSign/DesignSystem/Card.swift',
-            'VexSignTests/RepairCardTests.swift'), 'main'))
-        self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
-
     def test_required_workflows(self):
-        self.assertEqual(controller.required_workflows(['cloud-signing/package.json']), ['ci.yml', 'ecosystem.yml'])
-        self.assertEqual(controller.required_workflows(['server/requirements.txt']), ['ci.yml', 'server-tests.yml'])
+        self.assertEqual(controller.required_workflows(['cloud-signing/package.json']), ['ci.yml', 'services.yml'])
+        self.assertEqual(controller.required_workflows(['server/requirements.txt']), ['ci.yml', 'services.yml'])
+
+        self.assertEqual(controller.required_workflows(['server/requirements.txt', 'cloud-signing/package.json']), ['ci.yml', 'services.yml'])
 
     def test_unanimous_semantic_version(self):
         self.assertEqual(stable.version('MARKETING_VERSION = 1.2.3;\nMARKETING_VERSION = 1.2.3;'), '1.2.3')

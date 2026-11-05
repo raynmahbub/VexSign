@@ -43,10 +43,8 @@ def eligible(pr, files, default):
 
 def required_workflows(paths):
     result = ['ci.yml']  # Always full app build/simulator validation; never quick-only.
-    if any(p.startswith('server/') for p in paths):
-        result.append('server-tests.yml')
-    if any(p.startswith('cloud-signing/') for p in paths):
-        result.append('ecosystem.yml')
+    if any(p.startswith(('server/', 'cloud-signing/')) for p in paths):
+        result.append('services.yml')
     return result
 
 
