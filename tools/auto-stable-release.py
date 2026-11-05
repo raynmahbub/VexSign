@@ -17,7 +17,8 @@ def version(project):
 def main():
     repo, sha = os.environ['GH_REPO'], os.environ['SOURCE_SHA']
     def api(path):
-        return json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/{path}'], text=True))
+        endpoint = f'repos/{repo}' + (f'/{path}' if path else '')
+        return json.loads(subprocess.check_output(['gh', 'api', endpoint], text=True))
     branch = api('')['default_branch']
     if api(f'commits/{branch}')['sha'] != sha:
         print('Newer main exists; do not release an obsolete candidate')

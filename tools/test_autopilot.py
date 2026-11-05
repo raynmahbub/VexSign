@@ -77,5 +77,25 @@ class AutopilotTests(unittest.TestCase):
             self.assertIsNone(stable.version(text))
 
 
+class RepositoryEndpointTests(unittest.TestCase):
+    def test_controller_repository_root_has_no_trailing_slash(self):
+        from unittest.mock import patch
+        with patch.object(controller, 'command', return_value='{"default_branch":"main"}') as command:
+            self.assertEqual(controller.api('')['default_branch'], 'main')
+        command.assert_called_once_with('gh', 'api', 'repos/owner/repo')
+
+    def test_stable_repository_root_has_no_trailing_slash(self):
+        import json
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, GH_REPO='owner/repo', SOURCE_SHA='old'), \
+             patch.object(stable.subprocess, 'check_output', side_effect=[
+                 json.dumps({'default_branch': 'main'}), json.dumps({'sha': 'new'})]) as output, \
+             patch.object(stable.subprocess, 'run') as dispatch:
+            stable.main()
+        self.assertEqual(output.call_args_list[0].args[0], ['gh', 'api', 'repos/owner/repo'])
+        dispatch.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

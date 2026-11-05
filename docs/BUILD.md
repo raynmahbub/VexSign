@@ -204,3 +204,23 @@ supported commands; no generated files or placeholder directory markers belong
 in these folders. Presentation graphics belong in `docs/assets/`. Root `icon.png`
 and repository feeds are retained as published compatibility URLs; `render.yaml`
 and `license_plist.yml` remain where their consumers discover them.
+
+## Download a temporary CI IPA
+
+Run **Actions → CI → Run workflow → validation: full** on the branch you want to
+check, or use a relevant PR/main CI run. After the device build and warning gate
+succeed, the build job reuses its `Debug-iphoneos/VexSign.app` to produce an
+unsigned IPA—there is no extra Release build or publication.
+
+The run summary contains a download link. Under **Artifacts**, select
+`VexSign-unsigned-<commit>-<run>-<attempt>`. The ZIP contains the IPA, `BUILD.json`
+(commit, version and run metadata) and `SHA256SUMS`. Artifacts expire after three
+days. Verify the checksum and re-sign before device installation. This is a
+Debug build for testing, not a production release or Apple-authorized install.
+
+The simulator-test job runs separately: it may still be running or may fail even
+when the build artifact exists. Check the entire run before calling a commit
+green. Quick-only validation skips both the build and artifact; compilation or
+warning-gate failures do not produce an IPA. No signing secrets or release
+permissions are added to CI. New artifacts require running the updated workflow;
+unpushed edits cannot be built by GitHub Actions.

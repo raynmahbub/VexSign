@@ -266,6 +266,11 @@ jobs:
             echo "channel=${CHANNEL}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Set up Python for repository checks
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+
       - name: Repository validation gates
         run: make verify
 
@@ -281,37 +286,8 @@ jobs:
 
       - name: Select Xcode
         env:
-          # Manual input wins; otherwise the RELEASE_XCODE repository variable
-          # (set it to pin tag releases to a known toolchain); otherwise the
-          # newest Xcode on the runner image.
           REQUESTED_XCODE: ${{ inputs.xcode || vars.RELEASE_XCODE || '' }}
-        run: |
-          set -euo pipefail
-
-          shopt -s nullglob
-          if [ -n "${REQUESTED_XCODE}" ]; then
-            candidates=(/Applications/Xcode_"${REQUESTED_XCODE}"*.app)
-          else
-            candidates=(/Applications/Xcode_*.app)
-          fi
-
-          if [ "${#candidates[@]}" -eq 0 ]; then
-            echo "::error::No Xcode matching '${REQUESTED_XCODE:-*}' is installed on this runner."
-            echo "Installed Xcodes:"
-            ls -d /Applications/Xcode*.app || true
-            exit 1
-          fi
-
-          if [ -n "${REQUESTED_XCODE}" ]; then
-            XCODE_APP="${candidates[0]}"
-          else
-            XCODE_APP="$(printf '%s\n' "${candidates[@]}" | sort | tail -n 1)"
-          fi
-
-          echo "Using ${XCODE_APP}"
-          sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
-          xcodebuild -version
-          echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
+        run: bash .github/scripts/select_xcode.sh
 
       - name: Compile VexSign
         id: build

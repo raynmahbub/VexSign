@@ -13,7 +13,8 @@ name: CI
 #           project structure, and the four repo gates in tools/ (localisation,
 #           error discipline, singleton freeze, concurrency escapes).
 #   build   macOS · unsigned Debug build of the VexSign scheme, then the warnings
-#           gate: a new first-party warning fails, warnings listed in
+#           gate, then a temporary unsigned Debug IPA artifact (three days).
+#           A new first-party warning fails; warnings listed in
 #           .github/build-warnings-baseline.json are tolerated.
 #   tests   macOS · `xcodebuild test` on a simulator resolved at run time.
 #
@@ -302,6 +303,68 @@ jobs:
             --baseline .github/build-warnings-baseline.json \
             --baseline-out "$RUNNER_TEMP/build-warnings-baseline.json" \
             --workspace "$GITHUB_WORKSPACE"
+
+      # Reuse the already-built device app: no second build, signing secrets,
+      # release tag or publisher permissions are needed for a disposable test IPA.
+      - name: Package unsigned test IPA
+        run: |
+          set -euo pipefail
+          APP="${DERIVED_DATA}/Build/Products/Debug-iphoneos/VexSign.app"
+          STAGING="${RUNNER_TEMP}/ci-ipa"
+          test -f "${APP}/Info.plist"
+          mkdir -p "${STAGING}/Payload"
+          ditto "${APP}" "${STAGING}/Payload/VexSign.app"
+          python3 - "${APP}/Info.plist" "${STAGING}/BUILD.json" <<'PY'
+          import json, os, pathlib, plistlib, sys
+          info_path = pathlib.Path(sys.argv[1])
+          with info_path.open('rb') as handle:
+              info = plistlib.load(handle)
+          if info.get('DTPlatformName') != 'iphoneos':
+              raise SystemExit('Refusing to package a non-device app as a test IPA')
+          executable = info.get('CFBundleExecutable')
+          if not executable or not (info_path.parent / executable).is_file():
+              raise SystemExit('Built app executable is missing')
+          metadata = {
+              'commit': os.environ['GITHUB_SHA'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'configuration': 'Debug',
+              'unsigned': True,
+              'version': info.get('CFBundleShortVersionString'),
+              'build': info.get('CFBundleVersion'),
+              'notice': 'Temporary test build. Re-sign before installing. Check the separate simulator-test job; this artifact is not proof that tests passed.'
+          }
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(metadata, indent=2) + '\n')
+          PY
+          (
+            cd "${STAGING}"
+            ditto -c -k --keepParent Payload VexSign-unsigned.ipa
+            shasum -a 256 VexSign-unsigned.ipa BUILD.json > SHA256SUMS
+          )
+
+      - name: Upload unsigned test IPA
+        id: test_ipa
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: VexSign-unsigned-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ci-ipa/VexSign-unsigned.ipa
+            ${{ runner.temp }}/ci-ipa/BUILD.json
+            ${{ runner.temp }}/ci-ipa/SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+
+      - name: Test IPA download
+        env:
+          ARTIFACT_URL: ${{ steps.test_ipa.outputs.artifact-url }}
+        run: |
+          {
+            echo '### Temporary unsigned IPA'
+            printf '[Download the test build](%s)\n\n' "$ARTIFACT_URL"
+            echo 'Debug device build; expires after three days. Re-sign with your own identity before installation.'
+            echo 'This is not a release. Check the separate simulator-test job and the whole run conclusion before treating the commit as green.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Warnings appeared or disappeared compared to the committed baseline:
       # offer the regenerated file so it can be committed as

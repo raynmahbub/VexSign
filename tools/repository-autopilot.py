@@ -17,7 +17,8 @@ def command(*args):
 
 
 def api(path):
-    return json.loads(command('gh', 'api', f'repos/{REPO}/{path}'))
+    endpoint = f'repos/{REPO}' + (f'/{path}' if path else '')
+    return json.loads(command('gh', 'api', endpoint))
 
 
 def eligible(pr, files, default):

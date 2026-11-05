@@ -2,7 +2,7 @@
   <img src="icon.png" alt="VexSign icon" width="96">
   <h1>VexSign</h1>
   <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
-  <p><a href="https://github.com/raynmahbub/VexSign/releases/latest">Download</a> · <a href="docs/README.md">Guides</a> · <a href="docs/BUILD.md">Build</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+  <p><a href="#download">Download</a> · <a href="docs/README.md">Guides</a> · <a href="docs/BUILD.md">Build</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -171,7 +171,27 @@ For detailed feature boundaries, security caveats and remaining device/release t
 For upstream changes and porting considerations, see the
 [dated upstream feature review](docs/UPSTREAM_REVIEW.md).
 
-## Get started
+## Download
+
+Download an IPA or add the VexSign source to a compatible signer:
+
+[![Download IPA](docs/assets/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
+[![Add Source](docs/assets/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+
+- **Stable:** the download button opens the latest stable release; choose its IPA asset.
+- **Nightly:** browse [all releases](https://github.com/raynmahbub/VexSign/releases) for dated pre-releases.
+- **Temporary CI build:** open [CI runs](https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml),
+  select a completed full run and download its **`VexSign-unsigned-…`** artifact.
+  GitHub sign-in may be required to download artifacts. The artifact contains the
+  Debug IPA, commit/version metadata and SHA-256 checksums, expires
+  after **three days**, and is not a public release. Check the build **and** test
+  jobs; an available artifact alone does not mean all tests passed. Quick-only or
+  failed-build runs do not produce an IPA. Older runs will not have this new artifact.
+
+The **Add Source** button uses a third-party link helper. If it cannot open your
+signer, paste the source URL below manually.
+
+### Start signing
 
 Download an **unsigned IPA** from [Releases](https://github.com/raynmahbub/VexSign/releases)
 and sign it with an existing sideloading tool/identity. Existing VexSign users can
