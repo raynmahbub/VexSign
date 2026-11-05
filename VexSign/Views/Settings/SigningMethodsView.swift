@@ -9,6 +9,14 @@ import NativeSigning
 import SideSign
 
 struct SigningMethodsView: View {
+    /// `NativeAccountPhase.isSignedIn` is internal to NativeSigning, so the case is
+    /// matched here rather than read as a property.
+    private var isSignedIn: Bool {
+        guard let phase = nativeManager.snapshot?.phase else { return false }
+        if case .signedIn = phase { return true }
+        return false
+    }
+
     @StateObject private var nativeManager = NativeSigningManager.shared
     @State private var selectedMethod: SigningMethod = .paidCertificate
     @State private var showAppleIDLogin = false
@@ -112,7 +120,7 @@ struct SigningMethodsView: View {
                 NavigationLink(destination: CertificateStatusView()) {
                     Label(.localized("Certificate Revocation Status (OCSP/CRL)"), systemImage: "checkmark.shield")
                 }
-                .disabled(!(nativeManager.snapshot?.phase.isSignedIn ?? false))
+                .disabled(!isSignedIn)
 
                 if let error = nativeManager.lastError {
                     Text(error)
@@ -168,7 +176,7 @@ struct SigningMethodsView: View {
             HStack(spacing: 12) {
                 Image(systemName: method.icon)
                     .font(.title2)
-                    .foregroundStyle(isSelected ? .accentColor : .secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .frame(width: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -184,7 +192,7 @@ struct SigningMethodsView: View {
 
                 if availability.isAvailable {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isSelected ? .accentColor : .secondary)
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                         .font(.title3)
                 } else {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -211,13 +219,13 @@ struct SigningMethodsView: View {
                     }
                     if case .signedIn(let context) = snapshot.phase {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(.localized("Team: %@ (%@)", arguments: context.team.identifier, context.team.membership.displayName))
+                            Text(String.localized("Team: %@ (%@)", arguments: context.team.identifier, context.team.membership.displayName))
                                 .font(.caption).foregroundStyle(.secondary)
                             // 3-app limit indicator
                             HStack(spacing: 4) {
                                 Image(systemName: "app.badge")
                                     .font(.caption2)
-                                Text(.localized("%lld/3 apps used", arguments: nativeManager.freeAccountAppCount))
+                                Text(String.localized("%lld/3 apps used", arguments: nativeManager.freeAccountAppCount))
                                     .font(.caption)
                             }
                             .foregroundStyle(nativeManager.freeAccountAppCount >= 3 ? .red : .secondary)
@@ -390,6 +398,7 @@ struct SigningMethodsView: View {
 // MARK: - Supporting Views
 
 private struct AppleIDLoginView: View {
+    @Environment(\.dismiss) private var dismiss
     @Binding var appleID: String
     @Binding var password: String
     @Binding var xcodeVersion: String
@@ -423,7 +432,7 @@ private struct AppleIDLoginView: View {
             .navigationTitle(.localized("Sign in with Apple ID"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) { onSubmit = {} }
+                    Button(.localized("Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(.localized("Sign In")) { onSubmit() }
@@ -560,7 +569,7 @@ private struct TrollStoreInstallView: View {
                                 Text(.localized("Installing…"))
                             }
                         } else {
-                            Label(.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
+                            Label(String.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
                         }
                     }
                     .buttonStyle(.borderedProminent)

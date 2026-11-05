@@ -274,9 +274,8 @@ struct ProvisioningFlowView: View {
                         .font(.title3.weight(.semibold))
 
                     Text("Profile UUID: \(profile.profileUUID.uuidString.prefix(8))...")
-                        .font(.caption)
+                        .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                        .fontDesign(.monospaced)
 
                     Button {
                         Task { await signAndInstall(profile: profile) }
