@@ -2,9 +2,8 @@
 //  HomeView.swift
 //  VexSign
 //
-//  The Home tab is a compact VexSign dashboard. Its dark grid, glass cards and
-//  bright accent colors are an original implementation inspired by the
-//  attached FlareStore reference — the actions below remain VexSign actions.
+//  The Home tab adapts to the selected appearance: the FlareStore-inspired
+//  grid layout for Flare, and a token-driven dashboard for the modern themes.
 //
 
 import SwiftUI
@@ -416,7 +415,7 @@ struct HomeView: View {
     private var dashboardVisibleApps: [AppInfoPresentable] {
         let apps = signedApps.map { $0 as AppInfoPresentable } + importedApps.map { $0 as AppInfoPresentable }
         return apps.filter { app in
-            guard let uuid = app.uuid else { return false }
+            guard let uuid = app.uuid else { return true }
             return !lockManager.isAppHidden(uuid) && (!lockManager.isAppLocked(uuid) || lockManager.isSessionUnlocked(uuid))
         }
     }
