@@ -58,7 +58,7 @@ jobs:
             destination: 'generic/platform=watchOS Simulator'
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Paths
         run: echo "DERIVED_DATA=${RUNNER_TEMP}/DerivedData-${{ matrix.scheme }}" >> "$GITHUB_ENV"
 
