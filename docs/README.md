@@ -26,7 +26,8 @@ versioned with the code.
 
 | Guide | Use it when |
 | --- | --- |
-| [Releasing](RELEASING.md) | You are cutting a tag, building release assets or running a build-only dispatch. |
+| [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
+| [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [Security review](SECURITY_REVIEW.md) | You are reviewing the threat model, secrets or network boundaries. |
 | [Repository maintenance](REWRITING_HISTORY.md) | You are performing an exceptional history rewrite and need the verified procedure. |
 | [Changelog](../CHANGELOG.md) | You need the user-visible history. |

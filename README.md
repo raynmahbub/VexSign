@@ -202,6 +202,7 @@ make lint               # optional SwiftLint pass
 | `make verify` | Runs the fast, Xcode-independent checks used by CI. |
 | `make test` | Runs simulator tests on an available iPhone. |
 | `make lint` | Runs SwiftLint when installed. |
+| `make audit-packages` | Reports root Xcode SwiftPM packages that are behind upstream. |
 | `make strict-concurrency` | Reports Swift 6 concurrency warnings in the local packages. |
 | `make deploy-server` | Builds the optional self-hosted repository server. |
 
@@ -241,6 +242,22 @@ See [CI](.github/workflows/ci.yml) and run `make verify` before opening a pull
 request. Warnings that precede the baseline are tracked in
 [`.github/build-warnings-baseline.json`](.github/build-warnings-baseline.json).
 
+## Releases and automation
+
+- **Stable** — push a `v<MARKETING_VERSION>` tag, or run **Actions → Release**
+  with channel `stable`. The bot builds the unsigned IPA, verifies the packaged
+  version, publishes the release and queues **Update Repository**.
+- **Nightly** — the same workflow runs daily at 03:00 UTC and publishes an
+  immutable `v<version>-nightly.<date>.<run>` **pre-release**. Nightlies never
+  update the install listing.
+- **Dependencies** — Dependabot opens grouped updates for Actions, Python, npm,
+  SwiftPM and Docker.
+- **Maintenance** — deterministic localisation sync runs weekly and opens a
+  review PR only when something changes; failed `main` CI runs become triaged
+  issues.
+
+See [Releasing](docs/RELEASING.md) and [Maintenance](docs/MAINTENANCE.md).
+
 ## Security and privacy
 
 - Local signing never leaves the device. Optional companion and cloud flows are explicit, documented and opt-in.
@@ -266,7 +283,8 @@ button in the Security tab. See [SECURITY.md](SECURITY.md).
 | [Companion signing](docs/COMPANION_SIGNING.md) | Apple TV, Watch and Vision flows |
 | [Native signing](docs/NATIVE_SIGNING_ARCHITECTURE.md) | Experimental account backend |
 | [Web tools](docs/WEBTOOLS.md) | Web Manager, API and WebDAV |
-| [Releasing](docs/RELEASING.md) | Tags, builds and release assets |
+| [Releasing](docs/RELEASING.md) | Stable tags, nightly pre-releases and assets |
+| [Maintenance](docs/MAINTENANCE.md) | Dependencies, bots and review boundaries |
 | [Changelog](CHANGELOG.md) | What changed, release by release |
 
 ## Status

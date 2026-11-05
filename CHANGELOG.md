@@ -22,6 +22,20 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - A professional repository front page, architecture/build/design guides,
   documentation index and security policy.
 
+### Automation
+
+- The Release workflow now has two channels: stable tags/manual publishes and a
+  daily **nightly pre-release** at 03:00 UTC. Nightly tags are unique
+  (`v<version>-nightly.<date>.<run>.<attempt>`), immutable and never update the
+  installation listing; stable releases still sync `app-repo.json`.
+- Added Dependabot coverage for GitHub Actions, server Python, cloud npm,
+  SwiftPM packages and Docker images, plus a weekly read-only audit for the
+  root Xcode SwiftPM requirements that Dependabot cannot parse.
+- Added deterministic repository maintenance (localisation sync → `make verify`
+  → review PR) and automatic CI failure triage into issues. Neither bot guesses
+  at behavioural fixes or pushes to `main`.
+- Added the release/maintenance documentation and environment guidance.
+
 ### Changed
 
 - Zsign and IDeviceKit are vendored under `Vendor/` with pinned commits and

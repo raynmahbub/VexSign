@@ -1,0 +1,112 @@
+# Dependabot keeps every supported dependency graph current without a robot
+# committing to main. It opens focused pull requests; CI is dispatched manually
+# for the branch (this repository deliberately has no pull_request workflow).
+#
+# The Xcode app's own packages are declared in project.pbxproj, not Package.swift,
+# so they are audited separately by docs/MAINTENANCE.md.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+      time: "04:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "ci"
+      include: scope
+
+  - package-ecosystem: pip
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      server-python:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "build(server)"
+      include: scope
+    labels: ["dependencies", "server"]
+
+  - package-ecosystem: npm
+    directory: /cloud-signing
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cloud-npm:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "build(cloud)"
+      include: scope
+    labels: ["dependencies", "cloud-signing"]
+
+  - package-ecosystem: swift
+    directory: /NativeSigning
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      native-swift:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "build(native)"
+      include: scope
+    labels: ["dependencies", "native-signing"]
+
+  - package-ecosystem: swift
+    directory: /SideSign
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      sidesign-swift:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "build(sidesign)"
+      include: scope
+    labels: ["dependencies", "side-sign"]
+
+  - package-ecosystem: swift
+    directory: /Vendor/Zsign
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      zsign-swift:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "build(zsign)"
+      include: scope
+    labels: ["dependencies", "vendored"]
+
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build(server)"
+      include: scope
+    labels: ["dependencies", "server"]
+
+  - package-ecosystem: docker
+    directory: /cloud-signing
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build(cloud)"
+      include: scope
+    labels: ["dependencies", "cloud-signing"]

@@ -1,8 +1,10 @@
 name: Release
 
-# Run manually to publish v<MARKETING_VERSION> from the selected commit, or push
-# a release tag. Check build_only for an unpublished test IPA instead.
-# Publishing requires a commit on the default branch. Device TLS is created on device.
+# Run manually to publish v<MARKETING_VERSION> from the selected commit, push a
+# release tag, or let the nightly schedule publish a pre-release from main.
+# Check build_only for an unpublished test IPA instead. Stable releases require
+# a commit on the default branch; nightly releases are unique, dated tags so a
+# bad nightly is never retried over a good one. Device TLS is created on device.
 # Build with a read-only token; publish artifacts in a separate protected job.
 # Configure the release environment before use. See docs/RELEASING.md.
 
@@ -23,8 +25,17 @@ on:
           Xcode installed on the runner image.
         required: false
         default: ''
+      channel:
+        description: >-
+          Publish channel. "stable" cuts v<MARKETING_VERSION>; "nightly" cuts a
+          unique v<MARKETING_VERSION>-nightly.<date>.<run> pre-release. The
+          scheduled run always uses nightly.
+        required: false
+        type: choice
+        options: [stable, nightly]
+        default: stable
       prerelease:
-        description: "Manual publish only: mark the release as a pre-release"
+        description: "Manual stable publish only: mark the release as a pre-release"
         required: false
         type: boolean
         default: false
@@ -42,8 +53,13 @@ on:
       - 'v[0-9]+.[0-9]+-*'
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  # Automated nightly pre-release from the default branch. The tag is unique
+  # (date + run number + attempt), so publishing never overwrites an earlier
+  # nightly and a failed build can be retried safely.
+  schedule:
+    - cron: '0 3 * * *'   # daily 03:00 UTC
   # No pull_request trigger. CI validates relevant main pushes or manual branch
-  # requests; Release remains explicitly tag/manual-only.
+  # requests; stable Release remains tag/manual-only, nightly is scheduled.
 
 permissions:
   contents: read
@@ -53,18 +69,19 @@ permissions:
 # cancelled. Build-only runs are grouped per ref instead, so they don't queue
 # behind a release.
 concurrency:
-  group: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.build_only)) && 'release-publish' || format('release-{0}', github.ref) }}
+  group: ${{ (github.event_name == 'schedule' || inputs.channel == 'nightly') && 'release-nightly' || ((github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.build_only)) && 'release-publish' || format('release-{0}', github.ref)) }}
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 90
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only && 'build-preview' || 'release' }}
+    environment: ${{ (github.event_name == 'schedule' || inputs.channel == 'nightly') && 'build-preview' || (github.event_name == 'workflow_dispatch' && inputs.build_only && 'build-preview' || 'release') }}
     outputs:
       publish: ${{ steps.mode.outputs.publish }}
       release_tag: ${{ steps.mode.outputs.release_tag }}
       prerelease: ${{ steps.mode.outputs.prerelease }}
+      channel: ${{ steps.mode.outputs.channel }}
       artifact_id: ${{ steps.bundle.outputs.artifact-id }}
     steps:
       - name: Checkout
@@ -86,6 +103,7 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           BUILD_ONLY: ${{ inputs.build_only }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
           INPUT_PRERELEASE: ${{ inputs.prerelease }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
@@ -121,11 +139,19 @@ jobs:
           case "${EVENT_NAME}" in
             push)          MODE="tag" ;;
             pull_request)  MODE="pull-request" ;;
+            schedule)      MODE="nightly" ;;
             workflow_dispatch)
               if [ "${BUILD_ONLY}" = "false" ]; then
                 # A tag dispatch retries unpublished source; existing releases
                 # cannot be overwritten. Branch mode cuts v<MARKETING_VERSION>.
-                if [ "${REF_TYPE}" = "tag" ]; then MODE="tag"; else MODE="manual"; fi
+                # An explicit nightly dispatch always uses a dated pre-release.
+                if [ "${INPUT_CHANNEL}" = "nightly" ]; then
+                  MODE="nightly"
+                elif [ "${REF_TYPE}" = "tag" ]; then
+                  MODE="tag"
+                else
+                  MODE="manual"
+                fi
               fi ;;
           esac
 
@@ -156,6 +182,17 @@ jobs:
                 echo "::error::${RELEASE_TAG} already exists on origin; refusing to overwrite a published release with a branch build. Bump MARKETING_VERSION for a new release, or re-run the workflow run that belongs to the ${RELEASE_TAG} tag."
                 exit 1
               fi
+              PUBLISH=true
+              ;;
+            nightly)
+              if [ -z "${PROJECT_VERSION}" ]; then
+                echo "::error::Cannot derive a nightly tag because the targets disagree on MARKETING_VERSION. Fix the project first."
+                exit 1
+              fi
+              # Unique per date, run and attempt. Never move or reuse a nightly
+              # tag: an install can be pinned to the exact build it downloaded.
+              NIGHTLY_DATE="$(date -u +%Y%m%d)"
+              RELEASE_TAG="v${PROJECT_VERSION}-nightly.${NIGHTLY_DATE}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
               PUBLISH=true
               ;;
           esac
@@ -191,10 +228,18 @@ jobs:
             fi
           fi
 
+          CHANNEL="preview"
+          if [ "${MODE}" = "nightly" ]; then
+            CHANNEL="nightly"
+          elif [ "${PUBLISH}" = "true" ]; then
+            if [ "${PRERELEASE}" = "true" ]; then CHANNEL="prerelease"; else CHANNEL="stable"; fi
+          fi
+
           case "${MODE}" in
             tag)          echo "Mode: publish release ${RELEASE_TAG} from tag (commit ${GITHUB_SHA})" ;;
             synthetic-tag) echo "Mode: compatibility milestone ${RELEASE_TAG} - validation only, nothing will be published" ;;
             manual)       echo "Mode: MANUAL publish of ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA}) - prefer pushing a tag for real releases" ;;
+            nightly)      echo "Mode: NIGHTLY pre-release ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA})" ;;
             pull-request) echo "Mode: pull request build - nothing will be published" ;;
             *)            echo "Mode: build only (${REF_NAME}) - nothing will be published" ;;
           esac
@@ -206,6 +251,7 @@ jobs:
             echo "release_version=${RELEASE_TAG#v}"
             echo "expected_version=${EXPECTED_VERSION}"
             echo "prerelease=${PRERELEASE}"
+            echo "channel=${CHANNEL}"
             echo "synthetic=${SYNTHETIC}"
           } >> "$GITHUB_OUTPUT"
 
@@ -281,6 +327,12 @@ jobs:
 
           mkdir -p upload
           mv packages/*.ipa upload/
+
+      # A nightly is published unattended, so it gets a simulator-test gate as
+      # well as the compile. Stable releases rely on the CI run for the commit.
+      - name: Nightly simulator tests
+        if: github.event_name == 'schedule' || inputs.channel == 'nightly'
+        run: make test
 
       - name: Surface build errors
         if: failure() && steps.build.outcome == 'failure'
@@ -380,7 +432,7 @@ jobs:
     if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    environment: release
+    environment: ${{ needs.build.outputs.channel == 'nightly' && 'nightly' || 'release' }}
     permissions:
       contents: write
     steps:
@@ -440,7 +492,7 @@ jobs:
 
   sync-repository:
     needs: [build, publish]
-    if: github.event_name != 'workflow_dispatch' || !inputs.draft
+    if: needs.build.outputs.channel == 'stable' && (github.event_name != 'workflow_dispatch' || !inputs.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
