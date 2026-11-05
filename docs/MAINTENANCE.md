@@ -64,13 +64,20 @@ a patch.
 
 ## What is intentionally manual
 
-- Merging Dependabot or maintenance PRs. This repository deliberately has no
-  `pull_request` validation workflow; run **CI → quick/full** for the branch and
-  build once on macOS before merging a dependency bump.
+- Merging Dependabot or maintenance PRs. Path-filtered app, server, cloud and companion validators run on PRs
+  automatically. Review all affected build/test results, not just the app check.
 - Updating the root Xcode SwiftPM requirements (see above).
 - Changing signing, provisioning, entitlements or installation behaviour.
 - Publishing a stable release. Pushing a `v<MARKETING_VERSION>` tag is the
   automated path; the version bump itself is a reviewed commit.
+
+## Automation boundaries
+
+Automate checks, packaging, immutable nightlies and mechanical maintenance PRs.
+Do not auto-merge signing/security changes or promote nightlies to stable. A green
+build is not proof of real-device installation, entitlement correctness or safe
+credential handling. Configure required checks, protected release environments
+and tag rulesets in GitHub; workflow YAML alone cannot enforce those settings.
 
 ## Current release state
 

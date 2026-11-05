@@ -55,3 +55,6 @@ cloud-signing/node_modules/
 cloud-signing/dist/
 cloud-signing/work/
 cloud-signing/*.log
+
+# Private real-device acceptance observations
+device-acceptance.local.json

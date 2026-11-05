@@ -173,6 +173,14 @@ jobs:
       - name: Concurrency discipline
         run: python3 tools/concurrency-discipline.py
 
+      - name: Documentation file links and checker tests
+        run: |
+          python3 tools/check-docs.py
+          python3 tools/test_docs.py
+
+      - name: Device acceptance report regressions
+        run: python3 tools/test_device_acceptance.py
+
       - name: Workflow trigger policy
         run: python3 tools/test_workflow_policy.py
 

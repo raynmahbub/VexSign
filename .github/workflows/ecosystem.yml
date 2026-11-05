@@ -1,10 +1,15 @@
 name: Ecosystem contracts
 
-# Validate cloud changes once on main or on demand. Native app changes are
+# Validate cloud changes on relevant PRs, main pushes or on demand. Native app changes are
 # covered by ci.yml; do not spend a cloud run on unrelated Swift-only edits.
 # Keep the weekly audit to detect new advisories without a source change.
 on:
   push:
+    branches: [main]
+    paths:
+      - 'cloud-signing/**'
+      - '.github/workflows/ecosystem.yml'
+  pull_request:
     branches: [main]
     paths:
       - 'cloud-signing/**'
@@ -21,6 +26,7 @@ concurrency:
 jobs:
   cloud:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: cloud-signing
@@ -38,4 +44,4 @@ jobs:
       - run: npm test
       - run: npm run contracts && git diff --exit-code -- openapi.json
       - run: npm audit --omit=dev --audit-level=high
-# Native app validation is handled by ci.yml on main or manual dispatch.
+# Native app validation is handled by ci.yml on relevant PRs/main or manual dispatch.

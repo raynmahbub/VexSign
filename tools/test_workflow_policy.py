@@ -38,15 +38,16 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
-    def test_only_ci_validates_pull_requests(self):
-        # CI must run before a merge: a branch that has never been compiled
-        # makes main the first place a build error appears. Other workflows
-        # stay on their own schedules so a PR cannot fan out every validator.
+    def test_pull_requests_run_only_path_filtered_validators(self):
+        validators = {*VALIDATORS, 'docs.yml'}
         for path in WORKFLOWS.glob('*.yml'):
             with self.subTest(workflow=path.name):
                 events = block(path.read_text(), 'on', 0)
-                if path.name == 'ci.yml':
-                    self.assertRegex(events, r'(?m)^  pull_request:')
+                if path.name in validators:
+                    pr = block(events, 'pull_request', 2)
+                    self.assertIn('    branches: [main]', pr)
+                    push = block(events, 'push', 2)
+                    self.assertEqual(pr.replace('pull_request:', 'push:', 1), push)
                 else:
                     self.assertNotRegex(events, r'(?m)^  pull_request(?:_target)?:')
 
@@ -131,6 +132,18 @@ class WorkflowPolicyTests(unittest.TestCase):
             for use in re.findall(r'uses: ([^\s]+)', (WORKFLOWS / name).read_text()):
                 self.assertRegex(use, r'@[a-f0-9]{40}$')
 
+    def test_quick_container_checks_do_not_require_make(self):
+        quick = block((WORKFLOWS / 'ci.yml').read_text(), 'quick', 2)
+        self.assertNotRegex(quick, r'(?m)^\s+(?:run: )?make ')
+        self.assertIn('python3 tools/check-docs.py', quick)
+        self.assertIn('python3 tools/test_docs.py', quick)
+
+    def test_every_release_runs_simulator_tests(self):
+        text = (WORKFLOWS / 'release.yml').read_text()
+        step = text.split('      - name: Release simulator tests\n', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('run: make test', step)
+        self.assertNotIn('if:', step)
+
     def test_nightly_release_is_scheduled_and_immutable(self):
         text = (WORKFLOWS / 'release.yml').read_text()
         events = block(text, 'on', 0)
@@ -149,7 +162,7 @@ class WorkflowPolicyTests(unittest.TestCase):
 
     def test_automation_workflows_do_not_validate_pull_requests(self):
         # Dependabot and maintenance work through branches/issues; a PR-triggered
-        # workflow would bypass the repository's main-only validation model.
+        # workflow must not execute privileged maintenance code from PRs.
         self.assertTrue((ROOT / '.github/dependabot.yml').is_file())
         for name in ('repo-maintenance.yml', 'ci-triage.yml', 'dependency-audit.yml'):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)

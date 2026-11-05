@@ -6,9 +6,30 @@ SCHEMES := VexSign
 TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
-.PHONY: all clean bootstrap test verify lint deploy-server strict-concurrency audit-packages $(SCHEMES)
+.PHONY: test-server test-cloud help docs-check all clean bootstrap test verify lint deploy-server strict-concurrency audit-packages $(SCHEMES)
 
 all: $(SCHEMES)
+
+# Keep all as the default; help must never replace the IPA build.
+help:
+	@printf '%s\n' \
+	  'make                  Build unsigned packages/VexSign.ipa (macOS/Xcode)' \
+	  'make bootstrap        Validate toolchain and resolve Swift packages' \
+	  'make verify           Portable repository checks and Python policy tests' \
+	  'make docs-check       Check local Markdown file links (offline)' \
+	  'make test             App simulator tests (macOS/Xcode)' \
+	  'make device-smoke     Install/launch signed app on an explicitly selected physical device' \
+	  'make test-server      Python backend tests (install server requirements first)' \
+	  'make test-cloud       Cloud build, tests and contract drift check (npm ci first)' \
+	  'make lint [FIX=1]     Optional SwiftLint report or corrections' \
+	  'make strict-concurrency  Build local packages with concurrency diagnostics' \
+	  'make audit-packages   Read-only upstream dependency audit (network)' \
+	  'make deploy-server    Build optional server Docker image' \
+	  'make clean            Remove local IPA staging/output'
+
+docs-check:
+	@python3 tools/check-docs.py
+	@python3 tools/test_docs.py
 
 clean:
 	rm -rf $(TMP)
@@ -70,11 +91,9 @@ deploy-server:
 #   make strict-concurrency
 strict-concurrency:
 	@echo "== AltSourceKit (StrictConcurrency, warnings only) =="
-	swift build --package-path AltSourceKit -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors=false 2>&1 | \
-		grep -E "warning:|error:" | sed 's|^.*/AltSourceKit/|AltSourceKit/|' | sort -u || true
+	swift build --package-path AltSourceKit -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors=false
 	@echo "== NimbleKit (Swift 6 language mode: complete by default) =="
-	swift build --package-path NimbleKit -Xswiftc -warnings-as-errors=false 2>&1 | \
-		grep -E "warning:|error:" | sed 's|^.*/NimbleKit/|NimbleKit/|' | sort -u || true
+	swift build --package-path NimbleKit -Xswiftc -warnings-as-errors=false
 	@echo "== app target =="
 	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe))."
 
@@ -82,7 +101,8 @@ strict-concurrency:
 # job, minus Swift syntax parsing. Use this before pushing; `make test` and
 # `make` are the parts that need a toolchain.
 #   make verify
-verify:
+verify: docs-check
+	@python3 tools/test_device_acceptance.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --no-swiftc
 	@echo "== Xcode project structure =="
@@ -153,3 +173,17 @@ test:
 	    COMPILER_INDEX_STORE_ENABLE=NO \
 	    ONLY_ACTIVE_ARCH=YES \
 	    test
+
+# Use an activated virtualenv, or override PYTHON=/path/to/venv/bin/python.
+PYTHON ?= python3
+test-server:
+	cd server && $(PYTHON) -m pytest tests/ -q
+
+# Do not silently install or update dependencies during a test run.
+test-cloud:
+	cd cloud-signing && npm run build && npm test && npm run contracts
+	git diff --exit-code -- cloud-signing/openapi.json
+
+.PHONY: device-smoke
+device-smoke:
+	@bash Scripts/device-smoke.sh

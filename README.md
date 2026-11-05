@@ -1,313 +1,111 @@
 <div align="center">
-  <img src="docs/assets/hero.svg" alt="VexSign — sign, install, and manage apps entirely on your iPhone" width="100%">
-
-  <p>
-    <a href="https://github.com/raynmahbub/VexSign/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/raynmahbub/VexSign?style=flat-square&color=8b5cf6"></a>
-    <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/raynmahbub/VexSign/ci.yml?branch=main&style=flat-square&label=CI"></a>
-    <a href="LICENSE"><img alt="GPL-3.0" src="https://img.shields.io/github/license/raynmahbub/VexSign?style=flat-square&color=22c55e"></a>
-    <img alt="iOS 16+" src="https://img.shields.io/badge/iOS-16%2B-black?style=flat-square&logo=apple">
-    <img alt="SwiftUI" src="https://img.shields.io/badge/SwiftUI-native-f05138?style=flat-square&logo=swift&logoColor=white">
-  </p>
-
-  <p><strong>A native signing studio for iPhone, iPad, Apple TV, Watch and Vision Pro.</strong></p>
-
-  <p>
-    <a href="https://github.com/raynmahbub/VexSign/releases/latest"><b>Download</b></a>
-    &nbsp;·&nbsp;
-    <a href="docs/README.md"><b>Documentation</b></a>
-    &nbsp;·&nbsp;
-    <a href="docs/BUILD.md"><b>Build from source</b></a>
-    &nbsp;·&nbsp;
-    <a href="CONTRIBUTING.md"><b>Contribute</b></a>
-  </p>
+  <img src="icon.png" alt="VexSign icon" width="96">
+  <h1>VexSign</h1>
+  <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
+  <p><a href="https://github.com/raynmahbub/VexSign/releases/latest">Download</a> · <a href="docs/README.md">Guides</a> · <a href="docs/BUILD.md">Build</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 </div>
 
----
+VexSign combines local IPA signing, app management, repository discovery and
+inspection tools in a native SwiftUI app for iPhone and iPad.
 
-VexSign is an on-device IPA signing and app-management workspace. Import a
-certificate and a provisioning profile, sign an app, inspect its archive, and
-install it — without a Mac in the loop. Local signing stays on the device;
-companion and cloud flows are explicit, documented and opt-in.
+> **Know the limits:** installation requires a valid signing identity and a
+> compatible device/profile. Native Apple ID provisioning and guest-host
+> packaging are experimental. TV, Watch and Vision apps are **companions**, not
+> standalone signers. No tool can bypass Apple's certificate or provisioning rules.
 
-> [!IMPORTANT]
-> VexSign needs a valid signing identity, and installation support depends on
-> your device, certificate and provisioning profile. Native Apple ID
-> provisioning and the guest-host container are experimental, not
-> production-ready. Use sideloading tools in accordance with your agreements
-> and applicable law.
+## Why choose VexSign?
 
-## Why VexSign
+Choose it when you want **local control and an integrated workflow**, rather than
+switching between a signer, archive inspector, repository browser and file manager.
+Local signing uses the bundled Zsign engine; optional companion/cloud paths are
+separate, opt-in flows. Open source means you can inspect the implementation and
+self-host the optional services—not that every feature is production-ready.
 
-| | |
+| Workspace | Features |
 | --- | --- |
-| **Private by default** | Signing happens on device. Certificates, profiles and passwords stay in the app's protected storage; there is no VexSign signing cloud. |
-| **One coherent workflow** | Import, inspect, sign, install and update share the same task model, progress UI and error guidance. |
-| **At home on iOS** | Built with SwiftUI and the system design language across iOS, iPadOS, tvOS, watchOS and visionOS, with Dynamic Type, VoiceOver and Reduce Motion support. |
-| **Open and inspectable** | Every first-party source file and build check is in this repository. The signing engine and device bridge are vendored; normal SwiftPM dependencies still resolve from their upstreams. |
+| **Sign & install** | Import `.p12` certificates and `.mobileprovision` profiles; inspect expiry, revocation and compatibility; edit bundle ID, version, name and entitlements; sign and verify; local HTTPS, idevice and companion installation flows. |
+| **Manage apps** | Imported/signed Library, favourites, batch signing, cloning, thinning, export, update tracking, storage cleanup previews and biometric protection. |
+| **Discover** | AltStore-compatible sources, app browsing/search, update rules, repository creation/validation and signed source metadata. |
+| **Inspect & extend** | IPA and Mach-O inspection, tweak injection and bundle review. |
+| **Automate & transfer** | Shortcuts, App Intents, widgets, Live Activities, authenticated browser Web Manager, API and WebDAV. |
+| **Make it yours** | System, Midnight Violet, Graphite, Paper, OLED, Luna and Flare appearances; Dynamic Type, VoiceOver and Reduce Motion support. |
+| **Connect devices** | TV/visionOS status and library views; Watch status, remote commands and complications. See [platform limits](docs/PLATFORMS.md). |
+| **Self-host & experiment** | Optional Python repository/web-tools server, TypeScript cloud signer, native account/provisioning package and guest-host container. See the [component guides](docs/README.md#component-guides). |
 
-## The workspace
+These are project capabilities, not a claim that every device or third-party IPA
+is supported. Prefer a simpler tool if you only need one-off signing; prefer a
+mature provisioning workflow if experimental Apple ID support is a deal-breaker.
 
-<table>
-<tr>
-<td width="50%" valign="top">
+## Get started
 
-### Sign
-
-- Import `.p12` identities and `.mobileprovision` profiles.
-- Inspect certificate expiry, revocation and profile compatibility before signing.
-- Edit bundle identifiers, versions, display names and entitlements.
-- Sign with the bundled Zsign engine, then verify the result.
-- Install over local HTTPS, with idevice or through the companion flow.
-
-</td>
-<td width="50%" valign="top">
-
-### Manage
-
-- Keep signed and imported apps in one Library.
-- Pin favourites, batch-sign, clone, thin and export.
-- Track certificates, profiles and app updates in one place.
-- Clean storage with previews and safety rules.
-- Lock the app and hide sensitive entries behind biometrics.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### Discover
-
-- Add AltStore-compatible repositories.
-- Browse, search and install community apps.
-- Follow updates and choose per-app update rules.
-- Build and validate your own repository source.
-
-</td>
-<td valign="top">
-
-### Extend
-
-- Inspect IPA archives and Mach-O binaries.
-- Inject tweaks and review the resulting bundle.
-- Automate with Shortcuts, App Intents, widgets and Live Activities.
-- Use the authenticated Web Manager for browser and WebDAV transfers.
-
-</td>
-</tr>
-</table>
-
-## A calmer Home
-
-<p align="center">
-  <img src="docs/assets/home-preview.svg" alt="Layout preview of the rebuilt VexSign Home dashboard" width="100%">
-  <sub>Layout preview of the rebuilt Home dashboard.</sub>
-</p>
-
-The Home tab is built around the next useful action, not a wall of settings:
-
-- a certificate-aware hero that tells you whether you are ready to sign;
-- one-tap **Import**, **Quick Sign**, **Library** and **Discover** actions;
-- a three-step setup checklist for a new install;
-- live task progress, update and attention cards;
-- recently added apps and the workspace tools you actually use.
-
-The interface follows your selected appearance — System, Midnight Violet,
-Graphite, Paper, OLED, Luna or Flare — while every surface keeps readable
-contrast and native accessibility behaviour. See
-[Design](docs/DESIGN.md) for the tokens and rules.
-
-## How it fits together
-
-```mermaid
-flowchart LR
-  subgraph UI["SwiftUI app"]
-    HOME["Home dashboard"]
-    SIGN["Signing studio"]
-    LIB["Library"]
-    STORE["Discover"]
-    SET["Settings"]
-  end
-
-  subgraph CORE["App core"]
-    TASKS["UnifiedTaskCenter"]
-    IMPORT["Import / archive pipeline"]
-    SIGNER["Signing pipeline"]
-    INSTALL["Install queue"]
-    STORE_LAYER["Core Data + files"]
-  end
-
-  subgraph PACKAGES["Local packages"]
-    NATIVE["NativeSigning"]
-    ALT["AltSourceKit"]
-    NIMBLE["NimbleKit"]
-    ZSIGN["Vendor/Zsign"]
-    IDEVICE["Vendor/IDeviceKitten"]
-  end
-
-  HOME --> TASKS
-  HOME --> IMPORT
-  HOME --> SIGNER
-  UI --> STORE_LAYER
-  SIGNER --> ZSIGN
-  INSTALL --> IDEVICE
-  STORE --> ALT
-  SET --> NATIVE
-  CORE --> NIMBLE
-```
-
-More detail: [Architecture](docs/ARCHITECTURE.md).
-
-## Install
-
-Download the latest unsigned IPA from
-[Releases](https://github.com/raynmahbub/VexSign/releases) and sign it with
-VexSign, or add the AltStore-compatible source:
+Download an **unsigned IPA** from [Releases](https://github.com/raynmahbub/VexSign/releases)
+and sign it with an existing sideloading tool/identity. Existing VexSign users can
+sign an update in-app. Stable source URL:
 
 ```text
 https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json
 ```
 
-First time here? Read [Free Apple ID setup](docs/FREE_APPLE_ID_SETUP.md),
-[companion signing](docs/COMPANION_SIGNING.md) and
-[platform support](docs/PLATFORMS.md).
+Read [Free Apple ID setup](docs/FREE_APPLE_ID_SETUP.md),
+[installation/companion limits](docs/COMPANION_SIGNING.md) and
+[Web Manager setup](docs/WEBTOOLS.md) before enabling those flows.
 
-## Build from source
+## Build & test
 
-**Requirements:** macOS with a current Xcode, or the matching CI runner. A plain
-clone is enough; `make bootstrap` resolves the SwiftPM packages.
+Use macOS and an Xcode with the SDK required by the current branch (the app uses
+iOS 26 SDK APIs). `make bootstrap` validates your environment and resolves packages.
 
 ```bash
 git clone https://github.com/raynmahbub/VexSign.git
 cd VexSign
-make bootstrap          # validates the toolchain and resolves packages
-open VexSign.xcworkspace
+make bootstrap
+open VexSign.xcworkspace   # VexSign scheme; choose your development team
+make                      # unsigned packages/VexSign.ipa
+make verify               # portable checks; no Xcode required
+make test                 # iPhone simulator tests (macOS/Xcode)
+make help                 # all supported entry points
 ```
 
-Select your development team in Xcode, then build the `VexSign` scheme.
+See [Build](docs/BUILD.md) for toolchain selection and troubleshooting.
 
-The command-line build is unsigned:
+## Repository layout
 
-```bash
-make                    # packages/VexSign.ipa
-make verify             # repository, resource and policy gates
-make test               # simulator tests
-make lint               # optional SwiftLint pass
-```
-
-| Target | What it does |
+| Location | Responsibility |
 | --- | --- |
-| `make bootstrap` | Checks macOS/Xcode, vendored packages and resolves SwiftPM dependencies. |
-| `make` | Builds the unsigned IPA into `packages/`. |
-| `make verify` | Runs the fast, Xcode-independent checks used by CI. |
-| `make test` | Runs simulator tests on an available iPhone. |
-| `make lint` | Runs SwiftLint when installed. |
-| `make audit-packages` | Reports root Xcode SwiftPM packages that are behind upstream. |
-| `make strict-concurrency` | Reports Swift 6 concurrency warnings in the local packages. |
-| `make deploy-server` | Builds the optional self-hosted repository server. |
+| `VexSign/`, `VexSignTests/` | Main app and simulator tests |
+| `AltSourceKit/`, `NimbleKit/`, `NativeSigning/`, `SideSign/` | Local Swift packages and signing integration |
+| `VexSignTV/`, `VexSignVision/`, `VexSignWatch*/`, `VexSignWidgetExtension/` | Companions and extensions |
+| `Vendor/`, `Tweaks/`, `EmbeddedContainer/` | Third-party sources, injection and experimental host packaging |
+| `server/`, `cloud-signing/`, `AnisetteServer/` | Optional services; each has its own setup/limitations |
+| `Scripts/`, `tools/`, `.github/` | Bootstrap, validation, maintenance and workflows |
+| `docs/` | Task-oriented guides; start at the [index](docs/README.md) |
 
-The full sequence, troubleshooting and CI notes are in
-[Build](docs/BUILD.md).
+Keep source paths stable: Xcode target membership, package manifests and packaging
+scripts depend on them. Generated IPAs, credentials and build caches do not belong in Git.
 
-## Repository map
+## Quality & releases
 
-```text
-VexSign/                 iOS/iPadOS app, design system and feature views
-VexSignTests/            Simulator tests
-NativeSigning/           Experimental native account/provisioning package
-AltSourceKit/            Repository source parsing (local Swift package)
-NimbleKit/               Shared SwiftUI and utility layer (local Swift package)
-Vendor/                  Pinned third-party sources (Zsign, IDeviceKit)
-VexSignTV/               tvOS companion
-VexSignVision/           visionOS companion
-VexSignWatch*/           watchOS companion and widgets
-server/                  Self-hosted Python repository server
-cloud-signing/           TypeScript cloud-signing service
-EmbeddedContainer/       Experimental guest-host packaging
-docs/                    Guides, architecture and design notes
-tools/                   Repository verification and maintenance tools
-```
+- **CI:** relevant PRs/main changes get portable policy checks, an unsigned build
+  and simulator tests. Component workflows validate their own paths separately.
+- **Stable:** reviewed version bump, matching `v<MARKETING_VERSION>` tag or manual
+  Release run, validation/build/tests, protected publishing and stable source update.
+- **Nightly:** daily **03:00 UTC**, immutable dated pre-release, build/tests and
+  checksums; never promoted into the stable source listing.
+- **Maintenance:** grouped dependency PRs, weekly localisation maintenance and CI
+  failure triage. Humans review merges, security-sensitive changes and stable releases.
 
-## Quality gates
+[Release/version rules](docs/RELEASING.md) · [Automation policy](docs/MAINTENANCE.md)
 
-Every change is checked without needing a Mac:
+## Trust, contribution & credits
 
-- Python policy checks for the Xcode project, localisation catalogue, error
-  handling, singletons and concurrency escapes;
-- workflow trigger policy and embedded-container packaging tests;
-- the native-signing preparation suite;
-- on macOS, an unsigned device build plus simulator tests.
+Local signing keeps signing work on-device; optional remote flows have different
+trust boundaries. Archives are validated before extraction, and the local install
+server uses a device-specific TLS identity. Report vulnerabilities privately as
+explained in [SECURITY.md](SECURITY.md); do not put credentials in issues.
 
-See [CI](.github/workflows/ci.yml) and run `make verify` before opening a pull
-request. Warnings that precede the baseline are tracked in
-[`.github/build-warnings-baseline.json`](.github/build-warnings-baseline.json).
+[Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
+[Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE)
 
-## Releases and automation
-
-- **Stable** — push a `v<MARKETING_VERSION>` tag, or run **Actions → Release**
-  with channel `stable`. The bot builds the unsigned IPA, verifies the packaged
-  version, publishes the release and queues **Update Repository**.
-- **Nightly** — the same workflow runs daily at 03:00 UTC and publishes an
-  immutable `v<version>-nightly.<date>.<run>` **pre-release**. Nightlies never
-  update the install listing.
-- **Dependencies** — Dependabot opens grouped updates for Actions, Python, npm,
-  SwiftPM and Docker.
-- **Maintenance** — deterministic localisation sync runs weekly and opens a
-  review PR only when something changes; failed `main` CI runs become triaged
-  issues.
-
-See [Releasing](docs/RELEASING.md) and [Maintenance](docs/MAINTENANCE.md).
-
-## Security and privacy
-
-- Local signing never leaves the device. Optional companion and cloud flows are explicit, documented and opt-in.
-- Imported archives are validated before extraction and signing.
-- Network endpoints use TLS; the local install server generates a fresh
-  identity per device.
-- Repository sources are parsed defensively and are never executed.
-- Secrets are redacted from logs and exports.
-
-Please report vulnerabilities privately via GitHub's **Report a vulnerability**
-button in the Security tab. See [SECURITY.md](SECURITY.md).
-
-## Documentation
-
-| Guide | |
-| --- | --- |
-| [Documentation index](docs/README.md) | Every guide in one place |
-| [Build](docs/BUILD.md) | Toolchain, build order, CI and troubleshooting |
-| [Architecture](docs/ARCHITECTURE.md) | Layers, data flow and local packages |
-| [Design](docs/DESIGN.md) | Colour, type, surfaces, motion and accessibility |
-| [Platforms](docs/PLATFORMS.md) | iOS, iPadOS, tvOS, watchOS and visionOS support |
-| [Free Apple ID](docs/FREE_APPLE_ID_SETUP.md) | On-device provisioning walkthrough |
-| [Companion signing](docs/COMPANION_SIGNING.md) | Apple TV, Watch and Vision flows |
-| [Native signing](docs/NATIVE_SIGNING_ARCHITECTURE.md) | Experimental account backend |
-| [Web tools](docs/WEBTOOLS.md) | Web Manager, API and WebDAV |
-| [Releasing](docs/RELEASING.md) | Stable tags, nightly pre-releases and assets |
-| [Maintenance](docs/MAINTENANCE.md) | Dependencies, bots and review boundaries |
-| [Changelog](CHANGELOG.md) | What changed, release by release |
-
-## Status
-
-VexSign is an actively developed sideloading workspace. The app and the local
-packages build on iOS 16 and later; the default branch tracks the newest SDK.
-Some surfaces are intentionally marked experimental — see
-[Platforms](docs/PLATFORMS.md) before relying on them.
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md), follow the
-[Code of Conduct](CODE_OF_CONDUCT.md), keep changes focused, add regression
-coverage, and run `make verify` plus the affected tests. Design changes should
-use the tokens and accessibility rules in [Design](docs/DESIGN.md).
-
-## Credits
-
-VexSign is an independent project. Third-party code includes
-[Zsign](https://github.com/zhlynn/zsign),
-[idevice](https://github.com/jkcoxson/idevice),
-[ElleKit](https://github.com/everythingappletech/ElleKit), Vapor, Nuke,
-ZIPFoundation and others. Vendored packages and their licences are listed in
-[`Vendor/README.md`](Vendor/README.md).
-
-VexSign is not affiliated with Apple. Apple, iPhone, iPad, Apple TV, Apple Watch
-and visionOS are trademarks of Apple Inc.
+Built on Zsign, idevice, ElleKit and other open-source projects; retain their
+[third-party licenses](Vendor/README.md) and [ElleKit license](LICENSE_ELLEKIT).
+Independent project, not affiliated with Apple.

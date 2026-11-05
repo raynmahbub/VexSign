@@ -150,3 +150,26 @@ macOS and a full Xcode installation.
 See [`Vendor/README.md`](../Vendor/README.md). The pinned commits, upstream
 repositories and licence files are recorded in
 [`Vendor/manifest.json`](../Vendor/manifest.json).
+
+
+## Optional service validation
+
+Component workflows run automatically for matching PRs and main pushes; unrelated
+app changes do not trigger the server or cloud suites. You can also dispatch them
+manually. Reproduce their core checks locally:
+
+```bash
+# Python: use a virtual environment; CI uses Python 3.12.
+python3 -m venv server/.venv
+. server/.venv/bin/activate
+python -m pip install -r server/requirements.txt pytest cryptography
+make test-server
+
+# Cloud: Node 22; npm ci respects the committed lockfile.
+(cd cloud-signing && npm ci)
+make test-cloud
+```
+
+Cloud checks compile TypeScript, run tests and regenerate the OpenAPI contract;
+contract drift fails the command and leaves a diff to review. These checks do not
+prove a deployed PostgreSQL/Redis/object-store/signing-worker installation works.
