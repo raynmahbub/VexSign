@@ -5,7 +5,7 @@
 //  What the selected profile can actually do for the extensions inside an app.
 //
 //  The bundled engine signs every nested bundle with the *outer* asset — one `ZSignAsset` for the
-//  whole tree (`Zsign/src/bundle.cpp:515-544` in the pin) — so an extension whose identifier the
+//  whole tree (`Vendor/Zsign/src/bundle.cpp:515-544` in the pin) — so an extension whose identifier the
 //  profile does not cover cannot be signed correctly, and the install either fails or produces a
 //  widget that never launches. Until the engine can take one asset per nested bundle, the honest
 //  thing to do is say which extensions are in that state before the long sign starts, instead of

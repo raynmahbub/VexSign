@@ -15,7 +15,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-asn1.git", "1.5.1"..<"2.0.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", "1.17.1"..<"2.0.0"),
         .package(url: "https://github.com/krzyzanowskim/OpenSSL.git", "3.6.1"..<"4.0.0"),
-        .package(path: "../Zsign"),
+        .package(path: "../Vendor/Zsign"),
         .package(path: "../NimbleKit"),
         .package(path: "../SideSign"),
     ],

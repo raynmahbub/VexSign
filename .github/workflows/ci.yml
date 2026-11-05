@@ -44,13 +44,9 @@ on:
       - 'VexSign.xcworkspace/**'
       - 'NimbleKit/**'
       - 'AltSourceKit/**'
-      - 'Zsign'
-      - 'Zsign/**'
-      - 'IDeviceKitten'
-      - 'IDeviceKitten/**'
+      - 'Vendor/**'
       - 'Package.swift'
       - 'Package.resolved'
-      - '.gitmodules'
       - 'Makefile'
       - 'Scripts/**'
       - 'Tweaks/**'
@@ -173,9 +169,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
       # The `runner` context is not available in job-level env, so the scratch
       # paths are exported from a step instead.
       - name: Paths
@@ -302,9 +295,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
       - name: Paths
         run: |
           {

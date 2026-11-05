@@ -17,7 +17,7 @@
 | `Tests/` | Swift package tests |
 | `tests/` | Dependency-free preparation and policy regression tests |
 
-The package links Swift Crypto, ASN.1, Certificates, OpenSSL, Zsign, NimbleKit, and SideSign. Local packages require a recursive repository clone.
+The package links Swift Crypto, ASN.1, Certificates, OpenSSL, Zsign, NimbleKit, and SideSign. Zsign is vendored under `Vendor/Zsign`, so the package graph needs no Git submodules.
 
 ## Validate
 

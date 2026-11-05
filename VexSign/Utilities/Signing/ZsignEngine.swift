@@ -4,8 +4,8 @@
 //
 //  The single seam between VexSign and the bundled `zsign` engine.
 //
-//  The engine is not a Swift-native dependency: it is the `Zsign` submodule
-//  (`.gitmodules` → `claration/Zsign-Package`, branch `package`, gitlink pinned in the index).
+//  The engine is not a Swift-native dependency: it is the vendored `Vendor/Zsign` package
+//  (upstream `claration/Zsign-Package`, branch `package`, commit pinned in Vendor/manifest.json).
 //  Every signing run goes through this type — the bundle it signs, the flag it hands over, the
 //  cache it leaves behind — so the pin's quirks are documented and owned in one place instead of
 //  being spread over the handlers that happen to call it. (`TweakHandler` still calls the wrapper
@@ -15,7 +15,7 @@
 //
 //  1. Provisioning polarity. The Swift wrapper's `removeProvision:` lands in the C++ entry as
 //     `excludeProvisioning`, and in the pinned engine that flag **writes** the profile when it
-//     is `true` (`src/bundle.cpp:536-544`) and deletes it without writing anything when it is
+//     is `true` (`Vendor/Zsign/src/bundle.cpp:536-544`) and deletes it without writing anything when it is
 //     `false`. VexSign's own `Options.removeProvisioning` means the opposite, so the intent is
 //     translated exactly once, in `Request.engineEmbedProvision`.
 //

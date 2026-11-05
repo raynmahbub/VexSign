@@ -444,165 +444,20 @@ struct HomeView: View {
     }
 
     private var workspaceDashboard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.section) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
-                    TimelineView(.periodic(from: Date(), by: 60)) { context in
-                        Text(WorkspaceGreeting.title(hour: Calendar.current.component(.hour, from: context.date)))
-                            .font(.largeTitle.bold())
-                            .accessibilityAddTraits(.isHeader)
-                    }
-                    Text(.localized("Your signing workspace"))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                NavigationLink(destination: TaskCenterView()) {
-                    Label(.localized("Task Center"), systemImage: "list.bullet.rectangle")
-                        .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
-                }
-                .modifier(VexToolbarActionStyle())
-            }
-            .accessibilityElement(children: .contain)
-
-            WorkspaceActionGroup { workspaceActions }
-
-            NavigationLink(destination: SetupHealthView()) {
-                WorkspaceCard {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                        Label(.localized("Setup Health"), systemImage: "checklist").font(.headline)
-                        if let certificate = dashboardCertificate {
-                            if certificate.revoked {
-                                Label(.localized("Selected certificate is revoked"), systemImage: "exclamationmark.triangle")
-                                    .foregroundStyle(.orange)
-                            } else if let expiry = certificate.expiration {
-                                Text(expiry <= Date() ? .localized("Selected certificate has expired") : .localized("Selected certificate expiry"))
-                                    .font(.subheadline)
-                                Text(expiry, style: .date).font(.subheadline.monospacedDigit())
-                            } else {
-                                Text(.localized("Review certificate expiry and installation setup."))
-                                    .font(.subheadline).foregroundStyle(.secondary)
-                            }
-                        } else {
-                            Text(.localized("Add a certificate and review installation prerequisites."))
-                                .font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-
-            if let task = tasks.tasks.first(where: { $0.phase.isInProgress }) {
-                NavigationLink(destination: TaskCenterView()) {
-                    WorkspaceCard {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                            Text(.localized("Continue")).font(.headline)
-                            // Hidden and locked app titles must not leak through dashboard tasks.
-                            Text(task.kind.title + " · " + task.phase.title)
-                                .font(.subheadline).foregroundStyle(.secondary)
-                            // Task milestone fractions are not elapsed-work measurements.
-                            ProgressView()
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
-            if attentionCount > 0 {
-                Button { openTab(.library) } label: {
-                    WorkspaceCard {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                            Label(.localized("Needs attention"), systemImage: "exclamationmark.triangle")
-                                .font(.headline)
-                            Text(String.localized("%lld items require review in Library", arguments: attentionCount))
-                                .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
-            if updateCount > 0 {
-                Button { openTab(.appStore) } label: {
-                    WorkspaceCard {
-                        Label(updateTitle, systemImage: "arrow.triangle.2.circlepath")
-                            .font(.headline)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
-            if !recentVisibleApps.isEmpty {
-                VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                    Text(.localized("Recently added")).font(.headline)
-                    WorkspaceCard {
-                        VStack(spacing: Theme.Spacing.medium) {
-                            ForEach(recentVisibleApps) { item in
-                                Button { openTab(.library) } label: {
-                                    HStack(spacing: Theme.Spacing.medium) {
-                                        FRAppIconView(app: item.base, size: 40)
-                                        VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
-                                            Text(item.base.name ?? .localized("Application"))
-                                                .font(.subheadline.weight(.semibold))
-                                            Text(item.base.isSigned ? .localized("Signed copy in Library") : .localized("Imported copy in Library"))
-                                                .font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        Spacer(minLength: 0)
-                                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    .frame(minHeight: 44)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-            }
-
-            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                Text(.localized("Tools")).font(.headline)
-                WorkspaceCard {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.cardPadding) {
-                        NavigationLink(destination: CertificatesView()) {
-                            Label(.localized("Certificates"), systemImage: "checkmark.seal")
-                        }
-                        Button { showAddRepository = true } label: {
-                            Label(.localized("Add Repository"), systemImage: "plus.circle")
-                        }
-                        NavigationLink(destination: CompanionSigningWorkflowView()) {
-                            Label(.localized("Companion Apps"), systemImage: "arrow.triangle.branch")
-                        }
-                        DisclosureGroup(.localized("Download from URL")) {
-                            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                                TextField("https://example.com/app.ipa", text: $packageURL)
-                                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                                    .keyboardType(.URL).submitLabel(.go)
-                                    .onSubmit { startURLDownload() }
-                                Button(.localized("Download")) { startURLDownload() }
-                                    .disabled(packageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                            .padding(.top, Theme.Spacing.medium)
-                        }
-                    }
-                    .font(.body)
-                }
-            }
-        }
-        .foregroundStyle(.primary)
+        VexHomeDashboard(
+            certificate: dashboardCertificate,
+            appCount: dashboardVisibleApps.count,
+            repositoryCount: repositories.count,
+            certificateCount: certificates.count,
+            attentionCount: attentionCount,
+            updateCount: updateCount,
+            recentApps: recentVisibleApps,
+            onImport: { browseForPackages() },
+            onQuickSign: { browseForPackages(quickSign: true) },
+            onOpenTab: { openTab($0) },
+            onAddRepository: { showAddRepository = true }
+        )
         .task { libraryStatus.refresh(dashboardVisibleApps) }
-    }
-
-    @ViewBuilder
-    private var workspaceActions: some View {
-        Button { browseForPackages() } label: {
-            Label(.localized("Import IPA"), systemImage: "square.and.arrow.down")
-                .font(.headline).frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.borderedProminent)
-        Button { browseForPackages(quickSign: true) } label: {
-            Label(.localized("Sign an app"), systemImage: "signature")
-                .font(.headline).frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.bordered)
     }
 
     // MARK: - Working actions

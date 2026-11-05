@@ -6,7 +6,7 @@ SCHEMES := VexSign
 TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
-.PHONY: all clean test verify lint deploy-server strict-concurrency $(SCHEMES)
+.PHONY: all clean bootstrap test verify lint deploy-server strict-concurrency $(SCHEMES)
 
 all: $(SCHEMES)
 
@@ -14,6 +14,11 @@ clean:
 	rm -rf $(TMP)
 	rm -rf packages
 	rm -rf Payload
+
+# Validate a fresh checkout and resolve packages without building.
+#   make bootstrap
+bootstrap:
+	@bash Scripts/bootstrap.sh
 
 # Install-server TLS is generated and persisted on each device, not in an IPA.
 $(SCHEMES):

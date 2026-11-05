@@ -9,6 +9,26 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+### Added
+
+- A rebuilt Home dashboard with a certificate-aware hero, one-tap import and
+  quick-sign actions, a three-step getting-started checklist, live task and
+  update status, recent apps and a compact workspace-tools card. It uses the
+  shared design tokens and collapses empty sections instead of showing dead
+  cards.
+- A documented design system (`docs/DESIGN.md`) and reusable Home components
+  under `VexSign/DesignSystem/`, including contrast-aware surfaces, responsive
+  action tiles and accessible setup/status rows.
+- A professional repository front page, architecture/build/design guides,
+  documentation index and security policy.
+
+### Changed
+
+- Zsign and IDeviceKit are vendored under `Vendor/` with pinned commits and
+  licences; cloning and CI no longer require Git submodules or `--recursive`.
+- `make bootstrap` validates the toolchain and package graph before the first
+  Xcode build.
+
 ### Fixed
 
 - Certificate import no longer starts Zsign's legacy native OCSP checker, which

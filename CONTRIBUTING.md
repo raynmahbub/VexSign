@@ -13,12 +13,14 @@ Follow the [Code of Conduct](CODE_OF_CONDUCT.md). For large changes, open an [is
 ## Set up
 
 ```bash
-git clone --recursive https://github.com/raynmahbub/VexSign.git
+git clone https://github.com/raynmahbub/VexSign.git
 cd VexSign
+make bootstrap
 open VexSign.xcworkspace
 ```
 
-Use a supported current Xcode and the iOS 16+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
+No Git submodules are used; third-party sources live in `Vendor/`. Use a
+supported current Xcode and the iOS 16+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
 
 ## Validate changes
 
@@ -54,7 +56,8 @@ rebuild with an explicit deployment target (for example `15.0`).
 - Prefer small, testable components and dependency injection over new global singletons.
 - Do not add silent `try?` at user-visible failure boundaries.
 - Preserve strict-concurrency boundaries; document any justified exception.
-- Edit `VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor, then run `make verify`.
+- Edit `VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 tools/sync-strings.py --write`), then run `make verify`.
+- Follow [Design](docs/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `VexSign/DesignSystem/` instead of adding another card style.
 - Keep documentation concise and update only guides affected by the change.
 
 ## History maintenance
@@ -73,4 +76,7 @@ same document for the repository settings.
 
 Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [docs/RELEASING.md](docs/RELEASING.md).
 
-Zsign changes belong upstream at [claration/Zsign-Package](https://github.com/claration/Zsign-Package/tree/package) unless they are VexSign-specific integration changes.
+Zsign and IDeviceKit sources are vendored under `Vendor/`. Send general Zsign
+changes upstream to [claration/Zsign-Package](https://github.com/claration/Zsign-Package/tree/package);
+if VexSign needs a new pin, follow [Vendor/README.md](Vendor/README.md) and
+include the licence/commit update in the same PR.

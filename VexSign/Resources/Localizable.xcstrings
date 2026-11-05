@@ -100295,6 +100295,391 @@
           }
         }
       }
+    },
+    "%lld items need review" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items need review"
+          }
+        }
+      }
+    },
+    "%lld of 3" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of 3"
+          }
+        }
+      }
+    },
+    "Add a signing certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a signing certificate"
+          }
+        }
+      }
+    },
+    "Add an app source" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an app source"
+          }
+        }
+      }
+    },
+    "Add repository" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add repository"
+          }
+        }
+      }
+    },
+    "Apple TV, Watch and Vision" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV, Watch and Vision"
+          }
+        }
+      }
+    },
+    "Browse repositories or import an IPA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse repositories or import an IPA."
+          }
+        }
+      }
+    },
+    "Browse sources" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse sources"
+          }
+        }
+      }
+    },
+    "Certificate ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate ready"
+          }
+        }
+      }
+    },
+    "Certificate revoked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate revoked"
+          }
+        }
+      }
+    },
+    "Companion apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion apps"
+          }
+        }
+      }
+    },
+    "Connect an AltStore-compatible source" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect an AltStore-compatible source"
+          }
+        }
+      }
+    },
+    "Discover" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discover"
+          }
+        }
+      }
+    },
+    "Expires in %lld days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expires in %lld days"
+          }
+        }
+      }
+    },
+    "From Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From Files"
+          }
+        }
+      }
+    },
+    "Get started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get started"
+          }
+        }
+      }
+    },
+    "Identity, provisioning and expiry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity, provisioning and expiry"
+          }
+        }
+      }
+    },
+    "Import a .p12 and its provisioning profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .p12 and its provisioning profile."
+          }
+        }
+      }
+    },
+    "Import an IPA, sign it with your certificate, and install it — without leaving your iPhone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import an IPA, sign it with your certificate, and install it — without leaving your iPhone."
+          }
+        }
+      }
+    },
+    "Import your first IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import your first IPA"
+          }
+        }
+      }
+    },
+    "In your workspace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In your workspace"
+          }
+        }
+      }
+    },
+    "It stays on this device until you sign it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It stays on this device until you sign it."
+          }
+        }
+      }
+    },
+    "ON-DEVICE SIGNING" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ON-DEVICE SIGNING"
+          }
+        }
+      }
+    },
+    "Open Library to fix expiry, revocation or updates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Library to fix expiry, revocation or updates."
+          }
+        }
+      }
+    },
+    "Paste a direct IPA link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste a direct IPA link"
+          }
+        }
+      }
+    },
+    "Pick and sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick and sign"
+          }
+        }
+      }
+    },
+    "Quick actions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick actions"
+          }
+        }
+      }
+    },
+    "Quick sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick sign"
+          }
+        }
+      }
+    },
+    "Review them in Discover." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review them in Discover."
+          }
+        }
+      }
+    },
+    "See all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See all"
+          }
+        }
+      }
+    },
+    "Set up signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up signing"
+          }
+        }
+      }
+    },
+    "The things you do most, one tap away." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The things you do most, one tap away."
+          }
+        }
+      }
+    },
+    "Three steps to your first signed app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Three steps to your first signed app."
+          }
+        }
+      }
+    },
+    "Workspace tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workspace tools"
+          }
+        }
+      }
+    },
+    "Your apps. Your signing.\nOn device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your apps. Your signing.\nOn device."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

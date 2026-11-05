@@ -104,6 +104,15 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertTrue(WorkspaceActionSizing.shouldStack(idealWidths: [44], availableWidth: 0, spacing: 12, accessibility: false))
     }
 
+    func testHomeSetupCountsOnlyThreeRealSteps() {
+        XCTAssertEqual(VexHomeSetup.completedSteps(certificates: 0, repositories: 0, apps: 0), 0)
+        XCTAssertEqual(VexHomeSetup.completedSteps(certificates: 1, repositories: 0, apps: 0), 1)
+        XCTAssertEqual(VexHomeSetup.completedSteps(certificates: 1, repositories: 2, apps: 0), 2)
+        XCTAssertEqual(VexHomeSetup.completedSteps(certificates: 1, repositories: 1, apps: 3), 3)
+        XCTAssertTrue(VexHomeSetup.isComplete(certificates: 1, repositories: 1, apps: 1))
+        XCTAssertFalse(VexHomeSetup.isComplete(certificates: 0, repositories: 1, apps: 1))
+    }
+
     func testThemePreservesExistingPreferenceValues() {
         XCTAssertEqual(VexSignVisualTheme(rawValue: "system"), .system)
         XCTAssertEqual(VexSignVisualTheme(rawValue: "luna"), .luna)

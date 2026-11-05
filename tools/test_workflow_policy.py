@@ -57,10 +57,11 @@ class WorkflowPolicyTests(unittest.TestCase):
                 self.assertFalse(covers(name, 'README.md'))
                 self.assertFalse(covers(name, 'CHANGELOG.md'))
 
-    def test_app_dependencies_and_submodule_pointer_changes_are_covered(self):
+    def test_app_dependencies_and_vendored_package_changes_are_covered(self):
         for path in ('VexSign/VexSignApp.swift', 'VexSignTests/DesignSystemTests.swift',
                      'NimbleKit/Package.swift', 'AltSourceKit/Package.swift',
-                     'VexSign.xcodeproj/project.pbxproj', 'Zsign', 'IDeviceKitten',
+                     'VexSign.xcodeproj/project.pbxproj', 'Vendor/Zsign/Package.swift',
+                     'Vendor/IDeviceKitten/Package.swift',
                      'Makefile', 'tools/test_workflow_policy.py'):
             with self.subTest(path=path):
                 self.assertTrue(covers('ci.yml', path))
