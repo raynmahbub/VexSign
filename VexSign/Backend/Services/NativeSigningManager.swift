@@ -144,7 +144,7 @@ final class NativeSigningManager: ObservableObject {
         // Create a unified task for tracking
         let task = UnifiedTaskCenter.shared.begin(
             kind: .update,
-            title: .localized("Renewing profile: %@", bundleIdentifier),
+            title: .localized("Renewing profile: %@", arguments: bundleIdentifier),
             subtitle: .localized("Free Apple ID profile expiring soon"),
             subjectID: bundleIdentifier
         )
@@ -160,52 +160,45 @@ final class NativeSigningManager: ObservableObject {
                 deviceIdentifier: deviceIdentifier,
                 bundleIdentifiers: [bundleIdentifier]
             )
-            let consent = try await backend.recordExplicitAnisetteConsent()
-            let plan = try await backend.provisioningPreflight(contextID: contextID, request: request, consent: consent)
+            // Steps 2-7 go through this manager's own pass-throughs rather than the
+            // backend directly: they guard the optional backend and mint a fresh
+            // AnisetteConsentToken per mutating call, which is the only shape the
+            // backend accepts.
+            let plan = try await provisioningPreflight(contextID: contextID, request: request)
 
             // 2. Prepare signing identity (key + CSR)
-            let identityTicket = try await backend.prepareSigningIdentity(contextID: contextID)
+            let identityTicket = try await prepareSigningIdentity(contextID: contextID)
 
             // 3. Certificate creation approval
-            let certApproval = try await backend.recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.identityID)
+            let certApproval = try await recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.id)
 
             // 4. Create certificate
-            let consent2 = try await backend.recordExplicitAnisetteConsent()
-            _ = try await backend.createDevelopmentSigningCertificate(
+            _ = try await createDevelopmentCertificate(
                 contextID: contextID,
-                identityID: identityTicket.identityID,
-                approval: certApproval,
-                consent: consent2
+                identityID: identityTicket.id,
+                approval: certApproval
             )
 
             // 5. Device registration
             let subject = try NativeRegistrationSubject(kind: .device, value: deviceIdentifier)
-            let regApproval = try await backend.recordRegistrationApproval(contextID: contextID, subject: subject)
-            let consent3 = try await backend.recordExplicitAnisetteConsent()
-            _ = try await backend.registerAccountResource(contextID: contextID, subject: subject, approval: regApproval, consent: consent3)
+            let regApproval = try await recordRegistrationApproval(contextID: contextID, subject: subject)
+            _ = try await registerResource(contextID: contextID, subject: subject, approval: regApproval)
 
             // 6. App ID registration
             let appIDSubject = try NativeRegistrationSubject(kind: .appID, value: bundleIdentifier)
-            let appIDApproval = try await backend.recordRegistrationApproval(contextID: contextID, subject: appIDSubject)
-            let consent4 = try await backend.recordExplicitAnisetteConsent()
-            _ = try await backend.registerAccountResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval, consent: consent4)
+            let appIDApproval = try await recordRegistrationApproval(contextID: contextID, subject: appIDSubject)
+            _ = try await registerResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval)
 
             // 7. Profile creation
             let target = try NativeAccountProfileTarget(
-                identityID: identityTicket.identityID,
+                identityID: identityTicket.id,
                 bundleIdentifier: bundleIdentifier,
                 deviceIdentifier: deviceIdentifier.uppercased(),
                 registeredAppID: plan.existingAppIdentifiers.first ?? bundleIdentifier,
                 registeredDeviceID: "auto"
             )
-            let profileApproval = try await backend.recordExplicitProfileCreationApproval(contextID: contextID, target: target)
-            let consent5 = try await backend.recordExplicitAnisetteConsent()
-            let profileResult = try await backend.createAccountProvisioningProfile(
-                contextID: contextID,
-                target: target,
-                approval: profileApproval,
-                consent: consent5
-            )
+            let profileApproval = try await recordProfileCreationApproval(contextID: contextID, target: target)
+            let profileResult = try await createProvisioningProfile(contextID: contextID, target: target, approval: profileApproval)
 
             // 8. Re-sign and queue the app for installation
             await reSignAppWithNewProfile(bundleIdentifier: bundleIdentifier, profileResult: profileResult)

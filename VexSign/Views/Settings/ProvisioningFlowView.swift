@@ -338,8 +338,9 @@ struct ProvisioningFlowView: View {
                 deviceIdentifier: deviceIdentifier.uppercased(),
                 bundleIdentifiers: [bundleID]
             )
-            let consent = try await manager.recordExplicitAnisetteConsent()
-            let plan = try await manager.provisioningPreflight(contextID: contextID, request: request, consent: consent)
+            // The manager's pass-throughs mint the anisette consent per mutating
+            // call; a view never holds a consent token.
+            let plan = try await manager.provisioningPreflight(contextID: contextID, request: request)
 
             // 2. Prepare signing identity (key + CSR)
             await updateStage(.localized("Preparing signing identity…"), 0.25)
@@ -347,45 +348,40 @@ struct ProvisioningFlowView: View {
 
             // 3. Certificate creation approval
             await updateStage(.localized("Requesting certificate creation approval…"), 0.4)
-            let certApproval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.identityID)
+            let certApproval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.id)
 
             // 4. Create certificate
             await updateStage(.localized("Creating development certificate…"), 0.55)
-            let consent2 = try await manager.recordExplicitAnisetteConsent()
-            _ = try await manager.createDevelopmentSigningCertificate(
+            _ = try await manager.createDevelopmentCertificate(
                 contextID: contextID,
-                identityID: identityTicket.identityID,
-                approval: certApproval,
-                consent: consent2
+                identityID: identityTicket.id,
+                approval: certApproval
             )
 
             // 5. Device/App ID registration
             await updateStage(.localized("Registering device & App ID…"), 0.7)
             let subject = try NativeRegistrationSubject(kind: .device, value: deviceIdentifier)
             let regApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: subject)
-            let consent3 = try await manager.recordExplicitAnisetteConsent()
-            _ = try await manager.registerAccountResource(contextID: contextID, subject: subject, approval: regApproval, consent: consent3)
+            _ = try await manager.registerResource(contextID: contextID, subject: subject, approval: regApproval)
 
             // 6. App ID registration
             await updateStage(.localized("Registering App ID…"), 0.8)
             let appIDSubject = try NativeRegistrationSubject(kind: .appID, value: bundleID)
             let appIDApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: appIDSubject)
-            let consent4 = try await manager.recordExplicitAnisetteConsent()
-            _ = try await manager.registerAccountResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval, consent: consent4)
+            _ = try await manager.registerResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval)
 
             // 7. Profile creation
             await updateStage(.localized("Creating provisioning profile…"), 0.9)
             // Get registered IDs from plan
             let target = try NativeAccountProfileTarget(
-                identityID: identityTicket.identityID,
+                identityID: identityTicket.id,
                 bundleIdentifier: bundleID,
                 deviceIdentifier: deviceIdentifier.uppercased(),
                 registeredAppID: plan.existingAppIdentifiers.first ?? bundleID,
                 registeredDeviceID: "auto" // Will be resolved by backend
             )
-            let profileApproval = try await manager.recordExplicitProfileCreationApproval(contextID: contextID, target: target)
-            let consent5 = try await manager.recordExplicitAnisetteConsent()
-            let profileResult = try await manager.createAccountProvisioningProfile(contextID: contextID, target: target, approval: profileApproval, consent: consent5)
+            let profileApproval = try await manager.recordProfileCreationApproval(contextID: contextID, target: target)
+            let profileResult = try await manager.createProvisioningProfile(contextID: contextID, target: target, approval: profileApproval)
 
             await MainActor.run {
                 provisioningProgress = 1.0

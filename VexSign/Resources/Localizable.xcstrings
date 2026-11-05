@@ -100284,6 +100284,17 @@
           }
         }
       }
+    },
+    "%lld/3 apps used" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld/3 apps used"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
