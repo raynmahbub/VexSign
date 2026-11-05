@@ -76,7 +76,10 @@ final class NativeSigningManager: ObservableObject {
         let expiresAt: Date
         let certificateID: UUID
         var daysUntilExpiry: Int {
-            max(0, Int(expiresAt.timeIntervalSinceNow / 86400))
+            // Round up: a profile with 2 days and 20 hours left is still
+            // "3 days" of validity, and truncation would report 2.
+            let days = (expiresAt.timeIntervalSinceNow / 86400).rounded(.up)
+            return max(0, Int(days))
         }
         var isExpiringSoon: Bool { daysUntilExpiry <= 2 }
         var isExpired: Bool { Date() > expiresAt }

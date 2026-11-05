@@ -6,7 +6,7 @@
 //  bundles whose executables carry a real `LC_CODE_SIGNATURE` load command and a real
 //  entitlements superblob, which is exactly what the verifier reads.
 //
-//  The two acceptance cases from `docs/ROADMAP.md` are here by name: deleting
+//  The acceptance cases are here by name: deleting
 //  `_CodeSignature` must fail, and a profile for an unrelated App ID must fail.
 //
 

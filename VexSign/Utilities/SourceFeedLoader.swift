@@ -2,7 +2,7 @@
 //  SourceFeedLoader.swift
 //  VexSign
 //
-//  Fetch + decode for one source, off the main actor (see docs/AUDIT_2026-10-31.md).
+//  Fetch + decode for one source, off the main actor.
 //
 //  `SourcesViewModel` used to fetch a batch in a task group and then decode every payload *after*
 //  the group had returned — inside a `@MainActor` method, i.e. on the thread that draws the screen.

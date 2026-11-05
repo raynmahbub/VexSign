@@ -28,7 +28,7 @@ extension ServerInstaller {
 		}
 	}()
 	
-	func setupApp(port: Int) throws -> Application {
+	func setupApp(port: Int) async throws -> Application {
 		let transport: ServerApplicationFactory.Transport
 		if getServerMethod() != 1 {
 			guard Self.readCommonName() != nil else { throw LocalInstallError.invalidHostname }
@@ -38,7 +38,7 @@ extension ServerInstaller {
 			transport = .http
 		}
 		// Validate identity before allocating Application/thread-pool resources.
-		return ServerApplicationFactory.make(environment: Self.env, threads: 1,
+		return try await ServerApplicationFactory.make(environment: Self.env, threads: 1,
 			hostname: sni(), bindHost: getServerMethod() == 1 ? "0.0.0.0" : "127.0.0.1",
 			port: port, transport: transport, bodyLimit: "128mb", caseInsensitive: false)
 	}

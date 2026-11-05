@@ -2,7 +2,7 @@
 //  LocalTLSIdentity.swift
 //  VexSign
 //
-//  The identity the local install server serves HTTPS with (see docs/AUDIT_2026-10-31.md).
+//  The identity the local install server serves HTTPS with.
 //
 //  Current identities are generated locally by DeviceTLSIdentity and cached in
 //  protected Application Support for NIOSSL. No bundle/download fallback is used.

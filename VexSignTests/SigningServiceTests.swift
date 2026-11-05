@@ -2,7 +2,7 @@
 //  SigningServiceTests.swift
 //  VexSignTests
 //
-//  Covers the signing run's contract (docs/ROADMAP.md): stages are reported in the
+//  Covers the signing run's contract: stages are reported in the
 //  order they happen, every run ends with exactly one terminal event, and a cancelled run is
 //  reported as cancelled rather than failed.
 //

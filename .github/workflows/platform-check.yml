@@ -72,13 +72,17 @@ jobs:
           REQUESTED_XCODE: ${{ vars.BUILD_XCODE || '' }}
         run: bash .github/scripts/select_xcode.sh
 
-      - name: Cache Swift packages
-        uses: actions/cache@v5
+      # All three platform legs resolve the same package graph. Share one
+      # cache entry instead of three near-identical matrix-keyed entries; the
+      # first leg saves it, every leg restores into its own DerivedData.
+      - name: Restore Swift packages
+        id: packages
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
-          key: spm-${{ matrix.scheme }}-${{ hashFiles('**/Package.resolved') }}
+          key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            spm-${{ matrix.scheme }}-
+            spm-platform-${{ runner.os }}-
 
       - name: Build (Debug, unsigned)
         id: build
@@ -104,6 +108,13 @@ jobs:
             echo "::error::xcodebuild (${{ matrix.scheme }}) exited with status ${status}."
           fi
           exit "${status}"
+
+      - name: Save Swift packages
+        if: success() && matrix.scheme == 'VexSignTV' && steps.packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
+          key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
 
       # Inline annotations so a compile error in a companion target can be read
       # from the PR page. Warnings are not gated here: these targets have no

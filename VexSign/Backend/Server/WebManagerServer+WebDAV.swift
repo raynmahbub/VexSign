@@ -37,8 +37,9 @@ extension WebManagerServer {
 		}
 
 		for method in [HTTPMethod.GET, .HEAD] {
-			app.on(method, catchall) { [weak self] req -> Response in
-				self?._get(req, includeBody: method == .GET) ?? Response(status: .notFound)
+			app.on(method, catchall) { [weak self] req async throws -> Response in
+				guard let self else { return Response(status: .notFound) }
+				return try await self._get(req, includeBody: method == .GET)
 			}
 		}
 
@@ -106,7 +107,7 @@ extension WebManagerServer {
 
 	// MARK: - Handlers
 
-	private func _get(_ req: Request, includeBody: Bool) -> Response {
+	private func _get(_ req: Request, includeBody: Bool) async throws -> Response {
 		guard let url = resolve(req.url.path) else { return Response(status: .forbidden) }
 		var isDir: ObjCBool = false
 		guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else {
@@ -121,7 +122,7 @@ extension WebManagerServer {
 			headers.replaceOrAdd(name: .contentLength, value: "\(size)")
 			return Response(status: .ok, headers: headers)
 		}
-		return req.fileio.streamFile(at: url.path)
+		return try await req.fileio.asyncStreamFile(at: url.path)
 	}
 
 	private func _moveOrCopy(_ req: Request, move: Bool) -> Response {

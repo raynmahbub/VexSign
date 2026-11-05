@@ -2,7 +2,7 @@
 //  StorageConcurrency.swift
 //  VexSign
 //
-//  The runtime half of the storage boundary (docs/ROADMAP.md): the legacy
+//  The runtime half of the storage boundary: the legacy
 //  synchronous mutators on `Storage` belong to the main-queue context, and one of
 //  them being called from a detached task is the bug that surfaces later as a Core
 //  Data "simultaneous access" crash, far from the line that caused it.

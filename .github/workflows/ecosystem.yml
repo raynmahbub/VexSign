@@ -32,9 +32,10 @@ jobs:
           cache: npm
           cache-dependency-path: cloud-signing/package-lock.json
       - run: npm ci
-      - run: npm run check
-      - run: npm test
+      # `build` is `tsc -p ...`; it type-checks and emits, so the old
+      # `check` (`tsc --noEmit`) step was the same work twice.
       - run: npm run build
+      - run: npm test
       - run: npm run contracts && git diff --exit-code -- openapi.json
       - run: npm audit --omit=dev --audit-level=high
 # Native app validation is handled by ci.yml on main or manual dispatch.

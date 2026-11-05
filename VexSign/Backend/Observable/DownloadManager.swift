@@ -99,7 +99,6 @@ class DownloadManager: NSObject, ObservableObject {
 		let foregroundConfig = URLSessionConfiguration.default
 		foregroundConfig.timeoutIntervalForRequest = 300 // 5 min
 		foregroundConfig.timeoutIntervalForResource = 7200 // 2 hours
-		foregroundConfig.httpShouldUsePipelining = true
 		foregroundConfig.allowsExpensiveNetworkAccess = true
 		foregroundConfig.allowsConstrainedNetworkAccess = true
 		foregroundConfig.httpMaximumConnectionsPerHost = 10
@@ -111,10 +110,8 @@ class DownloadManager: NSObject, ObservableObject {
 		let backgroundConfig: URLSessionConfiguration = URLSessionConfiguration.background(withIdentifier: "com.vexsign.app.background")
 		backgroundConfig.isDiscretionary = false // don't wait for ideal conditions
 		backgroundConfig.sessionSendsLaunchEvents = true
-		backgroundConfig.shouldUseExtendedBackgroundIdleMode = false
 		backgroundConfig.timeoutIntervalForRequest = 300 // 5 min
 		backgroundConfig.timeoutIntervalForResource = 7200 // 2 hours
-		backgroundConfig.httpShouldUsePipelining = true
 		backgroundConfig.allowsExpensiveNetworkAccess = true
 		backgroundConfig.allowsConstrainedNetworkAccess = true
 		backgroundConfig.httpMaximumConnectionsPerHost = 10

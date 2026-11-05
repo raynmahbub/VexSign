@@ -64,13 +64,19 @@ struct DevicePickerTests {
 
     @Test("UDID formatting removes invalid characters")
     func testUDIDFormatting() {
+        // Only hex digits and the group separator are valid UDID characters;
+        // g-z are dropped even after uppercasing.
         let input = "abc-def-ghi-jkl-mno-pqr"
         let filtered = input.uppercased().filter { "0123456789ABCDEF-".contains($0) }
-        #expect(filtered == "ABC-DEF-GHI-JKL-MNO-PQR")
+        #expect(filtered == "ABC-DEF----")
 
         let input2 = "abcdefghijklmnopqrstuvwxyz123456"
         let filtered2 = input2.uppercased().filter { "0123456789ABCDEF-".contains($0) }
         #expect(filtered2 == "ABCDEF123456")
+
+        let legacy = "abcdef0123456789abcdef0123456789abcdef01"
+        let filteredLegacy = legacy.uppercased().filter { "0123456789ABCDEF-".contains($0) }
+        #expect(filteredLegacy == "ABCDEF0123456789ABCDEF0123456789ABCDEF01")
     }
 
     // MARK: - LockdownClientError Tests

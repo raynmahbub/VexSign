@@ -20,7 +20,7 @@ final class AppleAccountSessionRepositoryTests: XCTestCase {
         }
         private let lock = OSAllocatedUnfairLock(initialState: State())
         var state: State { lock.withLock { $0 } }
-        func configure(_ body: (inout State) -> Void) { lock.withLock(body) }
+        func configure(_ body: (inout State) -> Void) { lock.withLockUnchecked { body(&$0) } }
         func readJournal() throws -> AppleAccountResumeJournal? {
             try lock.withLock {
                 if $0.failRead { throw Failure.read }

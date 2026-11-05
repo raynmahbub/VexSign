@@ -2,7 +2,7 @@
 //  InstallConfirmationTests.swift
 //  VexSignTests
 //
-//  Covers the install verdict (docs/ROADMAP.md, audit ): an install is reported as
+//  Covers the install verdict: an install is reported as
 //  successful only when the device says the app is there at the version that was sent, and every
 //  other ending has its own answer — cancelled, rolled back, or timed out.
 //

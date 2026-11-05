@@ -21,10 +21,6 @@ extension DownloadManager {
 		return truncated + "…"
 	}
 
-	private func formatAppNamesList(_ downloads: [Download]) -> [String] {
-		return downloads.map { truncateAppName($0.fileName) }
-	}
-
 	private func cleanupAllLiveActivities() async {
 		guard #available(iOS 16.2, *) else { return }
 		// End existing activities to prevent duplicates.

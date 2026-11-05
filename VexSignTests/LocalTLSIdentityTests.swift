@@ -2,7 +2,7 @@
 //  LocalTLSIdentityTests.swift
 //  VexSignTests
 //
-//  Covers the local install server's identity (docs/ROADMAP.md): the digest
+//  Covers the local install server's identity: the digest
 //  rule the build pins, the marker file it writes, and the checks a downloaded
 //  identity has to pass before it replaces the one on disk.
 //

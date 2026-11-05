@@ -13,8 +13,7 @@
 //                 real hardware) could not be validated in CI and needs a
 //                 device pass.
 //
-//  The registry powers Settings → About → Feature Status and
-//  docs/FEATURE_STATUS.md keeps the human-readable twin.
+//  The registry powers Settings → About → Feature Status.
 //
 
 import Foundation

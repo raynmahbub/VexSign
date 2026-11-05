@@ -5,37 +5,37 @@ import NIOSSL
 
 final class ServerApplicationFactoryTests: XCTestCase {
     // Configuration-only: never starts a listener or performs a TLS handshake.
-    func testInstallerHTTPPolicy() {
-        let app = ServerDependencyProbe.makeHTTPApplication(port: 9123)
-        defer { app.shutdown() }
+    func testInstallerHTTPPolicy() async throws {
+        let app = try await ServerDependencyProbe.makeHTTPApplication(port: 9123)
         XCTAssertNil(app.http.server.configuration.tlsConfiguration)
         XCTAssertEqual(app.http.server.configuration.port, 9123)
         XCTAssertTrue(app.http.server.configuration.tcpNoDelay)
         XCTAssertEqual(app.routes.defaultMaxBodySize.value, 128 * 1024 * 1024)
         XCTAssertFalse(app.routes.caseInsensitive)
+        try await app.asyncShutdown()
     }
 
-    func testHTTPSConfigurationIsNotDiscarded() {
+    func testHTTPSConfigurationIsNotDiscarded() async throws {
         // Intentionally not a usable identity. Do not start this server. Real
         // identity generation/loading and handshake tests remain device gates.
         var tls = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("/nonexistent/synthetic-test-key.pem"))
         tls.minimumTLSVersion = .tlsv12
-        let app = ServerApplicationFactory.make(environment: .testing, threads: 1,
+        let app = try await ServerApplicationFactory.make(environment: .testing, threads: 1,
             hostname: "local.example.invalid", bindHost: "127.0.0.1", port: 9124,
             transport: .https(tls), bodyLimit: "128mb", caseInsensitive: false)
-        defer { app.shutdown() }
         XCTAssertNotNil(app.http.server.configuration.tlsConfiguration)
         XCTAssertEqual(app.http.server.configuration.tlsConfiguration?.minimumTLSVersion, .tlsv12)
         XCTAssertEqual(app.http.server.configuration.port, 9124)
+        try await app.asyncShutdown()
     }
 
-    func testWebManagerKeepsDistinctBodyAndRoutingPolicy() {
-        let app = ServerApplicationFactory.make(environment: .testing, threads: 2,
+    func testWebManagerKeepsDistinctBodyAndRoutingPolicy() async throws {
+        let app = try await ServerApplicationFactory.make(environment: .testing, threads: 2,
             hostname: "127.0.0.1", bindHost: "127.0.0.1", port: 9125,
             transport: .http, bodyLimit: "32mb", caseInsensitive: true)
-        defer { app.shutdown() }
         XCTAssertEqual(app.routes.defaultMaxBodySize.value, 32 * 1024 * 1024)
         XCTAssertTrue(app.routes.caseInsensitive)
+        try await app.asyncShutdown()
     }
 
     func testCryptoSharesTheCompatibilityTarget() {

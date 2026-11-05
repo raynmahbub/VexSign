@@ -2,7 +2,7 @@
 //  SigningService.swift
 //  VexSign
 //
-//  The one place a signing run starts, reports and stops (see docs/AUDIT_2026-10-31.md).
+//  The one place a signing run starts, reports and stops.
 //
 //  Before this, `FR.signPackageFile` spawned an unstructured `Task.detached` and reported
 //  progress through two hard-coded constants. Nothing could stop it: the batch screen's Cancel

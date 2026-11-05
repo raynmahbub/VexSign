@@ -16,9 +16,6 @@ import NimbleExtensions
 final class SourcesViewModel: ObservableObject {
 	static let shared = SourcesViewModel()
 
-	typealias RepositoryDataHandler = Result<ASRepository, Error>
-
-
 	/// `true` when no load is in progress (idle).
 	@Published var isFinished = true
 	@Published var sources: [AltSource: ASRepository] = [:]

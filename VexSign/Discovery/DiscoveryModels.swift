@@ -15,8 +15,7 @@ struct DiscoveryApp: Codable, Identifiable, Hashable, Sendable {
     let releases: Int
     var searchText: String { "\(name) \(bundleIdentifier) \(summary) \(developer) \(category)".folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) }
 }
-struct FeaturedApp: Identifiable { let app: DiscoveryApp; var id: String { app.id } }
-struct TrendingApp: Identifiable { let app: DiscoveryApp; let score: Double; var id: String { app.id } }
+
 struct CollectionItem: Identifiable { let id: String; let title: String; let apps: [DiscoveryApp] }
 struct CategoryItem: Identifiable { let name: String; let apps: [DiscoveryApp]; var id: String { name } }
 

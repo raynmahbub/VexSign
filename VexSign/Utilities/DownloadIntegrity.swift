@@ -2,7 +2,7 @@
 //  DownloadIntegrity.swift
 //  VexSign
 //
-//  Checks a downloaded package against what its source declared (see docs/AUDIT_2026-10-31.md).
+//  Checks a downloaded package against what its source declared.
 //
 //  AltStore repositories publish a byte count per app (`ASRepository.App.size`) and, increasingly,
 //  a hash; VexSign downloaded whatever arrived, computed a SHA-256 for the log, and imported it.

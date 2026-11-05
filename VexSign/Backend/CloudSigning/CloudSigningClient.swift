@@ -66,15 +66,6 @@ enum CloudSigningError: LocalizedError, Equatable {
 	}
 }
 
-struct CloudCertCheckResult: Codable, Sendable {
-	let status: String
-	let checkedAt: String
-	let teamID: String
-	let teamName: String
-	let expiresAt: String
-	let detail: String
-}
-
 // MARK: - Client
 
 @MainActor
@@ -222,7 +213,7 @@ final class CloudSigningClient: ObservableObject {
 
 	/// Offloading a signature means handing the cluster the p12 **and** its
 	/// password. That is a product decision with its own consent surface, and it
-	/// does not exist yet (docs/ROADMAP.md), so the entry point refuses
+	/// does not exist yet, so the entry point refuses
 	/// instead of silently uploading a private key.
 	///
 	/// The intended shape, for when is scoped: upload the IPA, upload the

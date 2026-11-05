@@ -8,7 +8,7 @@
 //  ones the user asked not to password-protect: the payload key is wrapped either
 //  by a PBKDF2-derived key from the password or by a random device key held in
 //  the Keychain. A file that leaves the device is ciphertext either way
-//  (docs/ROADMAP.md).
+// .
 //
 //  Old files still open:
 //    "VEXBK2\n" - encrypted, envelope (this version)

@@ -3,7 +3,7 @@
 //  VexSignTests
 //
 //  Covers the revocation cache that replaced the third-party certificate checker
-//  (docs/ROADMAP.md): the OCSP-to-badge mapping, the freshness rule, the
+// : the OCSP-to-badge mapping, the freshness rule, the
 //  shape of what is persisted — which must never be key material — and the
 //  refusal to hand a p12 to the parked cloud-signing uploader.
 //

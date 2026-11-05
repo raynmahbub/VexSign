@@ -195,6 +195,7 @@ final class WebManagerServer {
 
 	private let _auth: Auth?
 	private let _onReceive: (String) -> Void
+	private let _token: String?
 	private var _app: Application?
 	private var _needsShutdown = false
 
@@ -211,28 +212,36 @@ final class WebManagerServer {
 		self.bindHost = WebManagerAccessPolicy.bindHost(bindMode)
 		self.allowsCertificateExport = allowsCertificateExport
 		self._auth = auth
+		self._token = token
 		self._onReceive = onReceive
-
 		try FileManager.default.createDirectoryIfNeeded(at: inbox)
+	}
 
-		let app = try _setup()
-		self._app = app
+	func start() async throws {
+		guard _app == nil else { return }
+		let app = try await _setup()
+		_app = app
+		_needsShutdown = true
 
 		if let auth = _auth {
 			app.middleware.use(
-				WebManagerAuthMiddleware(username: auth.username, password: auth.password, token: token)
+				WebManagerAuthMiddleware(username: auth.username, password: auth.password, token: _token)
 			)
 		}
 		// After the Basic middleware: the sensitive gate only has to decide about
 		// what Basic auth does not cover.
-		app.middleware.use(WebManagerSensitiveAccessMiddleware(hasBasicAuth: _auth != nil, token: token))
-
+		app.middleware.use(WebManagerSensitiveAccessMiddleware(hasBasicAuth: _auth != nil, token: _token))
 		_configureHTTP(app)
 		_configureWebDAV(app)
 
-		try app.server.start()
-		_needsShutdown = true
-		Logger.misc.info("WebManagerServer started on port \(port)")
+		do {
+			try await app.server.start()
+			try Task.checkCancellation()
+			Logger.misc.info("WebManagerServer started on port \(port)")
+		} catch {
+			await shutdownAsync()
+			throw error
+		}
 	}
 
 	deinit { shutdown() }
@@ -284,25 +293,45 @@ final class WebManagerServer {
 		}
 	}
 
+	/// Synchronous teardown for `deinit` and the settings UI. Vapor marks the
+	/// application/server shutdown calls `noasync`, so async callers must use
+	/// `shutdownAsync()` instead.
 	func shutdown() {
-		guard _needsShutdown else { return }
+		guard _needsShutdown, let app = _app else { return }
 		_needsShutdown = false
+		_app = nil
+		_cancelPendingRoutes()
+		app.server.shutdown()
+		app.shutdown()
+	}
+
+	func shutdownAsync() async {
+		guard _needsShutdown, let app = _app else { return }
+		_needsShutdown = false
+		_app = nil
+		_cancelPendingRoutes()
+		await app.server.shutdown()
+		do {
+			try await app.asyncShutdown()
+		} catch {
+			Logger.misc.error("WebManagerServer shutdown failed: \(error.localizedDescription)")
+		}
+	}
+
+	private func _cancelPendingRoutes() {
 		_debounceQueue.async {
 			self._pendingRoutes.values.forEach { $0.cancel() }
 			self._pendingRoutes.removeAll()
 		}
-		_app?.server.shutdown()
-		_app?.shutdown()
-		_app = nil
 	}
 
 	// MARK: Setup
 
-	private func _setup() throws -> Application {
+	private func _setup() async throws -> Application {
 		// Reuse ServerInstaller.env — a second LoggingSystem bootstrap would crash.
 		// Reuse the same bootstrap and shared server configuration path. Streaming
 		// uploads still bypass this collected-body cap, as before.
-		return ServerApplicationFactory.make(environment: ServerInstaller.env, threads: 2,
+		return try await ServerApplicationFactory.make(environment: ServerInstaller.env, threads: 2,
 			hostname: bindHost, bindHost: bindHost, port: port, transport: .http,
 			bodyLimit: "32mb", caseInsensitive: true)
 	}

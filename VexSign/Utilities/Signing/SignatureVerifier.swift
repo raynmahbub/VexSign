@@ -2,7 +2,7 @@
 //  SignatureVerifier.swift
 //  VexSign
 //
-//  Post-sign inspection of a bundle VexSign has just produced (see docs/AUDIT_2026-10-31.md).
+//  Post-sign inspection of a bundle VexSign has just produced.
 //
 //  Nothing here re-derives a signature or recomputes hashes over the whole bundle: that
 //  would cost seconds on a large app and duplicate what installd does anyway. It answers a

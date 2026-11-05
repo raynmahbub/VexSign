@@ -2,7 +2,7 @@
 //  SigningIdentity.swift
 //  VexSign
 //
-//  The certificate behind a signature, read from its DER (see docs/AUDIT_2026-10-31.md).
+//  The certificate behind a signature, read from its DER.
 //
 //  The library knows which certificate the user *chose* — it is on the `Signed` entity. It has
 //  never known which certificate a stored bundle actually *carries*, so it could not tell a

@@ -60,9 +60,8 @@ final class CompanionStore: ObservableObject {
 		self.password = defaults.string(forKey: Self.passwordKey) ?? ""
 		self.apiToken = defaults.string(forKey: Self.tokenKey) ?? ""
 
-		// Split out of the `as?` chain: the Swift tree-sitter grammar trips on
-		// `as? T ?? literal`, and tools/check-swift-syntax.py counts that as a
-		// parse failure.
+		// Split out of the `as?` chain so the optional cast and the default stay
+		// readable, and a failed cast cannot hide behind the coalescing operator.
 		let storedInterval = defaults.object(forKey: "VexSign.companion.autoRefreshInterval") as? Int
 		self.autoRefreshInterval = storedInterval ?? 30
 	}

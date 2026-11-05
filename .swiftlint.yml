@@ -3,7 +3,7 @@
 # Linting is a local step: `make lint` reports, `make lint FIX=1` autocorrects.
 # CI does not run SwiftLint and never pushes fixes onto your branch -- the
 # auto-fix commits it used to make rewrote correct code into broken code (see
-# docs/STABILIZATION_BASELINE.md) and restarted the build every time.
+# CHANGELOG.md) and restarted the build every time.
 #
 # Run locally:   make lint            (report, --strict)
 #                make lint FIX=1      (auto-correct)
