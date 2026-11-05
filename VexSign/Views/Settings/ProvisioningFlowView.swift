@@ -110,7 +110,7 @@ struct ProvisioningFlowView: View {
         VStack(spacing: 16) {
             Image(systemName: "app.badge.plus")
                 .font(.system(size: 48))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
 
             Text(.localized("Select an App to Provision"))
                 .font(.title2.weight(.semibold))
@@ -132,14 +132,14 @@ struct ProvisioningFlowView: View {
             } label: {
                 Label(selectedApp == nil ? .localized("Choose App") : .localized("Change App"), systemImage: "chevron.right")
             }
-            .buttonStyle(NBButtonStyle(.prominent))
+            .buttonStyle(.borderedProminent)
             .disabled(isProvisioning)
 
             if selectedApp != nil {
                 Button(.localized("Next: Select Device")) {
                     step = .selectDevice
                 }
-                .buttonStyle(NBButtonStyle(.borderedProminent))
+                .buttonStyle(.borderedProminent)
             }
         }
     }
@@ -150,7 +150,7 @@ struct ProvisioningFlowView: View {
         VStack(spacing: 16) {
             Image(systemName: "iphone.gen3.radiowaves.left.and.right")
                 .font(.system(size: 48))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
 
             Text(.localized("Select Target Device"))
                 .font(.title2.weight(.semibold))
@@ -179,7 +179,7 @@ struct ProvisioningFlowView: View {
                         showDevicePicker = true
                     } label: {
                         Image(systemName: "list.bullet")
-                            .foregroundStyle(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
             }
@@ -188,13 +188,13 @@ struct ProvisioningFlowView: View {
                 Button(.localized("Next: Review")) {
                     step = .review
                 }
-                .buttonStyle(NBButtonStyle(.borderedProminent))
+                .buttonStyle(.borderedProminent)
             }
 
             Button(.localized("Back")) {
                 step = .selectApp
             }
-            .buttonStyle(NBButtonStyle(.bordered))
+            .buttonStyle(.bordered)
         }
     }
 
@@ -204,7 +204,7 @@ struct ProvisioningFlowView: View {
         VStack(spacing: 16) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 48))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
 
             Text(.localized("Review & Provision"))
                 .font(.title2.weight(.semibold))
@@ -233,13 +233,13 @@ struct ProvisioningFlowView: View {
                         Label(.localized("Start Provisioning"), systemImage: "arrow.triangle.2.circlepath")
                     }
                 }
-                .buttonStyle(NBButtonStyle(.prominent))
+                .buttonStyle(.borderedProminent)
                 .disabled(isProvisioning || contextID == nil)
 
                 Button(.localized("Back")) {
                     step = .selectDevice
                 }
-                .buttonStyle(NBButtonStyle(.bordered))
+                .buttonStyle(.bordered)
             }
         }
     }
@@ -250,7 +250,7 @@ struct ProvisioningFlowView: View {
         VStack(spacing: 16) {
             Image(systemName: "gearshape.2.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
 
             Text(.localized("Provisioning in Progress"))
                 .font(.title2.weight(.semibold))
@@ -283,7 +283,7 @@ struct ProvisioningFlowView: View {
                     } label: {
                         Label(.localized("Sign & Install App"), systemImage: "signature")
                     }
-                    .buttonStyle(NBButtonStyle(.prominent))
+                    .buttonStyle(.borderedProminent)
                 }
             }
         }
@@ -309,11 +309,11 @@ struct ProvisioningFlowView: View {
                 ShareLink(item: url) {
                     Label(.localized("Export Signed IPA"), systemImage: "square.and.arrow.up")
                 }
-                .buttonStyle(NBButtonStyle(.borderedProminent))
+                .buttonStyle(.borderedProminent)
             }
 
             Button(.localized("Done")) { dismiss() }
-                .buttonStyle(NBButtonStyle(.prominent))
+                .buttonStyle(.borderedProminent)
         }
     }
 
@@ -543,7 +543,7 @@ private struct AppPickerView: View {
                             Spacer()
                             if selectedApp?.uuid == app.uuid {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.accentColor)
+                                    .foregroundStyle(Color.accentColor)
                             }
                         }
                     }

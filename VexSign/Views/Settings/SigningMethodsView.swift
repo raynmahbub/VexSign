@@ -237,7 +237,7 @@ struct SigningMethodsView: View {
                     } label: {
                         Label(.localized("Provision & Sign App"), systemImage: "signature")
                     }
-                    .buttonStyle(NBButtonStyle(.prominent))
+                    .buttonStyle(.borderedProminent)
                     .disabled(nativeManager.freeAccountAppCount >= 3)
 
                     if nativeManager.freeAccountAppCount >= 3 {
@@ -251,7 +251,7 @@ struct SigningMethodsView: View {
                     } label: {
                         Label(.localized("Sign Out"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
-                    .buttonStyle(NBButtonStyle(.bordered))
+                    .buttonStyle(.bordered)
                 }
             } else {
                 // Not signed in - show login
@@ -260,7 +260,7 @@ struct SigningMethodsView: View {
                 } label: {
                     Label(.localized("Sign in with Apple ID"), systemImage: "person.crop.circle.badge.plus")
                 }
-                .buttonStyle(NBButtonStyle(.prominent))
+                .buttonStyle(.borderedProminent)
                 .disabled(!nativeManager.isBackendReady)
 
                 if !nativeManager.isBackendReady {
@@ -300,14 +300,14 @@ struct SigningMethodsView: View {
                 } label: {
                     Label(.localized("Install App via TrollStore"), systemImage: "t.square.fill")
                 }
-                .buttonStyle(NBButtonStyle(.prominent))
+                .buttonStyle(.borderedProminent)
 
                 Button {
                     showTrollStoreRefresh = true
                 } label: {
                     Label(.localized("Refresh All (TrollStore)"), systemImage: "arrow.triangle.2.circlepath")
                 }
-                .buttonStyle(NBButtonStyle(.bordered))
+                .buttonStyle(.bordered)
             } else {
                 Label(.localized("TrollStore not available on this device"), systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
@@ -499,7 +499,7 @@ private struct TrollStoreInstallView: View {
             VStack(spacing: 16) {
                 Image(systemName: "t.square.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
 
                 Text(.localized("Install via TrollStore"))
                     .font(.title2.weight(.semibold))
@@ -541,7 +541,7 @@ private struct TrollStoreInstallView: View {
                                     Spacer()
                                     if selectedDownload?.id == download.id {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.accentColor)
+                                            .foregroundStyle(Color.accentColor)
                                     }
                                 }
                             }
@@ -563,7 +563,7 @@ private struct TrollStoreInstallView: View {
                             Label(.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
                         }
                     }
-                    .buttonStyle(NBButtonStyle(.prominent))
+                    .buttonStyle(.borderedProminent)
                     .disabled(isInstalling)
                 }
 
@@ -631,7 +631,7 @@ private struct TrollStoreRefreshView: View {
             VStack(spacing: 16) {
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 48))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
 
                 Text(.localized("Refresh All Apps via TrollStore"))
                     .font(.title2.weight(.semibold))
@@ -653,7 +653,7 @@ private struct TrollStoreRefreshView: View {
                         Label(.localized("Refresh All"), systemImage: "arrow.triangle.2.circlepath")
                     }
                 }
-                .buttonStyle(NBButtonStyle(.prominent))
+                .buttonStyle(.borderedProminent)
                 .disabled(isRefreshing)
 
                 if let result = refreshResult {
