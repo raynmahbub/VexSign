@@ -225,7 +225,7 @@ jobs:
       # cache, avoiding competing post-job uploads when both runners finish.
       - name: Restore Swift packages
         id: packages
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -271,7 +271,7 @@ jobs:
 
       - name: Save Swift packages
         if: success() && steps.packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -347,7 +347,7 @@ jobs:
 
       # Read the same cache as the build job; the build job owns cache writes.
       - name: Restore Swift packages
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
