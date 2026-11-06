@@ -297,3 +297,9 @@ copy is namespaced as `VexSignOpenSSL.framework`; only native-input Mach-O load
 commands are rewritten and checked before signing. Unknown OpenSSL loader paths
 and all other conflicting dependency/resource revisions remain hard failures.
 This avoids assuming ABI compatibility; runtime/device acceptance is still needed.
+
+The primary package keeps LiveContainer's `Settings.bundle` runtime preferences.
+VexSign's root settings become a separate `VexSignNative` child pane, retaining
+its acknowledgement panes and localisation files. Shared preference keys,
+reserved child-pane names, unknown resource conflicts and symlink destinations
+are rejected rather than silently replaced.

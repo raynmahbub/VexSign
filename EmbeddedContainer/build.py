@@ -239,12 +239,43 @@ def namespace_primary_openssl(source):
             raise ValueError("Unrewritten native OpenSSL dependency")
 
 
+def prepare_primary_settings(source, host):
+    """Keep host runtime preferences and native legal/settings panes distinct.
+
+    Only staging is changed here. The generic merge preflights all destinations
+    before it writes the resulting root or any other file into the host.
+    """
+    relative = Path("Settings.bundle/Root.plist")
+    incoming, existing = source / relative, host / relative
+    if not incoming.exists() or not existing.exists():
+        return False
+    for root, path in ((source, incoming), (host, existing)):
+        if path.is_symlink() or path.parent.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError("Unsafe settings bundle path")
+    child = "VexSignNative"
+    if (incoming.parent / (child + ".plist")).exists() or (existing.parent / (child + ".plist")).exists():
+        raise ValueError("Reserved native settings pane already exists")
+    native, runtime = read_plist(incoming), read_plist(existing)
+    native_rows, host_rows = native.get("PreferenceSpecifiers"), runtime.get("PreferenceSpecifiers")
+    if not isinstance(native_rows, list) or not isinstance(host_rows, list) or not all(isinstance(row, dict) for row in native_rows + host_rows):
+        raise ValueError("Invalid native/host preference specifiers")
+    native_keys = {row["Key"] for row in native_rows if isinstance(row.get("Key"), str)}
+    host_keys = {row["Key"] for row in host_rows if isinstance(row.get("Key"), str)}
+    if native_keys & host_keys or any(row.get("File") == child for row in host_rows):
+        raise ValueError("Conflicting native/host settings keys or pane")
+    incoming.rename(incoming.parent / (child + ".plist"))
+    runtime["PreferenceSpecifiers"] = host_rows + [{"Type": "PSChildPaneSpecifier", "Title": "VexSign", "File": child}]
+    write_plist(incoming, runtime)
+    return True
+
+
 def merge_primary_files(source, host):
     """Preflight the whole dependency/resource merge before copying any file.
 
     Native code shares dyld's namespace. Never overwrite a different framework
     revision to make a combined package appear to work.
     """
+    settings_prepared = prepare_primary_settings(source, host)
     excluded = {"Info.plist", "VexSign", "PlugIns", "Watch", "AppClips", "_CodeSignature", "embedded.mobileprovision", "Metadata.appintents"}
     files = []
     for item in sorted(source.rglob("*")):
@@ -257,7 +288,8 @@ def merge_primary_files(source, host):
         if target.is_symlink() or not target.resolve().is_relative_to(host.resolve()):
             raise ValueError("Native dependency destination is a symlink")
         replace_icon = len(relative.parts) == 1 and (item.name == "Assets.car" or item.name == "PkgInfo" or item.name.startswith("AppIcon"))
-        if target.exists() and (not target.is_file() or (sha256(item) != sha256(target) and not replace_icon)):
+        replace_settings = settings_prepared and relative.as_posix() == "Settings.bundle/Root.plist"
+        if target.exists() and (not target.is_file() or (sha256(item) != sha256(target) and not replace_icon and not replace_settings)):
             raise ValueError("Conflicting native dependency/resource: " + relative.as_posix())
         files.append((item, target))
     for item, target in files:

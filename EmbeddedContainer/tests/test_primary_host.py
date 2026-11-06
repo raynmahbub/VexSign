@@ -122,6 +122,55 @@ class PrimaryHostTests(unittest.TestCase):
             run.assert_not_called()
         self.assertTrue(framework.exists())
 
+    def test_settings_keep_runtime_preferences_and_native_legal_panes(self):
+        source = self.root / 'native'
+        (source / 'Settings.bundle').mkdir(parents=True)
+        (self.host / 'Settings.bundle').mkdir()
+        native = {'StringsTable': 'Root', 'PreferenceSpecifiers': [
+            {'Type': 'PSChildPaneSpecifier', 'Title': 'Acknowledgements', 'File': 'com.vexsign.app'}]}
+        runtime = {'PreferenceSpecifiers': [{'Type': 'PSToggleSwitchSpecifier', 'Key': 'LCWaitForDebugger', 'DefaultValue': False}]}
+        build.write_plist(source / 'Settings.bundle/Root.plist', native)
+        build.write_plist(source / 'Settings.bundle/com.vexsign.app.plist', {'Title': 'Legal notices'})
+        build.write_plist(self.host / 'Settings.bundle/Root.plist', runtime)
+        build.merge_primary_files(source, self.host)
+        root = build.read_plist(self.host / 'Settings.bundle/Root.plist')
+        self.assertEqual(root['PreferenceSpecifiers'][0], runtime['PreferenceSpecifiers'][0])
+        self.assertEqual(root['PreferenceSpecifiers'][1]['File'], 'VexSignNative')
+        self.assertEqual(build.read_plist(self.host / 'Settings.bundle/VexSignNative.plist'), native)
+        self.assertTrue((self.host / 'Settings.bundle/com.vexsign.app.plist').exists())
+
+    def test_settings_reject_shared_preference_keys_without_changing_host(self):
+        source = self.root / 'native'
+        (source / 'Settings.bundle').mkdir(parents=True)
+        (self.host / 'Settings.bundle').mkdir()
+        settings = {'PreferenceSpecifiers': [{'Key': 'selected'}]}
+        build.write_plist(source / 'Settings.bundle/Root.plist', settings)
+        build.write_plist(self.host / 'Settings.bundle/Root.plist', settings)
+        before = (self.host / 'Settings.bundle/Root.plist').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'Conflicting native/host settings'):
+            build.merge_primary_files(source, self.host)
+        self.assertEqual((self.host / 'Settings.bundle/Root.plist').read_bytes(), before)
+
+    def test_settings_reject_reserved_pane_and_symlink_destinations(self):
+        source = self.root / 'native'
+        (source / 'Settings.bundle').mkdir(parents=True)
+        (self.host / 'Settings.bundle').mkdir()
+        settings = {'PreferenceSpecifiers': []}
+        build.write_plist(source / 'Settings.bundle/Root.plist', settings)
+        build.write_plist(self.host / 'Settings.bundle/Root.plist', settings)
+        reserved = self.host / 'Settings.bundle/VexSignNative.plist'
+        reserved.write_text('existing child')
+        with self.assertRaisesRegex(ValueError, 'Reserved native settings pane'):
+            build.merge_primary_files(source, self.host)
+        reserved.unlink()
+        root = self.host / 'Settings.bundle/Root.plist'
+        root.unlink()
+        outside = self.root / 'outside.plist'
+        build.write_plist(outside, settings)
+        root.symlink_to(outside)
+        with self.assertRaisesRegex(ValueError, 'Unsafe settings bundle path'):
+            build.merge_primary_files(source, self.host)
+
     def test_dependency_conflict_is_atomic_and_fails_closed(self):
         source = self.root / 'source'
         (source / 'Frameworks/SDK.framework').mkdir(parents=True)
