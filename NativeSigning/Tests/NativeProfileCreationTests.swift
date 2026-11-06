@@ -85,8 +85,9 @@ final class NativeProfileCreationTests: XCTestCase {
         func add(_ attributes: [String: Any]) -> OSStatus {
             guard let key = attributes[kSecAttrAccount as String] as? String,
                   let data = attributes[kSecValueData as String] as? Data else { return errSecParam }
+            let deviceOnly = (attributes[kSecAttrAccessible as String] as? String) == (kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
             return lock.withLock {
-                $0.deviceOnly = (attributes[kSecAttrAccessible as String] as? String) == (kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
+                $0.deviceOnly = deviceOnly
                 if $0.rows[key] != nil { return errSecDuplicateItem }
                 $0.rows[key] = data
                 return errSecSuccess
@@ -100,9 +101,8 @@ final class NativeProfileCreationTests: XCTestCase {
             }
         }
         func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]]) {
-            lock.withLock { state in
-                (state.status, state.rows.map { [kSecAttrAccount as String: $0.key, kSecValueData as String: $0.value] })
-            }
+            let snapshot = lock.withLock { ($0.status, $0.rows) }
+            return (snapshot.0, snapshot.1.map { [kSecAttrAccount as String: $0.key, kSecValueData as String: $0.value] })
         }
         func update(_ query: [String: Any], attributes: [String: Any]) -> OSStatus { errSecUnimplemented }
         func delete(_ query: [String: Any]) -> OSStatus { errSecUnimplemented }
