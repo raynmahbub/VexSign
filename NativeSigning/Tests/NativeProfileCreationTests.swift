@@ -155,6 +155,11 @@ final class NativeProfileCreationTests: XCTestCase {
         XCTAssertThrowsError(try index.list(owner: owner))
     }
 
+    func testCMSCapabilityIsNotAutomaticallyPromoted() throws {
+        XCTAssertFalse(NativeProvisioningProfileValidator().isConfigured)
+        XCTAssertTrue(try Self.validator().isConfigured)
+    }
+
     func testDefaultCMSGateBlocksApprovalAndRecoveryBeforeAnyIO() async throws {
         let store = Store(); let portal = Portal(store: store)
         let executor = NativeProfileCreationExecutor(store: store, portal: portal, clock: { Self.now })

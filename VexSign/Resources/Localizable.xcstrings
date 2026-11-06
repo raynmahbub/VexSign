@@ -101318,6 +101318,83 @@
           }
         }
       }
+    },
+    "Approve a profile for this exact app, device and owned identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve a profile for this exact app, device and owned identity"
+          }
+        }
+      }
+    },
+    "Approve one development certificate if no owned certificate exists (uses Apple quota)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve one development certificate if no owned certificate exists (uses Apple quota)"
+          }
+        }
+      }
+    },
+    "Approve this device and App ID registration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve this device and App ID registration"
+          }
+        }
+      }
+    },
+    "Native profile creation is gated pending CMS validation and device acceptance. No certificate or registration was requested." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native profile creation is gated pending CMS validation and device acceptance. No certificate or registration was requested."
+          }
+        }
+      }
+    },
+    "Only the provisioning profile was recorded. No app has been signed or installed. Native signing handoff is not enabled in this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the provisioning profile was recorded. No app has been signed or installed. Native signing handoff is not enabled in this build."
+          }
+        }
+      }
+    },
+    "Profile Recorded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile Recorded"
+          }
+        }
+      }
+    },
+    "Review Profile Result" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Profile Result"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

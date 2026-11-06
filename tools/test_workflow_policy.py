@@ -11,7 +11,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / '.github/workflows'
-VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml')
+VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml', 'embedded-container.yml')
 
 
 def block(text, key, indent):
@@ -264,12 +264,18 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('if-no-files-found: error', build)
         self.assertIn('Check the separate simulator-test job', build)
 
-    def test_combined_build_is_opt_in_and_includes_verification_outputs(self):
+    def test_combined_build_is_read_only_path_filtered_and_includes_verification_outputs(self):
         text = (WORKFLOWS / 'embedded-container.yml').read_text()
         events = block(text, 'on', 0)
         self.assertIn('workflow_dispatch:', events)
-        for automatic in ('push:', 'pull_request:', 'schedule:'):
-            self.assertNotIn(automatic, events)
+        self.assertNotIn('schedule:', events)
+        self.assertNotIn('pull_request_target:', events)
+        self.assertTrue(covers('embedded-container.yml', 'EmbeddedContainer/build.py'))
+        self.assertFalse(covers('embedded-container.yml', 'README.md'))
+        self.assertFalse(covers('embedded-container.yml', 'server/main.py'))
+        self.assertIn("github.event.repository.visibility == 'public'", text)
+        self.assertIn('swift test --package-path .build/native-signing-smoke', text)
+        self.assertIn('native-signing-unit-tests.log', text)
         self.assertIn('run: bash .github/scripts/select_xcode.sh', text)
         self.assertIn("python-version: '3.12'", text)
         self.assertIn('contents: read', text)

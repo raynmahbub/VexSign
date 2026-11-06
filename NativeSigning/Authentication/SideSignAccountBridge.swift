@@ -100,6 +100,8 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
 
     deinit { observer?.finish() }
 
+    func profileOperationsAvailable() -> Bool { !closed && profileValidator.isConfigured }
+
     func shutdown() async {
         guard !closed else { return }
         closed = true
@@ -445,6 +447,30 @@ extension SideSignAccountBridge where Portal: SideSignProvisioningPortal {
 
 
 extension SideSignAccountBridge {
+    private func identityInventoryIdle() -> Bool {
+        !setupBusy && maintenanceCount == 0 && active == nil && provisioningTask == nil
+            && identityTask == nil && identityDiscardTask == nil && certificateTask == nil
+            && registrationTask == nil && profileTask == nil && certificateStatusTask == nil
+    }
+
+    /// The vault has one durable identity per owner/team. No key preparation,
+    /// anisette request, certificate creation or export occurs on this path.
+    func listSigningIdentities(contextID: UUID) async throws -> [NativeSigningIdentityInfo] {
+        guard !closed else { throw Failure.closed }
+        guard identityInventoryIdle() else { throw NativeSigningIdentityError.busy }
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        guard identityInventoryIdle(), generation == flow else { throw NativeSigningIdentityError.busy }
+        maintenanceCount += 1
+        defer { maintenanceCount -= 1 }
+        let info = try await signingIdentities.localIdentity(owner: owner, now: clock())
+        try Task.checkCancellation()
+        guard !closed, generation == flow,
+              await coordinator.acceptsProvisioningResult(contextID: contextID, now: clock()),
+              !closed, generation == flow else { throw NativeSigningIdentityError.contextChanged }
+        return info.map { [$0] } ?? []
+    }
+
     /// Explicit local key preparation only: no anisette/Apple request and no
     /// private-key/CSR export. The worker retains the bridge's namespace lease.
     func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {

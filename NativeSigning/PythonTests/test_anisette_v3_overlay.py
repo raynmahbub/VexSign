@@ -62,6 +62,18 @@ class AnisetteOverlayTests(unittest.TestCase):
         self.assertIn(b'(errSecUnimplemented, [])', native)
         self.assertIn(b'return (errSecDecode, [])', native)
 
+    def test_provisioning_ui_never_simulates_signing_or_guesses_registration_ids(self):
+        source = (HERE.parent / 'VexSign/Views/Settings/ProvisioningFlowView.swift').read_text()
+        self.assertNotIn('simulate completion', source)
+        self.assertNotIn('Task.sleep', source)
+        self.assertNotIn('registeredDeviceID: "auto"', source)
+        self.assertNotIn('plan.existingAppIdentifiers.first', source)
+        self.assertIn('appRegistration: appRegistration', source)
+        self.assertIn('deviceRegistration: deviceRegistration', source)
+        self.assertLess(source.index('try await manager.requireProfileOperations()'), source.index('try await manager.provisioningPreflight('))
+        self.assertIn('approveCertificate, approveRegistration, approveProfile', source)
+        self.assertIn('.interactiveDismissDisabled(isProvisioning)', source)
+
     def test_background_discovery_cannot_manufacture_mutation_approvals(self):
         source = (HERE.parent / 'VexSign/Backend/Services/NativeSigningManager.swift').read_text()
         renewal = source.split('func renewExpiringProfiles()', 1)[1].split('// MARK: - Backend Initialization', 1)[0]

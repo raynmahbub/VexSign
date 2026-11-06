@@ -230,6 +230,7 @@ def embed_primary(host, source_ipa, dylibify, work):
     run(dylibify, source / "VexSign", target / "VexSignPrimary")
     if set(macho_filetypes(target / "VexSignPrimary")) != {6}:
         raise ValueError("Native primary conversion did not produce MH_DYLIB")
+    run("xcrun", "install_name_tool", "-id", "@rpath/VexSignPrimary.framework/VexSignPrimary", target / "VexSignPrimary")
     write_plist(target / "Info.plist", {
         "CFBundleIdentifier": "com.vexsign.primary", "CFBundleExecutable": "VexSignPrimary",
         "CFBundlePackageType": "FMWK", "CFBundleName": "VexSignPrimary",
@@ -287,7 +288,9 @@ def configure_host_info(host, guest_info, mode="guest-prototype"):
     write_plist(host / "Info.plist", info)
     settings_path = host / "Settings.bundle/Root.plist"
     settings = read_plist(settings_path)
-    if not any(x.get("Key") == "LCOpenSideStore" for x in settings["PreferenceSpecifiers"]):
+    if mode == "native-primary":
+        settings["PreferenceSpecifiers"] = [x for x in settings["PreferenceSpecifiers"] if x.get("Key") != "LCOpenSideStore"]
+    elif not any(x.get("Key") == "LCOpenSideStore" for x in settings["PreferenceSpecifiers"]):
         settings["PreferenceSpecifiers"].append({"Type": "PSToggleSwitchSpecifier", "Title": "Open SideStore", "Key": "LCOpenSideStore", "DefaultValue": False})
     write_plist(settings_path, settings)
 
@@ -404,6 +407,9 @@ def validate_payload(host):
         if (host / "VexSign.ipa").exists() or info.get("VexSignEmbeddedGuest") or manifest.get("mode") != "native-primary":
             raise ValueError("Native primary package must not contain a VexSign guest or guest marker")
         image = host / "Frameworks/VexSignPrimary.framework/VexSignPrimary"
+        image_info = read_plist(image.parent / "Info.plist")
+        if info.get("CFBundleIdentifier") != "com.kdt.livecontainer" or image_info.get("CFBundleExecutable") != "VexSignPrimary" or image_info.get("CFBundlePackageType") != "FMWK":
+            raise ValueError("Native primary bundle contract is invalid")
         if set(macho_filetypes(image)) != {6}:
             raise ValueError("Native primary image must be MH_DYLIB")
         verify_digest(image, manifest["imageSHA256"])

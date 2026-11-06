@@ -303,6 +303,15 @@ final class NativeSigningManager: ObservableObject {
         return try await backend.prepareSigningIdentity(contextID: contextID)
     }
 
+    /// Fail before quota-affecting work when profile CMS promotion is unavailable.
+    func requireProfileOperations() async throws {
+        let backend = try configuredBackend()
+        guard await backend.profileOperationsAvailable() else {
+            throw NativeSigningError.provisioningFailed(.localized("Native profile creation is gated pending CMS validation and device acceptance. No certificate or registration was requested."))
+        }
+        guard self.backend === backend else { throw CancellationError() }
+    }
+
     /// Records explicit user approval for certificate creation (consumes Apple quota).
     func recordCertificateCreationApproval(contextID: UUID, identityID: UUID) async throws -> NativeCertificateCreationApproval {
         let backend = try configuredBackend()
@@ -401,15 +410,22 @@ final class NativeSigningManager: ObservableObject {
     /// Lists all signing identities for the current context.
     /// Returns an empty array if not signed in or backend not ready.
     func listSigningIdentities() async -> [SigningIdentity] {
-        guard let snapshot = snapshot,
-              case .signedIn = snapshot.phase else {
+        guard let snapshot, case .signedIn(let context) = snapshot.phase,
+              let backend, providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else { return [] }
+        do {
+            let records = try await backend.listSigningIdentities(contextID: context.id)
+            guard self.backend === backend, case .signedIn(let current) = self.snapshot?.phase,
+                  current.id == context.id, providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else { return [] }
+            return records.map { record in
+                let ticket = record.ticket
+                return SigningIdentity(id: ticket.id, identityID: ticket.id, teamIdentifier: ticket.teamIdentifier,
+                    phase: ticket.phase, publicKeyHash: ticket.publicKeySHA256, csrHash: ticket.csrSHA256,
+                    certificateHash: record.certificateSHA256, certificateExpiresAt: record.certificateExpiresAt)
+            }
+        } catch {
+            if self.backend === backend { lastError = error.localizedDescription }
             return []
         }
-
-        // TODO: list the identities belonging to this context. NativeAccountBackend
-        // exposes listProfiles(contextID:), which returns profile records rather than
-        // identities, so there is nothing to enumerate yet.
-        return []
     }
 
     /// Gets detailed information about a specific identity.

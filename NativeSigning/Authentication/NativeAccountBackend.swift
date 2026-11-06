@@ -209,6 +209,12 @@ public actor NativeAccountBackend {
     /// Explicit device-only key/CSR preparation. Idempotently recovers this
     /// account/team's existing identity, including uncertain submissions.
     /// Does NOT create an Apple certificate or authorize certificate submission.
+    public func listSigningIdentities(contextID: UUID) async throws -> [NativeSigningIdentityInfo] {
+        try requireOpen()
+        do { return try await bridge.listSigningIdentities(contextID: contextID) }
+        catch { throw Self.identityError(error) }
+    }
+
     public func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {
         try requireOpen()
         do { return try await bridge.prepareSigningIdentity(contextID: contextID) }
@@ -289,6 +295,11 @@ public actor NativeAccountBackend {
     /// Explicit profile approval is not anisette consent or signing readiness.
     /// The current factory keeps the CMS verifier unselected: these APIs fail
     /// closed until native validation/promotion, without normal-app UI enablement.
+    public func profileOperationsAvailable() async -> Bool {
+        guard !closed else { return false }
+        return await bridge.profileOperationsAvailable()
+    }
+
     public func recordExplicitProfileCreationApproval(contextID: UUID, target: NativeAccountProfileTarget,
                                                        lifetime: TimeInterval = 120) async throws -> NativeAccountProfileApproval {
         try requireOpen()

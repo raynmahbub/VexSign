@@ -56,6 +56,39 @@ final class NativeSigningIdentityTests: XCTestCase {
         try NativeSigningIdentityOwner(accountIdentifier: account, dsid: account, teamIdentifier: team)
     }
 
+    func testLocalInventoryDoesNotPrepareMissingIdentityOrMutateExistingOne() async throws {
+        let store = Store(), generator = Generator()
+        let owner = try owner()
+        let coordinator = NativeSigningIdentityCoordinator(store: store, generator: generator)
+        let missing = try await coordinator.localIdentity(owner: owner, now: Self.now)
+        XCTAssertNil(missing)
+        XCTAssertEqual(generator.calls.withLock { $0 }, 0)
+        XCTAssertEqual(store.lock.withLock { $0.writes }, 0)
+        let prepared = try await coordinator.prepare(owner: owner, now: Self.now)
+        let info = try await coordinator.localIdentity(owner: owner, now: Self.now)
+        XCTAssertEqual(info?.ticket, prepared)
+        XCTAssertNil(info?.certificateSHA256)
+        XCTAssertNil(info?.certificateExpiresAt)
+        XCTAssertEqual(generator.calls.withLock { $0 }, 1)
+        XCTAssertEqual(store.lock.withLock { $0.writes }, 1)
+        let other = try self.owner("other")
+        let otherInfo = try await coordinator.localIdentity(owner: other, now: Self.now)
+        XCTAssertNil(otherInfo)
+    }
+
+    func testLocalInventoryRejectsFutureCreationWithoutRotation() async throws {
+        let store = Store(), generator = Generator()
+        let owner = try owner()
+        let coordinator = NativeSigningIdentityCoordinator(store: store, generator: generator)
+        _ = try await coordinator.prepare(owner: owner, now: Self.now)
+        do {
+            _ = try await coordinator.localIdentity(owner: owner, now: Self.now.addingTimeInterval(-1))
+            XCTFail("Future local identity must fail closed")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .invalidRecord) }
+        XCTAssertEqual(generator.calls.withLock { $0 }, 1)
+        XCTAssertEqual(store.lock.withLock { $0.writes }, 1)
+    }
+
     func testProfileProjectionRejectsPreparedAndUncertainRowsWithoutMutation() async throws {
         let store = Store(); let owner = try owner(team: "ABCDE12345"); let generator = Generator()
         let coordinator = NativeSigningIdentityCoordinator(store: store, generator: generator)

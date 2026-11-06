@@ -21,6 +21,16 @@ public struct NativeSigningIdentityTicket: Equatable, Sendable {
     public let csrSHA256: String
 }
 
+/// Historical local metadata only; not proof of current certificate trust or
+/// permission to sign/export. Reading inventory never prepares/rotates a key.
+public struct NativeSigningIdentityInfo: Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+    public let ticket: NativeSigningIdentityTicket
+    public let certificateSHA256: String?
+    public let certificateExpiresAt: Date?
+    public var description: String { "NativeSigningIdentityInfo(redacted)" }
+    public var debugDescription: String { description }
+}
+
 struct NativeSigningIdentityOwner: Equatable, Sendable {
     let digest: String
     let teamIdentifier: String
@@ -135,6 +145,7 @@ struct NativeOwnedSigningCertificate: Sendable, CustomStringConvertible, CustomD
 }
 
 protocol NativeSigningIdentityManaging: Actor {
+    func localIdentity(owner: NativeSigningIdentityOwner, now: Date) async throws -> NativeSigningIdentityInfo?
     func ownedSigningCertificate(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> NativeOwnedSigningCertificate
     func prepare(owner: NativeSigningIdentityOwner, now: Date) async throws -> NativeSigningIdentityTicket
     func ticket(owner: NativeSigningIdentityOwner, identityID: UUID) async throws -> NativeSigningIdentityTicket
@@ -156,6 +167,10 @@ protocol NativeSigningIdentityManaging: Actor {
 }
 
 extension NativeSigningIdentityManaging {
+    func localIdentity(owner: NativeSigningIdentityOwner, now: Date) async throws -> NativeSigningIdentityInfo? {
+        throw NativeSigningIdentityError.storageUnavailable
+    }
+
     func ownedSigningCertificate(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> NativeOwnedSigningCertificate {
         throw NativeSigningIdentityError.reconciliationRequired
     }
@@ -179,6 +194,18 @@ actor NativeSigningIdentityCoordinator<Store: NativeSigningIdentityStorage, Gene
     private let store: Store
     private let generator: Generator
     init(store: Store, generator: Generator) { self.store = store; self.generator = generator }
+
+    func localIdentity(owner: NativeSigningIdentityOwner, now: Date) throws -> NativeSigningIdentityInfo? {
+        try Task.checkCancellation()
+        guard now.timeIntervalSince1970.isFinite else { throw NativeSigningIdentityError.invalidRecord }
+        guard let record = try store.read(owner: owner) else { return nil }
+        try record.validateShape(owner: owner)
+        guard record.createdAt <= now else { throw NativeSigningIdentityError.invalidRecord }
+        try Task.checkCancellation()
+        return NativeSigningIdentityInfo(ticket: record.ticket,
+            certificateSHA256: record.certificateDER.map(NativeSigningIdentityOwner.hash),
+            certificateExpiresAt: try record.certificateDER.map(NativeSigningIdentityCrypto.certificateExpiration))
+    }
 
     func prepare(owner: NativeSigningIdentityOwner, now: Date) throws -> NativeSigningIdentityTicket {
         try Task.checkCancellation()

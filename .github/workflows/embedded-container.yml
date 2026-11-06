@@ -1,8 +1,37 @@
 name: Combined native host · build only
 
-# Deliberately opt-in. No auto-publishing, signing secrets, PR triggers or changes
-# to the normal VexSign release pipeline. Install/re-sign the IPA as a host app.
+# Read-only, public-repository validation for combined-host changes. No publishing,
+# Apple-account operations, signing secrets or normal release-pipeline changes.
+# Install/re-sign the resulting unvalidated IPA as a host app.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'EmbeddedContainer/**'
+      - 'VexSign/Backend/Companion/PrimaryHostEntry.swift'
+      - 'VexSign/Resources/Info.plist'
+      - 'VexSign.xcodeproj/**'
+      - 'NativeSigning/**'
+      - 'SideSign/Sources/**'
+      - 'VexSign/Security/AppleAccount*.swift'
+      - 'Makefile'
+      - '.github/scripts/select_xcode.sh'
+      - 'SideSign/Package.swift'
+      - '.github/workflows/embedded-container.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'EmbeddedContainer/**'
+      - 'VexSign/Backend/Companion/PrimaryHostEntry.swift'
+      - 'VexSign/Resources/Info.plist'
+      - 'VexSign.xcodeproj/**'
+      - 'NativeSigning/**'
+      - 'SideSign/Sources/**'
+      - 'VexSign/Security/AppleAccount*.swift'
+      - 'Makefile'
+      - '.github/scripts/select_xcode.sh'
+      - 'SideSign/Package.swift'
+      - '.github/workflows/embedded-container.yml'
   workflow_dispatch:
     inputs:
       host_mode:
@@ -30,6 +59,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - name: Repository and packaging regressions
         run: |
           make verify
@@ -42,16 +73,23 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.12'
       - name: Select installed Xcode
         env:
-          REQUESTED_XCODE: ${{ inputs.xcode }}
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE }}
         run: bash .github/scripts/select_xcode.sh
       - name: Install packaging tool
         run: brew install ldid
+      - name: Native unit regressions (synthetic accounts only)
+        run: |
+          set -euo pipefail
+          python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+          swift test --package-path .build/native-signing-smoke 2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
       - name: Build standalone VexSign native input
         run: |
           set -euo pipefail
@@ -59,14 +97,14 @@ jobs:
       - name: Build native host and combined IPA
         env:
           GH_TOKEN: ${{ github.token }}
-          HOST_MODE: ${{ inputs.host_mode }}
+          HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
           set -euo pipefail
           python3 EmbeddedContainer/build.py --mode "$HOST_MODE" --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
       - name: Upload combined build and integration sources
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: VexSign-LiveContainer-SideStore-${{ inputs.host_mode }}-unvalidated
+          name: VexSign-LiveContainer-SideStore-${{ inputs.host_mode || 'native-primary' }}-unvalidated
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -76,7 +114,7 @@ jobs:
             packages/VexSign+LiveContainer+SideStore.checksums.txt
       - name: Combined build summary
         env:
-          HOST_MODE: ${{ inputs.host_mode }}
+          HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
           {
             echo '## Experimental combined host'
@@ -92,5 +130,8 @@ jobs:
           name: embedded-container-build-logs
           retention-days: 3
           path: |
+            ${{ runner.temp }}/native-signing-prepare.log
+            ${{ runner.temp }}/native-signing-unit-tests.log
+            .build/native-signing-smoke/provenance.json
             ${{ runner.temp }}/vexsign-build.log
             ${{ runner.temp }}/combined-build.log

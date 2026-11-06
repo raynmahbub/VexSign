@@ -36,6 +36,15 @@ complete portal inventory or installation quota; legacy journal rows have no
 invented identity, device or expiry metadata. Receipts are historical discovery
 facts, not current CMS validation, renewal approval or signing authority.
 
+The identity list reads only the current authenticated account/team's existing
+vault record; an empty vault does not generate a key. It reports stable identity
+IDs, persisted phase, fingerprints and parsed certificate expiry without exporting
+key material or contacting Apple. This is local historical inventory, not a
+complete portal listing or proof of current trust/revocation status. The profile
+UI checks CMS capability before preflight or quota-consuming operations, requires
+separate explicit mutation approvals, and reports profile-only completion, never
+simulated signing or installation.
+
 Background discovery populates a review queue. It does **not** generate fresh
 certificates, create approvals, re-sign archives or install apps. Unattended
 renewal still needs an explicit scoped grant, fresh portal/CMS validation, an

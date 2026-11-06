@@ -41,8 +41,11 @@ python3 EmbeddedContainer/build.py --mode native-primary --vexsign-ipa packages/
 python3 EmbeddedContainer/build.py --mode guest-prototype --vexsign-ipa packages/VexSign.ipa
 ```
 
-Choose `host_mode` in **Combined native host · build only**. Artifacts are labelled
-by mode, retained 14 days, and never auto-published; logs remain 3 days.
+Choose `host_mode` in **Combined native host · build only**. Path-filtered PR/main
+changes also run its native-primary validation, including synthetic native unit
+regressions, reusing the same workflow instead of adding another build system.
+Jobs run only for public repositories with read-only permissions. Artifacts are
+labelled by mode, retained 14 days, and never auto-published; logs remain 3 days.
 
 ## Guest-prototype architecture
 
@@ -89,7 +92,7 @@ python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa
 ```
 
 Or manually run **Combined native host · build only** with `host_mode=guest-prototype` on the desired branch. It has
-read-only permissions, no publish job and no automatic triggers. It does not
+read-only permissions and no publish job; automatic runs are path-filtered to combined-host inputs. It does not
 require Apple-account/signing/TLS secrets. Its artifact is explicitly labelled
 unvalidated. New combined artifacts are retained for **14 days**, and diagnostic
 logs for **3 days**. Existing uploads keep their previous expiry. The normal

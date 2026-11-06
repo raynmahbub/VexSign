@@ -119,6 +119,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	}
 
 	var canSelfInstall: Bool {
+        guard !EmbeddedContainerRuntime.isPrimaryHost else { return false }
 		switch method {
 		case .server: return isServerConfigured
 		case .idevice: return hasPairing

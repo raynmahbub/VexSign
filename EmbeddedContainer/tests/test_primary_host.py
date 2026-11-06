@@ -124,6 +124,32 @@ class PrimaryHostTests(unittest.TestCase):
         self.assertEqual(report['kind'], 'experimental-native-primary')
         self.assertEqual(report['validation']['physicalDevice'], 'not-run')
 
+    def test_full_native_payload_checks_hash_and_rejects_guest_contamination(self):
+        self.embed(self.input())
+        for framework, executable in [('SideStoreSupport', 'SideStoreSupport'), ('LiveContainerShared', 'LiveContainerShared'),
+                                      ('LiveContainerSwiftUI', 'LiveContainerSwiftUI'), ('SideStoreApp', 'SideStore')]:
+            folder = self.host / f'Frameworks/{framework}.framework'
+            folder.mkdir()
+            (folder / executable).write_bytes(macho(6))
+        for name in ['LiveProcess', 'LaunchAppExtension', 'ShareExtension', 'LiveWidgetExtension']:
+            (self.host / f'PlugIns/{name}.appex').mkdir(parents=True)
+        (self.host / 'PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension').write_bytes(macho(2))
+        (self.host / 'Host').write_bytes(macho(2))
+        build.write_plist(self.host / 'Info.plist', {'CFBundleIdentifier': 'com.kdt.livecontainer',
+                          'CFBundleExecutable': 'Host', 'VexSignPrimaryHost': True, 'VexSignCombinedHost': True})
+        (self.host / 'VexSignEmbedded.json').write_text(json.dumps({'mode': 'native-primary'}))
+        build.finalize_primary_manifest(self.host)
+        build.validate_payload(self.host)
+        guest = self.host / 'VexSign.ipa'
+        guest.write_bytes(b'must not be here')
+        with self.assertRaisesRegex(ValueError, 'must not contain a VexSign guest'):
+            build.validate_payload(self.host)
+        guest.unlink()
+        image = self.host / 'Frameworks/VexSignPrimary.framework/VexSignPrimary'
+        image.write_bytes(image.read_bytes() + b'tamper')
+        with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch'):
+            build.validate_payload(self.host)
+
     def test_primary_default_keychain_group_is_host_identity_not_guest_slot(self):
         upstream = self.root / 'upstream'
         template = {'application-identifier': '$(DEVELOPMENT_TEAM).$(PRODUCT_BUNDLE_IDENTIFIER)',

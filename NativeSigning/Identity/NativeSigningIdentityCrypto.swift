@@ -93,6 +93,15 @@ struct NativeSigningIdentityCrypto: NativeSigningIdentityGenerating {
         } catch { throw NativeSigningIdentityError.invalidRecord }
     }
 
+    /// Display metadata only, never a substitute for current purpose/trust checks.
+    static func certificateExpiration(_ data: Data) throws -> Date {
+        guard !data.isEmpty, data.count <= 64 * 1024, let certificate = X509Certificate(der: data),
+              let expiresAt = certificate.notAfter, expiresAt.timeIntervalSince1970.isFinite else {
+            throw NativeSigningIdentityError.certificateRejected
+        }
+        return expiresAt
+    }
+
     static func matchesPublicKey(_ data: Data, record: NativeSigningIdentityRecord) throws -> Bool {
         guard !data.isEmpty, data.count <= 64 * 1024, let certificate = X509Certificate(der: data) else {
             throw NativeSigningIdentityError.certificateRejected
