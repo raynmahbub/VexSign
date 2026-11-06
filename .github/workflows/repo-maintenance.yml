@@ -2,6 +2,10 @@ name: Repository maintenance
 
 # Trusted default-branch code only. Jobs have separate least-privilege tokens.
 on:
+  # Never watch this workflow itself: even a skipped run emits completion.
+  workflow_run:
+    workflows: ["CI", "Platform check", "Service checks", "Documentation", "Release", "Update Repository", "Combined native host · build only", "Native account signing · link smoke"]
+    types: [completed]
   schedule:
     - cron: '17 * * * *'   # bot PRs: hourly
     - cron: '40 4 * * 1'   # hygiene + Xcode package audit: weekly
@@ -18,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: repo-maintenance
+  group: ${{ github.event_name == 'workflow_run' && 'ci-triage' || 'repo-maintenance' }}
   cancel-in-progress: false
 
 jobs:
@@ -175,4 +179,47 @@ jobs:
           else
             gh issue create --title "$TITLE" --body "$BODY"
             echo "Opened: ${TITLE}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  open-or-update-issue:
+    permissions:
+      actions: read
+      issues: write
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      (github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.event != 'workflow_run' &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Open or update a failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${SHA:0:7}"
+          TITLE="Automation failed on main: ${SHORT_SHA}"
+          FAILED="$(gh run view "$RUN_ID" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | "- `\(.name)`"] | join("\n")')"
+          if [ -z "$FAILED" ]; then
+            FAILED="_No failed job list was available; inspect the run log._"
+          fi
+
+          BODY="$(printf 'The `%s` workflow failed on `%s`.\n\n- Run: %s\n- Commit: `%s`\n- Failed jobs:\n%s\n\nNext steps:\n1. Open the failing job and reproduce locally with `make verify` or `make test`.\n2. Add a regression test before changing behaviour.\n3. Close this issue when main is green again.\n' "$WORKFLOW_NAME" "$SHA" "$RUN_URL" "$SHA" "$FAILED")"
+
+          EXISTING="$(gh issue list --state open --search "Automation failed on main ${SHORT_SHA} in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Updated issue #${EXISTING}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+            echo "Opened CI failure issue: ${TITLE}" >> "$GITHUB_STEP_SUMMARY"
           fi

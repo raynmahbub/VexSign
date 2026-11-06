@@ -474,7 +474,7 @@ final class AppInstaller: ObservableObject {
 			_finish(.success(.cancelled))
 
 		case .notInstalled, .timedOutWaiting, .timedOutVerifying:
-			let error = Self.error(verdict.message ?? .localized("The install could not be confirmed."))
+			let error = InstallConfirmation.Failure(verdict: verdict)
 			FileLogger.error("install not confirmed: \(verdict)", category: "install")
 			// `.broken` keeps the existing recovery path: one idevice attempt, then a failure the
 			// queue offers to retry.

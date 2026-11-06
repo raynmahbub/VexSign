@@ -39,6 +39,65 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_ci_scope_keeps_native_sources_and_unknown_paths(self):
+        native = runpy.run_path(str(ROOT / 'tools/ci-scope.py'))['needs_native']
+        self.assertFalse(native(['tools/test_release_assets.py', 'tools/generate-changelog.sh', 'docs/RELEASING.md']))
+        for path in ('VexSign/App.swift', 'VexSignTests/Test.swift', 'NativeSigning/Tests/Test.swift',
+                     'Makefile', 'SideSign/Package.swift', 'Vendor/source.cpp', '.github/workflows/ci.yml',
+                     'tools/bootstrap.sh', 'unknown-file'):
+            self.assertTrue(native([path]), path)
+        # A removed app source must still count when renamed into documentation.
+        self.assertTrue(native(['VexSign/Old.swift', 'docs/Old.md']))
+
+    def test_ci_scope_uses_whole_pr_and_falls_back_to_native(self):
+        import json
+        import os
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            git('config', 'user.name', 'Test')
+            git('config', 'user.email', 'test@example.invalid')
+            git('commit', '--allow-empty', '-qm', 'base')
+            base = git('rev-parse', 'HEAD')
+            (root / 'App.swift').write_text('// fixture')
+            git('add', '.')
+            git('commit', '-qm', 'native')
+            middle = git('rev-parse', 'HEAD')
+            (root / 'README.md').write_text('docs')
+            git('add', '.')
+            git('commit', '-qm', 'docs')
+            event, output = root / 'event.json', root / 'output.txt'
+            for sha, expected in ((base, 'true'), (middle, 'false'), ('f' * 40, 'true')):
+                event.write_text(json.dumps({'pull_request': {'base': {'sha': sha}}}))
+                output.write_text('')
+                subprocess.run(['python3', str(ROOT / 'tools/ci-scope.py')], cwd=root,
+                               env={**os.environ, 'GITHUB_EVENT_NAME': 'pull_request',
+                                    'GITHUB_EVENT_PATH': str(event), 'GITHUB_OUTPUT': str(output)},
+                               check=True, capture_output=True)
+                self.assertEqual(output.read_text(), f'native={expected}\n')
+
+    def test_consolidated_triage_retains_permissions_and_prevents_recursion(self):
+        text = (WORKFLOWS / 'repo-maintenance.yml').read_text()
+        triage = block(block(text, 'jobs', 0), 'open-or-update-issue', 2)
+        self.assertIn('actions: read', triage)
+        self.assertIn('issues: write', triage)
+        self.assertNotIn('actions/checkout', triage)
+        self.assertIn("github.event.workflow_run.event != 'workflow_run'", triage)
+        self.assertIn('head_repository.full_name == github.repository', triage)
+        self.assertFalse((WORKFLOWS / 'ci-triage.yml').exists())
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        for name in ('build', 'tests'):
+            self.assertIn("needs.quick.outputs.native == 'true'", block(ci, name, 2))
+        self.assertIn('-parallel-testing-worker-count 2', ci)
+        combined = (WORKFLOWS / 'embedded-container.yml').read_text()
+        self.assertIn('Restore Swift package downloads', combined)
+        self.assertIn('runner.arch', combined)
+        self.assertIn('TMPDIR: ${{ runner.temp }}/', combined)
+
     def test_combined_build_exposes_failures_and_preserves_native_input(self):
         text = (WORKFLOWS / 'embedded-container.yml').read_text()
         for stage in ('native_input', 'combined'):
@@ -182,6 +241,46 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertIn('upload/' + asset, block(text, 'build', 2))
             self.assertIn('upload/' + asset, block(text, 'publish', 2))
 
+    def test_release_versions_are_numeric_and_packaged_bundles_are_checked(self):
+        import plistlib
+        import tempfile
+        import zipfile
+        module = runpy.run_path(str(ROOT / 'tools/release-build-version.py'))
+        version = module['build_version']
+        for count in (1, 99, 100, 9999, 10000, 99989999):
+            self.assertRegex(version(count), r'^[1-9][0-9]{0,3}\.[0-9]{1,2}\.[0-9]{1,2}$')
+        self.assertEqual(version(9999), '1.99.99')
+        self.assertEqual(version(10000), '2.0.0')
+        for count in (0, -1, 99990000):
+            with self.assertRaises(ValueError):
+                version(count)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'test.ipa'
+            for root, extension, valid in [('1.0.1', '1.0.1', True),
+                                           ('deadbeef', '1.0.1', False),
+                                           ('1.0.1', '2', False)]:
+                with zipfile.ZipFile(path, 'w') as archive:
+                    archive.writestr('Payload/Test.app/Info.plist', plistlib.dumps({'CFBundleVersion': root}))
+                    archive.writestr('Payload/Test.app/PlugIns/Test.appex/Info.plist', plistlib.dumps({'CFBundleVersion': extension}))
+                if valid:
+                    module['verify_ipa'](path, '1.0.1')
+                else:
+                    with self.assertRaises(ValueError):
+                        module['verify_ipa'](path, '1.0.1')
+            with zipfile.ZipFile(path, 'w'):
+                pass
+            with self.assertRaises(ValueError):
+                module['verify_ipa'](path, '1.0.1')
+        text = (WORKFLOWS / 'release.yml').read_text()
+        self.assertIn('agvtool new-version -all "${BUILD_NUMBER}"', text)
+        self.assertNotIn('BUILD_NUMBER="$(git rev-parse HEAD)"', text)
+        self.assertNotIn('continuing with the committed CURRENT_PROJECT_VERSION', text)
+        self.assertIn('--verify-ipa "$ipa"', text)
+        upload = text.split('      - name: Upload IPA artifact\n', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('retention-days: 14', upload)
+        diagnostics = text.split('retention-days: 14', 1)[1]
+        self.assertIn('retention-days: 3', diagnostics)
+
     def test_every_release_runs_simulator_tests(self):
         text = (WORKFLOWS / 'release.yml').read_text()
         step = text.split('      - name: Release simulator tests\n', 1)[1].split('      - name:', 1)[0]
@@ -208,7 +307,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         # Dependabot and maintenance work through branches/issues; a PR-triggered
         # workflow must not execute privileged maintenance code from PRs.
         self.assertTrue((ROOT / '.github/dependabot.yml').is_file())
-        for name in ('repo-maintenance.yml', 'ci-triage.yml'):
+        for name in ('repo-maintenance.yml',):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)
             self.assertNotIn('pull_request', events)
 
@@ -221,12 +320,15 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
-            # Device-testing IPAs (normal CI and combined prototype) have a 14-day exception; logs,
-            # quick findings and release-staging artifacts stay at <= 3 days.
+            # Device-testing IPAs have a 14-day exception; logs, quick findings
+            # and release publishing-staging artifacts stay at <= 3 days.
             retention_text = text
-            if path.name in ('ci.yml', 'embedded-container.yml'):
-                artifact_steps = (['Upload unsigned test IPA'] if path.name == 'ci.yml' else
-                                  ['Upload combined build and integration sources', 'Preserve unsigned native input'])
+            if path.name in ('ci.yml', 'embedded-container.yml', 'release.yml'):
+                artifact_steps = {
+                    'ci.yml': ['Upload unsigned test IPA'],
+                    'embedded-container.yml': ['Upload combined build and integration sources', 'Preserve unsigned native input'],
+                    'release.yml': ['Upload IPA artifact'],
+                }[path.name]
                 for artifact_step in artifact_steps:
                     match = re.search(r'(?ms)^      - name: ' + re.escape(artifact_step) + r'\n.*?(?=^      - name:)', retention_text)
                     self.assertIsNotNone(match)
@@ -398,12 +500,13 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('  links:', (WORKFLOWS / 'docs.yml').read_text())
 
     def test_failure_reporting_uses_real_workflow_names_and_serializes_issues(self):
-        text = (WORKFLOWS / 'ci-triage.yml').read_text()
+        text = (WORKFLOWS / 'repo-maintenance.yml').read_text()
         watched = re.search(r'workflows: \[(.*)\]', text)[1]
         real_names = {re.search(r'^name: (.+)', p.read_text())[1] for p in WORKFLOWS.glob('*.yml')}
         for name in re.findall(r'"([^"]+)"', watched):
             self.assertIn(name, real_names)
         self.assertNotIn('"CI triage"', watched)
+        self.assertNotIn('"Repository maintenance"', watched)
         self.assertIn('cancel-in-progress: false', text)
         self.assertIn('WORKFLOW_NAME:', text)
 

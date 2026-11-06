@@ -130,6 +130,7 @@ final class InstallQueue: ObservableObject {
 
 	/// Skips the current app permanently (marks it skipped and moves on).
 	func skip() {
+        NBHaptic.tap()
 		guard let current else { _abandon(); return }
 		outcomes[current.id] = .skipped
 		_abandon()
@@ -137,6 +138,7 @@ final class InstallQueue: ObservableObject {
 
 	/// Retries the app at `index` (or the current one) by reinstating it and advancing back.
 	func retryCurrent(useLocalhost: Bool = false) {
+        NBHaptic.tap()
 		guard apps.indices.contains(index) else { return }
 		_teardownInstaller()
 		outcomes[apps[index].id] = .pending
@@ -196,6 +198,7 @@ final class InstallQueue: ObservableObject {
 				UIActivityViewController.show(activityItems: [package])
 			}
 		case .success(.installedOtherVersion(let version)):
+            NBHaptic.notify(.success)
 			// The device proved an install, but not the version that was sent. That is a success
 			// with a footnote, so say the footnote.
 			if let current { outcomes[current.id] = .succeeded }
@@ -207,12 +210,14 @@ final class InstallQueue: ObservableObject {
 			_syncUnifiedTaskProgress()
 			DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?._advance() }
 		case .success:
+            NBHaptic.notify(.success)
 			if let current { outcomes[current.id] = .succeeded }
 			if let app = installer?.app { InstallCleanup.stage(app) }
 			_syncUnifiedTaskProgress()
 			// Let the finished ring land before the next app takes over.
 			DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?._advance() }
 		case .failure(let error):
+            NBHaptic.notify(.error)
 			if let current {
 				outcomes[current.id] = .failed(String(describing: error))
 			}
@@ -235,7 +240,7 @@ final class InstallQueue: ObservableObject {
 					self?.retryCurrent(useLocalhost: true)
 				}))
 			}
-			actions.append((.localized("Skip"), .default, { [weak self] in
+			actions.append((upcoming.isEmpty ? .localized("Close") : .localized("Skip"), .default, { [weak self] in
 				HeartbeatManager.shared.start(true)
 				self?.skip()
 			}))
@@ -243,11 +248,23 @@ final class InstallQueue: ObservableObject {
 				HeartbeatManager.shared.start(true)
 				self?._abandonAndFinish()
 			}))
-			UIAlertController.showAlertWithOptions(
-				title: .localized("Install Failed"),
-				message: "\(error.localizedDescription)\n\n\(String.localized("%lld more apps are waiting.", arguments: max(upcoming.count, 0)))",
-				actions: actions
-			)
+            actions.insert((.localized("View installation details"), .default, {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    UIAlertController.showAlertWithOk(title: .localized("Installation Details"), message: error.localizedDescription)
+                }
+            }), at: 0)
+            let needsTrust: Bool
+            if let localError = error as? ServerInstaller.LocalInstallError, case .unavailable = localError { needsTrust = true }
+            else { needsTrust = false }
+            let summary = needsTrust
+                ? String.localized("Local HTTPS verification failed. Check the identity in Settings → Installation → Server & SSL, export and install its Root CA profile, then enable Full Trust in iOS Certificate Trust Settings.")
+                : String.localized("VexSign could not confirm installation. If the app is already on your Home Screen, close this dialog and open it there. Otherwise review installation details before retrying.")
+            let waiting = upcoming.isEmpty ? "" : "\n\n" + String.localized("%lld more apps are waiting.", arguments: upcoming.count)
+            UIAlertController.showAlertWithOptions(
+                title: needsTrust ? .localized("HTTPS Setup Required") : (error is InstallConfirmation.Failure ? .localized("Installation Not Confirmed") : .localized("Install Failed")),
+                message: summary + waiting,
+                actions: actions
+            )
 		}
 	}
 
@@ -258,15 +275,18 @@ final class InstallQueue: ObservableObject {
 		UnifiedTaskCenter.shared.update(task, progress: Double(index + 1) / Double(apps.count))
 	}
 
-	/// Keeps the last app on screen so its finished state and Open button survive.
+    /// Retire a completed queue so its install card does not cover the app screen.
 	private func _advance() {
 		_teardownInstaller()
 
 		guard index + 1 < apps.count else {
 			isFinished = true
-			_finishUnifiedTask()
-			if !isSheetPresented { clear() }
-			return
+            _finishUnifiedTask()
+            let wasPresented = isSheetPresented
+            isSheetPresented = false
+            // The sheet's onDismiss clears state after its dismissal animation.
+            if !wasPresented { clear() }
+            return
 		}
 
 		index += 1

@@ -27,10 +27,9 @@ The GitHub Actions bot performs deterministic tasks; it does not invent fixes.
 | **Platform check** | Relevant companion/shared-package changes: tvOS, watchOS and visionOS builds. |
 | **Documentation** | Documentation edits: cheap offline file-link checks; no macOS work. |
 | **Release** | Daily nightlies, tag/manual stable builds, CI-driven version-bump dispatch and isolated protected publication. |
-| **Repository maintenance** | Hourly bot-PR controller; weekly Monday localisation sync and root Xcode dependency audit. Manual task selector. |
-| **CI triage** | Main workflow failures become one issue per source commit, with run/job links; no guessed patches. |
+| **Repository maintenance** | Hourly bot-PR controller; weekly hygiene/audit; main-failure triage with isolated permissions and no guessed patches. |
 | **Update Repository** | Published stable metadata → listing review PR, never a direct main push. |
-| **Guest-host prototype · build only** | Manual experimental container preparation/build; no normal release publication. |
+| **Combined native host · build only** | Manual experimental container preparation/build; no normal release publication. |
 | **Native account signing · link smoke** | Manual native-package compatibility/link checks; no Apple login or signing secrets. |
 
 Separate files remain where triggers, SDK costs or permissions differ. Existing
@@ -144,3 +143,33 @@ Set Actions variables to the literal `false`:
 
 Unset means enabled. Disable the relevant workflow to stop scheduled operations
 entirely, and cancel already-running jobs separately. Never commit credentials.
+
+## Build cost and workflow boundaries
+
+Nine workflow entry points are retained intentionally: CI, documentation, service
+checks, companion platforms, Release, combined host, opt-in native link diagnostics,
+repository maintenance (including failure triage), and stable listing updates.
+Triage deliberately does not watch its own maintenance workflow: even skipped
+workflow runs emit completion events. Maintenance's own failures remain visible
+through GitHub Actions notifications rather than recursively opening issues.
+Documentation/services do not need macOS. Optional native link diagnostics run
+only on request. Release/listing write permissions never run PR code.
+
+CI examines the complete PR diff, not just its latest commit. Known portable
+Python tooling/changelog/docs-only changes keep Linux gates but skip the native
+build/test jobs. App, test, native module, dependency, build configuration and
+unknown changes keep full native validation. Missing history defaults to full
+validation; manual full CI also forces native checks. Check names are retained;
+repository protection rules requiring a specific workflow file should be reviewed
+when consolidating the removed `ci-triage.yml`.
+
+Combined-host dependency downloads are cached by OS, architecture, selected
+Xcode and lockfiles. No signed output or final build products are restored.
+Simulator test workers are bounded to two to limit clone startup/oversubscription.
+These are cost controls, not measured timing guarantees: hosted macOS queue
+capacity is outside this repository's control. Source changes still require
+compilation and tests; production release builds still test their exact commit.
+
+A native-primary package is not proof of end-to-end Apple signing, installation,
+unattended renewal or physical-device acceptance. Workflow consolidation does not
+remove those implementation/validation boundaries.

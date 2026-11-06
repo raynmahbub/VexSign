@@ -1,8 +1,6 @@
 //
 //  SettingsView.swift
 //  VexSign — Smartly Categorized & Organized Settings
-//  Incorporating best features from FlareStore, LiveContainer, Feather, FeatherPlus,
-//  Ksign, KoSign, RyukSign, MySignReincarnated, SideStore, and AppNest.
 //
 
 import SwiftUI
@@ -40,13 +38,15 @@ struct SettingsView: View {
             Form {
                 Group {
                 if _settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                _aboutSection
+
                 Section {
                     NavigationLink(destination: SetupHealthView()) {
                         Label(.localized("Setup Health"), systemImage: "checklist")
                     }
                 }
 
-                // MARK: 4. Signing & Tweaks Engine (Feather / FeatherPlus / MySign)
+                // MARK: 4. Signing & Tweaks
                 NBSection(.localized("Signing & Installation"), systemName: "signature") {
                     if let cert = selectedCertificate {
                         CertificatesCellView(cert: cert)
@@ -85,7 +85,7 @@ struct SettingsView: View {
                     Text(.localized("Choose your signing identity, manage profiles and tweaks, and configure installation. Signing and installation have separate prerequisites."))
                 }
 
-                // MARK: 2. App Store, Downloads & Updates (FlareStore / SideStore / Ksign)
+                // MARK: 2. Sources & Updates
                 NBSection(.localized("Sources & Updates"), systemName: "bag.fill") {
                     NavigationLink(destination: RefreshAndDownloadsSettingsView()) {
                         Label(.localized("Refresh & Background Sync"), systemImage: "arrow.clockwise.icloud.fill")
@@ -245,7 +245,7 @@ struct SettingsView: View {
                     Text(.localized("External SideStore and LiveContainer workflows, plus Apple TV, Vision Pro and Watch companions."))
                 }
 
-                // MARK: 5. LiveContainer, JIT & Services (LiveContainer / SideStore / FlareStore)
+                // MARK: 5. Runtime & Services
                 NBSection(.localized("Advanced Tools"), systemName: "bolt.badge.automatic.fill") {
                     NavigationLink(destination: GuidesView()) {
                         Label(.localized("Guides"), systemImage: "book.fill")
@@ -280,8 +280,6 @@ struct SettingsView: View {
                 } footer: {
                     Text(.localized("Pairing tools, local file transfer, app inspection and optional service integrations. Some tools require additional setup or supported hardware."))
                 }
-
-                _aboutSection
 
                 #if !NIGHTLY && !DEBUG
                 SettingsDonationCellView(site: _donationsUrl)
@@ -400,7 +398,7 @@ private extension SettingsView {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(verbatim: .localized("About %@", arguments: Bundle.main.name))
                                     .font(.headline)
-                                Text("Version \(Bundle.main.version)")
+                                Text(String.localized("Version %@", arguments: Bundle.main.version))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }

@@ -34,7 +34,7 @@ struct InstallationView: View {
 					}
 				}
 			} footer: {
-				Text(.localized("Server (Recommended):\nUses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced):\nUses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback\nAdvantage: It is very reliable, does not need SSL certificates or a externally hosted server. Rather, works similarly to a computer."))
+				Text(.localized("Server (Recommended):\nUses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced):\nUses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback\nAdvantage: It is very reliable, does not require a local HTTPS certificate or an externally hosted server. It works similarly to a computer."))
 			}
 
 			// every route, and the one thing each of them needs — checked before the
@@ -75,6 +75,7 @@ struct InstallationView: View {
 			}
 		}
 		.onChange(of: _installationMethod) { newValue in
+            NBHaptic.selection()
 			guard newValue == 1 else { return }
 			_showMethodChangedAlert = true
 		}
@@ -85,7 +86,7 @@ struct InstallationView: View {
 			Button(.localized("OK"), role: .cancel) {}
 		} message: {
 			Text(.localized(
-				"This installation method is intended for advanced users only!\n\nIt requires a VPN and a pairing file from a PC.\n\nIts recommended you go back to the server installation method."
+				"This installation method is intended for advanced users only!\n\nIt requires a VPN and a pairing file from a PC.\n\nWe recommend using the server installation method unless pairing and VPN are configured."
 			))
 		}
 		.onAppear(perform: _refreshPreflight)

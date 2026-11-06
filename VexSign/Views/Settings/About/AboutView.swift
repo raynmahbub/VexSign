@@ -2,7 +2,7 @@
 //  AboutView.swift
 //  VexSign
 //
-//  A deliberately small About screen inspired by Ksign: identity, version,
+//  A compact About screen: identity, version,
 //  capabilities, and useful links. Detailed diagnostics stay in Settings.
 //
 
@@ -69,7 +69,7 @@ struct AboutView: View {
                     Label(.localized("License (GPL-3.0)"), systemImage: "doc.text")
                 }
             } footer: {
-                Text(.localized("Built from scratch in SwiftUI. VexSign is free and open source."))
+                Text(.localized("VexSign is free and open source. Third-party license notices are included with the app."))
             }
         }
     }

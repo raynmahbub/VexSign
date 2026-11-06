@@ -62,7 +62,7 @@ struct InstallConfirmation: Equatable, Sendable {
 		case installed
 		/// The device reports the app, at another version. Proven installed, not proven current.
 		case installedOtherVersion(String?)
-		/// iOS rolled the install back: the app is not on the device.
+        /// No installed app was reported by the deadline; not a rejection diagnosis.
 		case notInstalled
 		/// The prompt was never answered. Nothing was installed.
 		case timedOutWaiting
@@ -156,8 +156,13 @@ struct InstallConfirmation: Equatable, Sendable {
 			// has had the settle window to catch up.
 			return settled ? _finish(.installedOtherVersion(version)) : phase
 
-		case .notInstalled:
-			return settled ? _finish(.notInstalled) : phase
+        case .notInstalled:
+            // LaunchServices can lag or hide an app while iOS finishes installing.
+            // A negative reading at the short version-settle deadline is not a
+            // rollback. Keep checking until the full confirmation deadline.
+            if date.timeIntervalSince(verifyStart) >= limits.verify {
+                return _finish(.notInstalled)
+            }
 
 		case .unknown:
 			break
@@ -184,6 +189,13 @@ struct InstallConfirmation: Equatable, Sendable {
 	}
 }
 
+extension InstallConfirmation {
+    struct Failure: LocalizedError {
+        let verdict: Verdict
+        var errorDescription: String? { verdict.message }
+    }
+}
+
 // MARK: - Verdict text
 
 extension InstallConfirmation.Verdict {
@@ -202,7 +214,7 @@ extension InstallConfirmation.Verdict {
 		case .timedOutWaiting:
 			.localized("The install never started. iOS may not have shown its prompt — retry and keep VexSign in the foreground.")
 		case .timedOutVerifying:
-			.localized("iOS stopped reporting progress and the app never appeared on the device. Retry, or switch the installation method in Settings → Installation.")
+			.localized("VexSign could not confirm the installation before the deadline. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying.")
 		}
 	}
 }
@@ -221,10 +233,25 @@ enum InstallWatcher {
 		interval: Duration = .milliseconds(250),
 		onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in }
 	) async -> InstallConfirmation.Verdict {
-		var confirmation = initial
+        var confirmation = initial
+        let baseline = probe.installedApp(for: initial.expectation.bundleIdentifier)
+        let wasAbsent = baseline?.bundleIdentifier == initial.expectation.bundleIdentifier
+            && baseline?.isInstalled == false && baseline?.isPlaceholder == false
 
-		while !Task.isCancelled {
-			let raw = await progress()
+        while !Task.isCancelled {
+            let raw = await progress()
+            // Some iOS versions expose no progress counter. A matching app that
+            // was demonstrably absent and now appears is independent evidence.
+            // Unknown baselines or an already installed app cannot prove a new install.
+            if wasAbsent, confirmation.phase == .waitingForStart,
+               let current = probe.installedApp(for: initial.expectation.bundleIdentifier),
+               current.bundleIdentifier == initial.expectation.bundleIdentifier,
+               InstalledState.derive(from: current, expecting: initial.expectation.version) == .installed {
+                _ = confirmation.beginVerifying(at: Date())
+                let phase = confirmation.record(probe: current, at: Date())
+                await onUpdate(raw, phase)
+                if let verdict = phase.verdict { return verdict }
+            }
 			let phase = confirmation.record(progress: raw, at: Date())
 			await onUpdate(raw, phase)
 

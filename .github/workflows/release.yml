@@ -274,20 +274,21 @@ jobs:
       - name: Repository validation gates
         run: make verify
 
+      - name: Select Xcode
+        id: xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.RELEASE_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+
       # Checkouts are shared by all release runs for the same resolved graph.
       # Build products stay in the runner-local DerivedData.
       - name: Restore Swift packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/VexSign/SourcePackages
-          key: spm-release-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          key: spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            spm-release-${{ runner.os }}-
-
-      - name: Select Xcode
-        env:
-          REQUESTED_XCODE: ${{ inputs.xcode || vars.RELEASE_XCODE || '' }}
-        run: bash .github/scripts/select_xcode.sh
+            spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-
 
       - name: Compile VexSign
         id: build
@@ -297,10 +298,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          BUILD_NUMBER="$(git rev-parse HEAD)"
-          if ! agvtool new-version -all "${BUILD_NUMBER}"; then
-            echo "::warning::agvtool could not stamp the build number (${BUILD_NUMBER}); continuing with the committed CURRENT_PROJECT_VERSION."
-          fi
+          # Apple-compatible numeric version; SHA provenance stays in RELEASE.json.
+          BUILD_NUMBER="$(python3 tools/release-build-version.py)"
+          agvtool new-version -all "${BUILD_NUMBER}"
 
           # Keep the known third-party Unicorn deployment-version warning out
           # of the live log; the full log stays in the failure artifact.
@@ -363,6 +363,16 @@ jobs:
             exit 1
           fi
 
+          EXPECTED_BUILD="$(python3 tools/release-build-version.py)"
+          if [ "${BUILD}" != "${EXPECTED_BUILD}" ]; then
+            echo "::error::Built CFBundleVersion does not match the numeric build version ${EXPECTED_BUILD}."
+            exit 1
+          fi
+          # Check the actual IPA, including nested apps/extensions, not just staging.
+          for ipa in upload/*.ipa; do
+            python3 tools/release-build-version.py --verify-ipa "$ipa"
+          done
+
           echo "Built VexSign ${VERSION} (build ${BUILD:-?}) from ${GITHUB_SHA}"
           {
             echo "version=${VERSION}"
@@ -379,7 +389,7 @@ jobs:
           name: VexSign-${{ steps.get_version.outputs.version }}-${{ steps.get_version.outputs.short_sha }}
           path: upload/*.ipa
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 14
 
       - name: Generate Changelog
         id: changelog

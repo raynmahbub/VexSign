@@ -3,6 +3,8 @@ import NimbleViews
 import NimbleExtensions
 
 struct ServerView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var _systemTrusted = false
     @AppStorage("VexSign.ipFix") private var _ipFix: Bool = false
     @AppStorage("VexSign.serverMethod") private var _serverMethod: Int = 0
     private let _serverMethods: [String] = [.localized("Fully Local"), .localized("Semi Local")]
@@ -24,6 +26,7 @@ struct ServerView: View {
             }
             Section {
                 Button(.localized("Check Local HTTPS Identity"), systemImage: "checkmark.shield") {
+                    NBHaptic.tap()
                     refresh()
                 }
                 Button(.localized("Export Root CA Profile (.mobileconfig)"), systemImage: "lock.shield") {
@@ -35,21 +38,30 @@ struct ServerView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(.localized("Install the exported Root CA profile, then enable Full Trust under Settings → General → About → Certificate Trust Settings. Your CA stays on this device across app updates; server certificates renew locally without changing that CA. Restoring to another device or changing signing identity may require new trust."))
-                    if let identity = _identity { Text(identity.detail).font(.footnote) }
+                    if let identity = _identity {
+                        Text(identity.detail).font(.footnote)
+                        Text(_systemTrusted ? .localized("System trust confirmed") : .localized("Root CA trust setup required"))
+                            .foregroundStyle(_systemTrusted ? Color.green : Color.orange)
+                    }
                     if let error = _error { Text(error).foregroundStyle(.orange) }
                 }
             }
         }
         .onAppear { refresh() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { refresh() }
+        }
     }
 
     private func refresh() {
         do {
             try DeviceTLSIdentity.ensure()
             _identity = LocalTLSIdentity.current()
+            _systemTrusted = LocalTLSIdentity.isSystemTrusted()
             _error = nil
         } catch {
             _identity = nil
+            _systemTrusted = false
             _error = error.localizedDescription
         }
     }
@@ -71,6 +83,7 @@ struct ServerView: View {
     }
 
     private func exportRootCA() {
+        NBHaptic.tap()
         refresh()
         guard _error == nil, let url = LocalCAProfile.exportProfile() else {
             UIAlertController.showAlertWithOk(title: .localized("Export Failed"),
