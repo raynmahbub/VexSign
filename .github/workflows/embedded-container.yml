@@ -16,6 +16,8 @@ on:
       - 'VexSign/Security/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/quick_check.py'
+      - '.github/scripts/xcodebuild_report.py'
       - 'SideSign/Package.swift'
       - '.github/workflows/embedded-container.yml'
   pull_request:
@@ -30,6 +32,8 @@ on:
       - 'VexSign/Security/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/quick_check.py'
+      - '.github/scripts/xcodebuild_report.py'
       - 'SideSign/Package.swift'
       - '.github/workflows/embedded-container.yml'
   workflow_dispatch:
@@ -86,10 +90,27 @@ jobs:
       - name: Install packaging tool
         run: brew install ldid
       - name: Native unit regressions (synthetic accounts only)
+        id: native_tests
         run: |
-          set -euo pipefail
+          set -uo pipefail
           python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
-          swift test --package-path .build/native-signing-smoke 2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
+          status=$?
+          if [ "$status" -eq 0 ]; then
+            swift test --package-path .build/native-signing-smoke 2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
+            status=$?
+          fi
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Report native unit diagnostics
+        if: always() && steps.native_tests.outcome != 'skipped'
+        env:
+          NATIVE_EXIT: ${{ steps.native_tests.outputs.exit_code }}
+        run: |
+          cat "$RUNNER_TEMP"/native-signing-*.log > "$RUNNER_TEMP/native-signing-diagnostics.log"
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/native-signing-diagnostics.log" \
+            --build-exit "${NATIVE_EXIT:-1}" --warnings-as-errors false \
+            --title 'Native synthetic unit tests' --workspace "$GITHUB_WORKSPACE"
       - name: Build standalone VexSign native input
         run: |
           set -euo pipefail
