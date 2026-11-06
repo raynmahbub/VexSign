@@ -291,3 +291,9 @@ embedded framework Mach-O types, and emits checksums for the IPA, integration
 sources and build metadata. Verify these before re-signing. The JSON explicitly
 records physical-device acceptance as **not run**; an uploaded prototype is not a
 production promotion or a supported VexSign-primary release.
+
+Native-primary packaging retains LiveContainer's OpenSSL unchanged. VexSign's
+copy is namespaced as `VexSignOpenSSL.framework`; only native-input Mach-O load
+commands are rewritten and checked before signing. Unknown OpenSSL loader paths
+and all other conflicting dependency/resource revisions remain hard failures.
+This avoids assuming ABI compatibility; runtime/device acceptance is still needed.

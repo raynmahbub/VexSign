@@ -183,6 +183,62 @@ def prepare_guest(source_ipa, work):
     return archive, info
 
 
+def namespace_primary_openssl(source):
+    """Keep native and LC OpenSSL revisions separate; never replace host crypto.
+
+    Only the extracted native input is modified, before signing and hashing.
+    Unexpected loader spellings fail closed rather than guessing ABI compatibility.
+    """
+    framework = source / "Frameworks/OpenSSL.framework"
+    if not framework.exists():
+        return
+    renamed = framework.with_name("VexSignOpenSSL.framework")
+    info = read_plist(framework / "Info.plist")
+    binary = framework / "OpenSSL"
+    if framework.is_symlink() or renamed.exists() or info.get("CFBundleExecutable") != "OpenSSL" or set(macho_filetypes(binary)) != {6}:
+        raise ValueError("Unsupported native OpenSSL framework contract")
+    old = "@rpath/OpenSSL.framework/OpenSSL"
+    new = "@rpath/VexSignOpenSSL.framework/VexSignOpenSSL"
+    images = [source / "VexSign"]
+    magics = {b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xce",
+              b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf", b"\xbf\xba\xfe\xca"}
+    for item in sorted((source / "Frameworks").rglob("*")):
+        if item.is_symlink():
+            raise ValueError("Symlink in native framework namespace")
+        if item.is_file():
+            with item.open("rb") as handle:
+                if handle.read(4) in magics:
+                    images.append(item)
+    def dependencies(image):
+        lines = output("xcrun", "otool", "-L", image).splitlines()[1:]
+        return [line.strip().split(" (", 1)[0] for line in lines if line.strip()]
+    changes = []
+    for image in images:
+        for dependency in dependencies(image):
+            if "OpenSSL.framework/" in dependency and dependency != old:
+                raise ValueError("Unsupported native OpenSSL load path: " + dependency)
+            if dependency == old and image != binary:
+                changes.append(image)
+    framework.rename(renamed)
+    replacement = renamed / "VexSignOpenSSL"
+    (renamed / "OpenSSL").rename(replacement)
+    info.update(CFBundleExecutable="VexSignOpenSSL", CFBundleName="VexSignOpenSSL",
+                CFBundleIdentifier="com.vexsign.native-dependency.OpenSSL")
+    write_plist(renamed / "Info.plist", info)
+    run("xcrun", "install_name_tool", "-id", new, replacement)
+    def moved(image):
+        if image == binary:
+            return replacement
+        return renamed / image.relative_to(framework) if image.is_relative_to(framework) else image
+    for image in changes:
+        run("xcrun", "install_name_tool", "-change", old, new, moved(image))
+    if output("xcrun", "otool", "-D", replacement).splitlines()[1:] != [new]:
+        raise ValueError("Native OpenSSL install name was not rewritten")
+    for image in images:
+        if any("OpenSSL.framework/" in value and value != new for value in dependencies(moved(image))):
+            raise ValueError("Unrewritten native OpenSSL dependency")
+
+
 def merge_primary_files(source, host):
     """Preflight the whole dependency/resource merge before copying any file.
 
@@ -225,6 +281,7 @@ def embed_primary(host, source_ipa, dylibify, work):
     if target.exists():
         raise ValueError("Refusing to replace an existing native primary image")
     strip_signatures(source)
+    namespace_primary_openssl(source)
     merge_primary_files(source, host)
     target.mkdir(parents=True)
     run(dylibify, source / "VexSign", target / "VexSignPrimary")

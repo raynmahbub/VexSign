@@ -73,6 +73,55 @@ class PrimaryHostTests(unittest.TestCase):
             build.embed_primary(self.host, self.input(), 'dylibify', self.root)
         self.assertFalse((self.host / 'Frameworks').exists())
 
+    def test_native_openssl_is_namespaced_without_touching_host_crypto(self):
+        source = self.root / 'native'
+        framework = source / 'Frameworks/OpenSSL.framework'
+        framework.mkdir(parents=True)
+        build.write_plist(framework / 'Info.plist', {'CFBundleExecutable': 'OpenSSL'})
+        (framework / 'OpenSSL').write_bytes(macho(6))
+        (source / 'VexSign').write_bytes(macho(2))
+        host_crypto = self.host / 'Frameworks/OpenSSL.framework/OpenSSL'
+        host_crypto.parent.mkdir(parents=True)
+        host_crypto.write_bytes(b'host crypto must stay untouched')
+        old = '@rpath/OpenSSL.framework/OpenSSL'
+        new = '@rpath/VexSignOpenSSL.framework/VexSignOpenSSL'
+        rewritten = set()
+        identities = {}
+        def run(*args):
+            if '-change' in args:
+                self.assertEqual(args[3:5], (old, new))
+                rewritten.add(Path(args[-1]))
+            if '-id' in args:
+                identities[Path(args[-1])] = args[3]
+        def output(*args):
+            image = Path(args[-1])
+            if args[2] == '-D':
+                return str(image) + '\n' + identities[image]
+            dependency = identities.get(image, new if image in rewritten else old)
+            return str(image) + ':\n\t' + dependency + ' (compatibility version 1.0.0)'
+        with patch.object(build, 'run', side_effect=run), patch.object(build, 'output', side_effect=output):
+            build.namespace_primary_openssl(source)
+        build.merge_primary_files(source, self.host)
+        self.assertEqual(host_crypto.read_bytes(), b'host crypto must stay untouched')
+        private = self.host / 'Frameworks/VexSignOpenSSL.framework'
+        self.assertEqual(build.read_plist(private / 'Info.plist')['CFBundleExecutable'], 'VexSignOpenSSL')
+        self.assertEqual(build.macho_filetypes(private / 'VexSignOpenSSL'), [6])
+        self.assertIn(source / 'VexSign', rewritten)
+        self.assertFalse(framework.exists())
+
+    def test_unreviewed_openssl_loader_path_fails_before_renaming(self):
+        source = self.root / 'native'
+        framework = source / 'Frameworks/OpenSSL.framework'
+        framework.mkdir(parents=True)
+        build.write_plist(framework / 'Info.plist', {'CFBundleExecutable': 'OpenSSL'})
+        (framework / 'OpenSSL').write_bytes(macho(6))
+        (source / 'VexSign').write_bytes(macho(2))
+        with patch.object(build, 'output', return_value='image:\n\t@rpath/OpenSSL.framework/Versions/A/OpenSSL (compatibility version 1)'), patch.object(build, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Unsupported native OpenSSL load path'):
+                build.namespace_primary_openssl(source)
+            run.assert_not_called()
+        self.assertTrue(framework.exists())
+
     def test_dependency_conflict_is_atomic_and_fails_closed(self):
         source = self.root / 'source'
         (source / 'Frameworks/SDK.framework').mkdir(parents=True)
