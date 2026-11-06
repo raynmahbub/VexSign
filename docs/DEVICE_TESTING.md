@@ -71,3 +71,29 @@ No self-hosted device runner is enabled: exposing a paired device/signing key to
 untrusted PR code would cross a sensitive trust boundary. Hosted CI has no physical
 iPhone. Stable publishing still needs maintainer review; no GitHub settings are
 changed by these scripts.
+
+## Native-primary combined-host acceptance
+
+The acceptance tool classifies the root IPA metadata and binds the report to
+that architecture, commit and tested (re-signed) IPA checksum. Metadata is not
+execution evidence. A standalone report cannot satisfy native-primary acceptance.
+For combined hosts the installed identity is `com.kdt.livecontainer`; installation
+may replace stock LiveContainer. Back up existing guest/container data first.
+
+In addition to the checks above, native-primary reports require:
+
+| Report check | Required observation |
+| --- | --- |
+| `native_primary_bootstrap` | Cold launch opens native VexSign without installing/staging it as a guest. |
+| `host_session_switches` | Explicitly switch VexSign → LC UI → VexSign and embedded SideStore → VexSign; account state is not silently shared. |
+| `single_guest_boundary` | One guest runs at a time; unsupported overlaps fail clearly. |
+| `primary_keychain_guard` | Supported guest mode cannot invoke native account/key export APIs; locked storage fails without replacement. This is not malicious-code isolation. |
+| `installed_inventory_evidence` | Verify actual OS-installed apps separately from imported/staged guests, including exact version/device association. |
+| `v3_provider_explicit_consent` | Exercise a real supported provider with explicit consent; no legacy fallback or account request before approval. Keep provider/device/account evidence private. |
+| `cms_quota_gate` | With the default unavailable CMS verifier, profile UI stops before certificate/registration mutations or quota consumption. |
+| `native_owned_sign_install` | Once production CMS verification is accepted, use an owned native identity, fresh profile/status checks, explicit signing approval and verify the resulting app on the intended device. |
+| `scoped_unattended_renewal` | Exercise an explicit scoped grant, expiry/revocation/cancellation and verified installation; a review queue or success banner is insufficient. |
+
+The final two paths are still incomplete. Leave those observations **pending**;
+a bootstrap/build-only test must not be recorded as full product acceptance.
+The agent/hosted runner cannot perform these physical-device checks.

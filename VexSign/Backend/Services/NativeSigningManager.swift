@@ -2,16 +2,10 @@
 /// Bridges the NativeSigning module's NativeAccountBackend with VexSign's
 /// main app workflows (UnifiedTaskCenter, OptionsManager, SigningProfileStore, etc.).
 ///
-/// This manager handles the complete free Apple ID signing flow:
-/// 1. Apple ID + password authentication (with 2FA)
-/// 2. Team selection (free vs paid)
-/// 3. Device/App ID registration
-/// 4. Certificate creation
-/// 5. Provisioning profile creation
-/// 6. Integration with existing Zsign signing pipeline
-///
-/// All operations are funneled through UnifiedTaskCenter for consistent
-/// progress tracking, history, and retry handling.
+/// Experimental authentication, owner-bound local inventory and profile-only
+/// provisioning UI adapter. Mutations require separate explicit approvals; the
+/// default CMS gate is closed. Native-owned signing, installation and scoped
+/// unattended renewal are not connected to the existing signing pipeline yet.
 
 import Foundation
 import Combine
