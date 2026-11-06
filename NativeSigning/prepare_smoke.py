@@ -310,6 +310,7 @@ def install_smoke_sources(work):
         'Provisioning/NativeProfileReceiptStore.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileReceiptStore.swift',
         'Provisioning/NativeProfileCreationKeychainStore.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreationKeychainStore.swift',
         'Tests/NativeProfileCreationTests.swift': 'Tests/NativeSigningCodecTests/NativeProfileCreationTests.swift',
+        'Provisioning/VexSignProfileTypes.swift': 'Sources/NativeSigningLinkSmoke/VexSignProfileTypes.swift',
         'Provisioning/NativeAccountProfileOperation.swift': 'Sources/NativeSigningLinkSmoke/NativeAccountProfileOperation.swift',
         'Tests/NativeAccountProfileOperationTests.swift': 'Tests/NativeSigningCodecTests/NativeAccountProfileOperationTests.swift',
         'Provisioning/NativeAccountRegistrationApproval.swift': 'Sources/NativeSigningLinkSmoke/NativeAccountRegistrationApproval.swift',

@@ -206,15 +206,16 @@ public actor NativeAccountBackend {
         }
     }
 
-    /// Explicit device-only key/CSR preparation. Idempotently recovers this
-    /// account/team's existing identity, including uncertain submissions.
-    /// Does NOT create an Apple certificate or authorize certificate submission.
+    /// Read-only historical metadata for the current authenticated owner/team.
+    /// Missing storage is not permission to prepare a new identity.
     public func listSigningIdentities(contextID: UUID) async throws -> [NativeSigningIdentityInfo] {
         try requireOpen()
         do { return try await bridge.listSigningIdentities(contextID: contextID) }
-        catch { throw Self.identityError(error) }
+        catch { throw Self.certificateError(error) }
     }
 
+    /// Explicit device-only key/CSR preparation. Recovers existing submissions;
+    /// does not create an Apple certificate or authorize certificate submission.
     public func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {
         try requireOpen()
         do { return try await bridge.prepareSigningIdentity(contextID: contextID) }
