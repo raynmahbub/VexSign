@@ -194,6 +194,19 @@ class PrimaryHostTests(unittest.TestCase):
             build.merge_primary_files(source, self.host)
         self.assertFalse((outside / 'file').exists())
 
+    def test_primary_localized_name_does_not_override_branding_or_privacy(self):
+        (self.host / 'Settings.bundle').mkdir()
+        build.write_plist(self.host / 'Settings.bundle/Root.plist', {'PreferenceSpecifiers': []})
+        build.write_plist(self.host / 'Info.plist', {'CFBundleIdentifier': 'com.kdt.livecontainer'})
+        table = self.host / 'en.lproj/InfoPlist.strings'
+        table.parent.mkdir()
+        build.write_plist(table, {'CFBundleName': 'LiveContainer', 'NSCameraUsageDescription': 'Keep localized privacy text'})
+        build.configure_host_info(self.host, {'CFBundleVersion': '1', 'CFBundleShortVersionString': '1.0'}, 'native-primary')
+        localized = build.read_plist(table)
+        self.assertEqual(localized['CFBundleName'], 'VexSign')
+        self.assertEqual(localized['CFBundleDisplayName'], 'VexSign')
+        self.assertEqual(localized['NSCameraUsageDescription'], 'Keep localized privacy text')
+
     def test_primary_metadata_keeps_real_runtime_identity_and_background_identifiers(self):
         (self.host / 'Settings.bundle').mkdir()
         build.write_plist(self.host / 'Settings.bundle/Root.plist', {'PreferenceSpecifiers': []})

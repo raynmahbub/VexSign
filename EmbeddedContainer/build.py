@@ -375,6 +375,17 @@ def configure_host_info(host, guest_info, mode="guest-prototype"):
             info.setdefault(key, value)
     info["NSBonjourServices"] = list(dict.fromkeys(info.get("NSBonjourServices", []) + guest_info.get("NSBonjourServices", [])))
     write_plist(host / "Info.plist", info)
+    if mode == "native-primary":
+        # Upstream ships localized CFBundleName values as binary string tables;
+        # these must not override the primary branding. Keep all privacy text.
+        for table in sorted(host.glob("*.lproj/InfoPlist.strings")):
+            if table.is_symlink() or not table.resolve().is_relative_to(host.resolve()):
+                raise ValueError("Unsafe localized host metadata")
+            localized = read_plist(table)
+            if not isinstance(localized, dict):
+                raise ValueError("Invalid localized host metadata")
+            localized.update(CFBundleName="VexSign", CFBundleDisplayName="VexSign")
+            write_plist(table, localized)
     settings_path = host / "Settings.bundle/Root.plist"
     settings = read_plist(settings_path)
     if mode == "native-primary":
