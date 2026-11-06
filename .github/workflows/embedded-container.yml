@@ -112,16 +112,48 @@ jobs:
             --build-exit "${NATIVE_EXIT:-1}" --warnings-as-errors false \
             --title 'Native synthetic unit tests' --workspace "$GITHUB_WORKSPACE"
       - name: Build standalone VexSign native input
+        id: native_input
         run: |
-          set -euo pipefail
+          set -uo pipefail
           make VexSign 2>&1 | tee "$RUNNER_TEMP/vexsign-build.log"
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Report standalone build diagnostics
+        if: always() && steps.native_input.outcome != 'skipped'
+        env:
+          BUILD_EXIT: ${{ steps.native_input.outputs.exit_code }}
+        run: |
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/vexsign-build.log" --build-exit "${BUILD_EXIT:-1}" \
+            --warnings-as-errors false --title 'Native input build' --workspace "$GITHUB_WORKSPACE"
+      - name: Preserve unsigned native input
+        if: always() && steps.native_input.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: VexSign-native-input-unsigned
+          path: packages/VexSign.ipa
+          if-no-files-found: error
+          retention-days: 14
       - name: Build native host and combined IPA
+        id: combined
         env:
           GH_TOKEN: ${{ github.token }}
           HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           python3 EmbeddedContainer/build.py --mode "$HOST_MODE" --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Report combined packaging diagnostics
+        if: always() && steps.combined.outcome != 'skipped'
+        env:
+          BUILD_EXIT: ${{ steps.combined.outputs.exit_code }}
+        run: |
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/combined-build.log" --build-exit "${BUILD_EXIT:-1}" \
+            --warnings-as-errors false --title 'Combined native packaging' --workspace "$GITHUB_WORKSPACE"
       - name: Upload combined build and integration sources
         uses: actions/upload-artifact@v7.0.2
         with:

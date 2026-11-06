@@ -95,7 +95,9 @@ Or manually run **Combined native host · build only** with `host_mode=guest-pro
 read-only permissions and no publish job; automatic runs are path-filtered to combined-host inputs. It does not
 require Apple-account/signing/TLS secrets. Its artifact is explicitly labelled
 unvalidated. New combined artifacts are retained for **14 days**, and diagnostic
-logs for **3 days**. Existing uploads keep their previous expiry. The normal
+logs for **3 days**. The successful standalone unsigned native input is also
+retained for 14 days, even if subsequent combined packaging fails; it is not a
+combined-host artifact. All native build phases publish failure diagnostics. Existing uploads keep their previous expiry. The normal
 release workflow remains unchanged.
 
 Outputs (ignored by Git):
