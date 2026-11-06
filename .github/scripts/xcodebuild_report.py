@@ -38,7 +38,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-DIAG_RE = re.compile(r"^(?P<file>/[^:\n]+?):(?P<line>\d+):(?P<col>\d+): (?P<sev>error|warning|note): (?P<msg>.*)$")
+DIAG_RE = re.compile(r"^(?P<file>/[^:\n]+?):(?P<line>\d+):(?:(?P<col>\d+):)? (?P<sev>error|warning|note): (?P<msg>.*)$")
 BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 # xcbeautify / xcpretty style lines are ignored - we only parse the raw log.
 
@@ -200,7 +200,7 @@ def main() -> int:
             entry = {
                 "rel": rel or match["file"],
                 "line": int(match["line"]),
-                "col": int(match["col"]),
+                "col": int(match["col"] or 1),
                 "msg": match["msg"].strip(),
             }
             key = (entry["rel"], entry["line"], entry["col"], entry["msg"])
@@ -352,6 +352,8 @@ def main() -> int:
 
     if build_failed and not errors and not bare_errors:
         tail = [line for line in lines if line.strip()][-60:]
+        annotate("error", "Failed without a parsed diagnostic. Log tail:\n" +
+                 "\n".join(line[:500] for line in tail), title="Unparsed build/test failure")
         out.append("### Log tail (build failed without a parseable diagnostic)")
         out.append("")
         out.append("```text")

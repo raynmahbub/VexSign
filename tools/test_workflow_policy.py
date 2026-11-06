@@ -7,6 +7,7 @@ or GitHub Actions as well for full workflow/schema/expression validation.
 from pathlib import Path
 import fnmatch
 import re
+import runpy
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +39,15 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_native_diagnostics_parse_both_compiler_and_xctest_locations(self):
+        parser = runpy.run_path(str(ROOT / '.github/scripts/xcodebuild_report.py'))['DIAG_RE']
+        for location, column in [('12:7:', '7'), ('12:', None)]:
+            match = parser.match(f'/tmp/Fixture.swift:{location} error: Fixture.testCase : assertion failed')
+            self.assertIsNotNone(match)
+            self.assertEqual(match['line'], '12')
+            self.assertEqual(match['col'], column)
+            self.assertIn('assertion failed', match['msg'])
+
     def test_pull_requests_run_only_path_filtered_validators(self):
         validators = {*VALIDATORS, 'docs.yml'}
         for path in WORKFLOWS.glob('*.yml'):
