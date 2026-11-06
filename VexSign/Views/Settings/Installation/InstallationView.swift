@@ -67,6 +67,10 @@ struct InstallationView: View {
 			Section {
 				NavigationLink(.localized("OTA certificate and trust setup")) { NBList(.localized("Server & SSL")) { ServerView() } }
 				NavigationLink(.localized("Pairing file and VPN setup")) { NBList(.localized("Tunnel")) { TunnelView() } }
+                if !EmbeddedContainerRuntime.isAvailable {
+                    Link(.localized("Combined host setup and limitations"), destination: URL(string: "https://github.com/raynmahbub/VexSign/blob/main/EmbeddedContainer/README.md")!)
+                    Link(.localized("Experimental combined host builds"), destination: URL(string: "https://github.com/raynmahbub/VexSign/actions/workflows/embedded-container.yml")!)
+                }
 				Button(.localized("Recheck installation prerequisites"), action: _refreshPreflight)
 			}
 		}
@@ -123,7 +127,8 @@ struct InstallationView: View {
 			HStack(spacing: 6) {
 				Text(report.method.title)
 					.font(.subheadline.weight(.semibold))
-					.lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
 
 				if isSelected {
 					Image(systemName: "checkmark.circle.fill")

@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 import tempfile
@@ -76,14 +77,27 @@ class ChangelogTests(unittest.TestCase):
             git('commit', '--allow-empty', '-qm', 'fix: after stable')
             git('tag', 'v1.1.0-nightly.1')
             git('commit', '--allow-empty', '-qm', 'feat: after nightly')
+            git('commit', '--allow-empty', '-qm', 'fix(parser)!: scoped breaking fix')
+            git('commit', '--allow-empty', '-qm', '123 unclassified subject')
+            # Model BSD sed's rejection of inline branch separators even on
+            # Linux; all other work still runs through the real sed binary.
+            shim = Path(directory) / 'bin'
+            shim.mkdir()
+            sed = shim / 'sed'
+            sed.write_text('#!/bin/sh\ncase "$*" in *";t;"*) echo "BSD sed: undefined label" >&2; exit 1;; esac\nexec "$REAL_SED" "$@"\n')
+            sed.chmod(0o755)
             script = str(assets.ROOT / 'tools/generate-changelog.sh')
             def notes(version, **extra):
                 return subprocess.check_output(['bash', script], cwd=directory, text=True,
-                    env={**os.environ, 'VERSION': version, **extra})
+                    env={**os.environ, 'VERSION': version, 'REAL_SED': shutil.which('sed'),
+                         'PATH': str(shim) + os.pathsep + os.environ['PATH'], **extra})
             stable = notes('1.1.0')
             self.assertIn('after stable', stable)
             self.assertIn('after nightly', stable)
             self.assertNotIn('- initial', stable)
+            self.assertIn('- scoped breaking fix', stable)
+            self.assertIn('### Other changes', stable)
+            self.assertIn('- 123 unclassified subject', stable)
             empty = notes('1.1.0-nightly.2', BASE_SHA=git('rev-parse', 'HEAD').strip())
             self.assertIn('No source changes', empty)
             self.assertNotIn('- after nightly', empty)

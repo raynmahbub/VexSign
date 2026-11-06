@@ -9,6 +9,22 @@ final class NativeAccountBackendTests: XCTestCase {
         try AnisetteProviderDescriptor(identifier: "fixture", displayName: "Synthetic provider", policyRevision: "1", endpoint: endpoint)
     }
 
+    func testAccountErrorsHaveSafeActionableDescriptions() {
+        let errors: [NativeAccountBackendError] = [
+            .alreadyInUse, .busy, .closed, .unsupportedRuntime, .invalidConfiguration,
+            .consentRequired, .providerChanged, .providerFailed, .accountAlreadyActive,
+            .noSavedAccount, .resumeRequired, .cleanupRequired, .authenticationFailed,
+            .unsupportedTeam, .sessionExpired, .storageUnavailable
+        ]
+        for error in errors {
+            XCTAssertNotNil(error.errorDescription)
+            XCTAssertFalse(error.localizedDescription.contains("NativeAccountBackendError"))
+            XCTAssertFalse(error.localizedDescription.isEmpty)
+        }
+        XCTAssertTrue(NativeAccountBackendError.unsupportedRuntime.localizedDescription.contains("guest"))
+        XCTAssertTrue(NativeAccountBackendError.busy.localizedDescription.contains("Wait"))
+    }
+
     func testRuntimeFlagMatchesExistingGuestGuard() {
         XCTAssertFalse(AppleAccountStorageRuntimePolicy.isGuestBuild(metadata: [:]))
         XCTAssertFalse(AppleAccountStorageRuntimePolicy.isGuestBuild(metadata: ["VexSignEmbeddedGuest": false]))

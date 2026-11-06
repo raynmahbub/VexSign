@@ -154,7 +154,9 @@ done
 printf '%s\n' "$COMMITS" | while IFS= read -r line; do
     [ -z "$line" ] && continue
     subj="$(printf '%s' "$line" | cut -d' ' -f2-)"
-    prefix="$(printf '%s' "$subj" | sed -E 's/^([a-zA-Z][a-zA-Z0-9_-]*).*$/\1/;t;s/.*//')"
+    # BSD sed treats text after `t` as its label, including semicolons.
+    # Separate expressions work with both BSD sed (macOS) and GNU sed.
+    prefix="$(printf '%s' "$subj" | sed -E -e 's/^([a-zA-Z][a-zA-Z0-9_-]*).*$/\1/' -e t -e 's/.*//')"
     section="$(section_for_prefix "$prefix")"
     bullet="$(format_bullet "$line")"
     case "$section" in

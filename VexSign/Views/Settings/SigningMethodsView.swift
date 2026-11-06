@@ -134,7 +134,7 @@ struct SigningMethodsView: View {
             await nativeManager.synchronizeProvider()
             await nativeManager.renewExpiringProfiles()
         }
-        .sheet(isPresented: $showAppleIDLogin) {
+        .sheet(isPresented: $showAppleIDLogin, onDismiss: { password = "" }) {
             AppleIDLoginView(
                 appleID: $appleID,
                 password: $password,
@@ -154,10 +154,18 @@ struct SigningMethodsView: View {
                 )
             }
         }
-        .alert(.localized("Two-Factor Authentication"), isPresented: .constant(pendingChallenge != nil), presenting: pendingChallenge) { challenge in
+        .alert(.localized("Two-Factor Authentication"), isPresented: Binding(
+            get: { pendingChallenge != nil },
+            set: { if !$0 { pendingChallenge = nil } }
+        ), presenting: pendingChallenge) { challenge in
             TextField(.localized("6-digit code"), text: $twoFactorCode)
             Button(.localized("Cancel"), role: .cancel) {
+                if let operation = pendingOperation {
+                    Task { await nativeManager.cancelAuthentication(operationID: operation.id) }
+                }
+                pendingOperation = nil
                 pendingChallenge = nil
+                twoFactorCode = ""
             }
             Button(.localized("Submit")) {
                 Task { await submitTwoFactor(challenge) }
@@ -165,6 +173,38 @@ struct SigningMethodsView: View {
             .disabled(twoFactorCode.count != 6)
         } message: { challenge in
             Text(.localized("Enter the verification code sent to your trusted device"))
+        }
+        .task(id: pendingOperation?.id) {
+            guard let operation = pendingOperation else { return }
+            // Authentication continues after startAuthentication returns. Consume
+            // its buffered challenges instead of checking one early snapshot.
+            for await challenge in operation.challenges {
+                guard !Task.isCancelled, pendingOperation?.id == operation.id else { return }
+                twoFactorCode = ""
+                pendingChallenge = challenge
+            }
+        }
+        .onChange(of: nativeManager.snapshot) { snapshot in
+            guard let operation = pendingOperation, let phase = snapshot?.phase else { return }
+            switch phase {
+            case .awaitingTeamSelection(let id, _, _) where id == operation.id:
+                pendingChallenge = nil
+                showTeamSelection = true
+            case .signedIn:
+                pendingChallenge = nil
+                pendingOperation = nil
+                showTeamSelection = false
+            default: break
+            }
+        }
+        .onDisappear {
+            if let operation = pendingOperation {
+                Task { await nativeManager.cancelAuthentication(operationID: operation.id) }
+            }
+            pendingOperation = nil
+            pendingChallenge = nil
+            password = ""
+            twoFactorCode = ""
         }
     }
 
@@ -423,6 +463,7 @@ private struct AppleIDLoginView: View {
     @Binding var isAuthenticating: Bool
     @Binding var authError: String?
     let onSubmit: () -> Void
+    @State private var providerConsent = false
 
     var body: some View {
         NavigationStack {
@@ -434,10 +475,11 @@ private struct AppleIDLoginView: View {
                     SecureField(.localized("Password"), text: $password)
                         .textContentType(.password)
                     TextField(.localized("Xcode Version"), text: $xcodeVersion)
+                    Toggle(.localized("I approve using the selected anisette provider"), isOn: $providerConsent)
                 } header: {
                     Text(.localized("Credentials"))
                 } footer: {
-                    Text(.localized("Your Apple ID and password are used only for authentication with Apple's servers. They are never stored, logged, or sent to any third party."))
+                    Text(.localized("Your password is used to authenticate with Apple. The selected anisette provider receives provisioning and device metadata, not your Apple ID or password. Session tokens may be saved in device-only Keychain storage."))
                         .font(.caption)
                 }
 
@@ -454,7 +496,7 @@ private struct AppleIDLoginView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(.localized("Sign In")) { onSubmit() }
-                        .disabled(appleID.isEmpty || password.isEmpty || isAuthenticating)
+                        .disabled(appleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || isAuthenticating || !providerConsent)
                 }
             }
             .overlay {
@@ -465,7 +507,7 @@ private struct AppleIDLoginView: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 }
 

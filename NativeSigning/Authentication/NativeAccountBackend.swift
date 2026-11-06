@@ -9,6 +9,31 @@ public enum NativeAccountBackendError: Error, Equatable {
     case authenticationFailed, unsupportedTeam, sessionExpired, storageUnavailable
 }
 
+// Only fixed, actionable text crosses the UI boundary. Never include provider
+// responses, credentials, account identifiers or Keychain data in these errors.
+extension NativeAccountBackendError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .alreadyInUse: return "Another native account session still owns secure storage. Close the previous session and retry. If it persists, restart VexSign."
+        case .busy: return "An account operation is still running. Wait for it to finish or cancel it before signing in again."
+        case .closed: return "The account session was closed. Reopen Signing Methods and try again."
+        case .unsupportedRuntime: return "Apple ID authentication is unavailable inside a LiveContainer guest. Open standalone VexSign or the native-primary combined host, not the guest prototype."
+        case .invalidConfiguration: return "The native account configuration is invalid. Check the selected anisette provider in Settings before retrying."
+        case .consentRequired: return "Review and approve the anisette provider disclosure before signing in."
+        case .providerChanged: return "The anisette provider changed. Review the new provider and sign in again."
+        case .providerFailed: return "The anisette provider could not complete the request. Check connectivity and the selected provider, then retry."
+        case .accountAlreadyActive: return "An Apple account is already active. Use the existing session or sign out before adding another account."
+        case .noSavedAccount: return "No saved Apple account session is available. Sign in again."
+        case .resumeRequired: return "A saved Apple account session needs to be resumed before starting a new sign-in."
+        case .cleanupRequired: return "Secure account cleanup is incomplete. Finish account cleanup before signing in again."
+        case .authenticationFailed: return "Apple account authentication did not complete. Check your credentials and verification code, connectivity, and anisette provider before retrying."
+        case .unsupportedTeam: return "The selected Apple developer team is not supported by this operation. Select a supported team."
+        case .sessionExpired: return "Your Apple account session expired. Sign in again."
+        case .storageUnavailable: return "Device-only Keychain storage is unavailable. Unlock this device and retry in the primary VexSign app."
+        }
+    }
+}
+
 public enum NativeAccountMembership: Equatable, Sendable {
     case free, paidVerified, developerProgramUnverified
 }
