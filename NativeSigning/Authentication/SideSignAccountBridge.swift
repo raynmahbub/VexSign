@@ -242,12 +242,15 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
             }
             await broker.cancel()
         } catch {
+            // Coordinator failure cleanup cancels its registered worker (this
+            // task). Preserve the original outcome before cleanup changes it.
+            let wasCancelled = error is CancellationError || Task.isCancelled
             _ = await coordinator.failAuthentication(operation: operation)
             await broker.cancel()
             guard generation == flow, active?.operation == operation else { return }
             active?.deadline.cancel()
             active = nil
-            if error is CancellationError || Task.isCancelled { observer?.yield(.cancelled(operation)) }
+            if wasCancelled { observer?.yield(.cancelled(operation)) }
             else { observer?.yield(.failed(operation, safeFailure(error))) }
         }
     }

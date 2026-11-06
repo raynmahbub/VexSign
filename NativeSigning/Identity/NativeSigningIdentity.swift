@@ -195,7 +195,7 @@ actor NativeSigningIdentityCoordinator<Store: NativeSigningIdentityStorage, Gene
     private let generator: Generator
     init(store: Store, generator: Generator) { self.store = store; self.generator = generator }
 
-    func localIdentity(owner: NativeSigningIdentityOwner, now: Date) throws -> NativeSigningIdentityInfo? {
+    func localIdentity(owner: NativeSigningIdentityOwner, now: Date) async throws -> NativeSigningIdentityInfo? {
         try Task.checkCancellation()
         guard now.timeIntervalSince1970.isFinite else { throw NativeSigningIdentityError.invalidRecord }
         guard let record = try store.read(owner: owner) else { return nil }
