@@ -23,7 +23,7 @@ final class NativeAccountBackendTests: XCTestCase {
         }
         lease = nil
         let next = try NativeAccountNamespaceLease.acquire()
-        withExtendedLifetime(next) {
+        try withExtendedLifetime(next) {
             XCTAssertThrowsError(try NativeAccountNamespaceLease.acquire())
         }
     }

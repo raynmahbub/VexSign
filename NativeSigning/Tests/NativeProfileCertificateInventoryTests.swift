@@ -1,6 +1,5 @@
 import Foundation
 import XCTest
-import SideSign
 @testable import NativeSigningLinkSmoke
 
 /// DTO/bounds fixtures. No real HTTP, certificate trust or actual Apple inventory.

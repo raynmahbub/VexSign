@@ -86,6 +86,10 @@ final class NativeCertificateCreationTests: XCTestCase {
         }
     }
     private struct ProfileStore: NativeProfileCreationStorage {
+        func listAllRecords(owner: NativeSigningIdentityOwner) throws -> [NativeProfileCreationRecord] {
+            XCTFail("Default CMS gate must prevent profile journal enumeration")
+            throw NativeProfileCreationError.storageUnavailable
+        }
         func read(owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) -> NativeProfileCreationRecord? { nil }
         func insertIntent(_ record: NativeProfileCreationRecord, owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws {
             XCTFail("Resource rejection must occur before intent"); throw NativeProfileCreationError.storageUnavailable
@@ -179,6 +183,11 @@ final class NativeCertificateCreationTests: XCTestCase {
             let observed = registrations.lock.withLock { $0?.id == operationID && $0?.phase == .uncertain }
             await calls.registered(intent: observed)
             if failSend { throw URLError(.timedOut) }
+        }
+        func downloadProvisioningProfile(encodedSession: Data, headers: AnisetteData, teamIdentifier: String,
+                                         profileUUID: UUID, now: Date) async throws -> Data {
+            XCTFail("Default CMS gate must prevent profile download")
+            throw NativeProfileCreationError.inventoryRejected
         }
         func profileCertificateInventory(team: Team, session: Session) async throws -> [NativeProfileCertificateObservation] {
             XCTFail("Default CMS gate must prevent certificate I/O"); return []

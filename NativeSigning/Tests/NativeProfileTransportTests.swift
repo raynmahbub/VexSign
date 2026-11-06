@@ -1,6 +1,5 @@
 import Foundation
 import XCTest
-import SideSign
 @testable import NativeSigningLinkSmoke
 
 /// DTO/selection fixtures only: no real HTTP, CMS verification or Apple mutation.

@@ -18,6 +18,12 @@ final class NativeProfileCreationTests: XCTestCase {
         func read(owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) -> NativeProfileCreationRecord? {
             lock.withLock { $0.reads += 1; return $0.row }
         }
+        func listAllRecords(owner: NativeSigningIdentityOwner) -> [NativeProfileCreationRecord] {
+            lock.withLock { state in
+                guard let row = state.row, row.ownerDigest == owner.digest else { return [] }
+                return [row]
+            }
+        }
         func insertIntent(_ record: NativeProfileCreationRecord, owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws {
             try record.validate(owner: owner, request: request)
             try lock.withLock {
