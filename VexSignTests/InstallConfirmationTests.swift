@@ -112,13 +112,21 @@ final class InstallConfirmationTests: XCTestCase {
 		XCTAssertEqual(confirmation.record(probe: app(version: "1.2.0"), at: at(20)), .finished(.installed))
 	}
 
-	func testAMissingAppIsReportedAsNotInstalledAfterTheSettleWindow() {
+	func testMissingAppWaitsForFullConfirmationDeadline() {
 		var confirmation = confirmation()
 		verifying(&confirmation)
 
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(12)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: missing, at: at(31)), .finished(.notInstalled))
+		XCTAssertEqual(confirmation.record(probe: missing, at: at(31)), .verifying)
+        XCTAssertEqual(confirmation.record(probe: missing, at: at(610)), .finished(.notInstalled))
 	}
+
+    func testDelayedInstalledEvidenceAfterSettleStillCompletes() {
+        var confirmation = confirmation()
+        verifying(&confirmation)
+        XCTAssertEqual(confirmation.record(probe: missing, at: at(31)), .verifying)
+        XCTAssertEqual(confirmation.record(probe: app(version: "1.2.0"), at: at(45)), .finished(.installed))
+    }
 
 	func testUnknownEvidenceNeverClaimsSuccess() {
 		var confirmation = confirmation()
@@ -205,9 +213,33 @@ final class InstallConfirmationTests: XCTestCase {
 		XCTAssertEqual(verdict, .installed)
 	}
 
+    func testWatcherAcceptsNewAppearanceWithoutProgressCounter() async {
+        let verdict = await InstallWatcher.watch(
+            confirmation(), probe: ScriptedProbe([missing, app()]),
+            progress: ProgressScript([nil]).closure, interval: .zero
+        )
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testExistingAppWithoutProgressDoesNotProveNewInstall() async {
+        let verdict = await InstallWatcher.watch(
+            confirmation(limits: .init(start: 0, verify: 0, settle: 0)),
+            probe: FixedProbe(app()), progress: ProgressScript([nil]).closure, interval: .zero
+        )
+        XCTAssertEqual(verdict, .timedOutWaiting)
+    }
+
+    func testUnknownBaselineDoesNotProveNewInstall() async {
+        let verdict = await InstallWatcher.watch(
+            confirmation(limits: .init(start: 0, verify: 0, settle: 0)),
+            probe: ScriptedProbe([nil, app()]), progress: ProgressScript([nil]).closure, interval: .zero
+        )
+        XCTAssertEqual(verdict, .timedOutWaiting)
+    }
+
 	func testWatcherNeverReportsSuccessWhenTheAppIsMissing() async {
 		let verdict = await InstallWatcher.watch(
-			confirmation(limits: .init(start: 120, verify: 600, settle: 0)),
+			confirmation(limits: .init(start: 120, verify: 0, settle: 0)),
 			probe: FixedProbe(missing),
 			progress: ProgressScript([0.4, 0]).closure,
 			interval: .zero
@@ -251,4 +283,12 @@ private final class ProgressScript: Sendable {
 			}
 		}
 	}
+}
+
+private final class ScriptedProbe: InstalledAppProbing {
+    private let values: OSAllocatedUnfairLock<[InstalledApp?]>
+    init(_ values: [InstalledApp?]) { self.values = OSAllocatedUnfairLock(initialState: values) }
+    func installedApp(for bundleIdentifier: String) -> InstalledApp? {
+        values.withLock { values in values.isEmpty ? nil : values.removeFirst() }
+    }
 }

@@ -101472,6 +101472,149 @@
           }
         }
       }
+    },
+    "HTTPS Setup Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS Setup Required"
+          }
+        }
+      }
+    },
+    "Installation Details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation Details"
+          }
+        }
+      }
+    },
+    "Installation Not Confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation Not Confirmed"
+          }
+        }
+      }
+    },
+    "Local HTTPS is not trusted. Export the Root CA profile in Settings → Installation → Server & SSL, install it, then enable Full Trust in iOS Certificate Trust Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local HTTPS is not trusted. Export the Root CA profile in Settings → Installation → Server & SSL, install it, then enable Full Trust in iOS Certificate Trust Settings."
+          }
+        }
+      }
+    },
+    "Server (Recommended):\nUses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced):\nUses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback\nAdvantage: It is very reliable, does not require a local HTTPS certificate or an externally hosted server. It works similarly to a computer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server (Recommended):\nUses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced):\nUses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback\nAdvantage: It is very reliable, does not require a local HTTPS certificate or an externally hosted server. It works similarly to a computer."
+          }
+        }
+      }
+    },
+    "This installation method is intended for advanced users only!\n\nIt requires a VPN and a pairing file from a PC.\n\nWe recommend using the server installation method unless pairing and VPN are configured." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This installation method is intended for advanced users only!\n\nIt requires a VPN and a pairing file from a PC.\n\nWe recommend using the server installation method unless pairing and VPN are configured."
+          }
+        }
+      }
+    },
+    "VexSign could not confirm installation. If the app is already on your Home Screen, close this dialog and open it there. Otherwise review installation details before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign could not confirm installation. If the app is already on your Home Screen, close this dialog and open it there. Otherwise review installation details before retrying."
+          }
+        }
+      }
+    },
+    "VexSign could not confirm the installation before the deadline. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign could not confirm the installation before the deadline. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying."
+          }
+        }
+      }
+    },
+    "VexSign is free and open source. Third-party license notices are included with the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign is free and open source. Third-party license notices are included with the app."
+          }
+        }
+      }
+    },
+    "View installation details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View installation details"
+          }
+        }
+      }
+    },
+    "Local HTTPS verification failed. Check the identity in Settings → Installation → Server & SSL, export and install its Root CA profile, then enable Full Trust in iOS Certificate Trust Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local HTTPS verification failed. Check the identity in Settings → Installation → Server & SSL, export and install its Root CA profile, then enable Full Trust in iOS Certificate Trust Settings."
+          }
+        }
+      }
+    },
+    "Root CA trust setup required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Root CA trust setup required"
+          }
+        }
+      }
+    },
+    "System trust confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System trust confirmed"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

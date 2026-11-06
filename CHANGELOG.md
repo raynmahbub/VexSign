@@ -57,6 +57,15 @@ No changes queued after 1.1.0.
 
 ### Fixed
 
+- Installation confirmation no longer treats a negative lookup after the short
+  version-settle window as immediate failure. New matching-app appearances can
+  confirm installs when iOS exposes no progress counter, but unknown/pre-existing
+  app states are not proof of a new install. Completed queue sheets dismiss.
+- Shorter install recovery alerts separate technical details, omit empty waiting
+  counts, and distinguish unconfirmed installation from a known rejection.
+- About is first in Settings. Corrected English setup wording, removed promotional
+  attribution phrasing (retaining licenses), and added contextual install/setup haptics.
+
 - Signing now stops before library registration when post-sign structural
   verification fails. Known uncovered retained extensions are rejected before
   signing; users must choose a compatible profile or explicitly remove extensions.
