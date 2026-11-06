@@ -11,6 +11,11 @@ Both channels build the same unsigned IPA, verify the built `CFBundleShortVersio
 against the tag, and attach `SHA256SUMS` plus a generated changelog. The IPA still
 requires a signing identity to install.
 
+Stable versions with reviewed `docs/releases/<version>.md` notes use those
+notes and a commit-pinned link to `CHANGELOG.md`, rather than republishing raw
+historical commit subjects as feature-readiness claims. `RELEASE.json` records
+the notes source. Versions without reviewed notes retain generated history.
+
 ## Stable release
 
 1. Bump every `MARKETING_VERSION` setting on main when you want a new version.

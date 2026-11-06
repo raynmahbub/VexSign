@@ -33,6 +33,20 @@ class ReleaseAssetTests(unittest.TestCase):
                     self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), digest)
                 self.assertEqual(len((output / 'SHA256SUMS').read_text().splitlines()), 5)
 
+    def test_reviewed_stable_notes_do_not_republish_obsolete_commit_claims(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'VexSign.ipa').write_bytes(b'synthetic artifact')
+            with patch.object(assets.subprocess, 'check_output', side_effect=[
+                    'a' * 40, 'feat: obsolete claim of complete native signing and unattended renewal']):
+                assets.prepare(output, '1.1.0', 'stable', 'owner/repo')
+            notes = (output / 'CHANGELOG.md').read_text()
+            self.assertNotIn('obsolete claim', notes)
+            self.assertIn('Not complete:', notes)
+            self.assertIn('default CMS gate remains closed', notes)
+            self.assertIn('versioned changelog', notes)
+            self.assertEqual(json.loads((output / 'RELEASE.json').read_text())['notes_source'], 'reviewed-version-notes')
+
     def test_missing_or_ambiguous_ipa(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
