@@ -164,6 +164,7 @@ final class NativeSigningManager: ObservableObject {
             let backend = try NativeAccountBackend(provider: descriptor)
             self.backend = backend
             self.isBackendReady = true
+            self.lastError = nil
             startEventObservation()
             Task { await refreshSnapshot() }
         } catch {

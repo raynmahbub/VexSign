@@ -39,7 +39,7 @@ final class InstallPreflightTests: XCTestCase {
 	// MARK: - Server
 
 	func testCertificatePresenceDoesNotImplySystemTrust() {
-        guard case .unknown = readiness(.server, cert: true) else {
+        guard case .missing = readiness(.server, cert: true) else {
             return XCTFail("A profile must be trusted, not merely present")
         }
     }

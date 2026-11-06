@@ -101395,6 +101395,50 @@
           }
         }
       }
+    },
+    "Combined host setup and limitations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combined host setup and limitations"
+          }
+        }
+      }
+    },
+    "Experimental combined host builds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental combined host builds"
+          }
+        }
+      }
+    },
+    "I approve using the selected anisette provider" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I approve using the selected anisette provider"
+          }
+        }
+      }
+    },
+    "Your password is used to authenticate with Apple. The selected anisette provider receives provisioning and device metadata, not your Apple ID or password. Session tokens may be saved in device-only Keychain storage." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your password is used to authenticate with Apple. The selected anisette provider receives provisioning and device metadata, not your Apple ID or password. Session tokens may be saved in device-only Keychain storage."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

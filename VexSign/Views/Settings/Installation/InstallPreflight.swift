@@ -87,7 +87,7 @@ enum InstallPreflight {
 		switch method {
 		case .server:
 			return inputs.hasServerCertificate
-				? (inputs.hasTrustedServerCertificate ? .ready : .unknown(.localized("A local identity exists, but system trust has not been confirmed. Export and install its Root CA profile in Server & SSL, then enable Full Trust in system Settings → General → About → Certificate Trust Settings.")))
+				? (inputs.hasTrustedServerCertificate ? .ready : .missing(.localized("A local identity exists, but system trust has not been confirmed. Export and install its Root CA profile in Server & SSL, then enable Full Trust in system Settings → General → About → Certificate Trust Settings.")))
 				: .missing(.localized("No local server certificate is available. Open Server & SSL to check the device identity, then export and trust its Root CA profile."))
 
 		case .idevice:
