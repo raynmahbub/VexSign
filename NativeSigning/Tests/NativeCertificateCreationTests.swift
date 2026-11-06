@@ -10,6 +10,14 @@ final class NativeCertificateCreationTests: XCTestCase {
     private static let now = Date(timeIntervalSince1970: 10_000)
     private actor Vault: NativeSigningIdentityManaging {
         private var pauseStatus = false
+        private let exportFixture: Bool
+        private var keyReads = 0
+        func privateKeyReadCount() -> Int { keyReads }
+        func privateKeyDER(owner: NativeSigningIdentityOwner, identityID: UUID, now: Date) async throws -> Data {
+            keyReads += 1
+            // Deliberately fail before PKCS#12 encoding; no usable key fixture.
+            throw NativeSigningIdentityError.generationFailed
+        }
         private var statusEntered = false
         private var statusEntry: CheckedContinuation<Void, Never>?
         private var statusRelease: CheckedContinuation<Void, Never>?
@@ -29,12 +37,18 @@ final class NativeCertificateCreationTests: XCTestCase {
                 await withCheckedContinuation { statusRelease = $0 }
             }
             try Task.checkCancellation()
+            if exportFixture, identityID == self.identityID, phase == .certificateRecorded {
+                // Grant-order fixture only, not a cryptographic ownership proof.
+                return .init(identityID: identityID, certificateIdentifier: "SYNTHETIC", certificateDER: Data([1]))
+            }
             // This synthetic vault deliberately has no usable status certificate.
             throw NativeSigningIdentityError.reconciliationRequired
         }
         let identityID = UUID()
         private var phase: NativeSigningIdentityPhase
-        init(phase: NativeSigningIdentityPhase = .prepared) { self.phase = phase }
+        init(phase: NativeSigningIdentityPhase = .prepared, exportFixture: Bool = false) {
+            self.phase = phase; self.exportFixture = exportFixture
+        }
         private func value() -> NativeSigningIdentityTicket {
             .init(id: identityID, teamIdentifier: "ABCDE12345", phase: phase, publicKeySHA256: "fixture", csrSHA256: "fixture")
         }
@@ -230,8 +244,9 @@ final class NativeCertificateCreationTests: XCTestCase {
                              creationDate: now.addingTimeInterval(-10), expirationDate: now.addingTimeInterval(600)))
     }
     private static func fixture(failSend: Bool = false, phase: NativeSigningIdentityPhase = .prepared,
-                                profileValidator: NativeProvisioningProfileValidator = .init()) async throws -> (Bridge, Vault, Calls, UUID, AnisetteConsentToken) {
-        let vault = Vault(phase: phase); let calls = Calls(); let store = Store()
+                                profileValidator: NativeProvisioningProfileValidator = .init(),
+                                exportFixture: Bool = false) async throws -> (Bridge, Vault, Calls, UUID, AnisetteConsentToken) {
+        let vault = Vault(phase: phase, exportFixture: exportFixture); let calls = Calls(); let store = Store()
         let registrations = RegistrationStore()
         let portal = Portal(vault: vault, calls: calls, failSend: failSend, registrations: registrations)
         let descriptor = try AnisetteProviderDescriptor(identifier: "fixture", displayName: "Fixture", policyRevision: "1", endpoint: nil)
@@ -244,6 +259,37 @@ final class NativeCertificateCreationTests: XCTestCase {
         let snapshot = await bridge.snapshot()
         guard case .signedIn(let context) = snapshot.phase else { throw NativeSigningIdentityError.contextChanged }
         return (bridge, vault, calls, context.id, consent)
+    }
+
+    func testFailedExportConsumesGrantBeforePrivateKeyReadAndReplay() async throws {
+        let (bridge, vault, _, context, _) = try await Self.fixture(phase: .certificateRecorded, exportFixture: true)
+        let id = await vault.identityID
+        let grant = try await bridge.recordExplicitKeyExportConsent(contextID: context, identityID: id)
+        do {
+            _ = try await bridge.exportSigningIdentity(contextID: context, identityID: id, password: "synthetic", consent: grant)
+            XCTFail("Synthetic key read deliberately fails")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .generationFailed) }
+        do {
+            _ = try await bridge.exportSigningIdentity(contextID: context, identityID: id, password: "synthetic", consent: grant)
+            XCTFail("Failed export must require fresh explicit approval")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .creationApprovalRequired) }
+        let reads = await vault.privateKeyReadCount()
+        XCTAssertEqual(reads, 1)
+        await bridge.shutdown()
+    }
+
+    func testRevokedExportGrantNeverReachesPrivateKeyRead() async throws {
+        let (bridge, vault, _, context, _) = try await Self.fixture(phase: .certificateRecorded, exportFixture: true)
+        let id = await vault.identityID
+        let grant = try await bridge.recordExplicitKeyExportConsent(contextID: context, identityID: id)
+        await bridge.revokeKeyExportConsent()
+        do {
+            _ = try await bridge.exportSigningIdentity(contextID: context, identityID: id, password: "synthetic", consent: grant)
+            XCTFail("Revoked consent must fail before private key access")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .creationApprovalRequired) }
+        let reads = await vault.privateKeyReadCount()
+        XCTAssertEqual(reads, 0)
+        await bridge.shutdown()
     }
 
     func testAnisetteConsentAloneCannotAuthorizeMutation() async throws {
