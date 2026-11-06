@@ -113,9 +113,11 @@ No version bump means nightly-only; published versions/tags are never overwritte
 
 Every job requires an explicitly **public** repository before runner allocation.
 Private copies skip jobs rather than using private-repository minutes. Only
-standard `ubuntu-24.04` / `macos-15` runners are allowed; Actions uploads retain
-artifacts for at most **three days**. There are no model permissions, inference
-calls, larger runners, paid agents or provisioned self-hosted services.
+standard `ubuntu-24.04` / `macos-15` runners are allowed. Diagnostic and
+release-staging uploads retain artifacts for at most **three days**; temporary unsigned CI IPA bundles retain
+for **14 days** for device testing. Existing uploads keep their original expiry.
+There are no model permissions, inference calls, larger runners, paid agents or
+provisioned self-hosted services.
 
 For a strict zero-spend account setup, also:
 

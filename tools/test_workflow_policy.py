@@ -191,7 +191,16 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
-            for retention in re.findall(r'retention-days: (\d+)', text):
+            # The device-testing IPA is an explicit 14-day exception; logs,
+            # quick findings and release-staging artifacts stay at <= 3 days.
+            retention_text = text
+            if path.name == 'ci.yml':
+                match = re.search(r'(?ms)^      - name: Upload unsigned test IPA\n.*?(?=^      - name:)', text)
+                self.assertIsNotNone(match)
+                self.assertIn('retention-days: 14', match[0])
+                self.assertEqual(re.findall(r'retention-days: (\d+)', match[0]), ['14'])
+                retention_text = text[:match.start()] + text[match.end():]
+            for retention in re.findall(r'retention-days: (\d+)', retention_text):
                 self.assertLessEqual(int(retention), 3)
         for removed in ('repair-agent.yml', 'autopilot.yml', 'auto-stable.yml',
                         'dependency-audit.yml', 'server-tests.yml', 'ecosystem.yml'):
@@ -227,6 +236,103 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("workflow_run.conclusion == 'success'", version)
         self.assertIn('contents: read', block(version, 'permissions', 4))
         self.assertNotIn('contents: write', block(version, 'permissions', 4))
+
+    def test_ci_offers_disposable_ipa_without_release_permissions(self):
+        text = (WORKFLOWS / 'ci.yml').read_text()
+        build = block(text, 'build', 2)
+        self.assertIn('needs: quick', build)
+        self.assertIn("inputs.validation != 'quick'", build)
+        self.assertNotIn('contents: write', text)
+        self.assertNotIn('environment: release', text)
+        self.assertNotIn('gh release', text)
+        self.assertLess(build.index('name: Report diagnostics'), build.index('name: Package unsigned test IPA'))
+        self.assertIn('Debug-iphoneos/VexSign.app', build)
+        self.assertIn('ditto -c -k --keepParent Payload', build)
+        self.assertIn('name: VexSign-unsigned-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}', build)
+        self.assertRegex(build, r'(?s)name: Upload unsigned test IPA.*?retention-days: 14')
+        self.assertIn('if-no-files-found: error', build)
+        self.assertIn('Check the separate simulator-test job', build)
+
+    def test_ci_ipa_packaging_layout_metadata_and_rejections(self):
+        """Exercise the actual workflow shell with a ditto stand-in, not a native build."""
+        import hashlib
+        import json
+        import os
+        import plistlib
+        import shutil
+        import subprocess
+        import tempfile
+        import textwrap
+        import zipfile
+
+        if not shutil.which('bash') or not shutil.which('shasum'):
+            self.skipTest('bash/shasum unavailable')
+        text = (WORKFLOWS / 'ci.yml').read_text()
+        step = text.split('      - name: Package unsigned test IPA\n', 1)[1].split('\n      - name:', 1)[0]
+        script = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_path = root / 'bin'
+            bin_path.mkdir()
+            # Model ditto's two operations for offline shell/structure checks.
+            # Apple's archive metadata/symlink handling still needs a macOS run.
+            ditto = bin_path / 'ditto'
+            ditto.write_text('#!/usr/bin/env python3\n' + textwrap.dedent('''\
+                import pathlib, shutil, sys, zipfile
+                args = sys.argv[1:]
+                if args[:4] == ['-c', '-k', '--keepParent', 'Payload']:
+                    with zipfile.ZipFile(args[4], 'w') as archive:
+                        for path in pathlib.Path('Payload').rglob('*'):
+                            if path.is_file(): archive.write(path, path.as_posix())
+                else:
+                    shutil.copytree(args[0], args[1], dirs_exist_ok=True)
+                '''))
+            ditto.chmod(0o755)
+            derived = root / 'DerivedData'
+            app = derived / 'Build/Products/Debug-iphoneos/VexSign.app'
+            app.mkdir(parents=True)
+            executable = app / 'VexSign'
+            executable.write_bytes(b'fixture only, not an executable')
+            info = {'DTPlatformName': 'iphoneos', 'CFBundleExecutable': 'VexSign',
+                    'CFBundleShortVersionString': '1.2.3', 'CFBundleVersion': '42'}
+            env = {**os.environ, 'PATH': str(bin_path) + os.pathsep + os.environ['PATH'],
+                   'DERIVED_DATA': str(derived), 'RUNNER_TEMP': str(root),
+                   'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '2'}
+            def run():
+                (app / 'Info.plist').write_bytes(plistlib.dumps(info))
+                return subprocess.run(['bash', '-c', script], env=env, text=True, capture_output=True)
+            result = run()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            staging = root / 'ci-ipa'
+            with zipfile.ZipFile(staging / 'VexSign-unsigned.ipa') as archive:
+                self.assertIn('Payload/VexSign.app/Info.plist', archive.namelist())
+                self.assertIn('Payload/VexSign.app/VexSign', archive.namelist())
+                self.assertNotIn('BUILD.json', archive.namelist())
+            metadata = json.loads((staging / 'BUILD.json').read_text())
+            self.assertEqual(metadata['commit'], 'a' * 40)
+            self.assertEqual(metadata['version'], '1.2.3')
+            self.assertEqual(metadata['run_attempt'], '2')
+            self.assertTrue(metadata['unsigned'])
+            for line in (staging / 'SHA256SUMS').read_text().splitlines():
+                digest, name = line.split('  ')
+                self.assertEqual(digest, hashlib.sha256((staging / name).read_bytes()).hexdigest())
+            for problem in ('simulator', 'missing-executable'):
+                with self.subTest(problem=problem):
+                    shutil.rmtree(staging)
+                    if problem == 'simulator': info['DTPlatformName'] = 'iphonesimulator'
+                    else:
+                        info['DTPlatformName'] = 'iphoneos'
+                        executable.unlink()
+                    self.assertNotEqual(run().returncode, 0)
+                    self.assertFalse((staging / 'VexSign-unsigned.ipa').exists())
+
+    def test_release_checks_use_explicit_python_and_shared_xcode_selector(self):
+        release = block((WORKFLOWS / 'release.yml').read_text(), 'build', 2)
+        self.assertRegex(release, r'uses: actions/setup-python@[a-f0-9]{40}')
+        self.assertIn("python-version: '3.12'", release)
+        self.assertLess(release.index('Set up Python'), release.index('run: make verify'))
+        self.assertIn('run: bash .github/scripts/select_xcode.sh', release)
+
 
     def test_existing_validation_check_names_are_retained(self):
         ci = (WORKFLOWS / 'ci.yml').read_text()

@@ -77,5 +77,91 @@ class AutopilotTests(unittest.TestCase):
             self.assertIsNone(stable.version(text))
 
 
+class RepositoryEndpointTests(unittest.TestCase):
+    def test_controller_repository_root_has_no_trailing_slash(self):
+        from unittest.mock import patch
+        with patch.object(controller, 'command', return_value='{"default_branch":"main"}') as command:
+            self.assertEqual(controller.api('')['default_branch'], 'main')
+        command.assert_called_once_with('gh', 'api', 'repos/owner/repo')
+
+    def test_stable_repository_root_has_no_trailing_slash(self):
+        import json
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, GH_REPO='owner/repo', SOURCE_SHA='old'), \
+             patch.object(stable.subprocess, 'check_output', side_effect=[
+                 json.dumps({'default_branch': 'main'}), json.dumps({'sha': 'new'})]) as output, \
+             patch.object(stable.subprocess, 'run') as dispatch:
+            stable.main()
+        self.assertEqual(output.call_args_list[0].args[0], ['gh', 'api', 'repos/owner/repo'])
+        dispatch.assert_not_called()
+
+
+class ControllerFlowTests(unittest.TestCase):
+    """Exercise the controller offline: never dispatch or merge real PRs."""
+
+    def simulate(self, state):
+        import subprocess
+        from unittest.mock import patch
+        pr = AutopilotTests().pr()
+        pr['mergeable'] = True
+        pr['head']['sha'] = 'a' * 40
+
+        def api(path):
+            if state == 'api_error':
+                raise subprocess.CalledProcessError(1, ['gh', 'api'], stderr='HTTP 403')
+            if path == '': return {'default_branch': 'main'}
+            if path.startswith('pulls?'): return [{'number': 123}]
+            if path == 'pulls/123': return pr
+            if path == 'pulls/123/files?per_page=100': return AutopilotTests().files('server/requirements.txt')
+            if path.startswith('compare/'): return {'behind_by': 1 if state == 'stale' else 0}
+            if '/runs?' in path:
+                if state == 'empty': return {'workflow_runs': []}
+                return {'workflow_runs': [{'id': 456, 'event': 'workflow_dispatch',
+                         'head_branch': pr['head']['ref'],
+                         'status': 'in_progress' if state == 'pending' else 'completed',
+                         'conclusion': 'failure' if state == 'failed' else 'success'}]}
+            if path == 'actions/runs/456/jobs?per_page=100':
+                # A successful quick-only run must never authorize a merge.
+                return {'jobs': [{'name': 'quick · syntax, resources, gates', 'conclusion': 'success'}]}
+            raise AssertionError(path)
+
+        with patch.object(controller, 'api', side_effect=api), \
+             patch.object(controller, 'command') as command, \
+             patch.object(controller.subprocess, 'run') as merge:
+            if state == 'api_error':
+                with self.assertRaises(subprocess.CalledProcessError):
+                    controller.run_prs()
+            else:
+                controller.run_prs()
+        return command, merge
+
+    def test_missing_runs_dispatch_full_ci_and_service_checks_only(self):
+        command, merge = self.simulate('empty')
+        self.assertEqual(command.call_count, 2)
+        calls = [call.args for call in command.call_args_list]
+        self.assertTrue(any('ci.yml' in args and 'validation=full' in args for args in calls))
+        self.assertTrue(any('services.yml' in args for args in calls))
+        merge.assert_not_called()
+
+    def test_failed_pending_and_quick_only_runs_do_not_merge_or_retry(self):
+        for state in ('failed', 'pending', 'quick_only'):
+            with self.subTest(state=state):
+                command, merge = self.simulate(state)
+                command.assert_not_called()
+                merge.assert_not_called()
+
+    def test_stale_branch_refresh_is_pinned_and_not_merged(self):
+        command, merge = self.simulate('stale')
+        command.assert_called_once_with('gh', 'api', '--method', 'PUT',
+            'repos/owner/repo/pulls/123/update-branch', '-f', 'expected_head_sha=' + 'a' * 40)
+        merge.assert_not_called()
+
+    def test_api_failure_stops_without_writes(self):
+        command, merge = self.simulate('api_error')
+        command.assert_not_called()
+        merge.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
