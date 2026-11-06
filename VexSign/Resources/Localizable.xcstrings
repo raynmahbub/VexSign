@@ -101263,6 +101263,50 @@
           }
         }
       }
+    },
+    "%lld indexed apps — not portal quota" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld indexed apps — not portal quota"
+          }
+        }
+      }
+    },
+    "Check Profiles for Renewal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Profiles for Renewal"
+          }
+        }
+      }
+    },
+    "Profile inventory unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile inventory unavailable"
+          }
+        }
+      }
+    },
+    "Profiles need renewal review. Background discovery does not authorize account changes, re-signing or installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profiles need renewal review. Background discovery does not authorize account changes, re-signing or installation."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

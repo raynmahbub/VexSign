@@ -25,6 +25,28 @@ final class NativeV3AnisetteTests: XCTestCase {
         }
         func calls() -> ([UUID], [Data?]) { (identifiers, blobs) }
     }
+    private actor BlockingTransport: NativeV3AnisetteTransport {
+        typealias Response = (data: AnisetteData, blob: Data?)
+        var identifier: UUID?
+        var reply: CheckedContinuation<Response, Never>?
+        var observer: CheckedContinuation<Void, Never>?
+        func headers(identifier: UUID, blob: Data?) async throws -> Response {
+            self.identifier = identifier
+            return await withCheckedContinuation {
+                reply = $0
+                observer?.resume(); observer = nil
+            }
+        }
+        func waitUntilStarted() async {
+            if reply != nil { return }
+            await withCheckedContinuation { observer = $0 }
+        }
+        func finish() {
+            guard let identifier else { return }
+            reply?.resume(returning: (NativeV3AnisetteTests.headers(identifier), Data([1, 2, 3])))
+            reply = nil
+        }
+    }
     private static func headers(_ identifier: UUID) -> AnisetteData {
         .init(machineID: Data([1]).base64EncodedString(), oneTimePassword: Data([2]).base64EncodedString(),
               localUserID: "fixture", routingInfo: "17106176", deviceID: identifier.uuidString,
@@ -57,6 +79,26 @@ final class NativeV3AnisetteTests: XCTestCase {
         let calls = await transport.calls()
         XCTAssertEqual(calls.0.first, calls.0.last)
         XCTAssertNil(store.load()?.adiBlob)
+    }
+    func testBusyAndCancellationDoNotCommitLateADIState() async throws {
+        let store = Store(), transport = BlockingTransport()
+        let provider = try NativeV3AnisetteProvider(descriptor: descriptor(), transport: transport, storage: store)
+        let operation = Task { try await provider.freshHeaders() }
+        await transport.waitUntilStarted()
+        do { _ = try await provider.freshHeaders(); XCTFail("Expected busy") }
+        catch { XCTAssertEqual(error as? NativeV3AnisetteError, .busy) }
+        operation.cancel()
+        await transport.finish()
+        do { _ = try await operation.value; XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertNotNil(store.load()?.identifier)
+        XCTAssertNil(store.load()?.adiBlob)
+    }
+    func testStaleHeadersAreNotFresh() {
+        let identifier = UUID()
+        var value = Self.headers(identifier)
+        value.clientTime = "1970-01-01T00:00:00Z"
+        XCTAssertThrowsError(try NativeV3AnisetteProvider.validate(value, identifier: identifier, now: Date()))
     }
     func testProtocolIsPartOfConsentIdentity() throws {
         XCTAssertNotEqual(try descriptor(.headers), try descriptor(.v3))

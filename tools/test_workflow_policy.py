@@ -83,6 +83,16 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertTrue(covers('platform-check.yml', 'VexSign/Companion/CompanionStatus.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSignWatch/VexSignWatchApp.swift'))
 
+    def test_native_smoke_runs_fixture_tests_without_publishing(self):
+        text = (WORKFLOWS / 'native-signing-smoke.yml').read_text()
+        self.assertIn('      unit_tests:', text)
+        self.assertIn('if: inputs.unit_tests', text)
+        self.assertIn('swift test --package-path .build/native-signing-smoke', text)
+        self.assertIn('native-signing-unit-tests.log', text)
+        self.assertIn('retention-days: 3', text)
+        self.assertNotIn('contents: write', text)
+        self.assertNotIn('gh release create', text)
+
     def test_manual_quick_mode_and_parallel_macos_jobs(self):
         text = (WORKFLOWS / 'ci.yml').read_text()
         self.assertIn('options: [full, quick]', text)

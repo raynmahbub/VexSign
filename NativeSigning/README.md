@@ -19,6 +19,29 @@
 
 The package links Swift Crypto, ASN.1, Certificates, OpenSSL, Zsign, NimbleKit, and SideSign. Zsign is vendored under `Vendor/Zsign`, so the package graph needs no Git submodules.
 
+## Anisette protocols and renewal metadata
+
+Provider descriptors distinguish legacy header JSON from v3. The v3 path drives
+SideSign/AnisetteKit's ADI provisioning protocol, persists its provider-bound UUID
+and ADI blob in primary-runtime, device-only Keychain storage, and rejects silent
+legacy fallback. Catalogue membership is not a live-health or compatibility
+certificate. Neither provider health checks nor ADI provisioning authorize Apple
+account mutations. Native compilation and real-provider/device acceptance remain
+required.
+
+Authenticated profile operations can record a separate, owner-bound device-only
+receipt index with the actual identity UUID, bundle ID, UDID, expiry and CMS hash.
+The mutation journal remains hash-only. Local receipt inventory is not Apple's
+complete portal inventory or installation quota; legacy journal rows have no
+invented identity, device or expiry metadata. Receipts are historical discovery
+facts, not current CMS validation, renewal approval or signing authority.
+
+Background discovery populates a review queue. It does **not** generate fresh
+certificates, create approvals, re-sign archives or install apps. Unattended
+renewal still needs an explicit scoped grant, fresh portal/CMS validation, an
+owned identity, signing input and device-side installation evidence. The default
+CMS promotion gate remains closed.
+
 ## Validate
 
 ```bash
@@ -26,7 +49,7 @@ python3 -m unittest discover -s NativeSigning/PythonTests -v
 swift test --package-path NativeSigning
 ```
 
-The opt-in **Native account signing · link smoke** workflow can also stage isolated dependency graphs and compile device/simulator link checks. It does not log in to Apple, create certificates, publish IPAs, or open listeners.
+The opt-in **Native account signing · link smoke** workflow can also stage isolated dependency graphs, run synthetic macOS unit regressions (`unit_tests`, enabled by default), and compile device/simulator link checks. It does not log in to Apple, create certificates, publish IPAs, or open listeners.
 
 `prepare_server_compatibility.py` stages the app's Vapor factory and compatibility tests in an ignored build directory. `prepare_combined_smoke.py` validates the proposed combined package graph. These preparation scripts fail closed on pin or reviewed-source drift.
 

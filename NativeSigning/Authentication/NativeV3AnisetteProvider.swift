@@ -8,7 +8,9 @@ public enum NativeV3AnisetteError: Error, Equatable, Sendable {
     case busy, invalidState, storageUnavailable, invalidResponse
 }
 
-struct NativeV3AnisetteState: Codable, Sendable {
+struct NativeV3AnisetteState: Codable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+    var description: String { "NativeV3AnisetteState(redacted)" }
+    var debugDescription: String { description }
     let identifier: UUID
     var adiBlob: Data?
     func validate() throws {

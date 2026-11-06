@@ -307,6 +307,7 @@ def install_smoke_sources(work):
         'Tests/NativeProfileTransportTests.swift': 'Tests/NativeSigningCodecTests/NativeProfileTransportTests.swift',
         'Provisioning/NativeProfileCreation.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreation.swift',
         'Provisioning/NativeProfileCreationExecutor.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreationExecutor.swift',
+        'Provisioning/NativeProfileReceiptStore.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileReceiptStore.swift',
         'Provisioning/NativeProfileCreationKeychainStore.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreationKeychainStore.swift',
         'Tests/NativeProfileCreationTests.swift': 'Tests/NativeSigningCodecTests/NativeProfileCreationTests.swift',
         'Provisioning/NativeAccountProfileOperation.swift': 'Sources/NativeSigningLinkSmoke/NativeAccountProfileOperation.swift',

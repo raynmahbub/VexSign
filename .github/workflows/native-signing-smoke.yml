@@ -9,6 +9,10 @@ on:
         description: 'Installed Xcode version prefix (26.2 or newer)'
         required: true
         default: '26.2'
+      unit_tests:
+        description: 'Run synthetic native unit regressions on macOS (no Apple login or provisioning)'
+        type: boolean
+        default: true
       combined_dependencies:
         description: 'Also prepare/resolve/verify the combined app-package and SDK candidate (no combined build)'
         type: boolean
@@ -84,6 +88,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+      - name: Run native unit regressions without account operations
+        if: inputs.unit_tests
+        run: |
+          set -euo pipefail
+          swift test --package-path .build/native-signing-smoke \
+            2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
       - name: Compile and dynamically link device dependencies
         working-directory: .build/native-signing-smoke
         run: |
@@ -107,7 +117,9 @@ jobs:
         with:
           name: native-signing-link-diagnostics
           if-no-files-found: warn
+          retention-days: 3
           path: |
+            ${{ runner.temp }}/native-signing-unit-tests.log
             ${{ runner.temp }}/native-signing-prepare.log
             ${{ runner.temp }}/native-signing-device.log
             ${{ runner.temp }}/native-signing-simulator.log

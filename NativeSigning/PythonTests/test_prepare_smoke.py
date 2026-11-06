@@ -82,7 +82,7 @@ class PreparationTests(unittest.TestCase):
 
     def test_installed_codec_and_tests_match_first_party_source_hashes(self):
         hashes = module.install_smoke_sources(self.root)
-        self.assertEqual(len(hashes), 104)
+        self.assertEqual(len(hashes), 105)
         for relative, checksum in hashes.items():
             source = (HERE.parent if relative.startswith('VexSign/') else HERE) / relative
             self.assertEqual(module.digest(source.read_bytes()), checksum)

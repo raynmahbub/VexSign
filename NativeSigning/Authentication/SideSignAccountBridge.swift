@@ -69,6 +69,7 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
     private var profileEpoch = UUID()
     private let profileStore: NativeProfileCreationStorageAdapter
     private let profileValidator: NativeProvisioningProfileValidator
+    private let profileReceipts: (any NativeProfileReceiptStorage)?
     private let registrationStore: NativeRegistrationStorageAdapter
     private let signingIdentities: any NativeSigningIdentityManaging
     private var maintenanceCount = 0
@@ -79,8 +80,10 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
          identities: (any NativeSigningIdentityManaging)? = nil,
          registrations: (any NativeRegistrationStorage)? = nil,
          profiles: (any NativeProfileCreationStorage)? = nil,
+         receipts: (any NativeProfileReceiptStorage)? = nil,
          profileValidator: NativeProvisioningProfileValidator = .init()) {
         self.adapter = adapter
+        self.profileReceipts = receipts
         self.profileValidator = profileValidator
         profileStore = NativeProfileCreationStorageAdapter(base: profiles ??
             NativeProfileCreationKeychainStore(client: SystemAppleAccountKeychainClient()))
@@ -962,6 +965,11 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
             }
             await bound.invalidate()
             try await check()
+            if let profileReceipts {
+                let receipt = try NativeProfileReceipt(profile: result.profile, owner: owner, request: request, recordedAt: clock())
+                try profileReceipts.record(receipt, owner: owner)
+                try await check()
+            }
             return NativeAccountProfileResult(operationID: result.operationID, profileUUID: result.profile.constraints.uuid,
                 expiresAt: result.profile.constraints.expiresAt)
         } catch {
@@ -1039,6 +1047,20 @@ extension SideSignAccountBridge {
         let records = try profileStore.listAllRecords(owner: owner)
         try await requireIdentityContext(contextID: contextID, flow: flow)
         return records
+    }
+
+    /// Read-only historical metadata for this exact account/team context.
+    /// These receipts do not replace current portal/CMS checks or grant renewal.
+    func recordedProfileReceipts(contextID: UUID) async throws -> [NativeProfileReceipt] {
+        guard !closed else { throw Failure.closed }
+        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
+              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw Failure.flowBusy }
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        let receipts = try profileReceipts?.list(owner: owner) ?? []
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        return receipts
     }
 
     /// Owner-bound certificate and private-key material for one explicitly

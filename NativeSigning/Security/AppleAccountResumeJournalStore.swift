@@ -10,12 +10,10 @@ protocol AppleAccountJournalKeychainClient: AppleAccountKeychainClient {
 }
 
 extension AppleAccountJournalKeychainClient {
-    /// Single-row fallback: test doubles that only model one row still
-    /// satisfy the requirement; production uses `SystemAppleAccountKeychainClient`.
+    /// Clients without enumeration support must fail closed, not turn a
+    /// single-row read or unavailable inventory into a successful empty list.
     func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]]) {
-        let result = copy(query)
-        guard result.status == errSecSuccess, let data = result.data else { return (result.status, []) }
-        return (errSecSuccess, [[kSecValueData as String: data]])
+        (errSecUnimplemented, [])
     }
 }
 
@@ -27,7 +25,8 @@ extension SystemAppleAccountKeychainClient: AppleAccountJournalKeychainClient {
     func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]]) {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let items = result as? [[String: Any]] else { return (status, []) }
+        guard status == errSecSuccess else { return (status, []) }
+        guard let items = result as? [[String: Any]] else { return (errSecDecode, []) }
         return (status, items)
     }
 }
