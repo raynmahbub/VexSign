@@ -183,12 +183,86 @@ def prepare_guest(source_ipa, work):
     return archive, info
 
 
-def configure_host_info(host, guest_info):
+def merge_primary_files(source, host):
+    """Preflight the whole dependency/resource merge before copying any file.
+
+    Native code shares dyld's namespace. Never overwrite a different framework
+    revision to make a combined package appear to work.
+    """
+    excluded = {"Info.plist", "VexSign", "PlugIns", "Watch", "AppClips", "_CodeSignature", "embedded.mobileprovision", "Metadata.appintents"}
+    files = []
+    for item in sorted(source.rglob("*")):
+        relative = item.relative_to(source)
+        if relative.parts[0] in excluded or item.suffix == ".intentdefinition" or item.is_dir():
+            continue
+        if item.is_symlink() or not item.is_file():
+            raise ValueError("Non-regular native input")
+        target = host / relative
+        if target.is_symlink() or not target.resolve().is_relative_to(host.resolve()):
+            raise ValueError("Native dependency destination is a symlink")
+        replace_icon = len(relative.parts) == 1 and (item.name == "Assets.car" or item.name == "PkgInfo" or item.name.startswith("AppIcon"))
+        if target.exists() and (not target.is_file() or (sha256(item) != sha256(target) and not replace_icon)):
+            raise ValueError("Conflicting native dependency/resource: " + relative.as_posix())
+        files.append((item, target))
+    for item, target in files:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(item, target)
+
+
+def embed_primary(host, source_ipa, dylibify, work):
+    extract_zip(source_ipa, work / "primary-input")
+    source = app_in(work / "primary-input/Payload")
+    info = read_plist(source / "Info.plist")
+    if (info.get("CFBundleIdentifier") != "com.vexsign.app" or info.get("CFBundleExecutable") != "VexSign"
+            or info.get("VexSignEmbeddedGuest") or info.get("DTPlatformName") != "iphoneos"):
+        raise ValueError("Native primary input must be a standalone VexSign device build")
+    if set(macho_filetypes(source / "VexSign")) != {2}:
+        raise ValueError("Native primary input must be MH_EXECUTE")
+    symbols = output("xcrun", "nm", "-gU", source / "VexSign")
+    if not any(line.split()[-1:] == ["_VexSignPrimaryMain"] for line in symbols.splitlines()):
+        raise ValueError("Rebuild VexSign with its exported native primary entry point")
+    target = host / "Frameworks/VexSignPrimary.framework"
+    if target.exists():
+        raise ValueError("Refusing to replace an existing native primary image")
+    strip_signatures(source)
+    merge_primary_files(source, host)
+    target.mkdir(parents=True)
+    run(dylibify, source / "VexSign", target / "VexSignPrimary")
+    if set(macho_filetypes(target / "VexSignPrimary")) != {6}:
+        raise ValueError("Native primary conversion did not produce MH_DYLIB")
+    write_plist(target / "Info.plist", {
+        "CFBundleIdentifier": "com.vexsign.primary", "CFBundleExecutable": "VexSignPrimary",
+        "CFBundlePackageType": "FMWK", "CFBundleName": "VexSignPrimary",
+        "CFBundleVersion": info["CFBundleVersion"], "CFBundleShortVersionString": info["CFBundleShortVersionString"],
+        "MinimumOSVersion": info.get("MinimumOSVersion", "16.0"), "CFBundleSupportedPlatforms": ["iPhoneOS"]})
+    return info
+
+
+def finalize_primary_manifest(host):
+    manifest = json.loads((host / "VexSignEmbedded.json").read_text())
+    manifest["imageSHA256"] = sha256(host / "Frameworks/VexSignPrimary.framework/VexSignPrimary")
+    (host / "VexSignEmbedded.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+
+def configure_host_info(host, guest_info, mode="guest-prototype"):
     info = read_plist(host / "Info.plist")
     if info["CFBundleIdentifier"] != "com.kdt.livecontainer":
         raise ValueError("Unsupported host bundle identity; audit runtime/SideStore constants before renaming")
     info["CFBundleDisplayName"] = "VexSign Container"
     info["VexSignCombinedHost"] = True
+    if mode == "native-primary":
+        info["VexSignPrimaryHost"] = True
+        info.pop("VexSignEmbeddedGuest", None)
+        info["CFBundleDisplayName"] = "VexSign"
+        info["CFBundleName"] = "VexSign"
+        for key in ("CFBundleIcons", "CFBundleIcons~ipad", "CFBundleIconName", "CFBundleDocumentTypes",
+                    "UTExportedTypeDeclarations", "UTImportedTypeDeclarations", "UIFileSharingEnabled", "LSSupportsOpeningDocumentsInPlace"):
+            if key in guest_info:
+                info[key] = guest_info[key]
+        info["CFBundleShortVersionString"] = guest_info["CFBundleShortVersionString"]
+        info["CFBundleVersion"] = guest_info["CFBundleVersion"]
+        info["BGTaskSchedulerPermittedIdentifiers"] = guest_info.get("BGTaskSchedulerPermittedIdentifiers", [])
+        info["UIBackgroundModes"] = list(dict.fromkeys(info.get("UIBackgroundModes", []) + guest_info.get("UIBackgroundModes", [])))
     # Keep upstream runtime identities, app groups and URL ownership consistent.
     info["ALTAppGroups"] = list(dict.fromkeys(info.get("ALTAppGroups", []) + ["group.com.SideStore.SideStore"]))
     urls = info.setdefault("CFBundleURLTypes", [])
@@ -292,7 +366,13 @@ def ad_hoc_sign(host, upstream, work):
             raise ValueError("Unexpanded entitlement variable")
         entitlement = work / f"entitlements-{index}.plist"
         entitlement.write_text(text)
-        plistlib.loads(entitlement.read_bytes())
+        parsed = plistlib.loads(entitlement.read_bytes())
+        if bundle == host and read_plist(host / "Info.plist").get("VexSignPrimaryHost"):
+            # Default native Keychain operations must use this host's own app
+            # identity, not the first shared guest slot in upstream's template.
+            own = parsed["application-identifier"]
+            parsed["keychain-access-groups"] = [own] + [g for g in parsed.get("keychain-access-groups", []) if g != own]
+            write_plist(entitlement, parsed)
         run("ldid", "-S" + str(entitlement), bundle / info["CFBundleExecutable"])
 
 
@@ -302,7 +382,9 @@ def validate_payload(host):
                 "Frameworks/LiveContainerSwiftUI.framework/LiveContainerSwiftUI",
                 "Frameworks/SideStoreApp.framework/SideStore", "PlugIns/LiveProcess.appex",
                 "PlugIns/LaunchAppExtension.appex", "PlugIns/ShareExtension.appex",
-                "PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension", "VexSign.ipa", "VexSignEmbedded.json"]
+                "PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension", "VexSignEmbedded.json"]
+    primary = read_plist(host / "Info.plist").get("VexSignPrimaryHost") is True if (host / "Info.plist").exists() else False
+    required.append("Frameworks/VexSignPrimary.framework/VexSignPrimary" if primary else "VexSign.ipa")
     for relative in required:
         if not (host / relative).exists():
             raise ValueError(f"Combined runtime is incomplete: {relative}")
@@ -318,7 +400,15 @@ def validate_payload(host):
         if set(macho_filetypes(host / f"Frameworks/{framework}.framework/{name}")) != {6}:
             raise ValueError(f"Embedded {framework} is not MH_DYLIB")
     manifest = json.loads((host / "VexSignEmbedded.json").read_text())
-    verify_digest(host / "VexSign.ipa", manifest["sha256"])
+    if primary:
+        if (host / "VexSign.ipa").exists() or info.get("VexSignEmbeddedGuest") or manifest.get("mode") != "native-primary":
+            raise ValueError("Native primary package must not contain a VexSign guest or guest marker")
+        image = host / "Frameworks/VexSignPrimary.framework/VexSignPrimary"
+        if set(macho_filetypes(image)) != {6}:
+            raise ValueError("Native primary image must be MH_DYLIB")
+        verify_digest(image, manifest["imageSHA256"])
+    else:
+        verify_digest(host / "VexSign.ipa", manifest["sha256"])
     if not read_plist(host / "Info.plist").get("VexSignCombinedHost"):
         raise ValueError("Host marker missing")
 
@@ -340,14 +430,14 @@ def source_notices(host, upstream, lock):
     shutil.copy2(HERE / "README.md", folder / "README.md")
 
 
-def write_build_metadata(ipa, sources, lock):
+def write_build_metadata(ipa, sources, lock, mode="guest-prototype"):
     """Identify experimental outputs without claiming device acceptance."""
     ipa, sources = Path(ipa), Path(sources)
     metadata = ipa.with_suffix(".build.json")
     checksums = ipa.with_suffix(".checksums.txt")
     files = [{"name": path.name, "sha256": sha256(path), "bytes": path.stat().st_size}
              for path in (ipa, sources)]
-    report = {"schemaVersion": 1, "kind": "experimental-guest-host",
+    report = {"schemaVersion": 1, "kind": "experimental-native-primary" if mode == "native-primary" else "experimental-guest-host",
               "validation": {"packaging": "structural-checks-only", "physicalDevice": "not-run"},
               "inputs": lock, "files": files,
               "integrationPatchSHA256": sha256(HERE / "patches/combined-host.patch")}
@@ -359,6 +449,7 @@ def write_build_metadata(ipa, sources, lock):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vexsign-ipa", required=True, type=Path, help="Normal VexSign arm64 IPA (input remains untouched)")
+    parser.add_argument("--mode", choices=["native-primary", "guest-prototype"], default="native-primary")
     parser.add_argument("--work", type=Path, default=ROOT / ".build/embedded-container")
     parser.add_argument("--output", type=Path, default=ROOT / "packages/VexSign+LiveContainer+SideStore.ipa")
     args = parser.parse_args()
@@ -378,8 +469,8 @@ def main():
         run("git", "-C", upstream, "checkout", "--detach", lock["livecontainer"]["commit"])
         run("git", "-C", upstream, "submodule", "update", "--init", "--recursive")
         patch = HERE / "patches/combined-host.patch"
-        run("git", "-C", upstream, "apply", "--check", patch)
-        run("git", "-C", upstream, "apply", patch)
+        run("git", "-C", upstream, "apply", "--unidiff-zero", "--check", patch)
+        run("git", "-C", upstream, "apply", "--unidiff-zero", patch)
         shutil.copy2(HERE / "HostOverlay/VexSignHostPanel.swift", upstream / "LiveContainerSwiftUI/Views/AppList/VexSignHostPanel.swift")
         sidestore = fetch_asset(lock["sidestore"], work / "SideStore.ipa")
         # Build the pinned converter for the runner architecture rather than
@@ -400,17 +491,24 @@ def main():
         host = payload / "LiveContainer.app"
         shutil.copytree(stage / "Host.xcarchive/Products/Applications/LiveContainer.app", host, symlinks=True)
         strip_signatures(host)
-        guest_archive, guest_info = prepare_guest(args.vexsign_ipa.resolve(), stage)
-        shutil.copy2(guest_archive, host / "VexSign.ipa")
-        manifest = {"bundleIdentifier": guest_info["CFBundleIdentifier"], "version": guest_info["CFBundleShortVersionString"],
-                    "build": guest_info["CFBundleVersion"], "sha256": sha256(guest_archive)}
-        (host / "VexSignEmbedded.json").write_text(json.dumps(manifest, indent=2) + "\n")
         embed_sidestore(host, sidestore, upstream, dylibify, stage)
-        configure_host_info(host, guest_info)
+        if args.mode == "native-primary":
+            guest_info = embed_primary(host, args.vexsign_ipa.resolve(), dylibify, stage)
+            input_digest = sha256(args.vexsign_ipa.resolve())
+        else:
+            guest_archive, guest_info = prepare_guest(args.vexsign_ipa.resolve(), stage)
+            shutil.copy2(guest_archive, host / "VexSign.ipa")
+            input_digest = sha256(guest_archive)
+        manifest = {"bundleIdentifier": guest_info["CFBundleIdentifier"], "version": guest_info["CFBundleShortVersionString"],
+                    "build": guest_info["CFBundleVersion"], "sha256": input_digest, "mode": args.mode}
+        (host / "VexSignEmbedded.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        configure_host_info(host, guest_info, args.mode)
         source_notices(host, upstream, lock)
         # Match the official ad-hoc widget/converted executable packaging. The
         # authorized installer must re-sign the complete host and its extensions.
         ad_hoc_sign(host, upstream, stage)
+        if args.mode == "native-primary":
+            finalize_primary_manifest(host)
         validate_payload(host)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         temporary_output = stage / "combined.ipa"
@@ -422,7 +520,7 @@ def main():
         with tarfile.open(sources, "w:gz") as archive:
             archive.add(HERE, arcname="EmbeddedContainer", filter=lambda x: None if "__pycache__" in x.name else x)
             archive.add(host / "VexSignSources", arcname="VexSignSources")
-        metadata, checksums = write_build_metadata(args.output, sources, lock)
+        metadata, checksums = write_build_metadata(args.output, sources, lock, args.mode)
         print(f"Created {args.output}\nSHA-256 {sha256(args.output)}\nIntegration sources: {sources}"
               f"\nBuild metadata: {metadata}\nChecksums: {checksums}")
 

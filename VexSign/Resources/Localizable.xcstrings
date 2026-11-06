@@ -101307,6 +101307,17 @@
           }
         }
       }
+    },
+    "Install a verified combined-host update. A standalone VexSign IPA cannot update this combined runtime." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install a verified combined-host update. A standalone VexSign IPA cannot update this combined runtime."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

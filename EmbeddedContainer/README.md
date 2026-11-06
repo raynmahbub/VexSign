@@ -1,11 +1,50 @@
 # VexSign + official LiveContainer + SideStore
 
-> **Experimental prototype, not the final all-in-one architecture.** This makes
-> VexSign a guest. The accepted target is VexSign as the primary host, with native
-> account/certificate signing behind one interface. Do not ship this prototype as
-> fulfillment of that goal. See [the architecture decision](../docs/NATIVE_SIGNING_ARCHITECTURE.md).
+> **Experimental, not production-ready.** The build now supports a native-primary
+> candidate and the older guest-host prototype. Neither is device-accepted.
+> Native account/CMS promotion and unattended renewal remain separately gated.
 
-## Architecture implemented
+## Native-primary candidate (default build mode)
+
+`--mode native-primary` embeds VexSign as a native code image exporting
+`VexSignPrimaryMain`. The pinned LC bootstrap invokes this entry point directly
+on normal launch, **without** `invokeAppMain`, guest bundle/home/defaults
+substitution, guest Keychain hooks, or installing a VexSign guest. VexSign owns
+its normal app delegate and foreground UI. Its buttons explicitly request the LC
+UI or embedded SideStore session; the LC panel has **Return to VexSign**.
+
+The bootstrap, runtime, extension identities and `com.kdt.livecontainer` identity
+remain upstream-compatible. The app displays as **VexSign** but replaces/conflicts
+with stock LiveContainer using that identity; it does not migrate another
+standalone VexSign installation's accounts/data. The native default Keychain
+access group is the host application identity, placed before upstream guest
+slots. No guest-storage permission check is disabled.
+
+Packaging requires a freshly compiled standalone **device** IPA with the native
+entry symbol exported. It rejects guest/simulator inputs and mismatched native
+framework/resource revisions instead of overwriting dependencies. It records and
+checks the final, ad-hoc-signed primary-image hash. An incompatible primary image
+fails at bootstrap; it does not silently fall back to a guest.
+
+This candidate retains the combined runtime/SideStore extension and intent
+layout. Standalone VexSign widget, Watch/App Clip extensions and standalone
+AppIntent metadata are **not exported** in the combined package. Ordinary
+standalone-IPA self-updates are blocked; install a verified combined-host update.
+Native archive, dyld dependency compatibility, actual Apple-authorized signing,
+background delivery across session switches, and device execution all still
+require validation. Structural/mock tests are not proof of these properties.
+
+```sh
+make VexSign
+python3 EmbeddedContainer/build.py --mode native-primary --vexsign-ipa packages/VexSign.ipa
+# Reproduce the older explicitly isolated guest-host prototype:
+python3 EmbeddedContainer/build.py --mode guest-prototype --vexsign-ipa packages/VexSign.ipa
+```
+
+Choose `host_mode` in **Combined native host · build only**. Artifacts are labelled
+by mode, retained 14 days, and never auto-published; logs remain 3 days.
+
+## Guest-prototype architecture
 
 This is a **separate combined host build**, not a URL launcher or a replacement
 for the normal VexSign IPA. It builds the actual upstream LiveContainer targets
@@ -49,7 +88,7 @@ make VexSign
 python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa
 ```
 
-Or manually run **Guest-host prototype · build only** on the desired branch. It has
+Or manually run **Combined native host · build only** with `host_mode=guest-prototype` on the desired branch. It has
 read-only permissions, no publish job and no automatic triggers. It does not
 require Apple-account/signing/TLS secrets. Its artifact is explicitly labelled
 unvalidated. New combined artifacts are retained for **14 days**, and diagnostic
@@ -69,9 +108,9 @@ The SideStore asset ID, commit hashes and converter source digest are in
 its pinned, SHA-256-checked source using the selected Xcode's macOS SDK, so the
 converter matches the runner CPU rather than requiring a prebuilt tool binary. Deleted/replaced upstream assets cause a failure. Refresh locks only after
 reviewing the matching source, binary hash, intent ABI and runtime compatibility.
-The source checkout is patched with `git apply --check` before building.
+The pinned source checkout is patched with `git apply --unidiff-zero --check` before building. Zero-context hunks avoid treating upstream whitespace-only context as new trailing whitespace.
 
-## Installation / first run
+## Guest-prototype installation / first run
 
 1. Re-sign/install the combined **host IPA** using the official LiveContainer
    supported workflow. The package carries ad-hoc signatures and placeholder

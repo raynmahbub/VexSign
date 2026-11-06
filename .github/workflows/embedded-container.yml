@@ -1,10 +1,15 @@
-name: Guest-host prototype · build only
+name: Combined native host · build only
 
 # Deliberately opt-in. No auto-publishing, signing secrets, PR triggers or changes
 # to the normal VexSign release pipeline. Install/re-sign the IPA as a host app.
 on:
   workflow_dispatch:
     inputs:
+      host_mode:
+        description: 'Primary UI architecture (both require native/device acceptance)'
+        type: choice
+        options: [native-primary, guest-prototype]
+        default: native-primary
       xcode:
         description: 'Installed Xcode version prefix (26.2 or newer)'
         required: true
@@ -47,20 +52,21 @@ jobs:
         run: bash .github/scripts/select_xcode.sh
       - name: Install packaging tool
         run: brew install ldid
-      - name: Build normal VexSign guest input
+      - name: Build standalone VexSign native input
         run: |
           set -euo pipefail
           make VexSign 2>&1 | tee "$RUNNER_TEMP/vexsign-build.log"
       - name: Build native host and combined IPA
         env:
           GH_TOKEN: ${{ github.token }}
+          HOST_MODE: ${{ inputs.host_mode }}
         run: |
           set -euo pipefail
-          python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
+          python3 EmbeddedContainer/build.py --mode "$HOST_MODE" --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
       - name: Upload combined build and integration sources
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: VexSign-LiveContainer-SideStore-unvalidated
+          name: VexSign-LiveContainer-SideStore-${{ inputs.host_mode }}-unvalidated
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -69,12 +75,14 @@ jobs:
             packages/VexSign+LiveContainer+SideStore.build.json
             packages/VexSign+LiveContainer+SideStore.checksums.txt
       - name: Combined build summary
+        env:
+          HOST_MODE: ${{ inputs.host_mode }}
         run: |
           {
             echo '## Experimental combined host'
-            echo 'One host IPA includes the LiveContainer runtime, embedded SideStore and bundled VexSign guest.'
-            echo 'This is not the VexSign-primary production architecture. No device acceptance is claimed.'
-            echo 'Download VexSign-LiveContainer-SideStore-unvalidated within 14 days; verify its checksums before re-signing.'
+            echo "Architecture: $HOST_MODE. One host IPA includes LiveContainer runtime and embedded SideStore."
+            echo 'Native-primary boots VexSign directly without guest isolation hooks. Guest-prototype retains the older architecture. No device acceptance is claimed.'
+            echo 'Download the mode-labelled unvalidated artifact within 14 days; verify its checksums before re-signing.'
             echo 'The artifact includes integration sources and build metadata. Normal releases are unchanged.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload build logs

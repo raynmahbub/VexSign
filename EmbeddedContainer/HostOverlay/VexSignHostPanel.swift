@@ -35,6 +35,8 @@ struct VexSignHostPanel: View {
     @State private var error: String?
     @State private var pendingPath: String?
 
+    private var isPrimaryHost: Bool { Bundle.main.object(forInfoDictionaryKey: "VexSignPrimaryHost") as? Bool == true }
+
     private var isInstalled: Bool {
         guard let manifest else { return false }
         return installedBundleIdentifiers.contains(manifest.bundleIdentifier)
@@ -43,9 +45,15 @@ struct VexSignHostPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("VexSign + LiveContainer + SideStore").font(.headline)
-            Text("All three are included in this app. VexSign runs in an isolated guest container; SideStore handles its own account and renewal. Configure the host's signing certificate or supported JIT mode before running guests.")
+            Text(isPrimaryHost
+                 ? "VexSign is the native primary interface. LiveContainer and SideStore are explicitly selected sessions. Configure supported signing/JIT before running guests."
+                 : "All three are included in this app. VexSign runs in an isolated guest container; SideStore handles its own account and renewal. Configure the host's signing certificate or supported JIT mode before running guests.")
                 .font(.caption).foregroundStyle(.secondary)
-            if let manifest {
+            if isPrimaryHost {
+                Button("Return to VexSign") {
+                    if !LCSharedUtils.vexSignOpenPrimary() { error = "The native primary session could not be requested." }
+                }
+            } else if let manifest {
                 Text("Embedded VexSign \(manifest.version) (\(manifest.build))").font(.caption)
                 if isInstalled {
                     Button("Open VexSign") { Task { await launch(manifest.bundleIdentifier) } }

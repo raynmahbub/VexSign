@@ -3,7 +3,8 @@
 #import <objc/runtime.h>
 
 static Class VEXHostRuntime(void) {
-    if (![NSBundle.mainBundle.infoDictionary[@"VexSignEmbeddedGuest"] boolValue]) return Nil;
+    NSDictionary *metadata = NSBundle.mainBundle.infoDictionary;
+    if (![metadata[@"VexSignEmbeddedGuest"] boolValue] && ![metadata[@"VexSignPrimaryHost"] boolValue]) return Nil;
     Class runtime = NSClassFromString(@"LCSharedUtils");
     SEL available = NSSelectorFromString(@"vexSignCombinedHostAvailable");
     if (!runtime || ![runtime respondsToSelector:available]) return Nil;

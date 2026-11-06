@@ -9,6 +9,10 @@ enum EmbeddedContainerRuntime {
         Bundle.main.object(forInfoDictionaryKey: "VexSignEmbeddedGuest") as? Bool == true
     }
 
+    static var isPrimaryHost: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "VexSignPrimaryHost") as? Bool == true && !isGuestBuild
+    }
+
     static var isAvailable: Bool { VEXEmbeddedRuntimeAvailable() }
 
     // BGTask launch would restart the host UI without the guest's task handlers.

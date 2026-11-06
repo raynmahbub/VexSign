@@ -1,28 +1,58 @@
+diff --git a/LiveContainer/LCBootstrap.m b/LiveContainer/LCBootstrap.m
+index 0a88b7f..2d96bb8 100644
+--- a/LiveContainer/LCBootstrap.m
++++ b/LiveContainer/LCBootstrap.m
+@@ -674,0 +675 @@ int LiveContainerMain(int argc, char *argv[]) {
++    BOOL vexSignPrimary = [lcMainBundle.infoDictionary[@"VexSignPrimaryHost"] boolValue];
+@@ -700,0 +702 @@ int LiveContainerMain(int argc, char *argv[]) {
++    BOOL vexSignContainerRequested = [selectedApp isEqualToString:@"ui"];
+@@ -731 +733 @@ int LiveContainerMain(int argc, char *argv[]) {
+-    if([selectedApp isEqualToString:@"ui"]) {
++    if([selectedApp isEqualToString:@"ui"] || (vexSignPrimary && [selectedApp isEqualToString:@"vexsign-primary"])) {
+@@ -743 +745 @@ int LiveContainerMain(int argc, char *argv[]) {
+-    if([lcUserDefaults boolForKey:@"LCOpenSideStore"] || [selectedApp isEqualToString:@"builtinSideStore"]) {
++    if((!vexSignPrimary && [lcUserDefaults boolForKey:@"LCOpenSideStore"]) || [selectedApp isEqualToString:@"builtinSideStore"]) {
+@@ -849,0 +852,14 @@ int LiveContainerMain(int argc, char *argv[]) {
++    // Native primary UI: no invokeAppMain, guest bundle substitution, home
++    // redirection, guest defaults, or guest Keychain hooks on this branch.
++    // A missing/broken primary image is an error, never a silent guest fallback.
++    if (vexSignPrimary && !vexSignContainerRequested) {
++        if (sideStoreExist && !dlopen("@executable_path/Frameworks/SideStoreSupport.framework/SideStoreSupport", RTLD_LAZY)) {
++            NSLog(@"Embedded SideStore intent support could not be loaded"); return 78;
++        }
++        void *primary = dlopen("@executable_path/Frameworks/VexSignPrimary.framework/VexSignPrimary", RTLD_NOW | RTLD_LOCAL);
++        if (!primary) { NSLog(@"VexSign primary image could not be loaded: %s", dlerror()); return 78; }
++        int (*primaryMain)(int, char **) = dlsym(primary, "VexSignPrimaryMain");
++        if (!primaryMain) { NSLog(@"VexSign primary entry point is missing"); return 78; }
++        return primaryMain(argc, argv);
++    }
++
 diff --git a/LiveContainer/LCSharedUtils.h b/LiveContainer/LCSharedUtils.h
+index daf7b7b..83b23b4 100644
 --- a/LiveContainer/LCSharedUtils.h
 +++ b/LiveContainer/LCSharedUtils.h
-@@ -17,4 +17,9 @@
- + (NSString*)findDefaultContainerWithBundleId:(NSString*)bundleId;
- + (NSArray<NSString*>*)lcUnorderedUrlSchemes;
- + (NSArray<NSString*>*)lcUrlSchemes;
+@@ -19,0 +20,6 @@
 +// VexSign combined-host bridge. No account/keychain values cross this API.
 ++ (BOOL)vexSignCombinedHostAvailable;
+++ (BOOL)vexSignOpenPrimary;
 ++ (BOOL)vexSignStageIPA:(NSURL *)source;
 +// Read-only inventory: imported means present in the host, not runnable or iOS-installed.
 ++ (NSDictionary * _Nullable)vexSignGuestInfo:(NSString *)identifier;
- @end
 diff --git a/LiveContainer/LCSharedUtils.m b/LiveContainer/LCSharedUtils.m
+index 575205f..d8591b8 100644
 --- a/LiveContainer/LCSharedUtils.m
 +++ b/LiveContainer/LCSharedUtils.m
-@@ -432,4 +432,96 @@
- 
-     return result;
- }
+@@ -434,0 +435,97 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 +
 +// VexSign additions; distributed with the upstream AGPL-3.0 host.
 ++ (BOOL)vexSignCombinedHostAvailable {
 +    return [lcMainBundle.infoDictionary[@"VexSignCombinedHost"] boolValue]
 +        && getenv("LC_HOME_PATH") != NULL;
++}
++
+++ (BOOL)vexSignOpenPrimary {
++    if (![lcMainBundle.infoDictionary[@"VexSignPrimaryHost"] boolValue]) return NO;
++    return [self launchToGuestAppWithURL:[NSURL URLWithString:@"livecontainer://livecontainer-launch?bundle-name=vexsign-primary"]];
 +}
 +
 ++ (BOOL)vexSignStageIPA:(NSURL *)source {
@@ -110,14 +140,11 @@ diff --git a/LiveContainer/LCSharedUtils.m b/LiveContainer/LCSharedUtils.m
 +    return complete ? @{@"state": @"notImported"} : nil;
 +}
 +
- @end
 diff --git a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift b/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
+index 94eeef1..eec26fe 100644
 --- a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
 +++ b/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
-@@ -131,6 +131,17 @@
-                 })
-                 .hidden()
-                 
+@@ -133,0 +134,11 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 +                VexSignHostPanel(
 +                    busy: installprogressVisible,
 +                    installedBundleIdentifiers: sharedModel.apps.compactMap { $0.appInfo.bundleIdentifier() },
@@ -129,25 +156,13 @@ diff --git a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift b/LiveContai
 +                    }
 +                )
 +
-                 LazyVStack {
-                     ForEach(filteredApps, id: \.self) { app in
-                         LCAppBanner(appModel: app, delegate: self)
-@@ -750,6 +761,11 @@
-             // enable SDK version spoof by defalut
-             finalNewApp.spoofSDKVersion = true
-         }
+@@ -752,0 +764,5 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 +        // VexSign's direct host controls switch the primary process session.
 +        // Keep its initial mode out of LiveProcess; users may configure other guests normally.
 +        if (Bundle(path: outputFolder.path)?.object(forInfoDictionaryKey: "VexSignEmbeddedGuest") as? Bool) == true {
 +            finalNewApp.multitaskSpecified = .no
 +        }
-         finalNewApp.installationDate = Date.now
-         
-         DispatchQueue.main.async {
-@@ -779,6 +795,22 @@
-         }
-     }
-     
+@@ -781,0 +798,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 +    @MainActor
 +    func installVexSignPreparedIPA(_ url: URL) async -> Bool {
 +        guard !installprogressVisible else { return false }
@@ -164,13 +179,7 @@ diff --git a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift b/LiveContai
 +        }
 +    }
 +
-     func startInstallFromUrl() async {
-         guard let installUrlStr = await installUrlInput.open(), installUrlStr.count > 0 else {
-             return
-@@ -1186,6 +1218,15 @@
-     }
-     
-     func handleURL(url : URL) {
+@@ -1188,0 +1221,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 +        if ["vexsign", "feather"].contains(url.scheme?.lowercased() ?? "") {
 +            guard let app = sharedModel.apps.first(where: { $0.appInfo.bundleIdentifier() == "com.vexsign.app" }) else {
 +                errorInfo = "Install the embedded VexSign guest before opening this link."
@@ -180,6 +189,3 @@ diff --git a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift b/LiveContai
 +            Task { await launchAppWithBundleId(bundleId: app.appInfo.relativeBundlePath, container: nil, urlStr: url.absoluteString) }
 +            return
 +        }
-         if url.isFileURL {
-             Task { await installFromUrl(urlStr: url.absoluteString) }
-             return
