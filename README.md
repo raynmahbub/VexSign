@@ -184,9 +184,9 @@ Download an IPA or add the VexSign source to a compatible signer:
   select a completed full run and download its **`VexSign-unsigned-…`** artifact.
   GitHub sign-in may be required to download artifacts. The artifact contains the
   Debug IPA, commit/version metadata and SHA-256 checksums, expires
-  after **three days**, and is not a public release. Check the build **and** test
+  after **14 days**, and is not a public release. Check the build **and** test
   jobs; an available artifact alone does not mean all tests passed. Quick-only or
-  failed-build runs do not produce an IPA. Older runs will not have this new artifact.
+  failed-build runs do not produce an IPA. Older runs may have no IPA or a shorter retention period; the 14-day setting applies to new uploads.
 
 The **Add Source** button uses a third-party link helper. If it cannot open your
 signer, paste the source URL below manually.

@@ -214,8 +214,8 @@ unsigned IPA—there is no extra Release build or publication.
 
 The run summary contains a download link. Under **Artifacts**, select
 `VexSign-unsigned-<commit>-<run>-<attempt>`. The ZIP contains the IPA, `BUILD.json`
-(commit, version and run metadata) and `SHA256SUMS`. Artifacts expire after three
-days. Verify the checksum and re-sign before device installation. This is a
+(commit, version and run metadata) and `SHA256SUMS`. New IPA artifacts expire after 14
+days; existing uploads keep their original expiry. Verify the checksum and re-sign before device installation. This is a
 Debug build for testing, not a production release or Apple-authorized install.
 
 The simulator-test job runs separately: it may still be running or may fail even

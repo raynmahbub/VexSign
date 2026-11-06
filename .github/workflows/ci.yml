@@ -13,7 +13,7 @@ name: CI
 #           project structure, and the four repo gates in tools/ (localisation,
 #           error discipline, singleton freeze, concurrency escapes).
 #   build   macOS · unsigned Debug build of the VexSign scheme, then the warnings
-#           gate, then a temporary unsigned Debug IPA artifact (three days).
+#           gate, then a temporary unsigned Debug IPA artifact (14 days).
 #           A new first-party warning fails; warnings listed in
 #           .github/build-warnings-baseline.json are tolerated.
 #   tests   macOS · `xcodebuild test` on a simulator resolved at run time.
@@ -353,7 +353,7 @@ jobs:
             ${{ runner.temp }}/ci-ipa/SHA256SUMS
           if-no-files-found: error
           compression-level: 0
-          retention-days: 3
+          retention-days: 14
 
       - name: Test IPA download
         env:
@@ -362,7 +362,7 @@ jobs:
           {
             echo '### Temporary unsigned IPA'
             printf '[Download the test build](%s)\n\n' "$ARTIFACT_URL"
-            echo 'Debug device build; expires after three days. Re-sign with your own identity before installation.'
+            echo 'Debug device build; expires after 14 days. Re-sign with your own identity before installation.'
             echo 'This is not a release. Check the separate simulator-test job and the whole run conclusion before treating the commit as green.'
           } >> "$GITHUB_STEP_SUMMARY"
 

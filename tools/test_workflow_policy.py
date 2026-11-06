@@ -191,7 +191,16 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
-            for retention in re.findall(r'retention-days: (\d+)', text):
+            # The device-testing IPA is an explicit 14-day exception; logs,
+            # quick findings and release-staging artifacts stay at <= 3 days.
+            retention_text = text
+            if path.name == 'ci.yml':
+                match = re.search(r'(?ms)^      - name: Upload unsigned test IPA\n.*?(?=^      - name:)', text)
+                self.assertIsNotNone(match)
+                self.assertIn('retention-days: 14', match[0])
+                self.assertEqual(re.findall(r'retention-days: (\d+)', match[0]), ['14'])
+                retention_text = text[:match.start()] + text[match.end():]
+            for retention in re.findall(r'retention-days: (\d+)', retention_text):
                 self.assertLessEqual(int(retention), 3)
         for removed in ('repair-agent.yml', 'autopilot.yml', 'auto-stable.yml',
                         'dependency-audit.yml', 'server-tests.yml', 'ecosystem.yml'):
@@ -240,7 +249,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('Debug-iphoneos/VexSign.app', build)
         self.assertIn('ditto -c -k --keepParent Payload', build)
         self.assertIn('name: VexSign-unsigned-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}', build)
-        self.assertIn('retention-days: 3', build)
+        self.assertRegex(build, r'(?s)name: Upload unsigned test IPA.*?retention-days: 14')
         self.assertIn('if-no-files-found: error', build)
         self.assertIn('Check the separate simulator-test job', build)
 
