@@ -79,6 +79,17 @@ enum NestedBundleAudit {
 		/// True when nothing is known to be wrong. An `unknown` entry is not a failure.
 		var isClean: Bool { uncovered.isEmpty }
 
+        struct IncompatibleProfile: LocalizedError {
+            let details: String
+            var errorDescription: String? {
+                .localized("The selected profile cannot sign all retained extensions. Choose a compatible profile or explicitly enable Remove App Extensions. %@", arguments: details)
+            }
+        }
+
+        func requireCompatibleProfile() throws {
+            guard isClean else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
+        }
+
 		/// One line per bundle that cannot be signed correctly, in scan order.
 		var warnings: [String] {
 			uncovered.compactMap { entry in

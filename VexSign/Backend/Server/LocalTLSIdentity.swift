@@ -15,6 +15,18 @@ import NimbleExtensions
 import Security
 
 enum LocalTLSIdentity {
+    /// Classify by actual path containment, not "anything outside Documents is bundle".
+    static func diagnosticSource(for url: URL, deviceDirectory: URL, bundleDirectory: URL = Bundle.main.bundleURL) -> String {
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        func contains(_ root: URL) -> Bool {
+            let base = root.standardizedFileURL.resolvingSymlinksInPath().path
+            return path == base || path.hasPrefix(base + "/")
+        }
+        if contains(deviceDirectory) { return "device-local" }
+        if contains(bundleDirectory) { return "bundle" }
+        return "other-local"
+    }
+
 	// MARK: - Model
 
 	/// Where the identity on disk came from.

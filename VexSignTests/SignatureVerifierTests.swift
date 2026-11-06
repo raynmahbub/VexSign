@@ -29,6 +29,47 @@ final class SignatureVerifierTests: XCTestCase {
 		_root = nil
 	}
 
+    func testVerificationReadsRewrittenIdentifierInsteadOfBundleCache() throws {
+        let url = try _makeBundle(writesProfile: false)
+        let cached = Bundle(url: url)
+        _ = cached?.bundleIdentifier
+        var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url))
+        info["CFBundleIdentifier"] = "com.example.changed"
+        try _plist(info).write(to: url.appendingPathComponent("Info.plist"))
+        var expectation = SignatureVerifier.Expectation.freshlySigned
+        expectation.requiresEmbeddedProfile = false
+        expectation.declaredBundleIdentifier = "com.example.changed"
+        let report = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
+        XCTAssertTrue(report.isAcceptable, _describe(report))
+        XCTAssertNoThrow(try report.requireAcceptable())
+        expectation.declaredBundleIdentifier = "com.example.different"
+        let mismatch = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
+        XCTAssertThrowsError(try mismatch.requireAcceptable())
+        XCTAssertTrue(mismatch.failures.contains { $0.code == .bundleIdentifierMismatch })
+        withExtendedLifetime(cached) {}
+    }
+
+    func testKnownUncoveredNestedIdentifierIsBlocking() throws {
+        let url = try _makeBundle()
+        let nested = url.appendingPathComponent("PlugIns/Widget.appex", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try _plist(["CFBundleIdentifier": "com.example.app.widget", "CFBundlePackageType": "XPC!"])
+            .write(to: nested.appendingPathComponent("Info.plist"))
+        let report = SignatureVerifier.verify(bundleAt: url)
+        XCTAssertTrue(report.failures.contains { $0.code == .nestedIdentifierUncovered })
+        XCTAssertThrowsError(try report.requireAcceptable())
+    }
+
+    func testInvalidExecutablePathIsRejected() throws {
+        let url = try _makeBundle()
+        var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url))
+        info["CFBundleExecutable"] = "../outside"
+        try _plist(info).write(to: url.appendingPathComponent("Info.plist"))
+        let report = SignatureVerifier.verify(bundleAt: url)
+        XCTAssertTrue(report.failures.contains { $0.code == .executableMissing })
+        XCTAssertThrowsError(try report.requireAcceptable())
+    }
+
 	// MARK: - Acceptance cases
 
 	func testACleanlySignedBundleIsAcceptable() throws {

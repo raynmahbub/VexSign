@@ -28,6 +28,19 @@ final class LocalTLSIdentityTests: XCTestCase {
 
 	private let commonName = "127.0.0.1"
 
+    func testCertificateSourceUsesActualContainment() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let device = root.appendingPathComponent("Application Support/TLS")
+        let bundle = root.appendingPathComponent("VexSign.app")
+        func source(_ url: URL) -> String {
+            LocalTLSIdentity.diagnosticSource(for: url, deviceDirectory: device, bundleDirectory: bundle)
+        }
+        XCTAssertEqual(source(device.appendingPathComponent("server.crt")), "device-local")
+        XCTAssertEqual(source(bundle.appendingPathComponent("server.crt")), "bundle")
+        XCTAssertEqual(source(root.appendingPathComponent("Application Support/TLS-other/server.crt")), "other-local")
+        XCTAssertEqual(source(root.appendingPathComponent("Documents/server.pem")), "other-local")
+    }
+
 	// MARK: - Digest
 
 	/// The vector `tools/tls-pack-digest.py` produces for the same three

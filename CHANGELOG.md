@@ -57,6 +57,13 @@ No changes queued after 1.1.0.
 
 ### Fixed
 
+- Signing now stops before library registration when post-sign structural
+  verification fails. Known uncovered retained extensions are rejected before
+  signing; users must choose a compatible profile or explicitly remove extensions.
+- Post-sign identifier checks read current Info.plist bytes rather than cached
+  Bundle metadata. TLS diagnostics distinguish device-local identities from
+  actual bundled files; structural inspection is not called cryptographic verification.
+
 - Certificate import no longer starts Zsign's legacy native OCSP checker, which
   has unsafe response-pointer initialization and asynchronous certificate lifetime
   handling in the pinned dependency. Import, refresh and legacy certificate-check

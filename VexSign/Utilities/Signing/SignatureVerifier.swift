@@ -15,9 +15,9 @@
 //    * the entitlements sealed into the executable are granted by that profile;
 //    * the profile has not expired.
 //
-//  Everything that cannot be established with confidence is a warning, never a failure.
-//  A false failure blocks an install that would have worked, which is worse than the thing
-//  it is trying to prevent.
+//  Unknown evidence remains a warning. Definite structural/profile mismatches are
+//  failures and must stop a freshly signed bundle from being registered as successful.
+//  This is structural inspection, not cryptographic or on-device acceptance.
 //
 
 import Foundation
@@ -70,6 +70,14 @@ enum SignatureVerifier {
 		let issues: [Issue]
 		let duration: TimeInterval
 
+        struct Rejection: LocalizedError {
+            let errorDescription: String?
+        }
+
+        func requireAcceptable() throws {
+            guard isAcceptable else { throw Rejection(errorDescription: summary) }
+        }
+
 		var failures: [Issue] {
 			issues.filter { $0.severity == .failure }
 		}
@@ -91,10 +99,10 @@ enum SignatureVerifier {
 			let elapsed = Int64((duration * 1000).rounded())
 			if isAcceptable {
 				if warnings.isEmpty {
-					return .localized("Signature verified in %lld ms.", arguments: elapsed)
+					return .localized("Signature structure checked in %lld ms.", arguments: elapsed)
 				}
 				return .localized(
-					"Signature verified in %lld ms with %lld warning(s).",
+					"Signature structure checked in %lld ms with %lld warning(s).",
 					arguments: elapsed, Int64(warnings.count)
 				)
 			}
@@ -162,7 +170,7 @@ enum SignatureVerifier {
 		let started = Date()
 		var issues: [Issue] = []
 
-		guard let bundleURL = _bundleURL(at: url), let bundle = Bundle(url: bundleURL) else {
+		guard let bundleURL = _bundleURL(at: url), let info = readInfo(at: bundleURL) else {
 			issues.append(
 				Issue(
 					code: .bundleNotFound,
@@ -173,7 +181,13 @@ enum SignatureVerifier {
 			return Report(bundlePath: nil, issues: issues, duration: Date().timeIntervalSince(started))
 		}
 
-		let executable = bundle.executableURL
+        // Bundle caches metadata by path, including the identifier read before
+        // modification. Inspect the current plist bytes, not that cached object.
+        let executableName = info["CFBundleExecutable"] as? String
+        let executable = executableName.flatMap { name -> URL? in
+            guard !name.isEmpty, name != ".", name != "..", !name.contains("/") else { return nil }
+            return bundleURL.appendingPathComponent(name)
+        }
 		if executable == nil {
 			issues.append(
 				Issue(
@@ -190,7 +204,7 @@ enum SignatureVerifier {
 
 		issues += _profileIssues(
 			in: bundleURL,
-			bundle: bundle,
+            producedIdentifier: info["CFBundleIdentifier"] as? String,
 			executable: executable,
 			expectation: expectation
 		)
@@ -252,7 +266,7 @@ enum SignatureVerifier {
 
 	private static func _profileIssues(
 		in bundleURL: URL,
-		bundle: Bundle,
+        producedIdentifier: String?,
 		executable: URL?,
 		expectation: Expectation
 	) -> [Issue] {
@@ -273,7 +287,6 @@ enum SignatureVerifier {
 		// The identifier the app actually ended up with is checked whether or not a profile is
 		// embedded: if the signing options asked for one and the bundle says another, something
 		// in between ignored the instruction.
-		let producedIdentifier = bundle.bundleIdentifier
 		if let declared = expectation.declaredBundleIdentifier, !declared.isEmpty, declared != producedIdentifier {
 			issues.append(
 				Issue(
@@ -361,7 +374,7 @@ enum SignatureVerifier {
 
 		for nested in _nestedBundles(in: bundleURL) {
 			guard
-				let identifier = Bundle(url: nested)?.bundleIdentifier,
+				let identifier = readInfo(at: nested)?["CFBundleIdentifier"] as? String,
 				identifier != appIdentifier,
 				!coverage(of: pattern, includes: identifier)
 			else { continue }
@@ -369,7 +382,7 @@ enum SignatureVerifier {
 			issues.append(
 				Issue(
 					code: .nestedIdentifierUncovered,
-					severity: .warning,
+                    severity: .failure,
 					detail: .localized(
 						"%@ (%@) is not covered by the embedded profile.",
 						arguments: nested.lastPathComponent, identifier
@@ -494,6 +507,19 @@ enum SignatureVerifier {
 	}
 
 	// MARK: File system
+
+    /// Read mutable bundle metadata without Foundation's per-path Bundle cache.
+    static func readInfo(at bundleURL: URL) -> [String: Any]? {
+        do {
+            let data = try Data(contentsOf: bundleURL.appendingPathComponent("Info.plist"))
+            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+            return object as? [String: Any]
+        } catch {
+            // Unreadable metadata is represented by a blocking verifier failure,
+            // not a cached fallback or a successful empty-plist interpretation.
+            return nil
+        }
+    }
 
 	private static func _bundleURL(at url: URL) -> URL? {
 		let fm = FileManager.default

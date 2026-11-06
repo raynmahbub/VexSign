@@ -101439,6 +101439,39 @@
           }
         }
       }
+    },
+    "The selected profile cannot sign all retained extensions. Choose a compatible profile or explicitly enable Remove App Extensions. %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected profile cannot sign all retained extensions. Choose a compatible profile or explicitly enable Remove App Extensions. %@"
+          }
+        }
+      }
+    },
+    "Signature structure checked in %lld ms with %lld warning(s)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature structure checked in %lld ms with %lld warning(s)."
+          }
+        }
+      }
+    },
+    "Signature structure checked in %lld ms." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature structure checked in %lld ms."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

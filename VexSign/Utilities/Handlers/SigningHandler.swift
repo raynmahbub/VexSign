@@ -172,7 +172,7 @@ final class SigningHandler: NSObject {
 		// Before the long sign: which extensions the selected profile can actually cover. The
 		// engine signs every nested bundle with the outer asset, so an extension the profile does
 		// not cover cannot come out correctly — better said now than after the install.
-		_auditNestedBundles(at: movedAppPath, certificate: appCertificate)
+		try _auditNestedBundles(at: movedAppPath, certificate: appCertificate)
 
 		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate)
 		try await handler.disinject()
@@ -196,7 +196,7 @@ final class SigningHandler: NSObject {
 
 		if _options.signingOption == .default {
 			onStage?(.verifying)
-			_verifySignedBundle(at: movedAppPath)
+			try _verifySignedBundle(at: movedAppPath)
 		}
 
 		// Past this point the run is either registered or cleaned up by `clean()`; a cancel here
@@ -215,10 +215,8 @@ final class SigningHandler: NSObject {
         if injectedCount > 0 { await AnalyticsStore.shared.record(.tweaksInjected, count: injectedCount) }
     }
 	
-	/// Checks the bundle that zsign just produced. Nothing here throws: a signature problem is
-	/// reported in the signing log and carried on `verification`, and the place that *acts* on
-	/// it is the install path (`DirectInstaller`), which can show the user what is wrong.
-	private func _verifySignedBundle(at path: URL) {
+    /// Definite structural failures stop before library registration or success events.
+	private func _verifySignedBundle(at path: URL) throws {
 		var expectation = SignatureVerifier.Expectation.freshlySigned
 		expectation.declaredBundleIdentifier = _options.appIdentifier
 		expectation.requiresEmbeddedProfile = !_options.removeProvisioning
@@ -236,9 +234,10 @@ final class SigningHandler: NSObject {
 		if report.isAcceptable {
 			SigningLog.shared.success(report.summary)
 		} else {
-			SigningLog.shared.warn(report.summary)
-		}
-	}
+            SigningLog.shared.error(report.summary)
+        }
+        try report.requireAcceptable()
+    }
 
 	func move() async throws {
 		guard let movedAppPath = _movedAppPath else {
@@ -557,10 +556,10 @@ extension SigningHandler {
 	}
 	
 	/// Logs what the selected profile can do for each nested bundle in the payload.
-	private func _auditNestedBundles(at app: URL, certificate: CertificatePair?) {
+	private func _auditNestedBundles(at app: URL, certificate: CertificatePair?) throws {
 		// Extensions that were stripped above are no longer in the payload, so there is nothing
 		// to audit and nothing to warn about.
-		guard !_options.removeAppExtensions else { return }
+		guard _options.signingOption == .default, !_options.removeAppExtensions else { return }
 
 		let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
 		let report = NestedBundleAudit.report(appBundle: app, profilePattern: pattern)
@@ -575,8 +574,9 @@ extension SigningHandler {
 			} else {
 				SigningLog.shared.warn(summary)
 			}
-		}
-	}
+        }
+        try report.requireCompatibleProfile()
+    }
 
 	private func _removePresetFiles(for app: URL) async throws {
 		var files = [

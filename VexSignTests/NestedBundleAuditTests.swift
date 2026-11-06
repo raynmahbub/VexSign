@@ -63,6 +63,18 @@ final class NestedBundleAuditTests: XCTestCase {
 		)
 	}
 
+    func testKnownIncompatibleExtensionBlocksBeforeSigning() throws {
+        try makeBundle("PlugIns/Widget.appex", identifier: "com.example.app.widget")
+        let incompatible = report(pattern: "TEAM.com.example.app")
+        XCTAssertThrowsError(try incompatible.requireCompatibleProfile()) { error in
+            XCTAssertTrue(error.localizedDescription.contains("Remove App Extensions"))
+            XCTAssertTrue(error.localizedDescription.contains("Widget.appex"))
+        }
+        XCTAssertNoThrow(try report(pattern: "TEAM.com.example.*").requireCompatibleProfile())
+        // Lack of evidence must not be invented as a known profile mismatch.
+        XCTAssertNoThrow(try report(pattern: nil).requireCompatibleProfile())
+    }
+
 	// MARK: Scanning
 
 	func testScanFindsExtensionsAndWatchApps() throws {

@@ -62,11 +62,13 @@ extension ServerInstaller {
 			let crt = Self.getUrl("server", ext: "crt"),
 			let pem = Self.getUrl("server", ext: "pem")
 		else {
-			FileLogger.error("server.crt or server.pem missing from both Documents and the bundle", category: "install")
+			FileLogger.error("Device-local server certificate or key is missing", category: "install")
 			return nil
 		}
 		
-		let source = { (url: URL) in url.path.contains("/Documents/") ? "Documents" : "bundle" }
+		let source = { (url: URL) in
+            LocalTLSIdentity.diagnosticSource(for: url, deviceDirectory: DeviceTLSIdentity.directory)
+        }
 		FileLogger.log("cert=\(source(crt)) key=\(source(pem))", category: "install")
 		
 		do {
