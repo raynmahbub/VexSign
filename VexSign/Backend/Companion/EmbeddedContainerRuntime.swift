@@ -1,4 +1,5 @@
 import Foundation
+import NimbleExtensions
 
 /// Direct process-local host access. A detected external URL handler is not enough.
 enum EmbeddedContainerRuntime {
@@ -37,5 +38,42 @@ enum EmbeddedContainerRuntime {
         try manager.copyItem(at: source, to: local)
         try ArchiveSafetyValidator.validate(local)
         return VEXEmbeddedRuntimeStageIPA(local)
+    }
+}
+
+
+/// A container import is intentionally separate from an installd registration.
+/// Even .imported does not prove signing, a successful launch, or renewal.
+enum ContainerGuestState: Equatable, Sendable {
+    case unavailable
+    case unknown
+    case notImported
+    case imported(version: String?)
+
+    static func derive(runtimeAvailable: Bool, answer: [String: String]?) -> Self {
+        guard runtimeAvailable else { return .unavailable }
+        switch answer?["state"] {
+        case "imported": return .imported(version: answer?["version"])
+        case "notImported": return .notImported
+        default: return .unknown
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .unavailable: return .localized("Embedded runtime not loaded")
+        case .unknown: return .localized("Unknown")
+        case .notImported: return .localized("Not imported")
+        case .imported(let version):
+            return version.map { String.localized("Imported guest · v%@", arguments: $0) }
+                ?? .localized("Imported guest")
+        }
+    }
+}
+
+extension EmbeddedContainerRuntime {
+    static func guestState(for identifier: String) -> ContainerGuestState {
+        guard isAvailable else { return .unavailable }
+        return .derive(runtimeAvailable: true, answer: VEXEmbeddedRuntimeGuestInfo(identifier))
     }
 }

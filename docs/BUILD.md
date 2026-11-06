@@ -224,3 +224,32 @@ green. Quick-only validation skips both the build and artifact; compilation or
 warning-gate failures do not produce an IPA. No signing secrets or release
 permissions are added to CI. New artifacts require running the updated workflow;
 unpushed edits cannot be built by GitHub Actions.
+
+
+### Experimental combined host test build
+
+The separate **Guest-host prototype · build only** workflow packages a
+LiveContainer host with embedded SideStore and a bundled VexSign guest. It is
+manual-only and does not replace ordinary VexSign releases or implement the final
+VexSign-primary architecture. New combined test artifacts retain for **14 days**;
+logs retain for **3 days**. The artifact contains the IPA, integration sources,
+`.build.json` metadata and `.checksums.txt`. Follow the
+[combined-build instructions](../EmbeddedContainer/README.md) for re-signing,
+first-run setup and physical-device acceptance. A successful build or an
+**Imported guest** badge does not prove a device installation, guest launch,
+Apple login or renewal.
+
+### Home navigation and search
+
+The default tab order is **Library · App Store · Home · Activity · Settings**,
+placing Home in the middle without changing persisted tab identifiers or launch
+preferences. Home's **Search VexSign** opens query buttons for Library,
+Apps & Sources, and Settings. The query is handed to the destination's existing
+search, including when that page has not mounted yet. Search does not enumerate
+hidden apps outside those pages or bypass app locks.
+
+When the embedded combined runtime is loaded, Home also shows the existing
+process-local LiveContainer and SideStore switch controls. They require explicit
+confirmation and no active tasks because switching closes the current guest
+session. These controls are not external-app launchers and do not make the normal
+VexSign IPA a combined native host.

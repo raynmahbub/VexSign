@@ -116,7 +116,7 @@ final class NativeAccountNamespaceLease: NativeAccountBackendLifetime {
 /// There is intentionally no password/session-byte/reference export API.
 public actor NativeAccountBackend {
     private typealias Bridge = SideSignAccountBridge<SideSignNativePortal,
-        HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>,
+        NativeConfiguredAnisetteProvider,
         AppleAccountCredentialStore<SystemAppleAccountKeychainClient>,
         AppleAccountResumeJournalStore<SystemAppleAccountKeychainClient>>
     private let bridge: Bridge
@@ -127,7 +127,7 @@ public actor NativeAccountBackend {
         catch { throw NativeAccountBackendError.unsupportedRuntime }
         let lease = try NativeAccountNamespaceLease.acquire()
         do {
-            let provider = try HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor: descriptor)
+            let provider = try NativeConfiguredAnisetteProvider(descriptor: descriptor)
             let adapter = try SideSignAccountAdapter<SideSignNativePortal>()
             bridge = Bridge(adapter: adapter, provider: provider,
                             sessions: AppleAccountCredentialStore(), journal: AppleAccountResumeJournalStore(),

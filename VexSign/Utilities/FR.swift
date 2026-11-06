@@ -196,14 +196,30 @@ enum FR {
 		return identities.contains { $0[kSecImportItemIdentity as String] != nil }
 	}
 	
-	static func movePairing(_ url: URL) {
-		let fileManager = FileManager.default
+	/// Validate before replacing a working record. Parsing is not device authentication;
+	/// the transport still has to verify this record belongs to the connected device.
+	static func validatePairingFile(_ data: Data) throws {
+		guard !data.isEmpty, data.count <= 2 * 1024 * 1024,
+			let record = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+			let hostID = record["HostID"] as? String,
+			!hostID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+			throw NSError(domain: "PairingImport", code: 1, userInfo: [NSLocalizedDescriptionKey:
+				String.localized("Invalid pairing file. Import a pairing plist containing a HostID from a trusted computer. The existing pairing file was not changed.")])
+		}
+	}
+
+	static func movePairing(_ url: URL) throws {
+		let scoped = url.startAccessingSecurityScopedResource()
+		defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+		let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+		guard size <= 2 * 1024 * 1024 else {
+			throw NSError(domain: "PairingImport", code: 2, userInfo: [NSLocalizedDescriptionKey:
+				String.localized("Pairing file is too large. The existing pairing file was not changed.")])
+		}
+		let data = try Data(contentsOf: url)
+		try validatePairingFile(data)
 		let dest = URL.documentsDirectory.appendingPathComponent("pairingFile.plist")
-		
-		try? fileManager.removeFileIfNeeded(at: dest)
-		
-		try? fileManager.copyItem(at: url, to: dest)
-		
+		try data.write(to: dest, options: .atomic)
 		HeartbeatManager.shared.start(true)
 	}
 	

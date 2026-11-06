@@ -13,12 +13,14 @@ public enum AnisetteConsentError: Error, Equatable {
 /// default server is supplied. Remote endpoints require HTTPS and cannot embed
 /// credentials, query secrets or fragments. Nil endpoint denotes on-device work.
 public struct AnisetteProviderDescriptor: Equatable, Sendable {
+    public enum ProtocolKind: String, Codable, CaseIterable, Sendable { case headers, v3 }
+    public let protocolKind: ProtocolKind
     public let identifier: String
     public let displayName: String
     public let policyRevision: String
     public let endpoint: URL?
 
-    public init(identifier: String, displayName: String, policyRevision: String, endpoint: URL?) throws {
+    public init(identifier: String, displayName: String, policyRevision: String, endpoint: URL?, protocolKind: ProtocolKind = .headers) throws {
         let strings = [identifier, displayName, policyRevision]
         guard strings.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && $0.utf8.count <= 256
@@ -31,6 +33,8 @@ public struct AnisetteProviderDescriptor: Equatable, Sendable {
                 throw AnisetteConsentError.invalidProvider
             }
         }
+        if protocolKind == .v3, endpoint == nil { throw AnisetteConsentError.invalidProvider }
+        self.protocolKind = protocolKind
         self.identifier = identifier
         self.displayName = displayName
         self.policyRevision = policyRevision

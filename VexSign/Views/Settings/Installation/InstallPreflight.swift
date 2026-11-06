@@ -17,15 +17,27 @@ import NimbleExtensions
 enum InstallMethodKind: String, CaseIterable, Identifiable, Sendable {
 	case server
 	case idevice
+	case liveContainer
 	case export
 	case trollstore
 
 	var id: String { rawValue }
 
+	/// Preserve the existing OTA/IDevice preferences. Unknown values must not fall back to OTA.
+	static func selected(forStoredValue value: Int) -> Self? {
+		switch value {
+		case 0: return .server
+		case 1: return .idevice
+		case 2: return .liveContainer
+		default: return nil
+		}
+	}
+
 	var title: String {
 		switch self {
 		case .server:	return .localized("Local HTTPS server")
 		case .idevice:	return .localized("idevice (pairing file)")
+		case .liveContainer: return .localized("Embedded LiveContainer guest")
 		case .export:	return .localized("Export or share the IPA")
 		case .trollstore: return .localized("TrollStore")
 		}
@@ -58,6 +70,8 @@ struct InstallPreflightInputs: Equatable, Sendable {
 	var trollStoreDetected: Bool = false
     /// Local identity presence alone does not mean the user trusted its profile.
     var hasTrustedServerCertificate: Bool = false
+	/// A process-local runtime, not an external app URL handler.
+	var hasEmbeddedRuntime: Bool = false
 }
 
 // MARK: - Evaluation
@@ -78,8 +92,13 @@ enum InstallPreflight {
 
 		case .idevice:
 			return inputs.hasPairingFile
-				? .ready
+				? .unknown(.localized("Pairing file found. Device trust, pairing validity and VPN connectivity will be checked when connecting; file presence alone does not prove readiness."))
 				: .missing(.localized("No pairing file. Generate one from a computer on the Tunnel screen; the VPN also has to be running."))
+
+		case .liveContainer:
+			return inputs.hasEmbeddedRuntime
+				? .ready
+				: .unavailable(.localized("The embedded LiveContainer runtime is not loaded. Install the experimental combined host IPA and open its bundled VexSign. The ordinary VexSign IPA cannot import a guest into an external container."))
 
 		case .export:
 			// Always possible: the file leaves the device and nothing here has to work.
@@ -115,10 +134,12 @@ enum InstallPreflight {
 				return .localized("Uses a server on this device and itms-services://. Needs the certificate above and a reachable host.")
 			case .idevice:
 				return .localized("Writes the app over AFC and asks installd to install it. No certificate, no hosted server.")
+			case .liveContainer:
+				return .localized("Prepares a local guest import. Finish import and signing in the host; this is not an iOS device installation. Switching sessions requires confirmation.")
 			case .export:
 				return .localized("Share the signed IPA and install it elsewhere. Nothing on this device has to be working.")
 			case .trollstore:
-				return .localized("TrollStore is installed. VexSign can hand it an IPA; it does not install TrollStore or use CoreTrust itself.")
+				return .localized("A TrollStore URL handler was detected. VexSign can hand it an IPA; a URL handler alone does not prove TrollStore is installed or that installation will succeed.")
 			}
 		case .missing(let message), .unavailable(let message), .unknown(let message):
 			return message

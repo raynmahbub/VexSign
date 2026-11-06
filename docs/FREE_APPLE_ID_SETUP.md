@@ -311,3 +311,29 @@ See `AnisetteServer/README.md` for deployment details.
 ---
 
 See [CHANGELOG.md](../CHANGELOG.md) for release notes.
+## Bundled community server catalogue
+
+The provider editor now includes all 22 entries from
+[SideStore's public server catalogue](https://github.com/SideStore/anisette-servers/blob/3cd273b679bbb7777e9d585e49fdfa239cf21486/servers.json),
+pinned to revision `3cd273b679bbb7777e9d585e49fdfa239cf21486` and reviewed on
+2026-11-06. The snapshot is `VexSign/Resources/AnisetteServers.json`; its upstream
+AGPL-3.0 license is retained in `VexSign/Resources/AnisetteServers-LICENSE.txt`.
+These are community-operated endpoints, not VexSign-operated or endorsed services.
+No availability, privacy-policy or operator-identity verification is claimed.
+
+Catalogue entries are **candidates**, not automatically compatible providers.
+VexSign's native account backend currently accepts the bounded HTTPS JSON-header
+protocol, not SideStore's full v3/WebSocket provisioning protocol. Choosing a
+preset opens the editor; **Save & Verify** explicitly contacts only that endpoint
+and checks its headers before replacing the configured provider. Failed checks
+leave the previous provider unchanged. The HTTP-only catalogue entry remains
+visible but cannot be selected. There is no background probe of every server or
+automatic failover to another operator. A successful header check is not an Apple
+login, account acceptance test, signing success or promise of future health.
+
+Opening Signing Methods initializes the configured native backend without
+logging in. Saving/removing a provider serializes backend replacement and clears
+old UI state; operations are blocked if the displayed descriptor no longer
+matches the active backend. Guest builds still cannot use the primary-app
+credential store: embedded SideStore retains its own account setup. This change
+does not complete or promote the VexSign-primary all-in-one architecture.

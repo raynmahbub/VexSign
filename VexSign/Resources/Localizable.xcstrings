@@ -100680,6 +100680,589 @@
           }
         }
       }
+    },
+    "A TrollStore URL handler was detected. VexSign can hand it an IPA; a URL handler alone does not prove TrollStore is installed or that installation will succeed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A TrollStore URL handler was detected. VexSign can hand it an IPA; a URL handler alone does not prove TrollStore is installed or that installation will succeed."
+          }
+        }
+      }
+    },
+    "Embedded LiveContainer guest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded LiveContainer guest"
+          }
+        }
+      }
+    },
+    "Finish active tasks first. The guest IPA remains staged in the container inbox." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish active tasks first. The guest IPA remains staged in the container inbox."
+          }
+        }
+      }
+    },
+    "Guest import prepared" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guest import prepared"
+          }
+        }
+      }
+    },
+    "Guest import requires confirmation. Use the Library Install action for one app at a time, or select OTA/IDevice for device-install batches." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guest import requires confirmation. Use the Library Install action for one app at a time, or select OTA/IDevice for device-install batches."
+          }
+        }
+      }
+    },
+    "Invalid pairing file. Import a pairing plist containing a HostID from a trusted computer. The existing pairing file was not changed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid pairing file. Import a pairing plist containing a HostID from a trusted computer. The existing pairing file was not changed."
+          }
+        }
+      }
+    },
+    "Later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        }
+      }
+    },
+    "No device installation was confirmed. Finish guest imports in the container." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No device installation was confirmed. Finish guest imports in the container."
+          }
+        }
+      }
+    },
+    "No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN."
+          }
+        }
+      }
+    },
+    "OTA certificate and trust setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OTA certificate and trust setup"
+          }
+        }
+      }
+    },
+    "Open container" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open container"
+          }
+        }
+      }
+    },
+    "Pairing file and VPN setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing file and VPN setup"
+          }
+        }
+      }
+    },
+    "Pairing file found. Device trust, pairing validity and VPN connectivity will be checked when connecting; file presence alone does not prove readiness." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing file found. Device trust, pairing validity and VPN connectivity will be checked when connecting; file presence alone does not prove readiness."
+          }
+        }
+      }
+    },
+    "Pairing file is too large. The existing pairing file was not changed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing file is too large. The existing pairing file was not changed."
+          }
+        }
+      }
+    },
+    "Pairing import failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing import failed"
+          }
+        }
+      }
+    },
+    "Prepares a local guest import. Finish import and signing in the host; this is not an iOS device installation. Switching sessions requires confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepares a local guest import. Finish import and signing in the host; this is not an iOS device installation. Switching sessions requires confirmation."
+          }
+        }
+      }
+    },
+    "Recheck installation prerequisites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recheck installation prerequisites"
+          }
+        }
+      }
+    },
+    "The IPA is in the host inbox, not installed on iOS. Open the container to finish import and signing. Switching closes this VexSign session. Remaining queued apps were skipped; import guests one at a time." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA is in the host inbox, not installed on iOS. Open the container to finish import and signing. Switching closes this VexSign session. Remaining queued apps were skipped; import guests one at a time."
+          }
+        }
+      }
+    },
+    "The Installation Type picker selects OTA, pairing/IDevice or embedded guest import. Export and TrollStore are separate actions. Ready means local prerequisites are present, not that an app has been installed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Installation Type picker selects OTA, pairing/IDevice or embedded guest import. Export and TrollStore are separate actions. Ready means local prerequisites are present, not that an app has been installed."
+          }
+        }
+      }
+    },
+    "The device installation cannot be verified because the bundle identifier is missing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device installation cannot be verified because the bundle identifier is missing."
+          }
+        }
+      }
+    },
+    "The embedded LiveContainer runtime is not loaded. Install the experimental combined host IPA and open its bundled VexSign. The ordinary VexSign IPA cannot import a guest into an external container." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The embedded LiveContainer runtime is not loaded. Install the experimental combined host IPA and open its bundled VexSign. The ordinary VexSign IPA cannot import a guest into an external container."
+          }
+        }
+      }
+    },
+    "The host could not stage the guest IPA. Complete or discard any previous prepared import, check free space and retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host could not stage the guest IPA. Complete or discard any previous prepared import, check free space and retry."
+          }
+        }
+      }
+    },
+    "The host could not switch sessions. The guest IPA remains staged; open the container home to finish import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host could not switch sessions. The guest IPA remains staged; open the container home to finish import."
+          }
+        }
+      }
+    },
+    "Tunnel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tunnel"
+          }
+        }
+      }
+    },
+    "Unknown installation method." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown installation method."
+          }
+        }
+      }
+    },
+    "Unknown installation method. Choose OTA, pairing/IDevice or embedded guest import in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown installation method. Choose OTA, pairing/IDevice or embedded guest import in Settings."
+          }
+        }
+      }
+    },
+    "Guest import prepared — finish in container" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guest import prepared — finish in container"
+          }
+        }
+      }
+    },
+    "Preparing guest import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing guest import"
+          }
+        }
+      }
+    },
+    "A container import does not prove signing or a successful guest launch, and is not an iOS device installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A container import does not prove signing or a successful guest launch, and is not an iOS device installation."
+          }
+        }
+      }
+    },
+    "Embedded container" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded container"
+          }
+        }
+      }
+    },
+    "Embedded runtime not loaded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded runtime not loaded"
+          }
+        }
+      }
+    },
+    "Imported guest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported guest"
+          }
+        }
+      }
+    },
+    "Imported guest · v%@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported guest · v%@"
+          }
+        }
+      }
+    },
+    "Not imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not imported"
+          }
+        }
+      }
+    },
+    "Present in the embedded container. Signing and launch have not been verified; this is not a device installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Present in the embedded container. Signing and launch have not been verified; this is not a device installation."
+          }
+        }
+      }
+    },
+    "Blocked: HTTPS is required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked: HTTPS is required"
+          }
+        }
+      }
+    },
+    "Catalogue reviewed %@; availability and operators are not verified." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalogue reviewed %@; availability and operators are not verified."
+          }
+        }
+      }
+    },
+    "Catalogue source and license" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalogue source and license"
+          }
+        }
+      }
+    },
+    "Checking provider compatibility…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking provider compatibility…"
+          }
+        }
+      }
+    },
+    "Community anisette servers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Community anisette servers"
+          }
+        }
+      }
+    },
+    "Reference list, not verified providers. Presets are activated only after the endpoint passes VexSign's HTTPS header-format check. V3 provisioning servers may not support this format; there is no automatic failover or contact with every server." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reference list, not verified providers. Presets are activated only after the endpoint passes VexSign's HTTPS header-format check. V3 provisioning servers may not support this format; there is no automatic failover or contact with every server."
+          }
+        }
+      }
+    },
+    "Save & Verify" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save & Verify"
+          }
+        }
+      }
+    },
+    "Save & Verify contacts only the selected endpoint to request anisette headers. It does not send Apple credentials or sign in. Unsupported protocol responses leave your previous provider unchanged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save & Verify contacts only the selected endpoint to request anisette headers. It does not send Apple credentials or sign in. Unsupported protocol responses leave your previous provider unchanged."
+          }
+        }
+      }
+    },
+    "Search Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Library"
+          }
+        }
+      }
+    },
+    "Search VexSign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search VexSign"
+          }
+        }
+      }
+    },
+    "Use the same query across Library, repository apps and Settings. Each destination keeps its existing privacy rules and filters." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the same query across Library, repository apps and Settings. Each destination keeps its existing privacy rules and filters."
+          }
+        }
+      }
+    },
+    "Library, App Store, Home, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library, App Store, Home, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26."
+          }
+        }
+      }
+    },
+    "Anisette protocol" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anisette protocol"
+          }
+        }
+      }
+    },
+    "Anisette v3 provisioning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anisette v3 provisioning"
+          }
+        }
+      }
+    },
+    "Choose the protocol supported by the operator. Header mode requires JSON headers; v3 uses a WSS provisioning exchange and stores a provider-bound ADI identity in device-only Keychain." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the protocol supported by the operator. Header mode requires JSON headers; v3 uses a WSS provisioning exchange and stores a provider-bound ADI identity in device-only Keychain."
+          }
+        }
+      }
+    },
+    "HTTPS JSON headers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS JSON headers"
+          }
+        }
+      }
+    },
+    "Reference list, not verified providers. Presets are activated only after the selected protocol completes its check; there is no automatic failover or contact with every server." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reference list, not verified providers. Presets are activated only after the selected protocol completes its check; there is no automatic failover or contact with every server."
+          }
+        }
+      }
+    },
+    "Save & Verify contacts the selected operator. In v3 mode this performs ADI provisioning with Apple and the operator, and stores its pseudonymous identifier and ADI blob in device-only Keychain. No Apple ID password, 2FA code or account session is sent to that operator. It does not sign in to your Apple account. Failed checks keep the previous provider." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save & Verify contacts the selected operator. In v3 mode this performs ADI provisioning with Apple and the operator, and stores its pseudonymous identifier and ADI blob in device-only Keychain. No Apple ID password, 2FA code or account session is sent to that operator. It does not sign in to your Apple account. Failed checks keep the previous provider."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

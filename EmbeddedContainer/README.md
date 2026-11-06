@@ -52,12 +52,16 @@ python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa
 Or manually run **Guest-host prototype · build only** on the desired branch. It has
 read-only permissions, no publish job and no automatic triggers. It does not
 require Apple-account/signing/TLS secrets. Its artifact is explicitly labelled
-unvalidated. The normal release workflow remains unchanged.
+unvalidated. New combined artifacts are retained for **14 days**, and diagnostic
+logs for **3 days**. Existing uploads keep their previous expiry. The normal
+release workflow remains unchanged.
 
 Outputs (ignored by Git):
 
 - `packages/VexSign+LiveContainer+SideStore.ipa`
 - `packages/VexSign+LiveContainer+SideStore.integration-sources.tar.gz`
+- `packages/VexSign+LiveContainer+SideStore.build.json`
+- `packages/VexSign+LiveContainer+SideStore.checksums.txt`
 
 The packager checks every cached asset's SHA-256 before executing/extracting it.
 The SideStore asset ID, commit hashes and converter source digest are in
@@ -156,3 +160,90 @@ not create a release.
   import, device-local TLS/full-trust setup and normal app installation.
 - Verify existing standalone builds/data are unaffected. Certificate-import
   crash diagnostics from the original report are still required separately.
+
+## Upstream review and what “one install” actually means (2026-11-06)
+
+The reviewed upstream [packaging script](https://github.com/LiveContainer/LiveContainer/blob/9108ae624ea001f7d7696d48407f890b48fa2653/.github/build_github.sh)
+converts SideStore's executable to a loadable library, moves its app into
+`Frameworks/SideStoreApp.framework`, adapts intents/widgets to SideStoreSupport,
+and packages the result inside **one LiveContainer host IPA**. It does not install
+an independent SideStore app behind the user's back. This prototype follows that
+layout with pinned inputs rather than the script's floating nightly download.
+
+There are two different installation inventories:
+
+- **Device-installed:** an app registered with iOS/installd. This is what VexSign's
+  Library device-installation badge queries. Signing an IPA is not evidence of it.
+- **Container guest:** an app imported into LiveContainer's private app/data
+  containers and launched by its runtime. A guest is not a separately installed
+  iOS app; a Home Screen shortcut does not change that. Do not label a guest as
+  device-installed or combine these inventories into a single misleading badge.
+
+For a single-install **prototype** test, install the combined host IPA from the
+manual workflow, not the ordinary `VexSign.ipa`. SideStore and the bundled VexSign
+are then opened inside the host; no separate SideStore or LiveContainer app
+installation is needed. Initial host installation/re-signing, pairing, Apple
+account setup and any signing/JIT prerequisites still apply. This does not bypass
+Apple's provisioning limits or promise universal guest compatibility.
+
+That packaging alone does **not** implement the accepted VexSign-primary design.
+The remaining integration work is to put the container runtime/guest inventory
+behind VexSign's primary UI, connect the native account/provisioning/renewal
+pipeline, preserve data/account ownership across launches and upgrades, and pass
+the architecture's native/device gates. Simply renaming the host or shipping a
+second embedded account UI would not complete that work. The ordinary VexSign
+release deliberately remains unchanged until those gates pass.
+
+Before promoting any combined artifact, test on physical devices: clean install
+with neither companion installed; first-run account/pairing setup; host↔VexSign↔
+SideStore switching; guest import/launch and independent guest data; actual device
+installation versus guest-only badges; expiration/renewal; cancellation/offline
+recovery; and update/relaunch without data loss. Exercise supported signing/JIT
+modes and document the tested iOS versions. Distribute the required corresponding
+sources and retain upstream licenses/notices for the combined work.
+
+### VexSign install-route selection
+
+Settings → Installation now keeps the existing preference values `0` (OTA) and
+`1` (pairing/IDevice), and adds `2` (embedded guest import). Unsupported stored
+values fail explicitly rather than silently choosing OTA. The guest option
+requires the loaded process-local runtime; merely installing a separate
+LiveContainer app does not activate it.
+
+The Library Install action packages and validates the selected guest IPA, stages
+it in the host inbox, then offers **Open container** or **Later**. The open action
+requires no active VexSign tasks and explicit confirmation because the host
+switch closes the current session. Finish import/signing in the host. Staging is
+not installation: it does not set the device-installed badge, increment installed
+analytics, offer a device-app Open button, or delete the library source. Guests
+must be imported one at a time: other queued entries are skipped, and automatic
+sign-and-install batches reject this route with an explanation rather than
+reporting their guests as iOS installations.
+
+For OTA, export/install the Root CA profile and enable Full Trust in iOS Settings;
+VexSign cannot grant that trust itself. Pairing imports validate the plist before
+atomically replacing the previous file, but only a real transport connection can
+establish pairing validity/device trust/VPN connectivity. Recheck prerequisites
+after setup or return to the app from Settings. The source implementation still
+requires Xcode build/simulator tests and the physical-device acceptance described
+above; portable checks are not a substitute for those tests.
+
+### Independent container inventory
+
+The combined runtime now exposes a read-only inventory query over the host's
+local and app-group Applications directories. Library shows **Imported guest**
+separately from **Installed** and the information sheet names both inventories.
+The bridge returns only import state and version, never guest data, keychain
+values or signing identities. Unavailable runtime, unreadable inventory, old
+hosts without the selector and malformed replies do not become positive badges.
+A guest's presence still does not prove it can sign, launch or renew.
+
+The device probe and confirmation engine also reject evidence belonging to a
+different bundle identifier. A container hook returning the host's proxy cannot
+serve as confirmation that a requested guest was installed by iOS.
+
+The combined build uses the shared Xcode selector, checks the host executable and
+embedded framework Mach-O types, and emits checksums for the IPA, integration
+sources and build metadata. Verify these before re-signing. The JSON explicitly
+records physical-device acceptance as **not run**; an uploaded prototype is not a
+production promotion or a supported VexSign-primary release.

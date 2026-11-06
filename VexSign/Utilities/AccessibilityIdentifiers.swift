@@ -35,6 +35,7 @@ enum A11y {
 	/// What a library row says about one app.
 	enum Library {
 		static let installedBadge = "vexsign.library.installed"
+		static let guestBadge = "vexsign.library.guest"
 		static let updateBadge = "vexsign.library.update"
 		static let lockBadge = "vexsign.library.locked"
 	}
@@ -44,7 +45,7 @@ enum A11y {
 		[
 			Signing.start, Signing.stop, Signing.progress, Signing.console,
 			Install.start, Install.progress,
-			Library.installedBadge, Library.updateBadge, Library.lockBadge
+			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge
 		]
 	}
 }

@@ -38,6 +38,7 @@ final class NativeSigningManager: ObservableObject {
     // MARK: - Private State
 
     private var eventTask: Task<Void, Never>?
+    private var providerUpdate: Task<Void, Never>?
     private let logger = Logger(subsystem: "com.vexsign", category: "NativeSigningManager")
 
     private init() {
@@ -222,8 +223,34 @@ final class NativeSigningManager: ObservableObject {
     // MARK: - Backend Initialization
 
     /// Initializes the backend with the current provider configuration.
+    /// Serialize changes: close old operations before constructing a backend for
+    /// the current descriptor. Construction does not log in or grant anisette consent.
+    func synchronizeProvider() async {
+        let prior = providerUpdate
+        let update = Task { @MainActor [weak self] in
+            await prior?.value
+            guard let self else { return }
+            let desired = AnisetteProviderFactory.shared.currentDescriptor
+            if self.backend != nil, self.providerDescriptor == desired { return }
+            await self.shutdown()
+            guard AnisetteProviderFactory.shared.currentDescriptor == desired else { return }
+            if desired != nil { self.initializeBackend() }
+        }
+        providerUpdate = update
+        await update.value
+    }
+
+    private func configuredBackend() throws -> NativeAccountBackend {
+        guard let backend, isBackendReady,
+              providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else {
+            throw NativeSigningError.backendNotReady
+        }
+        return backend
+    }
+
     /// Call after AnisetteProviderFactory is configured.
     func initializeBackend() {
+        guard backend == nil else { return }
         guard let descriptor = AnisetteProviderFactory.shared.currentDescriptor else {
             logger.warning("Cannot initialize backend: no anisette provider configured")
             return
@@ -244,9 +271,10 @@ final class NativeSigningManager: ObservableObject {
 
     /// Reconfigures the backend with a new provider descriptor.
     func reconfigure(with descriptor: AnisetteProviderDescriptor) async {
-        await shutdown()
-        self.providerDescriptor = descriptor
-        initializeBackend()
+        // The factory is authoritative; never construct a different endpoint
+        // than the one the configuration UI currently displays.
+        guard AnisetteProviderFactory.shared.currentDescriptor == descriptor else { return }
+        await synchronizeProvider()
     }
 
     private func startEventObservation() {
@@ -256,7 +284,7 @@ final class NativeSigningManager: ObservableObject {
             do {
                 let events = try await backend.events()
                 for await event in events {
-                    if Task.isCancelled { break }
+                    if Task.isCancelled || self.backend !== backend { break }
                     await self.handleEvent(event)
                 }
             } catch {
@@ -276,6 +304,7 @@ final class NativeSigningManager: ObservableObject {
         case .failed(let operationID, let error):
             logger.error("Operation \(operationID) failed: \(error)")
             await refreshSnapshot()
+            guard !Task.isCancelled else { return }
             lastError = error.localizedDescription
         case .cancelled(let operationID):
             logger.info("Operation \(operationID) cancelled")
@@ -287,7 +316,8 @@ final class NativeSigningManager: ObservableObject {
         guard let backend = backend else { return }
         do {
             let snapshot = try await backend.snapshot()
-            await MainActor.run { self.snapshot = snapshot }
+            guard self.backend === backend, !Task.isCancelled else { return }
+            self.snapshot = snapshot
         } catch {
             logger.error("Failed to get snapshot: \(error.localizedDescription, privacy: .public)")
         }
@@ -298,7 +328,7 @@ final class NativeSigningManager: ObservableObject {
     /// Starts Apple ID authentication with password.
     /// Returns an operation that emits 2FA challenges if required.
     func authenticate(appleID: String, password: String, xcodeVersion: String) async throws -> NativeAccountOperation {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
 
         // Record explicit anisette consent (required before any provider request)
         let consent = try await backend.recordExplicitAnisetteConsent()
@@ -315,7 +345,7 @@ final class NativeSigningManager: ObservableObject {
 
     /// Submits a 2FA response for a pending challenge.
     func submitTwoFactor(_ response: TwoFactorResponse, operationID: UUID, challengeID: UUID) async throws -> Bool {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let result = try await backend.submitTwoFactor(response, operation: operationID, challengeID: challengeID)
         await refreshSnapshot()
         return result
@@ -330,14 +360,14 @@ final class NativeSigningManager: ObservableObject {
 
     /// Selects a team after authentication enumerates available teams.
     func selectTeam(identifier: String, operationID: UUID) async throws {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         _ = try await backend.selectTeam(identifier: identifier, operation: operationID)
         await refreshSnapshot()
     }
 
     /// Signs out the current Apple ID (removes session, keeps identities).
     func signOut() async throws {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         try await backend.signOut()
         await refreshSnapshot()
     }
@@ -347,59 +377,59 @@ final class NativeSigningManager: ObservableObject {
     /// Gets a read-only provisioning preflight plan for a free account context.
     /// This does NOT mutate anything — it only reads Apple's inventory.
     func provisioningPreflight(contextID: UUID, request: NativeAccountProvisioningRequest) async throws -> NativeAccountProvisioningPlan {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.provisioningPreflight(contextID: contextID, request: request, consent: consent)
     }
 
     /// Prepares (creates or recovers) the device-only signing identity (key + CSR).
     func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.prepareSigningIdentity(contextID: contextID)
     }
 
     /// Records explicit user approval for certificate creation (consumes Apple quota).
     func recordCertificateCreationApproval(contextID: UUID, identityID: UUID) async throws -> NativeCertificateCreationApproval {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitCertificateCreationApproval(contextID: contextID, identityID: identityID)
     }
 
     /// Creates a development signing certificate using the saved CSR.
     func createDevelopmentCertificate(contextID: UUID, identityID: UUID, approval: NativeCertificateCreationApproval) async throws -> NativeSigningIdentityTicket {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.createDevelopmentSigningCertificate(contextID: contextID, identityID: identityID, approval: approval, consent: consent)
     }
 
     /// Reconciles an uncertain certificate submission (reads Apple inventory).
     func reconcileCertificate(contextID: UUID, identityID: UUID) async throws -> NativeSigningIdentityTicket {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.reconcileUncertainSigningCertificate(contextID: contextID, identityID: identityID, consent: consent)
     }
 
     /// Records explicit approval for device/App ID registration.
     func recordRegistrationApproval(contextID: UUID, subject: NativeRegistrationSubject) async throws -> NativeAccountRegistrationApproval {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitRegistrationApproval(contextID: contextID, subject: subject)
     }
 
     /// Registers a device or App ID with Apple.
     func registerResource(contextID: UUID, subject: NativeRegistrationSubject, approval: NativeAccountRegistrationApproval) async throws -> NativeRegistrationResult {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.registerAccountResource(contextID: contextID, subject: subject, approval: approval, consent: consent)
     }
 
     /// Records explicit approval for provisioning profile creation.
     func recordProfileCreationApproval(contextID: UUID, target: NativeAccountProfileTarget) async throws -> NativeAccountProfileApproval {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitProfileCreationApproval(contextID: contextID, target: target)
     }
 
     /// Creates a provisioning profile for the given target.
     func createProvisioningProfile(contextID: UUID, target: NativeAccountProfileTarget, approval: NativeAccountProfileApproval) async throws -> NativeAccountProfileResult {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.createAccountProvisioningProfile(contextID: contextID, target: target, approval: approval, consent: consent)
     }
@@ -408,13 +438,13 @@ final class NativeSigningManager: ObservableObject {
 
     /// Records explicit consent for certificate status check (OCSP/CRL).
     func recordCertificateStatusConsent(contextID: UUID, identityID: UUID) async throws -> NativeCertificateStatusConsent {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitCertificateStatusConsent(contextID: contextID, identityID: identityID)
     }
 
     /// Evaluates the signing certificate's revocation status.
     func evaluateCertificateStatus(contextID: UUID, identityID: UUID, consent: NativeCertificateStatusConsent?) async throws -> NativeAccountCertificateStatus {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.evaluateSigningCertificateStatus(contextID: contextID, identityID: identityID, consent: consent)
     }
 
@@ -424,9 +454,14 @@ final class NativeSigningManager: ObservableObject {
     func shutdown() async {
         eventTask?.cancel()
         eventTask = nil
-        await backend?.shutdown()
+        let previousBackend = backend
         backend = nil
         isBackendReady = false
+        providerDescriptor = nil
+        snapshot = nil
+        freeAccountAppCount = 0
+        lastError = nil
+        await previousBackend?.shutdown()
     }
 
     // MARK: - Identity Management

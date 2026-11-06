@@ -374,8 +374,8 @@ final class MissingFeatureTests: XCTestCase {
 
 		XCTAssertEqual(
 			TabBarPreferences.primaryTabs,
-			[.library, .home, .appStore, .downloads, .settings],
-			"The required order is Library → Home → App Store → Downloads → Settings"
+			[.library, .appStore, .home, .downloads, .settings],
+			"The required order is Library → App Store → Home → Activity → Settings"
 		)
 
 		// Every primary tab is visible in the resolved bar, in order.

@@ -130,6 +130,7 @@ struct SigningMethodsView: View {
                 Text(.localized("Diagnostics"))
             }
         }
+        .task { await nativeManager.synchronizeProvider() }
         .sheet(isPresented: $showAppleIDLogin) {
             AppleIDLoginView(
                 appleID: $appleID,

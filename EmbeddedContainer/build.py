@@ -306,8 +306,17 @@ def validate_payload(host):
     for relative in required:
         if not (host / relative).exists():
             raise ValueError(f"Combined runtime is incomplete: {relative}")
-    if set(macho_filetypes(host / "Frameworks/SideStoreApp.framework/SideStore")) != {6}:
-        raise ValueError("Embedded SideStore is not MH_DYLIB")
+    info = read_plist(host / "Info.plist")
+    executable = info.get("CFBundleExecutable", "")
+    if not isinstance(executable, str) or not executable or PurePosixPath(executable).name != executable:
+        raise ValueError("Host executable name is invalid")
+    binary = host / executable
+    if not binary.is_file() or binary.is_symlink() or set(macho_filetypes(binary)) != {2}:
+        raise ValueError("Host executable is not MH_EXECUTE")
+    for framework in ("SideStoreSupport", "LiveContainerShared", "LiveContainerSwiftUI", "SideStoreApp"):
+        name = "SideStore" if framework == "SideStoreApp" else framework
+        if set(macho_filetypes(host / f"Frameworks/{framework}.framework/{name}")) != {6}:
+            raise ValueError(f"Embedded {framework} is not MH_DYLIB")
     manifest = json.loads((host / "VexSignEmbedded.json").read_text())
     verify_digest(host / "VexSign.ipa", manifest["sha256"])
     if not read_plist(host / "Info.plist").get("VexSignCombinedHost"):
@@ -329,6 +338,22 @@ def source_notices(host, upstream, lock):
                   "distribution": "Combined host: AGPL-3.0; retain individual component notices. Publish corresponding source with binaries."}
     (folder / "manifest.json").write_text(json.dumps(provenance, indent=2) + "\n")
     shutil.copy2(HERE / "README.md", folder / "README.md")
+
+
+def write_build_metadata(ipa, sources, lock):
+    """Identify experimental outputs without claiming device acceptance."""
+    ipa, sources = Path(ipa), Path(sources)
+    metadata = ipa.with_suffix(".build.json")
+    checksums = ipa.with_suffix(".checksums.txt")
+    files = [{"name": path.name, "sha256": sha256(path), "bytes": path.stat().st_size}
+             for path in (ipa, sources)]
+    report = {"schemaVersion": 1, "kind": "experimental-guest-host",
+              "validation": {"packaging": "structural-checks-only", "physicalDevice": "not-run"},
+              "inputs": lock, "files": files,
+              "integrationPatchSHA256": sha256(HERE / "patches/combined-host.patch")}
+    metadata.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    checksums.write_text("".join(f"{sha256(path)}  {path.name}\n" for path in (ipa, sources, metadata)))
+    return metadata, checksums
 
 
 def main():
@@ -397,7 +422,9 @@ def main():
         with tarfile.open(sources, "w:gz") as archive:
             archive.add(HERE, arcname="EmbeddedContainer", filter=lambda x: None if "__pycache__" in x.name else x)
             archive.add(host / "VexSignSources", arcname="VexSignSources")
-        print(f"Created {args.output}\nSHA-256 {sha256(args.output)}\nIntegration sources: {sources}")
+        metadata, checksums = write_build_metadata(args.output, sources, lock)
+        print(f"Created {args.output}\nSHA-256 {sha256(args.output)}\nIntegration sources: {sources}"
+              f"\nBuild metadata: {metadata}\nChecksums: {checksums}")
 
 
 if __name__ == "__main__":

@@ -69,3 +69,11 @@ enum WorkspaceRoute: Equatable {
         }
     }
 }
+
+
+/// A one-shot search intent survives a destination that has not mounted yet.
+struct WorkspaceSearchRequest: Equatable, Identifiable {
+    let id = UUID()
+    let tab: TabEnum
+    let query: String
+}

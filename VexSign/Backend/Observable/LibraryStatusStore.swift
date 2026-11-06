@@ -30,6 +30,8 @@ struct LibraryAppStatus: Equatable, Sendable {
 	/// The identifier the probe answered for — what invalidation matches on.
 	var bundleIdentifier: String?
 	var installed: InstalledState = .unknown
+	/// Independent host inventory, never substituted for the device probe.
+	var guest: ContainerGuestState = .unavailable
 	/// nil until the stored bundle's signature has been read; not needed for unsigned apps.
 	var signature: BundleSignature.State?
 	var updatedAt: Date = .distantPast
@@ -57,7 +59,7 @@ struct InstalledBadge: Equatable {
 	init?(_ state: InstalledState) {
 		switch state {
 		case .installed:
-			title = nil
+			title = .localized("Installed")
 			systemImage = "checkmark.circle.fill"
 			tone = .positive
 		case .installedOtherVersion(let version):
@@ -139,11 +141,15 @@ final class LibraryStatusStore: ObservableObject {
 	@Published private(set) var statuses: [String: LibraryAppStatus] = [:]
 
 	private let probe: InstalledAppProbing
+	private let readGuest: @Sendable (String) -> ContainerGuestState
 	private let readSignature: @Sendable (URL) -> BundleSignature.State
 	private var lastAttempt: [String: Date] = [:]
 	private var inflight: Set<String> = []
 	private var pending: [Request] = []
-	/// Bumped by `invalidate`, so a read that was already running when the device's answer
+	/// Keep snapshots (never managed objects) so invalidation can re-read visible rows.
+	private var knownRequests: [String: Request] = [:]
+	private var generation = 0
+	/// Bumped by every new read, so a read already running when the device's answer
 	/// changed cannot publish the answer it was about to.
 	private var epoch: [String: Int] = [:]
 
@@ -155,9 +161,11 @@ final class LibraryStatusStore: ObservableObject {
 
 	init(
 		probe: InstalledAppProbing = InstalledAppProbe(),
+		readGuest: @escaping @Sendable (String) -> ContainerGuestState = { EmbeddedContainerRuntime.guestState(for: $0) },
 		readSignature: @escaping @Sendable (URL) -> BundleSignature.State = { BundleSignature.read(bundleAt: $0) }
 	) {
 		self.probe = probe
+		self.readGuest = readGuest
 		self.readSignature = readSignature
 	}
 
@@ -172,8 +180,18 @@ final class LibraryStatusStore: ObservableObject {
 	/// younger than `maxAge`. Cheap enough to call from every row's `onAppear`.
 	func request(_ app: AppInfoPresentable, maxAge: TimeInterval = defaultMaxAge, force: Bool = false) {
 		guard let request = self.request(for: app) else { return }
-		guard force || _needsRead(request.uuid, maxAge: maxAge) else { return }
+		self.request(request, maxAge: maxAge, force: force)
+	}
 
+	/// Snapshot entry point also lets tests exercise refreshes without a persistent store.
+	func request(_ request: Request, maxAge: TimeInterval = defaultMaxAge, force: Bool = false) {
+		let changed = knownRequests[request.uuid] != request
+		knownRequests[request.uuid] = request
+		guard force || changed || _needsRead(request.uuid, maxAge: maxAge) else { return }
+
+		// A forced refresh may supersede an in-flight read. Only the newest read owns
+		// the right to publish a status or clear the in-flight marker.
+		epoch[request.uuid, default: 0] += 1
 		lastAttempt[request.uuid] = Date()
 		inflight.insert(request.uuid)
 		pending.append(request)
@@ -191,16 +209,23 @@ final class LibraryStatusStore: ObservableObject {
 	/// Called when an install finishes: the probe's answer just changed, and a cached answer is
 	/// the one thing that would make the library claim the wrong version.
 	func invalidate(bundleIdentifier: String) {
-		for (uuid, status) in statuses where status.bundleIdentifier == bundleIdentifier {
-			statuses.removeValue(forKey: uuid)
-			lastAttempt.removeValue(forKey: uuid)
-			epoch[uuid, default: 0] += 1
+		let affected = knownRequests.values.filter { $0.bundleIdentifier == bundleIdentifier }
+		for request in affected {
+			statuses.removeValue(forKey: request.uuid)
+			lastAttempt.removeValue(forKey: request.uuid)
+			// Do not wait for onAppear: the row may remain on screen after installation.
+			self.request(request, force: true)
 		}
 	}
 
 	func invalidateAll() {
+		// Prevent a pre-reset read from repopulating the store or clearing a newer read.
+		generation += 1
 		lastAttempt.removeAll()
 		statuses.removeAll()
+		knownRequests.removeAll()
+		inflight.removeAll()
+		pending.removeAll()
 		epoch.removeAll()
 	}
 
@@ -229,7 +254,9 @@ final class LibraryStatusStore: ObservableObject {
 		pending.removeAll()
 
 		let probe = self.probe
+		let generation = self.generation
 		let read = self.readSignature
+		let readGuest = self.readGuest
 		let epochs = batch.reduce(into: [String: Int]()) { $0[$1.uuid] = epoch[$1.uuid] ?? 0 }
 
 		Task.detached(priority: .utility) { [weak self] in
@@ -238,18 +265,17 @@ final class LibraryStatusStore: ObservableObject {
 			collected.reserveCapacity(batch.count)
 
 			for request in batch {
-				collected.append((request.uuid, Self.resolve(request, probe: probe, readSignature: read)))
+				collected.append((request.uuid, Self.resolve(request, probe: probe, readSignature: read, readGuest: readGuest)))
 			}
 			let results = collected
 
 			await MainActor.run {
-				guard let store else { return }
+				guard let store, store.generation == generation else { return }
 				for (uuid, status) in results {
-					store.inflight.remove(uuid)
-
 					// An install finished while this read was running: its answer is the newer
 					// one, so drop this.
 					guard (store.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0) else { continue }
+					store.inflight.remove(uuid)
 					store.statuses[uuid] = status
 				}
 			}
@@ -262,14 +288,17 @@ final class LibraryStatusStore: ObservableObject {
 	nonisolated static func resolve(
 		_ request: Request,
 		probe: InstalledAppProbing,
-		readSignature: @Sendable (URL) -> BundleSignature.State
+		readSignature: @Sendable (URL) -> BundleSignature.State,
+		readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable }
 	) -> LibraryAppStatus {
 		var status = LibraryAppStatus()
 		status.bundleIdentifier = request.bundleIdentifier
 
 		if let identifier = request.bundleIdentifier, !identifier.isEmpty {
+			status.guest = readGuest(identifier)
+			let candidate = probe.installedApp(for: identifier)
 			status.installed = InstalledState.derive(
-				from: probe.installedApp(for: identifier),
+				from: candidate?.bundleIdentifier == identifier ? candidate : nil,
 				expecting: request.expectedVersion
 			)
 		}

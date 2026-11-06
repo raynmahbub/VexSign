@@ -1,20 +1,20 @@
 diff --git a/LiveContainer/LCSharedUtils.h b/LiveContainer/LCSharedUtils.h
-index daf7b7b..c8a1a46 100644
 --- a/LiveContainer/LCSharedUtils.h
 +++ b/LiveContainer/LCSharedUtils.h
-@@ -17,4 +17,7 @@
+@@ -17,4 +17,9 @@
  + (NSString*)findDefaultContainerWithBundleId:(NSString*)bundleId;
  + (NSArray<NSString*>*)lcUnorderedUrlSchemes;
  + (NSArray<NSString*>*)lcUrlSchemes;
 +// VexSign combined-host bridge. No account/keychain values cross this API.
 ++ (BOOL)vexSignCombinedHostAvailable;
 ++ (BOOL)vexSignStageIPA:(NSURL *)source;
++// Read-only inventory: imported means present in the host, not runnable or iOS-installed.
+++ (NSDictionary * _Nullable)vexSignGuestInfo:(NSString *)identifier;
  @end
 diff --git a/LiveContainer/LCSharedUtils.m b/LiveContainer/LCSharedUtils.m
-index 575205f..bd544bd 100644
 --- a/LiveContainer/LCSharedUtils.m
 +++ b/LiveContainer/LCSharedUtils.m
-@@ -432,4 +432,46 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+@@ -432,4 +432,96 @@
  
      return result;
  }
@@ -60,12 +60,61 @@ index 575205f..bd544bd 100644
 +    return YES;
 +    }
 +}
++
+++ (NSDictionary *)vexSignGuestInfo:(NSString *)identifier {
++    if (![self vexSignCombinedHostAvailable] || identifier.length == 0 || identifier.length > 255) return nil;
++    NSFileManager *fm = NSFileManager.defaultManager;
++    NSURL *home = [NSURL fileURLWithPath:@(getenv("LC_HOME_PATH"))];
++    NSURL *local = [home URLByAppendingPathComponent:@"Documents/Applications" isDirectory:YES];
++    NSURL *group = [self appGroupPath];
++    NSMutableArray<NSURL *> *roots = [NSMutableArray arrayWithObject:local];
++    if (group) [roots addObject:[group URLByAppendingPathComponent:@"LiveContainer/Applications" isDirectory:YES]];
++    // If the shared inventory cannot be addressed, an absent local match is unknown.
++    BOOL complete = group != nil;
++    for (NSURL *root in roots) {
++        NSURL *canonicalRoot = root.URLByStandardizingPath.URLByResolvingSymlinksInPath;
++        NSError *error = nil;
++        NSArray<NSURL *> *entries = [fm contentsOfDirectoryAtURL:canonicalRoot
++            includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:0 error:&error];
++        if (!entries) {
++            if (![error.domain isEqualToString:NSCocoaErrorDomain]
++                || (error.code != NSFileReadNoSuchFileError && error.code != NSFileNoSuchFileError)) complete = NO;
++            continue;
++        }
++        if (entries.count > 1000) { complete = NO; continue; }
++        for (NSURL *entry in entries) {
++            NSURL *app = entry.URLByStandardizingPath.URLByResolvingSymlinksInPath;
++            NSNumber *directory = nil;
++            if (![app.URLByDeletingLastPathComponent.path isEqualToString:canonicalRoot.path]
++                || ![app getResourceValue:&directory forKey:NSURLIsDirectoryKey error:nil]) { complete = NO; continue; }
++            if (!directory.boolValue) continue;
++            NSURL *info = [app URLByAppendingPathComponent:@"Info.plist"].URLByResolvingSymlinksInPath;
++            NSNumber *size = nil;
++            if (![info.URLByDeletingLastPathComponent.path isEqualToString:app.path]
++                || ![info getResourceValue:&size forKey:NSURLFileSizeKey error:nil]
++                || size.unsignedLongLongValue > 1024 * 1024) { complete = NO; continue; }
++            // Read only bounded, contained Info.plists. No guest keychain/data crosses this bridge.
++            NSFileHandle *handle = [NSFileHandle fileHandleForReadingFromURL:info error:nil];
++            NSData *data = [handle readDataUpToLength:1024 * 1024 + 1 error:nil];
++            [handle closeAndReturnError:nil];
++            if (!data || data.length > 1024 * 1024) { complete = NO; continue; }
++            id plist = data ? [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:nil error:nil] : nil;
++            if (![plist isKindOfClass:NSDictionary.class]) { complete = NO; continue; }
++            if (![plist[@"CFBundleIdentifier"] isEqual:identifier]) continue;
++            NSMutableDictionary *result = [NSMutableDictionary dictionaryWithObject:@"imported" forKey:@"state"];
++            id version = plist[@"CFBundleShortVersionString"];
++            if ([version isKindOfClass:NSString.class]) result[@"version"] = version;
++            return result;
++        }
++    }
++    return complete ? @{@"state": @"notImported"} : nil;
++}
++
  @end
 diff --git a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift b/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
-index 94eeef1..eec26fe 100644
 --- a/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
 +++ b/LiveContainerSwiftUI/Views/AppList/LCAppListView.swift
-@@ -131,6 +131,17 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+@@ -131,6 +131,17 @@
                  })
                  .hidden()
                  
@@ -83,7 +132,7 @@ index 94eeef1..eec26fe 100644
                  LazyVStack {
                      ForEach(filteredApps, id: \.self) { app in
                          LCAppBanner(appModel: app, delegate: self)
-@@ -750,6 +761,11 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+@@ -750,6 +761,11 @@
              // enable SDK version spoof by defalut
              finalNewApp.spoofSDKVersion = true
          }
@@ -95,7 +144,7 @@ index 94eeef1..eec26fe 100644
          finalNewApp.installationDate = Date.now
          
          DispatchQueue.main.async {
-@@ -779,6 +795,22 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+@@ -779,6 +795,22 @@
          }
      }
      
@@ -118,7 +167,7 @@ index 94eeef1..eec26fe 100644
      func startInstallFromUrl() async {
          guard let installUrlStr = await installUrlInput.open(), installUrlStr.count > 0 else {
              return
-@@ -1186,6 +1218,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+@@ -1186,6 +1218,15 @@
      }
      
      func handleURL(url : URL) {

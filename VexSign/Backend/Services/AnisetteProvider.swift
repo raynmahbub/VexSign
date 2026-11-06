@@ -62,6 +62,7 @@ public final class AnisetteProviderFactory: ObservableObject {
         // If endpoint is configured, use HTTPS provider
         if descriptor.endpoint != nil {
             do {
+                if descriptor.protocolKind == .v3 { return try NativeV3AnisetteProvider(descriptor: descriptor) }
                 return try HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor: descriptor)
             } catch {
                 return nil
@@ -74,12 +75,14 @@ public final class AnisetteProviderFactory: ObservableObject {
     /// Configures the provider with a custom HTTPS endpoint.
     public func configureHTTPS(endpoint: URL, identity: String = "vexsign.local",
                                 displayName: String = "Custom Anisette Server",
-                                policyRevision: String = "1") throws {
+                                policyRevision: String = "1",
+                                protocolKind: AnisetteProviderDescriptor.ProtocolKind = .headers) throws {
         let descriptor = try AnisetteProviderDescriptor(
             identifier: identity,
             displayName: displayName,
             policyRevision: policyRevision,
-            endpoint: endpoint
+            endpoint: endpoint,
+            protocolKind: protocolKind
         )
         currentDescriptor = descriptor
         isConfigured = true
@@ -111,11 +114,12 @@ public final class AnisetteProviderFactory: ObservableObject {
 // MARK: - AnisetteProviderDescriptor Codable
 extension AnisetteProviderDescriptor: @retroactive Codable {
     enum CodingKeys: String, CodingKey {
-        case identifier, displayName, policyRevision, endpoint
+        case identifier, displayName, policyRevision, endpoint, protocolKind
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(protocolKind, forKey: .protocolKind)
         try container.encode(identifier, forKey: .identifier)
         try container.encode(displayName, forKey: .displayName)
         try container.encode(policyRevision, forKey: .policyRevision)
@@ -129,6 +133,34 @@ extension AnisetteProviderDescriptor: @retroactive Codable {
         let policyRevision = try container.decode(String.self, forKey: .policyRevision)
         let endpointString = try container.decodeIfPresent(String.self, forKey: .endpoint)
         let endpoint = endpointString.flatMap { URL(string: $0) }
-        try self.init(identifier: identifier, displayName: displayName, policyRevision: policyRevision, endpoint: endpoint)
+        let protocolKind = try container.decodeIfPresent(AnisetteProviderDescriptor.ProtocolKind.self, forKey: .protocolKind) ?? .headers
+        try self.init(identifier: identifier, displayName: displayName, policyRevision: policyRevision, endpoint: endpoint, protocolKind: protocolKind)
+    }
+}
+
+/// Reference data only: catalogue membership is neither trust nor protocol compatibility.
+struct AnisetteServerCatalog: Decodable {
+    struct Server: Decodable, Identifiable {
+        let name: String
+        let address: String
+        let kind: Int
+        var id: String { address }
+        var secureEndpoint: URL? {
+            guard let url = URL(string: address), url.scheme?.lowercased() == "https",
+                  let host = url.host, !host.isEmpty, url.user == nil, url.password == nil,
+                  url.query == nil, url.fragment == nil else { return nil }
+            return url
+        }
+    }
+    let servers: [Server]
+    let sourceRepository: String
+    let sourceRevision: String
+    let reviewedAt: String
+
+    static func bundled(in bundle: Bundle = .main) throws -> Self {
+        guard let url = bundle.url(forResource: "AnisetteServers", withExtension: "json") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
     }
 }

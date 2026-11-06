@@ -2,9 +2,8 @@
 //  ExtendedTabbarView.swift
 //  VexSign
 //
-//  iOS 18 presentation of the same fixed six-tab shell used by TabbarView.
-//  No tab customization is exposed: Files, Library, Home, App Store,
-//  Downloads, and Settings remain the complete navigation contract.
+//  iOS 18 presentation of the five primary tabs plus optional destinations.
+//  Primary order: Library, App Store, Home, Activity, Settings.
 //
 
 import SwiftUI

@@ -191,11 +191,12 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
-            # The device-testing IPA is an explicit 14-day exception; logs,
+            # Device-testing IPAs (normal CI and combined prototype) have a 14-day exception; logs,
             # quick findings and release-staging artifacts stay at <= 3 days.
             retention_text = text
-            if path.name == 'ci.yml':
-                match = re.search(r'(?ms)^      - name: Upload unsigned test IPA\n.*?(?=^      - name:)', text)
+            if path.name in ('ci.yml', 'embedded-container.yml'):
+                artifact_step = 'Upload unsigned test IPA' if path.name == 'ci.yml' else 'Upload combined build and integration sources'
+                match = re.search(r'(?ms)^      - name: ' + re.escape(artifact_step) + r'\n.*?(?=^      - name:)', text)
                 self.assertIsNotNone(match)
                 self.assertIn('retention-days: 14', match[0])
                 self.assertEqual(re.findall(r'retention-days: (\d+)', match[0]), ['14'])
@@ -252,6 +253,21 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertRegex(build, r'(?s)name: Upload unsigned test IPA.*?retention-days: 14')
         self.assertIn('if-no-files-found: error', build)
         self.assertIn('Check the separate simulator-test job', build)
+
+    def test_combined_build_is_opt_in_and_includes_verification_outputs(self):
+        text = (WORKFLOWS / 'embedded-container.yml').read_text()
+        events = block(text, 'on', 0)
+        self.assertIn('workflow_dispatch:', events)
+        for automatic in ('push:', 'pull_request:', 'schedule:'):
+            self.assertNotIn(automatic, events)
+        self.assertIn('run: bash .github/scripts/select_xcode.sh', text)
+        self.assertIn("python-version: '3.12'", text)
+        self.assertIn('contents: read', text)
+        self.assertNotIn('contents: write', text)
+        self.assertNotIn('gh release', text)
+        for suffix in ('.ipa', '.integration-sources.tar.gz', '.build.json', '.checksums.txt'):
+            self.assertIn('packages/VexSign+LiveContainer+SideStore' + suffix, text)
+        self.assertRegex(text, r'(?s)name: Upload build logs.*?retention-days: 3')
 
     def test_ci_ipa_packaging_layout_metadata_and_rejections(self):
         """Exercise the actual workflow shell with a ditto stand-in, not a native build."""

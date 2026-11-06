@@ -22,6 +22,8 @@ final class AppInstaller: ObservableObject {
 		case installedOtherVersion(String?)
 		case cancelled
 		case exported(URL?)
+		/// Copied to the host inbox; import/signing/launch are still pending.
+		case guestImportPrepared
 	}
 
 	let app: AppInfoPresentable
@@ -117,7 +119,20 @@ final class AppInstaller: ObservableObject {
 		defer { keepAlive.stop() }
 
 		do {
+			if !_isSharing {
+				guard let method = InstallMethodKind.selected(forStoredValue: _installationMethod) else {
+					throw Self.error(.localized("Unknown installation method. Choose OTA, pairing/IDevice or embedded guest import in Settings."))
+				}
+				if method == .liveContainer, !EmbeddedContainerRuntime.isAvailable {
+					throw Self.error(InstallPreflight.detail(for: .init(method: method,
+						readiness: InstallPreflight.readiness(for: method, .init()))))
+				}
+				if method == .idevice, !FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) {
+					throw Self.error(.localized("No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN."))
+				}
+			}
 			let (packageUrl, exported) = try await _package()
+			guard !_hasFinished else { return }
 
 			guard !_isSharing else {
 				_finish(.success(.exported(_useShareSheet ? exported : nil)))
@@ -128,8 +143,19 @@ final class AppInstaller: ObservableObject {
 			case 1:
 				try await InstallationProxy(viewModel: viewModel)
 					.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
-			default:
+			case 2:
+				let accepted = try await Task.detached(priority: .userInitiated) {
+					try EmbeddedContainerRuntime.stageIPA(packageUrl)
+				}.value
+				guard accepted else {
+					throw Self.error(.localized("The host could not stage the guest IPA. Complete or discard any previous prepared import, check free space and retry."))
+				}
+				// Do not restart here: the caller must finish its task and request consent.
+				_finish(.success(.guestImportPrepared))
+			case 0:
 				await _serveForOTA(packageUrl)
+			default:
+				throw Self.error(.localized("Unknown installation method."))
 			}
 		} catch {
 			_progressTask?.cancel()
@@ -461,8 +487,8 @@ final class AppInstaller: ObservableObject {
 	/// There is no progress counter to watch here — installd reported completion itself — so the
 	/// engine goes straight to verification and only the device's answer finishes the install.
 	private func _confirmIdeviceInstall() async {
-		guard let bundleID = app.identifier else {
-			_finish(.success(.installed))
+		guard let bundleID = app.identifier, !bundleID.isEmpty else {
+			_finish(.failure(Self.error(.localized("The device installation cannot be verified because the bundle identifier is missing."))))
 			return
 		}
 
@@ -483,7 +509,7 @@ extension AppInstaller.Outcome {
 		switch self {
 		case .installed, .installedOtherVersion:
 			true
-		case .cancelled, .exported:
+		case .cancelled, .exported, .guestImportPrepared:
 			false
 		}
 	}

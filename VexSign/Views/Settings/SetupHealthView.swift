@@ -138,9 +138,12 @@ struct SetupHealthView: View {
             items.append(.init(id: "missingCertificate", title: .localized("No Certificate Configured"), detail: .localized("Import your certificate and provisioning profile to enable signing."), target: .certificates))
         }
 
-        let method: InstallMethodKind = installationMethod == 1 ? .idevice : .server
-        let readiness = InstallPreflight.readiness(for: method, inputs)
-        if case .missing(let detail) = readiness {
+        let readiness = InstallMethodKind.selected(forStoredValue: installationMethod)
+            .map { InstallPreflight.readiness(for: $0, inputs) }
+            ?? .missing(.localized("Unknown installation method. Choose OTA, pairing/IDevice or embedded guest import in Settings."))
+        switch readiness {
+        case .ready: break
+        case .missing(let detail), .unknown(let detail), .unavailable(let detail):
             items.append(.init(id: "installation", title: .localized("Selected install method needs setup"), detail: detail, target: .installation))
         }
         if automationEnabled && gameMode {
@@ -193,11 +196,12 @@ struct SetupHealthView: View {
         inputs = InstallPreflightInputs(
             hasServerCertificate: LocalTLSIdentity.current() != nil,
             hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
-            trollStoreDetected: ["apple-magnifier://", "trollstore://"].contains { scheme in
+            trollStoreDetected: ["trollstore://"].contains { scheme in
                 guard let url = URL(string: scheme) else { return false }
                 return UIApplication.shared.canOpenURL(url)
             },
-            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted()
+            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
+            hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable
         )
     }
 }

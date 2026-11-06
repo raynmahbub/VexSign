@@ -1,6 +1,6 @@
 //
 //  TabBarPreferences.swift
-//  VexSign — Library · Home · App Store · Downloads · Settings
+//  VexSign — Library · App Store · Home · Downloads · Settings
 //
 //  The five primary tabs are a fixed, immutable navigation structure:
 //  they are always visible, always in the required order and cannot be

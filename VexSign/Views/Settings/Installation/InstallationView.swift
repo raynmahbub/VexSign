@@ -20,7 +20,8 @@ struct InstallationView: View {
 
 	private let _installationMethods: [String] = [
 		.localized("Server"),
-		.localized("idevice")
+		.localized("idevice"),
+		.localized("Embedded LiveContainer guest")
 	]
 	
 	// MARK: Body
@@ -45,7 +46,7 @@ struct InstallationView: View {
 			} header: {
 				Text(.localized("Install methods"))
 			} footer: {
-				Text(.localized("These are the same routes the Install button chooses between. A route marked Ready is not a promise that the device will accept the app — it means the thing it needs from VexSign is there."))
+				Text(.localized("The Installation Type picker selects OTA, pairing/IDevice or embedded guest import. Export and TrollStore are separate actions. Ready means local prerequisites are present, not that an app has been installed."))
 			}
 			
 			if _installationMethod == 0 {
@@ -58,6 +59,15 @@ struct InstallationView: View {
 				}
 			} else if _installationMethod == 1 {
 				TunnelView()
+			} else if _installationMethod == 2 {
+				if EmbeddedContainerRuntime.isAvailable {
+					EmbeddedContainerControls()
+				}
+			}
+			Section {
+				NavigationLink(.localized("OTA certificate and trust setup")) { NBList(.localized("Server & SSL")) { ServerView() } }
+				NavigationLink(.localized("Pairing file and VPN setup")) { NBList(.localized("Tunnel")) { TunnelView() } }
+				Button(.localized("Recheck installation prerequisites"), action: _refreshPreflight)
 			}
 		}
 		.onChange(of: _installationMethod) { newValue in
@@ -89,14 +99,15 @@ struct InstallationView: View {
 			hasServerCertificate: LocalTLSIdentity.current() != nil,
 			hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
 			trollStoreDetected: _trollStoreDetected(),
-            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted()
+            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
+			hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable
 		)
 	}
 
-	/// TrollStore answers one of two URL schemes. iOS only reports a scheme that is declared in
-	/// `LSApplicationQueriesSchemes`; both are, so a false here means "not installed", not "not allowed".
+	/// Probe only the scheme used by our handoff. Apple's Magnifier scheme can
+	/// answer on stock iOS and must not be mistaken for TrollStore.
 	private func _trollStoreDetected() -> Bool {
-		["apple-magnifier://", "trollstore://"].contains { string in
+		["trollstore://"].contains { string in
 			guard let url = URL(string: string) else { return false }
 			return UIApplication.shared.canOpenURL(url)
 		}
@@ -106,6 +117,7 @@ struct InstallationView: View {
 	private func _preflightRow(_ report: InstallMethodReport) -> some View {
 		let isSelected = (report.method == .server && _installationMethod == 0)
 			|| (report.method == .idevice && _installationMethod == 1)
+			|| (report.method == .liveContainer && _installationMethod == 2)
 
 		VStack(alignment: .leading, spacing: 3) {
 			HStack(spacing: 6) {

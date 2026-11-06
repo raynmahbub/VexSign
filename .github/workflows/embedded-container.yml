@@ -37,20 +37,14 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
       - name: Select installed Xcode
         env:
           REQUESTED_XCODE: ${{ inputs.xcode }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          candidates=(/Applications/Xcode_"${REQUESTED_XCODE}"*.app)
-          if [ "${#candidates[@]}" -eq 0 ]; then
-            echo "::error::Requested Xcode is not installed."
-            ls -d /Applications/Xcode*.app
-            exit 1
-          fi
-          sudo xcode-select -s "${candidates[0]}/Contents/Developer"
-          xcodebuild -version
+        run: bash .github/scripts/select_xcode.sh
       - name: Install packaging tool
         run: brew install ldid
       - name: Build normal VexSign guest input
@@ -68,14 +62,27 @@ jobs:
         with:
           name: VexSign-LiveContainer-SideStore-unvalidated
           if-no-files-found: error
+          retention-days: 14
           path: |
             packages/VexSign+LiveContainer+SideStore.ipa
             packages/VexSign+LiveContainer+SideStore.integration-sources.tar.gz
+            packages/VexSign+LiveContainer+SideStore.build.json
+            packages/VexSign+LiveContainer+SideStore.checksums.txt
+      - name: Combined build summary
+        run: |
+          {
+            echo '## Experimental combined host'
+            echo 'One host IPA includes the LiveContainer runtime, embedded SideStore and bundled VexSign guest.'
+            echo 'This is not the VexSign-primary production architecture. No device acceptance is claimed.'
+            echo 'Download VexSign-LiveContainer-SideStore-unvalidated within 14 days; verify its checksums before re-signing.'
+            echo 'The artifact includes integration sources and build metadata. Normal releases are unchanged.'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
           name: embedded-container-build-logs
+          retention-days: 3
           path: |
             ${{ runner.temp }}/vexsign-build.log
             ${{ runner.temp }}/combined-build.log

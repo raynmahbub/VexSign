@@ -1,0 +1,118 @@
+{
+  "servers": [
+    {
+      "name": "SideStore",
+      "address": "https://ani.sidestore.io",
+      "kind": 0
+    },
+    {
+      "name": "SideStore (.app)",
+      "address": "https://ani.sidestore.app",
+      "kind": 0
+    },
+    {
+      "name": "SideStore (.zip)",
+      "address": "https://ani.sidestore.zip",
+      "kind": 0
+    },
+    {
+      "name": "SideStore (.xyz)",
+      "address": "https://ani.846969.xyz",
+      "kind": 0
+    },
+    {
+      "name": "SideStore (New)",
+      "address": "https://new.ani.sidestore.io",
+      "kind": 2
+    },
+    {
+      "name": "jkcoxson",
+      "address": "https://mac-ani.jkcoxson.com",
+      "kind": 2
+    },
+    {
+      "name": "jkcoxson (Windows ADI)",
+      "address": "https://ani.jkcoxson.com",
+      "kind": 1
+    },
+    {
+      "name": "SideStore (Windows ADI)",
+      "address": "https://win.ani.sidestore.io",
+      "kind": 1
+    },
+    {
+      "name": "nythepegasus",
+      "address": "https://ani.npeg.us",
+      "kind": 0
+    },
+    {
+      "name": "Macley",
+      "address": "http://5.249.163.88:6969",
+      "kind": 0
+    },
+    {
+      "name": "WE. Studio",
+      "address": "https://anisette.wedotstud.io",
+      "kind": 0
+    },
+    {
+      "name": "SteX",
+      "address": "https://ani.xu30.top",
+      "kind": 0
+    },
+    {
+      "name": "owoellen",
+      "address": "https://ani.owoellen.rocks",
+      "kind": 0
+    },
+    {
+      "name": "iDH Server",
+      "address": "https://ani.idevicehacked.com",
+      "kind": 0
+    },
+    {
+      "name": "neoarz",
+      "address": "https://ani.neoarz.com",
+      "kind": 0
+    },
+    {
+      "name": "pythonplayer123",
+      "address": "https://ani3server.fly.dev",
+      "kind": 0
+    },
+    {
+      "name": "Jayden's Server",
+      "address": "https://ani.jaydenha.uk",
+      "kind": 0
+    },
+    {
+      "name": "crystall1nedev's server",
+      "address": "https://anisette.crystall1ne.dev",
+      "kind": 0
+    },
+    {
+      "name": "ethxn's omnisette server :3",
+      "address": "https://omni.ethxn.xyz",
+      "kind": 0
+    },
+    {
+      "name": "koremi",
+      "address": "https://ani.sjwon0368.dpdns.org",
+      "kind": 0
+    },
+    {
+      "name": "uwucloud",
+      "address": "https://ani.uwucloud.fun",
+      "kind": 0
+    },
+    {
+      "name": "Lill q",
+      "address": "https://anisette.lillq.me",
+      "kind": 2
+    }
+  ],
+  "sourceRepository": "https://github.com/SideStore/anisette-servers",
+  "sourceRevision": "3cd273b679bbb7777e9d585e49fdfa239cf21486",
+  "reviewedAt": "2026-11-06",
+  "license": "AGPL-3.0; see AnisetteServers-LICENSE.txt"
+}

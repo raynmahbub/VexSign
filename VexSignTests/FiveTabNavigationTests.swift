@@ -2,6 +2,26 @@ import XCTest
 @testable import VexSign
 
 final class FiveTabNavigationTests: XCTestCase {
+    func testHomeIsMiddlePrimaryTab() {
+        XCTAssertEqual(TabEnum.defaultTabs.count, 5)
+        XCTAssertEqual(TabEnum.defaultTabs[2], .home)
+    }
+
+    @MainActor
+    func testSearchIntentSelectsItsDestinationAndPersistsForMount() {
+        let selection = TabSelectionObserver()
+        selection.librarySection = .files
+        selection.search("  certificate  ", in: .settings)
+        XCTAssertEqual(selection.selectedTab, .settings)
+        XCTAssertEqual(selection.searchRequest?.query, "certificate")
+        selection.search("test", in: .library)
+        XCTAssertEqual(selection.librarySection, .apps)
+        XCTAssertEqual(selection.searchRequest?.tab, .library)
+        let previous = selection.searchRequest
+        selection.search("unsupported", in: .downloads)
+        XCTAssertEqual(selection.searchRequest, previous)
+    }
+
     @MainActor
     func testEmbeddedPagesCanShareOneNavigationStack() {
         XCTAssertFalse(LibraryView(ownsNavigationStack: false).ownsNavigationStack)
@@ -53,7 +73,7 @@ final class FiveTabNavigationTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let preferences = TabBarPreferences(defaults: defaults)
-        XCTAssertEqual(preferences.visibleTabs, [.library, .home, .appStore, .downloads, .settings])
+        XCTAssertEqual(preferences.visibleTabs, [.library, .appStore, .home, .downloads, .settings])
         XCTAssertEqual(preferences.resolvedLaunchTab, .home)
         XCTAssertTrue(preferences.isHidden(.files))
     }

@@ -309,6 +309,12 @@ struct AppStoreView: View {
             .background(Theme.background)
             .scrollIndicators(.hidden)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: Text(.localized("Search Apps & Sources")))
+            .onReceive(TabSelectionObserver.shared.$searchRequest) { request in
+                guard let request, request.tab == .appStore else { return }
+                searchText = request.query
+                TabSelectionObserver.shared.searchRequest = nil
+            }
+
             .refreshable {
                 await viewModel.fetchSources(sources, refresh: true)
             }

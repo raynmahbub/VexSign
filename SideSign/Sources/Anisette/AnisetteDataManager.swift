@@ -242,6 +242,7 @@ public final class AnisetteDataManager: @unchecked Sendable {
     public var activeMode: AnisetteMode?
     public let baseAnisetteDirectory: URL
     private var localProvider: AnisetteClient?
+    private let allowsLegacyFallback: Bool
     private var isCaching: Bool = false
 
     private struct RemoteAnisetteCacheEntry {
@@ -279,7 +280,8 @@ public final class AnisetteDataManager: @unchecked Sendable {
         return URL(fileURLWithPath: home, isDirectory: true).appendingPathComponent(Constants.Anisette.defaultBaseDirName, isDirectory: true)
     }
 
-    public init(mode: AnisetteMode? = nil, baseDirectory: URL? = nil) {
+    public init(mode: AnisetteMode? = nil, baseDirectory: URL? = nil, allowsLegacyFallback: Bool = true) {
+        self.allowsLegacyFallback = allowsLegacyFallback
         self.activeMode = mode
         self.baseAnisetteDirectory = baseDirectory ?? Self.defaultBaseDirectory
     }
@@ -480,7 +482,7 @@ public final class AnisetteDataManager: @unchecked Sendable {
                 userAgent: Constants.Anisette.defaultUserAgent,
                 lookupURL: Constants.Anisette.URLs.grandSlamLookup,
                 requiredLibraries: Constants.Anisette.Libraries.requiredNames,
-                provider: RemoteAnisetteDataProvider(serverURL: server)
+                provider: RemoteAnisetteDataProvider(serverURL: server, allowsLegacyFallback: allowsLegacyFallback)
             )
 
         case .localODA(let libDir, let prov):
