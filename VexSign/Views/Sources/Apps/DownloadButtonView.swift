@@ -20,7 +20,15 @@ class TabSelectionObserver: ObservableObject {
     @Published var ipaExplorerRequested = false
 	@Published var highlightedAppUUID: String?
 	@Published var sourcesRetapped: Bool = false
+    @Published var searchRequest: WorkspaceSearchRequest?
 	
+    func search(_ query: String, in tab: TabEnum) {
+        guard [.library, .appStore, .settings].contains(tab) else { return }
+        searchRequest = WorkspaceSearchRequest(tab: tab, query: query.trimmingCharacters(in: .whitespacesAndNewlines))
+        if tab == .library { librarySection = .apps }
+        selectedTab = tab
+    }
+
     /// Route old standalone Files/Logs links into the merged workspaces.
     func navigate(to route: WorkspaceRoute) {
         if let section = route.librarySection { librarySection = section }

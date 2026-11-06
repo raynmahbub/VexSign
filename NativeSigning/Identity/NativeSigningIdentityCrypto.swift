@@ -14,6 +14,9 @@ public struct NativeKeyExportConsent: Sendable, Equatable {
     public let expiresAt: Date
 
     func validate(owner: NativeSigningIdentityOwner, identityID: UUID, certificate: Data, now: Date) throws {
+        guard now.timeIntervalSince1970.isFinite, expiresAt.timeIntervalSince1970.isFinite else {
+            throw NativeSigningIdentityError.invalidRecord
+        }
         guard self.ownerDigest == owner.digest else { throw NativeSigningIdentityError.invalidRecord }
         guard self.identityID == identityID else { throw NativeSigningIdentityError.invalidRecord }
         guard self.certificateSHA256 == NativeSigningIdentityOwner.hash(certificate) else { throw NativeSigningIdentityError.invalidRecord }
@@ -26,7 +29,7 @@ actor NativeKeyExportConsentGate {
     private var current: NativeKeyExportConsent?
 
     func recordExplicitConsent(owner: NativeSigningIdentityOwner, identityID: UUID, certificate: Data, flow: UUID, now: Date, lifetime: TimeInterval) throws -> NativeKeyExportConsent {
-        guard lifetime.isFinite, lifetime > 0, lifetime <= 120 else { throw NativeSigningIdentityError.creationApprovalRequired }
+        guard now.timeIntervalSince1970.isFinite, lifetime.isFinite, lifetime > 0, lifetime <= 120 else { throw NativeSigningIdentityError.creationApprovalRequired }
         let consent = NativeKeyExportConsent(
             id: UUID(),
             ownerDigest: owner.digest,
@@ -40,9 +43,15 @@ actor NativeKeyExportConsentGate {
         return consent
     }
 
-    func begin(_ consent: NativeKeyExportConsent) throws -> NativeKeyExportConsent {
-        guard current?.id == consent.id, current?.epoch == consent.epoch else { throw NativeSigningIdentityError.creationApprovalRequired }
-        return consent
+    /// Atomic compare-and-consume: no suspension between matching and burning
+    /// a grant. Failed binding/expiry checks also require fresh explicit consent.
+    func begin(_ consent: NativeKeyExportConsent, owner: NativeSigningIdentityOwner, identityID: UUID,
+               certificate: Data, flow: UUID, now: Date) throws {
+        guard current == consent, consent.flow == flow else {
+            throw NativeSigningIdentityError.creationApprovalRequired
+        }
+        current = nil
+        try consent.validate(owner: owner, identityID: identityID, certificate: certificate, now: now)
     }
 
     func revoke() { current = nil }
@@ -91,6 +100,15 @@ struct NativeSigningIdentityCrypto: NativeSigningIdentityGenerating {
                 try validateCertificate(certificate, record: record, now: nil)
             }
         } catch { throw NativeSigningIdentityError.invalidRecord }
+    }
+
+    /// Display metadata only, never a substitute for current purpose/trust checks.
+    static func certificateExpiration(_ data: Data) throws -> Date {
+        guard !data.isEmpty, data.count <= 64 * 1024, let certificate = X509Certificate(der: data),
+              let expiresAt = certificate.notAfter, expiresAt.timeIntervalSince1970.isFinite else {
+            throw NativeSigningIdentityError.certificateRejected
+        }
+        return expiresAt
     }
 
     static func matchesPublicKey(_ data: Data, record: NativeSigningIdentityRecord) throws -> Bool {

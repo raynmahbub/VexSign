@@ -56,6 +56,106 @@ final class NativeSigningIdentityTests: XCTestCase {
         try NativeSigningIdentityOwner(accountIdentifier: account, dsid: account, teamIdentifier: team)
     }
 
+    // Synthetic grant binding only. These bytes are not a trusted certificate
+    // and these tests do not export a real key or authorize signing.
+    func testKeyExportGrantIsConsumedExactlyOnce() async throws {
+        let gate = NativeKeyExportConsentGate(), owner = try owner(), identity = UUID(), flow = UUID()
+        let certificate = Data([1, 2, 3])
+        let grant = try await gate.recordExplicitConsent(owner: owner, identityID: identity,
+            certificate: certificate, flow: flow, now: Self.now, lifetime: 120)
+        try await gate.begin(grant, owner: owner, identityID: identity, certificate: certificate, flow: flow, now: Self.now)
+        do {
+            try await gate.begin(grant, owner: owner, identityID: identity, certificate: certificate, flow: flow, now: Self.now)
+            XCTFail("Consumed export grant must not permit replay")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .creationApprovalRequired) }
+    }
+
+    func testKeyExportGrantRejectsRevocationWrongFlowAndExpiry() async throws {
+        let owner = try owner(), identity = UUID(), flow = UUID(), certificate = Data([1])
+        for variant in 0..<3 {
+            let gate = NativeKeyExportConsentGate()
+            let grant = try await gate.recordExplicitConsent(owner: owner, identityID: identity,
+                certificate: certificate, flow: flow, now: Self.now, lifetime: 120)
+            if variant == 0 { await gate.revoke() }
+            do {
+                try await gate.begin(grant, owner: owner, identityID: identity, certificate: certificate,
+                    flow: variant == 1 ? UUID() : flow,
+                    now: variant == 2 ? Self.now.addingTimeInterval(120) : Self.now)
+                XCTFail("Revoked, stale-flow and expired grants must fail closed")
+            } catch {
+                XCTAssertEqual(error as? NativeSigningIdentityError, variant == 2 ? .invalidRecord : .creationApprovalRequired)
+            }
+        }
+    }
+
+    func testKeyExportGateMatchesEntireGrantAndRejectsReplacedGrant() async throws {
+        let gate = NativeKeyExportConsentGate(), owner = try owner(), identity = UUID(), flow = UUID()
+        let certificate = Data([1])
+        let old = try await gate.recordExplicitConsent(owner: owner, identityID: identity,
+            certificate: certificate, flow: flow, now: Self.now, lifetime: 120)
+        let current = try await gate.recordExplicitConsent(owner: owner, identityID: identity,
+            certificate: certificate, flow: flow, now: Self.now, lifetime: 120)
+        let altered = NativeKeyExportConsent(id: current.id, ownerDigest: current.ownerDigest,
+            identityID: current.identityID, certificateSHA256: current.certificateSHA256,
+            flow: current.flow, epoch: current.epoch, expiresAt: current.expiresAt.addingTimeInterval(1))
+        for grant in [old, altered] {
+            do {
+                try await gate.begin(grant, owner: owner, identityID: identity, certificate: certificate, flow: flow, now: Self.now)
+                XCTFail("Replaced or modified grant must not consume the current exact grant")
+            } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .creationApprovalRequired) }
+        }
+        try await gate.begin(current, owner: owner, identityID: identity, certificate: certificate, flow: flow, now: Self.now)
+    }
+
+    func testKeyExportBindingFailureBurnsGrantBeforeAnyRetry() async throws {
+        let gate = NativeKeyExportConsentGate(), owner = try owner(), identity = UUID(), flow = UUID()
+        let certificate = Data([1])
+        let grant = try await gate.recordExplicitConsent(owner: owner, identityID: identity,
+            certificate: certificate, flow: flow, now: Self.now, lifetime: 120)
+        do {
+            try await gate.begin(grant, owner: owner, identityID: identity, certificate: Data([2]), flow: flow, now: Self.now)
+            XCTFail("Changed certificate must fail binding")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .invalidRecord) }
+        do {
+            try await gate.begin(grant, owner: owner, identityID: identity, certificate: certificate, flow: flow, now: Self.now)
+            XCTFail("A failed binding check must not leave a reusable export grant")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .creationApprovalRequired) }
+    }
+
+    func testLocalInventoryDoesNotPrepareMissingIdentityOrMutateExistingOne() async throws {
+        let store = Store(), generator = Generator()
+        let owner = try owner()
+        let coordinator = NativeSigningIdentityCoordinator(store: store, generator: generator)
+        let inventory: any NativeSigningIdentityManaging = coordinator
+        let missing = try await inventory.localIdentity(owner: owner, now: Self.now)
+        XCTAssertNil(missing)
+        XCTAssertEqual(generator.calls.withLock { $0 }, 0)
+        XCTAssertEqual(store.lock.withLock { $0.writes }, 0)
+        let prepared = try await coordinator.prepare(owner: owner, now: Self.now)
+        let info = try await inventory.localIdentity(owner: owner, now: Self.now)
+        XCTAssertEqual(info?.ticket, prepared)
+        XCTAssertNil(info?.certificateSHA256)
+        XCTAssertNil(info?.certificateExpiresAt)
+        XCTAssertEqual(generator.calls.withLock { $0 }, 1)
+        XCTAssertEqual(store.lock.withLock { $0.writes }, 1)
+        let other = try self.owner("other")
+        let otherInfo = try await coordinator.localIdentity(owner: other, now: Self.now)
+        XCTAssertNil(otherInfo)
+    }
+
+    func testLocalInventoryRejectsFutureCreationWithoutRotation() async throws {
+        let store = Store(), generator = Generator()
+        let owner = try owner()
+        let coordinator = NativeSigningIdentityCoordinator(store: store, generator: generator)
+        _ = try await coordinator.prepare(owner: owner, now: Self.now)
+        do {
+            _ = try await coordinator.localIdentity(owner: owner, now: Self.now.addingTimeInterval(-1))
+            XCTFail("Future local identity must fail closed")
+        } catch { XCTAssertEqual(error as? NativeSigningIdentityError, .invalidRecord) }
+        XCTAssertEqual(generator.calls.withLock { $0 }, 1)
+        XCTAssertEqual(store.lock.withLock { $0.writes }, 1)
+    }
+
     func testProfileProjectionRejectsPreparedAndUncertainRowsWithoutMutation() async throws {
         let store = Store(); let owner = try owner(team: "ABCDE12345"); let generator = Generator()
         let coordinator = NativeSigningIdentityCoordinator(store: store, generator: generator)

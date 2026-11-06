@@ -119,6 +119,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	}
 
 	var canSelfInstall: Bool {
+        guard !EmbeddedContainerRuntime.isPrimaryHost else { return false }
 		switch method {
 		case .server: return isServerConfigured
 		case .idevice: return hasPairing
@@ -268,6 +269,10 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 
 	@MainActor
 	func performUpdate(to release: SelfUpdateRelease) async {
+        guard !EmbeddedContainerRuntime.isPrimaryHost else {
+            phase = .failed(.localized("Install a verified combined-host update. A standalone VexSign IPA cannot update this combined runtime."))
+            return
+        }
 		guard canSelfInstall else {
 			let message: String = method == .server
 				? .localized("The updater server isn't available in this build.")

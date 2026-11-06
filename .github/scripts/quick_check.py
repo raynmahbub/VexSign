@@ -308,7 +308,10 @@ def swift_files_for(root: Path, module_dir: str) -> list[Path]:
     return [p for p in iter_files(base, {".swift"})]
 
 
-def check_swift_syntax(root: Path, report: Report, swiftc: str | None) -> None:
+def check_swift_syntax(root: Path, report: Report, swiftc: str | None, *, intentionally_skipped: bool = False) -> None:
+    if intentionally_skipped:
+        report.stats["swift_syntax_skipped"] = 1
+        return
     if not swiftc:
         report.add(Finding("swift-syntax", "warning",
                            "swiftc not found - the Swift syntax check was skipped (run inside the swift container)."))
@@ -504,8 +507,12 @@ def render_summary(report: Report, swiftc_version: str) -> str:
     errors, warnings = report.errors, report.warnings
     verdict = "✅ no build-breaking problems found" if not errors else f"❌ {len(errors)} error(s)"
     out = [f"## Quick check (no build) — {verdict}", ""]
-    out.append(f"Parsed {report.stats.get('swift_files_parsed', 0)} Swift files with `swiftc -parse` "
-               f"({swiftc_version or 'swiftc unavailable'}), checked {report.stats.get('resources_checked', 0)} resource files.")
+    if report.stats.get("swift_syntax_skipped"):
+        out.append("Swift syntax **not checked** (explicit `--no-swiftc`); native/compiler validation is separate.")
+        out.append(f"Checked {report.stats.get('resources_checked', 0)} resource files.")
+    else:
+        out.append(f"Parsed {report.stats.get('swift_files_parsed', 0)} Swift files with `swiftc -parse` "
+                   f"({swiftc_version or 'swiftc unavailable'}), checked {report.stats.get('resources_checked', 0)} resource files.")
     out.append("")
     out.append("| Check | Errors | Warnings |")
     out.append("|---|---:|---:|")
@@ -513,7 +520,8 @@ def render_summary(report: Report, swiftc_version: str) -> str:
                   "cross-module-imports", "resources", "pbxproj"]:
         e = sum(1 for f in errors if f.check == check)
         w = sum(1 for f in warnings if f.check == check)
-        out.append(f"| {check} | {e} | {w} |")
+        label = "swift-syntax (skipped)" if check == "swift-syntax" and report.stats.get("swift_syntax_skipped") else check
+        out.append(f"| {label} | {e} | {w} |")
     out.append("")
 
     if errors:
@@ -572,6 +580,16 @@ def run_self_tests() -> int:
 
         def test_hidden_whitespace(self):
             self.assertTrue(layout_findings(["Sources/ bad.swift"]))
+
+        def test_intentional_swift_skip_is_distinct_from_missing_compiler(self):
+            report = Report(Path("."))
+            check_swift_syntax(Path("."), report, None, intentionally_skipped=True)
+            self.assertFalse(report.findings)
+            self.assertIn("not checked", render_summary(report, ""))
+            self.assertIn("swift-syntax (skipped)", render_summary(report, ""))
+            missing = Report(Path("."))
+            check_swift_syntax(Path("."), missing, None)
+            self.assertEqual(len(missing.warnings), 1)
 
         def test_tool_syntax_does_not_execute_code(self):
             with tempfile.TemporaryDirectory() as directory:
@@ -636,7 +654,7 @@ def main() -> int:
     paths = check_repository_layout(root, report)
     check_tool_syntax(root, paths, report)
     check_conflict_markers(root, report)
-    check_swift_syntax(root, report, swiftc)
+    check_swift_syntax(root, report, swiftc, intentionally_skipped=args.no_swiftc)
     check_duplicate_types(root, report)
     check_duplicate_filenames(root, report)
     check_cross_module_imports(root, report)

@@ -23,6 +23,15 @@ public struct NativeAccountProfileTarget: Sendable, CustomStringConvertible, Cus
         self.deviceIdentifier = deviceIdentifier.uppercased()
         appID = registeredAppID; deviceID = registeredDeviceID; self.selectedProfileUUID = selectedProfileUUID
     }
+    /// Registration results retain opaque remote IDs without exposing them to UI.
+    /// Results are not authority: the bound portal revalidates their exact live
+    /// app/device/owner bindings before any mutation.
+    public init(identityID: UUID, bundleIdentifier: String, deviceIdentifier: String,
+                appRegistration: NativeRegistrationResult, deviceRegistration: NativeRegistrationResult) throws {
+        try self.init(identityID: identityID, bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier,
+                      registeredAppID: appRegistration.remoteIdentifier, registeredDeviceID: deviceRegistration.remoteIdentifier)
+    }
+
     var approvalDigest: String {
         var data = Data("VexSign account profile target v1\0".utf8)
         for field in [identityID.uuidString, bundleIdentifier, deviceIdentifier, appID, deviceID, selectedProfileUUID?.uuidString ?? ""] {

@@ -1,6 +1,6 @@
 //
 //  TabEnum.swift
-//  VexSign — Library · Home · App Store · Downloads · Settings
+//  VexSign — Library · App Store · Home · Downloads · Settings
 //  App Store merges Sources; single navigation bar per tab; Logs moved to Settings.
 //
 import SwiftUI
@@ -86,7 +86,7 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
 
     /// Five defaults, including Home; Files remains available as an optional tab.
     static var defaultTabs: [TabEnum] {
-        [.library, .home, .appStore, .downloads, .settings]
+        [.library, .appStore, .home, .downloads, .settings]
     }
 
     /// Legacy/secondary destinations: the only customizable tabs. They appear

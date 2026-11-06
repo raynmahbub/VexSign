@@ -1,6 +1,6 @@
 // MARK: - ProvisioningFlowView
-/// Complete free Apple ID provisioning flow: device selection, app ID registration,
-/// certificate creation, and profile creation — all with live progress tracking.
+/// Experimental profile-only provisioning. Requires explicit mutation approvals
+/// and a configured CMS verifier; does not claim signing or installation.
 
 import SwiftUI
 import NimbleViews
@@ -17,13 +17,16 @@ struct ProvisioningFlowView: View {
     @State private var deviceIdentifier: String = ""
     @State private var bundleIdentifier: String = ""
     @State private var isProvisioning = false
+    @State private var provisioningTask: Task<Void, Never>?
     @State private var provisioningProgress: Double = 0
     @State private var provisioningStage: String = ""
     @State private var errorMessage: String?
     @State private var showAppPicker = false
     @State private var showDevicePicker = false
     @State private var createdProfile: NativeAccountProfileResult?
-    @State private var signedIPAURL: URL?
+    @State private var approveCertificate = false
+    @State private var approveRegistration = false
+    @State private var approveProfile = false
 
     // Context from signed-in state
     private var contextID: UUID? {
@@ -69,6 +72,8 @@ struct ProvisioningFlowView: View {
             } message: { msg in
                 Text(msg)
             }
+            .interactiveDismissDisabled(isProvisioning)
+            .onDisappear { provisioningTask?.cancel() }
             .sheet(isPresented: $showAppPicker) {
                 AppPickerView(selectedApp: $selectedApp)
             }
@@ -220,9 +225,17 @@ struct ProvisioningFlowView: View {
                 deviceUDID: deviceIdentifier
             )
 
+            Toggle(.localized("Approve one development certificate if no owned certificate exists (uses Apple quota)"), isOn: $approveCertificate)
+            Toggle(.localized("Approve this device and App ID registration"), isOn: $approveRegistration)
+            Toggle(.localized("Approve a profile for this exact app, device and owned identity"), isOn: $approveProfile)
+
             VStack(spacing: 12) {
                 Button {
-                    Task { await runProvisioning() }
+                    guard provisioningTask == nil else { return }
+                    provisioningTask = Task {
+                        await runProvisioning()
+                        provisioningTask = nil
+                    }
                 } label: {
                     if isProvisioning {
                         HStack {
@@ -234,9 +247,10 @@ struct ProvisioningFlowView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isProvisioning || contextID == nil)
+                .disabled(isProvisioning || contextID == nil || !approveCertificate || !approveRegistration || !approveProfile)
 
                 Button(.localized("Back")) {
+                    approveCertificate = false; approveRegistration = false; approveProfile = false
                     step = .selectDevice
                 }
                 .buttonStyle(.bordered)
@@ -278,9 +292,9 @@ struct ProvisioningFlowView: View {
                         .foregroundStyle(.secondary)
 
                     Button {
-                        Task { await signAndInstall(profile: profile) }
+                        step = .complete
                     } label: {
-                        Label(.localized("Sign & Install App"), systemImage: "signature")
+                        Label(.localized("Review Profile Result"), systemImage: "doc.text.magnifyingglass")
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -296,20 +310,13 @@ struct ProvisioningFlowView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.green)
 
-            Text(.localized("All Done!"))
+            Text(.localized("Profile Recorded"))
                 .font(.title.bold())
 
-            Text(.localized("The app has been signed and installed on your device."))
+            Text(.localized("Only the provisioning profile was recorded. No app has been signed or installed. Native signing handoff is not enabled in this build."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-
-            if let url = signedIPAURL {
-                ShareLink(item: url) {
-                    Label(.localized("Export Signed IPA"), systemImage: "square.and.arrow.up")
-                }
-                .buttonStyle(.borderedProminent)
-            }
 
             Button(.localized("Done")) { dismiss() }
                 .buttonStyle(.borderedProminent)
@@ -326,11 +333,16 @@ struct ProvisioningFlowView: View {
             return
         }
 
+        guard approveCertificate, approveRegistration, approveProfile else { return }
         isProvisioning = true
+        step = .provisioning
+        defer { isProvisioning = false }
         provisioningProgress = 0
         errorMessage = nil
 
         do {
+            // Do not consume quota before the required CMS capability exists.
+            try await manager.requireProfileOperations()
             // 1. Provisioning preflight
             updateStage(.localized("Checking Apple inventory…"), 0.1)
             let request = try NativeAccountProvisioningRequest(
@@ -339,45 +351,45 @@ struct ProvisioningFlowView: View {
             )
             // The manager's pass-throughs mint the anisette consent per mutating
             // call; a view never holds a consent token.
-            let plan = try await manager.provisioningPreflight(contextID: contextID, request: request)
+            _ = try await manager.provisioningPreflight(contextID: contextID, request: request)
 
             // 2. Prepare signing identity (key + CSR)
             updateStage(.localized("Preparing signing identity…"), 0.25)
             let identityTicket = try await manager.prepareSigningIdentity(contextID: contextID)
 
-            // 3. Certificate creation approval
-            updateStage(.localized("Requesting certificate creation approval…"), 0.4)
-            let certApproval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.id)
-
-            // 4. Create certificate
-            updateStage(.localized("Creating development certificate…"), 0.55)
-            _ = try await manager.createDevelopmentCertificate(
-                contextID: contextID,
-                identityID: identityTicket.id,
-                approval: certApproval
-            )
+            // Reuse recorded ownership; uncertainty is reconciled, never rotated.
+            switch identityTicket.phase {
+            case .prepared:
+                updateStage(.localized("Requesting certificate creation approval…"), 0.4)
+                let approval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.id)
+                _ = try await manager.createDevelopmentCertificate(contextID: contextID, identityID: identityTicket.id, approval: approval)
+            case .submissionUncertain:
+                _ = try await manager.reconcileCertificate(contextID: contextID, identityID: identityTicket.id)
+            case .certificateRecorded:
+                break
+            }
 
             // 5. Device/App ID registration
             updateStage(.localized("Registering device & App ID…"), 0.7)
             let subject = try NativeRegistrationSubject(kind: .device, value: deviceIdentifier)
             let regApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: subject)
-            _ = try await manager.registerResource(contextID: contextID, subject: subject, approval: regApproval)
+            let deviceRegistration = try await manager.registerResource(contextID: contextID, subject: subject, approval: regApproval)
 
             // 6. App ID registration
             updateStage(.localized("Registering App ID…"), 0.8)
             let appIDSubject = try NativeRegistrationSubject(kind: .appID, value: bundleID)
             let appIDApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: appIDSubject)
-            _ = try await manager.registerResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval)
+            let appRegistration = try await manager.registerResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval)
 
             // 7. Profile creation
             updateStage(.localized("Creating provisioning profile…"), 0.9)
-            // Get registered IDs from plan
+            // Carry the actual opaque registration results into the bound target.
             let target = try NativeAccountProfileTarget(
                 identityID: identityTicket.id,
                 bundleIdentifier: bundleID,
                 deviceIdentifier: deviceIdentifier.uppercased(),
-                registeredAppID: plan.existingAppIdentifiers.first ?? bundleID,
-                registeredDeviceID: "auto" // Will be resolved by backend
+                appRegistration: appRegistration,
+                deviceRegistration: deviceRegistration
             )
             let profileApproval = try await manager.recordProfileCreationApproval(contextID: contextID, target: target)
             let profileResult = try await manager.createProvisioningProfile(contextID: contextID, target: target, approval: profileApproval)
@@ -391,23 +403,8 @@ struct ProvisioningFlowView: View {
             await MainActor.run {
                 isProvisioning = false
                 errorMessage = error.localizedDescription
+                step = .review
             }
-        }
-    }
-
-    private func signAndInstall(profile: NativeAccountProfileResult) async {
-        updateStage(.localized("Signing app with new profile…"), 0.2)
-        // TODO: Integrate with Zsign signing pipeline
-        // This would use the created profile + certificate to sign the selected app
-        // Then install via itms-services or AFC
-
-        // For now, simulate completion
-        try? await Task.sleep(nanoseconds: 2_000_000_000) // try? ok: simulated delay, cancellation checked by Task
-
-        await MainActor.run {
-            provisioningProgress = 1.0
-            step = .complete
-            signedIPAURL = nil // Would be set after actual signing
         }
     }
 

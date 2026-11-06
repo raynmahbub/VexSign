@@ -6,7 +6,7 @@ name: CI triage
 
 on:
   workflow_run:
-    workflows: ["CI", "Platform check", "Service checks", "Documentation", "Release", "Update Repository", "Repository maintenance", "Guest-host prototype · build only", "Native account signing · link smoke"]
+    workflows: ["CI", "Platform check", "Service checks", "Documentation", "Release", "Update Repository", "Repository maintenance", "Combined native host · build only", "Native account signing · link smoke"]
     types: [completed]
 
 permissions:

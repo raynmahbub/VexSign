@@ -120,7 +120,9 @@ final class SideSignAccountAdapterTests: XCTestCase {
 
     func testCancellationAfterLoginPreventsTeamFetchAndPersistenceOutput() async throws {
         let portal = Self.portal(.cancelAfterLogin)
-        let task = Task { try await Self.authenticate(portal) }
+        let task = Task.detached { [portal] in
+            try await SideSignAccountAdapterTests.authenticate(portal)
+        }
         do { _ = try await task.value; XCTFail("Cancellation must not publish session bytes") }
         catch { XCTAssertTrue(error is CancellationError) }
         let counts = await portal.calls.counts()
@@ -170,9 +172,9 @@ final class SideSignAccountAdapterTests: XCTestCase {
         let operation = UUID()
         let broker = SideSignTwoFactorBroker(operation: operation)
         var events = await broker.challengeEvents().makeAsyncIterator()
-        let task = Task {
+        let task = Task.detached { [adapter, broker] in
             try await adapter.authenticate(appleID: "fixture@example.invalid", password: "synthetic",
-                                           freshAnisetteData: Self.headers(), xcodeVersion: "26.2", twoFactor: broker)
+                                           freshAnisetteData: SideSignAccountAdapterTests.headers(), xcodeVersion: "26.2", twoFactor: broker)
         }
         defer { task.cancel() }
         let firstEvent = await events.next()

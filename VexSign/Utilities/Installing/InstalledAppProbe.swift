@@ -107,8 +107,10 @@ struct InstalledAppProbe: InstalledAppProbing {
 			return nil
 		}
 
-		guard let isInstalled = Self._bool(proxy, "aXNJbnN0YWxsZWQ=") else {
-			// Without `isInstalled` there is no evidence at all.
+		guard Self._string(proxy, "YnVuZGxlSWRlbnRpZmllcg==") == bundleIdentifier,
+			let isInstalled = Self._bool(proxy, "aXNJbnN0YWxsZWQ=") else {
+			// Verify the proxy's identity too. Container hooks or a stale lookup must
+			// never turn evidence for the host/another app into a guest install.
 			return nil
 		}
 

@@ -34,8 +34,15 @@ def prepare(output, version, channel, repository):
              'Do not import certificates from release attachments. See `RELEASE.json` for artifact provenance.\n\n')
     # Optional, reviewed, version-specific highlights; never machine-invented claims.
     highlights = ROOT / 'docs/releases' / f'{version.split("-")[0]}.md'
+    notes_source = 'generated-commit-history'
     if highlights.exists():
         intro += '### Release highlights\n\n' + highlights.read_text().strip() + '\n\n'
+        if channel == 'stable':
+            # Old commit subjects can describe prototypes later removed/gated.
+            # Reviewed stable notes are the product-readiness contract, not a
+            # dump of historical development claims.
+            notes = f'### Detailed changelog\n\n[Read the versioned changelog]({raw}/CHANGELOG.md).\n'
+            notes_source = 'reviewed-version-notes'
     ending = (f'\n### Interface preview\n\n[Home layout preview]({raw}/docs/assets/home-preview.svg) '
               'is a design illustration, **not a screenshot or proof of device testing**. '
               'The app icon and preview are also attached.\n')
@@ -48,6 +55,7 @@ def prepare(output, version, channel, repository):
                     commit=commit, unsigned=True, ipa=dict(name=ipas[0].name, sha256=digest),
                     workflow_run=os.environ.get('GITHUB_RUN_ID'),
                     workflow_attempt=os.environ.get('GITHUB_RUN_ATTEMPT'),
+                    notes_source=notes_source,
                     visuals='App icon and design illustration; not device screenshots')
     (output / 'RELEASE.json').write_text(json.dumps(metadata, indent=2) + '\n')
     names = [ipas[0].name, 'CHANGELOG.md', 'RELEASE.json', 'VexSign-icon.png', 'Home-layout-preview.svg']

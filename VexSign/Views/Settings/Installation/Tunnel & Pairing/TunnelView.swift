@@ -37,8 +37,12 @@ struct TunnelView: View {
 				Button(.localized("Import Pairing File"), systemImage: "square.and.arrow.down") {
 					DocumentPicker.open([.xmlPropertyList, .plist, .mobiledevicepairing], folder: .pairing) { urls in
 						guard let url = urls.first else { return }
-						FR.movePairing(url)
-						doesHavePairingFile = true
+						do {
+							try FR.movePairing(url)
+							doesHavePairingFile = true
+						} catch {
+							UIAlertController.showAlertWithOk(title: .localized("Pairing import failed"), message: error.localizedDescription)
+						}
 					}
 				}
 				if #available(iOS 17.4, *) {

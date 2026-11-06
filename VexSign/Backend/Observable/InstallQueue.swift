@@ -33,6 +33,7 @@ final class InstallQueue: ObservableObject {
 	enum InstallOutcome: Equatable {
 		case pending
 		case succeeded
+		case guestPrepared
 		case failed(String)
 		case skipped
 
@@ -96,11 +97,12 @@ final class InstallQueue: ObservableObject {
 			let title = apps.count > 1
 				? String.localized("%lld apps", arguments: apps.count)
 				: (current.base.name ?? .localized("App"))
+			let preparesGuest = !current.archive && UserDefaults.standard.integer(forKey: "VexSign.installationMethod") == 2
 			unifiedTask = UnifiedTaskCenter.shared.begin(
-				kind: current.archive ? .export : .install,
+				kind: current.archive || preparesGuest ? .export : .install,
 				title: title,
-				subtitle: current.archive ? .localized("Exporting") : .localized("Installing"),
-				phase: .installing
+				subtitle: preparesGuest ? .localized("Preparing guest import") : (current.archive ? .localized("Exporting") : .localized("Installing")),
+				phase: preparesGuest ? .extracting : .installing
 			)
 		}
 
@@ -154,6 +156,35 @@ final class InstallQueue: ObservableObject {
 			if let current { outcomes[current.id] = .skipped }
 			_syncUnifiedTaskProgress()
 			_abandon()
+		case .success(.guestImportPrepared):
+			if let current { outcomes[current.id] = .guestPrepared }
+			unifiedTask?.subtitle = .localized("Guest import prepared — finish in container")
+			// The host accepts one pending import. Never run a batch through a restart
+			// or delete its library copy as if iOS had installed it.
+			for entry in apps.dropFirst(index + 1) { outcomes[entry.id] = .skipped }
+			_syncUnifiedTaskProgress()
+			_teardownInstaller()
+			isFinished = true
+			_finishUnifiedTask()
+			isSheetPresented = false
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+				UIAlertController.showAlertWithOptions(
+					title: .localized("Guest import prepared"),
+					message: .localized("The IPA is in the host inbox, not installed on iOS. Open the container to finish import and signing. Switching closes this VexSign session. Remaining queued apps were skipped; import guests one at a time."),
+					actions: [
+						(.localized("Open container"), .default, {
+							guard !UnifiedTaskCenter.shared.tasks.contains(where: { $0.phase.isInProgress }) else {
+								Toast.info(.localized("Finish active tasks first. The guest IPA remains staged in the container inbox."))
+								return
+							}
+							if !EmbeddedContainerRuntime.open(.container) {
+								Toast.info(.localized("The host could not switch sessions. The guest IPA remains staged; open the container home to finish import."))
+							}
+						}),
+						(.localized("Later"), .cancel, nil)
+					])
+			}
+
 		case .success(.exported(let package)):
 			if let current { outcomes[current.id] = .succeeded }
 			_syncUnifiedTaskProgress()

@@ -18,6 +18,12 @@ final class NativeProfileCreationTests: XCTestCase {
         func read(owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) -> NativeProfileCreationRecord? {
             lock.withLock { $0.reads += 1; return $0.row }
         }
+        func listAllRecords(owner: NativeSigningIdentityOwner) -> [NativeProfileCreationRecord] {
+            lock.withLock { state in
+                guard let row = state.row, row.ownerDigest == owner.digest else { return [] }
+                return [row]
+            }
+        }
         func insertIntent(_ record: NativeProfileCreationRecord, owner: NativeSigningIdentityOwner, request: NativeProfileCreationRequest) throws {
             try record.validate(owner: owner, request: request)
             try lock.withLock {
@@ -73,6 +79,91 @@ final class NativeProfileCreationTests: XCTestCase {
             "Entitlements": ["application-identifier": team + "." + bundle, "com.apple.developer.team-identifier": team,
                              "get-task-allow": true, "keychain-access-groups": [team + ".*"]]]
         return NativeProvisioningProfileValidator(verifier: Verifier(payload: try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)))
+    }
+
+    private struct ReceiptClient: AppleAccountJournalKeychainClient, Sendable {
+        struct State: Sendable {
+            var rows: [String: Data] = [:]
+            var status = errSecSuccess
+            var deviceOnly = false
+        }
+        let lock = OSAllocatedUnfairLock(initialState: State())
+        func add(_ attributes: [String: Any]) -> OSStatus {
+            guard let key = attributes[kSecAttrAccount as String] as? String,
+                  let data = attributes[kSecValueData as String] as? Data else { return errSecParam }
+            let deviceOnly = (attributes[kSecAttrAccessible as String] as? String) == (kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String)
+            return lock.withLock {
+                $0.deviceOnly = deviceOnly
+                if $0.rows[key] != nil { return errSecDuplicateItem }
+                $0.rows[key] = data
+                return errSecSuccess
+            }
+        }
+        func copy(_ query: [String: Any]) -> (status: OSStatus, data: Data?) {
+            guard let key = query[kSecAttrAccount as String] as? String else { return (errSecParam, nil) }
+            return lock.withLock {
+                guard let data = $0.rows[key] else { return (errSecItemNotFound, nil) }
+                return ($0.status, data)
+            }
+        }
+        func copyAll(_ query: [String: Any]) -> (status: OSStatus, items: [[String: Any]]) {
+            let snapshot = lock.withLock { ($0.status, $0.rows) }
+            return (snapshot.0, snapshot.1.map { [kSecAttrAccount as String: $0.key, kSecValueData as String: $0.value] })
+        }
+        func update(_ query: [String: Any], attributes: [String: Any]) -> OSStatus { errSecUnimplemented }
+        func delete(_ query: [String: Any]) -> OSStatus { errSecUnimplemented }
+    }
+
+    func testReceiptIndexRetainsRealIdentityAndDeviceWithoutChangingJournal() async throws {
+        let owner = try Self.owner(), request = try Self.request()
+        let profile = try await Self.validator().validate(cms: Self.cms, request: request.validation, now: Self.now)
+        let receipt = try NativeProfileReceipt(profile: profile, owner: owner, request: request, recordedAt: Self.now)
+        let client = ReceiptClient(), index = NativeProfileReceiptKeychainStore(client: client)
+        try index.record(receipt, owner: owner)
+        let observed = try XCTUnwrap(index.list(owner: owner).first)
+        XCTAssertEqual(observed.identityID, request.identityID)
+        XCTAssertEqual(observed.deviceIdentifier, Self.udid)
+        XCTAssertEqual(observed.bundleIdentifier, Self.bundle)
+        XCTAssertEqual(observed.cmsSHA256, NativeSigningIdentityOwner.hash(Self.cms))
+        XCTAssertTrue(client.lock.withLock { $0.deviceOnly })
+        XCTAssertFalse(String(describing: receipt).contains(Self.udid))
+        // A later observation is idempotent, not a replacement or creation grant.
+        try index.record(NativeProfileReceipt(profile: profile, owner: owner, request: request,
+                                              recordedAt: Self.now.addingTimeInterval(1)), owner: owner)
+        XCTAssertEqual(try index.list(owner: owner).count, 1)
+    }
+
+    func testReceiptIndexIsOwnerScopedAndFailsClosedWhenLocked() async throws {
+        let owner = try Self.owner(), request = try Self.request()
+        let profile = try await Self.validator().validate(cms: Self.cms, request: request.validation, now: Self.now)
+        let receipt = try NativeProfileReceipt(profile: profile, owner: owner, request: request, recordedAt: Self.now)
+        let client = ReceiptClient(), index = NativeProfileReceiptKeychainStore(client: client)
+        try index.record(receipt, owner: owner)
+        let other = try NativeSigningIdentityOwner(accountIdentifier: "other", dsid: "other", teamIdentifier: Self.team)
+        XCTAssertEqual(try index.list(owner: other).count, 0)
+        XCTAssertThrowsError(try receipt.validate(owner: other))
+        client.lock.withLock { $0.status = errSecInteractionNotAllowed }
+        XCTAssertThrowsError(try index.list(owner: owner))
+    }
+
+    func testReceiptIndexRejectsMislabeledOrUnknownSchemaData() async throws {
+        let owner = try Self.owner(), request = try Self.request()
+        let profile = try await Self.validator().validate(cms: Self.cms, request: request.validation, now: Self.now)
+        let receipt = try NativeProfileReceipt(profile: profile, owner: owner, request: request, recordedAt: Self.now)
+        let client = ReceiptClient(), index = NativeProfileReceiptKeychainStore(client: client)
+        try index.record(receipt, owner: owner)
+        try client.lock.withLock { state in
+            let key = try XCTUnwrap(state.rows.keys.first)
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with: state.rows[key]!) as? [String: Any])
+            object["unexpected"] = "not allowed"
+            state.rows[key] = try JSONSerialization.data(withJSONObject: object)
+        }
+        XCTAssertThrowsError(try index.list(owner: owner))
+    }
+
+    func testCMSCapabilityIsNotAutomaticallyPromoted() throws {
+        XCTAssertFalse(NativeProvisioningProfileValidator().isConfigured)
+        XCTAssertTrue(try Self.validator().isConfigured)
     }
 
     func testDefaultCMSGateBlocksApprovalAndRecoveryBeforeAnyIO() async throws {

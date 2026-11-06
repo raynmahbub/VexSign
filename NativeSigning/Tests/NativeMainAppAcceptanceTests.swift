@@ -29,7 +29,9 @@ final class NativeMainAppAcceptanceTests: XCTestCase {
         if let cryptID { commands += le(0x2c) + le(24) + le(0) + le(0) + le(cryptID) + le(0) }
         let count = 1 + (cryptID == nil ? 0 : 1) + (signature == nil ? 0 : 1)
         if let signature { commands += le(0x1d) + le(16) + le(32 + commands.count + 16) + le(signature.count) }
-        let header = le(0xfeedfacf) + le(0x0100000c) + le(0) + le(2) + le(count) + le(commands.count) + le(0) + le(0)
+        let words: [Int] = [0xfeedfacf, 0x0100000c, 0, 2, count, commands.count, 0, 0]
+        var header = Data()
+        for word in words { header.append(le(word)) }
         return header + commands + (signature ?? Data())
     }
     func testThinUnsignedHeaderInspectionDoesNotInventEntitlements() throws {
@@ -60,7 +62,10 @@ final class NativeMainAppAcceptanceTests: XCTestCase {
         XCTAssertThrowsError(try NativeMachOInspection.inspect(file))
         let child = Self.be(0xfade0c02) + Self.be(8)
         for slot in [0, 2] {
-            let blob = Self.be(0xfade0cc0) + Self.be(36) + Self.be(2) + Self.be(0) + Self.be(28) + Self.be(slot) + Self.be(28) + child
+            let words: [Int] = [0xfade0cc0, 36, 2, 0, 28, slot, 28]
+            var blob = Data()
+            for word in words { blob.append(Self.be(word)) }
+            blob.append(child)
             XCTAssertThrowsError(try NativeMachOInspection.inspect(Self.executable(signature: blob)))
         }
     }

@@ -945,6 +945,7 @@ packageReferences = (
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app;
+				OTHER_LDFLAGS = ("$(inherited)", "-Wl,-export_dynamic", "-Wl,-u,_VexSignPrimaryMain");
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "all dist app 2";
@@ -1012,6 +1013,7 @@ packageReferences = (
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app;
+				OTHER_LDFLAGS = ("$(inherited)", "-Wl,-export_dynamic", "-Wl,-u,_VexSignPrimaryMain");
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "all dist app 2";
@@ -1143,6 +1145,7 @@ packageReferences = (
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app;
+				OTHER_LDFLAGS = ("$(inherited)", "-Wl,-export_dynamic", "-Wl,-u,_VexSignPrimaryMain");
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "all dist app 2";
@@ -1290,6 +1293,7 @@ packageReferences = (
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vexsign.app;
+				OTHER_LDFLAGS = ("$(inherited)", "-Wl,-export_dynamic", "-Wl,-u,_VexSignPrimaryMain");
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "all dist app 2";

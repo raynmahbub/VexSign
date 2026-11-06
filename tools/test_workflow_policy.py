@@ -7,11 +7,12 @@ or GitHub Actions as well for full workflow/schema/expression validation.
 from pathlib import Path
 import fnmatch
 import re
+import runpy
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / '.github/workflows'
-VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml')
+VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml', 'embedded-container.yml')
 
 
 def block(text, key, indent):
@@ -38,6 +39,25 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_combined_build_exposes_failures_and_preserves_native_input(self):
+        text = (WORKFLOWS / 'embedded-container.yml').read_text()
+        for stage in ('native_input', 'combined'):
+            self.assertIn(f'id: {stage}', text)
+            self.assertIn(f"if: always() && steps.{stage}.outcome != 'skipped'", text)
+            self.assertIn(f'steps.{stage}.outputs.exit_code', text)
+        self.assertIn("if: always() && steps.native_input.outcome == 'success'", text)
+        self.assertIn('name: VexSign-native-input-unsigned', text)
+        self.assertNotIn('continue-on-error:', text)
+
+    def test_native_diagnostics_parse_both_compiler_and_xctest_locations(self):
+        parser = runpy.run_path(str(ROOT / '.github/scripts/xcodebuild_report.py'))['DIAG_RE']
+        for location, column in [('12:7:', '7'), ('12:', None)]:
+            match = parser.match(f'/tmp/Fixture.swift:{location} error: Fixture.testCase : assertion failed')
+            self.assertIsNotNone(match)
+            self.assertEqual(match['line'], '12')
+            self.assertEqual(match['col'], column)
+            self.assertIn('assertion failed', match['msg'])
+
     def test_pull_requests_run_only_path_filtered_validators(self):
         validators = {*VALIDATORS, 'docs.yml'}
         for path in WORKFLOWS.glob('*.yml'):
@@ -82,6 +102,16 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertFalse(covers('services.yml', 'VexSign/CertificateDashboard/CertificateInspector.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSign/Companion/CompanionStatus.swift'))
         self.assertTrue(covers('platform-check.yml', 'VexSignWatch/VexSignWatchApp.swift'))
+
+    def test_native_smoke_runs_fixture_tests_without_publishing(self):
+        text = (WORKFLOWS / 'native-signing-smoke.yml').read_text()
+        self.assertIn('      unit_tests:', text)
+        self.assertIn('if: inputs.unit_tests', text)
+        self.assertIn('swift test --package-path .build/native-signing-smoke', text)
+        self.assertIn('native-signing-unit-tests.log', text)
+        self.assertIn('retention-days: 3', text)
+        self.assertNotIn('contents: write', text)
+        self.assertNotIn('gh release create', text)
 
     def test_manual_quick_mode_and_parallel_macos_jobs(self):
         text = (WORKFLOWS / 'ci.yml').read_text()
@@ -191,15 +221,17 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
-            # The device-testing IPA is an explicit 14-day exception; logs,
+            # Device-testing IPAs (normal CI and combined prototype) have a 14-day exception; logs,
             # quick findings and release-staging artifacts stay at <= 3 days.
             retention_text = text
-            if path.name == 'ci.yml':
-                match = re.search(r'(?ms)^      - name: Upload unsigned test IPA\n.*?(?=^      - name:)', text)
-                self.assertIsNotNone(match)
-                self.assertIn('retention-days: 14', match[0])
-                self.assertEqual(re.findall(r'retention-days: (\d+)', match[0]), ['14'])
-                retention_text = text[:match.start()] + text[match.end():]
+            if path.name in ('ci.yml', 'embedded-container.yml'):
+                artifact_steps = (['Upload unsigned test IPA'] if path.name == 'ci.yml' else
+                                  ['Upload combined build and integration sources', 'Preserve unsigned native input'])
+                for artifact_step in artifact_steps:
+                    match = re.search(r'(?ms)^      - name: ' + re.escape(artifact_step) + r'\n.*?(?=^      - name:)', retention_text)
+                    self.assertIsNotNone(match)
+                    self.assertEqual(re.findall(r'retention-days: (\d+)', match[0]), ['14'])
+                    retention_text = retention_text[:match.start()] + retention_text[match.end():]
             for retention in re.findall(r'retention-days: (\d+)', retention_text):
                 self.assertLessEqual(int(retention), 3)
         for removed in ('repair-agent.yml', 'autopilot.yml', 'auto-stable.yml',
@@ -252,6 +284,27 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertRegex(build, r'(?s)name: Upload unsigned test IPA.*?retention-days: 14')
         self.assertIn('if-no-files-found: error', build)
         self.assertIn('Check the separate simulator-test job', build)
+
+    def test_combined_build_is_read_only_path_filtered_and_includes_verification_outputs(self):
+        text = (WORKFLOWS / 'embedded-container.yml').read_text()
+        events = block(text, 'on', 0)
+        self.assertIn('workflow_dispatch:', events)
+        self.assertNotIn('schedule:', events)
+        self.assertNotIn('pull_request_target:', events)
+        self.assertTrue(covers('embedded-container.yml', 'EmbeddedContainer/build.py'))
+        self.assertFalse(covers('embedded-container.yml', 'README.md'))
+        self.assertFalse(covers('embedded-container.yml', 'server/main.py'))
+        self.assertIn("github.event.repository.visibility == 'public'", text)
+        self.assertIn('swift test --package-path .build/native-signing-smoke', text)
+        self.assertIn('native-signing-unit-tests.log', text)
+        self.assertIn('run: bash .github/scripts/select_xcode.sh', text)
+        self.assertIn("python-version: '3.12'", text)
+        self.assertIn('contents: read', text)
+        self.assertNotIn('contents: write', text)
+        self.assertNotIn('gh release', text)
+        for suffix in ('.ipa', '.integration-sources.tar.gz', '.build.json', '.checksums.txt'):
+            self.assertIn('packages/VexSign+LiveContainer+SideStore' + suffix, text)
+        self.assertRegex(text, r'(?s)name: Upload build logs.*?retention-days: 3')
 
     def test_ci_ipa_packaging_layout_metadata_and_rejections(self):
         """Exercise the actual workflow shell with a ditto stand-in, not a native build."""

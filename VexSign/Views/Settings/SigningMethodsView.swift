@@ -130,6 +130,10 @@ struct SigningMethodsView: View {
                 Text(.localized("Diagnostics"))
             }
         }
+        .task {
+            await nativeManager.synchronizeProvider()
+            await nativeManager.renewExpiringProfiles()
+        }
         .sheet(isPresented: $showAppleIDLogin) {
             AppleIDLoginView(
                 appleID: $appleID,
@@ -221,14 +225,20 @@ struct SigningMethodsView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(String.localized("Team: %@ (%@)", arguments: context.team.identifier, context.team.membership.displayName))
                                 .font(.caption).foregroundStyle(.secondary)
-                            // 3-app limit indicator
+                            // Locally indexed apps are not Apple portal/device quota.
                             HStack(spacing: 4) {
                                 Image(systemName: "app.badge")
                                     .font(.caption2)
-                                Text(String.localized("%lld/3 apps used", arguments: nativeManager.freeAccountAppCount))
-                                    .font(.caption)
+                                Group {
+                                    if nativeManager.freeAccountInventoryAvailable {
+                                        Text(String.localized("%lld indexed apps — not portal quota", arguments: nativeManager.freeAccountAppCount))
+                                    } else {
+                                        Text(.localized("Profile inventory unavailable"))
+                                    }
+                                }
+                                .font(.caption)
                             }
-                            .foregroundStyle(nativeManager.freeAccountAppCount >= 3 ? .red : .secondary)
+                            .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -246,12 +256,20 @@ struct SigningMethodsView: View {
                         Label(.localized("Provision & Sign App"), systemImage: "signature")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(nativeManager.freeAccountAppCount >= 3)
-
-                    if nativeManager.freeAccountAppCount >= 3 {
-                        Text(.localized("App limit reached (3/3). Revoke an app or wait for expiry."))
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                    Button {
+                        Task { await nativeManager.renewExpiringProfiles() }
+                    } label: {
+                        Label(.localized("Check Profiles for Renewal"), systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    if !nativeManager.renewalCandidates.isEmpty {
+                        Text(.localized("Profiles need renewal review. Background discovery does not authorize account changes, re-signing or installation."))
+                            .font(.caption).foregroundStyle(.orange)
+                        ForEach(nativeManager.renewalCandidates) { profile in
+                            VStack(alignment: .leading) {
+                                Text(profile.bundleIdentifier).font(.caption.weight(.medium))
+                                Text(profile.expiresAt, style: .date).font(.caption2)
+                            }
+                        }
                     }
 
                     Button(role: .destructive) {

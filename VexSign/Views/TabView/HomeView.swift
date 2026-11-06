@@ -33,6 +33,8 @@ struct HomeView: View {
     @State private var isDropTargeted = false
     @State private var quickSignApp: AnyApp?
     @State private var showAddRepository = false
+    @State private var showUniversalSearch = false
+    @State private var universalQuery = ""
 
     @ObservedObject private var appearance = AppearanceStore.shared
     @ObservedObject private var tasks = UnifiedTaskCenter.shared
@@ -80,6 +82,8 @@ struct HomeView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
+                        universalSearchBar
+                        if EmbeddedContainerRuntime.isAvailable { embeddedSwitches }
                         if appearance.visualTheme.isLegacyPresentation {
                         header
                         if isFlareWebTheme { flareHero }
@@ -107,10 +111,65 @@ struct HomeView: View {
             .fullScreenCover(item: $quickSignApp) { app in
                 SigningView(app: app.base)
             }
+            .sheet(isPresented: $showUniversalSearch) {
+                NavigationStack {
+                    List {
+                        Section {
+                            TextField(.localized("Search VexSign"), text: $universalQuery)
+                                .textInputAutocapitalization(.never)
+                                .submitLabel(.search)
+                        }
+                        Section {
+                            searchDestination(.library, title: .localized("Search Library"), icon: "square.grid.2x2")
+                            searchDestination(.appStore, title: .localized("Search Apps & Sources"), icon: "bag")
+                            searchDestination(.settings, title: .localized("Search Settings"), icon: "gearshape")
+                        } footer: {
+                            Text(.localized("Use the same query across Library, repository apps and Settings. Each destination keeps its existing privacy rules and filters."))
+                        }
+                    }
+                    .navigationTitle(.localized("Search VexSign"))
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(.localized("Done")) { showUniversalSearch = false }
+                        }
+                    }
+                }
+            }
             .sheet(isPresented: $showAddRepository) {
                 SourcesAddView()
             }
         }
+    }
+
+    private var universalSearchBar: some View {
+        Button { showUniversalSearch = true } label: {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                Text(.localized("Search VexSign"))
+                Spacer()
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+            }
+            .padding()
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("vexsign.home.search")
+    }
+
+    private func searchDestination(_ tab: TabEnum, title: String, icon: String) -> some View {
+        Button {
+            showUniversalSearch = false
+            TabSelectionObserver.shared.search(universalQuery, in: tab)
+        } label: { Label(title, systemImage: icon) }
+    }
+
+    private var embeddedSwitches: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(.localized("Built-in apps")).font(.headline)
+            EmbeddedContainerControls()
+        }
+        .padding()
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Header

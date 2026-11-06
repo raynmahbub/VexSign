@@ -3,7 +3,8 @@
 #import <objc/runtime.h>
 
 static Class VEXHostRuntime(void) {
-    if (![NSBundle.mainBundle.infoDictionary[@"VexSignEmbeddedGuest"] boolValue]) return Nil;
+    NSDictionary *metadata = NSBundle.mainBundle.infoDictionary;
+    if (![metadata[@"VexSignEmbeddedGuest"] boolValue] && ![metadata[@"VexSignPrimaryHost"] boolValue]) return Nil;
     Class runtime = NSClassFromString(@"LCSharedUtils");
     SEL available = NSSelectorFromString(@"vexSignCombinedHostAvailable");
     if (!runtime || ![runtime respondsToSelector:available]) return Nil;
@@ -38,4 +39,20 @@ BOOL VEXEmbeddedRuntimeStageIPA(NSURL *source) {
     if (!runtime || ![runtime respondsToSelector:stage]) return NO;
     BOOL (*invoke)(id, SEL, NSURL *) = (BOOL (*)(id, SEL, NSURL *))(void *)objc_msgSend;
     return invoke(runtime, stage, source);
+}
+
+NSDictionary<NSString *, NSString *> *VEXEmbeddedRuntimeGuestInfo(NSString *identifier) {
+    Class runtime = VEXHostRuntime();
+    SEL query = NSSelectorFromString(@"vexSignGuestInfo:");
+    if (!runtime || ![runtime respondsToSelector:query]) return nil;
+    id (*invoke)(id, SEL, NSString *) = (id (*)(id, SEL, NSString *))(void *)objc_msgSend;
+    id answer = invoke(runtime, query, identifier);
+    if (![answer isKindOfClass:NSDictionary.class]) return nil;
+    // Pass through only the small, typed public inventory fields.
+    NSString *state = answer[@"state"];
+    if (![state isKindOfClass:NSString.class]) return nil;
+    NSMutableDictionary *result = [NSMutableDictionary dictionaryWithObject:state forKey:@"state"];
+    id version = answer[@"version"];
+    if ([version isKindOfClass:NSString.class]) result[@"version"] = version;
+    return result;
 }

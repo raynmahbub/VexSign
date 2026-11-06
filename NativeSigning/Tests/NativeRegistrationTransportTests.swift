@@ -1,6 +1,5 @@
 import Foundation
 import XCTest
-import SideSign
 @testable import NativeSigningLinkSmoke
 
 /// Policy/DTO fixtures only. No actual URLSession, Apple response or mutation.

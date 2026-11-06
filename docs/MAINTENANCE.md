@@ -115,7 +115,9 @@ Every job requires an explicitly **public** repository before runner allocation.
 Private copies skip jobs rather than using private-repository minutes. Only
 standard `ubuntu-24.04` / `macos-15` runners are allowed. Diagnostic and
 release-staging uploads retain artifacts for at most **three days**; temporary unsigned CI IPA bundles retain
-for **14 days** for device testing. Existing uploads keep their original expiry.
+for **14 days** for device testing, including the opt-in combined-host prototype
+IPA/source/verification bundle. Combined-build logs remain at **three days**.
+Existing uploads keep their original expiry.
 There are no model permissions, inference calls, larger runners, paid agents or
 provisioned self-hosted services.
 

@@ -273,6 +273,13 @@ struct LibraryView: View {
                 }
             }
             .searchable(text: $_searchText, placement: .platform())
+            .onReceive(TabSelectionObserver.shared.$searchRequest) { request in
+                guard let request, request.tab == .library else { return }
+                _searchText = request.query
+                _selectedScope = .all
+                TabSelectionObserver.shared.searchRequest = nil
+            }
+
             .compatSearchScopes($_selectedScope) {
                 ForEach(Scope.allCases, id: \.displayName) { scope in
                     Text(scope.displayName).tag(scope)
@@ -300,6 +307,20 @@ struct LibraryView: View {
                 if updateChecker.availableUpdates.isEmpty {
                     await updateChecker.checkNow()
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                // OTA installation can complete while VexSign is suspended. Re-query
+                // the device even if the cached negative is less than 30 seconds old.
+                libraryStatus.refresh(
+                    _signedApps.map { $0 as AppInfoPresentable } + _importedApps.map { $0 as AppInfoPresentable },
+                    force: true
+                )
+            }
+            .refreshable {
+                libraryStatus.refresh(
+                    _signedApps.map { $0 as AppInfoPresentable } + _importedApps.map { $0 as AppInfoPresentable },
+                    force: true
+                )
             }
             .nbOnChange(of: tabSelection.highlightedAppUUID) { newUUID in
                 if let uuid = newUUID {

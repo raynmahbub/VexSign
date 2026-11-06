@@ -1,10 +1,48 @@
-name: Guest-host prototype · build only
+name: Combined native host · build only
 
-# Deliberately opt-in. No auto-publishing, signing secrets, PR triggers or changes
-# to the normal VexSign release pipeline. Install/re-sign the IPA as a host app.
+# Read-only, public-repository validation for combined-host changes. No publishing,
+# Apple-account operations, signing secrets or normal release-pipeline changes.
+# Install/re-sign the resulting unvalidated IPA as a host app.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'EmbeddedContainer/**'
+      - 'VexSign/Backend/Companion/PrimaryHostEntry.swift'
+      - 'VexSign/Resources/Info.plist'
+      - 'VexSign.xcodeproj/**'
+      - 'NativeSigning/**'
+      - 'SideSign/Sources/**'
+      - 'VexSign/Security/AppleAccount*.swift'
+      - 'Makefile'
+      - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/quick_check.py'
+      - '.github/scripts/xcodebuild_report.py'
+      - 'SideSign/Package.swift'
+      - '.github/workflows/embedded-container.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'EmbeddedContainer/**'
+      - 'VexSign/Backend/Companion/PrimaryHostEntry.swift'
+      - 'VexSign/Resources/Info.plist'
+      - 'VexSign.xcodeproj/**'
+      - 'NativeSigning/**'
+      - 'SideSign/Sources/**'
+      - 'VexSign/Security/AppleAccount*.swift'
+      - 'Makefile'
+      - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/quick_check.py'
+      - '.github/scripts/xcodebuild_report.py'
+      - 'SideSign/Package.swift'
+      - '.github/workflows/embedded-container.yml'
   workflow_dispatch:
     inputs:
+      host_mode:
+        description: 'Primary UI architecture (both require native/device acceptance)'
+        type: choice
+        options: [native-primary, guest-prototype]
+        default: native-primary
       xcode:
         description: 'Installed Xcode version prefix (26.2 or newer)'
         required: true
@@ -25,6 +63,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - name: Repository and packaging regressions
         run: |
           make verify
@@ -37,45 +77,114 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
       - name: Select installed Xcode
         env:
-          REQUESTED_XCODE: ${{ inputs.xcode }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          candidates=(/Applications/Xcode_"${REQUESTED_XCODE}"*.app)
-          if [ "${#candidates[@]}" -eq 0 ]; then
-            echo "::error::Requested Xcode is not installed."
-            ls -d /Applications/Xcode*.app
-            exit 1
-          fi
-          sudo xcode-select -s "${candidates[0]}/Contents/Developer"
-          xcodebuild -version
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE }}
+        run: bash .github/scripts/select_xcode.sh
       - name: Install packaging tool
         run: brew install ldid
-      - name: Build normal VexSign guest input
+      - name: Native unit regressions (synthetic accounts only)
+        id: native_tests
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+          status=$?
+          if [ "$status" -eq 0 ]; then
+            swift test --package-path .build/native-signing-smoke 2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
+            status=$?
+          fi
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Report native unit diagnostics
+        if: always() && steps.native_tests.outcome != 'skipped'
+        env:
+          NATIVE_EXIT: ${{ steps.native_tests.outputs.exit_code }}
+        run: |
+          cat "$RUNNER_TEMP"/native-signing-*.log > "$RUNNER_TEMP/native-signing-diagnostics.log"
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/native-signing-diagnostics.log" \
+            --build-exit "${NATIVE_EXIT:-1}" --warnings-as-errors false \
+            --title 'Native synthetic unit tests' --workspace "$GITHUB_WORKSPACE"
+      - name: Build standalone VexSign native input
+        id: native_input
+        run: |
+          set -uo pipefail
           make VexSign 2>&1 | tee "$RUNNER_TEMP/vexsign-build.log"
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Report standalone build diagnostics
+        if: always() && steps.native_input.outcome != 'skipped'
+        env:
+          BUILD_EXIT: ${{ steps.native_input.outputs.exit_code }}
+        run: |
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/vexsign-build.log" --build-exit "${BUILD_EXIT:-1}" \
+            --warnings-as-errors false --title 'Native input build' --workspace "$GITHUB_WORKSPACE"
+      - name: Preserve unsigned native input
+        if: always() && steps.native_input.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: VexSign-native-input-unsigned
+          path: packages/VexSign.ipa
+          if-no-files-found: error
+          retention-days: 14
       - name: Build native host and combined IPA
+        id: combined
         env:
           GH_TOKEN: ${{ github.token }}
+          HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
-          set -euo pipefail
-          python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
+          set -uo pipefail
+          python3 EmbeddedContainer/build.py --mode "$HOST_MODE" --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Report combined packaging diagnostics
+        if: always() && steps.combined.outcome != 'skipped'
+        env:
+          BUILD_EXIT: ${{ steps.combined.outputs.exit_code }}
+        run: |
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/combined-build.log" --build-exit "${BUILD_EXIT:-1}" \
+            --warnings-as-errors false --title 'Combined native packaging' --workspace "$GITHUB_WORKSPACE"
       - name: Upload combined build and integration sources
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: VexSign-LiveContainer-SideStore-unvalidated
+          name: VexSign-LiveContainer-SideStore-${{ inputs.host_mode || 'native-primary' }}-unvalidated
           if-no-files-found: error
+          retention-days: 14
           path: |
             packages/VexSign+LiveContainer+SideStore.ipa
             packages/VexSign+LiveContainer+SideStore.integration-sources.tar.gz
+            packages/VexSign+LiveContainer+SideStore.build.json
+            packages/VexSign+LiveContainer+SideStore.checksums.txt
+      - name: Combined build summary
+        env:
+          HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
+        run: |
+          {
+            echo '## Experimental combined host'
+            echo "Architecture: $HOST_MODE. One host IPA includes LiveContainer runtime and embedded SideStore."
+            echo 'Native-primary boots VexSign directly without guest isolation hooks. Guest-prototype retains the older architecture. No device acceptance is claimed.'
+            echo 'Download the mode-labelled unvalidated artifact within 14 days; verify its checksums before re-signing.'
+            echo 'The artifact includes integration sources and build metadata. Normal releases are unchanged.'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
           name: embedded-container-build-logs
+          retention-days: 3
           path: |
+            ${{ runner.temp }}/native-signing-prepare.log
+            ${{ runner.temp }}/native-signing-unit-tests.log
+            .build/native-signing-smoke/provenance.json
             ${{ runner.temp }}/vexsign-build.log
             ${{ runner.temp }}/combined-build.log

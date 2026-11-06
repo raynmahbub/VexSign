@@ -281,7 +281,7 @@ final class ImportAndInstallationTests: XCTestCase {
         XCTAssertFalse(success.canOpenApp(isExport: true, identifier: "com.example.app"))
         XCTAssertFalse(success.canOpenApp(isExport: false, identifier: nil))
         XCTAssertFalse(success.canOpenApp(isExport: false, identifier: ""))
-        for outcome in [InstallQueue.InstallOutcome.pending, .skipped, .failed("Install failed")] {
+        for outcome in [InstallQueue.InstallOutcome.pending, .skipped, .guestPrepared, .failed("Install failed")] {
             XCTAssertFalse(outcome.canOpenApp(isExport: false, identifier: "com.example.app"))
         }
     }
@@ -290,7 +290,7 @@ final class ImportAndInstallationTests: XCTestCase {
         // The default five-tab order is Library → Home →
         // App Store → Downloads → Settings; Home is always present and
         // never hideable, along with the other primary tabs.
-        XCTAssertEqual(TabEnum.defaultTabs, [.library, .home, .appStore, .downloads, .settings])
+        XCTAssertEqual(TabEnum.defaultTabs, [.library, .appStore, .home, .downloads, .settings])
         XCTAssertTrue(TabEnum.defaultTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.settings))

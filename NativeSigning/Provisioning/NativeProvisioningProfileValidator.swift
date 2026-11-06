@@ -85,6 +85,9 @@ struct NativeProvisioningProfileValidator: Sendable {
     /// validation/promotion; do not select this merely because a plist parses.
     static func appleCMS() -> Self { Self(verifier: NativeAppleProfileCMSVerifier()) }
 
+    /// Capability only, never approval or evidence of a particular profile's trust.
+    var isConfigured: Bool { verifier != nil }
+
     func requireCMSVerification() throws {
         guard verifier != nil else { throw NativeProfileValidationError.cmsVerificationUnavailable }
     }

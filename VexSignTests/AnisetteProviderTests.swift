@@ -14,6 +14,25 @@ import NimbleExtensions
 @Suite("AnisetteProvider Tests")
 struct AnisetteProviderTests {
 
+    @Test("Catalogue URLs never weaken endpoint security")
+    func testCatalogSecurity() {
+        for address in ["http://example.com", "https://user:password@example.com", "https://example.com?token=secret", "https://example.com#fragment", "not a URL"] {
+            let server = AnisetteServerCatalog.Server(name: "test", address: address, kind: 0)
+            #expect(server.secureEndpoint == nil)
+        }
+        let valid = AnisetteServerCatalog.Server(name: "test", address: "https://example.com", kind: 0)
+        #expect(valid.secureEndpoint?.host == "example.com")
+    }
+
+    @Test("Bundled server catalogue has provenance and unique entries")
+    func testBundledCatalog() throws {
+        let catalog = try AnisetteServerCatalog.bundled()
+        #expect(catalog.sourceRevision.count == 40)
+        #expect(catalog.servers.count == 22)
+        #expect(Set(catalog.servers.map(\.id)).count == catalog.servers.count)
+        #expect(catalog.servers.filter { $0.secureEndpoint == nil }.count == 1)
+    }
+
     // MARK: - AnisetteProviderDescriptor Tests
 
     @Test("AnisetteProviderDescriptor creation")

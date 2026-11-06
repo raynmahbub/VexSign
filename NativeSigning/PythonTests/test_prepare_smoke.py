@@ -82,7 +82,17 @@ class PreparationTests(unittest.TestCase):
 
     def test_installed_codec_and_tests_match_first_party_source_hashes(self):
         hashes = module.install_smoke_sources(self.root)
-        self.assertEqual(len(hashes), 102)
+        self.assertEqual(len(hashes), 106)
+        self.assertIn('Provisioning/VexSignProfileTypes.swift', hashes)
+        # The smoke graph must compile every production implementation, including
+        # byte-identical app lifecycle/storage mirrors. A source-count assertion
+        # alone missed the local DTOs and silently resolved imported SDK types.
+        staged = {module.digest(path.read_bytes()) for path in
+                  (self.root / 'Sources/NativeSigningLinkSmoke').glob('*.swift')}
+        for folder in ('Authentication', 'Codec', 'Identity', 'Provisioning', 'Security', 'Services', 'Signing'):
+            for source in (HERE / folder).rglob('*.swift'):
+                self.assertIn(module.digest(source.read_bytes()), staged,
+                              f'Production implementation missing from smoke graph: {source.relative_to(HERE)}')
         for relative, checksum in hashes.items():
             source = (HERE.parent if relative.startswith('VexSign/') else HERE) / relative
             self.assertEqual(module.digest(source.read_bytes()), checksum)

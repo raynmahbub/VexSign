@@ -21,6 +21,7 @@
 import Foundation
 import NimbleExtensions
 import XCTest
+import os
 @testable import VexSign
 
 final class BundleSignatureTests: XCTestCase {
@@ -360,6 +361,15 @@ final class BundleSignatureTests: XCTestCase {
 		XCTAssertTrue(status.isKnown)
 	}
 
+	func testResolveRejectsDeviceEvidenceForAnotherBundle() {
+		let request = LibraryStatusStore.Request(uuid: "row", bundleIdentifier: "requested.app",
+			expectedVersion: "1", bundleURL: nil, isSigned: false)
+		let status = LibraryStatusStore.resolve(request,
+			probe: StubProbe(app: InstalledApp(bundleIdentifier: "different.host", isInstalled: true, version: "1")),
+			readSignature: { _ in .unreadable("Unexpected signature read") })
+		XCTAssertEqual(status.installed, .unknown)
+	}
+
 	func testResolveKeepsUnknownWhenTheProbeCannotAnswer() {
 		let request = LibraryStatusStore.Request(
 			uuid: "uuid",
@@ -432,7 +442,7 @@ final class BundleSignatureTests: XCTestCase {
 		XCTAssertNil(InstalledBadge(.unknown))
 
 		let installed = InstalledBadge(.installed)
-		XCTAssertNil(installed?.title)
+		XCTAssertEqual(installed?.title, String.localized("Installed"))
 		XCTAssertEqual(installed?.tone, .positive)
 
 		let other = InstalledBadge(.installedOtherVersion("1.2"))
@@ -442,6 +452,89 @@ final class BundleSignatureTests: XCTestCase {
 		let missing = InstalledBadge(.notInstalled)
 		XCTAssertEqual(missing?.title, String.localized("Not installed"))
 		XCTAssertEqual(missing?.tone, .neutral)
+	}
+
+	@MainActor
+	func testInvalidationImmediatelyRefreshesAnAlreadyVisibleRow() async throws {
+		let probe = ControlledLibraryProbe()
+		defer { probe.releaseAll() }
+		let store = LibraryStatusStore(probe: probe)
+		let request = LibraryStatusStore.Request(uuid: "row", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: true)
+		store.request(request)
+		try await waitUntil { probe.count == 1 }
+		probe.first.signal()
+		try await waitUntil { store.statuses["row"] != nil }
+		XCTAssertEqual(store.statuses["row"]?.installed, .notInstalled)
+		store.invalidate(bundleIdentifier: "example.app")
+		try await waitUntil { probe.count == 2 }
+		probe.second.signal()
+		try await waitUntil { store.statuses["row"]?.installed == .installed }
+	}
+
+	@MainActor
+	func testInvalidationRefreshesPendingRowAndRejectsOldCompletion() async throws {
+		try await exerciseSupersededRead(resetAll: false)
+	}
+
+	@MainActor
+	func testOldCompletionDoesNotClearNewReadInFlight() async throws {
+		let probe = ControlledLibraryProbe()
+		defer { probe.releaseAll() }
+		let store = LibraryStatusStore(probe: probe)
+		let request = LibraryStatusStore.Request(uuid: "row", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: true)
+		store.request(request)
+		try await waitUntil { probe.count == 1 }
+		store.invalidate(bundleIdentifier: "example.app")
+		try await waitUntil { probe.count == 2 }
+		probe.first.signal()
+		try await waitUntil { probe.returned == 1 }
+		try await Task.sleep(nanoseconds: 100_000_000)
+		XCTAssertNil(store.statuses["row"])
+		// An ordinary read must not replace the still-pending newer probe.
+		store.request(request, maxAge: 0)
+		try await Task.sleep(nanoseconds: 100_000_000)
+		XCTAssertEqual(probe.count, 2)
+		probe.second.signal()
+		try await waitUntil { store.statuses["row"]?.installed == .installed }
+	}
+
+	@MainActor
+	func testResetFencesOldReadsEvenWhenEpochIsReused() async throws {
+		try await exerciseSupersededRead(resetAll: true)
+	}
+
+	@MainActor
+	private func exerciseSupersededRead(resetAll: Bool) async throws {
+		let probe = ControlledLibraryProbe()
+		defer { probe.releaseAll() }
+		let store = LibraryStatusStore(probe: probe)
+		let request = LibraryStatusStore.Request(uuid: "row", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: true)
+		store.request(request)
+		try await waitUntil { probe.count == 1 }
+		if resetAll {
+			store.invalidateAll()
+			store.request(request)
+		} else {
+			store.invalidate(bundleIdentifier: "example.app")
+		}
+		try await waitUntil { probe.count == 2 }
+		probe.second.signal()
+		try await waitUntil { store.statuses["row"]?.installed == .installed }
+		probe.first.signal()
+		// Let the detached result return, then allow its main-actor delivery to run.
+		try await waitUntil { probe.returned == 2 }
+		try await Task.sleep(nanoseconds: 100_000_000)
+		XCTAssertEqual(store.statuses["row"]?.installed, .installed)
+	}
+
+	@MainActor
+	private func waitUntil(_ condition: () -> Bool) async throws {
+		for _ in 0..<500 {
+			if condition() { return }
+			try await Task.sleep(nanoseconds: 10_000_000)
+		}
+		XCTFail("Timed out waiting for status read")
+		throw NSError(domain: "LibraryStatusTests", code: 1)
 	}
 
 	// MARK: Helpers
@@ -549,5 +642,25 @@ private struct StubProbe: InstalledAppProbing {
 
 	func installedApp(for bundleIdentifier: String) -> InstalledApp? {
 		app
+	}
+}
+
+/// Independently release reads so an old negative can arrive after a new positive.
+private final class ControlledLibraryProbe: InstalledAppProbing {
+	private let state = OSAllocatedUnfairLock(initialState: (started: 0, returned: 0))
+	let first = DispatchSemaphore(value: 0)
+	let second = DispatchSemaphore(value: 0)
+	var count: Int { state.withLock { $0.started } }
+	var returned: Int { state.withLock { $0.returned } }
+	func releaseAll() { first.signal(); second.signal() }
+
+	func installedApp(for bundleIdentifier: String) -> InstalledApp? {
+		let index = state.withLock { value in
+			value.started += 1
+			return value.started
+		}
+		_ = (index == 1 ? first : second).wait(timeout: .now() + 10)
+		defer { state.withLock { $0.returned += 1 } }
+		return InstalledApp(bundleIdentifier: bundleIdentifier, isInstalled: index != 1, version: "1")
 	}
 }

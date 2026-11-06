@@ -296,6 +296,12 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .searchable(text: $_settingsQuery, prompt: Text(.localized("Search Settings")))
+            .onReceive(TabSelectionObserver.shared.$searchRequest) { request in
+                guard let request, request.tab == .settings else { return }
+                _settingsQuery = request.query
+                TabSelectionObserver.shared.searchRequest = nil
+            }
+
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: AutomationView()) {

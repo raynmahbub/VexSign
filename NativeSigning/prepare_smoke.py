@@ -93,6 +93,22 @@ def patch_manifest(folder, expected_hash, known, original_dir, overlay=None):
     return {'original_sha256': expected_hash, 'overlay_sha256': digest(text.encode())}
 
 
+def apply_anisette_v3_overlay(deps, lock):
+    specs = lock['anisette_v3_overlay']
+    expected = {'Sources/Anisette/AnisetteDataManager.swift', 'Sources/Anisette/RemoteAnisetteDataProvider.swift'}
+    if set(specs) != expected:
+        raise ValueError('Incomplete anisette v3 source review')
+    for relative, spec in specs.items():
+        original = deps / 'sidesign' / relative
+        source = ROOT / 'SideSign' / relative
+        if digest(original.read_bytes()) != spec['upstream_sha256']:
+            raise ValueError('Anisette upstream source changed: ' + relative)
+        if digest(source.read_bytes()) != spec['overlay_sha256']:
+            raise ValueError('Anisette overlay changed; review before building: ' + relative)
+        shutil.copy2(source, original)
+    return specs
+
+
 def apply_privacy_overlays(deps, lock, originals):
     module_spec = importlib.util.spec_from_file_location('suppress_sdk_logging', HERE / 'patches/suppress_sdk_logging.py')
     module = importlib.util.module_from_spec(module_spec)
@@ -291,8 +307,10 @@ def install_smoke_sources(work):
         'Tests/NativeProfileTransportTests.swift': 'Tests/NativeSigningCodecTests/NativeProfileTransportTests.swift',
         'Provisioning/NativeProfileCreation.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreation.swift',
         'Provisioning/NativeProfileCreationExecutor.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreationExecutor.swift',
+        'Provisioning/NativeProfileReceiptStore.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileReceiptStore.swift',
         'Provisioning/NativeProfileCreationKeychainStore.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCreationKeychainStore.swift',
         'Tests/NativeProfileCreationTests.swift': 'Tests/NativeSigningCodecTests/NativeProfileCreationTests.swift',
+        'Provisioning/VexSignProfileTypes.swift': 'Sources/NativeSigningLinkSmoke/VexSignProfileTypes.swift',
         'Provisioning/NativeAccountProfileOperation.swift': 'Sources/NativeSigningLinkSmoke/NativeAccountProfileOperation.swift',
         'Tests/NativeAccountProfileOperationTests.swift': 'Tests/NativeSigningCodecTests/NativeAccountProfileOperationTests.swift',
         'Provisioning/NativeAccountRegistrationApproval.swift': 'Sources/NativeSigningLinkSmoke/NativeAccountRegistrationApproval.swift',
@@ -334,6 +352,8 @@ def install_smoke_sources(work):
         'Tests/NativeProvisioningPlanTests.swift': 'Tests/NativeSigningCodecTests/NativeProvisioningPlanTests.swift',
         'Authentication/NativeAccountBackend.swift': 'Sources/NativeSigningLinkSmoke/NativeAccountBackend.swift',
         'Tests/NativeAccountBackendTests.swift': 'Tests/NativeSigningCodecTests/NativeAccountBackendTests.swift',
+        'Tests/NativeV3AnisetteTests.swift': 'Tests/NativeSigningCodecTests/NativeV3AnisetteTests.swift',
+        'Authentication/NativeV3AnisetteProvider.swift': 'Sources/NativeSigningLinkSmoke/NativeV3AnisetteProvider.swift',
         'Authentication/HTTPSAnisetteProvider.swift': 'Sources/NativeSigningLinkSmoke/HTTPSAnisetteProvider.swift',
         'Tests/HTTPSAnisetteProviderTests.swift': 'Tests/NativeSigningCodecTests/HTTPSAnisetteProviderTests.swift',
         'Authentication/ConsentedAnisetteProvider.swift': 'Sources/NativeSigningLinkSmoke/ConsentedAnisetteProvider.swift',
@@ -404,6 +424,7 @@ def prepare(work, lock):
                 raise ValueError('Unreviewed binary artifact')
     if seen != allowed:
         raise ValueError('The locked binary graph no longer matches the prepared manifests')
+    anisette_v3_overlay = apply_anisette_v3_overlay(deps, lock)
     privacy_hashes = apply_privacy_overlays(deps, lock, work / 'UpstreamPrivacySources')
     csr_overlay = apply_csr_overlay(deps, lock)
     registration_overlay = apply_registration_overlay(deps, lock)
@@ -412,6 +433,7 @@ def prepare(work, lock):
     der_boolean_correction = apply_der_boolean_correction(deps, lock, work / 'UpstreamSigningSources')
     first_party_hashes = install_smoke_sources(work)
     (work / 'provenance.json').write_text(json.dumps({
+        'anisette_v3_overlay': anisette_v3_overlay,
         'der_boolean_correction': der_boolean_correction,
         'inputs': lock, 'manifest_overlays': modifications, 'first_party_sha256': first_party_hashes, 'privacy_overlays': privacy_hashes,
         'csr_overlay': csr_overlay, 'registration_overlay': registration_overlay, 'profile_overlay': profile_overlay, 'certificate_inventory_overlay': certificate_inventory_overlay,

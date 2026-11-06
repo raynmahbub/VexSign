@@ -2,16 +2,10 @@
 /// Bridges the NativeSigning module's NativeAccountBackend with VexSign's
 /// main app workflows (UnifiedTaskCenter, OptionsManager, SigningProfileStore, etc.).
 ///
-/// This manager handles the complete free Apple ID signing flow:
-/// 1. Apple ID + password authentication (with 2FA)
-/// 2. Team selection (free vs paid)
-/// 3. Device/App ID registration
-/// 4. Certificate creation
-/// 5. Provisioning profile creation
-/// 6. Integration with existing Zsign signing pipeline
-///
-/// All operations are funneled through UnifiedTaskCenter for consistent
-/// progress tracking, history, and retry handling.
+/// Experimental authentication, owner-bound local inventory and profile-only
+/// provisioning UI adapter. Mutations require separate explicit approvals; the
+/// default CMS gate is closed. Native-owned signing, installation and scoped
+/// unattended renewal are not connected to the existing signing pipeline yet.
 
 import Foundation
 import Combine
@@ -34,10 +28,13 @@ final class NativeSigningManager: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var providerDescriptor: AnisetteProviderDescriptor?
     @Published private(set) var freeAccountAppCount: Int = 0
+    @Published private(set) var freeAccountInventoryAvailable = false
+    @Published private(set) var renewalCandidates: [FreeAccountProfile] = []
 
     // MARK: - Private State
 
     private var eventTask: Task<Void, Never>?
+    private var providerUpdate: Task<Void, Never>?
     private let logger = Logger(subsystem: "com.vexsign", category: "NativeSigningManager")
 
     private init() {
@@ -59,11 +56,9 @@ final class NativeSigningManager: ObservableObject {
     }
 
     private func refreshFreeAccountAppCount() async {
-        // Scanning the library cannot say which Apple ID signed what, so the count
-        // stays at zero until the backend can list free-account profiles.
-        // TODO: replace with a NativeAccountBackend query.
-        let signedCount = Storage.shared.getAllApps().filter { $0.isSigned }.count
-        logger.debug("Signed apps in library: \(signedCount); free-account profile count unavailable")
+        let profiles = await fetchActiveFreeAccountProfiles()
+        freeAccountAppCount = Set(profiles.filter { !$0.isExpired }.map(\.bundleIdentifier)).count
+        renewalCandidates = freeAccountInventoryAvailable ? profiles.filter { $0.isExpiringSoon } : []
     }
 
     // MARK: - Profile Expiry Tracking & Auto-Renewal
@@ -74,156 +69,92 @@ final class NativeSigningManager: ObservableObject {
         let bundleIdentifier: String
         let profileUUID: UUID
         let expiresAt: Date
+        /// Existing signing identity, not a newly generated certificate.
         let certificateID: UUID
+        var deviceIdentifier: String? = nil
         var daysUntilExpiry: Int {
             // Round up: a profile with 2 days and 20 hours left is still
             // "3 days" of validity, and truncation would report 2.
             let days = (expiresAt.timeIntervalSinceNow / 86400).rounded(.up)
-            return max(0, Int(days))
+            guard days.isFinite else { return 0 }
+            // Display-only clamp; malformed dates must not trap an Int conversion.
+            return Int(max(0, min(36_500, days)))
         }
         var isExpiringSoon: Bool { daysUntilExpiry <= 2 }
         var isExpired: Bool { Date() > expiresAt }
     }
 
     /// Fetches all active free Apple ID profiles with their expiry dates.
-    /// Returns an empty array if not signed in or backend not ready.
+    /// Local authenticated receipts only; this is not Apple's complete account
+    /// inventory or a quota check. Legacy hash-only rows require reconciliation.
     func fetchActiveFreeAccountProfiles() async -> [FreeAccountProfile] {
-        guard let snapshot = snapshot,
-              case .signedIn(let context) = snapshot.phase,
-              managerIsFreeAccount(context) else {
+        guard let snapshot, case .signedIn(let context) = snapshot.phase,
+              context.team.membership == .free, let backend,
+              providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else {
+            freeAccountInventoryAvailable = false
             return []
         }
-
-        // TODO: query the backend for the profiles belonging to this context and
-        // their expiry dates. NativeAccountBackend has listProfiles(contextID:),
-        // but it returns profile records, not the expiry data renewal needs, so
-        // there is nothing to renew yet and the count stays at zero.
-        _ = context.id
-        return []
-    }
-
-    /// Checks if the current context is a free Apple ID account (not paid).
-    private func managerIsFreeAccount(_ context: NativeAccountContext) -> Bool {
-        context.team.membership == .free || context.team.membership == .developerProgramUnverified
-    }
-
-    /// Checks for expiring profiles and triggers renewal for each.
-    /// Called by BackgroundAutomation during scheduled maintenance.
-    func renewExpiringProfiles() async {
-        guard let snapshot = snapshot,
-              case .signedIn(let context) = snapshot.phase,
-              managerIsFreeAccount(context),
-              isBackendReady else {
-            return
-        }
-
-        let profiles = await fetchActiveFreeAccountProfiles()
-        let expiringProfiles = profiles.filter { $0.isExpiringSoon && !$0.isExpired }
-
-        for profile in expiringProfiles {
-            await renewProfile(bundleIdentifier: profile.bundleIdentifier, contextID: context.id)
-        }
-    }
-
-    /// Attempts to renew a specific profile by re-provisioning.
-    private func renewProfile(bundleIdentifier: String, contextID: UUID) async {
-        logger.info("Attempting to renew profile for \(bundleIdentifier)")
-
-        // Create a unified task for tracking
-        let task = UnifiedTaskCenter.shared.begin(
-            kind: .update,
-            title: .localized("Renewing profile: %@", arguments: bundleIdentifier),
-            subtitle: .localized("Free Apple ID profile expiring soon"),
-            subjectID: bundleIdentifier
-        )
-
         do {
-            // 1. Get device identifier for this app
-            // In a real implementation, this would come from the stored profile info
-            // For now, we need to get it from somewhere
-            let deviceIdentifier = try await getDeviceIdentifierForApp(bundleIdentifier)
-
-            // 2. Run provisioning preflight
-            let request = try NativeAccountProvisioningRequest(
-                deviceIdentifier: deviceIdentifier,
-                bundleIdentifiers: [bundleIdentifier]
-            )
-            // Steps 2-7 go through this manager's own pass-throughs rather than the
-            // backend directly: they guard the optional backend and mint a fresh
-            // AnisetteConsentToken per mutating call, which is the only shape the
-            // backend accepts.
-            let plan = try await provisioningPreflight(contextID: contextID, request: request)
-
-            // 2. Prepare signing identity (key + CSR)
-            let identityTicket = try await prepareSigningIdentity(contextID: contextID)
-
-            // 3. Certificate creation approval
-            let certApproval = try await recordCertificateCreationApproval(contextID: contextID, identityID: identityTicket.id)
-
-            // 4. Create certificate
-            _ = try await createDevelopmentCertificate(
-                contextID: contextID,
-                identityID: identityTicket.id,
-                approval: certApproval
-            )
-
-            // 5. Device registration
-            let subject = try NativeRegistrationSubject(kind: .device, value: deviceIdentifier)
-            let regApproval = try await recordRegistrationApproval(contextID: contextID, subject: subject)
-            _ = try await registerResource(contextID: contextID, subject: subject, approval: regApproval)
-
-            // 6. App ID registration
-            let appIDSubject = try NativeRegistrationSubject(kind: .appID, value: bundleIdentifier)
-            let appIDApproval = try await recordRegistrationApproval(contextID: contextID, subject: appIDSubject)
-            _ = try await registerResource(contextID: contextID, subject: appIDSubject, approval: appIDApproval)
-
-            // 7. Profile creation
-            let target = try NativeAccountProfileTarget(
-                identityID: identityTicket.id,
-                bundleIdentifier: bundleIdentifier,
-                deviceIdentifier: deviceIdentifier.uppercased(),
-                registeredAppID: plan.existingAppIdentifiers.first ?? bundleIdentifier,
-                registeredDeviceID: "auto"
-            )
-            let profileApproval = try await recordProfileCreationApproval(contextID: contextID, target: target)
-            let profileResult = try await createProvisioningProfile(contextID: contextID, target: target, approval: profileApproval)
-
-            // 8. The renewed profile is now recorded by the backend. Re-signing stays
-            // with the normal signing pipeline (FR.signPackageFile -> SigningService),
-            // which owns the live activity, the unified task record and the signing
-            // log. A second Zsign path here would bypass all three, and there is no
-            // stored original IPA to feed it: import extracts the payload, it does not
-            // keep the archive.
-            logger.info("Renewed profile \(profileResult.profileUUID.uuidString, privacy: .public) for \(bundleIdentifier); re-sign it from the library")
-
-            await MainActor.run {
-                UnifiedTaskCenter.shared.transition(task, to: .completed)
+            let records = try await backend.listProfiles(contextID: context.id)
+            guard self.backend === backend,
+                  case .signedIn(let current) = self.snapshot?.phase, current.id == context.id,
+                  providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else { return [] }
+            let profiles = records.compactMap { record -> FreeAccountProfile? in
+                guard let expires = record.expiresAt, let bundle = record.bundleIdentifier,
+                      let device = record.deviceIdentifier, let identity = record.identityID else { return nil }
+                return FreeAccountProfile(id: record.profileUUID, bundleIdentifier: bundle,
+                    profileUUID: record.profileUUID, expiresAt: expires,
+                    certificateID: identity, deviceIdentifier: device)
             }
-
+            freeAccountInventoryAvailable = true
+            return profiles
         } catch {
-            await MainActor.run {
-                UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
-            }
-            logger.error("Failed to renew profile for \(bundleIdentifier): \(error.localizedDescription, privacy: .public)")
+            guard self.backend === backend else { return [] }
+            freeAccountInventoryAvailable = false
+            lastError = error.localizedDescription
+            return []
         }
     }
 
-    /// Gets the device identifier for an app (from stored profile or device pairing).
-    private func getDeviceIdentifierForApp(_ bundleIdentifier: String) async throws -> String {
-        // In a real implementation, this would query the Keychain or profile storage
-        // for the device UDID associated with this app's profile.
-        // For now, we'll need to get it from the paired device or user input.
-
-        // The library stores the app's own UUID, which is not the device UDID, so
-        // nothing in storage can answer this.
-        throw NativeSigningError.provisioningFailed("Device UDID required for renewal. Please run provisioning manually.")
+    /// Background discovery is read-only. No certificate generation, registration
+    /// or profile approval may be manufactured by a scheduled task. An explicit,
+    /// narrowly scoped renewal grant and re-sign/install input are still required.
+    func renewExpiringProfiles() async {
+        let profiles = await fetchActiveFreeAccountProfiles()
+        renewalCandidates = freeAccountInventoryAvailable ? profiles.filter { $0.isExpiringSoon } : []
     }
 
     // MARK: - Backend Initialization
 
     /// Initializes the backend with the current provider configuration.
+    /// Serialize changes: close old operations before constructing a backend for
+    /// the current descriptor. Construction does not log in or grant anisette consent.
+    func synchronizeProvider() async {
+        let prior = providerUpdate
+        let update = Task { @MainActor [weak self] in
+            await prior?.value
+            guard let self else { return }
+            let desired = AnisetteProviderFactory.shared.currentDescriptor
+            if self.backend != nil, self.providerDescriptor == desired { return }
+            await self.shutdown()
+            guard AnisetteProviderFactory.shared.currentDescriptor == desired else { return }
+            if desired != nil { self.initializeBackend() }
+        }
+        providerUpdate = update
+        await update.value
+    }
+
+    private func configuredBackend() throws -> NativeAccountBackend {
+        guard let backend, isBackendReady,
+              providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else {
+            throw NativeSigningError.backendNotReady
+        }
+        return backend
+    }
+
     /// Call after AnisetteProviderFactory is configured.
     func initializeBackend() {
+        guard backend == nil else { return }
         guard let descriptor = AnisetteProviderFactory.shared.currentDescriptor else {
             logger.warning("Cannot initialize backend: no anisette provider configured")
             return
@@ -244,9 +175,10 @@ final class NativeSigningManager: ObservableObject {
 
     /// Reconfigures the backend with a new provider descriptor.
     func reconfigure(with descriptor: AnisetteProviderDescriptor) async {
-        await shutdown()
-        self.providerDescriptor = descriptor
-        initializeBackend()
+        // The factory is authoritative; never construct a different endpoint
+        // than the one the configuration UI currently displays.
+        guard AnisetteProviderFactory.shared.currentDescriptor == descriptor else { return }
+        await synchronizeProvider()
     }
 
     private func startEventObservation() {
@@ -256,7 +188,7 @@ final class NativeSigningManager: ObservableObject {
             do {
                 let events = try await backend.events()
                 for await event in events {
-                    if Task.isCancelled { break }
+                    if Task.isCancelled || self.backend !== backend { break }
                     await self.handleEvent(event)
                 }
             } catch {
@@ -276,6 +208,7 @@ final class NativeSigningManager: ObservableObject {
         case .failed(let operationID, let error):
             logger.error("Operation \(operationID) failed: \(error)")
             await refreshSnapshot()
+            guard !Task.isCancelled else { return }
             lastError = error.localizedDescription
         case .cancelled(let operationID):
             logger.info("Operation \(operationID) cancelled")
@@ -287,7 +220,13 @@ final class NativeSigningManager: ObservableObject {
         guard let backend = backend else { return }
         do {
             let snapshot = try await backend.snapshot()
-            await MainActor.run { self.snapshot = snapshot }
+            guard self.backend === backend, !Task.isCancelled else { return }
+            self.snapshot = snapshot
+            if case .signedIn = snapshot.phase {} else {
+                freeAccountAppCount = 0
+                freeAccountInventoryAvailable = false
+                renewalCandidates = []
+            }
         } catch {
             logger.error("Failed to get snapshot: \(error.localizedDescription, privacy: .public)")
         }
@@ -298,7 +237,7 @@ final class NativeSigningManager: ObservableObject {
     /// Starts Apple ID authentication with password.
     /// Returns an operation that emits 2FA challenges if required.
     func authenticate(appleID: String, password: String, xcodeVersion: String) async throws -> NativeAccountOperation {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
 
         // Record explicit anisette consent (required before any provider request)
         let consent = try await backend.recordExplicitAnisetteConsent()
@@ -315,7 +254,7 @@ final class NativeSigningManager: ObservableObject {
 
     /// Submits a 2FA response for a pending challenge.
     func submitTwoFactor(_ response: TwoFactorResponse, operationID: UUID, challengeID: UUID) async throws -> Bool {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let result = try await backend.submitTwoFactor(response, operation: operationID, challengeID: challengeID)
         await refreshSnapshot()
         return result
@@ -330,14 +269,14 @@ final class NativeSigningManager: ObservableObject {
 
     /// Selects a team after authentication enumerates available teams.
     func selectTeam(identifier: String, operationID: UUID) async throws {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         _ = try await backend.selectTeam(identifier: identifier, operation: operationID)
         await refreshSnapshot()
     }
 
     /// Signs out the current Apple ID (removes session, keeps identities).
     func signOut() async throws {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         try await backend.signOut()
         await refreshSnapshot()
     }
@@ -347,59 +286,68 @@ final class NativeSigningManager: ObservableObject {
     /// Gets a read-only provisioning preflight plan for a free account context.
     /// This does NOT mutate anything — it only reads Apple's inventory.
     func provisioningPreflight(contextID: UUID, request: NativeAccountProvisioningRequest) async throws -> NativeAccountProvisioningPlan {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.provisioningPreflight(contextID: contextID, request: request, consent: consent)
     }
 
     /// Prepares (creates or recovers) the device-only signing identity (key + CSR).
     func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.prepareSigningIdentity(contextID: contextID)
+    }
+
+    /// Fail before quota-affecting work when profile CMS promotion is unavailable.
+    func requireProfileOperations() async throws {
+        let backend = try configuredBackend()
+        guard await backend.profileOperationsAvailable() else {
+            throw NativeSigningError.provisioningFailed(.localized("Native profile creation is gated pending CMS validation and device acceptance. No certificate or registration was requested."))
+        }
+        guard self.backend === backend else { throw CancellationError() }
     }
 
     /// Records explicit user approval for certificate creation (consumes Apple quota).
     func recordCertificateCreationApproval(contextID: UUID, identityID: UUID) async throws -> NativeCertificateCreationApproval {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitCertificateCreationApproval(contextID: contextID, identityID: identityID)
     }
 
     /// Creates a development signing certificate using the saved CSR.
     func createDevelopmentCertificate(contextID: UUID, identityID: UUID, approval: NativeCertificateCreationApproval) async throws -> NativeSigningIdentityTicket {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.createDevelopmentSigningCertificate(contextID: contextID, identityID: identityID, approval: approval, consent: consent)
     }
 
     /// Reconciles an uncertain certificate submission (reads Apple inventory).
     func reconcileCertificate(contextID: UUID, identityID: UUID) async throws -> NativeSigningIdentityTicket {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.reconcileUncertainSigningCertificate(contextID: contextID, identityID: identityID, consent: consent)
     }
 
     /// Records explicit approval for device/App ID registration.
     func recordRegistrationApproval(contextID: UUID, subject: NativeRegistrationSubject) async throws -> NativeAccountRegistrationApproval {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitRegistrationApproval(contextID: contextID, subject: subject)
     }
 
     /// Registers a device or App ID with Apple.
     func registerResource(contextID: UUID, subject: NativeRegistrationSubject, approval: NativeAccountRegistrationApproval) async throws -> NativeRegistrationResult {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.registerAccountResource(contextID: contextID, subject: subject, approval: approval, consent: consent)
     }
 
     /// Records explicit approval for provisioning profile creation.
     func recordProfileCreationApproval(contextID: UUID, target: NativeAccountProfileTarget) async throws -> NativeAccountProfileApproval {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitProfileCreationApproval(contextID: contextID, target: target)
     }
 
     /// Creates a provisioning profile for the given target.
     func createProvisioningProfile(contextID: UUID, target: NativeAccountProfileTarget, approval: NativeAccountProfileApproval) async throws -> NativeAccountProfileResult {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.createAccountProvisioningProfile(contextID: contextID, target: target, approval: approval, consent: consent)
     }
@@ -408,13 +356,13 @@ final class NativeSigningManager: ObservableObject {
 
     /// Records explicit consent for certificate status check (OCSP/CRL).
     func recordCertificateStatusConsent(contextID: UUID, identityID: UUID) async throws -> NativeCertificateStatusConsent {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.recordExplicitCertificateStatusConsent(contextID: contextID, identityID: identityID)
     }
 
     /// Evaluates the signing certificate's revocation status.
     func evaluateCertificateStatus(contextID: UUID, identityID: UUID, consent: NativeCertificateStatusConsent?) async throws -> NativeAccountCertificateStatus {
-        guard let backend = backend else { throw NativeSigningError.backendNotReady }
+        let backend = try configuredBackend()
         return try await backend.evaluateSigningCertificateStatus(contextID: contextID, identityID: identityID, consent: consent)
     }
 
@@ -424,9 +372,16 @@ final class NativeSigningManager: ObservableObject {
     func shutdown() async {
         eventTask?.cancel()
         eventTask = nil
-        await backend?.shutdown()
+        let previousBackend = backend
         backend = nil
         isBackendReady = false
+        providerDescriptor = nil
+        snapshot = nil
+        freeAccountAppCount = 0
+        freeAccountInventoryAvailable = false
+        renewalCandidates = []
+        lastError = nil
+        await previousBackend?.shutdown()
     }
 
     // MARK: - Identity Management
@@ -449,15 +404,22 @@ final class NativeSigningManager: ObservableObject {
     /// Lists all signing identities for the current context.
     /// Returns an empty array if not signed in or backend not ready.
     func listSigningIdentities() async -> [SigningIdentity] {
-        guard let snapshot = snapshot,
-              case .signedIn = snapshot.phase else {
+        guard let snapshot, case .signedIn(let context) = snapshot.phase,
+              let backend, providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else { return [] }
+        do {
+            let records = try await backend.listSigningIdentities(contextID: context.id)
+            guard self.backend === backend, case .signedIn(let current) = self.snapshot?.phase,
+                  current.id == context.id, providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else { return [] }
+            return records.map { record in
+                let ticket = record.ticket
+                return SigningIdentity(id: ticket.id, identityID: ticket.id, teamIdentifier: ticket.teamIdentifier,
+                    phase: ticket.phase, publicKeyHash: ticket.publicKeySHA256, csrHash: ticket.csrSHA256,
+                    certificateHash: record.certificateSHA256, certificateExpiresAt: record.certificateExpiresAt)
+            }
+        } catch {
+            if self.backend === backend { lastError = error.localizedDescription }
             return []
         }
-
-        // TODO: list the identities belonging to this context. NativeAccountBackend
-        // exposes listProfiles(contextID:), which returns profile records rather than
-        // identities, so there is nothing to enumerate yet.
-        return []
     }
 
     /// Gets detailed information about a specific identity.

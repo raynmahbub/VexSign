@@ -129,6 +129,14 @@ final class InstallConfirmationTests: XCTestCase {
 		XCTAssertFalse(InstallConfirmation.Verdict.timedOutVerifying.provesInstalled)
 	}
 
+	func testEvidenceForAnotherAppCannotConfirmInstallation() {
+		var confirmation = confirmation()
+		verifying(&confirmation)
+		let host = InstalledApp(bundleIdentifier: "different.host", isInstalled: true, version: "1.2.0")
+		XCTAssertEqual(confirmation.record(probe: host, at: at(31)), .verifying)
+		XCTAssertEqual(confirmation.record(probe: host, at: at(610)), .finished(.timedOutVerifying))
+	}
+
 	func testAPlaceholderIsNotAnInstall() {
 		var confirmation = confirmation()
 		verifying(&confirmation)
@@ -181,6 +189,7 @@ final class InstallConfirmationTests: XCTestCase {
 		XCTAssertTrue(AppInstaller.Outcome.installedOtherVersion("1.1.0").countsAsInstall)
 		XCTAssertFalse(AppInstaller.Outcome.cancelled.countsAsInstall)
 		XCTAssertFalse(AppInstaller.Outcome.exported(nil).countsAsInstall)
+		XCTAssertFalse(AppInstaller.Outcome.guestImportPrepared.countsAsInstall)
 	}
 
 	// MARK: - Watcher

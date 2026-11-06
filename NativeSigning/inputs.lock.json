@@ -64,7 +64,8 @@
     "SideSign: supplied-CSR, single-application-send development-certificate API overlay; reviewed dispatcher/constants hashes; no private-key generation or mutation retry",
     "SideSign: strict bounded device/App ID registration and inventory source addition; reviewed wire actions/models; no SDK mutation convenience dispatcher or retry",
     "SideSign: bounded explicit-ID profile list/download and one-device/one-certificate limited create source addition; no app-based generation disguised as download or regeneration",
-    "SideSign: bounded strict development certificate plist inventory; actual certificateId required, no compactMap/default empty, guessed request ID, or services dialect fallback"
+    "SideSign: bounded strict development certificate plist inventory; actual certificateId required, no compactMap/default empty, guessed request ID, or services dialect fallback",
+    "SideSign: bounded HTTPS/WSS anisette transport, no redirects/cookies/credentials, explicit v3-only mode without legacy fallback; existing ADI provisioning protocol retained"
   ],
   "privacy_sources": {
     "sidesign": {
@@ -124,5 +125,15 @@
     "original_sha256": "59d9eb0aee5a2cd4ce8dcce3313565beba268236d41660a36ead22d0efc92f60",
     "patched_sha256": "85456bc10678ac2043e07da142effe3d96961d4c468c94cbf9779f6dfa503c6f",
     "reason": "Canonical DER BOOLEAN true is 0xff, false is 0x00; all three bool branches corrected. No new signing permission."
+  },
+  "anisette_v3_overlay": {
+    "Sources/Anisette/AnisetteDataManager.swift": {
+      "upstream_sha256": "b9f6f748038fcbdbbdcb3489fc3d8693b3e526557734a1edd26eb37d14ec1535",
+      "overlay_sha256": "302a17de39277017ee8fb03015b0355dfb6c54b5962f6bb90ba6260ab6f72265"
+    },
+    "Sources/Anisette/RemoteAnisetteDataProvider.swift": {
+      "upstream_sha256": "93c53bf4add64b0fbe5309b0f3af996c772789e41c7cd578095da274fa70dede",
+      "overlay_sha256": "d4163dba535cc948392cda3a4249a86e1f9d3092bb56c62b2963942d64b3fea9"
+    }
   }
 }

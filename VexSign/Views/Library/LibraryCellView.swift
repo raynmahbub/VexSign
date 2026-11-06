@@ -256,6 +256,16 @@ struct LibraryCellView: View {
 	/// scheme. A badge that can be wrong is worse than no badge.
 	@ViewBuilder
 	private var _installBadge: some View {
+		if case .imported = _status.status(for: app).guest {
+			Label(.localized("Imported guest"), systemImage: "shippingbox")
+				.font(.caption2.weight(.bold))
+				.padding(.horizontal, 7)
+				.padding(.vertical, 3)
+				.background(Color.accentColor.opacity(0.16), in: Capsule())
+				.foregroundStyle(Color.accentColor)
+				.accessibilityHint(Text(.localized("Present in the embedded container. Signing and launch have not been verified; this is not a device installation.")))
+				.accessibilityIdentifier(A11y.Library.guestBadge)
+		}
 		if let badge = InstalledBadge(_status.status(for: app).installed) {
 			HStack(spacing: 3) {
 				Image(systemName: badge.systemImage)

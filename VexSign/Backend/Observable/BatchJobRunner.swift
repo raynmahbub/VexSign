@@ -235,6 +235,18 @@ final class BatchJobRunner: ObservableObject {
 	}
 
 	private func _installAll() async {
+		// Guest imports need an interactive, one-at-a-time handoff. A staged guest
+		// must never flow through this batch's device-installed success/cleanup path.
+		if UserDefaults.standard.integer(forKey: "VexSign.installationMethod") == 2 {
+			for index in items.indices {
+				switch items[index].state {
+				case .signed, .alreadySigned, .queued:
+					items[index].state = .failed(.localized("Guest import requires confirmation. Use the Library Install action for one app at a time, or select OTA/IDevice for device-install batches."))
+				default: break
+				}
+			}
+			return
+		}
 		phase = .installing
 
 		for index in items.indices {
@@ -255,7 +267,13 @@ final class BatchJobRunner: ObservableObject {
 				_installContinuation = continuation
 				installer.start { [weak self] outcome in
 					if case .success(.cancelled) = outcome { self?._skipRequested = true }
-					self?._resumeInstall(outcome.map { _ in () })
+					self?._resumeInstall(outcome.flatMap { value in
+						guard value.countsAsInstall else {
+							return .failure(NSError(domain: "Install", code: -1, userInfo: [NSLocalizedDescriptionKey:
+								String.localized("No device installation was confirmed. Finish guest imports in the container.")]))
+						}
+						return .success(())
+					})
 				}
 			}
 

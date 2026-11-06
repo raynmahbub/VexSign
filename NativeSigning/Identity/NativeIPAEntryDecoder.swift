@@ -1,9 +1,10 @@
 import Foundation
-import Compression
+import zlib
 
-/// Apple Compression raw-DEFLATE decoding, never permissive archive extraction.
+/// zlib raw-DEFLATE decoding, never permissive archive extraction.
+/// Compression.framework may consume trailing bytes through read-ahead; zlib's
+/// exact remaining-input count is required at the first stream end.
 /// Exact input consumption, declared output length, CRC and progress are required.
-/// Native API/ZIP dialect compatibility still needs execution in the test phase.
 struct NativeIPAEntryDecoder {
     enum Failure: Error, Equatable { case invalidEntry, decompressionFailed, checksumMismatch }
     private static let crcTable: [UInt32] = (0..<256).map { index in
@@ -24,6 +25,7 @@ struct NativeIPAEntryDecoder {
         try Task.checkCancellation()
         let range = entry.compressedRange
         guard range.lowerBound >= 0, range.upperBound <= archive.count,
+              range.count <= Int(uInt.max),
               entry.expandedCount >= 0, entry.expandedCount <= 128 * 1024 * 1024,
               entry.expandedCount <= max(1, range.count) * 250,
               entry.method == 0 || entry.method == 8 else { throw Failure.invalidEntry }
@@ -35,44 +37,44 @@ struct NativeIPAEntryDecoder {
             output = Data(archive[lower..<upper])
         } else {
             guard !range.isEmpty else { throw Failure.decompressionFailed }
-            output = try inflate(archive, range: range, expectedCount: entry.expandedCount)
+            output = try inflateRaw(archive, range: range, expectedCount: entry.expandedCount)
         }
         try Task.checkCancellation()
         guard try crc32(output) == entry.crc32 else { throw Failure.checksumMismatch }
         return output
     }
 
-    private static func inflate(_ data: Data, range: Range<Int>, expectedCount: Int) throws -> Data {
+    private static func inflateRaw(_ data: Data, range: Range<Int>, expectedCount: Int) throws -> Data {
         let capacity = 64 * 1024
         let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
         defer { destination.deallocate() }
         return try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) throws -> Data in
             guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { throw Failure.decompressionFailed }
             let source = base.advanced(by: range.lowerBound)
-            var stream = compression_stream(dst_ptr: destination, dst_size: capacity,
-                src_ptr: source, src_size: range.count, state: nil)
-            guard compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
+            var stream = z_stream()
+            guard inflateInit2_(&stream, -MAX_WBITS, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
                 throw Failure.decompressionFailed
             }
-            defer { compression_stream_destroy(&stream) }
-            // Init owns state, not caller buffers. Assign explicitly after init.
-            stream.src_ptr = source; stream.src_size = range.count
-            stream.dst_ptr = destination; stream.dst_size = capacity
+            defer { inflateEnd(&stream) }
+            stream.next_in = UnsafeMutablePointer(mutating: source)
+            stream.avail_in = uInt(range.count)
+            stream.next_out = destination
+            stream.avail_out = uInt(capacity)
             var output = Data()
             while true {
                 try Task.checkCancellation()
-                let inputBefore = stream.src_size
-                let status = compression_stream_process(&stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
-                guard status == COMPRESSION_STATUS_OK || status == COMPRESSION_STATUS_END else { throw Failure.decompressionFailed }
-                let produced = capacity - stream.dst_size
+                let inputBefore = stream.avail_in
+                let status = zlib.inflate(&stream, Z_NO_FLUSH)
+                guard status == Z_OK || status == Z_STREAM_END else { throw Failure.decompressionFailed }
+                let produced = capacity - Int(stream.avail_out)
                 guard produced >= 0, produced <= expectedCount - output.count else { throw Failure.decompressionFailed }
                 if produced > 0 { output.append(destination, count: produced) }
-                if status == COMPRESSION_STATUS_END {
-                    guard stream.src_size == 0, output.count == expectedCount else { throw Failure.decompressionFailed }
+                if status == Z_STREAM_END {
+                    guard stream.avail_in == 0, Int(stream.total_in) == range.count, output.count == expectedCount else { throw Failure.decompressionFailed }
                     return output
                 }
-                guard stream.src_size < inputBefore || produced > 0 else { throw Failure.decompressionFailed }
-                stream.dst_ptr = destination; stream.dst_size = capacity
+                guard stream.avail_in < inputBefore || produced > 0 else { throw Failure.decompressionFailed }
+                stream.next_out = destination; stream.avail_out = uInt(capacity)
             }
         }
     }

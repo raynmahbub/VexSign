@@ -69,6 +69,7 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
     private var profileEpoch = UUID()
     private let profileStore: NativeProfileCreationStorageAdapter
     private let profileValidator: NativeProvisioningProfileValidator
+    private let profileReceipts: (any NativeProfileReceiptStorage)?
     private let registrationStore: NativeRegistrationStorageAdapter
     private let signingIdentities: any NativeSigningIdentityManaging
     private var maintenanceCount = 0
@@ -79,8 +80,10 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
          identities: (any NativeSigningIdentityManaging)? = nil,
          registrations: (any NativeRegistrationStorage)? = nil,
          profiles: (any NativeProfileCreationStorage)? = nil,
+         receipts: (any NativeProfileReceiptStorage)? = nil,
          profileValidator: NativeProvisioningProfileValidator = .init()) {
         self.adapter = adapter
+        self.profileReceipts = receipts
         self.profileValidator = profileValidator
         profileStore = NativeProfileCreationStorageAdapter(base: profiles ??
             NativeProfileCreationKeychainStore(client: SystemAppleAccountKeychainClient()))
@@ -96,6 +99,8 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
     }
 
     deinit { observer?.finish() }
+
+    func profileOperationsAvailable() -> Bool { !closed && profileValidator.isConfigured }
 
     func shutdown() async {
         guard !closed else { return }
@@ -237,12 +242,15 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
             }
             await broker.cancel()
         } catch {
+            // Coordinator failure cleanup cancels its registered worker (this
+            // task). Preserve the original outcome before cleanup changes it.
+            let wasCancelled = error is CancellationError || Task.isCancelled
             _ = await coordinator.failAuthentication(operation: operation)
             await broker.cancel()
             guard generation == flow, active?.operation == operation else { return }
             active?.deadline.cancel()
             active = nil
-            if error is CancellationError || Task.isCancelled { observer?.yield(.cancelled(operation)) }
+            if wasCancelled { observer?.yield(.cancelled(operation)) }
             else { observer?.yield(.failed(operation, safeFailure(error))) }
         }
     }
@@ -310,6 +318,7 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
         certificateApprovalEpoch = UUID()
         consent.revoke()
         await certificateStatusConsent.revoke()
+        await revokeKeyExportConsent()
         if let operation = active?.operation { _ = await cancelAuthentication(operation: operation) }
     }
 
@@ -332,6 +341,7 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
         generation = UUID()
         consent.revoke()
         await certificateStatusConsent.revoke()
+        await revokeKeyExportConsent()
         let current = active
         active = nil
         current?.task.cancel()
@@ -442,6 +452,30 @@ extension SideSignAccountBridge where Portal: SideSignProvisioningPortal {
 
 
 extension SideSignAccountBridge {
+    private func identityInventoryIdle() -> Bool {
+        !setupBusy && maintenanceCount == 0 && active == nil && provisioningTask == nil
+            && identityTask == nil && identityDiscardTask == nil && certificateTask == nil
+            && registrationTask == nil && profileTask == nil && certificateStatusTask == nil
+    }
+
+    /// The vault has one durable identity per owner/team. No key preparation,
+    /// anisette request, certificate creation or export occurs on this path.
+    func listSigningIdentities(contextID: UUID) async throws -> [NativeSigningIdentityInfo] {
+        guard !closed else { throw Failure.closed }
+        guard identityInventoryIdle() else { throw NativeSigningIdentityError.busy }
+        let flow = generation
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        guard identityInventoryIdle(), generation == flow else { throw NativeSigningIdentityError.busy }
+        maintenanceCount += 1
+        defer { maintenanceCount -= 1 }
+        let info = try await signingIdentities.localIdentity(owner: owner, now: clock())
+        try Task.checkCancellation()
+        guard !closed, generation == flow,
+              await coordinator.acceptsProvisioningResult(contextID: contextID, now: clock()),
+              !closed, generation == flow else { throw NativeSigningIdentityError.contextChanged }
+        return info.map { [$0] } ?? []
+    }
+
     /// Explicit local key preparation only: no anisette/Apple request and no
     /// private-key/CSR export. The worker retains the bridge's namespace lease.
     func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {
@@ -962,6 +996,11 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
             }
             await bound.invalidate()
             try await check()
+            if let profileReceipts {
+                let receipt = try NativeProfileReceipt(profile: result.profile, owner: owner, request: request, recordedAt: clock())
+                try profileReceipts.record(receipt, owner: owner)
+                try await check()
+            }
             return NativeAccountProfileResult(operationID: result.operationID, profileUUID: result.profile.constraints.uuid,
                 expiresAt: result.profile.constraints.expiresAt)
         } catch {
@@ -1008,6 +1047,8 @@ extension SideSignAccountBridge {
         guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
               identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
               certificateStatusTask == nil else { throw NativeSigningIdentityError.busy }
+        setupBusy = true
+        defer { setupBusy = false }
         let flow = generation; let epoch = keyExportEpoch
         let owner = try await identityOwner(contextID: contextID, flow: flow)
         let owned = try await signingIdentities.ownedSigningCertificate(owner: owner, identityID: identityID, now: clock())
@@ -1041,21 +1082,44 @@ extension SideSignAccountBridge {
         return records
     }
 
-    /// Owner-bound certificate and private-key material for one explicitly
-    /// consented export. The caller must validate its consent token against
-    /// the returned owner/certificate before using the key material.
-    func keyExportMaterial(contextID: UUID, identityID: UUID) async throws
-        -> (owner: NativeSigningIdentityOwner, owned: NativeOwnedSigningCertificate, privateKeyDER: Data) {
+    /// Read-only historical metadata for this exact account/team context.
+    /// These receipts do not replace current portal/CMS checks or grant renewal.
+    func recordedProfileReceipts(contextID: UUID) async throws -> [NativeProfileReceipt] {
         guard !closed else { throw Failure.closed }
         guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
               identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
-              certificateStatusTask == nil else { throw NativeSigningIdentityError.busy }
+              certificateStatusTask == nil else { throw Failure.flowBusy }
         let flow = generation
         let owner = try await identityOwner(contextID: contextID, flow: flow)
+        let receipts = try profileReceipts?.list(owner: owner) ?? []
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        return receipts
+    }
+
+    /// The private key stays inside the authoritative bridge. Consume the exact
+    /// grant before requesting it, then recheck cancellation/context/epoch/expiry
+    /// before synchronously producing PKCS#12. No grant can authorize a retry.
+    func exportSigningIdentity(contextID: UUID, identityID: UUID, password: String,
+                               consent grant: NativeKeyExportConsent) async throws -> Data {
+        guard !closed else { throw Failure.closed }
+        guard identityInventoryIdle() else { throw NativeSigningIdentityError.busy }
+        setupBusy = true
+        defer { setupBusy = false }
+        let flow = generation; let epoch = keyExportEpoch
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
         let owned = try await signingIdentities.ownedSigningCertificate(owner: owner, identityID: identityID, now: clock())
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        try await keyExportConsent.begin(grant, owner: owner, identityID: identityID,
+            certificate: owned.certificateDER, flow: flow, now: clock())
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
         let privateKeyDER = try await signingIdentities.privateKeyDER(owner: owner, identityID: identityID, now: clock())
         try await requireIdentityContext(contextID: contextID, flow: flow)
-        return (owner, owned, privateKeyDER)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        try grant.validate(owner: owner, identityID: identityID, certificate: owned.certificateDER, now: clock())
+        return try NativeSigningIdentityCrypto.exportPKCS12(privateKeyDER: privateKeyDER,
+            certificateDER: owned.certificateDER, password: password)
     }
 
     /// Offline positive cache unless a separate exact single-use status consent

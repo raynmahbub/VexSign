@@ -63,7 +63,7 @@ struct TabBarSettingsView: View {
                     }
                 }
             } footer: {
-                Text(.localized("Library, Home, App Store, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26."))
+                Text(.localized("Library, App Store, Home, Activity and Settings are the five default tabs. Library combines apps and files; Activity combines downloads, tasks and logs. Optional destinations can be enabled below. Five tabs use the native system tab bar, including Liquid Glass on iOS 26."))
             }
 
             NBSection(.localized("Legacy Tabs"), systemName: "square.stack.3d.up.fill") {

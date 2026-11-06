@@ -146,7 +146,8 @@ struct InstallConfirmation: Equatable, Sendable {
 		let verifyStart = _verifyingAt ?? date
 		let settled = date.timeIntervalSince(verifyStart) >= limits.settle
 
-		switch InstalledState.derive(from: probe, expecting: expectation.version) {
+		let matchingProbe = probe?.bundleIdentifier == expectation.bundleIdentifier ? probe : nil
+		switch InstalledState.derive(from: matchingProbe, expecting: expectation.version) {
 		case .installed:
 			return _finish(.installed)
 

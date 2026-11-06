@@ -9,6 +9,18 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+No changes queued after 1.1.0.
+
+## [1.1.0] - 2026-11-06
+
+### Highlights
+
+- Home is the middle of five tabs, with privacy-aware search across the workspace.
+- Installation routes distinguish OTA, paired-device/IDevice and LiveContainer
+  guest staging; a staged guest is never reported as an OS-installed app.
+- Native account, anisette v3 and combined-host work is experimental. The public
+  release artifact is the standalone app, not a device-accepted combined host.
+
 ### Added
 
 - A rebuilt Home dashboard with a certificate-aware hero, one-tap import and
@@ -70,3 +82,35 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   package cache, and builds only the active simulator architecture. The known
   third-party `libunicorn.a` deployment-version lines are filtered from the live log
   while the full log stays in the failure artifact.
+
+### Account and installation safety
+
+- Added the pinned upstream anisette catalogue, explicit protocol selection and
+  provider-bound, device-only ADI storage for the experimental v3 path. HTTP-only
+  endpoints are blocked; catalogue inclusion does not imply verified health.
+- Added owner-bound local identity/profile receipt inventory and a renewal review
+  queue. Local history is not complete Apple portal inventory or installation quota.
+- Removed simulated native signing/install success. Profile-only operations use
+  actual registration results, separate explicit mutation approvals and an early
+  CMS capability gate before quota-affecting work.
+- Made native private-key export grants exact, single-use and revocable, with
+  context/expiry checks before returning PKCS#12. Raw private-key DER stays inside
+  the authoritative bridge.
+- Preserved provider failures during authentication cleanup and rejected truncated,
+  overflowing or trailing-data raw-DEFLATE streams with exact zlib consumption.
+- Added architecture-bound physical-device acceptance reports. Native-primary
+  builds require observations beyond standalone launch/install checks; reports
+  start pending and are human attestations, not independent hardware proof.
+
+### Experimental / not included as a stable combined artifact
+
+- Added the native-primary VexSign/LiveContainer/SideStore bootstrap and packaging
+  candidate, explicit session controls, separate OpenSSL namespaces, preserved
+  runtime settings/legal panes and collision-checked localization merging.
+- The combined host is not device-accepted and is not the standalone release IPA.
+  Its packaging validation is separate; guest staging is not OS installation.
+- Production native CMS verification remains gated. Full native-owned-key signing
+  and verified installation, complete remote inventory and scoped unattended
+  renewal are unfinished. Background discovery only prepares a review queue.
+- Physical-iPhone/provider acceptance has not been performed. Simulator or
+  synthetic native tests do not establish these properties.

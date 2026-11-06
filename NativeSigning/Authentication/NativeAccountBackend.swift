@@ -59,22 +59,25 @@ public struct NativeAccountOperation: Sendable {
 }
 
 /// Information about a provisioning profile for listing purposes.
-public struct NativeProfileInfo: Sendable, Identifiable {
-    public let id = UUID()
+public struct NativeProfileInfo: Sendable, Identifiable, CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String { "NativeProfileInfo(redacted)" }
+    public var debugDescription: String { description }
+    public var id: UUID { profileUUID }
     public let profileUUID: UUID
-    public let identityID: UUID
+    /// Nil for legacy hash-only journal rows; an operation UUID is not an identity.
+    public let identityID: UUID?
     public let createdAt: Date
-    public let remoteIdentifierDigest: String
+    public let remoteIdentifierDigest: String?
     public let cmsSHA256: String
-    /// Expiry date if available (requires portal query)
+    /// Authenticated receipt expiry, absent for legacy hash-only history.
     public let expiresAt: Date?
     /// Bundle identifier if available
     public let bundleIdentifier: String?
     /// Device identifier if available
     public let deviceIdentifier: String?
 
-    public init(profileUUID: UUID, identityID: UUID, createdAt: Date,
-                remoteIdentifierDigest: String, cmsSHA256: String,
+    public init(profileUUID: UUID, identityID: UUID?, createdAt: Date,
+                remoteIdentifierDigest: String?, cmsSHA256: String,
                 expiresAt: Date? = nil, bundleIdentifier: String? = nil,
                 deviceIdentifier: String? = nil) {
         self.profileUUID = profileUUID
@@ -116,7 +119,7 @@ final class NativeAccountNamespaceLease: NativeAccountBackendLifetime {
 /// There is intentionally no password/session-byte/reference export API.
 public actor NativeAccountBackend {
     private typealias Bridge = SideSignAccountBridge<SideSignNativePortal,
-        HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>,
+        NativeConfiguredAnisetteProvider,
         AppleAccountCredentialStore<SystemAppleAccountKeychainClient>,
         AppleAccountResumeJournalStore<SystemAppleAccountKeychainClient>>
     private let bridge: Bridge
@@ -127,11 +130,12 @@ public actor NativeAccountBackend {
         catch { throw NativeAccountBackendError.unsupportedRuntime }
         let lease = try NativeAccountNamespaceLease.acquire()
         do {
-            let provider = try HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor: descriptor)
+            let provider = try NativeConfiguredAnisetteProvider(descriptor: descriptor)
             let adapter = try SideSignAccountAdapter<SideSignNativePortal>()
             bridge = Bridge(adapter: adapter, provider: provider,
                             sessions: AppleAccountCredentialStore(), journal: AppleAccountResumeJournalStore(),
-                            lifetime: lease)
+                            lifetime: lease,
+                            receipts: NativeProfileReceiptKeychainStore(client: SystemAppleAccountKeychainClient()))
         } catch {
             throw NativeAccountBackendError.invalidConfiguration
         }
@@ -202,9 +206,16 @@ public actor NativeAccountBackend {
         }
     }
 
-    /// Explicit device-only key/CSR preparation. Idempotently recovers this
-    /// account/team's existing identity, including uncertain submissions.
-    /// Does NOT create an Apple certificate or authorize certificate submission.
+    /// Read-only historical metadata for the current authenticated owner/team.
+    /// Missing storage is not permission to prepare a new identity.
+    public func listSigningIdentities(contextID: UUID) async throws -> [NativeSigningIdentityInfo] {
+        try requireOpen()
+        do { return try await bridge.listSigningIdentities(contextID: contextID) }
+        catch { throw Self.certificateError(error) }
+    }
+
+    /// Explicit device-only key/CSR preparation. Recovers existing submissions;
+    /// does not create an Apple certificate or authorize certificate submission.
     public func prepareSigningIdentity(contextID: UUID) async throws -> NativeSigningIdentityTicket {
         try requireOpen()
         do { return try await bridge.prepareSigningIdentity(contextID: contextID) }
@@ -285,6 +296,11 @@ public actor NativeAccountBackend {
     /// Explicit profile approval is not anisette consent or signing readiness.
     /// The current factory keeps the CMS verifier unselected: these APIs fail
     /// closed until native validation/promotion, without normal-app UI enablement.
+    public func profileOperationsAvailable() async -> Bool {
+        guard !closed else { return false }
+        return await bridge.profileOperationsAvailable()
+    }
+
     public func recordExplicitProfileCreationApproval(contextID: UUID, target: NativeAccountProfileTarget,
                                                        lifetime: TimeInterval = 120) async throws -> NativeAccountProfileApproval {
         try requireOpen()
@@ -444,26 +460,22 @@ public actor NativeAccountBackend {
             // the durable profile journal; the store is never touched here.
             let records = try await bridge.recordedProfileRecords(contextID: contextID)
 
-            // Filter for recorded profiles and convert to NativeProfileInfo.
-            var profiles: [NativeProfileInfo] = []
+            let receipts = try await bridge.recordedProfileReceipts(contextID: contextID)
+            var profiles = receipts.map { receipt in
+                NativeProfileInfo(profileUUID: receipt.profileUUID, identityID: receipt.identityID,
+                    createdAt: receipt.recordedAt,
+                    remoteIdentifierDigest: records.first(where: { $0.profileUUID == receipt.profileUUID && $0.cmsSHA256 == receipt.cmsSHA256 })?.remoteIdentifierDigest,
+                    cmsSHA256: receipt.cmsSHA256, expiresAt: receipt.expiresAt,
+                    bundleIdentifier: receipt.bundleIdentifier, deviceIdentifier: receipt.deviceIdentifier)
+            }
+            // Legacy rows remain visible as incomplete history, never fabricated
+            // device/expiry/identity data. They require explicit reconciliation.
+            let indexed = Set(receipts.map(\.profileUUID))
             for record in records {
-                guard record.phase == .recorded,
-                      let profileUUID = record.profileUUID,
-                      let remoteIdentifierDigest = record.remoteIdentifierDigest,
-                      let cmsSHA256 = record.cmsSHA256 else { continue }
-
-                // For each recorded profile, we need to get the expiry date.
-                // This requires querying the portal for the profile details.
-                // For now, we create a basic info with what we have.
-                // In a full implementation, we'd need to fetch the actual profile data.
-                let info = NativeProfileInfo(
-                    profileUUID: profileUUID,
-                    identityID: record.id,
-                    createdAt: record.createdAt,
-                    remoteIdentifierDigest: remoteIdentifierDigest,
-                    cmsSHA256: cmsSHA256
-                )
-                profiles.append(info)
+                guard record.phase == .recorded, let uuid = record.profileUUID,
+                      !indexed.contains(uuid), let digest = record.cmsSHA256 else { continue }
+                profiles.append(NativeProfileInfo(profileUUID: uuid, identityID: nil, createdAt: record.createdAt,
+                    remoteIdentifierDigest: record.remoteIdentifierDigest, cmsSHA256: digest))
             }
             return profiles
         } catch {
@@ -487,40 +499,12 @@ public actor NativeAccountBackend {
     ) async throws -> Data {
         try requireOpen()
         do {
-            // Get the context to derive the owner
-            let snapshot = try await bridge.snapshot()
-            let context: AppleAccountAuthenticationState.Context?
-            switch snapshot.phase {
-            case .signedIn(let ctx):
-                context = ctx
-            default:
-                throw NativeAccountBackendError.sessionExpired
-            }
-            guard let context = context, context.id == contextID else {
-                throw NativeAccountBackendError.sessionExpired
-            }
-
-            // The bridge derives the owner from the current session and
-            // returns its bound certificate + private key material.
-            let material = try await bridge.keyExportMaterial(contextID: contextID, identityID: identityID)
-            let owned = material.owned
-
-            // Validate consent matches this identity and certificate
-            try consent.validate(owner: material.owner, identityID: identityID, certificate: owned.certificateDER, now: Date())
-
-            let privateKeyDER = material.privateKeyDER
-
-            // Export as PKCS#12
-            let p12Data = try NativeSigningIdentityCrypto.exportPKCS12(
-                privateKeyDER: privateKeyDER,
-                certificateDER: owned.certificateDER,
-                password: password
-            )
-
-            return p12Data
-        } catch {
-            throw Self.safe(error)
-        }
+            let data = try await bridge.exportSigningIdentity(contextID: contextID, identityID: identityID,
+                password: password, consent: consent)
+            try requireOpen()
+            try Task.checkCancellation()
+            return data
+        } catch { throw Self.certificateError(error) }
     }
 
     /// Downloads a provisioning profile by UUID as a .mobileprovision file.

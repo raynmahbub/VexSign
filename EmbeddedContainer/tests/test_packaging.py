@@ -123,6 +123,30 @@ class PackagingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete"):
             build.validate_payload(self.root)
 
+    def test_payload_rejects_wrong_macho_types_before_publication(self):
+        host = self.root / "Combined.app"
+        dylib = struct.pack("<8I", 0xfeedfacf, 0x100000c, 0, 6, 0, 0, 0, 0)
+        executable = struct.pack("<8I", 0xfeedfacf, 0x100000c, 0, 2, 0, 0, 0, 0)
+        for name in ("SideStoreSupport", "LiveContainerShared", "LiveContainerSwiftUI", "SideStoreApp"):
+            file = host / f"Frameworks/{name}.framework/{'SideStore' if name == 'SideStoreApp' else name}"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(dylib)
+        for name in ("LiveProcess", "LaunchAppExtension", "ShareExtension", "LiveWidgetExtension"):
+            (host / f"PlugIns/{name}.appex").mkdir(parents=True)
+        (host / "PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension").write_bytes(executable)
+        (host / "Host").write_bytes(executable)
+        (host / "VexSign.ipa").write_bytes(b"guest fixture")
+        (host / "VexSignEmbedded.json").write_text(json.dumps({"sha256": build.sha256(host / "VexSign.ipa")}))
+        build.write_plist(host / "Info.plist", {"CFBundleExecutable": "Host", "VexSignCombinedHost": True})
+        build.validate_payload(host)
+        (host / "Host").write_bytes(dylib)
+        with self.assertRaisesRegex(ValueError, "MH_EXECUTE"):
+            build.validate_payload(host)
+        (host / "Host").write_bytes(executable)
+        (host / "Frameworks/LiveContainerShared.framework/LiveContainerShared").write_bytes(executable)
+        with self.assertRaisesRegex(ValueError, "MH_DYLIB"):
+            build.validate_payload(host)
+
     def test_side_store_conversion_intents_and_widget_layout(self):
         host = self.root / "Host.app"
         (host / "Frameworks").mkdir(parents=True)
@@ -153,6 +177,27 @@ class PackagingTests(unittest.TestCase):
         embedded_widget = host / "PlugIns/LiveWidgetExtension.appex"
         self.assertEqual(build.read_plist(embedded_widget / "Info.plist")["CFBundleIdentifier"], "com.kdt.livecontainer.LiveWidget")
         self.assertTrue((embedded_widget / "LiveWidgetExtension").exists())
+
+    def test_experimental_outputs_have_verifiable_checksums_and_honest_metadata(self):
+        ipa, sources = self.root / "Combined.ipa", self.root / "Combined.integration-sources.tar.gz"
+        ipa.write_bytes(b"ipa fixture")
+        sources.write_bytes(b"source fixture")
+        lock = {"livecontainer": {"commit": "a" * 40}}
+        metadata, checksums = build.write_build_metadata(ipa, sources, lock)
+        report = json.loads(metadata.read_text())
+        self.assertEqual(report["validation"]["physicalDevice"], "not-run")
+        self.assertEqual(report["kind"], "experimental-guest-host")
+        self.assertEqual(report["inputs"], lock)
+        self.assertEqual(report["files"][0]["bytes"], ipa.stat().st_size)
+        self.assertEqual(report["files"][0]["sha256"], build.sha256(ipa))
+        lines = checksums.read_text().splitlines()
+        self.assertEqual(len(lines), 3)
+        for line in lines:
+            digest, name = line.split("  ")
+            build.verify_digest(self.root / name, digest)
+        ipa.write_bytes(b"tampered")
+        with self.assertRaises(ValueError):
+            build.verify_digest(ipa, report["files"][0]["sha256"])
 
     def test_asset_locks_are_immutable_not_nightly_urls(self):
         lock = json.loads((Path(__file__).parents[1] / "inputs.lock.json").read_text())

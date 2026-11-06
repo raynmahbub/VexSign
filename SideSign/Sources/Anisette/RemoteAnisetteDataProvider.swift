@@ -13,19 +13,52 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
     public var requiresLocalLibraries: Bool { false }
 
     public let serverURL: URL
+    public let allowsLegacyFallback: Bool
+
+    private final class RedirectPolicy: NSObject, URLSessionTaskDelegate {
+        func urlSession(_ session: URLSession, task: URLSessionTask,
+                        willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                        completionHandler: @escaping @Sendable (URLRequest?) -> Void) { completionHandler(nil) }
+    }
+    private let network: URLSession
+    private static let maximumBytes = 64 * 1024
+
+    private func jsonResponse(for request: URLRequest) async throws -> [String: String] {
+        let (bytes, response) = try await network.bytes(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              response.url == request.url, http.mimeType?.lowercased() == "application/json" else {
+            throw AnisetteError.invalidAnisetteData
+        }
+        var data = Data()
+        for try await byte in bytes {
+            try Task.checkCancellation()
+            guard data.count < Self.maximumBytes else { throw AnisetteError.invalidAnisetteData }
+            data.append(byte)
+        }
+        return try JSONDecoder().decode([String: String].self, from: data)
+    }
 
     private final class ProvisioningSessionManager: @unchecked Sendable {
         private let lock = NSLock()
         private var counter: UInt32 = 0
         private var activeSessions: [UInt32: URLSessionWebSocketTask] = [:]
 
-        func store(_ task: URLSessionWebSocketTask) -> UInt32 {
-            lock.withLock {
+        func store(_ task: URLSessionWebSocketTask) throws -> UInt32 {
+            let key: UInt32 = try lock.withLock {
+                guard activeSessions.count < 8 else { throw AnisetteError.invalidAnisetteData }
                 counter &+= 1
                 if counter == 0 { counter = 1 }
                 activeSessions[counter] = task
                 return counter
             }
+            // An ADI caller may be cancelled between start and end provisioning.
+            // Retire an orphan without retaining its socket indefinitely.
+            Task {
+                do { try await Task.sleep(nanoseconds: 60_000_000_000) }
+                catch { return }
+                retrieve(for: key)?.cancel(with: .goingAway, reason: nil)
+            }
+            return key
         }
 
         func retrieve(for session: UInt32) -> URLSessionWebSocketTask? {
@@ -46,8 +79,17 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
 
     private static let sessionManager = ProvisioningSessionManager()
 
-    public init(serverURL: URL) {
+    public init(serverURL: URL, allowsLegacyFallback: Bool = true) {
         self.serverURL = serverURL
+        self.allowsLegacyFallback = allowsLegacyFallback
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.urlCache = nil
+        configuration.urlCredentialStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        self.network = URLSession(configuration: configuration, delegate: RedirectPolicy(), delegateQueue: nil)
     }
 
     public func getAnisetteHeaders(
@@ -74,34 +116,27 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
                 ]
                 postReq.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
-                if let (data, response) = try? await URLSession.shared.data(for: postReq),
-                   let httpResp = response as? HTTPURLResponse, httpResp.isSuccess,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                do {
+                    let json = try await jsonResponse(for: postReq)
                     if let result = json["result"], result == "GetHeadersError" {
                         let msg = json["message"] ?? "GetHeadersError"
                         throw AnisetteError.badServerResponse(statusCode: -1, payload: msg)
                     }
                     return try AnisetteDataResponse(from: json)
+                } catch {
+                    if Task.isCancelled { throw CancellationError() }
+                    if !allowsLegacyFallback { throw AnisetteError.invalidAnisetteData }
                 }
             }
         }
+        guard allowsLegacyFallback else { throw AnisetteError.invalidAnisetteData }
 
         // 2. Fallback to legacy v1 root GET
         var request = URLRequest(url: serverURL)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = Constants.Anisette.remoteRequestTimeout
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResp = response as? HTTPURLResponse, httpResp.isSuccess else {
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            let payload = String(data: data, encoding: .utf8) ?? ""
-            throw AnisetteError.badServerResponse(statusCode: status, payload: payload)
-        }
-
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
-            throw AnisetteError.invalidAnisetteData
-        }
-
+        let json = try await jsonResponse(for: request)
         return try AnisetteDataResponse(from: json)
     }
 
@@ -121,13 +156,20 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
             throw AnisetteError.invalidURL
         }
 
-        let webSocketTask = URLSession.shared.webSocketTask(with: webSocketURL)
+        guard serverURL.scheme?.lowercased() == "https", serverURL.user == nil,
+              serverURL.password == nil, serverURL.query == nil, serverURL.fragment == nil else {
+            throw AnisetteError.invalidURL
+        }
+        let webSocketTask = network.webSocketTask(with: webSocketURL)
+        webSocketTask.maximumMessageSize = Self.maximumBytes
         webSocketTask.resume()
 
         let cleanIdentifier = identifier.map { String(format: "%02x", $0) }.joined()
 
         do {
-            while true {
+            var step = 0
+            while step < 3 {
+                try Task.checkCancellation()
                 let json = try await receiveWebSocketJSON(from: webSocketTask)
                 guard let result = json["result"] as? String else {
                     throw AnisetteError.badServerResponse(statusCode: -1, payload: "Missing result in WebSocket response")
@@ -135,18 +177,24 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
 
                 switch result {
                 case "GiveIdentifier":
+                    guard step == 0 else { throw AnisetteError.invalidAnisetteData }
+                    step += 1
                     try await sendWebSocketJSON(["identifier": cleanIdentifier], to: webSocketTask)
 
                 case "GiveStartProvisioningData":
+                    guard step == 1 else { throw AnisetteError.invalidAnisetteData }
+                    step += 1
                     let spimBase64 = Data(spim).base64EncodedString()
                     try await sendWebSocketJSON(["spim": spimBase64], to: webSocketTask)
 
                 case "GiveEndProvisioningData":
+                    guard step == 2 else { throw AnisetteError.invalidAnisetteData }
+                    step += 1
                     guard let cpimBase64 = json["cpim"] as? String,
                           let cpimData = Data(base64Encoded: cpimBase64) else {
                         throw AnisetteError.badServerResponse(statusCode: -1, payload: "Missing or invalid cpim in GiveEndProvisioningData")
                     }
-                    let sessionKey = Self.sessionManager.store(webSocketTask)
+                    let sessionKey = try Self.sessionManager.store(webSocketTask)
                     return (cpimData, sessionKey)
 
                 default:
@@ -154,6 +202,7 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
                     throw AnisetteError.badServerResponse(statusCode: -1, payload: "Unexpected remote provisioning step: \(msg)")
                 }
             }
+            throw AnisetteError.invalidAnisetteData
         } catch {
             webSocketTask.cancel(with: .normalClosure, reason: nil)
             throw error
@@ -209,7 +258,19 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
     }
 
     private func receiveWebSocketJSON(from webSocketTask: URLSessionWebSocketTask) async throws -> [String: Any] {
-        let msg = try await webSocketTask.receive()
+        let msg = try await withTaskCancellationHandler {
+            try await withThrowingTaskGroup(of: URLSessionWebSocketTask.Message.self) { group in
+                group.addTask { try await webSocketTask.receive() }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 30_000_000_000)
+                    webSocketTask.cancel(with: .goingAway, reason: nil)
+                    throw URLError(.timedOut)
+                }
+                defer { group.cancelAll() }
+                guard let message = try await group.next() else { throw CancellationError() }
+                return message
+            }
+        } onCancel: { webSocketTask.cancel(with: .goingAway, reason: nil) }
         let str: String
         switch msg {
         case .string(let s):
@@ -219,7 +280,7 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
         @unknown default:
             str = ""
         }
-        guard let jsonData = str.data(using: .utf8),
+        guard let jsonData = str.data(using: .utf8), jsonData.count <= Self.maximumBytes,
               let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
             throw AnisetteError.invalidAnisetteData
         }
