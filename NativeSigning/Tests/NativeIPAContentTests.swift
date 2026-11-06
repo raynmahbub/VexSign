@@ -101,9 +101,10 @@ final class NativeIPAContentTests: XCTestCase {
     }
     func testAlreadyCancelledInspectionNeverReturnsAReceipt() async throws {
         let bytes = try Self.zip(Self.files())
-        let task = Task {
+        let bundleIdentifier = Self.bundle
+        let task = Task.detached { [bytes, bundleIdentifier] in
             withUnsafeCurrentTask { $0?.cancel() }
-            return try await NativeIPAContentInspection.inspect(archive: bytes, bundleIdentifier: Self.bundle)
+            return try await NativeIPAContentInspection.inspect(archive: bytes, bundleIdentifier: bundleIdentifier)
         }
         do { _ = try await task.value; XCTFail("Cancelled operation must not report success") }
         catch { XCTAssertTrue(error is CancellationError) }
