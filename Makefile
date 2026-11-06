@@ -168,6 +168,7 @@ test:
 	    -derivedDataPath "$(TMP)/TestDerivedData" \
 	    -only-testing:VexSignTests \
 	    -parallel-testing-enabled YES \
+	    -parallel-testing-worker-count 2 \
 	    -skipPackagePluginValidation \
 	    -skipMacroValidation \
 	    CODE_SIGNING_ALLOWED=NO \

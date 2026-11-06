@@ -123,6 +123,8 @@ jobs:
     if: >-
       github.event.repository.private == false && github.event.repository.visibility == 'public'
     name: quick · syntax, resources, gates
+    outputs:
+      native: ${{ steps.scope.outputs.native }}
     # Pinned, not `ubuntu-latest`: that label moves to Ubuntu 26 and the Swift
     # container this job runs in (noble, below) is built for 24.04. Bump both
     # together when the image tag changes.
@@ -133,11 +135,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Toolchain
         run: |
           swiftc --version
           python3 --version || (apt-get update -qq && apt-get install -y -qq python3 >/dev/null)
+
+      - name: Determine native validation scope
+        id: scope
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 tools/ci-scope.py
 
       - name: Quick check
         run: |
@@ -206,7 +216,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick')
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
     name: build · VexSign Debug (unsigned)
     needs: quick
     runs-on: macos-15
@@ -395,7 +405,7 @@ jobs:
   # ---------------------------------------------------------------------------
   tests:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick')
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
     name: tests · VexSignTests (simulator)
     needs: quick
     runs-on: macos-15
@@ -456,6 +466,7 @@ jobs:
             -resultBundlePath "$RESULT_BUNDLE" \
             -only-testing:VexSignTests \
             -parallel-testing-enabled YES \
+            -parallel-testing-worker-count 2 \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \

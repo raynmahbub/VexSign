@@ -274,20 +274,21 @@ jobs:
       - name: Repository validation gates
         run: make verify
 
+      - name: Select Xcode
+        id: xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.RELEASE_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+
       # Checkouts are shared by all release runs for the same resolved graph.
       # Build products stay in the runner-local DerivedData.
       - name: Restore Swift packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/VexSign/SourcePackages
-          key: spm-release-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          key: spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            spm-release-${{ runner.os }}-
-
-      - name: Select Xcode
-        env:
-          REQUESTED_XCODE: ${{ inputs.xcode || vars.RELEASE_XCODE || '' }}
-        run: bash .github/scripts/select_xcode.sh
+            spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-
 
       - name: Compile VexSign
         id: build

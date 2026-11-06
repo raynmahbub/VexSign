@@ -39,6 +39,65 @@ def covers(name, path):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_ci_scope_keeps_native_sources_and_unknown_paths(self):
+        native = runpy.run_path(str(ROOT / 'tools/ci-scope.py'))['needs_native']
+        self.assertFalse(native(['tools/test_release_assets.py', 'tools/generate-changelog.sh', 'docs/RELEASING.md']))
+        for path in ('VexSign/App.swift', 'VexSignTests/Test.swift', 'NativeSigning/Tests/Test.swift',
+                     'Makefile', 'SideSign/Package.swift', 'Vendor/source.cpp', '.github/workflows/ci.yml',
+                     'tools/bootstrap.sh', 'unknown-file'):
+            self.assertTrue(native([path]), path)
+        # A removed app source must still count when renamed into documentation.
+        self.assertTrue(native(['VexSign/Old.swift', 'docs/Old.md']))
+
+    def test_ci_scope_uses_whole_pr_and_falls_back_to_native(self):
+        import json
+        import os
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            git('config', 'user.name', 'Test')
+            git('config', 'user.email', 'test@example.invalid')
+            git('commit', '--allow-empty', '-qm', 'base')
+            base = git('rev-parse', 'HEAD')
+            (root / 'App.swift').write_text('// fixture')
+            git('add', '.')
+            git('commit', '-qm', 'native')
+            middle = git('rev-parse', 'HEAD')
+            (root / 'README.md').write_text('docs')
+            git('add', '.')
+            git('commit', '-qm', 'docs')
+            event, output = root / 'event.json', root / 'output.txt'
+            for sha, expected in ((base, 'true'), (middle, 'false'), ('f' * 40, 'true')):
+                event.write_text(json.dumps({'pull_request': {'base': {'sha': sha}}}))
+                output.write_text('')
+                subprocess.run(['python3', str(ROOT / 'tools/ci-scope.py')], cwd=root,
+                               env={**os.environ, 'GITHUB_EVENT_NAME': 'pull_request',
+                                    'GITHUB_EVENT_PATH': str(event), 'GITHUB_OUTPUT': str(output)},
+                               check=True, capture_output=True)
+                self.assertEqual(output.read_text(), f'native={expected}\n')
+
+    def test_consolidated_triage_retains_permissions_and_prevents_recursion(self):
+        text = (WORKFLOWS / 'repo-maintenance.yml').read_text()
+        triage = block(block(text, 'jobs', 0), 'open-or-update-issue', 2)
+        self.assertIn('actions: read', triage)
+        self.assertIn('issues: write', triage)
+        self.assertNotIn('actions/checkout', triage)
+        self.assertIn("github.event.workflow_run.event != 'workflow_run'", triage)
+        self.assertIn('head_repository.full_name == github.repository', triage)
+        self.assertFalse((WORKFLOWS / 'ci-triage.yml').exists())
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        for name in ('build', 'tests'):
+            self.assertIn("needs.quick.outputs.native == 'true'", block(ci, name, 2))
+        self.assertIn('-parallel-testing-worker-count 2', ci)
+        combined = (WORKFLOWS / 'embedded-container.yml').read_text()
+        self.assertIn('Restore Swift package downloads', combined)
+        self.assertIn('runner.arch', combined)
+        self.assertIn('TMPDIR: ${{ runner.temp }}/', combined)
+
     def test_combined_build_exposes_failures_and_preserves_native_input(self):
         text = (WORKFLOWS / 'embedded-container.yml').read_text()
         for stage in ('native_input', 'combined'):
@@ -248,7 +307,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         # Dependabot and maintenance work through branches/issues; a PR-triggered
         # workflow must not execute privileged maintenance code from PRs.
         self.assertTrue((ROOT / '.github/dependabot.yml').is_file())
-        for name in ('repo-maintenance.yml', 'ci-triage.yml'):
+        for name in ('repo-maintenance.yml',):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)
             self.assertNotIn('pull_request', events)
 
@@ -441,12 +500,13 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('  links:', (WORKFLOWS / 'docs.yml').read_text())
 
     def test_failure_reporting_uses_real_workflow_names_and_serializes_issues(self):
-        text = (WORKFLOWS / 'ci-triage.yml').read_text()
+        text = (WORKFLOWS / 'repo-maintenance.yml').read_text()
         watched = re.search(r'workflows: \[(.*)\]', text)[1]
         real_names = {re.search(r'^name: (.+)', p.read_text())[1] for p in WORKFLOWS.glob('*.yml')}
         for name in re.findall(r'"([^"]+)"', watched):
             self.assertIn(name, real_names)
         self.assertNotIn('"CI triage"', watched)
+        self.assertNotIn('"Repository maintenance"', watched)
         self.assertIn('cancel-in-progress: false', text)
         self.assertIn('WORKFLOW_NAME:', text)
 

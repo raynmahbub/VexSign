@@ -84,11 +84,20 @@ jobs:
         with:
           python-version: '3.12'
       - name: Select installed Xcode
+        id: xcode
         env:
           REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE }}
         run: bash .github/scripts/select_xcode.sh
+      # Cache dependency downloads only, never packaged output or signed products.
+      - name: Restore Swift package downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/VexSign/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-combined-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'EmbeddedContainer/inputs.lock.json', 'NativeSigning/inputs.lock.json') }}
       - name: Install packaging tool
-        run: brew install ldid
+        run: command -v ldid >/dev/null 2>&1 || brew install ldid
       - name: Native unit regressions (synthetic accounts only)
         id: native_tests
         run: |
@@ -113,6 +122,8 @@ jobs:
             --title 'Native synthetic unit tests' --workspace "$GITHUB_WORKSPACE"
       - name: Build standalone VexSign native input
         id: native_input
+        env:
+          TMPDIR: ${{ runner.temp }}/
         run: |
           set -uo pipefail
           make VexSign 2>&1 | tee "$RUNNER_TEMP/vexsign-build.log"
