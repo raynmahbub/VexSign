@@ -303,3 +303,8 @@ VexSign's root settings become a separate `VexSignNative` child pane, retaining
 its acknowledgement panes and localisation files. Shared preference keys,
 reserved child-pane names, unknown resource conflicts and symlink destinations
 are rejected rather than silently replaced.
+
+Compiled native/LC `Localizable.strings` and plural `.stringsdict` tables share
+one main-bundle lookup space. Packaging unions disjoint keys (upstream LC keys
+use the `lc.` prefix); identical shared values are retained, while any differing
+shared value is rejected. Other resource collisions are not silently merged.

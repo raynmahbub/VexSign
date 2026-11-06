@@ -171,6 +171,53 @@ class PrimaryHostTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unsafe settings bundle path'):
             build.merge_primary_files(source, self.host)
 
+    def test_localizations_union_native_runtime_and_plural_keys(self):
+        source = self.root / 'native'
+        (source / 'ar.lproj').mkdir(parents=True)
+        (self.host / 'ar.lproj').mkdir()
+        for suffix, native, runtime in [
+            ('strings', {'Home': 'Native home', 'same': 'same'}, {'lc.home': 'Runtime home', 'same': 'same'}),
+            ('stringsdict', {'apps': {'NSStringLocalizedFormatKey': '%#@count@'}},
+             {'lc.apps': {'NSStringLocalizedFormatKey': '%#@count@'}})]:
+            build.write_plist(source / ('ar.lproj/Localizable.' + suffix), native)
+            build.write_plist(self.host / ('ar.lproj/Localizable.' + suffix), runtime)
+        build.merge_primary_files(source, self.host)
+        strings = build.read_plist(self.host / 'ar.lproj/Localizable.strings')
+        self.assertEqual(strings, {'Home': 'Native home', 'lc.home': 'Runtime home', 'same': 'same'})
+        plurals = build.read_plist(self.host / 'ar.lproj/Localizable.stringsdict')
+        self.assertEqual(set(plurals), {'apps', 'lc.apps'})
+
+    def test_localization_conflicts_fail_before_host_assets_are_changed(self):
+        source = self.root / 'native'
+        (source / 'en.lproj').mkdir(parents=True)
+        (self.host / 'en.lproj').mkdir()
+        build.write_plist(source / 'en.lproj/Localizable.strings', {'key': 'native'})
+        build.write_plist(self.host / 'en.lproj/Localizable.strings', {'key': 'runtime'})
+        (source / 'Assets.car').write_bytes(b'new')
+        (self.host / 'Assets.car').write_bytes(b'old')
+        with self.assertRaisesRegex(ValueError, 'Conflicting native/runtime localization key'):
+            build.merge_primary_files(source, self.host)
+        self.assertEqual((self.host / 'Assets.car').read_bytes(), b'old')
+        self.assertEqual(build.read_plist(self.host / 'en.lproj/Localizable.strings'), {'key': 'runtime'})
+
+    def test_localization_rejects_nonstring_values_and_escaping_destinations(self):
+        source = self.root / 'native'
+        (source / 'en.lproj').mkdir(parents=True)
+        (self.host / 'en.lproj').mkdir()
+        native = source / 'en.lproj/Localizable.strings'
+        runtime = self.host / 'en.lproj/Localizable.strings'
+        build.write_plist(native, {'key': 1})
+        build.write_plist(runtime, {'lc.key': 'runtime'})
+        with self.assertRaisesRegex(ValueError, 'Invalid native/runtime localization table'):
+            build.merge_primary_files(source, self.host)
+        build.write_plist(native, {'key': 'native'})
+        runtime.unlink()
+        outside = self.root / 'outside.strings'
+        build.write_plist(outside, {'lc.key': 'outside'})
+        runtime.symlink_to(outside)
+        with self.assertRaisesRegex(ValueError, 'Unsafe localization table path'):
+            build.merge_primary_files(source, self.host)
+
     def test_dependency_conflict_is_atomic_and_fails_closed(self):
         source = self.root / 'source'
         (source / 'Frameworks/SDK.framework').mkdir(parents=True)
@@ -179,8 +226,12 @@ class PrimaryHostTests(unittest.TestCase):
         (self.host / 'Frameworks/SDK.framework').mkdir(parents=True)
         (self.host / 'Frameworks/SDK.framework/SDK').write_bytes(b'different SDK')
         (self.host / 'Assets.car').write_bytes(b'old assets')
-        with self.assertRaisesRegex(ValueError, 'Conflicting native dependency'):
+        (source / 'Other.resource').write_bytes(b'new')
+        (self.host / 'Other.resource').write_bytes(b'old')
+        with self.assertRaisesRegex(ValueError, 'Conflicting native dependency') as failure:
             build.merge_primary_files(source, self.host)
+        self.assertIn('Frameworks/SDK.framework/SDK', str(failure.exception))
+        self.assertIn('Other.resource', str(failure.exception))
         self.assertEqual((self.host / 'Assets.car').read_bytes(), b'old assets')
 
     def test_dependency_destination_cannot_escape_through_symlink(self):

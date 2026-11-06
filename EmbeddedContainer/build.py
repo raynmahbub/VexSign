@@ -269,6 +269,41 @@ def prepare_primary_settings(source, host):
     return True
 
 
+def prepare_primary_localizations(source, host):
+    """Union compiled string tables without ever choosing a conflicting value."""
+    prepared = set()
+    def read_table(path):
+        try:
+            return read_plist(path)
+        except plistlib.InvalidFileException:
+            # Xcode may emit OpenStep .strings instead of binary/XML. Ask the
+            # platform parser for XML without modifying the host input file.
+            if sys.platform != "darwin":
+                raise ValueError("OpenStep localization requires the macOS plist parser")
+            return plistlib.loads(output("plutil", "-convert", "xml1", "-o", "-", path).encode("utf-8"))
+    for incoming in sorted(source.glob("*.lproj/Localizable.*")):
+        if incoming.suffix not in (".strings", ".stringsdict"):
+            continue
+        relative = incoming.relative_to(source)
+        existing = host / relative
+        if not existing.exists():
+            continue
+        for root, path in ((source, incoming), (host, existing)):
+            if path.is_symlink() or path.parent.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+                raise ValueError("Unsafe localization table path")
+        native, runtime = read_table(incoming), read_table(existing)
+        value_type = str if incoming.suffix == ".strings" else dict
+        if not all(isinstance(table, dict) and all(isinstance(key, str) and isinstance(value, value_type)
+                   for key, value in table.items()) for table in (native, runtime)):
+            raise ValueError("Invalid native/runtime localization table")
+        for key in native.keys() & runtime.keys():
+            if native[key] != runtime[key]:
+                raise ValueError("Conflicting native/runtime localization key in " + relative.as_posix())
+        write_plist(incoming, {**runtime, **native})
+        prepared.add(relative.as_posix())
+    return prepared
+
+
 def merge_primary_files(source, host):
     """Preflight the whole dependency/resource merge before copying any file.
 
@@ -276,8 +311,10 @@ def merge_primary_files(source, host):
     revision to make a combined package appear to work.
     """
     settings_prepared = prepare_primary_settings(source, host)
+    localizations_prepared = prepare_primary_localizations(source, host)
     excluded = {"Info.plist", "VexSign", "PlugIns", "Watch", "AppClips", "_CodeSignature", "embedded.mobileprovision", "Metadata.appintents"}
     files = []
+    conflicts = []
     for item in sorted(source.rglob("*")):
         relative = item.relative_to(source)
         if relative.parts[0] in excluded or item.suffix == ".intentdefinition" or item.is_dir():
@@ -289,9 +326,14 @@ def merge_primary_files(source, host):
             raise ValueError("Native dependency destination is a symlink")
         replace_icon = len(relative.parts) == 1 and (item.name == "Assets.car" or item.name == "PkgInfo" or item.name.startswith("AppIcon"))
         replace_settings = settings_prepared and relative.as_posix() == "Settings.bundle/Root.plist"
-        if target.exists() and (not target.is_file() or (sha256(item) != sha256(target) and not replace_icon and not replace_settings)):
-            raise ValueError("Conflicting native dependency/resource: " + relative.as_posix())
+        replace_localization = relative.as_posix() in localizations_prepared
+        if target.exists() and (not target.is_file() or (sha256(item) != sha256(target) and not replace_icon and not replace_settings and not replace_localization)):
+            conflicts.append(relative.as_posix())
+            continue
         files.append((item, target))
+    if conflicts:
+        raise ValueError("Conflicting native dependency/resource: " + ", ".join(conflicts[:32])
+                         + (f" (+{len(conflicts) - 32} more)" if len(conflicts) > 32 else ""))
     for item, target in files:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(item, target)
