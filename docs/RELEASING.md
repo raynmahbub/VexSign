@@ -197,3 +197,13 @@ after its full main build/simulator CI passes and dispatches stable packaging.
 See [repository operations](MAINTENANCE.md) for the normal workflow.
 It never selects a new version itself, publishes an obsolete main candidate or
 bypasses the release environment. Set `AUTORELEASE_STABLE=false` to pause it.
+
+### Build numbers and temporary IPAs
+
+Release builds use a deterministic numeric `CFBundleVersion` derived from the
+full-history reachable commit count, encoded as four/two/two-digit components.
+The exact Git SHA remains in `RELEASE.json` and the release provenance links;
+it is not a build number. Stamping failure blocks the build. Before upload or
+publication, the staged app and every packaged app/extension must match the
+expected build version. Temporary test IPAs are retained for 14 days; diagnostic
+logs and publisher staging artifacts retain their shorter 3-day policy.

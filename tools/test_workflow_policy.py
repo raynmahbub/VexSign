@@ -182,6 +182,46 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertIn('upload/' + asset, block(text, 'build', 2))
             self.assertIn('upload/' + asset, block(text, 'publish', 2))
 
+    def test_release_versions_are_numeric_and_packaged_bundles_are_checked(self):
+        import plistlib
+        import tempfile
+        import zipfile
+        module = runpy.run_path(str(ROOT / 'tools/release-build-version.py'))
+        version = module['build_version']
+        for count in (1, 99, 100, 9999, 10000, 99989999):
+            self.assertRegex(version(count), r'^[1-9][0-9]{0,3}\.[0-9]{1,2}\.[0-9]{1,2}$')
+        self.assertEqual(version(9999), '1.99.99')
+        self.assertEqual(version(10000), '2.0.0')
+        for count in (0, -1, 99990000):
+            with self.assertRaises(ValueError):
+                version(count)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'test.ipa'
+            for root, extension, valid in [('1.0.1', '1.0.1', True),
+                                           ('deadbeef', '1.0.1', False),
+                                           ('1.0.1', '2', False)]:
+                with zipfile.ZipFile(path, 'w') as archive:
+                    archive.writestr('Payload/Test.app/Info.plist', plistlib.dumps({'CFBundleVersion': root}))
+                    archive.writestr('Payload/Test.app/PlugIns/Test.appex/Info.plist', plistlib.dumps({'CFBundleVersion': extension}))
+                if valid:
+                    module['verify_ipa'](path, '1.0.1')
+                else:
+                    with self.assertRaises(ValueError):
+                        module['verify_ipa'](path, '1.0.1')
+            with zipfile.ZipFile(path, 'w'):
+                pass
+            with self.assertRaises(ValueError):
+                module['verify_ipa'](path, '1.0.1')
+        text = (WORKFLOWS / 'release.yml').read_text()
+        self.assertIn('agvtool new-version -all "${BUILD_NUMBER}"', text)
+        self.assertNotIn('BUILD_NUMBER="$(git rev-parse HEAD)"', text)
+        self.assertNotIn('continuing with the committed CURRENT_PROJECT_VERSION', text)
+        self.assertIn('--verify-ipa "$ipa"', text)
+        upload = text.split('      - name: Upload IPA artifact\n', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('retention-days: 14', upload)
+        diagnostics = text.split('retention-days: 14', 1)[1]
+        self.assertIn('retention-days: 3', diagnostics)
+
     def test_every_release_runs_simulator_tests(self):
         text = (WORKFLOWS / 'release.yml').read_text()
         step = text.split('      - name: Release simulator tests\n', 1)[1].split('      - name:', 1)[0]
@@ -221,12 +261,15 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
-            # Device-testing IPAs (normal CI and combined prototype) have a 14-day exception; logs,
-            # quick findings and release-staging artifacts stay at <= 3 days.
+            # Device-testing IPAs have a 14-day exception; logs, quick findings
+            # and release publishing-staging artifacts stay at <= 3 days.
             retention_text = text
-            if path.name in ('ci.yml', 'embedded-container.yml'):
-                artifact_steps = (['Upload unsigned test IPA'] if path.name == 'ci.yml' else
-                                  ['Upload combined build and integration sources', 'Preserve unsigned native input'])
+            if path.name in ('ci.yml', 'embedded-container.yml', 'release.yml'):
+                artifact_steps = {
+                    'ci.yml': ['Upload unsigned test IPA'],
+                    'embedded-container.yml': ['Upload combined build and integration sources', 'Preserve unsigned native input'],
+                    'release.yml': ['Upload IPA artifact'],
+                }[path.name]
                 for artifact_step in artifact_steps:
                     match = re.search(r'(?ms)^      - name: ' + re.escape(artifact_step) + r'\n.*?(?=^      - name:)', retention_text)
                     self.assertIsNotNone(match)
