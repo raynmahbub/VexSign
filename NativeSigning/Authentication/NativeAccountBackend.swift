@@ -499,40 +499,12 @@ public actor NativeAccountBackend {
     ) async throws -> Data {
         try requireOpen()
         do {
-            // Get the context to derive the owner
-            let snapshot = try await bridge.snapshot()
-            let context: AppleAccountAuthenticationState.Context?
-            switch snapshot.phase {
-            case .signedIn(let ctx):
-                context = ctx
-            default:
-                throw NativeAccountBackendError.sessionExpired
-            }
-            guard let context = context, context.id == contextID else {
-                throw NativeAccountBackendError.sessionExpired
-            }
-
-            // The bridge derives the owner from the current session and
-            // returns its bound certificate + private key material.
-            let material = try await bridge.keyExportMaterial(contextID: contextID, identityID: identityID)
-            let owned = material.owned
-
-            // Validate consent matches this identity and certificate
-            try consent.validate(owner: material.owner, identityID: identityID, certificate: owned.certificateDER, now: Date())
-
-            let privateKeyDER = material.privateKeyDER
-
-            // Export as PKCS#12
-            let p12Data = try NativeSigningIdentityCrypto.exportPKCS12(
-                privateKeyDER: privateKeyDER,
-                certificateDER: owned.certificateDER,
-                password: password
-            )
-
-            return p12Data
-        } catch {
-            throw Self.safe(error)
-        }
+            let data = try await bridge.exportSigningIdentity(contextID: contextID, identityID: identityID,
+                password: password, consent: consent)
+            try requireOpen()
+            try Task.checkCancellation()
+            return data
+        } catch { throw Self.certificateError(error) }
     }
 
     /// Downloads a provisioning profile by UUID as a .mobileprovision file.

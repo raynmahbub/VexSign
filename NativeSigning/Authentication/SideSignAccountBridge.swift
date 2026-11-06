@@ -318,6 +318,7 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
         certificateApprovalEpoch = UUID()
         consent.revoke()
         await certificateStatusConsent.revoke()
+        await revokeKeyExportConsent()
         if let operation = active?.operation { _ = await cancelAuthentication(operation: operation) }
     }
 
@@ -340,6 +341,7 @@ actor SideSignAccountBridge<Portal: SideSignAccountPortal, Provider: ConsentedAn
         generation = UUID()
         consent.revoke()
         await certificateStatusConsent.revoke()
+        await revokeKeyExportConsent()
         let current = active
         active = nil
         current?.task.cancel()
@@ -1045,6 +1047,8 @@ extension SideSignAccountBridge {
         guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
               identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
               certificateStatusTask == nil else { throw NativeSigningIdentityError.busy }
+        setupBusy = true
+        defer { setupBusy = false }
         let flow = generation; let epoch = keyExportEpoch
         let owner = try await identityOwner(contextID: contextID, flow: flow)
         let owned = try await signingIdentities.ownedSigningCertificate(owner: owner, identityID: identityID, now: clock())
@@ -1092,21 +1096,30 @@ extension SideSignAccountBridge {
         return receipts
     }
 
-    /// Owner-bound certificate and private-key material for one explicitly
-    /// consented export. The caller must validate its consent token against
-    /// the returned owner/certificate before using the key material.
-    func keyExportMaterial(contextID: UUID, identityID: UUID) async throws
-        -> (owner: NativeSigningIdentityOwner, owned: NativeOwnedSigningCertificate, privateKeyDER: Data) {
+    /// The private key stays inside the authoritative bridge. Consume the exact
+    /// grant before requesting it, then recheck cancellation/context/epoch/expiry
+    /// before synchronously producing PKCS#12. No grant can authorize a retry.
+    func exportSigningIdentity(contextID: UUID, identityID: UUID, password: String,
+                               consent grant: NativeKeyExportConsent) async throws -> Data {
         guard !closed else { throw Failure.closed }
-        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
-              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
-              certificateStatusTask == nil else { throw NativeSigningIdentityError.busy }
-        let flow = generation
+        guard identityInventoryIdle() else { throw NativeSigningIdentityError.busy }
+        setupBusy = true
+        defer { setupBusy = false }
+        let flow = generation; let epoch = keyExportEpoch
         let owner = try await identityOwner(contextID: contextID, flow: flow)
         let owned = try await signingIdentities.ownedSigningCertificate(owner: owner, identityID: identityID, now: clock())
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        try await keyExportConsent.begin(grant, owner: owner, identityID: identityID,
+            certificate: owned.certificateDER, flow: flow, now: clock())
+        try await requireIdentityContext(contextID: contextID, flow: flow)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
         let privateKeyDER = try await signingIdentities.privateKeyDER(owner: owner, identityID: identityID, now: clock())
         try await requireIdentityContext(contextID: contextID, flow: flow)
-        return (owner, owned, privateKeyDER)
+        guard epoch == keyExportEpoch else { throw NativeSigningIdentityError.creationApprovalRequired }
+        try grant.validate(owner: owner, identityID: identityID, certificate: owned.certificateDER, now: clock())
+        return try NativeSigningIdentityCrypto.exportPKCS12(privateKeyDER: privateKeyDER,
+            certificateDER: owned.certificateDER, password: password)
     }
 
     /// Offline positive cache unless a separate exact single-use status consent

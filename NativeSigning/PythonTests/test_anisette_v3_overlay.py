@@ -32,6 +32,17 @@ class AnisetteOverlayTests(unittest.TestCase):
         self.root_patch.start()
         self.addCleanup(self.root_patch.stop)
 
+    def test_private_key_export_consumes_grant_inside_authoritative_bridge(self):
+        root = Path(__file__).resolve().parents[2]
+        bridge = (root / 'NativeSigning/Authentication/SideSignAccountBridge.swift').read_text()
+        backend = (root / 'NativeSigning/Authentication/NativeAccountBackend.swift').read_text()
+        body = bridge.split('func exportSigningIdentity(', 1)[1].split('/// Offline positive cache', 1)[0]
+        self.assertLess(body.index('keyExportConsent.begin('), body.index('signingIdentities.privateKeyDER('))
+        self.assertLess(body.index('signingIdentities.privateKeyDER('), body.index('NativeSigningIdentityCrypto.exportPKCS12('))
+        self.assertGreaterEqual(body.count('epoch == keyExportEpoch'), 3)
+        self.assertNotIn('keyExportMaterial(', backend)
+        self.assertGreaterEqual(bridge.count('await revokeKeyExportConsent()'), 2)
+
     def test_reviewed_sources_are_copied_exactly(self):
         result = module.apply_anisette_v3_overlay(self.deps, self.lock)
         self.assertEqual(result, self.specs)

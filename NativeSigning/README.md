@@ -64,6 +64,13 @@ The opt-in **Native account signing · link smoke** workflow can also stage isol
 
 ## Integration rules
 
+Native private-key export uses an exact, single-use owner/identity/certificate/flow
+consent. The bridge consumes it before requesting private-key material, rechecks
+context, revocation epoch and expiry, and creates PKCS#12 without returning raw
+key DER to the backend. Revocation, sign-out and shutdown invalidate outstanding
+grants. Export permission is not CMS trust, a signing permit or an install receipt.
+
+
 - Require explicit user consent for account, certificate, device, and provisioning operations.
 - Never revoke unrelated certificates automatically to free a slot.
 - Keep credentials in the approved Keychain stores and redact logs.
