@@ -151,6 +151,10 @@ enum BackgroundAutomation {
         isRunning = true
         defer { isRunning = false }
 
+		// The only chance a scheduled pass has to notice a new VexSign release. Checked before the
+		// source guard: self-updates do not depend on any repository being configured.
+		await SelfUpdateManager.shared.check()
+
 		let policy = BackgroundAutomationPreferences.policy
 		let storage = Storage.shared
 		let sources = storage.getSources()

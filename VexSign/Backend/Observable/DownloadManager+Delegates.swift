@@ -241,6 +241,12 @@ extension DownloadManager: UNUserNotificationCenterDelegate {
 	}
 	
 	func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+		// The release banner belongs to the self-updater, not to a download; a tap opens the
+		// update sheet instead of doing nothing.
+		let identifier = response.notification.request.identifier
+		if SelfUpdateNotifier.isReleaseNotification(identifier) {
+			Task { @MainActor in SelfUpdateNotifier.handleTap(identifier: identifier) }
+		}
 		completionHandler()
 	}
 }

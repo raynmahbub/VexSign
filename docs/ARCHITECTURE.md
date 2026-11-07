@@ -143,7 +143,7 @@ that, so a claim can be traced to code instead of a promise:
 | Discover, ranking and bundle grouping | `VexSign/Views/TabView/AppStoreView.swift`, `AppStoreRepositoryRows.swift`, `VexSign/Views/Sources/Apps/` |
 | Per-app update rules and skipped updates | `VexSign/Backend/Observable/PerAppUpdateRules.swift`, `SkippedUpdatesManager.swift` |
 | Premium activation and catalog filters | `VexSign/Backend/Observable/PremiumManager.swift`, `VexSign/Views/Sources/PremiumSettingsView.swift`, `server/` |
-| Self-update checks and install methods | `VexSign/Backend/Observable/SelfUpdateManager.swift`, `VexSign/Views/Updates/` |
+| Self-update checks, release notification and install methods | `VexSign/Backend/Observable/SelfUpdateManager.swift`, `SelfUpdateNotifier.swift`, `VexSign/Views/Updates/` |
 | Background downloads, conditions and Game Mode | `DownloadManager.swift`, `DownloadPreferences.swift`, `DownloadManager+LiveActivity.swift`, `GameMode.swift` |
 | Web manager with HTTP/WebDAV | `VexSign/Views/Settings/Web Manager/WebManagerView.swift`, `server/web_tools.py` |
 | Download integrity and hashing | `VexSign/Utilities/DownloadIntegrity.swift`, `FileIntegrity.swift` |

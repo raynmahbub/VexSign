@@ -8,6 +8,7 @@
 import SwiftUI
 import NimbleViews
 import UIKit
+import UserNotifications
 import NimbleExtensions
 
 struct UpdatesSettingsView: View {
@@ -16,10 +17,12 @@ struct UpdatesSettingsView: View {
 	@AppStorage("VexSign.selfUpdateCertIndex") private var _certIndex: Int = -1
 	@AppStorage("VexSign.selfUpdateMethod") private var _method: Int = 0
 	@AppStorage(AppStoreUpdateTracker.enabledKey) private var _appStoreTracking: Bool = false
+	@AppStorage(SelfUpdateNotifier.enabledKey) private var _notifyOnRelease: Bool = true
 
 	@State private var _selected: SelfUpdateRelease?
 	@State private var _serverAddressDraft: String = ""
 	@State private var _serverAddressError: String?
+	@State private var _notificationAuthorization: UNAuthorizationStatus = .notDetermined
 	@ObservedObject private var _appStoreTracker = AppStoreUpdateTracker.shared
 
 	private let _certificates = Storage.shared.getAllCertificates()
@@ -28,6 +31,7 @@ struct UpdatesSettingsView: View {
 		NBList(.localized("Updates")) {
 			_statusSection
 			_optionsSection
+			_notificationSection
 			_appStoreSection
 			if !_manager.ignoredVersions.isEmpty { _ignoredSection }
 			Section {
@@ -48,8 +52,14 @@ struct UpdatesSettingsView: View {
 		.onAppear {
 			_serverAddressDraft = _manager.configuredServerAddress
 			_manager.refreshConfiguration()
+			Task { await _refreshNotificationAuthorization() }
 		}
 		.onChange(of: _method) { _ in _manager.refreshConfiguration() }
+		.onChange(of: _notifyOnRelease) { enabled in
+			guard enabled else { return }
+			// Ask here, where the person just said yes — never from a background check.
+			Task { await _requestNotificationPermission() }
+		}
 		.task {
 			await _manager.check()
 		}
@@ -244,6 +254,56 @@ struct UpdatesSettingsView: View {
 		_serverAddressError = nil
 		// Show the normalised value (scheme added, trailing slash removed) rather than what was typed.
 		_serverAddressDraft = _manager.configuredServerAddress
+	}
+
+	// MARK: Notifications
+
+	/// iOS cannot tell an app when a GitHub release is published — there is no push service here,
+	/// and background work is scheduled by the system. The alert is therefore posted by the update
+	/// checks VexSign already runs, and the copy says so instead of promising an instant push.
+	private var _notificationSection: some View {
+		NBSection(.localized("Release Notifications")) {
+			Toggle(.localized("Notify Me About New Releases"), isOn: $_notifyOnRelease)
+			if _notifyOnRelease && !_canDeliverNotifications {
+				Label(_notificationIssue, systemImage: "bell.slash.fill")
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+				Button(.localized("Open iOS Notification Settings")) {
+					UIApplication.open(UIApplication.openSettingsURLString)
+				}
+			}
+		} footer: {
+			Text(.localized("A one-time local alert the first time a newer VexSign release appears. It is posted by the update check on launch, in this screen, or during a scheduled automation pass — iOS decides when background checks run, so it is not an instant push."))
+		}
+	}
+
+	private var _canDeliverNotifications: Bool {
+		_notificationAuthorization == .authorized || _notificationAuthorization == .provisional
+	}
+
+	private var _notificationIssue: String {
+		_notificationAuthorization == .denied
+			? .localized("Notifications are turned off for VexSign in iOS Settings, so the release alert cannot be shown.")
+			: .localized("Allow notifications so the release alert can be shown.")
+	}
+
+	@MainActor
+	private func _refreshNotificationAuthorization() async {
+		let settings = await UNUserNotificationCenter.current().notificationSettings()
+		_notificationAuthorization = settings.authorizationStatus
+	}
+
+	/// Asked only when the switch is turned on, never from a background check.
+	@MainActor
+	private func _requestNotificationPermission() async {
+		do {
+			_ = try await UNUserNotificationCenter.current()
+				.requestAuthorization(options: [.alert, .sound, .badge])
+		} catch {
+			FileLogger.log("Notification permission request failed: \(error.localizedDescription)", category: "update")
+		}
+		await _refreshNotificationAuthorization()
 	}
 
 	// MARK: Ignored

@@ -35,6 +35,17 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Added
 
+- A local notification the first time a newer VexSign release appears, controlled
+  by **Settings → Updates → Release Notifications** (on by default; the
+  permission is requested only when the switch is turned on). It fires once per
+  version, never for a version marked as ignored, and never on top of the launch
+  prompt that is already showing that release — if the prompt is dismissed, the
+  next check announces it instead. Tapping the banner opens the update sheet.
+  Because iOS schedules background work, the alert is posted by the update check
+  at launch, in Update settings, or during a scheduled automation pass; it is not
+  an instant server push. The scheduled automation pass now also checks for a new
+  VexSign release before it looks at sources. The decision is pure and covered by
+  `VexSignTests/SelfUpdateNotificationTests.swift`.
 - Settings now opens with a compact identity header — the VexSign logo, app name
   and version — directly above the About section. It replaces the full-width
   "Star on GitHub" card that used to sit at the bottom of the list with a small

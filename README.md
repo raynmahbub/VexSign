@@ -63,7 +63,7 @@ device acceptance — the caveats in each section still apply.
 - **Last-known-good source retention** when refreshes fail, plus opt-in startup/background refresh.
 - **Per-app update rules** — ignore a version, ignore or prefer a source, pin a certificate, disable automatic updates and preserve custom signing options across updates.
 - **Premium activation, restore and device recovery** through the configured backend, with premium catalog filters.
-- **App self-update checking** and controls for skipped source updates.
+- **App self-update checking**, with a one-time local notification when a newer release appears, and controls for skipped source updates.
 
 ### 🛠️ Repository Builder & sharing
 
