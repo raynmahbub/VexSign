@@ -100,19 +100,27 @@ struct SigningRequest: Identifiable {
 	let options: Options
 	let icon: UIImage?
 	let certificate: CertificatePair?
+	/// True when the caller is the signing sheet after the user accepted blocking preflight
+	/// issues ("Sign Anyway"). Those issues are exactly what the post-sign inspection reports,
+	/// so the run keeps its bundle instead of failing after the tap. Every path that never
+	/// shows the preflight sheet — batch, Update All, automation, self-update — leaves this
+	/// false and keeps the strict behaviour.
+	let overridesBlockingPreflightIssues: Bool
 
 	init(
 		id: String = UUID().uuidString,
 		app: AppInfoPresentable,
 		options: Options,
 		icon: UIImage?,
-		certificate: CertificatePair?
+		certificate: CertificatePair?,
+		overridesBlockingPreflightIssues: Bool = false
 	) {
 		self.id = id
 		self.app = app
 		self.options = options
 		self.icon = icon
 		self.certificate = certificate
+		self.overridesBlockingPreflightIssues = overridesBlockingPreflightIssues
 	}
 
 	var name: String {
@@ -146,6 +154,7 @@ struct SigningPipeline: SigningWork {
 		handler.appCertificate = request.certificate
 		handler.appIcon = request.icon
 		handler.onStage = reporting
+		handler.overridesBlockingPreflightIssues = request.overridesBlockingPreflightIssues
 
 		do {
 			try await handler.copy()

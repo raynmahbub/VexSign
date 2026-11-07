@@ -21,6 +21,8 @@ struct SigningView: View {
     @State private var _preflightResult: PreflightResult?
     @State private var _showPreflight = false
     @State private var _signAfterReview = false
+    /// Set when the user leaves the preflight sheet through "Sign Anyway".
+    @State private var _signOverridingBlockingIssues = false
     @State private var _reviewedSetup: SigningPreflightSnapshot?
     @State private var _didSign = false
     @State private var _wasCancelled = false
@@ -200,15 +202,16 @@ struct SigningView: View {
                         Toast.info(.localized("Signing setup changed. Review it again before starting."))
                         return
                     }
-                    _beginSign()
+                    _beginSign(overridingBlockingIssues: _signOverridingBlockingIssues)
                 }
             }) {
                 if let result = _preflightResult {
                     SigningPreflightReviewView(
                         app: app, options: _temporaryOptions, certificate: _selectedCert(), result: result,
                         reviewOptions: { _showPreflight = false },
-                        sign: {
+                        sign: { overridingBlockingIssues in
                             _signAfterReview = true
+                            _signOverridingBlockingIssues = overridingBlockingIssues
                             _showPreflight = false
                         }
                     )
@@ -364,6 +367,7 @@ extension SigningView {
 			options: _temporaryOptions,
 			certificate: _selectedCert()
 		)
+        _signOverridingBlockingIssues = false
         _preflightResult = preflight
         _reviewedSetup = SigningPreflightSnapshot(options: _temporaryOptions,
             certificateUUID: _selectedCert()?.uuid, issues: preflight.issues)
@@ -377,7 +381,7 @@ extension SigningView {
 		SigningService.shared.cancelAll()
 	}
 
-	private func _beginSign() {
+	private func _beginSign(overridingBlockingIssues: Bool = false) {
         guard !_isSigning && !_didSign else { return }
         UIApplication.shared.endEditing()
         _signingError = nil
@@ -392,6 +396,7 @@ extension SigningView {
 			using: _temporaryOptions,
 			icon: appIcon,
 			certificate: _selectedCert(),
+			overridesBlockingPreflightIssues: overridingBlockingIssues,
             onStage: { stage in
                 let previousStep = _currentStage.map { SigningWorkspaceStep(stage: $0) }
                 _currentStage = stage
