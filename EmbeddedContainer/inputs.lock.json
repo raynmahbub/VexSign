@@ -6,9 +6,9 @@
   },
   "sidestore": {
     "repository": "LiveContainer/SideStore",
-    "commit": "ee3cc16a67f9fed766f79a0ed70938f0f8ad5a07",
-    "asset_id": 649969380,
-    "sha256": "f9d2d9af51285dcbdece08c51aadc02e8a2d756da6ca8dfca16724c801ae2fcd",
+    "commit": "044bd72ad4eb270c3900bd04dc6f508d0ac474db",
+    "asset_id": 721060027,
+    "sha256": "f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e",
     "license_path": "LICENSE"
   },
   "dylibify": {
