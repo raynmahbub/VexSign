@@ -177,13 +177,23 @@ enum PreflightChecks {
 
 		// Extensions stripped by the blanket option are excluded here. Compatibility mode keeps
 		// the identifiers in the target so ProfileCompatibility can report exactly what it will remove.
-		let nested = Storage.shared.getAppDirectory(for: app)
-			.map { NestedBundleAudit.requiredIdentifiers(in: $0, removeAppExtensions: options.removeAppExtensions) } ?? []
+		let bundle = Storage.shared.getAppDirectory(for: app)
+		let nested = bundle.map {
+			NestedBundleAudit.requiredIdentifiers(in: $0, removeAppExtensions: options.removeAppExtensions)
+		} ?? []
+		let removableExtensions = bundle.map {
+			NestedBundleAudit.removableExtensionIdentifiers(in: $0, removeAppExtensions: options.removeAppExtensions)
+		} ?? []
 
 		let evaluation = ProfileCompatibility.evaluate(
 			profile: profile,
 			leafCertificateDER: certificate.appliedCertificateDER,
-			target: ProfileCompatibility.Target(app: app, options: options, nestedBundleIdentifiers: nested)
+			target: ProfileCompatibility.Target(
+				app: app,
+				options: options,
+				nestedBundleIdentifiers: nested,
+				removableExtensionIdentifiers: removableExtensions
+			)
 		)
 
 		for issue in evaluation.issues {

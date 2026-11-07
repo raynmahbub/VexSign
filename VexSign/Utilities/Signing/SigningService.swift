@@ -76,13 +76,15 @@ enum SigningStage: String, CaseIterable {
 /// What a run reports. The last event of every run is terminal.
 enum SigningEvent {
 	case stage(SigningStage)
+	/// Compatibility mode removed these profile-incompatible app extensions before signing.
+	case compatibilityRemoved([String])
 	case finished(Signed)
 	case cancelled
 	case failed(Error)
 
 	var isTerminal: Bool {
 		switch self {
-		case .stage:
+		case .stage, .compatibilityRemoved:
 			false
 		case .finished, .cancelled, .failed:
 			true
@@ -133,19 +135,19 @@ struct SigningRequest: Identifiable {
 /// The pipeline behind a run. Injected so the service's ordering, cancellation and cleanup can
 /// be tested without zsign, a device or a certificate.
 protocol SigningWork {
-	/// Runs the pipeline, calling `reporting` synchronously as each stage begins.
+	/// Runs the pipeline, reporting stage and compatibility events synchronously in order.
 	///
 	/// Contract: honour `Task.isCancelled` between stages, remove anything written for this
 	/// request, and return `.failure(CancellationError())` when cancelled. A cancelled run must
 	/// leave no bundle behind.
-	func run(_ request: SigningRequest, reporting: @escaping (SigningStage) -> Void) async -> Result<Signed, Error>
+	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error>
 }
 
 // MARK: - Pipeline
 
 /// The real pipeline: the same steps `SigningHandler` always ran, in the same order.
 struct SigningPipeline: SigningWork {
-	func run(_ request: SigningRequest, reporting: @escaping (SigningStage) -> Void) async -> Result<Signed, Error> {
+	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
 		let log = SigningLog.shared
 		log.reset()
 		log.info(.localized("Preparing to sign %@", arguments: request.name))
@@ -153,7 +155,8 @@ struct SigningPipeline: SigningWork {
 		let handler = SigningHandler(app: request.app, options: request.options)
 		handler.appCertificate = request.certificate
 		handler.appIcon = request.icon
-		handler.onStage = reporting
+		handler.onStage = { reporting(.stage($0)) }
+		handler.onCompatibilityRemoved = { reporting(.compatibilityRemoved($0)) }
 		handler.overridesBlockingPreflightIssues = request.overridesBlockingPreflightIssues
 
 		do {
@@ -212,8 +215,8 @@ final class SigningService {
 		let (events, feeder) = _stream()
 
 		_runs[id] = Task.detached(priority: .userInitiated) {
-			let result = await work.run(request) { stage in
-				feeder.yield(.stage(stage))
+			let result = await work.run(request) { event in
+				feeder.yield(event)
 			}
 
 			switch result {

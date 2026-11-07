@@ -138,12 +138,21 @@ enum NestedBundleAudit {
 
 	/// Identifiers the profile has to cover for the app to work after signing.
 	///
-	/// Extensions and watch apps that the options strip before signing (`removeAppExtensions`)
-	/// never reach the engine, so they are not required to be covered — the preflight used to warn
-	/// about them anyway, on bundles that no longer existed by the time the app was signed.
+	/// App extensions stripped by `removeAppExtensions` never reach the signer. Watch apps are
+	/// not app extensions, so they remain in the target and must still be covered.
 	static func requiredIdentifiers(in appBundle: URL, removeAppExtensions: Bool) -> [String] {
+		bundles(in: appBundle)
+			.filter { !removeAppExtensions || $0.kind != .appExtension }
+			.compactMap(\.identifier)
+			.sorted()
+	}
+
+	/// Extensions compatibility mode is allowed to remove. Watch apps are intentionally excluded.
+	static func removableExtensionIdentifiers(in appBundle: URL, removeAppExtensions: Bool) -> Set<String> {
 		guard !removeAppExtensions else { return [] }
-		return bundles(in: appBundle).compactMap(\.identifier).sorted()
+		return Set(bundles(in: appBundle).compactMap { bundle in
+			bundle.kind == .appExtension ? bundle.identifier : nil
+		})
 	}
 
 	// MARK: Reporting
@@ -153,9 +162,9 @@ enum NestedBundleAudit {
 		report(appBundle: appBundle, profilePattern: profilePattern, shippedProfile: shippedProfileIdentifier(at:))
 	}
 
-	/// Removes only bundles whose identifiers are positively known not to be covered. Unknown
-	/// coverage and compatible bundles are kept. The returned entries are suitable for a signing
-	/// log and let the caller report exactly what was skipped.
+	/// Removes only app extensions whose identifiers are positively known not to be covered.
+	/// Unknown coverage, compatible extensions, and watch apps are kept. The returned entries
+	/// let the caller report exactly what was skipped.
 	@discardableResult
 	static func removeUncoveredBundles(
 		in appBundle: URL,
@@ -163,6 +172,7 @@ enum NestedBundleAudit {
 		fileManager: FileManager = .default
 	) throws -> [Entry] {
 		let uncovered = report(appBundle: appBundle, profilePattern: profilePattern).uncovered
+			.filter { $0.bundle.kind == .appExtension }
 		for entry in uncovered {
 			try fileManager.removeItem(at: appBundle.appendingPathComponent(entry.bundle.path))
 		}

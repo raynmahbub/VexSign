@@ -206,6 +206,22 @@ final class ProfileCompatibilityTests: XCTestCase {
 		XCTAssertTrue(issue?.detail.contains("will be removed") == true)
 	}
 
+	func testCompatibilityModeCannotRemoveAnUncoveredWatchApp() {
+		let target = ProfileCompatibility.Target(
+			bundleIdentifier: "com.example.app",
+			nestedBundleIdentifiers: ["com.example.app.widget", "com.example.app.watch"],
+			automaticallyRemoveUncoveredExtensions: true,
+			removableExtensionIdentifiers: ["com.example.app.widget"]
+		)
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
+			target: target
+		)
+
+		XCTAssertEqual(evaluation.issues.filter { $0.code == .extensionNotCovered }.map(\.severity), [.warning, .blocking])
+		XCTAssertTrue(evaluation.blockingIssues.contains { $0.code == .extensionNotCovered })
+	}
+
 	func testCompatibilityModeDoesNotOverrideMainAppProfileMismatch() {
 		let target = ProfileCompatibility.Target(
 			bundleIdentifier: "com.example.app",

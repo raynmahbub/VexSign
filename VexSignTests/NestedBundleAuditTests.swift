@@ -137,6 +137,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		let unsupported = try unsupportedNames.map { name in
 			try makeBundle("PlugIns/\(name).appex", identifier: "org.frameradar.extension.\(name)")
 		}
+		let watchApp = try makeBundle("Watch/Example Watch.app", identifier: "org.frameradar.watch")
 		let appInfo = appBundle.appendingPathComponent("Info.plist")
 		try Data("main app".utf8).write(to: appInfo)
 
@@ -151,6 +152,18 @@ final class NestedBundleAuditTests: XCTestCase {
 			XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.path))
 		}
 		XCTAssertTrue(FileManager.default.fileExists(atPath: appInfo.path), "the main app must remain intact")
+		XCTAssertTrue(FileManager.default.fileExists(atPath: watchApp.path), "watch apps are not removable app extensions")
+		XCTAssertFalse(removed.contains { $0.bundle.kind == .watchApp })
+	}
+
+	func testRemoveAppExtensionsStillRequiresWatchAppCoverage() throws {
+		try makeBundle("PlugIns/Widget.appex", identifier: "com.example.widget")
+		try makeBundle("Watch/Example Watch.app", identifier: "com.example.watch")
+
+		XCTAssertEqual(
+			NestedBundleAudit.requiredIdentifiers(in: appBundle, removeAppExtensions: true),
+			["com.example.watch"]
+		)
 	}
 
 	/// An extension is only reported when the comparison actually says no. Without a profile, or
