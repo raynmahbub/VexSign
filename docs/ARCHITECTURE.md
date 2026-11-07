@@ -116,3 +116,60 @@ DocumentPicker / repository URL
   wiring it into Discover.
 - **New third-party code:** vendor it under `Vendor/` with its licence and pin;
   keep dependency source in `Vendor/` and update its manifest.
+
+## README feature coverage
+
+Every capability advertised in the [README feature list](../README.md#features) has
+an implementation in this repository. This table is the mapping used to check
+that, so a claim can be traced to code instead of a promise:
+
+| Advertised area | Implementation |
+| --- | --- |
+| On-device signing | `Vendor/Zsign`, `VexSign/Utilities/Handlers/SigningHandler.swift` |
+| Batch signing and install queues | `VexSign/Backend/Observable/BatchJobRunner.swift`, `InstallQueue.swift`, `VexSign/Views/Library/Batch/` |
+| Signing profiles and presets | `VexSign/Backend/Observable/SigningProfileStore.swift`, `NamedSigningProfileStore.swift`, `VexSign/Views/Settings/Signing Options/SigningProfilesView.swift` |
+| Signing options, preflight and signing logs | `VexSign/Views/Settings/Signing Options/ConfigurationView.swift`, `AdvancedSigningSettingsView.swift`, `VexSign/Backend/Observable/PreflightChecks.swift`, `SigningLog.swift` |
+| Local HTTPS and AFC/`installd` installation | `VexSign/Backend/Server/LocalTLSIdentity.swift`, `Vendor/IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift`, `VexSign/Utilities/Installing/` |
+| Signing Live Activities | `VexSign/Backend/Observable/SigningLiveActivityManager.swift`, `VexSignWidgetExtension/SigningLiveActivity.swift` |
+| Auto-sign and Update All | `VexSign/Backend/Observable/AutoSignManager.swift`, `AppUpdateChecker.swift` |
+| Tweak injection and ElleKit | `VexSign/Views/Tweaks/TweakInjectConfigView.swift`, `TweakRepositoryView.swift`, `Vendor/` ElleKit resources |
+| Mach-O thinning | `VexSign/Utilities/Handlers/SigningHandler.swift` (`.thinning` stage), `VexSign/Utilities/Signing/SigningService.swift` |
+| IPA Explorer | `VexSign/Views/IPAExplorer/`, `VexSign/Utilities/IPAExplorer/` |
+| Clone Wizard and icon badges | `VexSign/Utilities/Handlers/AppCloner.swift` (badge is drawn onto a writable PNG icon), `VexSign/CloneWizard/CloneWizardView.swift` |
+| File manager and QuickLook | `VexSign/Views/FileManager/FileManagerView.swift`, `VexSign/Views/Settings/Files & Compression/` |
+| AltStore-compatible sources and ESign parsing | `AltSourceKit/`, `VexSign/Utilities/SourceFeedLoader.swift` |
+| Repository sync, ETag revalidation and offline catalog | `VexSign/RepositorySync/RepositorySyncEngine.swift`, `VexSign/Views/Sources/SourcesViewModel.swift` |
+| Source health dashboard | `VexSign/Views/Sources/SourceHealthDashboardView.swift` |
+| Discover, ranking and bundle grouping | `VexSign/Views/TabView/AppStoreView.swift`, `AppStoreRepositoryRows.swift`, `VexSign/Views/Sources/Apps/` |
+| Per-app update rules and skipped updates | `VexSign/Backend/Observable/PerAppUpdateRules.swift`, `SkippedUpdatesManager.swift` |
+| Premium activation and catalog filters | `VexSign/Backend/Observable/PremiumManager.swift`, `VexSign/Views/Sources/PremiumSettingsView.swift`, `server/` |
+| Self-update checks, release notification and install methods | `VexSign/Backend/Observable/SelfUpdateManager.swift`, `SelfUpdateNotifier.swift`, `VexSign/Views/Updates/` |
+| Background downloads, conditions and Game Mode | `DownloadManager.swift`, `DownloadPreferences.swift`, `DownloadManager+LiveActivity.swift`, `GameMode.swift` |
+| Web manager with HTTP/WebDAV | `VexSign/Views/Settings/Web Manager/WebManagerView.swift`, `server/web_tools.py` |
+| Download integrity and hashing | `VexSign/Utilities/DownloadIntegrity.swift`, `FileIntegrity.swift` |
+| Certificate monitoring, dashboard and OCSP | `CertificateStatusManager.swift`, `BatchCertChecker.swift`, `VexSign/CertificateDashboard/`, `VexSign/Utilities/OCSP/` |
+| Local trust setup with a device TLS identity | `VexSign/Backend/Server/LocalTLSIdentity.swift`, `LocalCAProfile.swift`, `VexSign/Utilities/IdentityVault.swift` |
+| P12 password recovery | `VexSign/Utilities/P12Cracker.swift`, `VexSign/Views/Settings/Certificates/P12CrackerView.swift` |
+| App lock and secret storage | `VexSign/Security/AppLockManager.swift`, `SecureSecretStore.swift`, `CertificateSecrets.swift` |
+| Profile compatibility, nested bundles and output verification | `VexSign/Utilities/Signing/ProfileCompatibility.swift`, `NestedBundleAudit.swift`, `SignatureVerifier.swift` |
+| Signed source metadata | `VexSign/Utilities/SourceProvenance.swift`, `docs/SOURCE_SIGNING.md` |
+| Anti-revoke DNS profiles | `VexSign/Utilities/AntiRevoke/`, `VexSign/Views/Settings/Security/AntiRevokeSettingsView.swift` |
+| Background automation, App Intents and widgets | `VexSign/Backend/Observable/BackgroundAutomation.swift`, `VexSign/Backend/AppIntents/`, `VexSignWidgetExtension/` |
+| Cleanup, backup and analytics | `CleanupManager.swift`, `InstallCleanup.swift`, `BackupManager.swift`, `VexSign/Analytics/` |
+| Logs and diagnostic export | `VexSign/Utilities/FileLogger.swift`, `DiagnosticBundleExporter.swift`, `VexSign/Views/Logs/`, `VexSign/Views/Settings/About/DiagnosticsCenterView.swift` |
+| Companion apps | `VexSignTV/`, `VexSignVision/`, `VexSignWatch/`, `VexSignWatchWidgets/`, `docs/PLATFORMS.md` |
+| Web tools | `server/web_signer.py`, `server/repo_creator.py`, `server/repo_decoder.py`, `server/app_installer.py`, `server/cert_inspector.py`, `server/udid_grabber.py`, `VexSign/Ecosystem/WebToolsView.swift` |
+| Repository builder, OTA export and QR | `VexSign/OTA/OTAExporter.swift`, `VexSign/OTA/OTAView.swift`, `VexSign/Ecosystem/EcosystemView.swift` |
+| Appearance, tint, icon and tab preferences | `VexSign/Extensions/AppStyle.swift`, `VexSign/Backend/Observable/AppearanceStore.swift`, `VexSign/Views/Settings/App Icon/AppIconView.swift`, `TabBarSettingsView.swift` |
+| Native account provisioning and cloud bridge | `NativeSigning/`, `VexSign/Backend/CloudSigning/`, `VexSign/Views/Settings/CloudSigning/`, `cloud-signing/` |
+| Experimental guest-host packaging | `EmbeddedContainer/` |
+| Automated tests and CI | `VexSignTests/`, `server/tests/`, `cloud-signing/test/`, `.github/workflows/` |
+
+**What this check does and does not prove.** The mapping was verified by reading
+the named files and confirming each area has a real implementation (not a stub or
+a settings row without a consumer); `Settings → About → Feature Status` exposes
+the same wiring for the signing, install and update pipeline. It does *not* prove
+that a feature works on a physical device. Signing, installation, background
+execution and companion pairing still need the device pass described in
+[`DEVICE_TESTING.md`](DEVICE_TESTING.md); the README's own caveats (experimental
+provisioning, opt-in services, iOS scheduling limits) stand.

@@ -101769,6 +101769,116 @@
           }
         }
       }
+    },
+    "Star" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        }
+      }
+    },
+    "Star VexSign on GitHub" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star VexSign on GitHub"
+          }
+        }
+      }
+    },
+    "A one-time local alert the first time a newer VexSign release appears. It is posted by the update check on launch, in this screen, or during a scheduled automation pass — iOS decides when background checks run, so it is not an instant push." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A one-time local alert the first time a newer VexSign release appears. It is posted by the update check on launch, in this screen, or during a scheduled automation pass — iOS decides when background checks run, so it is not an instant push."
+          }
+        }
+      }
+    },
+    "Allow notifications so the release alert can be shown." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow notifications so the release alert can be shown."
+          }
+        }
+      }
+    },
+    "Notifications are turned off for VexSign in iOS Settings, so the release alert cannot be shown." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are turned off for VexSign in iOS Settings, so the release alert cannot be shown."
+          }
+        }
+      }
+    },
+    "Notify Me About New Releases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify Me About New Releases"
+          }
+        }
+      }
+    },
+    "Open VexSign to review the release notes and install the update." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open VexSign to review the release notes and install the update."
+          }
+        }
+      }
+    },
+    "Open iOS Notification Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open iOS Notification Settings"
+          }
+        }
+      }
+    },
+    "Release Notifications" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Release Notifications"
+          }
+        }
+      }
+    },
+    "VexSign %@ is available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign %@ is available"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

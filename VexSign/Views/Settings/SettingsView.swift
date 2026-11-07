@@ -31,13 +31,14 @@ struct SettingsView: View {
     }
 
     private let _githubUrl = "https://github.com/raynmahbub/VexSign"
-    private let _donationsUrl = "https://github.com/raynmahbub/VexSign"
 
     var body: some View {
         NBNavigationView(.localized("Settings")) {
             Form {
                 Group {
                 if _settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                _brandHeader
+
                 _aboutSection
 
                 Section {
@@ -281,10 +282,6 @@ struct SettingsView: View {
                     Text(.localized("Pairing tools, local file transfer, app inspection and optional service integrations. Some tools require additional setup or supported hardware."))
                 }
 
-                #if !NIGHTLY && !DEBUG
-                SettingsDonationCellView(site: _donationsUrl)
-                #endif
-
                 } else {
                     _searchResults
                 }
@@ -336,6 +333,57 @@ private extension SettingsView {
             }
         } header: {
             Text(.localized("Search Results"))
+        }
+    }
+
+    /// Identity header at the top of Settings: the VexSign logo, name and version, with the GitHub
+    /// star kept as a compact pill instead of the full-width card that used to sit at the bottom of
+    /// the list. The row background is clear so it reads as part of the screen, not another group.
+    @ViewBuilder
+    var _brandHeader: some View {
+        Section {
+            HStack(spacing: 12) {
+                Image("AppLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 46, height: 46)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(color: Theme.flareShadow, radius: 8, y: 3)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(Bundle.main.name.isEmpty ? "VexSign" : Bundle.main.name)
+                        .font(.headline)
+                    Text(verbatim: .localized("Version %@", arguments: Bundle.main.version))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+
+                Spacer(minLength: 8)
+
+                #if !NIGHTLY && !DEBUG
+                Button {
+                    NBHaptic.selection()
+                    UIApplication.open(_githubUrl)
+                } label: {
+                    Label(.localized("Star"), systemImage: "star.fill")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(Color.userTint)
+                        .background(Color.userTint.opacity(0.16), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(.localized("Star VexSign on GitHub")))
+                #endif
+            }
+            .padding(.vertical, 2)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
     }
 

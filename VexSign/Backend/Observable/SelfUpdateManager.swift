@@ -307,7 +307,12 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		// of what Game Mode stops. The manual check in Settings still works.
 		guard !GameMode.isEnabled else { return }
 		await check()
-		if available != nil { presentUpdatePrompt = true }
+		if let release = available {
+			presentUpdatePrompt = true
+			// The prompt is the announcement; remember it so a dismissed prompt can still be
+			// delivered as a notification by the next check.
+			SelfUpdateNotifier.noteSurfaced(release.version)
+		}
 	}
 
 	@MainActor
@@ -322,6 +327,10 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 			latestSemver = releases.first { $0.isSemver && !$0.isPrerelease }
 			UserDefaults.standard.set(Date(), forKey: Keys.lastCheck)
 			recomputeAvailable()
+			// Announce a release once, the first time this build sees it.
+			if let candidate = available {
+				await SelfUpdateNotifier.notifyIfNeeded(candidate)
+			}
 		} catch {
 			Logger.misc.error("Self-update check failed: \(error.localizedDescription)")
 		}
