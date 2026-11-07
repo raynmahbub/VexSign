@@ -36,9 +36,11 @@ require validation. Structural/mock tests are not proof of these properties.
 
 ```sh
 make VexSign
-python3 EmbeddedContainer/build.py --mode native-primary --vexsign-ipa packages/VexSign.ipa
+APP_VERSION="$(grep -m1 -oE 'MARKETING_VERSION = [^;]+' VexSign.xcodeproj/project.pbxproj | awk '{print $3}')"
+VEXSIGN_IPA="packages/VexSign-${APP_VERSION}.ipa"
+python3 EmbeddedContainer/build.py --mode native-primary --vexsign-ipa "$VEXSIGN_IPA"
 # Reproduce the older explicitly isolated guest-host prototype:
-python3 EmbeddedContainer/build.py --mode guest-prototype --vexsign-ipa packages/VexSign.ipa
+python3 EmbeddedContainer/build.py --mode guest-prototype --vexsign-ipa "$VEXSIGN_IPA"
 ```
 
 Choose `host_mode` in **Combined native host · build only**. Path-filtered PR/main
@@ -88,7 +90,8 @@ git submodule update --init --recursive
 brew install ldid
 # gh must be authenticated normally; never embed a token in source/arguments.
 make VexSign
-python3 EmbeddedContainer/build.py --vexsign-ipa packages/VexSign.ipa
+APP_VERSION="$(grep -m1 -oE 'MARKETING_VERSION = [^;]+' VexSign.xcodeproj/project.pbxproj | awk '{print $3}')"
+python3 EmbeddedContainer/build.py --vexsign-ipa "packages/VexSign-${APP_VERSION}.ipa"
 ```
 
 Or manually run **Combined native host · build only** with `host_mode=guest-prototype` on the desired branch. It has
@@ -224,7 +227,7 @@ There are two different installation inventories:
   device-installed or combine these inventories into a single misleading badge.
 
 For a single-install **prototype** test, install the combined host IPA from the
-manual workflow, not the ordinary `VexSign.ipa`. SideStore and the bundled VexSign
+manual workflow, not the ordinary versioned `VexSign-<version>.ipa`. SideStore and the bundled VexSign
 are then opened inside the host; no separate SideStore or LiveContainer app
 installation is needed. Initial host installation/re-signing, pairing, Apple
 account setup and any signing/JIT prerequisites still apply. This does not bypass

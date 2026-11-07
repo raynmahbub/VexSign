@@ -100,7 +100,7 @@ The machine-readable rules live in
 | Command | Purpose |
 | --- | --- |
 | `make bootstrap` | Validate the toolchain and resolve packages. |
-| `make` | Build `packages/VexSign.ipa` unsigned. |
+| `make` | Build `packages/VexSign-<version>.ipa` unsigned (version from the Xcode project). |
 | `make clean` | Remove build products and staging directories. |
 | `make verify` | Run the fast repository and policy gates. |
 | `make test` | Run simulator tests. |

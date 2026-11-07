@@ -115,6 +115,7 @@ class ChangelogTests(unittest.TestCase):
                     env={**os.environ, 'VERSION': version, 'REAL_SED': shutil.which('sed'),
                          'PATH': str(shim) + os.pathsep + os.environ['PATH'], **extra})
             stable = notes('1.1.0')
+            self.assertIn('VexSign-1.1.0.ipa', stable)
             self.assertIn('after stable', stable)
             self.assertIn('after nightly', stable)
             self.assertNotIn('- initial', stable)
@@ -122,6 +123,7 @@ class ChangelogTests(unittest.TestCase):
             self.assertIn('### Other changes', stable)
             self.assertIn('- 123 unclassified subject', stable)
             empty = notes('1.1.0-nightly.2', BASE_SHA=git('rev-parse', 'HEAD').strip())
+            self.assertIn('VexSign-1.1.0.ipa', empty)
             self.assertIn('No source changes', empty)
             self.assertNotIn('- after nightly', empty)
 
