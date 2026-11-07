@@ -37,21 +37,12 @@ struct HomeView: View {
     @State private var universalQuery = ""
 
     @ObservedObject private var appearance = AppearanceStore.shared
-    @ObservedObject private var tasks = UnifiedTaskCenter.shared
     @ObservedObject private var libraryStatus = LibraryStatusStore.shared
     @AppStorage("vexsign.selectedCert") private var selectedCertificateIndex = 0
 
-    private var visibleAppCount: Int {
-        let signed = signedApps.filter { app in
-            guard lockManager.strictHidingEnabled, let uuid = app.uuid else { return true }
-            return !lockManager.isStrictlyHidden(uuid)
-        }.count
-        let imported = importedApps.filter { app in
-            guard lockManager.strictHidingEnabled, let uuid = app.uuid else { return true }
-            return !lockManager.isStrictlyHidden(uuid)
-        }.count
-        return signed + imported
-    }
+    /// One privacy-filtered count feeds every Home presentation, so the Flare and
+    /// dashboard themes never disagree about how many apps are visible.
+    private var visibleAppCount: Int { dashboardVisibleApps.count }
 
     private var isFlareWebTheme: Bool {
         appearance.isFlare
@@ -85,24 +76,26 @@ struct HomeView: View {
                         universalSearchBar
                         if EmbeddedContainerRuntime.isAvailable { embeddedSwitches }
                         if appearance.visualTheme.isLegacyPresentation {
-                        header
-                        if isFlareWebTheme { flareHero }
-                        statistics
-                        updatesCard
-                        importCard
-                        packageURLField
-                        quickSignRow
-                        featureRows
+                            header
+                            if isFlareWebTheme { flareHero }
+                            statistics
+                            updatesCard
+                            importCard
+                            packageURLField
+                            quickSignRow
+                            featureRows
                         } else {
+                            // The dashboard already includes import, quick sign, updates,
+                            // URL downloads, metrics and workspace tools. Keep one source of
+                            // each action instead of stacking a second quick panel above it.
                             workspaceDashboard
                         }
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 22)
-                    .padding(.bottom, 116)
+                    .padding(.bottom, 32)
                 }
             }
-            .overlay(alignment: .bottomTrailing) { floatingImportButton }
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 if updateChecker.availableUpdates.isEmpty {
@@ -366,49 +359,13 @@ struct HomeView: View {
             }
         }
         .buttonStyle(VexSignFlareButtonStyle())
+        .accessibilityIdentifier(A11y.Home.importPackages)
         .onDrop(of: [UTType.fileURL.identifier, UTType.item.identifier], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(.localized("Import IPA or TIPA")))
         .accessibilityHint(Text(.localized("Choose an IPA or TIPA file from Files, or drop one here.")))
-    }
-
-    /// FlareStore's round import button, kept in both layouts: the dashboard and the Flare grid
-    /// each have their own "Import IPA" tile, but the tap that starts an import should stay in
-    /// one place instead of moving with the theme or with the scroll position.
-    ///
-    /// It floats above the content and respects the tab bar's safe-area inset, so it never
-    /// overlaps the bar or the last row.
-    private var floatingImportButton: some View {
-        Button { browseForPackages() } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 58, height: 58)
-                .background(
-                    Circle().fill(
-                        LinearGradient(
-                            colors: [importAccent, importAccent.opacity(0.74)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                )
-                .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
-                .shadow(color: importAccent.opacity(0.45), radius: 16, y: 7)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .padding(.trailing, 18)
-        .padding(.bottom, 14)
-        .accessibilityIdentifier(A11y.Home.importPackages)
-        .accessibilityLabel(Text(.localized("Import IPA")))
-        .accessibilityHint(Text(.localized("Choose an IPA or TIPA file from Files.")))
-    }
-
-    private var importAccent: Color {
-        isFlareWebTheme ? FlarePalette.pink : Theme.tint
     }
 
     private var packageURLField: some View {

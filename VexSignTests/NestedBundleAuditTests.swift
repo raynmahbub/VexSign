@@ -131,6 +131,28 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertFalse(report.isClean)
 	}
 
+	func testCompatibilityRemovalSkipsOnlyKnownUncoveredBundles() throws {
+		let covered = try makeBundle("PlugIns/Compatible.appex", identifier: "com.frameradar.app.widget")
+		let unsupportedNames = ["AirportNotifications", "Intents", "IntentsUI", "LiveActivitiesWidget", "RichNotifications"]
+		let unsupported = try unsupportedNames.map { name in
+			try makeBundle("PlugIns/\(name).appex", identifier: "org.frameradar.extension.\(name)")
+		}
+		let appInfo = appBundle.appendingPathComponent("Info.plist")
+		try Data("main app".utf8).write(to: appInfo)
+
+		let removed = try NestedBundleAudit.removeUncoveredBundles(
+			in: appBundle,
+			profilePattern: "TEAM12345.com.frameradar.app.*"
+		)
+
+		XCTAssertEqual(Set(removed.map(\.bundle.displayName)), Set(unsupportedNames.map { "\($0).appex" }))
+		XCTAssertTrue(FileManager.default.fileExists(atPath: covered.path))
+		for bundle in unsupported {
+			XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.path))
+		}
+		XCTAssertTrue(FileManager.default.fileExists(atPath: appInfo.path), "the main app must remain intact")
+	}
+
 	/// An extension is only reported when the comparison actually says no. Without a profile, or
 	/// without an identifier, nothing is known — and unknown must never be dressed up as a failure.
 	func testWithoutAProfileEverythingIsUnknownAndNeverReported() throws {

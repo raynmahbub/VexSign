@@ -175,8 +175,8 @@ enum PreflightChecks {
 		// signing path itself rather than guessed at here.
 		guard options.signingOption == .default, let certificate, let profile = certificate.decodedProfile else { return }
 
-		// Extensions the options strip before signing (`removeAppExtensions`) are gone by the
-		// time the engine runs, so they are not something the profile has to cover.
+		// Extensions stripped by the blanket option are excluded here. Compatibility mode keeps
+		// the identifiers in the target so ProfileCompatibility can report exactly what it will remove.
 		let nested = Storage.shared.getAppDirectory(for: app)
 			.map { NestedBundleAudit.requiredIdentifiers(in: $0, removeAppExtensions: options.removeAppExtensions) } ?? []
 

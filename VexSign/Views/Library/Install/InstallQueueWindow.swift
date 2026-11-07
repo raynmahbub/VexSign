@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import IDeviceSwift
 import NimbleExtensions
 
 /// Its own window because the download overlay or signing cover is often already presenting, and a
@@ -114,7 +115,9 @@ private struct InstallQueueSheet: View {
 				}
 				.frame(maxWidth: .infinity, maxHeight: .infinity)
 				.background(Color(UIColor.secondarySystemBackground))
-			} else if let installer = queue.installer, let current = queue.current {
+            } else if let failure = queue.failurePresentation {
+                InstallQueueFailureView(queue: queue, failure: failure)
+            } else if let installer = queue.installer, let current = queue.current {
 				InstallCardView(
 					installer: installer,
 					upcoming: queue.upcoming,
@@ -131,11 +134,83 @@ private struct InstallQueueSheet: View {
 			}
 		}
 		.animation(.easeInOut(duration: 0.22), value: queue.index)
-		.presentationDetents([.height(200)])
+        .presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(200)])
 		.presentationDragIndicator(.visible)
 		.onAppear { queue.activate() }
 		.onDisappear { queue.isSheetPresented = false }
 	}
+}
+
+// MARK: - View: Failure
+/// Installation errors stay in the queue sheet instead of presenting a UIKit alert from another
+/// window. This keeps the failure actions above the install card and avoids dismissal races.
+private struct InstallQueueFailureView: View {
+    @ObservedObject var queue: InstallQueue
+    let failure: InstallQueue.FailurePresentation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: failure.needsTrust ? "lock.shield" : "exclamationmark.triangle.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(failure.needsTrust ? Color.orange : Color.red)
+                Text(failure.title)
+                    .font(.headline)
+                    .lineLimit(2)
+            }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(failure.message)
+                        .font(.subheadline)
+                    Text(failure.details)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    if failure.waitingCount > 0 {
+                        Text(String.localized("%lld more apps are waiting.", arguments: failure.waitingCount))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 10) {
+                Button(.localized("Retry")) {
+                    HeartbeatManager.shared.start(true)
+                    queue.retryCurrent()
+                }
+                .buttonStyle(.borderedProminent)
+                if failure.canRetryLocally {
+                    Button(.localized("Retry with Semi Local (localhost)")) {
+                        HeartbeatManager.shared.start(true)
+                        queue.retryCurrent(useLocalhost: true)
+                    }
+                    .buttonStyle(.bordered)
+                    .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack {
+                Button(failure.waitingCount == 0 ? String.localized("Close") : String.localized("Skip")) {
+                    HeartbeatManager.shared.start(true)
+                    queue.skip()
+                }
+                .buttonStyle(.bordered)
+                Spacer()
+                Button(.localized("Stop"), role: .destructive) {
+                    HeartbeatManager.shared.start(true)
+                    queue.stopAfterFailure()
+                }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(UIColor.secondarySystemBackground))
+    }
 }
 
 // MARK: - View: Pill

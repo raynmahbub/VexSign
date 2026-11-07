@@ -15,14 +15,30 @@ class OptionsManager: ObservableObject {
 	
 	@Published var options: Options
 	private let _key = "signing_options"
+	private let _extensionCompatibilityMigrationKey = "signing_options.auto_remove_unsupported_extensions_migrated"
 	
 	init() {
+		var loadedOptions: Options
 		if
 			let data = UserDefaults.standard.data(forKey: _key),
 			let savedOptions = try? JSONDecoder().decode(Options.self, from: data) {
-			self.options = savedOptions
+			loadedOptions = savedOptions
 		} else {
-			self.options = Options.defaultOptions
+			loadedOptions = Options.defaultOptions
+		}
+
+		// Compatibility mode used to default off, so a saved Options blob can contain an
+		// implicit false even for users who never changed the toggle. Enable the safer
+		// keep-compatible/remove-known-uncovered behaviour once on upgrade; users can still
+		// switch it off afterwards, and that explicit choice is preserved on later launches.
+		let didMigrateCompatibility = !UserDefaults.standard.bool(forKey: _extensionCompatibilityMigrationKey)
+		if didMigrateCompatibility {
+			loadedOptions.autoRemoveUnsupportedExtensions = true
+			UserDefaults.standard.set(true, forKey: _extensionCompatibilityMigrationKey)
+		}
+
+		self.options = loadedOptions
+		if didMigrateCompatibility || UserDefaults.standard.data(forKey: _key) == nil {
 			self.saveOptions()
 		}
 	}
@@ -105,6 +121,9 @@ struct Options: Codable, Equatable {
 	/// If app extensions (PlugIns/ and Extensions/) should be stripped from the app bundle.
 	/// Defaults to `false` so widget/app extensions are preserved when signing.
 	var removeAppExtensions: Bool
+	/// Automatically removes only nested app bundles the selected profile cannot sign.
+	/// Covered extensions are preserved; unknown coverage is left untouched.
+	var autoRemoveUnsupportedExtensions: Bool
 	/// Gives each signed app a keychain group derived from its bundle id so apps can't read each other's entries
 	var keychainIsolation: Bool
 	/// Signs with JIT entitlements (`dynamic-codesigning`). Only PPQ certificates can carry them.
@@ -169,6 +188,7 @@ struct Options: Codable, Equatable {
 		changeLanguageFilesForCustomDisplayName: false,
 		injectIntoExtensions: false,
 		removeAppExtensions: false,
+		autoRemoveUnsupportedExtensions: true,
 		keychainIsolation: false,
 		enableJIT: false,
 		fixFilePicker: false,
@@ -301,6 +321,7 @@ extension Options {
 		changeLanguageFilesForCustomDisplayName = try c.decodeIfPresent(Bool.self, forKey: .changeLanguageFilesForCustomDisplayName) ?? d.changeLanguageFilesForCustomDisplayName
 		injectIntoExtensions = try c.decodeIfPresent(Bool.self, forKey: .injectIntoExtensions) ?? d.injectIntoExtensions
 		removeAppExtensions = try c.decodeIfPresent(Bool.self, forKey: .removeAppExtensions) ?? d.removeAppExtensions
+		autoRemoveUnsupportedExtensions = try c.decodeIfPresent(Bool.self, forKey: .autoRemoveUnsupportedExtensions) ?? d.autoRemoveUnsupportedExtensions
 		keychainIsolation = try c.decodeIfPresent(Bool.self, forKey: .keychainIsolation) ?? d.keychainIsolation
 		enableJIT = try c.decodeIfPresent(Bool.self, forKey: .enableJIT) ?? d.enableJIT
 		fixFilePicker = try c.decodeIfPresent(Bool.self, forKey: .fixFilePicker) ?? d.fixFilePicker

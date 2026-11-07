@@ -78,7 +78,7 @@ class AutopilotTests(unittest.TestCase):
 
     def test_release_project_targets_share_the_selected_version(self):
         project = Path(__file__).resolve().parents[1] / 'VexSign.xcodeproj/project.pbxproj'
-        self.assertEqual(stable.version(project.read_text()), '1.2.0')
+        self.assertEqual(stable.version(project.read_text()), '1.2.1')
 
 
 class RepositoryEndpointTests(unittest.TestCase):

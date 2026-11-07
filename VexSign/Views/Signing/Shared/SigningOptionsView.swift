@@ -145,6 +145,18 @@ struct SigningOptionsView: View {
 		
 		NBSection(.localized("Removal")) {
 			_toggle(
+				.localized("Remove Unsupported Extensions Automatically"),
+				systemImage: "puzzlepiece.extension.fill",
+				isOn: $options.autoRemoveUnsupportedExtensions,
+				temporaryValue: temporaryOptions?.autoRemoveUnsupportedExtensions
+			)
+			_toggle(
+				.localized("Remove All App Extensions"),
+				systemImage: "puzzlepiece.extension",
+				isOn: $options.removeAppExtensions,
+				temporaryValue: temporaryOptions?.removeAppExtensions
+			)
+			_toggle(
 				.localized("Remove URL Scheme"),
 				systemImage: "ellipsis.curlybraces",
 				isOn: $options.removeURLScheme,
@@ -158,7 +170,10 @@ struct SigningOptionsView: View {
 				temporaryValue: temporaryOptions?.removeProvisioning
 			)
 		} footer: {
-			Text(.localized("Removing the provisioning file will exclude the mobileprovision file from being embedded inside of the application when signing, to help prevent any detection."))
+			VStack(alignment: .leading, spacing: 6) {
+				Text(.localized("Compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions or Watch apps. Unknown coverage is left intact. Remove All App Extensions is the separate, blanket option."))
+				Text(.localized("Removing the provisioning file excludes the mobileprovision file from the signed app bundle."))
+			}
 		}
 		
 		Section {

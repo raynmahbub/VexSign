@@ -30,6 +30,9 @@ enum ProfileCompatibility {
 		let bundleIdentifier: String?
 		/// Extensions and other nested bundles that must also be covered.
 		let nestedBundleIdentifiers: [String]
+		/// When enabled, known-uncovered nested bundles are removed before signing instead of
+		/// blocking the main app. The main app's own coverage remains a hard requirement.
+		let automaticallyRemoveUncoveredExtensions: Bool
 		/// Entitlements the user asked for (from a picked entitlements file), if any.
 		let requestedEntitlements: [String: Any]
 		/// The team the app is expected to belong to, when that is known independently of the
@@ -42,12 +45,14 @@ enum ProfileCompatibility {
 		init(
 			bundleIdentifier: String?,
 			nestedBundleIdentifiers: [String] = [],
+			automaticallyRemoveUncoveredExtensions: Bool = false,
 			requestedEntitlements: [String: Any] = [:],
 			teamIdentifier: String? = nil,
 			deviceUDID: String? = nil
 		) {
 			self.bundleIdentifier = bundleIdentifier
 			self.nestedBundleIdentifiers = nestedBundleIdentifiers
+			self.automaticallyRemoveUncoveredExtensions = automaticallyRemoveUncoveredExtensions
 			self.requestedEntitlements = requestedEntitlements
 			self.teamIdentifier = teamIdentifier
 			self.deviceUDID = deviceUDID
@@ -61,6 +66,7 @@ enum ProfileCompatibility {
 			self.init(
 				bundleIdentifier: (override?.isEmpty == false ? override : nil) ?? app.identifier,
 				nestedBundleIdentifiers: nestedBundleIdentifiers,
+				automaticallyRemoveUncoveredExtensions: options.autoRemoveUnsupportedExtensions,
 				requestedEntitlements: requested,
 				teamIdentifier: ProfileCompatibility.teamIdentifier(in: requested)
 			)
@@ -194,20 +200,18 @@ enum ProfileCompatibility {
 			)
 		}
 
-		// 3. Extensions have to be covered too.
-		//
-		// This blocks because `SignatureVerifier` already treats the same condition — a nested
-		// identifier the embedded profile does not cover — as a failure of the finished bundle.
-		// Warning here and failing there meant the sheet said "Start Signing" with an orange
-		// note, and the run was discarded a stage after the tap. Saying it now costs one tap and
-		// makes the "Sign Anyway" override the place where the user decides.
+		// 3. Retained extensions have to be covered too. Strict mode blocks because the signer
+		// uses the outer asset for every nested bundle; compatibility mode instead warns because
+		// the handler will remove only the known-uncovered bundles before signing.
 		if let pattern {
 			for nested in target.nestedBundleIdentifiers where !SignatureVerifier.coverage(of: pattern, includes: nested) {
 				issues.append(
 					Issue(
 						code: .extensionNotCovered,
-						severity: .blocking,
-						detail: .localized("%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, remove app extensions, or sign anyway.", arguments: nested)
+						severity: target.automaticallyRemoveUncoveredExtensions ? .warning : .blocking,
+						detail: target.automaticallyRemoveUncoveredExtensions
+							? .localized("%@ is not covered by this profile and will be removed in compatibility mode. The main app and covered extensions will still be signed.", arguments: nested)
+							: .localized("%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, enable compatibility mode, or sign anyway.", arguments: nested)
 					)
 				)
 			}

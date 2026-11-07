@@ -102044,6 +102044,215 @@
           }
         }
       }
+    },
+    "%@ is not covered by this profile and will be removed in compatibility mode. The main app and covered extensions will still be signed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not covered by this profile and will be removed in compatibility mode. The main app and covered extensions will still be signed."
+          }
+        }
+      }
+    },
+    "%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, enable compatibility mode, or sign anyway." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, enable compatibility mode, or sign anyway."
+          }
+        }
+      }
+    },
+    "Compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions or Watch apps. Unknown coverage is left intact. Remove All App Extensions is the separate, blanket option." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions or Watch apps. Unknown coverage is left intact. Remove All App Extensions is the separate, blanket option."
+          }
+        }
+      }
+    },
+    "Compatibility mode removed %@ (%@): not covered by %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compatibility mode removed %@ (%@): not covered by %@."
+          }
+        }
+      }
+    },
+    "Delete custom entitlements?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete custom entitlements?"
+          }
+        }
+      }
+    },
+    "Delete selected entitlements?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete selected entitlements?"
+          }
+        }
+      }
+    },
+    "Delete entitlement?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete entitlement?"
+          }
+        }
+      }
+    },
+    "Entitlements file actions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entitlements file actions"
+          }
+        }
+      }
+    },
+    "Keep all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep all"
+          }
+        }
+      }
+    },
+    "Keep compatible; remove unsupported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep compatible; remove unsupported"
+          }
+        }
+      }
+    },
+    "Remove All App Extensions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove All App Extensions"
+          }
+        }
+      }
+    },
+    "Remove Unsupported Extensions Automatically" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Unsupported Extensions Automatically"
+          }
+        }
+      }
+    },
+    "Remove all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove all"
+          }
+        }
+      }
+    },
+    "Removed %lld unsupported nested bundle(s); the main app and profile-covered extensions were retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed %lld unsupported nested bundle(s); the main app and profile-covered extensions were retained."
+          }
+        }
+      }
+    },
+    "Removing the provisioning file excludes the mobileprovision file from the signed app bundle." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing the provisioning file excludes the mobileprovision file from the signed app bundle."
+          }
+        }
+      }
+    },
+    "The selected profile cannot sign all retained extensions. Choose a compatible profile, enable automatic compatibility mode, explicitly enable Remove App Extensions, or sign anyway. %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected profile cannot sign all retained extensions. Choose a compatible profile, enable automatic compatibility mode, explicitly enable Remove App Extensions, or sign anyway. %@"
+          }
+        }
+      }
+    },
+    "This permanently removes %lld selected key(s) from this custom entitlements file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This permanently removes %lld selected key(s) from this custom entitlements file."
+          }
+        }
+      }
+    },
+    "Preparing signing review…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing signing review…"
+          }
+        }
+      }
+    },
+    "VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
