@@ -55,7 +55,6 @@ struct VexHomeDashboard: View {
             hero
             metrics
             if needsSetup { gettingStarted }
-            quickActions
             statusSection
             if !recentApps.isEmpty { recentAppsSection }
             toolsSection
@@ -134,6 +133,7 @@ struct VexHomeDashboard: View {
                     filled: true,
                     action: onImport
                 )
+                .accessibilityIdentifier(A11y.Home.importPackages)
                 VexHeroAction(
                     title: .localized("Quick sign"),
                     systemImage: "signature",
@@ -301,47 +301,6 @@ struct VexHomeDashboard: View {
                     systemImage: "square.and.arrow.down",
                     done: appCount > 0,
                     action: onImport
-                )
-            }
-        }
-    }
-
-    // MARK: - Quick actions
-
-    private var quickActions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VexSectionTitle(title: .localized("Quick actions"), detail: .localized("The things you do most, one tap away."))
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
-                spacing: 12
-            ) {
-                VexQuickAction(
-                    title: .localized("Import IPA"),
-                    detail: .localized("From Files"),
-                    systemImage: "square.and.arrow.down.fill",
-                    tint: Theme.tint,
-                    action: onImport
-                )
-                VexQuickAction(
-                    title: .localized("Quick sign"),
-                    detail: .localized("Pick and sign"),
-                    systemImage: "signature",
-                    tint: Theme.websiteAccentSecondary,
-                    action: onQuickSign
-                )
-                VexQuickAction(
-                    title: .localized("Library"),
-                    detail: String.localized("%lld apps", arguments: appCount),
-                    systemImage: "square.grid.2x2.fill",
-                    tint: Color(red: 0.36, green: 0.78, blue: 0.58),
-                    action: { onOpenTab(.library) }
-                )
-                VexQuickAction(
-                    title: .localized("Discover"),
-                    detail: .localized("Browse sources"),
-                    systemImage: "globe.desk.fill",
-                    tint: Color(red: 0.96, green: 0.56, blue: 0.32),
-                    action: { onOpenTab(.appStore) }
                 )
             }
         }
