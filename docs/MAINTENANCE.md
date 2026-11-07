@@ -1,8 +1,9 @@
 # Repository operations
 
-One guide for free-only automation, dependency maintenance and occasional human
-checks. Build commands live in [Build](BUILD.md); version/channel/environment
-rules live in [Releasing](RELEASING.md). Security and device acceptance stay separate.
+One guide for deterministic repository automation, optional paid CI repair,
+dependency maintenance and occasional human checks. Build commands live in
+[Build](BUILD.md); version/channel/environment rules live in [Releasing](RELEASING.md).
+Security and device acceptance stay separate.
 
 ## Your normal routine
 
