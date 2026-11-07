@@ -147,6 +147,9 @@ jobs:
           TMPDIR: ${{ runner.temp }}/
         run: |
           set -uo pipefail
+          APP_VERSION="$(grep -oE 'MARKETING_VERSION = [^;]+;' VexSign.xcodeproj/project.pbxproj \
+            | head -n 1 | sed -E 's/.*= "?([^";]+)"?;.*/\1/')"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
           make VexSign 2>&1 | tee "$RUNNER_TEMP/vexsign-build.log"
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
@@ -164,7 +167,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: VexSign-native-input-unsigned
-          path: packages/VexSign.ipa
+          path: packages/VexSign-${{ steps.native_input.outputs.app_version }}.ipa
           if-no-files-found: error
           retention-days: 14
       - name: Build native host and combined IPA
@@ -174,7 +177,9 @@ jobs:
           HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
           set -uo pipefail
-          python3 EmbeddedContainer/build.py --mode "$HOST_MODE" --vexsign-ipa packages/VexSign.ipa 2>&1 | tee "$RUNNER_TEMP/combined-build.log"
+          python3 EmbeddedContainer/build.py --mode "$HOST_MODE" \
+            --vexsign-ipa "packages/VexSign-${{ steps.native_input.outputs.app_version }}.ipa" \
+            2>&1 | tee "$RUNNER_TEMP/combined-build.log"
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"

@@ -1,6 +1,9 @@
 NAME := VexSign
 PLATFORM := iphoneos
 SCHEMES := VexSign
+# Keep the distributable filename tied to the Xcode app version.
+APP_VERSION ?= $(shell grep -m1 'MARKETING_VERSION = ' VexSign.xcodeproj/project.pbxproj | sed -E 's/.*MARKETING_VERSION = "?([^";]+)"?;.*/\1/')
+IPA_FILE := packages/$(NAME)-$(APP_VERSION).ipa
 # TMPDIR is unset in some environments (plain Linux CI, bare shells); without a
 # fallback the paths below would resolve to "/$(NAME)" and fail on permissions.
 TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
@@ -13,7 +16,7 @@ all: $(SCHEMES)
 # Keep all as the default; help must never replace the IPA build.
 help:
 	@printf '%s\n' \
-	  'make                  Build unsigned packages/VexSign.ipa (macOS/Xcode)' \
+	  'make                  Build unsigned packages/VexSign-<version>.ipa (macOS/Xcode)' \
 	  'make bootstrap        Validate toolchain and resolve Swift packages' \
 	  'make verify           Portable repository checks and Python policy tests' \
 	  'make docs-check       Check local Markdown file links (offline)' \
@@ -68,7 +71,7 @@ $(SCHEMES):
 	ln -sf "$(STAGE)/Payload" Payload
 	
 	mkdir -p packages
-	zip -r9 "packages/$@.ipa" Payload
+	zip -r9 "$(IPA_FILE)" Payload
 
 # Self-hosted backend (server/). Keep this BELOW `all` — make builds the first
 # target in the file, so a rule above it would hijack a bare `make` (which is

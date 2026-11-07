@@ -56,6 +56,22 @@ def index_path() -> Path:
     return store_dir() / "apps.json"
 
 
+def _stored_ipa_path(filename: str) -> Path | None:
+    """Resolve a stored filename without allowing index data to escape apps/."""
+    if not filename or Path(filename).name != filename:
+        return None
+    root = apps_dir().resolve()
+    candidate = root / filename
+    # Reject symlinks rather than resolving them: removal must unlink only the
+    # indexed entry itself, and serving must not follow a link outside apps/.
+    if candidate.is_symlink():
+        return None
+    try:
+        return candidate if candidate.resolve(strict=False).parent == root else None
+    except OSError:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
@@ -202,10 +218,11 @@ class RepoStore:
 
         with self._lock:
             apps_dir().mkdir(parents=True, exist_ok=True)
+            previous_apps = self._load()
             shutil.copyfile(source, destination)
 
             apps = [
-                app for app in self._load()
+                app for app in previous_apps
                 if app.bundle_identifier != metadata["bundle_identifier"]
             ]
             app = RepoApp(
@@ -220,7 +237,20 @@ class RepoStore:
                 category=category or "Utilities",
             )
             apps.append(app)
+            # Persist the new index before pruning old versions. If saving fails,
+            # the previous index and IPA remain usable; after success, remove only
+            # files no longer referenced by any app entry (including malformed or
+            # duplicate index entries for another bundle).
             self._save(apps)
+            referenced = {entry.filename for entry in apps}
+            for old_app in previous_apps:
+                if old_app.filename != filename and old_app.filename not in referenced:
+                    old_path = _stored_ipa_path(old_app.filename)
+                    if old_path is not None:
+                        try:
+                            old_path.unlink()
+                        except OSError:
+                            pass
 
         return app
 
@@ -231,18 +261,21 @@ class RepoStore:
             if len(remaining) == len(apps):
                 return False
 
-            for app in apps:
-                if app.bundle_identifier == bundle_id:
-                    try:
-                        (apps_dir() / app.filename).unlink()
-                    except OSError:
-                        pass
             self._save(remaining)
+            referenced = {app.filename for app in remaining}
+            for app in apps:
+                if app.bundle_identifier == bundle_id and app.filename not in referenced:
+                    path = _stored_ipa_path(app.filename)
+                    if path is not None:
+                        try:
+                            path.unlink()
+                        except OSError:
+                            pass
             return True
 
     def ipa_path(self, app: RepoApp) -> Path | None:
-        path = apps_dir() / app.filename
-        return path if path.exists() else None
+        path = _stored_ipa_path(app.filename)
+        return path if path is not None and path.is_file() else None
 
 
 store = RepoStore()

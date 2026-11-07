@@ -106,6 +106,11 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertIn(f'steps.{stage}.outputs.exit_code', text)
         self.assertIn("if: always() && steps.native_input.outcome == 'success'", text)
         self.assertIn('name: VexSign-native-input-unsigned', text)
+        self.assertIn('echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"', text)
+        versioned_ipa = 'packages/VexSign-${{ steps.native_input.outputs.app_version }}.ipa'
+        self.assertIn(f'path: {versioned_ipa}', text)
+        self.assertIn(f'--vexsign-ipa "{versioned_ipa}"', text)
+        self.assertNotIn('packages/VexSign.ipa', text)
         self.assertNotIn('continue-on-error:', text)
 
     def test_native_diagnostics_parse_both_compiler_and_xctest_locations(self):

@@ -20,11 +20,12 @@ class ReleaseAssetTests(unittest.TestCase):
         for channel in ('stable', 'nightly', 'prerelease'):
             with self.subTest(channel=channel), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory)
-                (output / 'VexSign.ipa').write_bytes(b'test artifact, not a real IPA')
+                (output / 'VexSign-1.2.0.ipa').write_bytes(b'test artifact, not a real IPA')
                 with patch.object(assets.subprocess, 'check_output', side_effect=['a' * 40, '## Changes\n']):
                     assets.prepare(output, '1.2.0', channel, 'owner/repo')
                 metadata = json.loads((output / 'RELEASE.json').read_text())
                 self.assertEqual(metadata['channel'], channel)
+                self.assertEqual(metadata['ipa']['name'], 'VexSign-1.2.0.ipa')
                 self.assertTrue(metadata['unsigned'])
                 notes = (output / 'CHANGELOG.md').read_text()
                 self.assertIn('not a screenshot', notes)
@@ -34,10 +35,19 @@ class ReleaseAssetTests(unittest.TestCase):
                     self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), digest)
                 self.assertEqual(len((output / 'SHA256SUMS').read_text().splitlines()), 5)
 
+    def test_prerelease_asset_uses_base_app_version_in_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'VexSign-1.2.0.ipa').write_bytes(b'pre-release artifact')
+            with patch.object(assets.subprocess, 'check_output', side_effect=['a' * 40, '## Changes\\n']):
+                assets.prepare(output, '1.2.0-nightly.20261107.1', 'nightly', 'owner/repo')
+            metadata = json.loads((output / 'RELEASE.json').read_text())
+            self.assertEqual(metadata['ipa']['name'], 'VexSign-1.2.0.ipa')
+
     def test_reviewed_stable_notes_do_not_republish_obsolete_commit_claims(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
-            (output / 'VexSign.ipa').write_bytes(b'synthetic artifact')
+            (output / 'VexSign-1.1.0.ipa').write_bytes(b'synthetic artifact')
             with patch.object(assets.subprocess, 'check_output', side_effect=[
                     'a' * 40, 'feat: obsolete claim of complete native signing and unattended renewal']):
                 assets.prepare(output, '1.1.0', 'stable', 'owner/repo')
@@ -47,6 +57,19 @@ class ReleaseAssetTests(unittest.TestCase):
             self.assertIn('default CMS gate remains closed', notes)
             self.assertIn('versioned changelog', notes)
             self.assertEqual(json.loads((output / 'RELEASE.json').read_text())['notes_source'], 'reviewed-version-notes')
+
+    def test_makefile_ipa_filename_contains_app_version(self):
+        makefile = (assets.ROOT / 'Makefile').read_text()
+        self.assertIn('APP_VERSION ?=', makefile)
+        self.assertIn('IPA_FILE := packages/$(NAME)-$(APP_VERSION).ipa', makefile)
+        self.assertIn('zip -r9 "$(IPA_FILE)" Payload', makefile)
+
+    def test_misnamed_ipa_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'VexSign.ipa').write_bytes(b'legacy filename')
+            with self.assertRaisesRegex(ValueError, 'Expected versioned IPA name'):
+                assets.prepare(output, '1.2.0', 'stable', 'owner/repo')
 
     def test_missing_or_ambiguous_ipa(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -92,6 +115,7 @@ class ChangelogTests(unittest.TestCase):
                     env={**os.environ, 'VERSION': version, 'REAL_SED': shutil.which('sed'),
                          'PATH': str(shim) + os.pathsep + os.environ['PATH'], **extra})
             stable = notes('1.1.0')
+            self.assertIn('VexSign-1.1.0.ipa', stable)
             self.assertIn('after stable', stable)
             self.assertIn('after nightly', stable)
             self.assertNotIn('- initial', stable)
@@ -99,6 +123,7 @@ class ChangelogTests(unittest.TestCase):
             self.assertIn('### Other changes', stable)
             self.assertIn('- 123 unclassified subject', stable)
             empty = notes('1.1.0-nightly.2', BASE_SHA=git('rev-parse', 'HEAD').strip())
+            self.assertIn('VexSign-1.1.0.ipa', empty)
             self.assertIn('No source changes', empty)
             self.assertNotIn('- after nightly', empty)
 

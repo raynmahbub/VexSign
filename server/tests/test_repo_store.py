@@ -96,13 +96,17 @@ def test_add_replaces_the_previous_version_and_keeps_the_file(isolated_store, tm
     second = tmp_path / "v2.ipa"
     second.write_bytes(make_ipa(version="2.0"))
 
-    isolated_store.store.add(first)
+    previous = isolated_store.store.add(first)
+    previous_path = isolated_store.store.ipa_path(previous)
     app = isolated_store.store.add(second)
 
     assert app.version == "2.0"
     assert len(isolated_store.store.apps()) == 1
     assert app.size > 0
     assert isolated_store.store.ipa_path(app) is not None
+    # Replacing an app must not leave unreachable old IPA versions consuming
+    # persistent storage indefinitely.
+    assert previous_path is not None and not previous_path.exists()
 
     # The index survives a fresh read (it is a file, not memory).
     assert isolated_store.RepoStore().apps()[0].version == "2.0"
@@ -118,6 +122,23 @@ def test_remove_drops_the_entry_and_the_ipa(isolated_store, tmp_path):
     assert isolated_store.store.apps() == []
     assert stored is not None and not stored.exists()
     assert isolated_store.store.remove(app.bundle_identifier) is False
+
+
+def test_malicious_index_filename_cannot_delete_outside_store(isolated_store, tmp_path):
+    victim = tmp_path / "important.txt"
+    victim.write_text("keep me", encoding="utf-8")
+    store_root = isolated_store.store_dir()
+    store_root.mkdir(parents=True, exist_ok=True)
+    (store_root / "apps.json").write_text(
+        json.dumps({"apps": [{
+            "bundle_identifier": "com.example.malicious",
+            "name": "Malicious", "version": "1", "filename": "../important.txt",
+        }]}),
+        encoding="utf-8",
+    )
+
+    assert isolated_store.store.remove("com.example.malicious") is True
+    assert victim.read_text(encoding="utf-8") == "keep me"
 
 
 def test_source_feed_matches_what_asrepository_decodes(isolated_store, tmp_path):

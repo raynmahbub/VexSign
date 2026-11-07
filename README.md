@@ -220,7 +220,7 @@ git clone https://github.com/raynmahbub/VexSign.git
 cd VexSign
 make bootstrap
 open VexSign.xcworkspace   # VexSign scheme; choose your development team
-make                      # unsigned packages/VexSign.ipa
+make                      # unsigned packages/VexSign-<version>.ipa
 make verify               # portable checks; no Xcode required
 make test                 # iPhone simulator tests (macOS/Xcode)
 make help                 # all supported entry points

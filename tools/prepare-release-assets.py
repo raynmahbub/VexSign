@@ -20,6 +20,9 @@ def prepare(output, version, channel, repository):
     ipas = sorted(output.glob('*.ipa'))
     if len(ipas) != 1:
         raise ValueError('Exactly one built IPA is required')
+    expected_ipa = f'VexSign-{version.split("-")[0]}.ipa'
+    if ipas[0].name != expected_ipa:
+        raise ValueError(f'Expected versioned IPA name {expected_ipa}, got {ipas[0].name}')
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     raw = f'https://raw.githubusercontent.com/{repository}/{commit}'
     notes = subprocess.check_output(['bash', 'tools/generate-changelog.sh'], cwd=ROOT,
