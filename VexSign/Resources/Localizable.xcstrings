@@ -101769,6 +101769,28 @@
           }
         }
       }
+    },
+    "Star" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        }
+      }
+    },
+    "Star VexSign on GitHub" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star VexSign on GitHub"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

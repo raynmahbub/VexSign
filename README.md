@@ -23,6 +23,11 @@ self-host the optional services—not that every feature is production-ready.
 
 ## Features
 
+Every capability listed here has an implementation in this repository; the
+[architecture guide's feature coverage table](docs/ARCHITECTURE.md#readme-feature-coverage)
+maps each area to the code that provides it. That mapping is a presence check, not
+device acceptance — the caveats in each section still apply.
+
 ### ✍️ Signing & installation
 
 - **On-device IPA signing** powered by Zsign.

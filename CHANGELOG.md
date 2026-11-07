@@ -33,6 +33,18 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   selected, and the always-true availability tests were replaced with real
   assertions.
 
+### Added
+
+- Settings now opens with a compact identity header — the VexSign logo, app name
+  and version — directly above the About section. It replaces the full-width
+  "Star on GitHub" card that used to sit at the bottom of the list with a small
+  star pill in the same header row, so the link stays reachable without a
+  dedicated section. Debug and Nightly builds keep hiding the star, as before.
+  `SettingsDonationCellView` is deleted.
+- `docs/ARCHITECTURE.md` gained a **README feature coverage** table that maps
+  every feature advertised in the README to the files that implement it, with an
+  explicit statement of what that check does and does not prove.
+
 ### Changed
 
 - All GitHub workflows were slimmed down and de-duplicated: the CI quick job
