@@ -102220,6 +102220,28 @@
           }
         }
       }
+    },
+    "Preparing signing review…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing signing review…"
+          }
+        }
+      }
+    },
+    "VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

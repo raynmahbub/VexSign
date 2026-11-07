@@ -23,6 +23,19 @@ final class InstallQueue: ObservableObject {
 	@Published private(set) var isFinished = false
 	@Published private(set) var isPaused = false
 	@Published var isSheetPresented = false
+    @Published private(set) var failurePresentation: FailurePresentation?
+
+    struct FailurePresentation: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let details: String
+        let needsTrust: Bool
+        let canRetryLocally: Bool
+        let waitingCount: Int
+    }
+
+    var hasFailure: Bool { failurePresentation != nil }
 
 	/// Per-entry outcome, keyed by the entry's id, so the queue list view can show what happened.
 	@Published private(set) var outcomes: [String: InstallOutcome] = [:]
@@ -135,15 +148,22 @@ final class InstallQueue: ObservableObject {
 	func skip() {
         NBHaptic.tap()
         advanceScheduler.cancel()
+        failurePresentation = nil
 		guard let current else { _abandon(); return }
 		outcomes[current.id] = .skipped
 		_abandon()
 	}
 
+    func stopAfterFailure() {
+        NBHaptic.tap()
+        _abandonAndFinish()
+    }
+
 	/// Retries the app at `index` (or the current one) by reinstating it and advancing back.
 	func retryCurrent(useLocalhost: Bool = false) {
         NBHaptic.tap()
         advanceScheduler.cancel()
+        failurePresentation = nil
 		guard apps.indices.contains(index) else { return }
 		_teardownInstaller()
 		outcomes[apps[index].id] = .pending
@@ -235,59 +255,27 @@ final class InstallQueue: ObservableObject {
 				}
 				unifiedTask = nil
 			}
-            let failedEntryID = current?.id
-			var actions: [(String, UIAlertAction.Style, (() -> Void)?)] = [
-				(.localized("Retry"), .default, { [weak self] in
-					HeartbeatManager.shared.start(true)
-                    self?._afterInstallAlertDismisses(for: failedEntryID) { $0.retryCurrent() }
-				})
-			]
-			if installer?.canRetryUsingLocalhost == true {
-				actions.append((.localized("Retry with Semi Local (localhost)"), .default, { [weak self] in
-                    self?._afterInstallAlertDismisses(for: failedEntryID) { $0.retryCurrent(useLocalhost: true) }
-				}))
-			}
-			actions.append((upcoming.isEmpty ? .localized("Close") : .localized("Skip"), .default, { [weak self] in
-				HeartbeatManager.shared.start(true)
-                self?._afterInstallAlertDismisses(for: failedEntryID) { $0.skip() }
-			}))
-			actions.append((.localized("Stop"), .cancel, { [weak self] in
-				HeartbeatManager.shared.start(true)
-                self?._afterInstallAlertDismisses(for: failedEntryID) { $0._abandonAndFinish() }
-			}))
-            actions.insert((.localized("View installation details"), .default, {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    UIAlertController.showAlertWithOk(title: .localized("Installation Details"), message: error.localizedDescription)
-                }
-            }), at: 0)
-            let needsTrust: Bool
-            if let localError = error as? ServerInstaller.LocalInstallError, case .unavailable = localError { needsTrust = true }
-            else { needsTrust = false }
+            let localTrustFailure: Error?
+            if let localError = error as? ServerInstaller.LocalInstallError,
+               case .unavailable(let underlying) = localError {
+                localTrustFailure = underlying
+            } else {
+                localTrustFailure = nil
+            }
+            let needsTrust = localTrustFailure != nil
             let summary = needsTrust
                 ? String.localized("Local HTTPS verification failed. Check the identity in Settings → Installation → Server & SSL, export and install its Root CA profile, then enable Full Trust in iOS Certificate Trust Settings.")
-                : String.localized("VexSign could not confirm installation. If the app is already on your Home Screen, close this dialog and open it there. Otherwise review installation details before retrying.")
-            let waiting = upcoming.isEmpty ? "" : "\n\n" + String.localized("%lld more apps are waiting.", arguments: upcoming.count)
-            UIAlertController.showAlertWithOptions(
+                : String.localized("VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying.")
+            failurePresentation = FailurePresentation(
                 title: needsTrust ? .localized("HTTPS Setup Required") : (error is InstallConfirmation.Failure ? .localized("Installation Not Confirmed") : .localized("Install Failed")),
-                message: summary + waiting,
-                actions: actions
+                message: summary,
+                details: LogRedaction.redact(localTrustFailure?.localizedDescription ?? error.localizedDescription),
+                needsTrust: needsTrust,
+                canRetryLocally: installer?.canRetryUsingLocalhost == true,
+                waitingCount: upcoming.count
             )
 		}
 	}
-
-    /// UIAlertAction handlers run before UIKit has finished dismissing the alert. Keep queue
-    /// transitions off that dismissal transaction so Skip/Retry cannot tear down the window
-    /// that is still animating the alert.
-    private func _afterInstallAlertDismisses(
-        for entryID: String?,
-        _ action: @escaping (InstallQueue) -> Void
-    ) {
-        guard let entryID else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
-            guard let self, self.current?.id == entryID else { return }
-            action(self)
-        }
-    }
 
     private func _scheduleAdvance(after delay: TimeInterval, for entryID: String?) {
         guard let entryID else { return }
@@ -307,6 +295,7 @@ final class InstallQueue: ObservableObject {
     /// Retire a completed queue so its install card does not cover the app screen.
 	private func _advance() {
         advanceScheduler.cancel()
+        failurePresentation = nil
         guard current != nil else { return }
 		_teardownInstaller()
 
@@ -347,6 +336,7 @@ final class InstallQueue: ObservableObject {
 	/// Finishes with the remainder marked skipped, used by "Stop".
 	private func _abandonAndFinish() {
         advanceScheduler.cancel()
+        failurePresentation = nil
 		for entry in apps.dropFirst(index + 1) where outcomes[entry.id] == nil || outcomes[entry.id] == .pending {
 			outcomes[entry.id] = .skipped
 		}
@@ -380,6 +370,7 @@ final class InstallQueue: ObservableObject {
 
 	private func _reset() {
         advanceScheduler.cancel()
+        failurePresentation = nil
 		_teardownInstaller()
 		apps.removeAll()
 		index = 0

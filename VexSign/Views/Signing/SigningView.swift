@@ -199,27 +199,43 @@ struct SigningView: View {
                     _beginSign(overridingBlockingIssues: _signOverridingBlockingIssues)
                 }
             }) { sheet in
-                switch sheet {
-                case .preflight:
-                    if let result = _preflightResult {
-                        SigningPreflightReviewView(
-                            app: app, options: _temporaryOptions, certificate: _selectedCert(), result: result,
-                            reviewOptions: { _presentedSheet = nil },
-                            sign: { overridingBlockingIssues in
-                                _signAfterReview = true
-                                _signOverridingBlockingIssues = overridingBlockingIssues
-                                _presentedSheet = nil
+                NavigationStack {
+                    Group {
+                        switch sheet {
+                        case .preflight:
+                            Group {
+                                if let result = _preflightResult {
+                                    SigningPreflightReviewView(
+                                        app: app, options: _temporaryOptions, certificate: _selectedCert(), result: result,
+                                        reviewOptions: { _presentedSheet = nil },
+                                        sign: { overridingBlockingIssues in
+                                            _signAfterReview = true
+                                            _signOverridingBlockingIssues = overridingBlockingIssues
+                                            _presentedSheet = nil
+                                        }
+                                    )
+                                } else {
+                                    VStack(spacing: 16) {
+                                        ProgressView()
+                                        Text(.localized("Preparing signing review…"))
+                                        Button(.localized("Close")) { _presentedSheet = nil }
+                                    }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .navigationTitle(.localized("Ready to Sign"))
+                                    .navigationBarTitleDisplayMode(.inline)
+                                }
                             }
-                        )
-                        .presentationDetents([.large])
-                        .presentationDragIndicator(.visible)
+                            .presentationDetents([.large])
+                            .presentationDragIndicator(.visible)
+                        case .logs:
+                            SigningLogView()
+                                .accessibilityIdentifier(A11y.Signing.console)
+                                .presentationDetents([.medium, .large])
+                                .presentationDragIndicator(.visible)
+                        }
                     }
-                case .logs:
-                    SigningLogView()
-                        .accessibilityIdentifier(A11y.Signing.console)
-                        .presentationDetents([.medium, .large])
-                        .presentationDragIndicator(.visible)
                 }
+                .background(Theme.background.ignoresSafeArea())
 			}
 			.onAppear { _temporaryOptions = _temporaryOptions.resolved(for: app) }
         .interactiveDismissDisabled(_isSigning)
