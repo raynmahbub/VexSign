@@ -228,7 +228,7 @@ unpushed edits cannot be built by GitHub Actions.
 
 ### Experimental combined host test build
 
-The separate **Guest-host prototype · build only** workflow packages a
+The separate **Combined native host · build only** workflow packages a
 LiveContainer host with embedded SideStore and a bundled VexSign guest. It is
 manual-only and does not replace ordinary VexSign releases or implement the final
 VexSign-primary architecture. New combined test artifacts retain for **14 days**;

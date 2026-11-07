@@ -64,18 +64,17 @@ echo "Endpoint:   ${API_URL}"
 BODY_FILE="$(mktemp)"
 trap 'rm -f "$BODY_FILE"' EXIT INT TERM
 
-curl_auth_args() {
-  if [ -n "${GITHUB_TOKEN:-}" ]; then
-    set -- -H "Authorization: Bearer ${GITHUB_TOKEN}"
-  else
-    set --
-  fi
-  printf '%s\n' "$@"
-}
+# Pass the auth header as positional parameters so word splitting can never
+# break its value into separate curl arguments (which turned the token into
+# bogus extra URLs and failed every authenticated run).
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  set -- -H "Authorization: Bearer ${GITHUB_TOKEN}"
+else
+  set --
+fi
 
-# shellcheck disable=SC2046
 HTTP_CODE=$(curl -sS -o "$BODY_FILE" -w '%{http_code}' \
-  $(curl_auth_args) \
+  "$@" \
   -H 'Accept: application/vnd.github+json' \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
   "$API_URL") || handle_error "Request to ${API_URL} failed."
