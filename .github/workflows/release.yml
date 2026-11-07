@@ -1,13 +1,11 @@
 name: Release
 
-# Run manually to publish v<MARKETING_VERSION> from the selected commit, push a
-# release tag, or let the nightly schedule publish a pre-release from main.
-# Check build_only for an unpublished test IPA instead. Stable releases require
-# a commit on the default branch; nightly releases are unique, dated tags so a
-# bad nightly is never retried over a good one. Device TLS is created on device.
-# Build with a read-only token; publish artifacts in a separate protected job.
-# CI-completion events only detect version bumps; they cannot build directly.
-# Configure the release environment before use. See docs/RELEASING.md.
+# Publish v<MARKETING_VERSION> from a tag, a manual dispatch, or the nightly
+# schedule (unique dated tags — a bad nightly never retries over a good one).
+# Check build_only for an unpublished test IPA. The build job is read-only;
+# publishing runs in a separate protected job. CI-completion events only detect
+# version bumps; they cannot build. Configure the release environment first —
+# see docs/RELEASING.md. Device TLS is created on device.
 
 on:
   workflow_run:
@@ -161,7 +159,6 @@ jobs:
           MODE="build-only"
           case "${EVENT_NAME}" in
             push)          MODE="tag" ;;
-            pull_request)  MODE="pull-request" ;;
             schedule)      MODE="nightly" ;;
             workflow_dispatch)
               if [ "${BUILD_ONLY}" = "false" ]; then
@@ -249,11 +246,10 @@ jobs:
           fi
 
           case "${MODE}" in
-            tag)          echo "Mode: publish release ${RELEASE_TAG} from tag (commit ${GITHUB_SHA})" ;;
-            manual)       echo "Mode: MANUAL publish of ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA}) - prefer pushing a tag for real releases" ;;
-            nightly)      echo "Mode: NIGHTLY pre-release ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA})" ;;
-            pull-request) echo "Mode: pull request build - nothing will be published" ;;
-            *)            echo "Mode: build only (${REF_NAME}) - nothing will be published" ;;
+            tag)     echo "Mode: publish release ${RELEASE_TAG} from tag (commit ${GITHUB_SHA})" ;;
+            manual)  echo "Mode: MANUAL publish of ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA}) - prefer pushing a tag for real releases" ;;
+            nightly) echo "Mode: NIGHTLY pre-release ${RELEASE_TAG} from ${REF_NAME} (commit ${GITHUB_SHA})" ;;
+            *)       echo "Mode: build only (${REF_NAME}) - nothing will be published" ;;
           esac
 
           {

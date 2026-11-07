@@ -58,7 +58,7 @@ python3 -m unittest discover -s NativeSigning/PythonTests -v
 swift test --package-path NativeSigning
 ```
 
-The opt-in **Native account signing · link smoke** workflow can also stage isolated dependency graphs, run synthetic macOS unit regressions (`unit_tests`, enabled by default), and compile device/simulator link checks. It does not log in to Apple, create certificates, publish IPAs, or open listeners.
+The opt-in **link smoke** job of the Combined native host workflow (dispatch with `link_smoke`) can also stage isolated dependency graphs, run synthetic macOS unit regressions (`unit_tests`, enabled by default), and compile device/simulator link checks. It does not log in to Apple, create certificates, publish IPAs, or open listeners.
 
 `prepare_server_compatibility.py` stages the app's Vapor factory and compatibility tests in an ignored build directory. `prepare_combined_smoke.py` validates the proposed combined package graph. These preparation scripts fail closed on pin or reviewed-source drift.
 

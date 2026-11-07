@@ -63,6 +63,23 @@ jobs:
         working-directory: cloud-signing
     steps:
       - uses: actions/checkout@v7.0.1
+      # Audit the resolved dependency tree, not every source-only change: a
+      # fresh upstream advisory must not fail a PR that never touched the
+      # manifest. The weekly schedule still scans even with no edits.
+      - name: Dependency changes
+        id: deps
+        if: github.event_name != 'schedule'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          changed=true
+          if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] \
+              && git fetch --quiet --depth=1 origin "$BASE" 2>/dev/null; then
+            if git diff --quiet "$BASE" HEAD -- :/cloud-signing/package.json :/cloud-signing/package-lock.json; then
+              changed=false
+            fi
+          fi
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -75,3 +92,4 @@ jobs:
       - run: npm test
       - run: npm run contracts && git diff --exit-code -- openapi.json
       - run: npm audit --omit=dev --audit-level=high
+        if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'

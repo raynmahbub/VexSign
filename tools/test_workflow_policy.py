@@ -163,9 +163,13 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertTrue(covers('platform-check.yml', 'VexSignWatch/VexSignWatchApp.swift'))
 
     def test_native_smoke_runs_fixture_tests_without_publishing(self):
-        text = (WORKFLOWS / 'native-signing-smoke.yml').read_text()
+        # Folded into the combined-host workflow as a dispatch-only job so the
+        # manual diagnostics share one entry point and one set of gates.
+        text = (WORKFLOWS / 'embedded-container.yml').read_text()
+        self.assertIn('      link_smoke:', text)
         self.assertIn('      unit_tests:', text)
         self.assertIn('if: inputs.unit_tests', text)
+        self.assertIn('inputs.link_smoke == true', text)
         self.assertIn('swift test --package-path .build/native-signing-smoke', text)
         self.assertIn('native-signing-unit-tests.log', text)
         self.assertIn('retention-days: 3', text)
@@ -347,13 +351,13 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertEqual(block(text, 'permissions', 0).strip(), 'permissions:\n  contents: read')
         jobs = block(text, 'jobs', 0)
         maintain = block(jobs, 'maintain', 2)
-        self.assertIn("github.event.schedule == '17 * * * *'", maintain)
+        self.assertIn("github.event.schedule == '17 */4 * * *'", maintain)
         self.assertIn("inputs.task == 'bot-prs'", maintain)
         self.assertIn('actions: write', block(maintain, 'permissions', 4))
         for job in ('hygiene', 'audit'):
             content = block(jobs, job, 2)
             self.assertIn("github.event.schedule == '40 4 * * 1'", content)
-            self.assertNotIn("github.event.schedule == '17 * * * *'", content)
+            self.assertNotIn("github.event.schedule == '17 */4 * * *'", content)
             self.assertNotIn('actions: write', block(content, 'permissions', 4))
         audit_permissions = block(block(jobs, 'audit', 2), 'permissions', 4)
         self.assertIn('contents: read', audit_permissions)

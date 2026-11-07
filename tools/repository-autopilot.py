@@ -106,7 +106,7 @@ def run_prs():
         for workflow in required_workflows([f['filename'] for f in files])[1:]:
             command('gh', 'workflow', 'run', workflow, '--repo', REPO, '--ref', default)
         print(f'Merged #{number}; main validation dispatched')
-        break  # Serial merges; next hourly pass handles the next candidate.
+        break  # Serial merges; the next maintenance pass handles the next candidate.
 
 
 if __name__ == '__main__':

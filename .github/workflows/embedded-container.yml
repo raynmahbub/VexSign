@@ -1,8 +1,7 @@
 name: Combined native host · build only
 
-# Read-only, public-repository validation for combined-host changes. No publishing,
-# Apple-account operations, signing secrets or normal release-pipeline changes.
-# Install/re-sign the resulting unvalidated IPA as a host app.
+# Read-only validation for combined-host changes: no publishing, Apple-account
+# operations or signing secrets. Install/re-sign the unvalidated IPA yourself.
 on:
   push:
     branches: [main]
@@ -47,6 +46,28 @@ on:
         description: 'Installed Xcode version prefix (26.2 or newer)'
         required: true
         default: '26.2'
+      # Manual native link smoke (replaces the standalone native-signing-smoke
+      # workflow). Selecting link_smoke skips the combined-host build above.
+      link_smoke:
+        description: 'Run the native link smoke instead of the combined-host build'
+        type: boolean
+        default: false
+      unit_tests:
+        description: 'Link smoke: synthetic native unit regressions (no Apple login)'
+        type: boolean
+        default: true
+      server_compatibility:
+        description: 'Link smoke: also resolve/build/test the Vapor/Crypto candidate'
+        type: boolean
+        default: false
+      combined_dependencies:
+        description: 'Link smoke: also resolve/verify the combined app-package candidate'
+        type: boolean
+        default: false
+      simulator:
+        description: 'Link smoke: also compile/link for the arm64 iOS Simulator'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -71,7 +92,7 @@ jobs:
 
   build:
     if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public'
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.link_smoke != true)
     needs: checks
     runs-on: macos-15
     timeout-minutes: 90
@@ -199,3 +220,86 @@ jobs:
             .build/native-signing-smoke/provenance.json
             ${{ runner.temp }}/vexsign-build.log
             ${{ runner.temp }}/combined-build.log
+
+  # Manual-only diagnostics (dispatch with link_smoke). Stages isolated pinned
+  # graphs, runs synthetic unit regressions and links NativeSigning for device
+  # (and optionally simulator) — no Apple login, provisioning, certificates or
+  # publication. Replaces the standalone native-signing-smoke workflow.
+  link-smoke:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && github.event_name == 'workflow_dispatch' && inputs.link_smoke == true
+    needs: checks
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select installed Xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+      - name: Optionally validate the separate Vapor and Crypto candidate
+        if: inputs.server_compatibility
+        run: |
+          set -euo pipefail
+          python3 NativeSigning/prepare_server_compatibility.py
+          swift package --package-path .build/server-dependency-compatibility resolve
+          python3 NativeSigning/prepare_server_compatibility.py --verify-resolved
+          swift test --package-path .build/server-dependency-compatibility --force-resolved-versions \
+            2>&1 | tee "$RUNNER_TEMP/server-dependency-compatibility.log"
+      - name: Optionally resolve the combined app-package and SDK candidate
+        if: inputs.combined_dependencies
+        run: |
+          set -euo pipefail
+          python3 NativeSigning/prepare_combined_smoke.py
+          swift package --package-path .build/combined-signing-smoke resolve \
+            2>&1 | tee "$RUNNER_TEMP/combined-signing-resolution.log"
+          python3 NativeSigning/prepare_combined_smoke.py \
+            --verify-resolved .build/combined-signing-smoke/Package.resolved
+      - name: Prepare pinned isolated package graph
+        run: |
+          set -euo pipefail
+          python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+      - name: Run native unit regressions without account operations
+        if: inputs.unit_tests
+        run: |
+          set -euo pipefail
+          swift test --package-path .build/native-signing-smoke \
+            2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
+      - name: Compile and dynamically link device dependencies
+        working-directory: .build/native-signing-smoke
+        run: |
+          set -euo pipefail
+          xcodebuild -scheme NativeSigningLinkSmoke -destination 'generic/platform=iOS' \
+            -sdk iphoneos -derivedDataPath ../native-signing-device \
+            -configuration Release ARCHS=arm64 CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/native-signing-device.log"
+      - name: Optionally compile and link simulator dependencies
+        if: inputs.simulator
+        working-directory: .build/native-signing-smoke
+        run: |
+          set -euo pipefail
+          xcodebuild -scheme NativeSigningLinkSmoke -destination 'generic/platform=iOS Simulator' \
+            -sdk iphonesimulator -derivedDataPath ../native-signing-simulator \
+            -configuration Release ARCHS=arm64 CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/native-signing-simulator.log"
+      - name: Upload diagnostic logs and provenance only
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-signing-link-diagnostics
+          if-no-files-found: warn
+          retention-days: 3
+          path: |
+            ${{ runner.temp }}/native-signing-unit-tests.log
+            ${{ runner.temp }}/native-signing-prepare.log
+            ${{ runner.temp }}/native-signing-device.log
+            ${{ runner.temp }}/native-signing-simulator.log
+            .build/native-signing-smoke/provenance.json
+            ${{ runner.temp }}/server-dependency-compatibility.log
+            .build/server-dependency-compatibility/provenance.json
+            .build/server-dependency-compatibility/resolution-attestation.json
+            ${{ runner.temp }}/combined-signing-resolution.log
+            .build/combined-signing-smoke/combined-provenance.json
+            .build/combined-signing-smoke/combined-resolution-attestation.json

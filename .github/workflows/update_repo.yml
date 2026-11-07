@@ -26,14 +26,14 @@ jobs:
     # Nightly and other pre-releases must never become the installation
     # listing's latest version. Only published stable releases sync.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          # The `release` event fires on refs/tags/<tag>; we need the default
-          # branch checked out as the base for a review PR.
+          # The `release` event fires on refs/tags/<tag>; the default branch is
+          # the base for the review PR.
           ref: ${{ github.event.repository.default_branch }}
-          fetch-depth: 0
 
       - name: Update app-repo.json
         id: update

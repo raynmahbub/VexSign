@@ -231,7 +231,7 @@ See [Build](docs/BUILD.md) for toolchain selection and troubleshooting.
   Release run, validation/build/tests, protected publishing and a stable-source update PR.
 - **Nightly:** daily **03:00 UTC**, immutable dated pre-release, build/tests and
   checksums; never promoted into the stable source listing.
-- **Autopilot:** grouped dependency PRs, hourly validation/merging of narrow green
+- **Autopilot:** grouped dependency PRs, every-4-hours validation/merging of narrow green
   bot updates, weekly localisation maintenance and failure triage. Reviewed version
   bumps can trigger stable releases automatically; risky changes stay manual.
   See [operations, one-time setup and free-only limits](docs/MAINTENANCE.md).

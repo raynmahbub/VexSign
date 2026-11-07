@@ -4,10 +4,10 @@ name: Repository maintenance
 on:
   # Never watch this workflow itself: even a skipped run emits completion.
   workflow_run:
-    workflows: ["CI", "Platform check", "Service checks", "Documentation", "Release", "Update Repository", "Combined native host · build only", "Native account signing · link smoke"]
+    workflows: ["CI", "Platform check", "Service checks", "Documentation", "Release", "Update Repository", "Combined native host · build only"]
     types: [completed]
   schedule:
-    - cron: '17 * * * *'   # bot PRs: hourly
+    - cron: '17 */4 * * *'   # bot PRs: every 4 hours
     - cron: '40 4 * * 1'   # hygiene + Xcode package audit: weekly
   workflow_dispatch:
     inputs:
@@ -31,7 +31,7 @@ jobs:
       github.event.repository.private == false &&
       github.event.repository.visibility == 'public' &&
       (vars.AUTOPILOT_ENABLED != 'false') &&
-      (github.event.schedule == '17 * * * *' || github.event_name == 'workflow_dispatch' &&
+      (github.event.schedule == '17 */4 * * *' || github.event_name == 'workflow_dispatch' &&
       (inputs.task == 'all' || inputs.task == 'bot-prs'))
     permissions:
       contents: write
@@ -66,7 +66,6 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
