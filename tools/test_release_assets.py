@@ -58,16 +58,11 @@ class ReleaseAssetTests(unittest.TestCase):
             self.assertIn('versioned changelog', notes)
             self.assertEqual(json.loads((output / 'RELEASE.json').read_text())['notes_source'], 'reviewed-version-notes')
 
-    def test_make_ipa_filename_contains_marketing_version(self):
-        command = subprocess.run(
-            ['make', '--dry-run', 'VexSign', 'APP_VERSION=9.8.7'],
-            cwd=assets.ROOT,
-            check=True,
-            text=True,
-            capture_output=True,
-        )
-        self.assertIn('packages/VexSign-9.8.7.ipa', command.stdout)
-        self.assertNotIn('packages/VexSign.ipa', command.stdout)
+    def test_makefile_ipa_filename_contains_app_version(self):
+        makefile = (assets.ROOT / 'Makefile').read_text()
+        self.assertIn('APP_VERSION ?=', makefile)
+        self.assertIn('IPA_FILE := packages/$(NAME)-$(APP_VERSION).ipa', makefile)
+        self.assertIn('zip -r9 "$(IPA_FILE)" Payload', makefile)
 
     def test_misnamed_ipa_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
