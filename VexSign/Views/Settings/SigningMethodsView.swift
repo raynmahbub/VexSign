@@ -230,6 +230,14 @@ struct SigningMethodsView: View {
                     Text(method.shortDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    // An unavailable row must say why; the reason was computed
+                    // but never rendered before.
+                    if !availability.isAvailable, let reason = availability.availabilityReason {
+                        Text(reason)
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .lineLimit(2)
+                    }
                 }
 
                 Spacer()

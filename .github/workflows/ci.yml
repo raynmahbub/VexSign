@@ -1,36 +1,22 @@
 name: CI
 
-# The one workflow that answers "is this commit good?".
+# Answers "is this commit good?" for every relevant push and PR.
 #
-# Pull requests run the same validation as main, so a merge is never the first
-# time a commit is compiled. `workflow_dispatch` remains available for an
-# explicit run on any selected branch.
-# Linux checks run first, then the unsigned build and simulator tests run in
-# parallel on separate macOS runners. Manual quick mode avoids macOS.
+#   quick   ~1 min · Linux container: Swift syntax, resources, project
+#           structure and the repo gates in tools/. `tools/ci-scope.py` then
+#           decides whether the macOS jobs are needed (portable-only diffs,
+#           e.g. docs or tools/*.py, skip them). Docs-only changes never
+#           start this workflow at all — see docs.yml.
+#   build   macOS · unsigned Debug build, warnings gate (baseline in
+#           .github/build-warnings-baseline.json), 14-day test IPA.
+#   tests   macOS · simulator tests, in parallel with build.
 #
-#   quick   ~1 min · Linux + the official Swift container. Swift syntax,
-#           duplicate types/file names, broken plists/xcstrings, deeper Xcode
-#           project structure, and the four repo gates in tools/ (localisation,
-#           error discipline, singleton freeze, concurrency escapes).
-#   build   macOS · unsigned Debug build of the VexSign scheme, then the warnings
-#           gate, then a temporary unsigned Debug IPA artifact (14 days).
-#           A new first-party warning fails; warnings listed in
-#           .github/build-warnings-baseline.json are tolerated.
-#   tests   macOS · `xcodebuild test` on a simulator resolved at run time.
-#
-# Deliberately not here:
-#   * release builds          release.yml — tags and manual runs only
-#   * companion SDKs          platform-check.yml — only when their sources change
-#   * Python backend          services.yml — when server/ or cloud-signing/ changes
-#   * TypeScript cloud signer services.yml — shared with Python service checks
-#   * SwiftLint               `make lint` locally; no bot commits on your branch
-#
-# Markdown- and docs-only changes do not start this workflow at all.
+# Not here: release builds (release.yml), companion SDKs (platform-check.yml),
+# Python/TypeScript services (services.yml), SwiftLint (`make lint` locally).
 #
 # Knobs (Settings → Secrets and variables → Actions → Variables):
-#   BUILD_XCODE               Xcode version prefix ("26.3", "16.4"). Empty = the
-#                             newest Xcode on the runner image. The code uses
-#                             iOS 26 SDK API, so Xcode 16 cannot build it.
+#   BUILD_XCODE               Xcode version prefix ("26.3"). Empty = newest on
+#                             the runner; the code needs the iOS 26 SDK.
 #   BUILD_WARNINGS_AS_ERRORS  "true" (default, baseline tolerated) · "strict"
 #                             (every warning fails) · "false" (report only).
 #   QUICK_CHECK_SWIFT_IMAGE   Swift container tag for the quick job.
@@ -125,9 +111,8 @@ jobs:
     name: quick · syntax, resources, gates
     outputs:
       native: ${{ steps.scope.outputs.native }}
-    # Pinned, not `ubuntu-latest`: that label moves to Ubuntu 26 and the Swift
-    # container this job runs in (noble, below) is built for 24.04. Bump both
-    # together when the image tag changes.
+    # Pinned, not `ubuntu-latest`: the Swift container below is built for 24.04.
+    # Bump both together when the image tag changes.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
@@ -136,71 +121,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # ci-scope diffs the whole PR/push against its base
 
-      - name: Toolchain
-        run: |
-          swiftc --version
-          python3 --version || (apt-get update -qq && apt-get install -y -qq python3 >/dev/null)
-
-      - name: Determine native validation scope
+      - name: Toolchain and scope
         id: scope
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          swiftc --version
+          python3 --version || (apt-get update -qq && apt-get install -y -qq python3 >/dev/null)
           python3 tools/ci-scope.py
 
+      # swiftc -parse on every first-party file, duplicate types/file names,
+      # broken plists/xcstrings, layout/script sanity — plus its own regressions.
       - name: Quick check
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
           python3 .github/scripts/quick_check.py --self-test
           python3 .github/scripts/quick_check.py --root . --json "$RUNNER_TEMP/quick-check.json"
 
-      # Deeper than quick_check's brace balance: every object id resolves, every
-      # target has its configurations/product/group, embedded apps match, and
-      # deployment targets fit their SDK. Still no Xcode.
-      - name: Xcode project structure
-        run: python3 tools/check-pbxproj.py
+      # Deeper Xcode project structure (no Xcode needed) and the frozen
+      # repository gates: localisation, error discipline, singleton freeze,
+      # concurrency escapes.
+      - name: Repository gates
+        run: |
+          python3 tools/check-pbxproj.py
+          python3 tools/sync-strings.py --check
+          python3 tools/error-discipline.py
+          python3 tools/singleton-freeze.py
+          python3 tools/concurrency-discipline.py
 
-      # A literal without a catalogue key silently falls back to English, so the
-      # drift only shows up in another language. Fails on missing keys;
-      # `--write` adds them.
-      - name: Localisation catalogue
-        run: python3 tools/sync-strings.py --check
-
-      # A silent `try?` at a user-visible boundary turns a real failure into
-      # nothing in the log. Fails only when a file grows past its baseline;
-      # justify a deliberate one with `// try? ok: <reason>` on the same line.
-      - name: Error discipline
-        run: python3 tools/error-discipline.py
-
-      # Global `static let shared` singletons decide what a view model can be
-      # tested with. The count may go down; a new one has to raise
-      # tools/singleton-baseline.json in the same commit.
-      - name: Singleton freeze
-        run: python3 tools/singleton-freeze.py
-
-      # `@unchecked Sendable`, `nonisolated(unsafe)` and `@preconcurrency` stop
-      # the compiler from checking something. Freeze them; `make
-      # strict-concurrency` is the real leaf build.
-      - name: Concurrency discipline
-        run: python3 tools/concurrency-discipline.py
-
-      - name: Documentation file links and checker tests
+      # Documentation links plus the offline regression suites.
+      - name: Docs and regressions
         run: |
           python3 tools/check-docs.py
           python3 tools/test_docs.py
-
-      - name: Device acceptance report regressions
-        run: python3 tools/test_device_acceptance.py
-
-      - name: Release asset regressions
-        run: python3 tools/test_release_assets.py
-
-      - name: Autopilot policy regressions
-        run: python3 tools/test_autopilot.py
-
-      - name: Workflow trigger policy
-        run: python3 tools/test_workflow_policy.py
+          python3 tools/test_device_acceptance.py
+          python3 tools/test_release_assets.py
+          python3 tools/test_autopilot.py
+          python3 tools/test_workflow_policy.py
 
       - name: Upload findings
         if: always()
@@ -220,7 +177,7 @@ jobs:
     name: build · VexSign Debug (unsigned)
     needs: quick
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -252,19 +209,14 @@ jobs:
             spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-
             spm-${{ runner.os }}-
 
+      # Unsigned generic iOS build: no certificates exist on the runner and
+      # none are needed to prove the code compiles. libunicorn.a's deployment-
+      # version noise (AnisetteKit's prebuilt binary) is filtered from the live
+      # log; the raw log keeps every line.
       - name: Build (Debug)
         id: build
         run: |
           set -uo pipefail
-          # Unsigned generic iOS build: no certificates exist on the runner and
-          # none are needed to prove the code compiles. Install-server TLS is
-          # created on each device, not downloaded or bundled by CI.
-          #
-          # libunicorn.a is AnisetteKit's prebuilt binary. Upstream's
-          # build_xcframework.sh never sets CMAKE_OSX_DEPLOYMENT_TARGET, so
-          # CMake stamps it with the runner's macOS version (26.5) and ld
-          # repeats one warning per archive member. Filter that known
-          # third-party noise from the live log; the raw log keeps every line.
           xcodebuild \
             -workspace VexSign.xcworkspace \
             -scheme VexSign \
@@ -409,7 +361,7 @@ jobs:
     name: tests · VexSignTests (simulator)
     needs: quick
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -449,14 +401,14 @@ jobs:
           echo "udid=${udid}" >> "$GITHUB_OUTPUT"
           echo "Using simulator: ${line}"
 
+      # Filter only the known libunicorn.a deployment-version lines from the
+      # live log (see the build step); $TEST_LOG keeps every line.
       - name: Run tests
         id: test
         env:
           SIM_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -uo pipefail
-          # Filter only the known libunicorn.a deployment-version lines from
-          # the live log (see the build step); $TEST_LOG keeps every line.
           xcodebuild \
             -workspace VexSign.xcworkspace \
             -scheme VexSignTests \
@@ -484,12 +436,9 @@ jobs:
           fi
           exit "${status}"
 
-      # Neither the reporter nor the raw log can say *which* test failed: newer
-      # Xcode writes per-test results into the xcresult bundle, not into
-      # xcodebuild's stdout (a 26,000-line log with one `** TEST FAILED **` in
-      # it and nothing else). Unfiled annotations also do not survive onto the
-      # check run, so every failing test is re-emitted as a filed annotation —
-      # which the pull request page and the API can both read.
+      # Newer Xcode files per-test results in the xcresult, not in stdout:
+      # surface failing tests, crash stacks and log context as annotations
+      # (complete lists stay in the step log).
       - name: Surface failures
         if: failure()
         continue-on-error: true
@@ -498,190 +447,13 @@ jobs:
           TEST_LOG: ${{ runner.temp }}/xcodebuild-test.log
           TEST_EXIT: ${{ steps.test.outputs.exit_code }}
           SUMMARY_JSON: ${{ runner.temp }}/summary.json
-        run: |
-          # GitHub keeps at most 10 annotations per step, so the interesting
-          # facts are packed into a handful of lines instead of one annotation
-          # per field: a crash stack is one annotation, not thirty.
-          set +e
-          annotate() {
-            python3 -c 'import sys; t=sys.argv[1]; print("::error file=.github/workflows/ci.yml,line=1::" + "".join(c for c in t if c not in "\r\n")[:900])' "$1"
-          }
+        run: python3 .github/scripts/surface_test_failures.py
 
-          annotate "xcodebuild test exit=${TEST_EXIT:-unknown}; xcresult=$([ -d "$RESULT_BUNDLE" ] && echo present || echo absent); log=$([ -f "$TEST_LOG" ] && wc -l < "$TEST_LOG" | tr -d ' ' || echo absent) lines"
-
-          CRASH_STACK=""
-
-          if [ -d "$RESULT_BUNDLE" ]; then
-            echo "::group::failing tests"
-            xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE" --format json > "$RUNNER_TEMP/summary.json" 2>/dev/null
-            xcrun xcresulttool get test-results tests --path "$RESULT_BUNDLE" --format json > "$RUNNER_TEMP/tests.json" 2>/dev/null
-
-            xcrun xcresulttool export diagnostics \
-              --path "$RESULT_BUNDLE" \
-              --output-path "$RUNNER_TEMP/xcresult-diagnostics" >/dev/null 2>&1
-
-            CRASH_STACK=$(python3 - "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/xcresult-diagnostics" <<'PYEOF'
-          import json, os, sys
-
-          tests_path, diag_dir = sys.argv[1], sys.argv[2]
-
-          def failures():
-              try:
-                  with open(tests_path) as handle:
-                      data = json.load(handle)
-              except Exception:
-                  return []
-              seen, found = set(), []
-
-              def walk(node):
-                  if isinstance(node, dict):
-                      if node.get("result") == "failed":
-                          name = node.get("name") or node.get("nodeIdentifier") or "?"
-                          if name.startswith("All tests") or name == "VexSignTests":
-                              pass
-                          else:
-                              msg = []
-                              for detail in node.get("failureMessages") or []:
-                                  if isinstance(detail, dict) and detail.get("failureMessage"):
-                                      msg.append(detail["failureMessage"])
-                              key = (name, tuple(msg))
-                              if key not in seen:
-                                  seen.add(key)
-                                  found.append((name, msg))
-                      for value in node.values():
-                          walk(value)
-                  elif isinstance(node, list):
-                      for value in node:
-                          walk(value)
-
-              walk(data)
-              return found
-
-          def ips_files(root):
-              for base, _dirs, names in os.walk(root):
-                  for name in names:
-                      if name.endswith(".ips") or name.endswith(".crash"):
-                          yield os.path.join(base, name)
-
-          stack = ""
-          for path in ips_files(diag_dir):
-              try:
-                  with open(path, encoding="utf-8", errors="replace") as handle:
-                      text = handle.read()
-                  payload = json.loads(text.splitlines()[-1])
-              except Exception:
-                  continue
-              threads = payload.get("threads") or []
-              index = payload.get("faultingThread")
-              if not isinstance(index, int) or index >= len(threads):
-                  index = next((i for i, t in enumerate(threads) if t.get("triggered")), 0)
-              frames = (threads[index].get("frames") or []) if threads else []
-              names = [f.get("symbol") or f.get("imageOffset") or "?" for f in frames]
-              if names:
-                  stack = " <- ".join(str(n)[:70] for n in names[:24])
-                  break
-
-          if stack:
-              print("STACK " + stack)
-
-          summary_path = os.path.join(diag_dir, "..", "summary.json")
-          summary = {}
-          try:
-              with open(os.environ.get("SUMMARY_JSON", "")) as handle:
-                  summary = json.load(handle)
-              bits = [f"result={summary.get('result', '?')}"]
-              for key in ("totalTestCount", "passedTests", "failedTests", "skippedTests", "expectedFailures"):
-                  if summary.get(key) is not None:
-                      bits.append(f"{key}={summary[key]}")
-              print("SUMMARY " + " ".join(str(b) for b in bits))
-
-              # Every failing test by name, not just the first three: the log is
-              # the only place these survive in full, and a message without the
-              # test that produced it costs a second run to find.
-              named = summary.get("testFailures") or []
-              print(f"failing tests: {len(named)}")
-              for failure in named:
-                  title = str(failure.get("testName") or "?")[:200]
-                  context = failure.get("sourceCodeContext") or {}
-                  location = context.get("location") or {}
-                  where = ""
-                  if location.get("filePath"):
-                      where = " @ %s:%s" % (location.get("filePath"), location.get("lineNumber", "?"))
-                  detail = str(failure.get("failureText") or "").replace("\n", " ")[:300]
-                  print("FAILED " + title + where + (" — " + detail if detail else ""))
-              for failure in named[:2]:
-                  # The assertion that failed, with its line, is in here; print it
-                  # for the first couple so a run needs no second run to explain it.
-                  print("RAW " + json.dumps(failure)[:700])
-              # Annotations are capped by GitHub at ten per step, so only the
-              # first few are re-emitted as ones a reader can click through.
-              for failure in named[:5]:
-                  title = str(failure.get("testName") or "?")[:200]
-                  detail = str(failure.get("failureText") or "").replace("\n", " ")[:300]
-                  print("TEST " + title + (" — " + detail if detail else ""))
-          except Exception as error:
-              print("SUMMARY unavailable: " + str(error)[:160])
-
-          # Anything `test-results tests` knows about but the summary did not
-          # name. Without it a crash can report zero failing tests.
-          seen = {str(item.get("testName") or "") for item in (summary.get("testFailures") or [])}
-          for name, messages in failures():
-              if name in seen:
-                  continue
-              print("FAILED " + name[:200] + (" — " + messages[0][:300] if messages else ""))
-          PYEOF
-            )
-            echo "::endgroup::"
-          fi
-
-          while IFS= read -r line; do
-            [ -n "$line" ] || continue
-            case "$line" in
-              STACK*) annotate "crash stack (callee <- caller): ${line#STACK }" ;;
-              TEST*) annotate "${line#TEST }" ;;
-              SUMMARY*) annotate "${line#SUMMARY }" ;;
-              # Kept out of the annotations: GitHub caps those at ten per step, and
-              # the log is where the complete list has to live.
-              FAILED*|RAW*) echo "${line}" ;;
-            esac
-          done <<< "$CRASH_STACK"
-
-          if [ -f "$TEST_LOG" ]; then
-            # A trap in the host app prints to stderr, a little above the
-            # `** TEST FAILED **` marker; that context is worth more than the
-            # tail of an xcodebuild log that is mostly build chatter.
-            python3 - "$TEST_LOG" > "$RUNNER_TEMP/context.txt" <<'PYEOF'
-          import re, sys
-
-          lines = open(sys.argv[1], encoding="utf-8", errors="replace").read().splitlines()
-          marker = next((i for i, l in enumerate(lines) if "** TEST FAILED **" in l), None)
-          picked = []
-          if marker is not None:
-              before = [l.strip() for l in lines[max(0, marker - 40):marker] if l.strip()][-3:]
-              after = [l.strip() for l in lines[marker + 1:marker + 30] if l.strip()][:4]
-              picked = before + after
-          offender = re.compile(r"ran off the main queue|CoreData: error|NSInternalInconsistencyException")
-          flagged = [l.strip() for l in lines if offender.search(l)][-4:]
-          picked = flagged + picked
-          if not picked:
-              pick = re.compile(r"error:|BUILD FAILED|Fatal error|Precondition failed|SIGABRT")
-              picked = [l.strip() for l in lines if pick.search(l)][-6:]
-          picked = picked[-8:]
-          for line in picked:
-              print(line[:400])
-          PYEOF
-            while IFS= read -r line; do
-              [ -n "$line" ] && annotate "log: $line"
-            done < "$RUNNER_TEMP/context.txt"
-          fi
-
-          exit 0
       - name: Report diagnostics
         if: always() && steps.test.outcome != 'skipped'
         continue-on-error: true
         env:
           TEST_EXIT: ${{ steps.test.outputs.exit_code }}
-          SUMMARY_JSON: ${{ runner.temp }}/summary.json
         run: |
           if [ ! -f "$TEST_LOG" ]; then
             echo "::warning::No xcodebuild log was produced."

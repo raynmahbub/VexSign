@@ -27,10 +27,9 @@ The GitHub Actions bot performs deterministic tasks; it does not invent fixes.
 | **Platform check** | Relevant companion/shared-package changes: tvOS, watchOS and visionOS builds. |
 | **Documentation** | Documentation edits: cheap offline file-link checks; no macOS work. |
 | **Release** | Daily nightlies, tag/manual stable builds, CI-driven version-bump dispatch and isolated protected publication. |
-| **Repository maintenance** | Hourly bot-PR controller; weekly hygiene/audit; main-failure triage with isolated permissions and no guessed patches. |
+| **Repository maintenance** | 4-hourly bot-PR controller; weekly hygiene/audit; main-failure triage with isolated permissions and no guessed patches. |
 | **Update Repository** | Published stable metadata → listing review PR, never a direct main push. |
-| **Combined native host · build only** | Manual experimental container preparation/build; no normal release publication. |
-| **Native account signing · link smoke** | Manual native-package compatibility/link checks; no Apple login or signing secrets. |
+| **Combined native host · build only** | Manual experimental container preparation/build (dispatch with `link_smoke` for native link diagnostics); no normal release publication. |
 
 Separate files remain where triggers, SDK costs or permissions differ. Existing
 app/server/cloud/documentation check names are retained. If an organisation rule
@@ -39,7 +38,7 @@ repository YAML cannot inspect or migrate live protection rules automatically.
 
 ## Deterministic bot maintenance
 
-**Repository maintenance → bot-prs** runs hourly. The trusted-default-branch
+**Repository maintenance → bot-prs** runs every 4 hours. The trusted-default-branch
 controller accepts only same-repository, non-draft PRs from:
 
 - Dependabot: patch/minor service dependency updates restricted to
@@ -138,7 +137,7 @@ Physical-device acceptance remains required: use [Device testing](DEVICE_TESTING
 
 Set Actions variables to the literal `false`:
 
-- `AUTOPILOT_ENABLED`: stop hourly bot validation/merging (weekly audit/hygiene remain).
+- `AUTOPILOT_ENABLED`: stop scheduled bot validation/merging (every 4 hours; weekly audit/hygiene remain).
 - `AUTORELEASE_STABLE`: stop CI-driven stable dispatch (manual/tag release remains).
 
 Unset means enabled. Disable the relevant workflow to stop scheduled operations

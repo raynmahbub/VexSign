@@ -139,24 +139,36 @@ struct NativeSigningManagerTests {
 
     // MARK: - Availability Tests
 
-    @Test("SigningMethodAvailability for paidCertificate")
+    @Test("Availability reports a reason exactly when the method is unavailable")
+    func testAvailabilityReasonMatchesAvailability() {
+        for method in SigningMethod.allCases {
+            let availability = SigningMethodAvailability.current(for: method)
+            #expect(availability.isAvailable == (availability.availabilityReason == nil))
+        }
+    }
+
+    @Test("Free Apple ID method stays selectable without a session")
+    func testFreeAppleIDAvailability() {
+        // Sign-in and quota status belong to NativeSigningManager.snapshot,
+        // which the signing-methods screen renders; the row itself must never
+        // be greyed out because no session exists yet.
+        let availability = SigningMethodAvailability.current(for: .freeAppleID)
+        #expect(availability.isAvailable)
+        #expect(availability.availabilityReason == nil)
+    }
+
+    @Test("Paid certificate availability mirrors imported certificates")
     func testPaidCertificateAvailability() {
         let availability = SigningMethodAvailability.current(for: .paidCertificate)
-        // In test environment, this will be false since no cert is imported
-        #expect(availability.isAvailable == false || availability.isAvailable == true)
+        let hasCerts = !Storage.shared.getAllCertificates().isEmpty
+        #expect(availability.isAvailable == hasCerts)
+        #expect(availability.isAvailable == (availability.availabilityReason == nil))
     }
 
-    @Test("SigningMethodAvailability for freeAppleID")
-    func testFreeAppleIDAvailability() {
-        let availability = SigningMethodAvailability.current(for: .freeAppleID)
-        // In test environment, this will be false since no anisette provider
-        #expect(availability.isAvailable == false || availability.isAvailable == true)
-    }
-
-    @Test("SigningMethodAvailability for trollStore")
+    @Test("TrollStore availability mirrors the device detector")
     func testTrollStoreAvailability() {
         let availability = SigningMethodAvailability.current(for: .trollStore)
-        // TrollStore availability depends on device
-        #expect(availability.isAvailable == false || availability.isAvailable == true)
+        #expect(availability.isAvailable == TrollStoreDetector.isAvailable)
+        #expect(availability.isAvailable == (availability.availabilityReason == nil))
     }
 }

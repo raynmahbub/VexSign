@@ -1,16 +1,12 @@
 name: Platform check
 
 # Compiles the companion targets — Apple TV, Apple Vision Pro and Apple Watch —
-# which `ci.yml` does not cover because it only builds the iOS scheme.
-# These are unsigned simulator-agnostic builds: they prove the sources type-check
-# for each SDK, nothing more.
+# which `ci.yml` skips because it only builds the iOS scheme. Unsigned,
+# simulator-agnostic builds: they prove the sources type-check per SDK.
 #
-# Builds relevant pull requests, main-branch changes or a manually selected branch.
-#
-# The companions are mirrors of the iPhone app (see docs/PLATFORMS.md), so this
-# job also guards the shared code: VexSign/Companion/* is compiled into the iOS,
-# tvOS, visionOS and watchOS targets, and a change that only breaks one of them
-# shows up here rather than on a device.
+# The companions mirror the iPhone app (docs/PLATFORMS.md), so this also guards
+# VexSign/Companion/*, which is compiled into the iOS, tvOS, visionOS and
+# watchOS targets — a change that breaks only one shows up here, not on a device.
 
 on:
   push:
@@ -58,7 +54,7 @@ jobs:
       github.event.repository.private == false && github.event.repository.visibility == 'public'
     name: ${{ matrix.label }}
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

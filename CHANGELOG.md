@@ -9,7 +9,36 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
-No changes queued after 1.1.0.
+### Fixed
+
+- `tools/update-repo.sh` no longer word-splits its authorization header
+  (curl used to receive `Bearer` as a URL and failed every authenticated
+  run), and the stale workflow name in `docs/BUILD.md` was corrected.
+- The Settings → Signing Methods screen no longer reports placeholder data:
+  `SigningMethodAvailability` now exposes only real availability (paid
+  mirrors imported certificates, TrollStore mirrors the device detector,
+  free Apple ID stays selectable while live session state renders from
+  `NativeSigningManager`), unavailable rows display why they cannot be
+  selected, and the always-true availability tests were replaced with real
+  assertions.
+
+### Changed
+
+- All GitHub workflows were slimmed down and de-duplicated: the CI quick job
+  runs its gates as three consolidated steps, failing-test diagnostics moved
+  out of inline YAML into `.github/scripts/surface_test_failures.py`,
+  unreachable release-mode branches and unneeded full-history checkouts were
+  removed, and the unused `.github/scripts/git_identity.sh` was deleted.
+- Repository-maintenance bot passes now run every 4 hours instead of hourly
+  (75% fewer idle automation runs; weekly hygiene/audit unchanged).
+- The cloud-signing `npm audit` gate runs only when `package.json` or
+  `package-lock.json` actually changed (and on the weekly schedule), so
+  source-only pull requests no longer fail on freshly published advisories.
+- The standalone `native-signing-smoke` workflow was removed; its unique link
+  diagnostics now live as the dispatch-only `link_smoke` job of the Combined
+  native host workflow, which already ran the same gates and unit tests
+  automatically. macOS job timeouts tightened (build 90→60, tests 60→45,
+  platform legs 60→45 minutes).
 
 ## [1.1.0] - 2026-11-06
 
