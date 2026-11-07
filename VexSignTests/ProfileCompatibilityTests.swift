@@ -188,6 +188,39 @@ final class ProfileCompatibilityTests: XCTestCase {
 		XCTAssertFalse(evaluation.issues.contains { $0.code == .extensionNotCovered }, _describe(evaluation))
 	}
 
+	func testCompatibilityModeWarnsAboutUnsupportedExtensionsWithoutBlockingMainApp() {
+		let target = ProfileCompatibility.Target(
+			bundleIdentifier: "com.example.app",
+			nestedBundleIdentifiers: ["com.example.app.widget"],
+			automaticallyRemoveUncoveredExtensions: true
+		)
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
+			target: target
+		)
+
+		XCTAssertFalse(evaluation.hasBlocking, _describe(evaluation))
+		XCTAssertEqual(evaluation.verdict, .covers)
+		let issue = evaluation.issues.first { $0.code == .extensionNotCovered }
+		XCTAssertEqual(issue?.severity, .warning)
+		XCTAssertTrue(issue?.detail.contains("will be removed") == true)
+	}
+
+	func testCompatibilityModeDoesNotOverrideMainAppProfileMismatch() {
+		let target = ProfileCompatibility.Target(
+			bundleIdentifier: "com.example.app",
+			nestedBundleIdentifiers: ["com.example.app.widget"],
+			automaticallyRemoveUncoveredExtensions: true
+		)
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.someone.else"),
+			target: target
+		)
+
+		XCTAssertTrue(evaluation.blockingIssues.contains { $0.code == .appIdentifierMismatch })
+		XCTAssertTrue(evaluation.issues.contains { $0.code == .extensionNotCovered && $0.severity == .warning })
+	}
+
 	// MARK: - Certificate
 
 	func testCertificateThatIsNotInTheProfileBlocks() {

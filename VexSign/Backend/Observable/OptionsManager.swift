@@ -105,6 +105,9 @@ struct Options: Codable, Equatable {
 	/// If app extensions (PlugIns/ and Extensions/) should be stripped from the app bundle.
 	/// Defaults to `false` so widget/app extensions are preserved when signing.
 	var removeAppExtensions: Bool
+	/// Automatically removes only nested app bundles the selected profile cannot sign.
+	/// Covered extensions are preserved; unknown coverage is left untouched.
+	var autoRemoveUnsupportedExtensions: Bool
 	/// Gives each signed app a keychain group derived from its bundle id so apps can't read each other's entries
 	var keychainIsolation: Bool
 	/// Signs with JIT entitlements (`dynamic-codesigning`). Only PPQ certificates can carry them.
@@ -169,6 +172,7 @@ struct Options: Codable, Equatable {
 		changeLanguageFilesForCustomDisplayName: false,
 		injectIntoExtensions: false,
 		removeAppExtensions: false,
+		autoRemoveUnsupportedExtensions: false,
 		keychainIsolation: false,
 		enableJIT: false,
 		fixFilePicker: false,
@@ -301,6 +305,7 @@ extension Options {
 		changeLanguageFilesForCustomDisplayName = try c.decodeIfPresent(Bool.self, forKey: .changeLanguageFilesForCustomDisplayName) ?? d.changeLanguageFilesForCustomDisplayName
 		injectIntoExtensions = try c.decodeIfPresent(Bool.self, forKey: .injectIntoExtensions) ?? d.injectIntoExtensions
 		removeAppExtensions = try c.decodeIfPresent(Bool.self, forKey: .removeAppExtensions) ?? d.removeAppExtensions
+		autoRemoveUnsupportedExtensions = try c.decodeIfPresent(Bool.self, forKey: .autoRemoveUnsupportedExtensions) ?? d.autoRemoveUnsupportedExtensions
 		keychainIsolation = try c.decodeIfPresent(Bool.self, forKey: .keychainIsolation) ?? d.keychainIsolation
 		enableJIT = try c.decodeIfPresent(Bool.self, forKey: .enableJIT) ?? d.enableJIT
 		fixFilePicker = try c.decodeIfPresent(Bool.self, forKey: .fixFilePicker) ?? d.fixFilePicker

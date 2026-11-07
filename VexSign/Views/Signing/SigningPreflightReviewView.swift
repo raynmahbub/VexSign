@@ -26,7 +26,7 @@ struct SigningPreflightReviewView: View {
                         Text(String.localized("Original identifier: %@", arguments: original))
                             .font(.caption.monospaced()).foregroundStyle(.secondary)
                     }
-                    LabeledContent(.localized("App extensions"), value: options.removeAppExtensions ? String.localized("Remove") : String.localized("Keep"))
+                    LabeledContent(.localized("App extensions"), value: options.removeAppExtensions ? String.localized("Remove all") : (options.autoRemoveUnsupportedExtensions ? String.localized("Keep compatible; remove unsupported") : String.localized("Keep all")))
                     LabeledContent(.localized("Injected files"), value: options.injectionFiles.count.description)
                         .monospacedDigit()
                     Text(options.post_installAppAfterSigned

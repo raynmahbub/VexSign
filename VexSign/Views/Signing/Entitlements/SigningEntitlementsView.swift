@@ -20,6 +20,8 @@ struct SigningEntitlementsView: View {
 	@State private var _isRenamingPresenting = false
 	@State private var _fileToRename: EntitlementsFile?
 	@State private var _newName = ""
+	@State private var _isDeleteConfirming = false
+	@State private var _fileToDelete: EntitlementsFile?
 	@State private var _isPushingNewEntry = false
 	@State private var _pushedEntry: EntitlementsFile?
 
@@ -57,6 +59,18 @@ struct SigningEntitlementsView: View {
 				_manager.rename(file.id, to: _newName)
 			}
 		}
+		.confirmationDialog(.localized("Delete custom entitlements?"), isPresented: $_isDeleteConfirming, titleVisibility: .visible) {
+			Button(.localized("Delete"), role: .destructive) {
+				if let file = _fileToDelete {
+					if bindingValue == _manager.fileURL(for: file) { bindingValue = nil }
+					_manager.delete(file.id)
+				}
+				_fileToDelete = nil
+			}
+			Button(.localized("Cancel"), role: .cancel) { _fileToDelete = nil }
+		} message: {
+			Text(_fileToDelete?.name ?? "")
+		}
 		.navigationDestination(isPresented: $_isPushingNewEntry) {
 			if let _pushedEntry {
 				SigningEntitlementsEditorView(entry: _pushedEntry, certificate: certificate)
@@ -93,12 +107,27 @@ extension SigningEntitlementsView {
 						.foregroundStyle(.secondary)
 				}
 			}
+			Menu {
+				Button(.localized("Rename"), systemImage: "pencil") {
+					_newName = file.name
+					_fileToRename = file
+					_isRenamingPresenting = true
+				}
+				Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
+					_fileToDelete = file
+					_isDeleteConfirming = true
+				}
+			} label: {
+				Image(systemName: "ellipsis.circle")
+					.imageScale(.large)
+			}
+			.accessibilityLabel(.localized("Entitlements file actions"))
 		}
 		.badge(PlistDiff.flaggedCount(in: _manager.load(file), against: _grantedEntitlements))
 		.swipeActions(edge: .trailing) {
 			Button(role: .destructive) {
-				if isSelected { bindingValue = nil }
-				_manager.delete(file.id)
+				_fileToDelete = file
+				_isDeleteConfirming = true
 			} label: {
 				Label(.localized("Delete"), systemImage: "trash")
 			}

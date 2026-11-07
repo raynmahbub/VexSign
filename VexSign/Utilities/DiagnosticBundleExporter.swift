@@ -187,6 +187,7 @@ enum DiagnosticBundleExporter {
 			"enableJIT": opts.enableJIT,
 			"fixFilePicker": opts.fixFilePicker,
 			"removeAppExtensions": opts.removeAppExtensions,
+			"autoRemoveUnsupportedExtensions": opts.autoRemoveUnsupportedExtensions,
 			"experiment_replaceSubstrateWithEllekit": opts.experiment_replaceSubstrateWithEllekit,
 			"experiment_supportLiquidGlass": opts.experiment_supportLiquidGlass
 		]

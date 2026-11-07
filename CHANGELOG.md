@@ -9,6 +9,16 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+- Add an opt-in extension compatibility mode that preserves covered bundles and
+  the main app while removing only known-uncovered nested extensions; the log
+  identifies each removed path and bundle identifier.
+- Keep strict extension preflight when compatibility mode is off, and explain
+  when compatibility mode will remove an uncovered extension.
+- Close the signing sheet automatically on success and use one presentation
+  state for preflight and signing logs.
+- Make deletion of custom entitlements files and individual entitlement keys
+  easier to discover and confirm.
+
 ## [1.2.0] - 2026-11-07
 
 ### Fixed

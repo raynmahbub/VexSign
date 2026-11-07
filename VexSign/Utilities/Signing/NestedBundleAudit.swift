@@ -82,7 +82,7 @@ enum NestedBundleAudit {
         struct IncompatibleProfile: LocalizedError {
             let details: String
             var errorDescription: String? {
-                .localized("The selected profile cannot sign all retained extensions. Choose a compatible profile or explicitly enable Remove App Extensions. %@", arguments: details)
+					.localized("The selected profile cannot sign all retained extensions. Choose a compatible profile, enable automatic compatibility mode, explicitly enable Remove App Extensions, or sign anyway. %@", arguments: details)
             }
         }
 

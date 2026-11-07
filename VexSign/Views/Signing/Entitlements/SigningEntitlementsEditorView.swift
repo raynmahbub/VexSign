@@ -25,6 +25,7 @@ struct SigningEntitlementsEditorView: View {
 	@State private var _showsRaw = false
 	@State private var _editMode: EditMode = .inactive
 	@State private var _selectedKeys: Set<String> = []
+	@State private var _confirmDeleteSelection = false
 	@State private var _flaggedOnly = false
 	@State private var _detailKey: String?
 
@@ -107,6 +108,15 @@ struct SigningEntitlementsEditorView: View {
 				}
 			}
 		}
+		.confirmationDialog(.localized("Delete selected entitlements?"), isPresented: $_confirmDeleteSelection, titleVisibility: .visible) {
+			Button(.localized("Delete"), role: .destructive) {
+				_delete(_selectedKeys)
+				_toggleSelectMode()
+			}
+			Button(.localized("Cancel"), role: .cancel) {}
+		} message: {
+			Text(String.localized("This permanently removes %lld selected key(s) from this custom entitlements file.", arguments: _selectedKeys.count))
+		}
 		.confirmationDialog(
 			_detailKey ?? "",
 			isPresented: Binding(get: { _detailKey != nil }, set: { if !$0 { _detailKey = nil } }),
@@ -137,6 +147,15 @@ extension SigningEntitlementsEditorView {
 			}
 		}
 		if _editMode.isEditing {
+			ToolbarItem(placement: .topBarTrailing) {
+				Button(role: .destructive) {
+					_confirmDeleteSelection = true
+				} label: {
+					Label(.localized("Delete"), systemImage: "trash")
+				}
+				.disabled(_selectedKeys.isEmpty)
+				.accessibilityIdentifier("Entitlements.deleteSelected")
+			}
 			NBToolbarMenu(
 				systemImage: "ellipsis.circle",
 				style: .icon,
@@ -179,8 +198,7 @@ extension SigningEntitlementsEditorView {
 		.disabled(_selectedKeys.isDisjoint(with: _mismatchedKeys))
 
 		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
-			_delete(_selectedKeys)
-			_toggleSelectMode()
+			_confirmDeleteSelection = true
 		}
 		.disabled(_selectedKeys.isEmpty)
 

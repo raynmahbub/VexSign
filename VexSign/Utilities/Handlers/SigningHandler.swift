@@ -133,6 +133,7 @@ final class SigningHandler: NSObject {
 		try await _removeWatchIfNeeded(for: movedAppPath)
 		// Opt-in only: default false leaves PlugIns/ and Extensions/ untouched.
 		try await _removeAppExtensionsIfNeeded(for: movedAppPath)
+		try await _removeUnsupportedNestedBundlesIfNeeded(for: movedAppPath)
 
 		if _options.experiment_supportLiquidGlass {
 			SigningLog.shared.info(.localized("Patching for Liquid Glass"))
@@ -571,6 +572,28 @@ extension SigningHandler {
 		}
 	}
 	
+	/// Compatibility mode removes only bundles known not to be covered by the selected profile.
+	/// Unknown coverage is not treated as failure; covered extensions and the main app stay intact.
+	private func _removeUnsupportedNestedBundlesIfNeeded(for app: URL) async throws {
+		guard
+			_options.autoRemoveUnsupportedExtensions,
+			_options.signingOption == .default,
+			let pattern = appCertificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
+		else { return }
+
+		let report = NestedBundleAudit.report(appBundle: app, profilePattern: pattern)
+		guard !report.uncovered.isEmpty else { return }
+
+		for entry in report.uncovered {
+			let bundleURL = app.appendingPathComponent(entry.bundle.path)
+			SigningLog.shared.warn(.localized("Compatibility mode removed %@ (%@): not covered by %@.", arguments: entry.bundle.path, entry.bundle.identifier ?? .localized("unknown identifier"), pattern))
+			try _fileManager.removeItem(at: bundleURL)
+			Logger.misc.info("[\(self._uuid)] Removed uncovered nested bundle: \(entry.bundle.path)")
+		}
+
+		SigningLog.shared.warn(.localized("Removed %lld unsupported nested bundle(s); the main app and profile-covered extensions were retained.", arguments: report.uncovered.count))
+	}
+
 	/// Logs what the selected profile can do for each nested bundle in the payload.
 	private func _auditNestedBundles(at app: URL, certificate: CertificatePair?) throws {
 		// Extensions that were stripped above are no longer in the payload, so there is nothing
