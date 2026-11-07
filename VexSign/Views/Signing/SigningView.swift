@@ -178,9 +178,11 @@ struct SigningView: View {
 					}
                     .disabled(_isSigning)
 				}
-			}
-            // Preflight and logs share one presentation slot. Stacking independent sheet modifiers
-            // here could race when logs auto-open while the signing workflow is changing state.
+				}
+		}
+            // Preflight and logs share one presentation slot. Attach the presentation to the
+            // SigningView root rather than a child of its NavigationStack so it remains reliable
+            // when this screen is itself presented by Home or Library.
             .sheet(item: $_presentedSheet, onDismiss: {
                 let action = _postSignAction
                 _postSignAction = nil
@@ -209,6 +211,8 @@ struct SigningView: View {
                                 _presentedSheet = nil
                             }
                         )
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                     }
                 case .logs:
                     SigningLogView()
@@ -216,9 +220,8 @@ struct SigningView: View {
                         .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
                 }
-            }
-		}
-		.onAppear { _temporaryOptions = _temporaryOptions.resolved(for: app) }
+			}
+			.onAppear { _temporaryOptions = _temporaryOptions.resolved(for: app) }
         .interactiveDismissDisabled(_isSigning)
         .onDisappear { UIApplication.shared.endEditing() }
     }
@@ -347,7 +350,15 @@ extension SigningView {
         _currentStage = nil
         _reachedStages = []
 		_isSigning = true
-		if _autoShowLogs { _presentedSheet = .logs }
+		if _autoShowLogs {
+            // A preflight sheet may have just finished dismissing. Present logs after that
+            // transition completes instead of replacing its item mid-dismissal (which can leave
+            // only the system's blurred presentation backdrop visible on iOS).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                guard _isSigning else { return }
+                _presentedSheet = .logs
+            }
+        }
 
 		FR.signPackageFile(
 			app,

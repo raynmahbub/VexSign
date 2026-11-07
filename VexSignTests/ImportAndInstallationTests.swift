@@ -286,6 +286,19 @@ final class ImportAndInstallationTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testInstallQueueAdvanceSchedulerCancelsStaleAutomaticAdvance() async {
+        let scheduler = InstallQueueAdvanceScheduler()
+        var advances = 0
+
+        scheduler.schedule(after: 0.04) { advances += 100 }
+        scheduler.cancel()
+        scheduler.schedule(after: 0.02) { advances += 1 }
+
+        try? await Task.sleep(nanoseconds: 120_000_000)
+        XCTAssertEqual(advances, 1, "A stale completion timer must not advance a later install.")
+    }
+
     func testHomeIsAvailableInDefaultNavigation() {
         // The default five-tab order is Library → Home →
         // App Store → Downloads → Settings; Home is always present and

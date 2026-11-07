@@ -29,6 +29,9 @@ final class InstallQueue: ObservableObject {
 
 	/// The unified-task record for the current queue run (nil when idle).
 	private var unifiedTask: UnifiedTask?
+	/// Success stays on screen briefly for feedback, but a later Skip/Retry must cancel that
+	/// pending transition so it cannot advance a different app after the queue has moved on.
+	private let advanceScheduler = InstallQueueAdvanceScheduler()
 
 	enum InstallOutcome: Equatable {
 		case pending
@@ -131,6 +134,7 @@ final class InstallQueue: ObservableObject {
 	/// Skips the current app permanently (marks it skipped and moves on).
 	func skip() {
         NBHaptic.tap()
+        advanceScheduler.cancel()
 		guard let current else { _abandon(); return }
 		outcomes[current.id] = .skipped
 		_abandon()
@@ -139,6 +143,7 @@ final class InstallQueue: ObservableObject {
 	/// Retries the app at `index` (or the current one) by reinstating it and advancing back.
 	func retryCurrent(useLocalhost: Bool = false) {
         NBHaptic.tap()
+        advanceScheduler.cancel()
 		guard apps.indices.contains(index) else { return }
 		_teardownInstaller()
 		outcomes[apps[index].id] = .pending
@@ -208,14 +213,15 @@ final class InstallQueue: ObservableObject {
 				arguments: version ?? .localized("unknown")
 			))
 			_syncUnifiedTaskProgress()
-			DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?._advance() }
+			_scheduleAdvance(after: 1.2, for: current?.id)
 		case .success:
             NBHaptic.notify(.success)
 			if let current { outcomes[current.id] = .succeeded }
 			if let app = installer?.app { InstallCleanup.stage(app) }
 			_syncUnifiedTaskProgress()
-			// Let the finished ring land before the next app takes over.
-			DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?._advance() }
+			// Let the finished ring land before the next app takes over. The scheduled advance is
+			// invalidated if the user skips/retries or the queue is otherwise reset first.
+			_scheduleAdvance(after: 1.2, for: current?.id)
 		case .failure(let error):
             NBHaptic.notify(.error)
 			if let current {
@@ -229,24 +235,25 @@ final class InstallQueue: ObservableObject {
 				}
 				unifiedTask = nil
 			}
+            let failedEntryID = current?.id
 			var actions: [(String, UIAlertAction.Style, (() -> Void)?)] = [
 				(.localized("Retry"), .default, { [weak self] in
 					HeartbeatManager.shared.start(true)
-					self?.retryCurrent()
+                    self?._afterInstallAlertDismisses(for: failedEntryID) { $0.retryCurrent() }
 				})
 			]
 			if installer?.canRetryUsingLocalhost == true {
 				actions.append((.localized("Retry with Semi Local (localhost)"), .default, { [weak self] in
-					self?.retryCurrent(useLocalhost: true)
+                    self?._afterInstallAlertDismisses(for: failedEntryID) { $0.retryCurrent(useLocalhost: true) }
 				}))
 			}
 			actions.append((upcoming.isEmpty ? .localized("Close") : .localized("Skip"), .default, { [weak self] in
 				HeartbeatManager.shared.start(true)
-				self?.skip()
+                self?._afterInstallAlertDismisses(for: failedEntryID) { $0.skip() }
 			}))
 			actions.append((.localized("Stop"), .cancel, { [weak self] in
 				HeartbeatManager.shared.start(true)
-				self?._abandonAndFinish()
+                self?._afterInstallAlertDismisses(for: failedEntryID) { $0._abandonAndFinish() }
 			}))
             actions.insert((.localized("View installation details"), .default, {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -268,6 +275,28 @@ final class InstallQueue: ObservableObject {
 		}
 	}
 
+    /// UIAlertAction handlers run before UIKit has finished dismissing the alert. Keep queue
+    /// transitions off that dismissal transaction so Skip/Retry cannot tear down the window
+    /// that is still animating the alert.
+    private func _afterInstallAlertDismisses(
+        for entryID: String?,
+        _ action: @escaping (InstallQueue) -> Void
+    ) {
+        guard let entryID else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self, self.current?.id == entryID else { return }
+            action(self)
+        }
+    }
+
+    private func _scheduleAdvance(after delay: TimeInterval, for entryID: String?) {
+        guard let entryID else { return }
+        advanceScheduler.schedule(after: delay) { [weak self] in
+            guard let self, self.current?.id == entryID else { return }
+            self._advance()
+        }
+    }
+
 	/// Keeps the unified task's progress in step with the queue (index of the
 	/// app being installed out of the total).
 	private func _syncUnifiedTaskProgress() {
@@ -277,6 +306,8 @@ final class InstallQueue: ObservableObject {
 
     /// Retire a completed queue so its install card does not cover the app screen.
 	private func _advance() {
+        advanceScheduler.cancel()
+        guard current != nil else { return }
 		_teardownInstaller()
 
 		guard index + 1 < apps.count else {
@@ -295,6 +326,7 @@ final class InstallQueue: ObservableObject {
 
 	/// Dismiss first so the card doesn't blank out mid animation.
 	private func _abandon() {
+        advanceScheduler.cancel()
 		guard index + 1 < apps.count else {
 			guard isSheetPresented else {
 				_finishUnifiedTask()
@@ -314,6 +346,7 @@ final class InstallQueue: ObservableObject {
 
 	/// Finishes with the remainder marked skipped, used by "Stop".
 	private func _abandonAndFinish() {
+        advanceScheduler.cancel()
 		for entry in apps.dropFirst(index + 1) where outcomes[entry.id] == nil || outcomes[entry.id] == .pending {
 			outcomes[entry.id] = .skipped
 		}
@@ -346,6 +379,7 @@ final class InstallQueue: ObservableObject {
 	}
 
 	private func _reset() {
+        advanceScheduler.cancel()
 		_teardownInstaller()
 		apps.removeAll()
 		index = 0
@@ -356,4 +390,31 @@ final class InstallQueue: ObservableObject {
 
 		InstallCleanup.flush()
 	}
+}
+
+/// A cancellable, main-actor timer for the small success animation window. Cancelling the task
+/// prevents an old completion from advancing a newer queue item after Skip, Retry, or Clear.
+@MainActor
+final class InstallQueueAdvanceScheduler {
+    private var pendingTask: Task<Void, Never>?
+
+    func schedule(after delay: TimeInterval, action: @escaping @MainActor () -> Void) {
+        cancel()
+        let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
+        pendingTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.pendingTask = nil
+            action()
+        }
+    }
+
+    func cancel() {
+        pendingTask?.cancel()
+        pendingTask = nil
+    }
 }

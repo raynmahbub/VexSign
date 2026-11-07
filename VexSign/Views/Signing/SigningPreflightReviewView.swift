@@ -70,8 +70,11 @@ struct SigningPreflightReviewView: View {
                     .foregroundStyle(result.hasBlocking ? Color.red : Theme.tint)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background.ignoresSafeArea())
             .toolbar { NBToolbarButton(role: .close) }
         }
+        .background(Theme.background.ignoresSafeArea())
         .confirmationDialog(.localized("Continue despite blocking preflight issues?"), isPresented: $confirmOverride, titleVisibility: .visible) {
             Button(.localized("Sign Anyway"), role: .destructive) { sign(true) }
             Button(.localized("Cancel"), role: .cancel) {}

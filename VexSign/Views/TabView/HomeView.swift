@@ -94,6 +94,9 @@ struct HomeView: View {
                         quickSignRow
                         featureRows
                         } else {
+                            // Keep the existing workspace dashboard intact, and add the compact
+                            // import/update surface from the supplied Home design above it.
+                            referenceQuickPanel
                             workspaceDashboard
                         }
                     }
@@ -505,6 +508,21 @@ struct HomeView: View {
             }
             .buttonStyle(VexSignFlareButtonStyle())
         }
+    }
+
+    // MARK: - Reference-style quick panel
+
+    /// An additive home surface for modern themes. The original workspace dashboard remains
+    /// directly below it, while these controls make the screenshot's import and update actions
+    /// available without switching the appearance preset.
+    private var referenceQuickPanel: some View {
+        VStack(spacing: 16) {
+            statistics
+            updatesCard
+            importCard
+            packageURLField
+        }
+        .accessibilityIdentifier("home.reference.quick-panel")
     }
 
     // MARK: - Quiet, actionable workspace (System and new presets)
