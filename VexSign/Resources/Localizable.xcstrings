@@ -101879,6 +101879,39 @@
           }
         }
       }
+    },
+    "%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, remove app extensions, or sign anyway." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, remove app extensions, or sign anyway."
+          }
+        }
+      }
+    },
+    "Continuing because you chose to sign despite the preflight issues above." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuing because you chose to sign despite the preflight issues above."
+          }
+        }
+      }
+    },
+    "Signature check (signed through): %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature check (signed through): %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

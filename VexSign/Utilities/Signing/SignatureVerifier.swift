@@ -74,8 +74,25 @@ enum SignatureVerifier {
             let errorDescription: String?
         }
 
-        func requireAcceptable() throws {
-            guard isAcceptable else { throw Rejection(errorDescription: summary) }
+        /// Whether this report has to stop the run that produced the bundle.
+        ///
+        /// Failures do — with one deliberate exception. A run started from the preflight sheet's
+        /// "Sign Anyway" is a user who has already read the same profile problems and chosen to
+        /// sign regardless; failing here would throw away a bundle they explicitly asked for, one
+        /// stage after the tap, which is how a blocking preflight issue turns into "signing is
+        /// broken" (1.0 signed these bundles without asking at all). The issues are still logged,
+        /// still counted, and still visible in the log the sheet shows.
+        ///
+        /// A missing bundle is not a judgement call and never survives an override: there is
+        /// nothing to register.
+        func stopsRun(overridingBlockingIssues: Bool) -> Bool {
+            guard bundlePath != nil else { return true }
+            return !failures.isEmpty && !overridingBlockingIssues
+        }
+
+        func requireAcceptable(overridingBlockingIssues: Bool = false) throws {
+            guard stopsRun(overridingBlockingIssues: overridingBlockingIssues) else { return }
+            throw Rejection(errorDescription: summary)
         }
 
 		var failures: [Issue] {

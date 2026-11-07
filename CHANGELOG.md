@@ -11,6 +11,27 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Signing no longer fails *after* the tap on the very problems the preflight sheet
+  already let the user accept. "Sign Anyway" used to be defeated one stage later:
+  the post-sign inspection reported the same expired profile, uncovered extension
+  or ungranted entitlement as a failure and the freshly signed bundle was thrown
+  away. Those issues are now logged as warnings, kept on
+  `SigningHandler.verification`, and the bundle is registered, which is the
+  behaviour 1.0 shipped before the inspection existed. Paths that never show the
+  sheet (batch, Update All, automation, self-update) keep the strict failure.
+- An extension the selected profile does not cover is a blocking preflight issue
+  instead of a warning. The post-sign inspection already failed that bundle, so the
+  sheet promised a "Start Signing" run that could only end in an error; it now says
+  so before the two-minute sign and offers the override. Covered by
+  `VexSignTests/ProfileCompatibilityTests.swift` and
+  `VexSignTests/SignatureVerifierTests.swift`.
+- Deleting a certificate is no longer a silent no-op when the Keychain refuses the
+  delete (a locked device, or an item written by an older build): the error is
+  logged and the row, files and status records are removed, instead of tapping
+  Delete and watching nothing happen.
+- `VexSignTests/SelfUpdateNotificationTests.swift` compiles again: one call site
+  passed `decide(active:surfaced:)` against a `decide(surfaced:active:)`
+  declaration, which failed the whole simulator test bundle on `main`.
 - `tools/update-repo.sh` no longer word-splits its authorization header
   (curl used to receive `Bearer` as a URL and failed every authenticated
   run), and the stale workflow name in `docs/BUILD.md` was corrected.

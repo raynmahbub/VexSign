@@ -53,10 +53,17 @@ enum FR {
 		using options: Options,
 		icon: UIImage?,
 		certificate: CertificatePair?,
+        overridesBlockingPreflightIssues: Bool = false,
         onStage: ((SigningStage) -> Void)? = nil,
 		completion: @escaping (Result<Signed, Error>) -> Void
 	) {
-		let request = SigningRequest(app: app, options: options, icon: icon, certificate: certificate)
+		let request = SigningRequest(
+			app: app,
+			options: options,
+			icon: icon,
+			certificate: certificate,
+			overridesBlockingPreflightIssues: overridesBlockingPreflightIssues
+		)
 
 		Task { @MainActor in
 			let log = SigningLog.shared

@@ -194,14 +194,20 @@ enum ProfileCompatibility {
 			)
 		}
 
-		// 3. Extensions have to be covered too. owns the per-extension fix, so this warns.
+		// 3. Extensions have to be covered too.
+		//
+		// This blocks because `SignatureVerifier` already treats the same condition — a nested
+		// identifier the embedded profile does not cover — as a failure of the finished bundle.
+		// Warning here and failing there meant the sheet said "Start Signing" with an orange
+		// note, and the run was discarded a stage after the tap. Saying it now costs one tap and
+		// makes the "Sign Anyway" override the place where the user decides.
 		if let pattern {
 			for nested in target.nestedBundleIdentifiers where !SignatureVerifier.coverage(of: pattern, includes: nested) {
 				issues.append(
 					Issue(
 						code: .extensionNotCovered,
-						severity: .warning,
-						detail: .localized("%@ is not covered by this profile; the extension will not be signed correctly.", arguments: nested)
+						severity: .blocking,
+						detail: .localized("%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, remove app extensions, or sign anyway.", arguments: nested)
 					)
 				)
 			}
