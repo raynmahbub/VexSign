@@ -44,7 +44,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertFalse(native(['tools/test_release_assets.py', 'tools/generate-changelog.sh', 'docs/RELEASING.md']))
         for path in ('VexSign/App.swift', 'VexSignTests/Test.swift', 'NativeSigning/Tests/Test.swift',
                      'Makefile', 'SideSign/Package.swift', 'Vendor/source.cpp', '.github/workflows/ci.yml',
-                     'tools/bootstrap.sh', 'unknown-file'):
+                     '.github/workflows/ci-repair-assistant.yml', 'tools/bootstrap.sh', 'unknown-file'):
             self.assertTrue(native([path]), path)
         # A removed app source must still count when renamed into documentation.
         self.assertTrue(native(['VexSign/Old.swift', 'docs/Old.md']))
@@ -153,7 +153,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                      'NimbleKit/Package.swift', 'AltSourceKit/Package.swift',
                      'VexSign.xcodeproj/project.pbxproj', 'Vendor/Zsign/Package.swift',
                      'Vendor/IDeviceKitten/Package.swift',
-                     'Makefile', 'tools/test_workflow_policy.py'):
+                     'Makefile', 'tools/test_workflow_policy.py', '.github/workflows/ci-repair-assistant.yml'):
             with self.subTest(path=path):
                 self.assertTrue(covers('ci.yml', path))
         self.assertFalse(covers('ci.yml', 'server/main.py'))
@@ -345,11 +345,40 @@ class WorkflowPolicyTests(unittest.TestCase):
                     retention_text = retention_text[:match.start()] + retention_text[match.end():]
             for retention in re.findall(r'retention-days: (\d+)', retention_text):
                 self.assertLessEqual(int(retention), 3)
-        for removed in ('repair-agent.yml', 'autopilot.yml', 'auto-stable.yml',
-                        'dependency-audit.yml', 'server-tests.yml', 'ecosystem.yml'):
+        for removed in ('autopilot.yml', 'auto-stable.yml', 'dependency-audit.yml',
+                        'server-tests.yml', 'ecosystem.yml'):
             self.assertFalse((WORKFLOWS / removed).exists())
-        for removed in ('repair-agent.py', 'test_repair_agent.py'):
-            self.assertFalse((ROOT / 'tools' / removed).exists())
+
+    def test_ci_repair_assistant_is_same_repo_scoped_draft_only_and_least_privilege(self):
+        text = (WORKFLOWS / 'ci-repair-assistant.yml').read_text()
+        events = block(text, 'on', 0)
+        self.assertIn('workflows: ["CI"]', events)
+        self.assertIn('types: [completed]', events)
+        jobs = block(text, 'jobs', 0)
+        propose = block(jobs, 'propose', 2)
+        validate = block(jobs, 'validate', 2)
+        publish = block(jobs, 'publish', 2)
+        for condition in ("github.event.workflow_run.event == 'pull_request'",
+                          "github.event.workflow_run.conclusion == 'failure'",
+                          'github.event.workflow_run.head_repository.full_name == github.repository',
+                          "!startsWith(github.event.workflow_run.head_branch, 'automation/bugfix-agent/')"):
+            self.assertIn(condition, propose)
+        self.assertIn('OPENAI_API_KEY', propose)
+        self.assertIn('contents: read', block(propose, 'permissions', 4))
+        self.assertNotIn('contents: write', block(propose, 'permissions', 4))
+        self.assertIn('persist-credentials: false', validate)
+        self.assertIn('contents: write', block(publish, 'permissions', 4))
+        self.assertIn('pull-requests: write', block(publish, 'permissions', 4))
+        self.assertIn('persist-credentials: true', publish)
+        self.assertIn('validate', publish)
+        self.assertIn('publish', publish)
+        agent = (ROOT / 'tools/ci_repair_agent.py').read_text()
+        self.assertIn('validate_patch', agent)
+        self.assertIn('MAX_PATCH_BYTES = 80_000', agent)
+        self.assertIn('MAX_PATCH_LINES = 800', agent)
+        self.assertIn('automation/bugfix-agent/', agent)
+        self.assertIn('--draft', agent)
+        self.assertNotIn('gh", "pr", "merge', agent)
 
     def test_maintenance_jobs_keep_independent_permissions_and_cadence(self):
         text = (WORKFLOWS / 'repo-maintenance.yml').read_text()
