@@ -174,12 +174,82 @@ struct SelfUpdateSheet: View {
 		VStack(spacing: 10) {
 			if case .failed(let message) = _manager.phase {
 				_failure(message)
+			} else if let blocker = _plan.blocker {
+				_blocked(blocker)
 			} else {
 				_actions
 			}
 		}
 		.padding()
 		.background(.bar)
+	}
+
+	// MARK: Readiness
+
+	private var _plan: SelfUpdatePlan { _manager.plan(for: release) }
+
+	private var _methodBinding: Binding<SelfUpdateMethod> {
+		Binding(get: { _manager.method }, set: { _manager.adopt($0) })
+	}
+
+	/// Fixing the method belongs in the sheet: sending someone to Settings to change a picker and
+	/// come back is how the Install button ended up doing nothing but printing an error.
+	private var _methodPicker: some View {
+		Picker(.localized("Install Method"), selection: _methodBinding) {
+			Text(SelfUpdateMethod.server.title).tag(SelfUpdateMethod.server)
+			Text(SelfUpdateMethod.idevice.title).tag(SelfUpdateMethod.idevice)
+		}
+		.pickerStyle(.segmented)
+	}
+
+	private func _installButton(_ title: String) -> some View {
+		Button {
+			_manager.beginUpdate(to: release)
+		} label: {
+			Text(verbatim: title).frame(maxWidth: .infinity)
+		}
+		.buttonStyle(.borderedProminent)
+		.controlSize(.large)
+	}
+
+	/// Shown instead of the Install button when the selected method cannot work, so the reason and
+	/// the way out appear before anything is attempted.
+	private func _blocked(_ blocker: SelfUpdateBlocker) -> some View {
+		VStack(spacing: 10) {
+			Label(blocker.message, systemImage: "exclamationmark.triangle.fill")
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			if let alternative = _plan.alternative {
+				_installButton(String.localized("Install with %@", arguments: alternative.title))
+			}
+
+			if !blocker.isFinal {
+				_methodPicker
+			}
+
+			if _manager.method == .idevice && !_manager.hasPairing {
+				Button {
+					UIApplication.open("localdevvpn://enable?scheme=vexsign")
+				} label: {
+					Label(.localized("Connect to LocalDevVPN"), systemImage: "link")
+						.frame(maxWidth: .infinity)
+				}
+				.buttonStyle(.bordered)
+				.controlSize(.large)
+			}
+
+			Button {
+				_manager.phase = .idle
+				dismiss()
+			} label: {
+				Text(.localized("Close")).frame(maxWidth: .infinity)
+			}
+			.buttonStyle(.bordered)
+			.controlSize(.large)
+		}
 	}
 
 	private var _actions: some View {
@@ -229,32 +299,56 @@ struct SelfUpdateSheet: View {
 			Label(message, systemImage: "exclamationmark.triangle.fill")
 				.font(.footnote)
 				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
 				.frame(maxWidth: .infinity, alignment: .leading)
-			if _manager.method == .idevice {
-				Button {
-					UIApplication.open("localdevvpn://enable?scheme=vexsign")
-				} label: {
-					Label(.localized("Connect to LocalDevVPN"), systemImage: "link")
-						.frame(maxWidth: .infinity)
+
+			if let blocker = _plan.blocker {
+				// Nothing about this build or its settings changed, so "Try Again" would repeat the
+				// same sentence. Offer what can actually proceed instead.
+				if let alternative = _plan.alternative {
+					_installButton(String.localized("Install with %@", arguments: alternative.title))
 				}
-				.buttonStyle(.borderedProminent)
+				if !blocker.isFinal {
+					_methodPicker
+				}
+			} else {
+				if _manager.method == .idevice {
+					Button {
+						UIApplication.open("localdevvpn://enable?scheme=vexsign")
+					} label: {
+						Label(.localized("Connect to LocalDevVPN"), systemImage: "link")
+							.frame(maxWidth: .infinity)
+					}
+					.buttonStyle(.borderedProminent)
+					.controlSize(.large)
+				}
+				HStack(spacing: 10) {
+					Button {
+						_manager.phase = .idle
+						dismiss()
+					} label: {
+						Text(.localized("Close")).frame(maxWidth: .infinity)
+					}
+					Button {
+						_manager.beginUpdate(to: release)
+					} label: {
+						Text(.localized("Try Again")).frame(maxWidth: .infinity)
+					}
+				}
+				.buttonStyle(.bordered)
 				.controlSize(.large)
 			}
-			HStack(spacing: 10) {
+
+			if _plan.blocker != nil {
 				Button {
 					_manager.phase = .idle
 					dismiss()
 				} label: {
 					Text(.localized("Close")).frame(maxWidth: .infinity)
 				}
-				Button {
-					_manager.beginUpdate(to: release)
-				} label: {
-					Text(.localized("Try Again")).frame(maxWidth: .infinity)
-				}
+				.buttonStyle(.bordered)
+				.controlSize(.large)
 			}
-			.buttonStyle(.bordered)
-			.controlSize(.large)
 		}
 	}
 

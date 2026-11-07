@@ -14,6 +14,17 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - `tools/update-repo.sh` no longer word-splits its authorization header
   (curl used to receive `Bearer` as a URL and failed every authenticated
   run), and the stale workflow name in `docs/BUILD.md` was corrected.
+- Tapping Reinstall (or Install) no longer ends in the dead end "The updater
+  server isn't available in this build." with a Try Again button that repeated
+  the same sentence. The update flow now evaluates a method plan before the tap
+  (`SelfUpdateManager.plan`), names the actual blocker, offers the other install
+  method when it is ready, and switches to it instead of failing when only the
+  selected method is unconfigured. Settings → Updates gained an editable
+  updater address (http(s) only, https assumed) so the server route can be set
+  up in-app, plus a one-tap switch to IDevice when a pairing file exists. A
+  stored address is validated before it is saved, a dismissed sheet no longer
+  reopens on a stale failure, and the plan is covered by
+  `VexSignTests/SelfUpdateReadinessTests.swift`.
 - The Settings → Signing Methods screen no longer reports placeholder data:
   `SigningMethodAvailability` now exposes only real availability (paid
   mirrors imported certificates, TrollStore mirrors the device detector,

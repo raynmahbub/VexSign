@@ -15,6 +15,57 @@ import NimbleExtensions
 enum SelfUpdateMethod: Int {
 	case server = 0
 	case idevice = 1
+
+	var title: String {
+		switch self {
+		case .server: return .localized("Server")
+		case .idevice: return .localized("IDevice")
+		}
+	}
+}
+
+// MARK: - Readiness
+
+/// Why the selected self-update method cannot install right now.
+///
+/// The sheet used to discover this only after the user tapped Install, and answered with a single
+/// sentence that named no cause and no way out. The plan is evaluated before the tap so the sheet
+/// can say what is missing and, when the other method is ready, offer it.
+enum SelfUpdateBlocker: String, Equatable {
+	/// The build embeds its own VexSign; a plain VexSign IPA cannot replace the combined runtime.
+	case combinedHost
+	/// No updater server address in this build and none configured by the user.
+	case serverNotConfigured
+	/// The IDevice route needs a pairing file on disk.
+	case pairingMissing
+	/// The release has no IPA asset, so IDevice has nothing to download.
+	case noDownload
+
+	/// Nothing in this app can clear it; only a different build can.
+	var isFinal: Bool { self == .combinedHost }
+
+	var message: String {
+		switch self {
+		case .combinedHost:
+			return .localized("Install a verified combined-host update. A standalone VexSign IPA cannot update this combined runtime.")
+		case .serverNotConfigured:
+			return .localized("This build has no updater server address. Add one under Update settings, or install with IDevice instead.")
+		case .pairingMissing:
+			return .localized("IDevice updates need a pairing file. Import one in Installation settings, or install from the server instead.")
+		case .noDownload:
+			return .localized("This release has no downloadable IPA, so IDevice has nothing to install.")
+		}
+	}
+}
+
+/// The verdict for one attempt: which method would run, what stops it, and what else would work.
+struct SelfUpdatePlan: Equatable {
+	let method: SelfUpdateMethod
+	let blocker: SelfUpdateBlocker?
+	/// The other method, when it is ready right now.
+	let alternative: SelfUpdateMethod?
+
+	var canInstall: Bool { blocker == nil }
 }
 
 struct SelfUpdateRelease: Identifiable, Equatable {
@@ -61,6 +112,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		static let certIndex = "VexSign.selfUpdateCertIndex"
 		static let lastCheck = "VexSign.selfUpdateLastCheck"
 		static let method = "VexSign.selfUpdateMethod"
+		static let serverURL = "VexSign.selfUpdateServerURL"
 	}
 
 	private var _downloadContinuation: CheckedContinuation<URL, Error>?
@@ -99,31 +151,137 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	}
 
 	var serverBaseURL: URL? {
-		if let configured = UserDefaults.standard.string(forKey: "VexSign.selfUpdateServerURL")?.trimmingCharacters(in: .whitespacesAndNewlines),
-		   !configured.isEmpty, let url = URL(string: configured) {
+		if let configured = UserDefaults.standard.string(forKey: Keys.serverURL),
+		   let url = Self.normalizedServerBaseURL(configured) {
 			return url
 		}
 		guard
 			let url = Bundle.main.url(forResource: "SelfUpdateConfig", withExtension: "plist"),
 			let dict = NSDictionary(contentsOf: url),
-			let base = (dict["ServerBaseURL"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-			!base.isEmpty
+			let base = dict["ServerBaseURL"] as? String
 		else { return nil }
-		return URL(string: base)
+		return Self.normalizedServerBaseURL(base)
 	}
 
 	var isServerConfigured: Bool { serverBaseURL != nil }
+
+	/// What the Settings screen shows in its address field: the user override when there is one,
+	/// otherwise the bundled address, so a working build does not look unconfigured.
+	var configuredServerAddress: String {
+		if let configured = UserDefaults.standard.string(forKey: Keys.serverURL),
+		   !configured.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+			return configured
+		}
+		return serverBaseURL?.absoluteString ?? ""
+	}
+
+	var hasServerAddressOverride: Bool {
+		guard let raw = UserDefaults.standard.string(forKey: Keys.serverURL) else { return false }
+		return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+	}
+
+	/// Stores the address Settings collected. An empty string clears the override and lets a
+	/// bundled `SelfUpdateConfig.plist` apply again. Returns false for a value that could never
+	/// serve `vexsign/sign`, instead of saving it and failing later with a network error.
+	@discardableResult
+	func setServerBaseURL(_ raw: String?) -> Bool {
+		let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+		if trimmed.isEmpty {
+			UserDefaults.standard.removeObject(forKey: Keys.serverURL)
+			objectWillChange.send()
+			return true
+		}
+		guard let url = Self.normalizedServerBaseURL(trimmed) else { return false }
+		UserDefaults.standard.set(url.absoluteString, forKey: Keys.serverURL)
+		objectWillChange.send()
+		return true
+	}
+
+	/// A scheme-less host ("updater.example.com") is what people type, so https is assumed. Anything
+	/// that is not an absolute http(s) URL with a host is rejected: a stray value in this key used to
+	/// make `isServerConfigured` true and then fail during the upload with an opaque error.
+	static func normalizedServerBaseURL(_ raw: String) -> URL? {
+		var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !text.isEmpty else { return nil }
+		// A space anywhere means a pasted sentence or a broken paste, not an address. Rejecting it
+		// here is deterministic; URLComponents would quietly percent-encode some of them.
+		guard !text.contains(where: { $0.isWhitespace }) else { return nil }
+		if !text.contains("://") { text = "https://" + text }
+		while text.hasSuffix("/") { text.removeLast() }
+		guard
+			!text.isEmpty,
+			let components = URLComponents(string: text),
+			let scheme = components.scheme?.lowercased(),
+			scheme == "http" || scheme == "https",
+			let host = components.host,
+			!host.isEmpty
+		else { return nil }
+		return components.url
+	}
+
+	/// Re-reads the things readiness depends on (pairing file, server address) and republishes.
+	func refreshConfiguration() { objectWillChange.send() }
 
 	var hasPairing: Bool {
 		FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile())
 	}
 
-	var canSelfInstall: Bool {
-        guard !EmbeddedContainerRuntime.isPrimaryHost else { return false }
-		switch method {
-		case .server: return isServerConfigured
-		case .idevice: return hasPairing
+	// MARK: - Plan
+
+	/// Pure: every input is passed in, so the decision is testable without a device.
+	static func plan(
+		preferred: SelfUpdateMethod,
+		isPrimaryHost: Bool,
+		serverConfigured: Bool,
+		hasPairing: Bool,
+		hasDownload: Bool
+	) -> SelfUpdatePlan {
+		guard !isPrimaryHost else {
+			return SelfUpdatePlan(method: preferred, blocker: .combinedHost, alternative: nil)
 		}
+
+		func blocker(for method: SelfUpdateMethod) -> SelfUpdateBlocker? {
+			switch method {
+			case .server:
+				return serverConfigured ? nil : .serverNotConfigured
+			case .idevice:
+				if !hasPairing { return .pairingMissing }
+				return hasDownload ? nil : .noDownload
+			}
+		}
+
+		let alternative: SelfUpdateMethod = preferred == .server ? .idevice : .server
+		if let reason = blocker(for: preferred) {
+			return SelfUpdatePlan(
+				method: preferred,
+				blocker: reason,
+				alternative: blocker(for: alternative) == nil ? alternative : nil
+			)
+		}
+		return SelfUpdatePlan(method: preferred, blocker: nil, alternative: nil)
+	}
+
+	/// The plan for the current device and configuration. `release` is optional because the Settings
+	/// screen asks "could this work at all?" before a release is chosen.
+	func plan(for release: SelfUpdateRelease?) -> SelfUpdatePlan {
+		Self.plan(
+			preferred: method,
+			isPrimaryHost: EmbeddedContainerRuntime.isPrimaryHost,
+			serverConfigured: isServerConfigured,
+			hasPairing: hasPairing,
+			hasDownload: release.map { $0.downloadURL != nil } ?? true
+		)
+	}
+
+	var canSelfInstall: Bool { plan(for: nil).canInstall }
+
+	/// Switch methods from the sheet and keep the publication honest.
+	func adopt(_ newMethod: SelfUpdateMethod) {
+		guard newMethod != method else { return }
+		method = newMethod
+		phase = .idle
+		installProgress = 0
+		FileLogger.log("Update method switched to \(newMethod.title)", category: "update")
 	}
 
 	func ignore(_ version: String) {
@@ -261,24 +419,25 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	func endFlow() {
 		_flow?.cancel()
 		_flow = nil
-		if case .failed = phase {} else {
-			phase = .idle
-			installProgress = 0
-		}
+		// A failure belongs to the attempt, not to the sheet: keeping it here made the next open
+		// show a stale error before anything was tried.
+		phase = .idle
+		installProgress = 0
 	}
 
 	@MainActor
 	func performUpdate(to release: SelfUpdateRelease) async {
-        guard !EmbeddedContainerRuntime.isPrimaryHost else {
-            phase = .failed(.localized("Install a verified combined-host update. A standalone VexSign IPA cannot update this combined runtime."))
-            return
-        }
-		guard canSelfInstall else {
-			let message: String = method == .server
-				? .localized("The updater server isn't available in this build.")
-				: .localized("IDevice updates need a pairing file. Set it up in Installation settings, or switch to Server.")
-			phase = .failed(message)
-			return
+		let ready = plan(for: release)
+		if let blocker = ready.blocker {
+			// The other method working while the selected one cannot is a configuration mistake,
+			// not a failure: use what is ready instead of sending the user to Settings.
+			guard let alternative = ready.alternative else {
+				phase = .failed(blocker.message)
+				FileLogger.error("Update blocked [\(blocker.rawValue)] version=\(release.version)", category: "update")
+				return
+			}
+			FileLogger.log("Update method \(method.title) unavailable [\(blocker.rawValue)]; using \(alternative.title)", category: "update")
+			adopt(alternative)
 		}
 		guard let certificate = resolvedCertificate() else {
 			phase = .failed(.localized("No signing certificate selected. Choose one in Update settings."))
@@ -406,7 +565,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	private func installViaIDevice(release: SelfUpdateRelease, certificate: CertificatePair) async throws {
 		guard let url = release.downloadURL else {
 			throw NSError(domain: "SelfUpdate", code: -1,
-						  userInfo: [NSLocalizedDescriptionKey: String.localized("This release has no downloadable IPA.")])
+						  userInfo: [NSLocalizedDescriptionKey: SelfUpdateBlocker.noDownload.message])
 		}
 
 		phase = .downloading(0)
@@ -451,7 +610,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	private func requestServerSign(version: String, certificate: CertificatePair) async throws -> URL {
 		guard let base = serverBaseURL else {
 			throw NSError(domain: "SelfUpdate", code: -4,
-						  userInfo: [NSLocalizedDescriptionKey: String.localized("The updater server isn't available in this build.")])
+						  userInfo: [NSLocalizedDescriptionKey: SelfUpdateBlocker.serverNotConfigured.message])
 		}
 		guard
 			let p12URL = Storage.shared.getFile(.certificate, from: certificate),

@@ -101615,6 +101615,160 @@
           }
         }
       }
+    },
+    "Configured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configured"
+          }
+        }
+      }
+    },
+    "Enter a valid address, for example https://updater.example.com." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a valid address, for example https://updater.example.com."
+          }
+        }
+      }
+    },
+    "IDevice updates need a pairing file. Import one in Installation settings, or install from the server instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IDevice updates need a pairing file. Import one in Installation settings, or install from the server instead."
+          }
+        }
+      }
+    },
+    "Install Updates with IDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install Updates with IDevice"
+          }
+        }
+      }
+    },
+    "Install with %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install with %@"
+          }
+        }
+      }
+    },
+    "Not configured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not configured"
+          }
+        }
+      }
+    },
+    "Only an http(s) address is accepted; https is assumed when the scheme is left out. Leave this empty to use the address compiled into this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only an http(s) address is accepted; https is assumed when the scheme is left out. Leave this empty to use the address compiled into this build."
+          }
+        }
+      }
+    },
+    "Remove Saved Address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Saved Address"
+          }
+        }
+      }
+    },
+    "Save Address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Address"
+          }
+        }
+      }
+    },
+    "Server updates need an address that answers /vexsign/sign. Enter one below, or import a pairing file and use IDevice." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server updates need an address that answers /vexsign/sign. Enter one below, or import a pairing file and use IDevice."
+          }
+        }
+      }
+    },
+    "This build has no updater server address. Add one under Update settings, or install with IDevice instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build has no updater server address. Add one under Update settings, or install with IDevice instead."
+          }
+        }
+      }
+    },
+    "This release has no downloadable IPA, so IDevice has nothing to install." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This release has no downloadable IPA, so IDevice has nothing to install."
+          }
+        }
+      }
+    },
+    "Updater Server Address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updater Server Address"
+          }
+        }
+      }
+    },
+    "https://updater.example.com" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://updater.example.com"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

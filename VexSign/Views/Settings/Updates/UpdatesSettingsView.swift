@@ -18,6 +18,8 @@ struct UpdatesSettingsView: View {
 	@AppStorage(AppStoreUpdateTracker.enabledKey) private var _appStoreTracking: Bool = false
 
 	@State private var _selected: SelfUpdateRelease?
+	@State private var _serverAddressDraft: String = ""
+	@State private var _serverAddressError: String?
 	@ObservedObject private var _appStoreTracker = AppStoreUpdateTracker.shared
 
 	private let _certificates = Storage.shared.getAllCertificates()
@@ -43,6 +45,11 @@ struct UpdatesSettingsView: View {
 		.sheet(item: $_selected) { release in
 			SelfUpdateSheet(release: release, offersReminders: false)
 		}
+		.onAppear {
+			_serverAddressDraft = _manager.configuredServerAddress
+			_manager.refreshConfiguration()
+		}
+		.onChange(of: _method) { _ in _manager.refreshConfiguration() }
 		.task {
 			await _manager.check()
 		}
@@ -156,12 +163,87 @@ struct UpdatesSettingsView: View {
 				}
 			} else if !_manager.isServerConfigured {
 				Section {
-					Label(.localized("The updater server isn't available in this build."), systemImage: "exclamationmark.triangle.fill")
+					Label(SelfUpdateBlocker.serverNotConfigured.message, systemImage: "exclamationmark.triangle.fill")
 						.font(.footnote)
 						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+					if _manager.hasPairing {
+						Button(.localized("Install Updates with IDevice")) { _manager.adopt(.idevice) }
+					} else {
+						NavigationLink {
+							NBList(.localized("Tunnel")) { TunnelView() }
+						} label: {
+							Label(.localized("Pairing file and VPN setup"), systemImage: "link")
+						}
+					}
+				} footer: {
+					Text(.localized("Server updates need an address that answers /vexsign/sign. Enter one below, or import a pairing file and use IDevice."))
 				}
 			}
+			_serverAddressSection
 		}
+	}
+
+	// MARK: Updater server address
+
+	/// The build can ship without a bundled `SelfUpdateConfig.plist`; before this field existed the
+	/// only answer was a warning that the server "isn't available in this build", with no way to
+	/// supply one.
+	private var _serverAddressSection: some View {
+		NBSection(.localized("Updater Server Address")) {
+			HStack {
+				TextField(.localized("https://updater.example.com"), text: $_serverAddressDraft)
+					.keyboardType(.URL)
+					.textInputAutocapitalization(.never)
+					.autocorrectionDisabled()
+					.submitLabel(.done)
+					.onSubmit(_saveServerAddress)
+				if !_serverAddressDraft.isEmpty {
+					Button {
+						_serverAddressDraft = ""
+					} label: {
+						Image(systemName: "xmark.circle.fill")
+							.foregroundStyle(.secondary)
+					}
+					.buttonStyle(.plain)
+					.accessibilityLabel(Text(.localized("Clear")))
+				}
+			}
+			Button(.localized("Save Address")) { _saveServerAddress() }
+				.disabled(_serverAddressDraft.trimmingCharacters(in: .whitespacesAndNewlines) == _manager.configuredServerAddress)
+			HStack {
+				Text(.localized("Status"))
+				Spacer()
+				Text(verbatim: _manager.isServerConfigured ? String.localized("Configured") : String.localized("Not configured"))
+					.foregroundStyle(_manager.isServerConfigured ? Color.accentColor : Color.secondary)
+			}
+			if _manager.hasServerAddressOverride {
+				Button(.localized("Remove Saved Address")) {
+					_serverAddressDraft = ""
+					_manager.setServerBaseURL(nil)
+					_serverAddressError = nil
+				}
+			}
+			if let error = _serverAddressError {
+				Label(error, systemImage: "exclamationmark.triangle.fill")
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+		} footer: {
+			Text(.localized("Only an http(s) address is accepted; https is assumed when the scheme is left out. Leave this empty to use the address compiled into this build."))
+		}
+	}
+
+	private func _saveServerAddress() {
+		let trimmed = _serverAddressDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard _manager.setServerBaseURL(trimmed) else {
+			_serverAddressError = .localized("Enter a valid address, for example https://updater.example.com.")
+			return
+		}
+		_serverAddressError = nil
+		// Show the normalised value (scheme added, trailing slash removed) rather than what was typed.
+		_serverAddressDraft = _manager.configuredServerAddress
 	}
 
 	// MARK: Ignored
