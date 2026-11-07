@@ -79,47 +79,35 @@ enum SigningMethod: String, CaseIterable, Codable, Identifiable {
 }
 
 // MARK: - SigningMethodAvailability
-/// Runtime availability and configuration status for each signing method.
+/// Runtime availability of a signing path.
+///
+/// Only what the signing-methods screen renders: whether the method can be
+/// selected and, when it cannot, why. Free-Apple-ID session/quota status
+/// lives in `NativeSigningManager.snapshot`, which the same screen reads
+/// directly — duplicating it here would drift (as the removed placeholder
+/// fields did).
 struct SigningMethodAvailability: Equatable {
-    let method: SigningMethod
     let isAvailable: Bool
+    /// Why the method cannot be selected; `nil` exactly when it is available.
     let availabilityReason: String?
-    let configuredCredentials: Bool
-    let activeAppCount: Int
-    let canAddMoreApps: Bool
 
     static func current(for method: SigningMethod) -> SigningMethodAvailability {
         switch method {
         case .paidCertificate:
-            let certs = Storage.shared.getAllCertificates()
-            let hasCert = !certs.isEmpty
+            let hasCert = !Storage.shared.getAllCertificates().isEmpty
             return SigningMethodAvailability(
-                method: method,
                 isAvailable: hasCert,
-                availabilityReason: hasCert ? nil : .localized("Import a .p12 certificate and .mobileprovision profile"),
-                configuredCredentials: hasCert,
-                activeAppCount: 0, // TODO: Count signed apps using paid cert
-                canAddMoreApps: hasCert
+                availabilityReason: hasCert ? nil : .localized("Import a .p12 certificate and .mobileprovision profile")
             )
         case .freeAppleID:
-            // TODO: Check NativeAccountBackend for active session
-            return SigningMethodAvailability(
-                method: method,
-                isAvailable: true, // Always available if NativeSigning is linked
-                availabilityReason: nil,
-                configuredCredentials: false, // TODO: Check if signed in
-                activeAppCount: 0, // TODO: Count apps signed with free Apple ID
-                canAddMoreApps: true // TODO: Check 3-app limit
-            )
+            // Always selectable: choosing it starts sign-in, and the live
+            // session state is rendered from NativeSigningManager's snapshot.
+            return SigningMethodAvailability(isAvailable: true, availabilityReason: nil)
         case .trollStore:
             let available = TrollStoreDetector.isAvailable
             return SigningMethodAvailability(
-                method: method,
                 isAvailable: available,
-                availabilityReason: available ? nil : .localized("TrollStore not detected on this device"),
-                configuredCredentials: false,
-                activeAppCount: 0,
-                canAddMoreApps: available
+                availabilityReason: available ? nil : .localized("TrollStore not detected on this device")
             )
         }
     }
