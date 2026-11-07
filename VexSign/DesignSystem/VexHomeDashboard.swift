@@ -306,7 +306,7 @@ struct VexHomeDashboard: View {
             ? .localized("From repositories you have installed")
             : .localized("Your repositories are up to date")
 
-        return Button(action: onOpenUpdates) label: {
+        return Button(action: onOpenUpdates) {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
