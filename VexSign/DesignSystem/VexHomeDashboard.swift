@@ -302,7 +302,7 @@ struct VexHomeDashboard: View {
             : updateCount > 1
                 ? String.localized("%lld Updates Available", arguments: updateCount)
                 : .localized("No Updates Available")
-        let detail = updateCount > 0
+        let detail: String = updateCount > 0
             ? .localized("From repositories you have installed")
             : .localized("Your repositories are up to date")
 
