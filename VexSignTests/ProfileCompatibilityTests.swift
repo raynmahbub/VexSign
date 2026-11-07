@@ -165,14 +165,18 @@ final class ProfileCompatibilityTests: XCTestCase {
 
 	// MARK: - Extensions
 
-	func testUncoveredExtensionWarnsButDoesNotBlock() {
+	/// Blocks, because `SignatureVerifier` fails the finished bundle for the same condition: a
+	/// preflight that warns and then a run that fails a stage after the tap is worse than one
+	/// that says so up front and offers "Sign Anyway".
+	func testUncoveredExtensionBlocksSoTheSheetCanOfferTheOverride() {
 		let evaluation = ProfileCompatibility.evaluate(
 			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
 			target: _target("com.example.app", nested: ["com.example.app.widget"])
 		)
 
-		XCTAssertFalse(evaluation.hasBlocking, "owns the per-extension fix; this must not block")
-		XCTAssertTrue(evaluation.issues.contains { $0.code == .extensionNotCovered }, _describe(evaluation))
+		XCTAssertTrue(evaluation.hasBlocking, "the post-sign inspection fails on this, so preflight has to say it")
+		XCTAssertEqual(evaluation.verdict, .unusable)
+		XCTAssertTrue(evaluation.blockingIssues.contains { $0.code == .extensionNotCovered }, _describe(evaluation))
 	}
 
 	func testWildcardProfileCoversExtensions() {

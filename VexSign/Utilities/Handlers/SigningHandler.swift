@@ -37,6 +37,10 @@ final class SigningHandler: NSObject {
 	/// What the post-sign inspection found. Written before the bundle is moved into the
 	/// library, so it describes the bytes that are actually kept.
 	private(set) var verification: SignatureVerifier.Report?
+	/// True when the run was started from the preflight sheet's "Sign Anyway". The blocking
+	/// issues the user accepted there are the same ones the post-sign inspection reports, so
+	/// they are logged and kept in `verification` instead of failing the run a second time.
+	var overridesBlockingPreflightIssues = false
 	/// Called as each stage begins. Synchronous on purpose: it is delivered to
 	/// `SigningService`'s event queue, which preserves order.
 	var onStage: ((SigningStage) -> Void)?
@@ -215,7 +219,8 @@ final class SigningHandler: NSObject {
         if injectedCount > 0 { await AnalyticsStore.shared.record(.tweaksInjected, count: injectedCount) }
     }
 	
-    /// Definite structural failures stop before library registration or success events.
+    /// Definite structural failures stop before library registration or success events —
+    /// unless the user signed through the blocking preflight issues that predict them.
 	private func _verifySignedBundle(at path: URL) throws {
 		var expectation = SignatureVerifier.Expectation.freshlySigned
 		expectation.declaredBundleIdentifier = _options.appIdentifier
@@ -224,8 +229,13 @@ final class SigningHandler: NSObject {
 		let report = SignatureVerifier.verify(bundleAt: path, expectation: expectation)
 		verification = report
 
+		let overriding = overridesBlockingPreflightIssues && report.bundlePath != nil && !report.failures.isEmpty
 		for issue in report.failures {
-			SigningLog.shared.error(.localized("Signature check: %@", arguments: issue.detail))
+			if overriding {
+				SigningLog.shared.warn(.localized("Signature check (signed through): %@", arguments: issue.detail))
+			} else {
+				SigningLog.shared.error(.localized("Signature check: %@", arguments: issue.detail))
+			}
 		}
 		for issue in report.warnings {
 			SigningLog.shared.warn(.localized("Signature check: %@", arguments: issue.detail))
@@ -233,10 +243,16 @@ final class SigningHandler: NSObject {
 
 		if report.isAcceptable {
 			SigningLog.shared.success(report.summary)
+		} else if overriding {
+			// The bundle is kept: say so, because the summary reads like a failure otherwise.
+			SigningLog.shared.warn(report.summary)
+			SigningLog.shared.warn(
+				.localized("Continuing because you chose to sign despite the preflight issues above.")
+			)
 		} else {
             SigningLog.shared.error(report.summary)
         }
-        try report.requireAcceptable()
+        try report.requireAcceptable(overridingBlockingIssues: overridesBlockingPreflightIssues)
     }
 
 	func move() async throws {
@@ -721,14 +737,26 @@ enum SigningFileHandlerError: Error, LocalizedError {
 	case infoPlistNotFound
 	case missingCertifcate
 	case disinjectFailed
+	/// The engine declined before it had a bundle to complain about, and named no reason of its
+	/// own: usually a certificate/profile pair it cannot use. `identityRejected` says which.
+	case engineRefused
+	/// The identity cannot sign anything, in the engine's own terms — see
+	/// `ZsignEngine.IdentityProblem`.
+	case identityRejected(String)
+	case entitlementsUnreadable
 	case signFailed
-	
+
 	var errorDescription: String? {
 		switch self {
 		case .appNotFound: "Unable to locate bundle path."
 		case .infoPlistNotFound: "Unable to locate info.plist path."
 		case .missingCertifcate: "No certificate was specified."
 		case .disinjectFailed: "Removing mach-O load paths failed."
+		case .engineRefused:
+			.localized("Signing failed: the engine refused this app and did not say why. Open the signing log for its output.")
+		case .identityRejected(let reason): reason
+		case .entitlementsUnreadable:
+			.localized("The entitlements file selected in the options could not be read.")
 		case .signFailed: "Signing failed."
 		}
 	}

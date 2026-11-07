@@ -8,7 +8,9 @@ struct SigningPreflightReviewView: View {
     let certificate: CertificatePair?
     let result: PreflightResult
     let reviewOptions: () -> Void
-    let sign: () -> Void
+    /// Starts the run. The flag says whether the user went through "Sign Anyway": the run then
+    /// keeps its bundle even when the post-sign inspection repeats the issues accepted here.
+    let sign: (_ overridingBlockingIssues: Bool) -> Void
     @State private var confirmOverride = false
 
     var body: some View {
@@ -59,7 +61,7 @@ struct SigningPreflightReviewView: View {
                 } header: { Text(.localized("Preflight checks")) }
                 Section {
                     Button {
-                        if result.hasBlocking { confirmOverride = true } else { sign() }
+                        if result.hasBlocking { confirmOverride = true } else { sign(false) }
                     } label: {
                         Label(result.hasBlocking ? String.localized("Sign Anyway") : String.localized("Start Signing"),
                               systemImage: result.hasBlocking ? "exclamationmark.triangle" : "signature")
@@ -71,7 +73,7 @@ struct SigningPreflightReviewView: View {
             .toolbar { NBToolbarButton(role: .close) }
         }
         .confirmationDialog(.localized("Continue despite blocking preflight issues?"), isPresented: $confirmOverride, titleVisibility: .visible) {
-            Button(.localized("Sign Anyway"), role: .destructive, action: sign)
+            Button(.localized("Sign Anyway"), role: .destructive) { sign(true) }
             Button(.localized("Cancel"), role: .cancel) {}
         }
     }

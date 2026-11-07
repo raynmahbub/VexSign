@@ -107,7 +107,16 @@ struct LibraryCellView: View {
 		.padding(isIconTile ? 0 : (isRegular ? NBSpacing.cellPadding : 0))
 		.background(_cellBackground(isRegular: isRegular, isEditing: isEditing))
         .confirmationDialog(.localized("Delete app?"), isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button(.localized("Delete"), role: .destructive) { Storage.shared.deleteApp(for: app) }
+            Button(.localized("Delete"), role: .destructive) {
+                // A failed delete used to look like a tap that did nothing: the row stayed and
+                // nothing was said. Say it instead.
+                if !Storage.shared.deleteApp(for: app) {
+                    Toast.error(
+                        .localized("Couldn't delete the app. The stored copy is still in the Library; try again."),
+                        duration: .sticky
+                    )
+                }
+            }
             Button(.localized("Cancel"), role: .cancel) {}
         } message: {
             Text(.localized("This removes the stored copy from your Library, not the installed app on your device."))

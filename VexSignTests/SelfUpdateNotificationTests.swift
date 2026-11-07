@@ -78,7 +78,7 @@ final class SelfUpdateNotificationTests: XCTestCase {
 	}
 
 	func testForegroundAfterThePromptWasSurfacedDoesAnnounce() {
-		XCTAssertTrue(decide(active: true, surfaced: ["1.4.0"]), "A dismissed prompt deserves a reminder")
+		XCTAssertTrue(decide(surfaced: ["1.4.0"], active: true), "A dismissed prompt deserves a reminder")
 	}
 
 	func testBackgroundAnnouncesEvenWhenThePromptWasSurfacedBefore() {

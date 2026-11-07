@@ -234,6 +234,51 @@ final class SignatureVerifierTests: XCTestCase {
 		XCTAssertTrue(report.failures.contains { $0.code == .bundleNotFound }, _describe(report))
 	}
 
+	// MARK: - Override
+
+	/// A run started from the preflight sheet's "Sign Anyway" keeps the bundle it just signed:
+	/// the same profile problems are already in the report, and failing here would discard the
+	/// result one stage after the tap. The issues are not hidden — they stay in `failures`.
+	func testAFailureStopsTheRunUnlessTheUserSignedThroughIt() throws {
+		let bundle = try _makeBundle()
+		var expectation = SignatureVerifier.Expectation.freshlySigned
+		expectation.declaredBundleIdentifier = "com.example.requested"
+
+		let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
+
+		XCTAssertFalse(report.failures.isEmpty, _describe(report))
+		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false))
+		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true), "the user already accepted these issues")
+		XCTAssertThrowsError(try report.requireAcceptable())
+		XCTAssertNoThrow(try report.requireAcceptable(overridingBlockingIssues: true))
+	}
+
+	/// The override is not a blanket "ignore verification": a directory with no bundle has
+	/// nothing to register, so it keeps failing.
+	func testAMissingBundleNeverSurvivesAnOverride() {
+		let report = SignatureVerifier.verify(bundleAt: _root)
+
+		XCTAssertNil(report.bundlePath)
+		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true))
+		XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+	}
+
+	func testAWarningOnlyReportNeverStopsTheRun() throws {
+		let bundle = try _makeBundle(
+			executableEntitlements: [
+				"application-identifier": "TEAM12345.com.example.app",
+				"get-task-allow": true
+			]
+		)
+
+		let report = SignatureVerifier.verify(bundleAt: bundle)
+
+		XCTAssertTrue(report.failures.isEmpty, _describe(report))
+		XCTAssertFalse(report.warnings.isEmpty, _describe(report))
+		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: false))
+		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true))
+	}
+
 	// MARK: - Performance
 
 	func testVerificationIsCheapEnoughToRunOnEverySign() throws {

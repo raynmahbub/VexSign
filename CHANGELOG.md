@@ -11,6 +11,44 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- "Signing failed." now says what the engine refused and what to do about it (#113).
+  The pinned engine answers a profile that does not belong to the .p12, an unreadable
+  .p12, a missing profile or a profile without a team id with a `-1` and **no**
+  completion callback, so all VexSign ever saw was `succeeded == false` and no message.
+  1.0 discarded that bool and reported "Signed successfully"; 1.1 refused without a
+  reason. `ZsignEngine.identityProblem` mirrors `ZSignAsset::Init` and names the case
+  ("the provisioning profile was not issued for this certificate…", "the .p12 could not
+  be opened with the password saved for this certificate…"), and an engine refusal that
+  still has no reason of its own points at the signing log instead of a bare sentence.
+- Deleting an app reports failure instead of doing nothing (#113). File removal was
+  `try?`-swallowed and a failed save only reached the unified log, so a delete that did
+  not happen looked like a tap with no effect — which is what a re-signed copy in the
+  library could look like. The rows are resolved onto the main-queue context before
+  deletion (a row handed over from another context used to be a silent no-op), the save
+  is checked, `deleteApp`/`deleteApps` report whether the row is gone, and the library
+  says so when it is not. Covered by `VexSignTests/StorageConcurrencyTests.swift`,
+  which now deletes a signed row with a certificate attached, not just an imported one.
+- Signing no longer fails *after* the tap on the very problems the preflight sheet
+  already let the user accept. "Sign Anyway" used to be defeated one stage later:
+  the post-sign inspection reported the same expired profile, uncovered extension
+  or ungranted entitlement as a failure and the freshly signed bundle was thrown
+  away. Those issues are now logged as warnings, kept on
+  `SigningHandler.verification`, and the bundle is registered, which is the
+  behaviour 1.0 shipped before the inspection existed. Paths that never show the
+  sheet (batch, Update All, automation, self-update) keep the strict failure.
+- An extension the selected profile does not cover is a blocking preflight issue
+  instead of a warning. The post-sign inspection already failed that bundle, so the
+  sheet promised a "Start Signing" run that could only end in an error; it now says
+  so before the two-minute sign and offers the override. Covered by
+  `VexSignTests/ProfileCompatibilityTests.swift` and
+  `VexSignTests/SignatureVerifierTests.swift`.
+- Deleting a certificate is no longer a silent no-op when the Keychain refuses the
+  delete (a locked device, or an item written by an older build): the error is
+  logged and the row, files and status records are removed, instead of tapping
+  Delete and watching nothing happen.
+- `VexSignTests/SelfUpdateNotificationTests.swift` compiles again: one call site
+  passed `decide(active:surfaced:)` against a `decide(surfaced:active:)`
+  declaration, which failed the whole simulator test bundle on `main`.
 - `tools/update-repo.sh` no longer word-splits its authorization header
   (curl used to receive `Bearer` as a URL and failed every authenticated
   run), and the stale workflow name in `docs/BUILD.md` was corrected.
@@ -35,6 +73,13 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Added
 
+- The Home tab has a round import button, in both layouts: a FlareStore-style floating
+  circle over the bottom-right of the content that opens the IPA/TIPA picker. The
+  dashboard tile and the Flare import card stay, but the tap that starts an import no
+  longer moves with the theme or with the scroll position. It sits inside the tab bar's
+  safe-area inset, so it never covers the bar or the last row, and it carries
+  `A11y.Home.importPackages` (`vexsign.home.import`) for the UI tests; the universal
+  search bar now uses `A11y.Home.search` instead of a literal.
 - A local notification the first time a newer VexSign release appears, controlled
   by **Settings → Updates → Release Notifications** (on by default; the
   permission is requested only when the switch is turned on). It fires once per

@@ -101879,6 +101879,171 @@
           }
         }
       }
+    },
+    "%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, remove app extensions, or sign anyway." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, remove app extensions, or sign anyway."
+          }
+        }
+      }
+    },
+    "Continuing because you chose to sign despite the preflight issues above." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuing because you chose to sign despite the preflight issues above."
+          }
+        }
+      }
+    },
+    "Signature check (signed through): %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature check (signed through): %@"
+          }
+        }
+      }
+    },
+    "Couldn't delete %lld app(s). They are still in the Library; try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete %lld app(s). They are still in the Library; try again."
+          }
+        }
+      }
+    },
+    "Couldn't delete the app. The stored copy is still in the Library; try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete the app. The stored copy is still in the Library; try again."
+          }
+        }
+      }
+    },
+    "Signing failed: the engine refused this app and did not say why. Open the signing log for its output." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing failed: the engine refused this app and did not say why. Open the signing log for its output."
+          }
+        }
+      }
+    },
+    "Signing identity: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing identity: %@"
+          }
+        }
+      }
+    },
+    "The .p12 could not be opened with the password saved for this certificate. Re-import the certificate with its password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The .p12 could not be opened with the password saved for this certificate. Re-import the certificate with its password."
+          }
+        }
+      }
+    },
+    "The entitlements file selected in the options could not be read." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The entitlements file selected in the options could not be read."
+          }
+        }
+      }
+    },
+    "The provisioning profile could not be read. Import it again; it may be truncated or not a .mobileprovision." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile could not be read. Import it again; it may be truncated or not a .mobileprovision."
+          }
+        }
+      }
+    },
+    "The provisioning profile does not name an Apple team, so the engine cannot use it. Import a profile issued by Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile does not name an Apple team, so the engine cannot use it. Import a profile issued by Apple."
+          }
+        }
+      }
+    },
+    "The provisioning profile was not issued for this certificate. Import the profile that belongs to the .p12, or select the certificate that profile names." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile was not issued for this certificate. Import the profile that belongs to the .p12, or select the certificate that profile names."
+          }
+        }
+      }
+    },
+    "This certificate has no .p12 on disk. Import it again from Settings → Certificates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This certificate has no .p12 on disk. Import it again from Settings → Certificates."
+          }
+        }
+      }
+    },
+    "This certificate has no provisioning profile on disk. Import the profile that came with the .p12." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This certificate has no provisioning profile on disk. Import the profile that came with the .p12."
+          }
+        }
+      }
+    },
+    "Choose an IPA or TIPA file from Files." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an IPA or TIPA file from Files."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

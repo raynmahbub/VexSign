@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import OSLog
 
 // MARK: - Class extension: certificate
 extension Storage {
@@ -57,10 +58,22 @@ extension Storage {
 		completion(nil)
 	}
 	
+    /// Removes the certificate row, its files and the secrets that belong to it.
+    ///
+    /// The Keychain is best-effort on purpose. It used to be a hard precondition — a throwing
+    /// `SecItemDelete` returned early, so the row stayed in the list and tapping Delete did
+    /// nothing at all, with nothing said about why. A locked keychain (or an item written by a
+    /// build that stored it differently) must not be able to pin a certificate in the library;
+    /// the secret is orphaned instead, and the account name is logged so it can be swept.
     func deleteCertificate(for cert: CertificatePair) {
         StorageConcurrency.requireMainQueue()
         if let uuid = cert.uuid {
-            do { try SecureSecretStore.delete("certificate.password.\(uuid)") } catch { return } // Keep the entry so deletion can be retried after unlock.
+            let account = "certificate.password.\(uuid)"
+            do {
+                try SecureSecretStore.delete(account)
+            } catch {
+                Logger.misc.error("Could not remove Keychain item \(account): \(error.localizedDescription)")
+            }
         }
 		Task { @MainActor in
 			CertificateStatusManager.shared.removeRevocationSnapshot(for: cert)
