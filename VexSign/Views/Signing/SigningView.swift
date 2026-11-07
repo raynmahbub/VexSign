@@ -449,9 +449,12 @@ extension SigningView {
 				}
 
                 // Close the signing sheet as soon as signing succeeds. If the log sheet is
-                // visible, defer the handoff until it closes so the two presentations do not race.
+                // visible, dismiss it programmatically first; its onDismiss callback then hands
+                // off and closes the signing sheet. Leaving the logs visible here used to make
+                // successful runs look like the signing popup had stalled indefinitely.
                 if _presentedSheet == .logs {
                     _postSignAction = { finish(.done) }
+                    _presentedSheet = nil
                 } else {
                     finish(.done)
                 }

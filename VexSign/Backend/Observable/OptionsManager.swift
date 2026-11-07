@@ -15,14 +15,30 @@ class OptionsManager: ObservableObject {
 	
 	@Published var options: Options
 	private let _key = "signing_options"
+	private let _extensionCompatibilityMigrationKey = "signing_options.auto_remove_unsupported_extensions_migrated"
 	
 	init() {
+		var loadedOptions: Options
 		if
 			let data = UserDefaults.standard.data(forKey: _key),
 			let savedOptions = try? JSONDecoder().decode(Options.self, from: data) {
-			self.options = savedOptions
+			loadedOptions = savedOptions
 		} else {
-			self.options = Options.defaultOptions
+			loadedOptions = Options.defaultOptions
+		}
+
+		// Compatibility mode used to default off, so a saved Options blob can contain an
+		// implicit false even for users who never changed the toggle. Enable the safer
+		// keep-compatible/remove-known-uncovered behaviour once on upgrade; users can still
+		// switch it off afterwards, and that explicit choice is preserved on later launches.
+		let didMigrateCompatibility = !UserDefaults.standard.bool(forKey: _extensionCompatibilityMigrationKey)
+		if didMigrateCompatibility {
+			loadedOptions.autoRemoveUnsupportedExtensions = true
+			UserDefaults.standard.set(true, forKey: _extensionCompatibilityMigrationKey)
+		}
+
+		self.options = loadedOptions
+		if didMigrateCompatibility || UserDefaults.standard.data(forKey: _key) == nil {
 			self.saveOptions()
 		}
 	}
@@ -172,7 +188,7 @@ struct Options: Codable, Equatable {
 		changeLanguageFilesForCustomDisplayName: false,
 		injectIntoExtensions: false,
 		removeAppExtensions: false,
-		autoRemoveUnsupportedExtensions: false,
+		autoRemoveUnsupportedExtensions: true,
 		keychainIsolation: false,
 		enableJIT: false,
 		fixFilePicker: false,

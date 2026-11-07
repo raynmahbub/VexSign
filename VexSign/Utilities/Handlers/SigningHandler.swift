@@ -131,7 +131,8 @@ final class SigningHandler: NSObject {
 
 		try await _removePresetFiles(for: movedAppPath)
 		try await _removeWatchIfNeeded(for: movedAppPath)
-		// Opt-in only: default false leaves PlugIns/ and Extensions/ untouched.
+		// Compatibility mode (on by default) removes only known-uncovered nested app bundles.
+		// The separate blanket option below can still remove every app extension.
 		try await _removeAppExtensionsIfNeeded(for: movedAppPath)
 		try await _removeUnsupportedNestedBundlesIfNeeded(for: movedAppPath)
 
@@ -581,17 +582,19 @@ extension SigningHandler {
 			let pattern = appCertificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
 		else { return }
 
-		let report = NestedBundleAudit.report(appBundle: app, profilePattern: pattern)
-		guard !report.uncovered.isEmpty else { return }
+		let removed = try NestedBundleAudit.removeUncoveredBundles(
+			in: app,
+			profilePattern: pattern,
+			fileManager: _fileManager
+		)
+		guard !removed.isEmpty else { return }
 
-		for entry in report.uncovered {
-			let bundleURL = app.appendingPathComponent(entry.bundle.path)
+		for entry in removed {
 			SigningLog.shared.warn(.localized("Compatibility mode removed %@ (%@): not covered by %@.", arguments: entry.bundle.path, entry.bundle.identifier ?? .localized("unknown identifier"), pattern))
-			try _fileManager.removeItem(at: bundleURL)
 			Logger.misc.info("[\(self._uuid)] Removed uncovered nested bundle: \(entry.bundle.path)")
 		}
 
-		SigningLog.shared.warn(.localized("Removed %lld unsupported nested bundle(s); the main app and profile-covered extensions were retained.", arguments: report.uncovered.count))
+		SigningLog.shared.warn(.localized("Removed %lld unsupported nested bundle(s); the main app and profile-covered extensions were retained.", arguments: removed.count))
 	}
 
 	/// Logs what the selected profile can do for each nested bundle in the payload.

@@ -26,6 +26,8 @@ struct SigningEntitlementsEditorView: View {
 	@State private var _editMode: EditMode = .inactive
 	@State private var _selectedKeys: Set<String> = []
 	@State private var _confirmDeleteSelection = false
+	@State private var _confirmDeleteEntry = false
+	@State private var _keyToDelete: String?
 	@State private var _flaggedOnly = false
 	@State private var _detailKey: String?
 
@@ -116,6 +118,15 @@ struct SigningEntitlementsEditorView: View {
 			Button(.localized("Cancel"), role: .cancel) {}
 		} message: {
 			Text(String.localized("This permanently removes %lld selected key(s) from this custom entitlements file.", arguments: _selectedKeys.count))
+		}
+		.confirmationDialog(.localized("Delete entitlement?"), isPresented: $_confirmDeleteEntry, titleVisibility: .visible) {
+			Button(.localized("Delete"), role: .destructive) {
+				if let key = _keyToDelete { _delete([key]) }
+				_keyToDelete = nil
+			}
+			Button(.localized("Cancel"), role: .cancel) { _keyToDelete = nil }
+		} message: {
+			Text(_keyToDelete ?? "")
 		}
 		.confirmationDialog(
 			_detailKey ?? "",
@@ -345,40 +356,51 @@ extension SigningEntitlementsEditorView {
 
 	@ViewBuilder
 	private func _editableRow(key: String, value: Any) -> some View {
-		Group {
-			if let kind = PlistValueKind.kind(for: value) {
-				HStack {
-					NavigationLink {
-						if kind.isContainer {
-							PlistNodeView(title: key, value: value) { newValue in
-								_dict[key] = newValue
-								_save()
-							}
-						} else {
-							PlistEntryEditView(
-								originalKey: key,
+		HStack(spacing: 8) {
+			Group {
+				if let kind = PlistValueKind.kind(for: value) {
+					HStack {
+						NavigationLink {
+							if kind.isContainer {
+								PlistNodeView(title: key, value: value) { newValue in
+									_dict[key] = newValue
+									_save()
+								}
+							} else {
+								PlistEntryEditView(
+									originalKey: key,
 								kind: kind,
 								value: value,
 								reference: _reference
-							) { newKey, newValue in
-								if newKey != key { _dict.removeValue(forKey: key) }
-								_dict[newKey] = newValue
-								_save()
+								) { newKey, newValue in
+									if newKey != key { _dict.removeValue(forKey: key) }
+									_dict[newKey] = newValue
+									_save()
+								}
 							}
+						} label: {
+							PlistValueRow(key: key, value: value)
 						}
-					} label: {
-						PlistValueRow(key: key, value: value)
+						_matchButton(key: key, value: value)
 					}
-					_matchButton(key: key, value: value)
+				} else {
+					CertificatesInfoEntitlementCellView(key: key, value: value)
 				}
-			} else {
-				CertificatesInfoEntitlementCellView(key: key, value: value)
 			}
+
+			Button(role: .destructive) {
+				_keyToDelete = key
+				_confirmDeleteEntry = true
+			} label: {
+				Image(systemName: "trash")
+			}
+			.buttonStyle(.plain)
+			.accessibilityLabel(.localized("Delete"))
+			.accessibilityIdentifier("Entitlements.delete.\(key)")
 		}
 		.swipeActions(edge: .trailing) {
 			Button(role: .destructive) {
-				_dict.removeValue(forKey: key)
-				_save()
+				_delete([key])
 			} label: {
 				Label(.localized("Delete"), systemImage: "trash")
 			}

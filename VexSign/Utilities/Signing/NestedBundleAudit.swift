@@ -153,6 +153,22 @@ enum NestedBundleAudit {
 		report(appBundle: appBundle, profilePattern: profilePattern, shippedProfile: shippedProfileIdentifier(at:))
 	}
 
+	/// Removes only bundles whose identifiers are positively known not to be covered. Unknown
+	/// coverage and compatible bundles are kept. The returned entries are suitable for a signing
+	/// log and let the caller report exactly what was skipped.
+	@discardableResult
+	static func removeUncoveredBundles(
+		in appBundle: URL,
+		profilePattern: String,
+		fileManager: FileManager = .default
+	) throws -> [Entry] {
+		let uncovered = report(appBundle: appBundle, profilePattern: profilePattern).uncovered
+		for entry in uncovered {
+			try fileManager.removeItem(at: appBundle.appendingPathComponent(entry.bundle.path))
+		}
+		return uncovered
+	}
+
 	/// The injectable form, so the comparison can be tested without real profiles on disk.
 	static func report(
 		appBundle: URL,

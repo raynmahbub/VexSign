@@ -102111,6 +102111,17 @@
         }
       }
     },
+    "Delete entitlement?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete entitlement?"
+          }
+        }
+      }
+    },
     "Entitlements file actions" : {
       "extractionState" : "manual",
       "localizations" : {

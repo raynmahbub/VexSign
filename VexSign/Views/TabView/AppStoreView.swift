@@ -31,6 +31,9 @@ struct AppStoreView: View {
     @State private var isAddingPresenting = false
     @State private var appSortOption: AppSortOption = .name
     @State private var selectedCategory: String = "All"
+    @State private var catalogItems: [SourcedAppItem] = []
+    @State private var filteredCatalogItems: [SourcedAppItem] = []
+    @State private var catalogRevision = 0
     @AppStorage("VexSign.repositorySort") private var _repositorySortRaw = RepositorySortOption.priority.rawValue
 
     private let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
@@ -84,16 +87,28 @@ struct AppStoreView: View {
 
     // Model representing an app combined with its source repository
     struct SourcedAppItem: Identifiable {
-        // Source identifiers are optional in older Core Data stores. Falling
-        // back to the managed object's URI prevents duplicate ForEach IDs when
-        // two repositories publish an app with the same bundle identifier.
-        var id: String {
-            let sourceID = source.identifier
-                ?? source.objectID.uriRepresentation().absoluteString
-            return "\(sourceID)-\(app.id ?? app.currentName)"
-        }
+        var id: String { "\(sourceID)-\(app.id ?? app.currentName)" }
         let source: AltSource
+        let sourceID: String
+        let sourceName: String
         let repository: ASRepository
+        let app: ASRepository.App
+    }
+
+    private struct CatalogSourceReference {
+        let source: AltSource
+        let sourceID: String
+        let sourceName: String
+        let repository: ASRepository
+    }
+
+    private struct CatalogInput {
+        let sourceID: String
+        let repository: ASRepository
+    }
+
+    private struct IndexedCatalogApp {
+        let sourceIndex: Int
         let app: ASRepository.App
     }
 
@@ -146,77 +161,102 @@ struct AppStoreView: View {
         return keys
     }
 
-    private func isStrictlyHidden(_ app: ASRepository.App) -> Bool {
-        guard privacyManager.strictHidingEnabled, !privacyManager.isRevealingHiddenApps else { return false }
-        return strictlyHiddenAppKeys.contains(app.id ?? "") ||
-            strictlyHiddenAppKeys.contains(app.currentName.lowercased())
-    }
+    // The catalog is flattened once after repository loading, off the main thread. App Store
+    // sections read these cached arrays; no body evaluation walks every repository/app again.
+    private var allSourcedApps: [SourcedAppItem] { catalogItems }
+    private var sortedAndFilteredApps: [SourcedAppItem] { filteredCatalogItems }
 
-    // All loaded apps from active repositories
-    private var allSourcedApps: [SourcedAppItem] {
-        var items: [SourcedAppItem] = []
-        var seenIDs = Set<String>()
+    private func rebuildAppCatalog() async {
+        let references: [CatalogSourceReference] = nonExcludedSources.compactMap { source in
+            guard let repository = viewModel.sources[source] else { return nil }
+            let sourceID = source.identifier ?? source.sourceURL?.absoluteString ?? source.objectID.uriRepresentation().absoluteString
+            return CatalogSourceReference(
+                source: source,
+                sourceID: sourceID,
+                sourceName: source.name ?? "",
+                repository: repository
+            )
+        }
+        let inputs = references.map { CatalogInput(sourceID: $0.sourceID, repository: $0.repository) }
+        let hiddenKeys = strictlyHiddenAppKeys
+        let hideDuplicates = SourcePreferences.hideDuplicates
 
-        for source in nonExcludedSources {
-            guard let repo = viewModel.sources[source] else { continue }
-            for app in repo.apps {
-                guard !isStrictlyHidden(app) else { continue }
-                let appID = app.id ?? app.currentName
-                let uniqueKey = SourcePreferences.hideDuplicates ? appID : "\(source.identifier ?? "")-\(appID)"
-                if !seenIDs.contains(uniqueKey) {
-                    seenIDs.insert(uniqueKey)
-                    items.append(SourcedAppItem(source: source, repository: repo, app: app))
+        let indexedItems = await Task.detached(priority: .userInitiated) {
+            var result: [IndexedCatalogApp] = []
+            var seenIDs = Set<String>()
+
+            for (sourceIndex, input) in inputs.enumerated() {
+                for app in input.repository.apps {
+                    let appID = app.id ?? app.currentName
+                    guard !hiddenKeys.contains(appID), !hiddenKeys.contains(app.currentName.lowercased()) else { continue }
+                    let uniqueKey = hideDuplicates ? appID : "\(input.sourceID)-\(appID)"
+                    guard seenIDs.insert(uniqueKey).inserted else { continue }
+                    result.append(IndexedCatalogApp(sourceIndex: sourceIndex, app: app))
                 }
             }
+            return result
+        }.value
+
+        guard !Task.isCancelled else { return }
+        catalogItems = indexedItems.map { indexed in
+            let reference = references[indexed.sourceIndex]
+            return SourcedAppItem(
+                source: reference.source,
+                sourceID: reference.sourceID,
+                sourceName: reference.sourceName,
+                repository: reference.repository,
+                app: indexed.app
+            )
         }
-        return items
+        catalogRevision &+= 1
     }
 
-    private var sortedAndFilteredApps: [SourcedAppItem] {
-        let base = allSourcedApps
-        let categoryFiltered: [SourcedAppItem]
-        if selectedCategory == "All" {
-            categoryFiltered = base
-        } else {
-            let cat = selectedCategory.lowercased()
-            categoryFiltered = base.filter { item in
-                let appCat = (item.app.category ?? "").lowercased()
+    private func rebuildFilteredCatalog() async {
+        let items = catalogItems
+        let category = selectedCategory.lowercased()
+        let query = searchText
+        let sortOption = appSortOption
+
+        let filtered = await Task.detached(priority: .userInitiated) {
+            let categoryFiltered = items.filter { item in
+                guard category != "all" else { return true }
+                let appCategory = (item.app.category ?? "").lowercased()
                 let name = item.app.currentName.lowercased()
-                let desc = (item.app.currentDescription ?? "").lowercased()
-                if cat == "utilities" {
-                    return appCat.contains("util") || appCat.contains("tool") || name.contains("tool") || desc.contains("util") || desc.contains("manage")
-                } else if cat == "emulators" {
-                    return appCat.contains("emu") || name.contains("emu") || desc.contains("emulator") || desc.contains("retro") || desc.contains("gameboy") || desc.contains("dolphin") || desc.contains("utm")
-                } else if cat == "tweaked" {
-                    return name.contains("++") || name.contains("mod") || name.contains("pro") || name.contains("tweak") || desc.contains("tweak") || desc.contains("unlocked")
-                } else if cat == "games" {
-                    return appCat.contains("game") || desc.contains("game") || desc.contains("play") || name.contains("game")
-                } else if cat == "jailbreak" {
-                    return appCat.contains("jailbreak") || name.contains("troll") || desc.contains("jailbreak") || desc.contains("rootless") || desc.contains("sileo")
+                let description = (item.app.currentDescription ?? "").lowercased()
+                switch category {
+                case "utilities":
+                    return appCategory.contains("util") || appCategory.contains("tool") || name.contains("tool") || description.contains("util") || description.contains("manage")
+                case "emulators":
+                    return appCategory.contains("emu") || name.contains("emu") || description.contains("emulator") || description.contains("retro") || description.contains("gameboy") || description.contains("dolphin") || description.contains("utm")
+                case "tweaked":
+                    return name.contains("++") || name.contains("mod") || name.contains("pro") || name.contains("tweak") || description.contains("tweak") || description.contains("unlocked")
+                case "games":
+                    return appCategory.contains("game") || description.contains("game") || description.contains("play") || name.contains("game")
+                case "jailbreak":
+                    return appCategory.contains("jailbreak") || name.contains("troll") || description.contains("jailbreak") || description.contains("rootless") || description.contains("sileo")
+                default:
+                    return appCategory.contains(category) || name.contains(category)
                 }
-                return appCat.contains(cat) || name.contains(cat)
             }
-        }
 
-        let searched: [SourcedAppItem]
-        if searchText.isEmpty {
-            searched = categoryFiltered
-        } else {
-            searched = categoryFiltered.filter {
-                $0.app.currentName.localizedCaseInsensitiveContains(searchText) ||
-                ($0.app.currentDescription ?? "").localizedCaseInsensitiveContains(searchText) ||
-                ($0.source.name ?? "").localizedCaseInsensitiveContains(searchText)
+            let searched = query.isEmpty ? categoryFiltered : categoryFiltered.filter {
+                $0.app.currentName.localizedCaseInsensitiveContains(query) ||
+                ($0.app.currentDescription ?? "").localizedCaseInsensitiveContains(query) ||
+                $0.sourceName.localizedCaseInsensitiveContains(query)
             }
-        }
 
-        switch appSortOption {
-        case .name:
-            return searched.sorted { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending }
-        case .date:
-            return searched.sorted { ($0.app.date?.date ?? Date.distantPast) > ($1.app.date?.date ?? Date.distantPast) }
-        case .size:
-            return searched.sorted { ($0.app.size ?? 0) > ($1.app.size ?? 0) }
-        }
+            switch sortOption {
+            case .name:
+                return searched.sorted { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending }
+            case .date:
+                return searched.sorted { ($0.app.date?.date ?? Date.distantPast) > ($1.app.date?.date ?? Date.distantPast) }
+            case .size:
+                return searched.sorted { ($0.app.size ?? 0) > ($1.app.size ?? 0) }
+            }
+        }.value
+
+        guard !Task.isCancelled else { return }
+        filteredCatalogItems = filtered
     }
 
     private var updateCount: Int { updateChecker.updateCount }
@@ -262,6 +302,10 @@ struct AppStoreView: View {
             .compactMap { $0.sourceURL?.absoluteString }
             .sorted()
             .joined(separator: "\u{1F}")
+    }
+
+    private var catalogFilterKey: String {
+        "\(catalogRevision)\u{1F}\(selectedCategory)\u{1F}\(appSortOption.rawValue)\u{1F}\(searchText)"
     }
 
     // MARK: - Body
@@ -317,6 +361,7 @@ struct AppStoreView: View {
 
             .refreshable {
                 await viewModel.fetchSources(sources, refresh: true)
+                await rebuildAppCatalog()
             }
             .toolbar { toolbarContent }
             .sheet(isPresented: $isAddingPresenting) {
@@ -324,13 +369,32 @@ struct AppStoreView: View {
             }
             .task(id: sourceRefreshKey) {
                 await viewModel.fetchSources(sources)
+                await rebuildAppCatalog()
+            }
+            .task(id: catalogFilterKey) {
+                await rebuildFilteredCatalog()
             }
             .onChange(of: premiumFilter.stamp) { _ in
-                Task { await viewModel.fetchSources(sources, refresh: true) }
+                Task {
+                    await viewModel.fetchSources(sources, refresh: true)
+                    await rebuildAppCatalog()
+                }
+            }
+            .onChange(of: privacyManager.hiddenAppUUIDs) { _ in
+                Task { await rebuildAppCatalog() }
+            }
+            .onChange(of: privacyManager.strictHidingEnabled) { _ in
+                Task { await rebuildAppCatalog() }
+            }
+            .onChange(of: privacyManager.isRevealingHiddenApps) { _ in
+                Task { await rebuildAppCatalog() }
             }
             // Deleting a repository (swipe, context menu, Sources tab) while a
             // refresh runs must not leave faulted managed objects behind in
             // the catalog dictionary — that was an App Store crash path.
+            .onReceive(viewModel.$sources.dropFirst()) { _ in
+                Task { await rebuildAppCatalog() }
+            }
             .onChange(of: sources.count) { _ in
                 viewModel.evictDeletedSources(valid: Array(sources))
             }
@@ -477,7 +541,10 @@ struct AppStoreView: View {
             }
             Spacer(minLength: 0)
             Button {
-                Task { await viewModel.fetchSources(sources, refresh: true) }
+                Task {
+                    await viewModel.fetchSources(sources, refresh: true)
+                    await rebuildAppCatalog()
+                }
             } label: {
                 Text(.localized("Retry"))
                     .font(.caption.weight(.semibold))
@@ -616,7 +683,7 @@ struct AppStoreView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
-                                Text(item.source.name ?? .localized("Repository"))
+                                Text(item.sourceName.isEmpty ? .localized("Repository") : item.sourceName)
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.8))
                                     .lineLimit(1)
@@ -695,7 +762,7 @@ struct AppStoreView: View {
                                             .foregroundStyle(.primary)
                                             .lineLimit(1)
 
-                                        Text(item.app.currentDescription ?? item.source.name ?? "")
+                                        Text(item.app.currentDescription ?? item.sourceName)
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
                                             .lineLimit(1)
@@ -767,7 +834,7 @@ struct AppStoreView: View {
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
 
-                                    Text(item.app.currentDescription ?? item.source.name ?? "")
+                                    Text(item.app.currentDescription ?? item.sourceName)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -890,8 +957,8 @@ struct AppStoreView: View {
             if sortedAndFilteredApps.isEmpty {
                 emptyAppsView
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(sortedAndFilteredApps.enumerated()), id: \.element.id) { index, item in
+                LazyVStack(spacing: 0) {
+                    ForEach(sortedAndFilteredApps) { item in
                         NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
                             HStack(spacing: 12) {
                                 ZStack(alignment: .bottomTrailing) {
@@ -908,7 +975,7 @@ struct AppStoreView: View {
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
 
-                                    Text(item.app.currentDescription ?? item.source.name ?? "")
+                                    Text(item.app.currentDescription ?? item.sourceName)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -920,7 +987,7 @@ struct AppStoreView: View {
                                         if let size = item.app.size, size > 0 {
                                             Text("• \(size.formattedByteCount)").font(.caption2).foregroundStyle(.secondary)
                                         }
-                                        Text("• \(item.source.name ?? "")").font(.caption2).foregroundStyle(Color.userTint).lineLimit(1)
+                                        Text("• \(item.sourceName)").font(.caption2).foregroundStyle(Color.userTint).lineLimit(1)
                                     }
                                 }
 
@@ -934,9 +1001,7 @@ struct AppStoreView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if index < sortedAndFilteredApps.count - 1 {
-                            Divider().padding(.leading, 78).opacity(0.5)
-                        }
+                        Divider().padding(.leading, 78).opacity(0.5)
                     }
                 }
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -1261,8 +1326,8 @@ struct AppStoreView: View {
                     .font(.headline)
                     .padding(.horizontal, 4)
 
-                VStack(spacing: 0) {
-                    ForEach(Array(sortedAndFilteredApps.enumerated()), id: \.element.id) { index, item in
+                LazyVStack(spacing: 0) {
+                    ForEach(sortedAndFilteredApps) { item in
                         NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
                             HStack(spacing: 12) {
                                 ZStack(alignment: .bottomTrailing) {
@@ -1276,7 +1341,7 @@ struct AppStoreView: View {
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
-                                    Text(item.app.currentDescription ?? item.source.name ?? "")
+                                    Text(item.app.currentDescription ?? item.sourceName)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -1289,9 +1354,7 @@ struct AppStoreView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if index < sortedAndFilteredApps.count - 1 {
-                            Divider().padding(.leading, 74).opacity(0.5)
-                        }
+                        Divider().padding(.leading, 74).opacity(0.5)
                     }
                 }
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
