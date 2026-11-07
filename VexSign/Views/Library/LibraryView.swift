@@ -777,8 +777,16 @@ extension LibraryView {
 // MARK: - Extension: Bulk Delete
 extension LibraryView {
     private func bulkDeleteSelectedApps() {
-        for app in selectedApps() {
-            Storage.shared.deleteApp(for: app)
+        var failed = 0
+        for app in selectedApps() where !Storage.shared.deleteApp(for: app) {
+            failed += 1
+        }
+
+        if failed > 0 {
+            Toast.error(
+                String.localized("Couldn't delete %lld app(s). They are still in the Library; try again.", arguments: Int64(failed)),
+                duration: .sticky
+            )
         }
 
         _selectedAppUUIDs.removeAll()

@@ -122,6 +122,35 @@ final class StorageConcurrencyTests: XCTestCase {
 		XCTAssertTrue(remaining.isEmpty, "The row must be gone after a main-queue delete")
 	}
 
+	/// The library deletes a signed copy through the same path. A signed row carries a
+	/// certificate relationship, which an imported row does not have — and #113 reports that
+	/// only the signed copies refuse to go.
+	@MainActor
+	func testDeletingASignedAppRemovesTheRow() async throws {
+		let certificateID = try await Self.storage.write { context in
+			let certificate = CertificatePair(context: context)
+			certificate.uuid = "cert-delete"
+			certificate.date = Date()
+			certificate.ppQCheck = false
+			certificate.isDefault = false
+			certificate.revoked = false
+			return certificate
+		}
+
+		let id = try await Self.storage.addSigned(
+			uuid: "signed-to-delete",
+			certificateID: certificateID,
+			appName: "Signed Delete Me",
+			appIdentifier: "com.example.signed.delete"
+		)
+
+		let row: Signed = try XCTUnwrap(Self.storage.object(id))
+		XCTAssertTrue(Self.storage.deleteApp(for: row), "a delete that works must report success")
+
+		let remaining = try Self.storage.context.fetch(Signed.fetchRequest())
+		XCTAssertTrue(remaining.isEmpty, "The signed row must be gone after a main-queue delete")
+	}
+
 	// MARK: - Object IDs
 
 	@MainActor
