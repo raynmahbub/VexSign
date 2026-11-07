@@ -102033,6 +102033,17 @@
           }
         }
       }
+    },
+    "Choose an IPA or TIPA file from Files." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an IPA or TIPA file from Files."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
