@@ -34,6 +34,10 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
 
+                    Label(.localized("By Rayn Mahbub"), systemImage: "person.crop.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     Text(verbatim: "Version \(Bundle.main.version)\(Bundle.main.buildNumber.isEmpty ? "" : " (\(Bundle.main.buildNumber))")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -53,6 +57,9 @@ struct AboutView: View {
             }
 
             NBSection(.localized("Links")) {
+                NavigationLink(destination: UpdatesSettingsView()) {
+                    Label(.localized("Check for app updates"), systemImage: "arrow.clockwise")
+                }
                 Button {
                     UIApplication.open(sourceURL)
                 } label: {

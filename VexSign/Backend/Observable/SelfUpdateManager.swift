@@ -99,6 +99,8 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	@Published private(set) var latestSemver: SelfUpdateRelease?
 	@Published private(set) var available: SelfUpdateRelease?
 	@Published private(set) var isChecking = false
+	@Published private(set) var hasChecked = false
+	@Published private(set) var checkError: String?
 	@Published var phase: SelfUpdatePhase = .idle
 	@Published var installProgress: Double = 0
 	@Published var presentUpdatePrompt = false
@@ -319,12 +321,15 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	func check() async {
 		guard !isChecking else { return }
 		isChecking = true
+		checkError = nil
 		defer { isChecking = false }
 
 		do {
 			let releases = try await fetchReleases(page: 1)
 			latest = releases.first { !$0.isPrerelease } ?? releases.first
 			latestSemver = releases.first { $0.isSemver && !$0.isPrerelease }
+			hasChecked = true
+			checkError = nil
 			UserDefaults.standard.set(Date(), forKey: Keys.lastCheck)
 			recomputeAvailable()
 			// Announce a release once, the first time this build sees it.
@@ -332,6 +337,8 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 				await SelfUpdateNotifier.notifyIfNeeded(candidate)
 			}
 		} catch {
+			hasChecked = true
+			checkError = error.localizedDescription
 			Logger.misc.error("Self-update check failed: \(error.localizedDescription)")
 		}
 	}

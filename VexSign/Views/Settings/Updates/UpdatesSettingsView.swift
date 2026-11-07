@@ -94,7 +94,19 @@ struct UpdatesSettingsView: View {
 				Spacer()
 				Text(Bundle.main.version).foregroundStyle(.secondary)
 			}
-			if let available = _manager.available {
+			if _manager.isChecking {
+				Label(.localized("Checking for updates…"), systemImage: "arrow.clockwise")
+					.foregroundStyle(.secondary)
+			} else if let error = _manager.checkError {
+				VStack(alignment: .leading, spacing: 5) {
+					Label(.localized("Couldn't check for updates"), systemImage: "exclamationmark.triangle.fill")
+						.foregroundStyle(.orange)
+					Text(error)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+				}
+			} else if let available = _manager.available {
 				HStack {
 					Label(String.localized("Update available: %@", arguments: available.version), systemImage: "arrow.up.circle.fill")
 						.foregroundStyle(Color.accentColor)
@@ -102,7 +114,33 @@ struct UpdatesSettingsView: View {
 					Button(.localized("View")) { _selected = available }
 						.font(.subheadline.bold())
 				}
-			} else if let latest = _manager.latest {
+			} else if _manager.hasChecked, let latest = _manager.latestSemver {
+				let comparison = SelfUpdateManager.compare(latest.version, Bundle.main.version)
+				let isComparableBuild = SelfUpdateManager.isSemver(Bundle.main.version)
+				let isIgnoredUpdate = isComparableBuild
+					&& comparison == .orderedDescending
+					&& _manager.ignoredVersions.contains(latest.version)
+				let statusTitle: String = {
+					if !isComparableBuild { return .localized("Version comparison is unavailable for this build") }
+					if isIgnoredUpdate { return String.localized("Update %@ is ignored", arguments: latest.version) }
+					if comparison == .orderedDescending { return String.localized("Newer release found: %@", arguments: latest.version) }
+					return .localized("You're up to date")
+				}()
+				let statusIcon = !isComparableBuild ? "questionmark.circle" : isIgnoredUpdate ? "bell.slash" : comparison == .orderedDescending ? "arrow.up.circle.fill" : "checkmark.circle.fill"
+				VStack(alignment: .leading, spacing: 3) {
+					Label(statusTitle, systemImage: statusIcon)
+						.foregroundStyle(!isComparableBuild || isIgnoredUpdate ? Color.secondary : comparison == .orderedDescending ? Color.accentColor : Color.green)
+					Text(String.localized("Latest stable release: %@", arguments: latest.version))
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+			} else if _manager.hasChecked {
+				Label(.localized("No stable release found"), systemImage: "info.circle")
+					.foregroundStyle(.secondary)
+			}
+
+			if !_manager.isChecking, _manager.checkError == nil, _manager.available == nil,
+			   let latest = _manager.latest {
 				HStack {
 					VStack(alignment: .leading, spacing: 2) {
 						Text(.localized("Latest Release"))
@@ -113,6 +151,7 @@ struct UpdatesSettingsView: View {
 						.font(.subheadline.bold())
 				}
 			}
+
 			Button {
 				Task { await _manager.check() }
 			} label: {
