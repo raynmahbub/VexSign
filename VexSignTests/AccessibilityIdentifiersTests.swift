@@ -54,6 +54,8 @@ final class AccessibilityIdentifiersTests: XCTestCase {
 			A11y.Signing.console,
 			A11y.Install.start,
 			A11y.Install.progress,
+			A11y.Home.search,
+			A11y.Home.importPackages,
 			A11y.Library.installedBadge,
 			A11y.Library.guestBadge,
 			A11y.Library.updateBadge,

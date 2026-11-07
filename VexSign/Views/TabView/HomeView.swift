@@ -102,6 +102,7 @@ struct HomeView: View {
                     .padding(.bottom, 116)
                 }
             }
+            .overlay(alignment: .bottomTrailing) { floatingImportButton }
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 if updateChecker.availableUpdates.isEmpty {
@@ -153,7 +154,7 @@ struct HomeView: View {
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("vexsign.home.search")
+        .accessibilityIdentifier(A11y.Home.search)
     }
 
     private func searchDestination(_ tab: TabEnum, title: String, icon: String) -> some View {
@@ -371,6 +372,43 @@ struct HomeView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(.localized("Import IPA or TIPA")))
         .accessibilityHint(Text(.localized("Choose an IPA or TIPA file from Files, or drop one here.")))
+    }
+
+    /// FlareStore's round import button, kept in both layouts: the dashboard and the Flare grid
+    /// each have their own "Import IPA" tile, but the tap that starts an import should stay in
+    /// one place instead of moving with the theme or with the scroll position.
+    ///
+    /// It floats above the content and respects the tab bar's safe-area inset, so it never
+    /// overlaps the bar or the last row.
+    private var floatingImportButton: some View {
+        Button { browseForPackages() } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 58, height: 58)
+                .background(
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [importAccent, importAccent.opacity(0.74)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                )
+                .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+                .shadow(color: importAccent.opacity(0.45), radius: 16, y: 7)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 18)
+        .padding(.bottom, 14)
+        .accessibilityIdentifier(A11y.Home.importPackages)
+        .accessibilityLabel(Text(.localized("Import IPA")))
+        .accessibilityHint(Text(.localized("Choose an IPA or TIPA file from Files.")))
+    }
+
+    private var importAccent: Color {
+        isFlareWebTheme ? FlarePalette.pink : Theme.tint
     }
 
     private var packageURLField: some View {

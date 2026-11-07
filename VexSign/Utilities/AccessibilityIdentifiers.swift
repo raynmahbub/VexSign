@@ -32,6 +32,12 @@ enum A11y {
 		static let progress = "vexsign.install.progress"
 	}
 
+	/// The Home tab: the search field and the round import button that opens the file picker.
+	enum Home {
+		static let search = "vexsign.home.search"
+		static let importPackages = "vexsign.home.import"
+	}
+
 	/// What a library row says about one app.
 	enum Library {
 		static let installedBadge = "vexsign.library.installed"
@@ -45,6 +51,7 @@ enum A11y {
 		[
 			Signing.start, Signing.stop, Signing.progress, Signing.console,
 			Install.start, Install.progress,
+			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge
 		]
 	}

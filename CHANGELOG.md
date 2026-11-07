@@ -73,6 +73,13 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Added
 
+- The Home tab has a round import button, in both layouts: a FlareStore-style floating
+  circle over the bottom-right of the content that opens the IPA/TIPA picker. The
+  dashboard tile and the Flare import card stay, but the tap that starts an import no
+  longer moves with the theme or with the scroll position. It sits inside the tab bar's
+  safe-area inset, so it never covers the bar or the last row, and it carries
+  `A11y.Home.importPackages` (`vexsign.home.import`) for the UI tests; the universal
+  search bar now uses `A11y.Home.search` instead of a literal.
 - A local notification the first time a newer VexSign release appears, controlled
   by **Settings → Updates → Release Notifications** (on by default; the
   permission is requested only when the switch is turned on). It fires once per
