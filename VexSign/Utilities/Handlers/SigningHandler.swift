@@ -737,14 +737,26 @@ enum SigningFileHandlerError: Error, LocalizedError {
 	case infoPlistNotFound
 	case missingCertifcate
 	case disinjectFailed
+	/// The engine declined before it had a bundle to complain about, and named no reason of its
+	/// own: usually a certificate/profile pair it cannot use. `identityRejected` says which.
+	case engineRefused
+	/// The identity cannot sign anything, in the engine's own terms — see
+	/// `ZsignEngine.IdentityProblem`.
+	case identityRejected(String)
+	case entitlementsUnreadable
 	case signFailed
-	
+
 	var errorDescription: String? {
 		switch self {
 		case .appNotFound: "Unable to locate bundle path."
 		case .infoPlistNotFound: "Unable to locate info.plist path."
 		case .missingCertifcate: "No certificate was specified."
 		case .disinjectFailed: "Removing mach-O load paths failed."
+		case .engineRefused:
+			.localized("Signing failed: the engine refused this app and did not say why. Open the signing log for its output.")
+		case .identityRejected(let reason): reason
+		case .entitlementsUnreadable:
+			.localized("The entitlements file selected in the options could not be read.")
 		case .signFailed: "Signing failed."
 		}
 	}

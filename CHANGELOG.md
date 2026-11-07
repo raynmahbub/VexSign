@@ -11,6 +11,23 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- "Signing failed." now says what the engine refused and what to do about it (#113).
+  The pinned engine answers a profile that does not belong to the .p12, an unreadable
+  .p12, a missing profile or a profile without a team id with a `-1` and **no**
+  completion callback, so all VexSign ever saw was `succeeded == false` and no message.
+  1.0 discarded that bool and reported "Signed successfully"; 1.1 refused without a
+  reason. `ZsignEngine.identityProblem` mirrors `ZSignAsset::Init` and names the case
+  ("the provisioning profile was not issued for this certificate…", "the .p12 could not
+  be opened with the password saved for this certificate…"), and an engine refusal that
+  still has no reason of its own points at the signing log instead of a bare sentence.
+- Deleting an app reports failure instead of doing nothing (#113). File removal was
+  `try?`-swallowed and a failed save only reached the unified log, so a delete that did
+  not happen looked like a tap with no effect — which is what a re-signed copy in the
+  library could look like. The rows are resolved onto the main-queue context before
+  deletion (a row handed over from another context used to be a silent no-op), the save
+  is checked, `deleteApp`/`deleteApps` report whether the row is gone, and the library
+  says so when it is not. Covered by `VexSignTests/StorageConcurrencyTests.swift`,
+  which now deletes a signed row with a certificate attached, not just an imported one.
 - Signing no longer fails *after* the tap on the very problems the preflight sheet
   already let the user accept. "Sign Anyway" used to be defeated one stage later:
   the post-sign inspection reported the same expired profile, uncovered extension

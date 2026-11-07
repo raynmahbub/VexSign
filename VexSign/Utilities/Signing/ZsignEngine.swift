@@ -27,6 +27,7 @@
 //
 
 import Foundation
+import NimbleExtensions
 import ZsignSwift
 
 /// The pinned signing engine, addressed in VexSign's terms.
@@ -73,6 +74,75 @@ enum ZsignEngine {
 		let succeeded: Bool
 		/// The engine surfaces a message but no type of its own; the message is kept verbatim.
 		let errorMessage: String?
+	}
+
+	// MARK: - Identity
+
+	/// Why the pinned engine would refuse to *start* a run, in VexSign's words.
+	///
+	/// `zsign.mm` returns -1 **without invoking its completion handler** when
+	/// `ZSignAsset::Init` fails, so `Outcome` arrives as `succeeded == false,
+	/// errorMessage == nil` and the only trace is a `ZLog` line on stdout. 1.0 discarded the
+	/// returned bool, which is why a profile that does not belong to the .p12 used to report
+	/// "Signed successfully"; reporting it without saying why is the other half of the same
+	/// bug, and it is what `SigningFileHandlerError.signFailed` ("Signing failed.") did.
+	///
+	/// These cases mirror `ZSignAsset::Init` (`Vendor/Zsign/src/openssl.cpp`, "Identity"):
+	/// it reads the profile, requires a team id, opens the .p12 with the password, and
+	/// requires the .p12's certificate to be one the profile names.
+	enum IdentityProblem: Equatable {
+		case missingProvisioningProfile
+		case missingCertificate
+		case profileUnreadable
+		case unreadableCertificate
+		case missingTeamIdentifier
+		case certificateNotInProfile
+
+		/// Says what is wrong *and* what to do about it.
+		var message: String {
+			switch self {
+			case .missingProvisioningProfile:
+				.localized("This certificate has no provisioning profile on disk. Import the profile that came with the .p12.")
+			case .missingCertificate:
+				.localized("This certificate has no .p12 on disk. Import it again from Settings → Certificates.")
+			case .profileUnreadable:
+				.localized("The provisioning profile could not be read. Import it again; it may be truncated or not a .mobileprovision.")
+			case .unreadableCertificate:
+				.localized("The .p12 could not be opened with the password saved for this certificate. Re-import the certificate with its password.")
+			case .missingTeamIdentifier:
+				.localized("The provisioning profile does not name an Apple team, so the engine cannot use it. Import a profile issued by Apple.")
+			case .certificateNotInProfile:
+				.localized("The provisioning profile was not issued for this certificate. Import the profile that belongs to the .p12, or select the certificate that profile names.")
+			}
+		}
+	}
+
+	/// The reason the engine would refuse this identity, or nil when it looks acceptable.
+	///
+	/// Pure and cheap: it reads what the caller already has on disk, and answers the same
+	/// question `ZSignAsset::Init` answers a moment later — just with a sentence attached.
+	static func identityProblem(
+		provisioningProfile: Data?,
+		certificate: Data?,
+		leafCertificate: Data?,
+		profile: Certificate?
+	) -> IdentityProblem? {
+		guard let provisioningProfile, !provisioningProfile.isEmpty else { return .missingProvisioningProfile }
+		guard let certificate, !certificate.isEmpty else { return .missingCertificate }
+		guard let profile else { return .profileUnreadable }
+		guard let team = profile.TeamIdentifier.first, !team.isEmpty else { return .missingTeamIdentifier }
+
+		// A .p12 that opens with the stored password always yields its leaf certificate; when
+		// that is nil, either the password is wrong or the file is not a PKCS#12 at all.
+		guard let leafCertificate, !leafCertificate.isEmpty else {
+			return .unreadableCertificate
+		}
+
+		let named = (profile.DeveloperCertificates ?? []).map { SigningIdentity.fingerprint(of: $0) }
+		guard named.isEmpty || named.contains(SigningIdentity.fingerprint(of: leafCertificate)) else {
+			return .certificateNotInProfile
+		}
+		return nil
 	}
 
 	// MARK: - Signing

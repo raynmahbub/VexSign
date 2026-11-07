@@ -118,6 +118,113 @@ final class ZsignEngineTests: XCTestCase {
 		XCTAssertTrue(request.p12Password.isEmpty)
 	}
 
+	// MARK: - Identity
+
+	/// `ZSignAsset::Init` fails — and `zsign.mm` then returns -1 without calling its completion
+	/// handler, which is where the bare "Signing failed." came from — for a missing profile, an
+	/// unreadable profile, an unusable .p12, a profile without a team, and a profile that does
+	/// not name the .p12's certificate. Each case now has a sentence instead.
+	func testAMissingProfileIsNamedAsSuch() {
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(provisioningProfile: nil, certificate: Data([0x01]), leafCertificate: nil, profile: nil),
+			.missingProvisioningProfile
+		)
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(provisioningProfile: Data(), certificate: Data([0x01]), leafCertificate: nil, profile: nil),
+			.missingProvisioningProfile
+		)
+	}
+
+	func testAMissingCertificateIsNamedAsSuch() {
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(provisioningProfile: Data([0x01]), certificate: nil, leafCertificate: nil, profile: nil),
+			.missingCertificate
+		)
+	}
+
+	func testAnUnreadableProfileIsNamedAsSuch() {
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(provisioningProfile: Data([0x01]), certificate: Data([0x02]), leafCertificate: nil, profile: nil),
+			.profileUnreadable
+		)
+	}
+
+	func testAProfileWithoutATeamIsNamedAsSuch() {
+		let profile = _profile(team: "")
+
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(
+				provisioningProfile: Data([0x01]),
+				certificate: Data([0x02]),
+				leafCertificate: nil,
+				profile: profile
+			),
+			.missingTeamIdentifier
+		)
+	}
+
+	/// A .p12 that does not open with the stored password yields no leaf certificate.
+	func testACertificateThatDoesNotOpenIsNamedAsSuch() {
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(
+				provisioningProfile: Data([0x01]),
+				certificate: Data([0x02]),
+				leafCertificate: nil,
+				profile: _profile()
+			),
+			.unreadableCertificate
+		)
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(
+				provisioningProfile: Data([0x01]),
+				certificate: Data([0x02]),
+				leafCertificate: Data(),
+				profile: _profile()
+			),
+			.unreadableCertificate
+		)
+	}
+
+	/// A profile that names certificates, none of which is this one: the engine's
+	/// "Can't find paired certificate and private key!", which is the usual personal-certificate
+	/// mistake of importing a profile and a .p12 from different sources.
+	func testAProfileThatDoesNotNameTheCertificateIsNamedAsSuch() {
+		let leaf = Data([0xAA, 0xBB, 0xCC])
+		let other = Data([0x01, 0x02, 0x03])
+
+		XCTAssertEqual(
+			ZsignEngine.identityProblem(
+				provisioningProfile: Data([0x01]),
+				certificate: Data([0x02]),
+				leafCertificate: leaf,
+				profile: _profile(developerCertificates: [other])
+			),
+			.certificateNotInProfile
+		)
+
+		XCTAssertNil(
+			ZsignEngine.identityProblem(
+				provisioningProfile: Data([0x01]),
+				certificate: Data([0x02]),
+				leafCertificate: leaf,
+				profile: _profile(developerCertificates: [other, leaf])
+			),
+			"a profile that names this certificate can sign with it"
+		)
+	}
+
+	func testAProfileThatNamesNoCertificatesSkipsTheComparison() {
+		XCTAssertNil(
+			ZsignEngine.identityProblem(
+				provisioningProfile: Data([0x01]),
+				certificate: Data([0x02]),
+				leafCertificate: Data([0xAA, 0xBB, 0xCC]),
+				profile: _profile()
+			),
+			"an older profile without DeveloperCertificates cannot be compared and must not block"
+		)
+	}
+
 	// MARK: - Cache
 
 	/// The engine builds its cache path from `.` (`src/bundle.cpp:557-598`), i.e. from the
@@ -156,5 +263,33 @@ final class ZsignEngineTests: XCTestCase {
 
 		XCTAssertTrue(ZsignEngine.clearCache(in: workDirectory))
 		XCTAssertFalse(ZsignEngine.clearCache(in: workDirectory))
+	}
+
+	// MARK: - Fixtures
+
+	private func _profile(
+		team: String = "TEAM12345",
+		developerCertificates: [Data]? = nil
+	) -> Certificate {
+		Certificate(
+			AppIDName: "Fixture",
+			ApplicationIdentifierPrefix: [team],
+			CreationDate: Date().addingTimeInterval(-60 * 60 * 24),
+			Platform: ["iOS"],
+			IsXcodeManaged: nil,
+			DeveloperCertificates: developerCertificates,
+			derEncodedProfile: nil,
+			PPQCheck: nil,
+			Entitlements: ["application-identifier": AnyCodable("TEAM12345.com.example.app")],
+			ExpirationDate: Date().addingTimeInterval(60 * 60 * 24 * 30),
+			Name: "Fixture Profile",
+			ProvisionsAllDevices: false,
+			ProvisionedDevices: nil,
+			TeamIdentifier: [team],
+			TeamName: "Fixture Team",
+			TimeToLive: 365,
+			UUID: "FIXTURE-PROFILE",
+			Version: 1
+		)
 	}
 }

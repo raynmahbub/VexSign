@@ -56,6 +56,7 @@ final class ZsignHandler {
 		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
 		request.removeProvisioning = _options.removeProvisioning
 
+		try _rejectRefusedIdentity(for: cert, provisionPath: request.provisionPath, p12Path: request.p12Path)
 		try run(request)
 	}
 
@@ -70,7 +71,50 @@ final class ZsignHandler {
 		)
 		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
 
+		// Ad-hoc runs need no identity, so only the entitlements file can be unusable.
+		if
+			let path = _options.appEntitlementsFile?.path,
+			!path.isEmpty,
+			_data(at: path) == nil {
+			throw SigningFileHandlerError.entitlementsUnreadable
+		}
+
 		try run(request)
+	}
+
+	// MARK: - Identity
+
+	/// Asks the engine's own acceptance rules whether this identity can start a run.
+	///
+	/// `zsign` refuses a profile that does not belong to the .p12, an unreadable .p12, a
+	/// missing profile and a profile without a team identifier — and reports none of that
+	/// through its completion handler, so the run would otherwise end in the bare
+	/// "Signing failed." this check replaces.
+	private func _rejectRefusedIdentity(
+		for cert: CertificatePair,
+		provisionPath: String,
+		p12Path: String
+	) throws {
+		let problem = ZsignEngine.identityProblem(
+			provisioningProfile: _data(at: provisionPath),
+			certificate: _data(at: p12Path),
+			leafCertificate: cert.appliedCertificateDER,
+			profile: cert.decodedProfile
+		)
+		guard let problem else { return }
+
+		SigningLog.shared.error(.localized("Signing identity: %@", arguments: problem.message))
+		throw SigningFileHandlerError.identityRejected(problem.message)
+	}
+
+	private func _data(at path: String) -> Data? {
+		guard !path.isEmpty else { return nil }
+		do {
+			return try Data(contentsOf: URL(fileURLWithPath: path))
+		} catch {
+			Logger.misc.error("Could not read \(path): \(error.localizedDescription)")
+			return nil
+		}
 	}
 
 	// MARK: - Private
@@ -94,7 +138,9 @@ final class ZsignHandler {
 			throw error
 		}
 		if !outcome.succeeded {
-			throw SigningFileHandlerError.signFailed
+			// No message: the engine gave up before it had a bundle to complain about, or it
+			// failed a step it does not report. The log holds whatever it printed.
+			throw SigningFileHandlerError.engineRefused
 		}
 	}
 }

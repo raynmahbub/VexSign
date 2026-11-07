@@ -22,27 +22,75 @@ extension Storage {
 		return FileManager.default.getPath(in: url, for: "app")
 	}
 	
-	func deleteApp(for app: AppInfoPresentable) {
+	/// - Returns: false when the row survives the delete, so a caller can say so instead of
+	///   leaving the user with a tap that did nothing.
+	@discardableResult
+	func deleteApp(for app: AppInfoPresentable) -> Bool {
 		StorageConcurrency.requireMainQueue()
-		deleteApps([app])
+		return deleteApps([app])
 	}
 
 	/// One save for the whole batch: saving per item mid-edit blows up the SwiftUI list diff.
-	func deleteApps(_ apps: [AppInfoPresentable]) {
+	///
+	/// Everything that can go wrong here used to go wrong silently — a file that would not be
+	/// removed was swallowed by `try?`, and a save that failed only reached the unified log — so
+	/// "Delete does nothing" had no visible cause. The save is checked now and the result is
+	/// reported back; the file removal is logged, and never stops the row from going away.
+	///
+	/// - Returns: false when at least one row could not be deleted.
+	@discardableResult
+	func deleteApps(_ apps: [AppInfoPresentable]) -> Bool {
 		StorageConcurrency.requireMainQueue()
-		guard !apps.isEmpty else { return }
+		guard !apps.isEmpty else { return true }
 
+		var deletedAny = false
 		for app in apps {
 			if let url = getUuidDirectory(for: app) {
-				try? FileManager.default.removeItem(at: url)
+				do {
+					try FileManager.default.removeItem(at: url)
+				} catch let error as NSError where error.code == NSFileNoSuchFileError {
+					// Already gone: the row is what matters.
+				} catch {
+					Logger.misc.error("Could not remove \(url.path): \(error.localizedDescription)")
+				}
 			}
-			if let object = app as? NSManagedObject {
-				context.delete(object)
-			}
+			// A caller may hand over a row from another context (the storage screen and the
+			// automation paths fetch off the main queue); `delete` on a foreign object is a
+			// no-op at best, so it is resolved here first.
+			guard let object = _deletableRow(for: app) else { continue }
+			context.delete(object)
+			deletedAny = true
 		}
 
-		saveContext()
+		guard deletedAny else { return false }
+		guard context.hasChanges else { return true }
+
+		do {
+			try context.save()
+		} catch {
+			Logger.misc.error("CoreData save failed while deleting apps: \(error.localizedDescription)")
+			return false
+		}
+
 		Task { @MainActor in WidgetStatusPublisher.publish() }
+		return true
+	}
+
+	/// The same row, but owned by the main-queue context.
+	private func _deletableRow(for app: AppInfoPresentable) -> NSManagedObject? {
+		guard let object = app as? NSManagedObject, !object.isDeleted else { return nil }
+		if object.managedObjectContext === context { return object }
+
+		var resolved: NSManagedObject?
+		context.performAndWait {
+			do {
+				let existing = try context.existingObject(with: object.objectID)
+				resolved = existing.isDeleted ? nil : existing
+			} catch {
+				Logger.misc.error("Could not resolve a row for deletion: \(error.localizedDescription)")
+			}
+		}
+		return resolved
 	}
 	
 	func getCertificate(from app: AppInfoPresentable) -> CertificatePair? {
