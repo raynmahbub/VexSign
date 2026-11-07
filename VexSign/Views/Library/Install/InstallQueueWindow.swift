@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import IDeviceSwift
 import NimbleExtensions
 
 /// Its own window because the download overlay or signing cover is often already presenting, and a
