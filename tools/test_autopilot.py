@@ -76,6 +76,10 @@ class AutopilotTests(unittest.TestCase):
                      'MARKETING_VERSION = 1.2.3; MARKETING_VERSION = invalid;'):
             self.assertIsNone(stable.version(text))
 
+    def test_release_project_targets_share_the_selected_version(self):
+        project = Path(__file__).resolve().parents[1] / 'VexSign.xcodeproj/project.pbxproj'
+        self.assertEqual(stable.version(project.read_text()), '1.2.0')
+
 
 class RepositoryEndpointTests(unittest.TestCase):
     def test_controller_repository_root_has_no_trailing_slash(self):
