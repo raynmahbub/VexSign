@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import OSLog
 import SwiftUI
 
 // MARK: - Class extension: Apps (Shared)

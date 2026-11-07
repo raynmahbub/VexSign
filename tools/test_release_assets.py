@@ -20,11 +20,12 @@ class ReleaseAssetTests(unittest.TestCase):
         for channel in ('stable', 'nightly', 'prerelease'):
             with self.subTest(channel=channel), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory)
-                (output / 'VexSign.ipa').write_bytes(b'test artifact, not a real IPA')
+                (output / 'VexSign-1.2.0.ipa').write_bytes(b'test artifact, not a real IPA')
                 with patch.object(assets.subprocess, 'check_output', side_effect=['a' * 40, '## Changes\n']):
                     assets.prepare(output, '1.2.0', channel, 'owner/repo')
                 metadata = json.loads((output / 'RELEASE.json').read_text())
                 self.assertEqual(metadata['channel'], channel)
+                self.assertEqual(metadata['ipa']['name'], 'VexSign-1.2.0.ipa')
                 self.assertTrue(metadata['unsigned'])
                 notes = (output / 'CHANGELOG.md').read_text()
                 self.assertIn('not a screenshot', notes)
@@ -34,10 +35,19 @@ class ReleaseAssetTests(unittest.TestCase):
                     self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), digest)
                 self.assertEqual(len((output / 'SHA256SUMS').read_text().splitlines()), 5)
 
+    def test_prerelease_asset_uses_base_app_version_in_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'VexSign-1.2.0.ipa').write_bytes(b'pre-release artifact')
+            with patch.object(assets.subprocess, 'check_output', side_effect=['a' * 40, '## Changes\\n']):
+                assets.prepare(output, '1.2.0-nightly.20261107.1', 'nightly', 'owner/repo')
+            metadata = json.loads((output / 'RELEASE.json').read_text())
+            self.assertEqual(metadata['ipa']['name'], 'VexSign-1.2.0.ipa')
+
     def test_reviewed_stable_notes_do_not_republish_obsolete_commit_claims(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
-            (output / 'VexSign.ipa').write_bytes(b'synthetic artifact')
+            (output / 'VexSign-1.1.0.ipa').write_bytes(b'synthetic artifact')
             with patch.object(assets.subprocess, 'check_output', side_effect=[
                     'a' * 40, 'feat: obsolete claim of complete native signing and unattended renewal']):
                 assets.prepare(output, '1.1.0', 'stable', 'owner/repo')
@@ -47,6 +57,24 @@ class ReleaseAssetTests(unittest.TestCase):
             self.assertIn('default CMS gate remains closed', notes)
             self.assertIn('versioned changelog', notes)
             self.assertEqual(json.loads((output / 'RELEASE.json').read_text())['notes_source'], 'reviewed-version-notes')
+
+    def test_make_ipa_filename_contains_marketing_version(self):
+        command = subprocess.run(
+            ['make', '--dry-run', 'VexSign', 'APP_VERSION=9.8.7'],
+            cwd=assets.ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        self.assertIn('packages/VexSign-9.8.7.ipa', command.stdout)
+        self.assertNotIn('packages/VexSign.ipa', command.stdout)
+
+    def test_misnamed_ipa_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'VexSign.ipa').write_bytes(b'legacy filename')
+            with self.assertRaisesRegex(ValueError, 'Expected versioned IPA name'):
+                assets.prepare(output, '1.2.0', 'stable', 'owner/repo')
 
     def test_missing_or_ambiguous_ipa(self):
         with tempfile.TemporaryDirectory() as directory:

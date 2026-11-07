@@ -51,6 +51,8 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - `VexSignTests/SelfUpdateNotificationTests.swift` compiles again: one call site
   passed `decide(active:surfaced:)` against a `decide(surfaced:active:)`
   declaration, which failed the whole simulator test bundle on `main`.
+- The app-storage delete path imports `OSLog` explicitly, fixing the `Logger not found`
+  build error reported by the main CI run (#118).
 - `tools/update-repo.sh` no longer word-splits its authorization header
   (curl used to receive `Bearer` as a URL and failed every authenticated
   run), and the stale workflow name in `docs/BUILD.md` was corrected.

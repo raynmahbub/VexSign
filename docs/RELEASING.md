@@ -8,8 +8,9 @@
 | **Nightly** | Daily schedule at **03:00 UTC**, or a manual dispatch with channel `nightly` | `v1.2.0-nightly.<date>.<run>.<attempt>` | Pre-release | Never updated |
 
 Both channels build the same unsigned IPA, verify the built `CFBundleShortVersionString`
-against the tag, and attach `SHA256SUMS` plus a generated changelog. The IPA still
-requires a signing identity to install.
+against the tag, and attach `SHA256SUMS` plus a generated changelog. The IPA filename
+includes its app version (`VexSign-<version>.ipa`; nightly suffixes remain in the release
+metadata/tag). The IPA still requires a signing identity to install.
 
 Stable versions with reviewed `docs/releases/<version>.md` notes use those
 notes and a commit-pinned link to `CHANGELOG.md`, rather than republishing raw
