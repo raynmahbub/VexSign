@@ -4,8 +4,8 @@
 
 | Channel | Trigger | Tag | GitHub release | Repository listing |
 | --- | --- | --- | --- | --- |
-| **Stable** | Push a `v<MARKETING_VERSION>` tag, or **Actions → Release** with channel `stable` | `v1.1.0` | Latest release | Updated after publish |
-| **Nightly** | Daily schedule at **03:00 UTC**, or a manual dispatch with channel `nightly` | `v1.1.0-nightly.<date>.<run>.<attempt>` | Pre-release | Never updated |
+| **Stable** | Push a `v<MARKETING_VERSION>` tag, or **Actions → Release** with channel `stable` | `v1.2.0` | Latest release | Updated after publish |
+| **Nightly** | Daily schedule at **03:00 UTC**, or a manual dispatch with channel `nightly` | `v1.2.0-nightly.<date>.<run>.<attempt>` | Pre-release | Never updated |
 
 Both channels build the same unsigned IPA, verify the built `CFBundleShortVersionString`
 against the tag, and attach `SHA256SUMS` plus a generated changelog. The IPA still
@@ -19,7 +19,7 @@ the notes source. Versions without reviewed notes retain generated history.
 ## Stable release
 
 1. Bump every `MARKETING_VERSION` setting on main when you want a new version.
-2. Push the matching tag, for example `git tag v1.1.0 && git push origin v1.1.0`.
+2. Push the matching tag, for example `git tag v1.2.0 && git push origin v1.2.0`.
    Tag pushes are the automated stable path. **Actions → Release → Run workflow**
    with channel `stable` is the equivalent manual path for a version that has no
    tag yet.
@@ -27,14 +27,14 @@ the notes source. Versions without reviewed notes retain generated history.
    the packaged version, publishes the IPA at the exact built commit, then queues
    **Update Repository** for stable releases only.
 
-The current version is **1.1.0**. Published versions and tags cannot be
+The current version is **1.2.0**. Published versions and tags cannot be
 overwritten. For a test IPA instead, check **build_only**; that run creates an
 artifact but no tag or release.
 
 ## Nightly pre-release
 
 The **Release** workflow runs every day at 03:00 UTC from the default branch. It
-publishes a dated pre-release such as `v1.1.0-nightly.20261107.428.1` and never
+publishes a dated pre-release such as `v1.2.0-nightly.20261107.428.1` and never
 moves or reuses that tag, so an installation can be pinned to the exact build it
 downloaded. All release runs (stable, nightly and build-only) execute simulator tests before uploading; a
 failed nightly can be re-run safely, and the run attempt makes the next tag
@@ -118,8 +118,8 @@ are integrity evidence, not independent developer code signatures.
 ## Tag releases and drafts
 
 Tag pushes remain supported and are the preferred stable path: tag the tested
-main commit as `v<MARKETING_VERSION>`, for example `v1.1.0`. Optional prerelease
-suffixes (`v1.1.0-beta.1`) mark the GitHub release as a pre-release and are not
+main commit as `v<MARKETING_VERSION>`, for example `v1.2.0`. Optional prerelease
+suffixes (`v1.2.0-beta.1`) mark the GitHub release as a pre-release and are not
 synced to the repository listing. Never move a published tag. A tag run can retry
 only if no release was created; existing partial/draft releases need manual
 inspection.

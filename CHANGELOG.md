@@ -9,6 +9,8 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-07
+
 ### Fixed
 
 - "Signing failed." now says what the engine refused and what to do about it (#113).
