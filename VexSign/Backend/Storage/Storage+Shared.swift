@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import OSLog
 import SwiftUI
 
 // MARK: - Class extension: Apps (Shared)
@@ -48,10 +49,11 @@ extension Storage {
 			if let url = getUuidDirectory(for: app) {
 				do {
 					try FileManager.default.removeItem(at: url)
-				} catch let error as NSError where error.code == NSFileNoSuchFileError {
-					// Already gone: the row is what matters.
 				} catch {
-					Logger.misc.error("Could not remove \(url.path): \(error.localizedDescription)")
+					// A directory that is already gone is not a problem: the row is what matters.
+					if FileManager.default.fileExists(atPath: url.path) {
+						Logger.misc.error("Could not remove \(url.path): \(error.localizedDescription)")
+					}
 				}
 			}
 			// A caller may hand over a row from another context (the storage screen and the
