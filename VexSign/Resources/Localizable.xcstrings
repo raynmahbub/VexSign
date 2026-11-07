@@ -102253,6 +102253,28 @@
           }
         }
       }
+    },
+    "Removed %lld unsupported app extension(s); the main app and profile-covered extensions were retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed %lld unsupported app extension(s); the main app and profile-covered extensions were retained."
+          }
+        }
+      }
+    },
+    "Signed successfully. Compatibility mode skipped: %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed successfully. Compatibility mode skipped: %@."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

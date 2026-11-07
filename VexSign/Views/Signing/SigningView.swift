@@ -25,6 +25,7 @@ struct SigningView: View {
     @State private var _currentStage: SigningStage?
     @State private var _reachedStages: Set<SigningStage> = []
     @State private var _signingError: String?
+    @State private var _compatibilityRemovedComponents: [String] = []
 	@State private var _preflightResult: PreflightResult?
 	@State private var _presentedSheet: SigningSheet?
 	@State private var _signAfterReview = false
@@ -73,17 +74,18 @@ struct SigningView: View {
 		
 	/// What the certificate picker compares against: the app as the current options will leave it.
 	private var _compatibilityTarget: ProfileCompatibility.Target {
-		let nested = Storage.shared.getAppDirectory(for: app)
-			.map {
-				NestedBundleAudit.requiredIdentifiers(
-					in: $0,
-					removeAppExtensions: _temporaryOptions.removeAppExtensions
-				)
-			} ?? []
+		let bundle = Storage.shared.getAppDirectory(for: app)
+		let nested = bundle.map {
+			NestedBundleAudit.requiredIdentifiers(in: $0, removeAppExtensions: _temporaryOptions.removeAppExtensions)
+		} ?? []
+		let removableExtensions = bundle.map {
+			NestedBundleAudit.removableExtensionIdentifiers(in: $0, removeAppExtensions: _temporaryOptions.removeAppExtensions)
+		} ?? []
 		return ProfileCompatibility.Target(
 			app: app,
 			options: _temporaryOptions,
-			nestedBundleIdentifiers: nested
+			nestedBundleIdentifiers: nested,
+			removableExtensionIdentifiers: removableExtensions
 		)
 	}
 
@@ -362,6 +364,7 @@ extension SigningView {
         guard !_isSigning else { return }
         UIApplication.shared.endEditing()
         _signingError = nil
+        _compatibilityRemovedComponents = []
         _wasCancelled = false
         _currentStage = nil
         _reachedStages = []
@@ -390,6 +393,9 @@ extension SigningView {
                     let announcement = NSAttributedString(string: stage.title, attributes: [.accessibilitySpeechQueueAnnouncement: true])
                     UIAccessibility.post(notification: .announcement, argument: announcement)
                 }
+            },
+            onCompatibilityRemoved: { components in
+                _compatibilityRemovedComponents.append(contentsOf: components)
             }
 		) { result in
 			switch result {
@@ -409,7 +415,16 @@ extension SigningView {
 				}
 			case .success(let signed):
 				_isSigning = false
-				Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
+                if _compatibilityRemovedComponents.isEmpty {
+                    Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
+                } else {
+                    let components = _compatibilityRemovedComponents.joined(separator: ", ")
+                    Toast.success(
+                        .localized("Signed successfully. Compatibility mode skipped: %@.", arguments: components),
+                        systemImage: "checkmark.seal.fill",
+                        duration: .long
+                    )
+                }
 
 				// Remember the exact settings + certificate so "Re-sign with last settings"
 				// and Update All can reproduce this identity later.

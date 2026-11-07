@@ -44,10 +44,9 @@ enum FR {
 	
 	/// Adapter over `SigningService`.
 	///
-	/// The signature is unchanged on purpose: six call sites do not have to care that signing is
-	/// now owned by a cancellable service rather than an unstructured task. What they get for
-	/// free is real stage progress and the ability to cancel — `SigningService.shared.cancelAll()`
-	/// from the UI, or `BatchJobRunner.cancel()` between batch items.
+	/// Existing call sites stay source-compatible through the defaulted progress callbacks.
+	/// Signing is owned by a cancellable service rather than an unstructured task; callers can
+	/// observe stage/compatibility events and cancel via `SigningService.shared.cancelAll()`.
 	static func signPackageFile(
 		_ app: AppInfoPresentable,
 		using options: Options,
@@ -55,6 +54,7 @@ enum FR {
 		certificate: CertificatePair?,
         overridesBlockingPreflightIssues: Bool = false,
         onStage: ((SigningStage) -> Void)? = nil,
+        onCompatibilityRemoved: (([String]) -> Void)? = nil,
 		completion: @escaping (Result<Signed, Error>) -> Void
 	) {
 		let request = SigningRequest(
@@ -103,6 +103,9 @@ enum FR {
                     onStage?(stage)
 					SigningLiveActivityManager.shared.update(progress: stage.progress, status: stage.title)
 					UnifiedTaskCenter.shared.transition(task, to: .signing, progress: stage.progress)
+
+                case .compatibilityRemoved(let components):
+                    onCompatibilityRemoved?(components)
 
 				case .finished(let signed):
 					keepAlive.stop()

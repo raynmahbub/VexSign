@@ -44,6 +44,21 @@ final class SigningServiceTests: XCTestCase {
 	}
 
 	@MainActor
+	func testCompatibilityRemovalDetailsArriveBeforeSuccessfulCompletion() async throws {
+		let signed = _signed()
+		let components = ["Widget.appex (com.example.widget)", "Share.appex (com.example.share)"]
+		let service = SigningService(work: _FakeWork(.succeedWithCompatibility(signed, [.copying, .signing], components)))
+
+		let events = await _collect(service, request: _request(signed))
+
+		XCTAssertEqual(_compatibilityRemoved(events), components)
+		XCTAssertEqual(_terminalCount(events), 1)
+		guard case .finished? = events.last else {
+			return XCTFail("Compatibility reporting must not replace the terminal success event")
+		}
+	}
+
+	@MainActor
 	func testAFailureIsReportedAsFailed() async throws {
 		let signed = _signed()
 		let service = SigningService(work: _FakeWork(.fail(signed, [.copying], _TestError.boom)))
@@ -206,6 +221,13 @@ final class SigningServiceTests: XCTestCase {
 		}
 	}
 
+	private func _compatibilityRemoved(_ events: [SigningEvent]) -> [String] {
+		events.flatMap {
+			guard case .compatibilityRemoved(let components) = $0 else { return [] }
+			return components
+		}
+	}
+
 	private func _terminalCount(_ events: [SigningEvent]) -> Int {
 		events.filter(\.isTerminal).count
 	}
@@ -220,6 +242,7 @@ private enum _TestError: Error {
 private final class _FakeWork: SigningWork {
 	enum Behaviour {
 		case succeed(Signed, [SigningStage])
+		case succeedWithCompatibility(Signed, [SigningStage], [String])
 		case fail(Signed, [SigningStage], Error)
 		/// Reports `.copying` (and anything else asked for) then sleeps until cancelled, which is
 		/// what a real pipeline looks like while zsign is running.
@@ -232,23 +255,30 @@ private final class _FakeWork: SigningWork {
 		self._behaviour = behaviour
 	}
 
-	func run(_ request: SigningRequest, reporting: @escaping (SigningStage) -> Void) async -> Result<Signed, Error> {
+	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
 		switch _behaviour {
 		case .succeed(let signed, let stages):
 			for stage in stages {
-				reporting(stage)
+				reporting(.stage(stage))
 			}
+			return .success(signed)
+
+		case .succeedWithCompatibility(let signed, let stages, let components):
+			for stage in stages {
+				reporting(.stage(stage))
+			}
+			reporting(.compatibilityRemoved(components))
 			return .success(signed)
 
 		case .fail(_, let stages, let error):
 			for stage in stages {
-				reporting(stage)
+				reporting(.stage(stage))
 			}
 			return .failure(error)
 
 		case .waitForCancel(let stages):
 			for stage in stages {
-				reporting(stage)
+				reporting(.stage(stage))
 			}
 			while !Task.isCancelled {
 				try? await Task.sleep(nanoseconds: 10_000_000)

@@ -34,6 +34,8 @@ struct AppStoreView: View {
     @State private var catalogItems: [SourcedAppItem] = []
     @State private var filteredCatalogItems: [SourcedAppItem] = []
     @State private var catalogRevision = 0
+    @State private var catalogBuildGeneration = 0
+    @State private var catalogFilterGeneration = 0
     @AppStorage("VexSign.repositorySort") private var _repositorySortRaw = RepositorySortOption.priority.rawValue
 
     private let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
@@ -166,7 +168,10 @@ struct AppStoreView: View {
     private var allSourcedApps: [SourcedAppItem] { catalogItems }
     private var sortedAndFilteredApps: [SourcedAppItem] { filteredCatalogItems }
 
+    @MainActor
     private func rebuildAppCatalog() async {
+        catalogBuildGeneration &+= 1
+        let generation = catalogBuildGeneration
         let references: [CatalogSourceReference] = nonExcludedSources.compactMap { source in
             guard let repository = viewModel.sources[source] else { return nil }
             let sourceID = source.identifier ?? source.sourceURL?.absoluteString ?? source.objectID.uriRepresentation().absoluteString
@@ -181,12 +186,14 @@ struct AppStoreView: View {
         let hiddenKeys = strictlyHiddenAppKeys
         let hideDuplicates = SourcePreferences.hideDuplicates
 
-        let indexedItems = await Task.detached(priority: .userInitiated) {
+        let worker = Task.detached(priority: .userInitiated) {
             var result: [IndexedCatalogApp] = []
             var seenIDs = Set<String>()
 
             for (sourceIndex, input) in inputs.enumerated() {
+                guard !Task.isCancelled else { return [IndexedCatalogApp]() }
                 for app in input.repository.apps {
+                    guard !Task.isCancelled else { return [IndexedCatalogApp]() }
                     let appID = app.id ?? app.currentName
                     guard !hiddenKeys.contains(appID), !hiddenKeys.contains(app.currentName.lowercased()) else { continue }
                     let uniqueKey = hideDuplicates ? appID : "\(input.sourceID)-\(appID)"
@@ -195,9 +202,14 @@ struct AppStoreView: View {
                 }
             }
             return result
-        }.value
+        }
+        let indexedItems = await withTaskCancellationHandler {
+            await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
 
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, generation == catalogBuildGeneration else { return }
         catalogItems = indexedItems.map { indexed in
             let reference = references[indexed.sourceIndex]
             return SourcedAppItem(
@@ -211,13 +223,16 @@ struct AppStoreView: View {
         catalogRevision &+= 1
     }
 
+    @MainActor
     private func rebuildFilteredCatalog() async {
+        catalogFilterGeneration &+= 1
+        let generation = catalogFilterGeneration
         let items = catalogItems
         let category = selectedCategory.lowercased()
         let query = searchText
         let sortOption = appSortOption
 
-        let filtered = await Task.detached(priority: .userInitiated) {
+        let worker = Task.detached(priority: .userInitiated) {
             let categoryFiltered = items.filter { item in
                 guard category != "all" else { return true }
                 let appCategory = (item.app.category ?? "").lowercased()
@@ -245,6 +260,7 @@ struct AppStoreView: View {
                 $0.sourceName.localizedCaseInsensitiveContains(query)
             }
 
+            guard !Task.isCancelled else { return [SourcedAppItem]() }
             switch sortOption {
             case .name:
                 return searched.sorted { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending }
@@ -253,9 +269,14 @@ struct AppStoreView: View {
             case .size:
                 return searched.sorted { ($0.app.size ?? 0) > ($1.app.size ?? 0) }
             }
-        }.value
+        }
+        let filtered = await withTaskCancellationHandler {
+            await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
 
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, generation == catalogFilterGeneration else { return }
         filteredCatalogItems = filtered
     }
 
@@ -372,6 +393,14 @@ struct AppStoreView: View {
                 await rebuildAppCatalog()
             }
             .task(id: catalogFilterKey) {
+                // Search input changes on every keystroke; discard the superseded query before
+                // allocating a new off-main-thread filter/sort pass.
+                do {
+                    try await Task.sleep(nanoseconds: 120_000_000)
+                } catch {
+                    return // A newer search superseded this debounce.
+                }
+                guard !Task.isCancelled else { return }
                 await rebuildFilteredCatalog()
             }
             .onChange(of: premiumFilter.stamp) { _ in
@@ -1119,7 +1148,7 @@ struct AppStoreView: View {
                 .padding(.vertical, 20)
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             } else {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(Array(filteredSources.enumerated()), id: \.element.objectID) { index, source in
                         NavigationLink {
                             SourceAppsView(object: [source], viewModel: viewModel, onRefresh: {
@@ -1366,7 +1395,7 @@ struct AppStoreView: View {
                     .font(.headline)
                     .padding(.horizontal, 4)
 
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(Array(filteredSources.enumerated()), id: \.element.objectID) { index, source in
                         NavigationLink {
                             SourceAppsView(object: [source], viewModel: viewModel, onRefresh: {

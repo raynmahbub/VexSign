@@ -44,6 +44,8 @@ final class SigningHandler: NSObject {
 	/// Called as each stage begins. Synchronous on purpose: it is delivered to
 	/// `SigningService`'s event queue, which preserves order.
 	var onStage: ((SigningStage) -> Void)?
+	/// Reports the exact extension bundles removed by compatibility mode.
+	var onCompatibilityRemoved: (([String]) -> Void)?
 	
 	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options) {
 		self._app = app
@@ -594,7 +596,12 @@ extension SigningHandler {
 			Logger.misc.info("[\(self._uuid)] Removed uncovered nested bundle: \(entry.bundle.path)")
 		}
 
-		SigningLog.shared.warn(.localized("Removed %lld unsupported nested bundle(s); the main app and profile-covered extensions were retained.", arguments: removed.count))
+		SigningLog.shared.warn(.localized("Removed %lld unsupported app extension(s); the main app and profile-covered extensions were retained.", arguments: removed.count))
+		let removedNames = removed.map { entry -> String in
+			let identifier = entry.bundle.identifier ?? .localized("unknown identifier")
+			return "\(entry.bundle.displayName) (\(identifier))"
+		}
+		onCompatibilityRemoved?(removedNames)
 	}
 
 	/// Logs what the selected profile can do for each nested bundle in the payload.
