@@ -443,3 +443,24 @@ This is the first maintenance checkpoint. Editor ownership, journal persistence,
 migration warning visibility, behavior-preserving component extraction and
 validation-document consolidation remain subsequent review steps—not completed
 by this patch. No new end-user capability was added.
+
+## Maintenance review follow-up — step 2: IPA Explorer ownership
+
+Explorer mutations now acquire the same per-copy registry lease as signing,
+installation and deletion immediately before filesystem changes. The lease covers
+folder creation, the entire import batch, rename, replace, delete, text save and
+structured plist save. Rebuild holds ownership through the detached packaging
+worker's completion. Archive workspaces use a separate workspace-key namespace;
+library workspaces use the existing signed/imported UUID keys. A missing app
+bundle is rejected after acquiring ownership, so a stale editor cannot recreate
+a deleted library copy. Busy denials use the existing non-sensitive error toast.
+
+Four added native tests exercise all five file actions under contention, deletion
+blocked by an editing lease, release after scope/failure, stale workspace refusal
+and a successful import batch. Portable `make verify`, Swift grammar parsing and
+`git diff --check` pass. Native XCTest, Apple compilation and device concurrency
+checks are pending; grammar parsing is not typechecking. This remains in-process
+ownership, not coordination with external filesystem writers. Read-only previews
+are not locked, and this patch does not add editor conflict/version tracking.
+
+Steps 3–6 remain pending.

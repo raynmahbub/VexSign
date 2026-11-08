@@ -214,6 +214,27 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 	// MARK: Editing
 
+	/// Acquire immediately before touching bundle bytes, not when an editor opens.
+	/// The lease must remain alive through the entire write (or detached packaging worker).
+	func acquireEditingLease() throws -> AppOperationRegistry.Lease {
+		guard !isBusy else { throw AppOperationRegistry.Busy() }
+		let key: String
+		switch source {
+		case .libraryApp(let uuid, let isSigned):
+			guard !uuid.isEmpty else { throw IPAWorkspaceError.appNotFound }
+			key = "\(isSigned ? "signed" : "imported"):\(uuid)"
+		case .archive:
+			key = "workspace:\(id)"
+		}
+		let lease = try AppOperationRegistry.shared.acquire(key)
+		// A workspace can outlive a deletion. Never recreate a deleted library copy.
+		var isDirectory: ObjCBool = false
+		guard _fileManager.fileExists(atPath: appURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+			throw IPAWorkspaceError.appNotFound
+		}
+		return lease
+	}
+
 	/// Records an edit so the explorer can warn before dropping unsaved archive changes.
 	func markDirty() {
 		changeCount += 1
@@ -273,6 +294,8 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 	/// - Parameter to: where to write it. Defaults to a fresh file in `Documents/Archives`.
 	@discardableResult
 	func rebuild(to destination: URL? = nil) async throws -> URL {
+		let lease = try acquireEditingLease()
+		defer { withExtendedLifetime(lease) {} }
 		// An extracted IPA already has its Payload folder; a library app has to be wrapped in a
 		// throwaway one so the archive comes out with the same layout.
 		let payload = containerURL.appendingPathComponent("Payload", isDirectory: true)
