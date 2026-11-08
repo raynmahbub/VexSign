@@ -1,8 +1,9 @@
 # Repository operations
 
-One guide for free-only automation, dependency maintenance and occasional human
-checks. Build commands live in [Build](BUILD.md); version/channel/environment
-rules live in [Releasing](RELEASING.md). Security and device acceptance stay separate.
+One guide for deterministic repository automation, optional paid CI repair,
+dependency maintenance and occasional human checks. Build commands live in
+[Build](BUILD.md); version/channel/environment rules live in [Releasing](RELEASING.md).
+Security and device acceptance stay separate.
 
 ## Your normal routine
 
@@ -15,8 +16,7 @@ rules live in [Releasing](RELEASING.md). Security and device acceptance stay sep
 4. Occasionally review failure issues, major upgrades, conflicts and pending
    approvals. Signing/provisioning/security changes and real-device tests need you.
 
-There is no hosted AI agent, paid model API or automatic arbitrary code repair.
-The GitHub Actions bot performs deterministic tasks; it does not invent fixes.
+A bounded AI repair assistant is available for eligible failed same-repository PRs; it proposes a draft replacement PR and never merges source-code changes. It requires the optional `OPENAI_API_KEY` Actions secret. See [CI repair assistant](CI_REPAIR_ASSISTANT.md) for its limits and setup.
 
 ## Workflow map
 
@@ -27,7 +27,8 @@ The GitHub Actions bot performs deterministic tasks; it does not invent fixes.
 | **Platform check** | Relevant companion/shared-package changes: tvOS, watchOS and visionOS builds. |
 | **Documentation** | Documentation edits: cheap offline file-link checks; no macOS work. |
 | **Release** | Daily nightlies, tag/manual stable builds, CI-driven version-bump dispatch and isolated protected publication. |
-| **Repository maintenance** | 4-hourly bot-PR controller; weekly hygiene/audit; main-failure triage with isolated permissions and no guessed patches. |
+| **Repository maintenance** | 4-hourly bot-PR controller; weekly hygiene/audit; main-failure triage with isolated permissions. |
+| **CI repair assistant** | Failed same-repository PR CI: optional AI-proposed, allowlisted draft replacement PR; never auto-merges. |
 | **Update Repository** | Published stable metadata → listing review PR, never a direct main push. |
 | **Combined native host · build only** | Manual experimental container preparation/build (dispatch with `link_smoke` for native link diagnostics); no normal release publication. |
 
@@ -100,8 +101,10 @@ alerts/security updates in GitHub's repository settings for advisory-driven fixe
 5. Run **Repository maintenance → all** once and inspect its log. Enable Actions
    and issue notifications. GitHub can delay schedules or disable inactive ones.
 6. Cancel obsolete runs when replacing workflows. Lower retention affects new
-   uploads, not old artifacts. Existing model/agent integrations, if any, should
-   be disabled separately; the unused repair-agent workflow/code is removed here.
+   uploads, not old artifacts. To activate the CI repair assistant, add the
+   `OPENAI_API_KEY` Actions secret; set `BUGFIX_AGENT_MODEL` as an Actions variable
+   only if you want to override its default model. The workflow skips safely when
+   the secret is absent. Review its draft PRs manually.
 
 If main advances before version-bump CI finishes, stable dispatch skips the old
 candidate. Review the current commit and use the normal manual Release dispatch.
@@ -145,9 +148,10 @@ entirely, and cancel already-running jobs separately. Never commit credentials.
 
 ## Build cost and workflow boundaries
 
-Nine workflow entry points are retained intentionally: CI, documentation, service
+Ten workflow entry points are retained intentionally: CI, documentation, service
 checks, companion platforms, Release, combined host, opt-in native link diagnostics,
-repository maintenance (including failure triage), and stable listing updates.
+repository maintenance (including failure triage), the constrained CI repair assistant,
+and stable listing updates.
 Triage deliberately does not watch its own maintenance workflow: even skipped
 workflow runs emit completion events. Maintenance's own failures remain visible
 through GitHub Actions notifications rather than recursively opening issues.

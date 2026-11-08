@@ -222,9 +222,9 @@ final class SigningServiceTests: XCTestCase {
 	}
 
 	private func _compatibilityRemoved(_ events: [SigningEvent]) -> [String] {
-		events.flatMap {
-			guard case .compatibilityRemoved(let components) = $0 else { return [] }
-			return components
+		events.reduce(into: [String]()) { removed, event in
+			guard case .compatibilityRemoved(let components) = event else { return }
+			removed.append(contentsOf: components)
 		}
 	}
 

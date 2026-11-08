@@ -267,7 +267,7 @@ struct HomeView: View {
 
     private var updatesCard: some View {
         Button {
-            openTab(.appStore)
+            TabSelectionObserver.shared.openAppStoreUpdates()
         } label: {
             HStack(spacing: 14) {
                 HomeIconTile(
@@ -506,8 +506,10 @@ struct HomeView: View {
             updateCount: updateCount,
             recentApps: recentVisibleApps,
             onImport: { browseForPackages() },
+            onDropPackages: { handleDrop($0) },
             onQuickSign: { browseForPackages(quickSign: true) },
             onOpenTab: { openTab($0) },
+            onOpenUpdates: { TabSelectionObserver.shared.openAppStoreUpdates() },
             onAddRepository: { showAddRepository = true }
         )
         .task { libraryStatus.refresh(dashboardVisibleApps) }

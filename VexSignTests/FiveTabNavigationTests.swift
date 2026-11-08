@@ -23,6 +23,14 @@ final class FiveTabNavigationTests: XCTestCase {
     }
 
     @MainActor
+    func testHomeUpdatesShortcutSelectsUpdatesSegment() {
+        let selection = TabSelectionObserver()
+        selection.openAppStoreUpdates()
+        XCTAssertEqual(selection.selectedTab, .appStore)
+        XCTAssertEqual(selection.appStoreSectionRequest, "Updates")
+    }
+
+    @MainActor
     func testEmbeddedPagesCanShareOneNavigationStack() {
         XCTAssertFalse(LibraryView(ownsNavigationStack: false).ownsNavigationStack)
         XCTAssertFalse(FilesTabView(ownsNavigationStack: false).ownsNavigationStack)

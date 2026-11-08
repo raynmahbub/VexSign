@@ -379,7 +379,12 @@ struct AppStoreView: View {
                 searchText = request.query
                 TabSelectionObserver.shared.searchRequest = nil
             }
-
+            .onReceive(TabSelectionObserver.shared.$appStoreSectionRequest) { request in
+                guard let request, let segment = StoreSegment(rawValue: request) else { return }
+                selectedSegment = segment
+                searchText = ""
+                TabSelectionObserver.shared.appStoreSectionRequest = nil
+            }
             .refreshable {
                 await viewModel.fetchSources(sources, refresh: true)
                 await rebuildAppCatalog()

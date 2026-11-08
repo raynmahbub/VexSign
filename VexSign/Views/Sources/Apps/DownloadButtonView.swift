@@ -21,7 +21,14 @@ class TabSelectionObserver: ObservableObject {
 	@Published var highlightedAppUUID: String?
 	@Published var sourcesRetapped: Bool = false
     @Published var searchRequest: WorkspaceSearchRequest?
+    @Published var appStoreSectionRequest: String?
 	
+    /// Opens the App Store directly on its updates destination, even when called from Home.
+    func openAppStoreUpdates() {
+        appStoreSectionRequest = "Updates"
+        selectedTab = .appStore
+    }
+
     func search(_ query: String, in tab: TabEnum) {
         guard [.library, .appStore, .settings].contains(tab) else { return }
         searchRequest = WorkspaceSearchRequest(tab: tab, query: query.trimmingCharacters(in: .whitespacesAndNewlines))

@@ -42,20 +42,13 @@ struct VexHomeSurface<Content: View>: View {
 
 struct VexHomeMark: View {
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: Theme.Radius.mark, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Theme.tint, Theme.tintDeep],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-            Text("V")
-                .font(.system(size: 23, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 44, height: 44)
-        .shadow(color: Theme.tint.opacity(0.24), radius: 8, y: 4)
-        .accessibilityHidden(true)
+        Image("AppLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.mark, style: .continuous))
+            .shadow(color: Theme.tint.opacity(0.24), radius: 8, y: 4)
+            .accessibilityHidden(true)
     }
 }
 

@@ -286,6 +286,15 @@ final class ImportAndInstallationTests: XCTestCase {
         }
     }
 
+    func testSkipIgnoresStaleTapsAfterAnOutcomeAndAllowsFailureActions() {
+        XCTAssertTrue(InstallQueue.canSkip(outcome: .pending, hasFailure: false))
+        XCTAssertTrue(InstallQueue.canSkip(outcome: .failed("Install failed"), hasFailure: true))
+        XCTAssertFalse(InstallQueue.canSkip(outcome: .succeeded, hasFailure: false))
+        XCTAssertFalse(InstallQueue.canSkip(outcome: .skipped, hasFailure: false))
+        XCTAssertFalse(InstallQueue.canSkip(outcome: .guestPrepared, hasFailure: false))
+        XCTAssertFalse(InstallQueue.canSkip(outcome: nil, hasFailure: false))
+    }
+
     @MainActor
     func testInstallQueueAdvanceSchedulerCancelsStaleAutomaticAdvance() async {
         let scheduler = InstallQueueAdvanceScheduler()

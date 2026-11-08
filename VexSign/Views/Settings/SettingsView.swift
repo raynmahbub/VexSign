@@ -336,51 +336,97 @@ private extension SettingsView {
         }
     }
 
-    /// Identity header at the top of Settings: the VexSign logo, name and version, with the GitHub
-    /// star kept as a compact pill instead of the full-width card that used to sit at the bottom of
-    /// the list. The row background is clear so it reads as part of the screen, not another group.
+    /// A compact app-store-style preview at the top of Settings: identity, author, installed
+    /// version, and a one-tap route to the existing updater.
     @ViewBuilder
     var _brandHeader: some View {
         Section {
-            HStack(spacing: 12) {
-                Image("AppLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 46, height: 46)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: Theme.flareShadow, radius: 8, y: 3)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 13) {
+                    Image("AppLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 62, height: 62)
+                        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+                        .shadow(color: Theme.flareShadow, radius: 9, y: 3)
+                        .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(Bundle.main.name.isEmpty ? "VexSign" : Bundle.main.name)
-                        .font(.headline)
-                    Text(verbatim: .localized("Version %@", arguments: Bundle.main.version))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(Bundle.main.name.isEmpty ? "VexSign" : Bundle.main.name)
+                            .font(.title3.weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Text(.localized("On-device signing and app management"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Label(.localized("By Rayn Mahbub"), systemImage: "person.crop.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: .localized("Version %@", arguments: Bundle.main.version))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+
+                    Spacer(minLength: 0)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isHeader)
 
-                Spacer(minLength: 8)
-
-                #if !NIGHTLY && !DEBUG
-                Button {
-                    NBHaptic.selection()
-                    UIApplication.open(_githubUrl)
-                } label: {
-                    Label(.localized("Star"), systemImage: "star.fill")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 6)
-                        .foregroundStyle(Color.userTint)
-                        .background(Color.userTint.opacity(0.16), in: Capsule())
+                NavigationLink(destination: UpdatesSettingsView()) {
+                    HStack(spacing: 10) {
+                        Image(systemName: _selfUpdate.available == nil ? "arrow.clockwise" : "arrow.down.circle.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Theme.tint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(_selfUpdate.available.map {
+                                String.localized("Update to %@", arguments: $0.version)
+                            } ?? .localized("Check for app updates"))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text(_selfUpdate.available == nil
+                                 ? .localized("View release notes and updater options")
+                                 : .localized("A newer VexSign release is ready"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(11)
+                    .background(Theme.tintSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(.localized("Star VexSign on GitHub")))
+                .accessibilityHint(Text(.localized("Opens the VexSign updater and checks for the latest release.")))
+
+                #if !NIGHTLY && !DEBUG
+                HStack {
+                    Spacer()
+                    Button {
+                        NBHaptic.selection()
+                        UIApplication.open(_githubUrl)
+                    } label: {
+                        Label(.localized("Star VexSign"), systemImage: "star.fill")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(Color.userTint)
+                            .background(Color.userTint.opacity(0.12), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(.localized("Star VexSign on GitHub")))
+                }
                 #endif
             }
-            .padding(.vertical, 2)
+            .padding(14)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Theme.separator, lineWidth: 0.75)
+            }
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)

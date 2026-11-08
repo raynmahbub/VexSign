@@ -9,6 +9,7 @@
 
 import SwiftUI
 import CoreData
+import UniformTypeIdentifiers
 import NimbleExtensions
 
 struct VexHomeDashboard: View {
@@ -21,18 +22,36 @@ struct VexHomeDashboard: View {
     let recentApps: [AnyApp]
 
     let onImport: () -> Void
+    let onDropPackages: ([NSItemProvider]) -> Bool
     let onQuickSign: () -> Void
     let onOpenTab: (TabEnum) -> Void
+    let onOpenUpdates: () -> Void
     let onAddRepository: () -> Void
 
     @ObservedObject private var tasks = UnifiedTaskCenter.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
 
     @State private var urlText = ""
-    @State private var showURLField = false
+    @State private var isDropTargeted = false
+    @State private var isCertificateManagerPresented = false
 
     private var activeTask: UnifiedTask? {
         tasks.tasks.first { $0.phase.isInProgress }
+    }
+
+    private var isSigningReady: Bool {
+        guard let certificate, !certificate.revoked else { return false }
+        return certificate.expiration.map { $0 > Date() } ?? true
+    }
+
+    private var signingActionTitle: String {
+        if isSigningReady { return .localized("Quick sign") }
+        if certificateCount == 0 { return .localized("Add certificate") }
+        return certificate == nil ? .localized("Select certificate") : .localized("Review certificate")
+    }
+
+    private var signingActionIcon: String {
+        isSigningReady ? "signature" : "checkmark.seal.fill"
     }
 
     private var completedSetupSteps: Int {
@@ -52,15 +71,24 @@ struct VexHomeDashboard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             header
+            updatesCard
+            importCard
+            packageURLField
             hero
+            if !recentApps.isEmpty { recentAppsSection }
+            statusSection
             metrics
             if needsSetup { gettingStarted }
-            statusSection
-            if !recentApps.isEmpty { recentAppsSection }
             toolsSection
         }
         .foregroundStyle(.primary)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .sheet(isPresented: $isCertificateManagerPresented) {
+            NavigationStack {
+                CertificatesView()
+            }
+            .adaptiveSheetSizing()
+        }
     }
 
     // MARK: - Header
@@ -128,17 +156,22 @@ struct VexHomeDashboard: View {
 
             HStack(spacing: 10) {
                 VexHeroAction(
-                    title: .localized("Import IPA"),
-                    systemImage: "square.and.arrow.down",
+                    title: signingActionTitle,
+                    systemImage: signingActionIcon,
                     filled: true,
-                    action: onImport
+                    action: {
+                        if isSigningReady {
+                            onQuickSign()
+                        } else {
+                            isCertificateManagerPresented = true
+                        }
+                    }
                 )
-                .accessibilityIdentifier(A11y.Home.importPackages)
                 VexHeroAction(
-                    title: .localized("Quick sign"),
-                    systemImage: "signature",
+                    title: .localized("Open Library"),
+                    systemImage: "square.grid.2x2",
                     filled: false,
-                    action: onQuickSign
+                    action: { onOpenTab(.library) }
                 )
             }
         }
@@ -185,13 +218,16 @@ struct VexHomeDashboard: View {
 
     private var certificateState: (title: String, icon: String) {
         guard let certificate else {
-            return (.localized("Set up signing"), "exclamationmark.shield")
+            return (certificateCount == 0 ? .localized("Set up signing") : .localized("Select certificate"), "exclamationmark.shield")
         }
         if certificate.revoked {
             return (.localized("Certificate revoked"), "xmark.shield")
         }
         guard let expiry = certificate.expiration else {
             return (.localized("Certificate ready"), "checkmark.shield")
+        }
+        guard expiry > Date() else {
+            return (.localized("Certificate expired"), "xmark.shield")
         }
         let calendar = Calendar.current
         let days = calendar.dateComponents(
@@ -258,6 +294,154 @@ struct VexHomeDashboard: View {
         .accessibilityLabel(Text("\(value) \(label)"))
     }
 
+    // MARK: - Updates and import
+
+    private var updatesCard: some View {
+        let title = updateCount == 1
+            ? .localized("1 Update Available")
+            : updateCount > 1
+                ? String.localized("%lld Updates Available", arguments: updateCount)
+                : .localized("No Updates Available")
+        let detail: String = updateCount > 0
+            ? .localized("From repositories you have installed")
+            : .localized("Your repositories are up to date")
+
+        return Button(action: onOpenUpdates) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(Theme.tintSoft)
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(Theme.tint)
+                }
+                .frame(width: 54, height: 54)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.system(.headline, design: .rounded).weight(.bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        if updateCount > 0 {
+                            Text("\(updateCount)")
+                                .font(.caption.weight(.bold).monospacedDigit())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(Theme.tint, in: Capsule())
+                        }
+                    }
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Theme.tint.opacity(0.42), lineWidth: 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(VexSignFlareButtonStyle())
+        .accessibilityLabel(Text(updateCount > 0
+            ? String.localized("%lld updates available", arguments: updateCount)
+            : .localized("No updates available")))
+    }
+
+    private var importCard: some View {
+        Button(action: onImport) {
+            VStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Theme.tintSoft)
+                    Circle()
+                        .stroke(Theme.tint.opacity(0.55), lineWidth: 1)
+                    Image(systemName: "plus")
+                        .font(.system(size: 31, weight: .light))
+                        .foregroundStyle(Theme.tint)
+                }
+                .frame(width: 70, height: 70)
+                .shadow(color: Theme.tint.opacity(0.2), radius: 18)
+
+                Text(.localized("Import IPA / TIPA"))
+                    .font(.system(.title2, design: .rounded).weight(.bold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+
+                Text(.localized("Tap to browse or drag & drop files"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 226)
+            .padding(18)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(
+                        isDropTargeted ? Theme.tint : Theme.tint.opacity(0.32),
+                        style: StrokeStyle(lineWidth: isDropTargeted ? 2 : 1, dash: [8, 7])
+                    )
+            }
+        }
+        .buttonStyle(VexSignFlareButtonStyle())
+        .accessibilityIdentifier(A11y.Home.importPackages)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(.localized("Import IPA or TIPA")))
+        .accessibilityHint(Text(.localized("Choose an IPA or TIPA file from Files, or drop one here.")))
+        .onDrop(
+            of: [UTType.fileURL.identifier, UTType.item.identifier],
+            isTargeted: $isDropTargeted,
+            perform: onDropPackages
+        )
+    }
+
+    private var packageURLField: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "link")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            TextField("https://example.com/app.ipa", text: $urlText)
+                .font(.system(.body, design: .monospaced))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .submitLabel(.go)
+                .onSubmit(startURLDownload)
+                .accessibilityLabel(Text(.localized("Download app from URL")))
+
+            Button(action: startURLDownload) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(Theme.tint)
+            }
+            .buttonStyle(.plain)
+            .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel(Text(.localized("Download")))
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 62)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.separator, lineWidth: 0.75)
+        }
+        .accessibilityHint(Text(.localized("Enter a direct IPA or TIPA URL and press Go.")))
+    }
+
     // MARK: - Getting started
 
     private var gettingStarted: some View {
@@ -310,15 +494,15 @@ struct VexHomeDashboard: View {
 
     @ViewBuilder
     private var statusSection: some View {
-        if activeTask != nil || attentionCount > 0 || updateCount > 0 {
+        if activeTask != nil || attentionCount > 0 {
             VStack(alignment: .leading, spacing: 12) {
                 VexSectionTitle(title: .localized("In your workspace"), detail: nil)
 
                 if let task = activeTask {
                     NavigationLink(destination: TaskCenterView()) {
                         VexStatusCard(
-                            title: task.kind.title,
-                            detail: task.phase.title,
+                            title: task.title,
+                            detail: String.localized("%@ · %@", arguments: task.kind.title, task.phase.title),
                             systemImage: task.kind.icon,
                             tint: Theme.tint,
                             showsProgress: true,
@@ -342,19 +526,6 @@ struct VexHomeDashboard: View {
                     .buttonStyle(VexSignFlareButtonStyle())
                 }
 
-                if updateCount > 0 {
-                    Button { onOpenTab(.appStore) } label: {
-                        VexStatusCard(
-                            title: String.localized("%lld updates available", arguments: updateCount),
-                            detail: .localized("Review them in Discover."),
-                            systemImage: "arrow.triangle.2.circlepath",
-                            tint: Color(red: 0.36, green: 0.78, blue: 0.58),
-                            showsProgress: false,
-                            progress: 0
-                        )
-                    }
-                    .buttonStyle(VexSignFlareButtonStyle())
-                }
             }
         }
     }
@@ -445,36 +616,6 @@ struct VexHomeDashboard: View {
                     }
                     .buttonStyle(.plain)
 
-                    toolDivider
-
-                    Button { showURLField.toggle() } label: {
-                        VexToolRow(
-                            title: .localized("Download from URL"),
-                            detail: .localized("Paste a direct IPA link"),
-                            systemImage: "link",
-                            tint: Theme.websiteAccentSecondary,
-                            showsChevron: false
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    if showURLField {
-                        VStack(alignment: .leading, spacing: 10) {
-                            TextField("https://example.com/app.ipa", text: $urlText)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .keyboardType(.URL)
-                                .submitLabel(.go)
-                                .onSubmit(startURLDownload)
-                                .padding(12)
-                                .background(Theme.quaternary, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-                            Button(.localized("Download")) { startURLDownload() }
-                                .buttonStyle(.borderedProminent)
-                                .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
-                    }
                 }
             }
         }
@@ -507,6 +648,5 @@ struct VexHomeDashboard: View {
         )
         Toast.info(.localized("Download started"), systemImage: "arrow.down.circle")
         urlText = ""
-        showURLField = false
     }
 }
