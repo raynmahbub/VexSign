@@ -103,6 +103,54 @@ final class TweakImportSupportTests: XCTestCase {
         } catch is CancellationError { } catch { XCTFail("Unexpected error: \(error)") }
     }
 
+    func testPreparedVersionKeepsSourcesAndDeduplicatesNames() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = root.appendingPathComponent("a"), b = root.appendingPathComponent("b")
+        for directory in [a, b] { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+        let first = a.appendingPathComponent("Helper.dylib"), second = b.appendingPathComponent("helper.dylib")
+        for source in [first, second] { try libraryHeader().write(to: source) }
+        let prepared = try await TweakImportSupport.prepareVersion([first, second])
+        defer { TweakImportSupport.discardPrepared(prepared) }
+        XCTAssertEqual(prepared.files.count, 2)
+        XCTAssertEqual(Set(prepared.files.map { $0.name.lowercased() }).count, 2)
+        for file in prepared.files {
+            XCTAssertEqual(try Data(contentsOf: prepared.directory.appendingPathComponent(file.name)), libraryHeader())
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+        TweakImportSupport.discardPrepared(prepared)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: prepared.directory.path))
+    }
+
+    func testPreparedVersionDoesNotPublishAPartialInvalidBatch() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let valid = root.appendingPathComponent("Valid.dylib"), invalid = root.appendingPathComponent("Invalid.dylib")
+        try libraryHeader().write(to: valid)
+        try Data("not a library".utf8).write(to: invalid)
+        do {
+            let prepared = try await TweakImportSupport.prepareVersion([valid, invalid])
+            TweakImportSupport.discardPrepared(prepared)
+            XCTFail("Invalid batch must not reach the library commit")
+        } catch { XCTAssertTrue(error is TweakImportSupport.Failure) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: valid.path))
+    }
+
+    func testCancelledVersionPreparationDoesNotReturnACommitDirectory() async {
+        let task = Task {
+            withUnsafeCurrentTask { current in if let current { current.cancel() } }
+            return try await TweakImportSupport.prepareVersion([])
+        }
+        do {
+            let prepared = try await task.value
+            TweakImportSupport.discardPrepared(prepared)
+            XCTFail("Cancelled preparation must not publish")
+        } catch { XCTAssertTrue(error is CancellationError) }
+    }
+
     func testDownloadLimitHandlesKnownAndUnknownLengths() {
         XCTAssertFalse(TweakImportSupport.DownloadLimit.shouldCancel(written: 100, expected: -1, maximum: 100))
         XCTAssertTrue(TweakImportSupport.DownloadLimit.shouldCancel(written: 101, expected: -1, maximum: 100))

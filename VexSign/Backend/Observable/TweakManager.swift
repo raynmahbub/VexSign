@@ -239,7 +239,7 @@ final class TweakManager: ObservableObject {
 			let fileURL = work.appendingPathComponent(filename)
 			try _fm.moveItem(at: downloaded, to: fileURL)
 			let displayName = (entry["name"] as? String) ?? downloadURL.deletingPathExtension().lastPathComponent
-			if addTweak(name: displayName, from: fileURL, versionLabel: (entry["version"] as? String) ?? "1.0") != nil {
+			if await importTweak(name: displayName, fromFiles: [fileURL], versionLabel: (entry["version"] as? String) ?? "1.0") != nil {
 				imported += 1
 			}
 		}
@@ -354,6 +354,80 @@ final class TweakManager: ObservableObject {
 		_save()
 		return stored
 	}
+
+    @MainActor
+    private func _prepareImport(_ sources: [URL]) async -> TweakImportSupport.PreparedVersion? {
+        do { return try await TweakImportSupport.prepareVersion(sources) }
+        catch {
+            FileLogger.error("Tweak import preparation failed: \(error.localizedDescription)", category: "tweaks")
+            return nil
+        }
+    }
+
+    @MainActor
+    private func _commitVersion(_ prepared: TweakImportSupport.PreparedVersion, tweakId: UUID, versionId: UUID) -> [TweakComponent]? {
+        let parent = _fm.tweaksLibrary(tweakId.uuidString)
+        do {
+            try Task.checkCancellation()
+            try _fm.createDirectory(at: parent, withIntermediateDirectories: true)
+            try _fm.moveItem(at: prepared.directory, to: parent.appendingPathComponent(versionId.uuidString))
+            return prepared.files.map { TweakComponent(fileName: $0.name, fileType: TweakFileType(fileExtension: URL(fileURLWithPath: $0.name).pathExtension), fileSize: $0.size) }
+        } catch {
+            FileLogger.error("Tweak import commit failed: \(error.localizedDescription)", category: "tweaks")
+            return nil
+        }
+    }
+
+    @MainActor
+    func importTweak(name: String, fromFiles sources: [URL], versionLabel: String = "1.0") async -> ManagedTweak? {
+        guard !sources.isEmpty, let prepared = await _prepareImport(sources) else { return nil }
+        defer { TweakImportSupport.discardPrepared(prepared) }
+        let tweakId = UUID(), versionId = UUID()
+        guard let files = _commitVersion(prepared, tweakId: tweakId, versionId: versionId), !files.isEmpty else { return nil }
+        let tweak = ManagedTweak(id: tweakId, name: name.isEmpty ? sources[0].deletingPathExtension().lastPathComponent : name,
+            versions: [TweakVersion(id: versionId, label: versionLabel, components: files)], selectedVersionId: versionId)
+        tweaks.insert(tweak, at: 0)
+        _save()
+        return tweak
+    }
+
+    @MainActor
+    func importVersion(to tweakId: UUID, fromFiles sources: [URL], label: String) async -> TweakVersion? {
+        guard !sources.isEmpty, tweak(tweakId) != nil, let prepared = await _prepareImport(sources) else { return nil }
+        defer { TweakImportSupport.discardPrepared(prepared) }
+        // Do not retain array indices across suspension: the user may delete/reorder rows.
+        guard let index = tweaks.firstIndex(where: { $0.id == tweakId }) else { return nil }
+        let versionId = UUID()
+        guard let files = _commitVersion(prepared, tweakId: tweakId, versionId: versionId) else { return nil }
+        let version = TweakVersion(id: versionId, label: label, components: files)
+        tweaks[index].versions.append(version)
+        tweaks[index].selectedVersionId = versionId
+        _save()
+        return version
+    }
+
+    @MainActor
+    func importComponents(to tweakId: UUID, versionId: UUID, fromFiles sources: [URL]) async -> [TweakComponent] {
+        guard !sources.isEmpty, let prepared = await _prepareImport(sources) else { return [] }
+        defer { TweakImportSupport.discardPrepared(prepared) }
+        guard !Task.isCancelled,
+              let index = tweaks.firstIndex(where: { $0.id == tweakId }),
+              let versionIndex = tweaks[index].versions.firstIndex(where: { $0.id == versionId }) else { return [] }
+        let destination = _fm.tweaksLibrary(tweakId.uuidString).appendingPathComponent(versionId.uuidString)
+        var taken = Set(tweaks[index].versions[versionIndex].components.map { $0.fileName.lowercased() })
+        var added: [TweakComponent] = []
+        for file in prepared.files {
+            let name = _uniqueFileName(file.name, taken: taken)
+            do {
+                try _fm.moveItem(at: prepared.directory.appendingPathComponent(file.name), to: destination.appendingPathComponent(name))
+                taken.insert(name.lowercased())
+                added.append(TweakComponent(fileName: name, fileType: TweakFileType(fileExtension: URL(fileURLWithPath: name).pathExtension), fileSize: file.size))
+            } catch { FileLogger.error("Tweak component commit failed: \(error)", category: "tweaks") }
+        }
+        tweaks[index].versions[versionIndex].components.append(contentsOf: added)
+        _save()
+        return added
+    }
 
 	/// Removes a component (and its file); removing the last one deletes the version.
 	func deleteComponent(_ componentId: UUID, versionId: UUID, from tweakId: UUID) {

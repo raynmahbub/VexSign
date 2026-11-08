@@ -295,11 +295,14 @@ enum FileManagerActions {
 	/// Same shortcut the IPA Explorer offers: a `.dylib`/`.deb` found in Files can go straight
 	/// into the Tweak Manager library.
 	static func sendToTweakManager(_ url: URL) {
-		guard TweakManager.shared.addTweak(name: url.lastPathComponent, from: url) != nil else {
-			Toast.error(.localized("Couldn't import tweak"))
-			return
-		}
-		Toast.success(.localized("Added to Tweak Manager"), systemImage: "wrench.and.screwdriver.fill")
+        Task { @MainActor in
+
+            guard await TweakManager.shared.importTweak(name: url.lastPathComponent, fromFiles: [url]) != nil else {
+                Toast.error(.localized("Couldn't import tweak"))
+                return
+            }
+            Toast.success(.localized("Added to Tweak Manager"), systemImage: "wrench.and.screwdriver.fill")
+        }
 	}
 
 	/// Whether the file is worth offering to the Tweak Manager.

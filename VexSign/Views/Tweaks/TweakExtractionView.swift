@@ -24,6 +24,7 @@ struct TweakExtractionView: View {
 	@State private var _selection: Set<UUID> = []
 	@State private var _expanded: Set<String> = []
 	@State private var _query = ""
+	@State private var _isImporting = false
 	@State private var _seeded = false
 	@State private var _showImportConfirm = false
 	@State private var _pendingCombine = false
@@ -155,6 +156,7 @@ struct TweakExtractionView: View {
 		} message: {
 			Text(verbatim: .localized("You're about to add %lld items to your Tweak Manager. Many of these are usually part of the app, not tweaks.", arguments: _selection.count))
 		}
+		.overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
 		.onAppear {
 			guard !_seeded else { return }
 			// Open small folders by default; keep big ones (e.g. the app's Frameworks) collapsed.
@@ -297,50 +299,57 @@ struct TweakExtractionView: View {
 	}
 
 	private func _import(combine: Bool) {
-		let chosen = candidates.filter { _selection.contains($0.id) }
-		guard !chosen.isEmpty else { _finish(); return }
+        guard !_isImporting else { return }
+        _isImporting = true
+        Task { @MainActor in
+            defer { _isImporting = false }
 
-		var addedIds: Set<UUID> = []
-		var importedFiles = 0
-		if combine {
-			let name = chosen.first?.url.deletingPathExtension().lastPathComponent ?? .localized("Tweak")
-			if let tweak = manager.addTweak(name: name, fromFiles: chosen.map { $0.url }) {
-				addedIds.insert(tweak.id)
-				importedFiles += tweak.activeVersion?.components.count ?? 0
-			}
-		} else {
-			for candidate in chosen {
-				if let tweak = manager.addTweak(name: candidate.url.deletingPathExtension().lastPathComponent, from: candidate.url) {
-					addedIds.insert(tweak.id)
-					importedFiles += 1
-				}
-			}
-		}
+            let chosen = candidates.filter { _selection.contains($0.id) }
+            guard !chosen.isEmpty else { _finish(); return }
 
-		guard !addedIds.isEmpty else {
-			Toast.error(.localized("Couldn't import tweak"), duration: .sticky)
-			_finish()
-			return
-		}
-		let combinedTweakName = addedIds.first.flatMap { manager.tweak($0)?.name } ?? ""
-		let message = combine
-			? String.localized("Imported %@", arguments: combinedTweakName)
-			: (addedIds.count == 1
-				? String.localized("Imported %@", arguments: combinedTweakName)
-				: String.localized("Imported %lld tweaks", arguments: addedIds.count))
-		if importedFiles < chosen.count {
-			Toast.error(String.localized("Imported %lld of %lld files. Some files could not be read or are unsupported.", arguments: importedFiles, chosen.count), duration: .sticky)
-		} else {
-			Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
-		}
+            var addedIds: Set<UUID> = []
+            var importedFiles = 0
+            if combine {
+                let name = chosen.first?.url.deletingPathExtension().lastPathComponent ?? .localized("Tweak")
+                if let tweak = await manager.importTweak(name: name, fromFiles: chosen.map { $0.url }) {
+                    addedIds.insert(tweak.id)
+                    importedFiles += tweak.activeVersion?.components.count ?? 0
+                }
+            } else {
+                for candidate in chosen {
+                    if let tweak = await manager.importTweak(name: candidate.url.deletingPathExtension().lastPathComponent, fromFiles: [candidate.url]) {
+                        addedIds.insert(tweak.id)
+                        importedFiles += 1
+                    }
+                }
+            }
 
-		// Offer to file the new tweaks if folders exist.
-		if !manager.folders.isEmpty {
-			_movePrompt = MovePrompt(ids: addedIds)
-		} else {
-			_finish()
-		}
-	}
+            guard !addedIds.isEmpty else {
+                Toast.error(.localized("Couldn't import tweak"), duration: .sticky)
+                _finish()
+                return
+            }
+            let combinedTweakName = addedIds.first.flatMap { manager.tweak($0)?.name } ?? ""
+            let message = combine
+                ? String.localized("Imported %@", arguments: combinedTweakName)
+                : (addedIds.count == 1
+                    ? String.localized("Imported %@", arguments: combinedTweakName)
+                    : String.localized("Imported %lld tweaks", arguments: addedIds.count))
+            if importedFiles < chosen.count {
+                Toast.error(String.localized("Imported %lld of %lld files. Some files could not be read or are unsupported.", arguments: importedFiles, chosen.count), duration: .sticky)
+            } else {
+                Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
+            }
+
+            // Offer to file the new tweaks if folders exist.
+            if !manager.folders.isEmpty {
+                _movePrompt = MovePrompt(ids: addedIds)
+            } else {
+                _finish()
+            }
+
+        }
+    }
 
 	private func _finish() {
 		if let cleanupURL { try? FileManager.default.removeItem(at: cleanupURL) }

@@ -302,3 +302,33 @@ library bindings, conservative installed-app lookup and confirmed-install badge
 handoff. The add-library crash remains unreproduced. Keep that issue open pending
 exact steps/crash logs and device confirmation rather than declaring it resolved
 from portable checks or CI alone.
+
+## Remaining add-library import work (#130)
+
+A further audit found provider file copying, header/tree validation and allocated
+size reads still executed synchronously in Tweak Manager UI actions, despite the
+signing-screen picker having background staging. A slow provider can block the
+main run loop and cause an iOS watchdog termination without a Swift throw.
+
+Library add, add-version/add-files, extraction, repository downloads and both
+Files/IPA Explorer/context-menu shortcuts now use asynchronous preparation.
+Security-scoped copies, validation, size reads and collision naming happen on
+workers. A prepared version is committed with a same-container directory rename;
+component additions rename prepared files, not recopy their contents on the UI
+thread. Failed/cancelled batches clean up, originals stay untouched, and only
+committed components are added to the observable manifest on MainActor. Target
+IDs are resolved again after await, so deleted/reordered tweaks cannot leave an
+out-of-date array index in an import callback. Duplicate import submissions are
+blocked in the library/detail/extraction screens and long library/extraction
+imports show progress. Multi-file preparation is atomic; an invalid component
+rejects that batch rather than silently committing a partial version.
+
+Three added XCTest methods exercise prepared-version collision naming, source
+preservation/cleanup, invalid batch rejection and cancellation. Portable checks
+pass and all nine changed Swift files pass independent grammar parsing, which is
+not an Apple compiler/type/runtime test. The original crash has no stack trace or
+reproduction yet; these concrete blocking/stale-index risks are addressed, but
+on-device confirmation is still needed before claiming the reported crash is
+proven resolved. The separate #128 build-only Release run 42513935741 has passed
+verified artifact prefetch and is executing the real IPA build; no skipped job is
+being counted as build success.

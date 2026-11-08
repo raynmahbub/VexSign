@@ -176,11 +176,14 @@ enum IPAExplorerActions {
 
 	/// "Send to Tweak Manager" so a dylib inside the app can be reused elsewhere.
 	static func sendToTweakManager(_ entry: IPAFileEntry) {
-		guard TweakManager.shared.addTweak(name: entry.name, from: entry.url) != nil else {
-			Toast.error(.localized("Couldn't import tweak"))
-			return
-		}
-		Toast.success(.localized("Added to Tweak Manager"), systemImage: "wrench.and.screwdriver.fill")
+        Task { @MainActor in
+
+            guard await TweakManager.shared.importTweak(name: entry.name, fromFiles: [entry.url]) != nil else {
+                Toast.error(.localized("Couldn't import tweak"))
+                return
+            }
+            Toast.success(.localized("Added to Tweak Manager"), systemImage: "wrench.and.screwdriver.fill")
+        }
 	}
 
 	// MARK: Helpers
