@@ -593,6 +593,17 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('run: bash .github/scripts/select_xcode.sh', release)
 
 
+    def test_release_primes_and_shares_verified_binary_cache(self):
+        release = block((WORKFLOWS / 'release.yml').read_text(), 'build', 2)
+        self.assertIn('prefetch_spm_artifacts.py', release)
+        self.assertIn('--cache "${RUNNER_TEMP}/SwiftPMCache-Release/artifacts"', release)
+        self.assertLess(release.index('prefetch_spm_artifacts.py'), release.index('name: Compile VexSign'))
+        self.assertEqual(release.count('SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-Release'), 2)
+        makefile = (ROOT / 'Makefile').read_text()
+        self.assertIn('SPM_CACHE_PATH ?=', makefile)
+        self.assertEqual(makefile.count('$(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",)'), 2)
+        self.assertNotIn('-disablePackageRepositoryCache', release)
+
     def test_existing_validation_check_names_are_retained(self):
         ci = (WORKFLOWS / 'ci.yml').read_text()
         self.assertIn('name: quick · syntax, resources, gates', ci)

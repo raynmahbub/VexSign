@@ -11,6 +11,7 @@
 //
 
 import Foundation
+import IDeviceSwift
 import os
 import XCTest
 @testable import VexSign
@@ -33,12 +34,13 @@ final class InstallConfirmationTests: XCTestCase {
 		)
 	}
 
-	private func app(version: String? = "1.2.0", placeholder: Bool = false) -> InstalledApp {
+	private func app(version: String? = "1.2.0", placeholder: Bool = false, bundleURL: URL? = nil) -> InstalledApp {
 		InstalledApp(
 			bundleIdentifier: bundleID,
 			isInstalled: true,
 			isPlaceholder: placeholder,
-			version: version
+			version: version,
+            bundleURL: bundleURL
 		)
 	}
 
@@ -229,6 +231,68 @@ final class InstallConfirmationTests: XCTestCase {
         XCTAssertEqual(verdict, .installed)
     }
 
+    func testIncompleteToFullProgressVerifiesWithoutWaitingForReset() {
+        var state = confirmation()
+        XCTAssertEqual(state.record(progress: 0.4, at: at(0)), .downloading)
+        XCTAssertEqual(state.record(progress: 1, at: at(1)), .verifying)
+        XCTAssertEqual(state.record(probe: app(), at: at(1)), .finished(.installed))
+    }
+
+    func testFullProgressStillRequiresIndependentDeviceEvidence() {
+        var state = confirmation(limits: .init(start: 120, verify: 10, settle: 0))
+        _ = state.record(progress: 0.4, at: at(0))
+        _ = state.record(progress: 1, at: at(1))
+        XCTAssertEqual(state.record(probe: nil, at: at(2)), .verifying)
+        XCTAssertEqual(state.record(probe: missing, at: at(3)), .verifying)
+        XCTAssertEqual(state.record(probe: missing, at: at(11)), .finished(.notInstalled))
+    }
+
+    func testInitialFullCounterCannotProveAReinstall() {
+        var state = confirmation()
+        XCTAssertEqual(state.record(progress: 1, at: at(0)), .downloading)
+        XCTAssertEqual(state.record(progress: 1, at: at(1)), .downloading)
+        XCTAssertEqual(state.record(probe: app(), at: at(1)), .downloading)
+    }
+
+    @MainActor
+    func testConfirmedInstallPublishesCompletedCardBeforeQueueDismissal() {
+        for outcome in [AppInstaller.Outcome.installed, .installedOtherVersion("1.1")] {
+            let model = InstallerStatusViewModel(status: .installing, isIdevice: false)
+            model.installProgress = 0.99
+            outcome.publishConfirmedCompletion(to: model)
+            XCTAssertEqual(model.installProgress, 1)
+            XCTAssertTrue(model.isCompleted)
+            guard case .completed(.success) = model.status else {
+                XCTFail("A confirmed install must not keep displaying Installing")
+                continue
+            }
+        }
+    }
+
+    @MainActor
+    func testLateTransportCallbackCannotReopenACompletedCard() {
+        let model = InstallerStatusViewModel(status: .sendingPayload, isIdevice: false)
+        model.updateTransportStatus(.installing)
+        XCTAssertFalse(model.isCompleted)
+        AppInstaller.Outcome.installed.publishConfirmedCompletion(to: model)
+        model.updateTransportStatus(.sendingPayload)
+        model.updateTransportStatus(.installing)
+        model.updateTransportStatus(.broken(NSError(domain: "late-stream", code: 1)))
+        XCTAssertTrue(model.isCompleted)
+        XCTAssertEqual(model.installProgress, 1)
+    }
+
+    @MainActor
+    func testSigningExportCancellationAndGuestPreparationCannotCompleteInstallCard() {
+        for outcome in [AppInstaller.Outcome.cancelled, .exported(nil), .guestImportPrepared] {
+            let model = InstallerStatusViewModel(status: .installing, isIdevice: false)
+            model.installProgress = 0.3
+            outcome.publishConfirmedCompletion(to: model)
+            XCTAssertEqual(model.installProgress, 0.3)
+            XCTAssertFalse(model.isCompleted)
+        }
+    }
+
     func testStuckDownloadingCounterEntersVerificationAtDeadline() {
         var state = confirmation(limits: .init(start: 120, verify: 10, settle: 0))
         XCTAssertEqual(state.record(progress: 0.5, at: at(0)), .downloading)
@@ -271,6 +335,68 @@ final class InstallConfirmationTests: XCTestCase {
             probe: ScriptedProbe([missing, app()]), baseline: .init(app: nil),
             progress: ProgressScript([nil]).closure, interval: .zero)
         XCTAssertEqual(verdict, .timedOutWaiting)
+    }
+
+    func testSlowPayloadDoesNotConsumeTheInstallStartDeadline() {
+        var state = confirmation(limits: .init(start: 5, verify: 10, settle: 0))
+        XCTAssertEqual(state.record(progress: nil, at: at(0), allowStartTimeout: false), .waitingForStart)
+        XCTAssertEqual(state.record(progress: nil, at: at(300), allowStartTimeout: false), .waitingForStart)
+        XCTAssertEqual(state.record(progress: nil, at: at(301)), .waitingForStart)
+        XCTAssertEqual(state.record(progress: nil, at: at(305)), .waitingForStart)
+        XCTAssertEqual(state.record(progress: nil, at: at(306)), .finished(.timedOutWaiting))
+    }
+
+    func testEarlyMonitoringCapturesProgressBeforePayloadCallback() {
+        var state = confirmation()
+        XCTAssertEqual(state.record(progress: 0.4, at: at(0), allowStartTimeout: false), .downloading)
+        XCTAssertEqual(state.record(progress: 0, at: at(1), allowStartTimeout: false), .verifying)
+        XCTAssertEqual(state.record(probe: app(), at: at(1)), .finished(.installed))
+    }
+
+    func testSameVersionReplacementContainerCompletesWithoutProgress() async {
+        let before = app(bundleURL: URL(fileURLWithPath: "/var/containers/Bundle/Application/OLD/App.app"))
+        let after = app(bundleURL: URL(fileURLWithPath: "/var/containers/Bundle/Application/NEW/App.app"))
+        let verdict = await InstallWatcher.watch(confirmation(), probe: FixedProbe(after),
+            baseline: .init(app: before), progress: ProgressScript([nil]).closure, interval: .zero)
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testObservedPlaceholderCompletesWithUnknownInitialBaselineAndNoCounter() async {
+        let placeholder = app(placeholder: true)
+        let verdict = await InstallWatcher.watch(confirmation(),
+            probe: ScriptedProbe([placeholder, app()]), baseline: .init(app: nil),
+            progress: ProgressScript([nil]).closure, interval: .zero)
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testContainerAliasesDoNotProveAReinstall() {
+        let before = app(bundleURL: URL(fileURLWithPath: "/var/containers/Bundle/Application/SAME/App.app"))
+        let after = app(bundleURL: URL(fileURLWithPath: "/private/var/containers/Bundle/Application/SAME/App.app"))
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: before, current: after,
+            expectation: .init(bundleIdentifier: bundleID, version: "1.2.0")))
+    }
+
+    func testNewContainerStillRequiresInstalledMatchingNonPlaceholderApp() {
+        let before = app(bundleURL: URL(fileURLWithPath: "/var/containers/Bundle/Application/OLD/App.app"))
+        let path = URL(fileURLWithPath: "/var/containers/Bundle/Application/NEW/App.app")
+        let expected = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: "1.2.0")
+        for current in [
+            app(version: "0.9", bundleURL: path),
+            app(placeholder: true, bundleURL: path),
+            InstalledApp(bundleIdentifier: bundleID, isInstalled: false, bundleURL: path),
+            InstalledApp(bundleIdentifier: "another.bundle", isInstalled: true, version: "1.2.0", bundleURL: path)
+        ] {
+            XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: before, current: current, expectation: expected))
+        }
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: nil, current: app(bundleURL: path), expectation: expected))
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: app(), current: app(bundleURL: path), expectation: expected))
+    }
+
+    func testNonFileURLCannotEstablishAReplacementContainer() {
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(
+            baseline: app(bundleURL: URL(string: "https://example.invalid/old.app")),
+            current: app(bundleURL: URL(string: "https://example.invalid/new.app")),
+            expectation: .init(bundleIdentifier: bundleID, version: "1.2.0")))
     }
 
     func testSameInstalledVersionDoesNotProveAReinstall() {

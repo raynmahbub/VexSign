@@ -41,6 +41,7 @@ final class ArchiveHandler: NSObject {
 
 		try _fileManager.createDirectoryIfNeeded(at: payloadUrl)
 		
+        try StoragePreflight.checkBundle(appUrl, copies: 2, destination: payloadUrl)
 		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
 		_payloadUrl = payloadUrl
 	}

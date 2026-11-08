@@ -279,3 +279,144 @@ continue in sequence; failures retain recovery controls. Three additional Swift
 regression tests exercise immediate/late-mounted badges, background-read handoff,
 version differences, identity isolation, reset and expiry. Portable make verify
 passes (74 tests); native compiler/simulator and device validation remain pending.
+
+## GitHub issue queue follow-up (#126, #128, #130)
+
+Current main 2f03b49 passes CI run 42511925196: both the unsigned iOS Debug
+build and simulator tests completed successfully. This supersedes the historical
+simulator compile failures tracked by #126 (SigningServiceTests return type) and
+#128 (main-actor canSkip tests). The later Release workflow_run successes did not
+compile an IPA: only version-bump ran, while build/publish were skipped. They must
+not be cited as proof that #128's separate Release dependency failure is fixed.
+
+Release now prefetches the same checksum-verified binary archives used by the
+companion validation workflow and shares an explicit job-owned SwiftPM cache
+between make and make test. Local Makefile invocations keep Xcode defaults unless
+SPM_CACHE_PATH is supplied. Pins, checksum verification, simulator testing and
+publication permissions remain unchanged. A workflow-policy regression failed
+before the change and passes afterwards; portable make verify passes. An explicit
+unpublished build-only Release run is still required to validate the native path.
+
+The previous merged fixes for #130 cover finished-overlay retirement, stable
+library bindings, conservative installed-app lookup and confirmed-install badge
+handoff. The add-library crash remains unreproduced. Keep that issue open pending
+exact steps/crash logs and device confirmation rather than declaring it resolved
+from portable checks or CI alone.
+
+## Remaining add-library import work (#130)
+
+A further audit found provider file copying, header/tree validation and allocated
+size reads still executed synchronously in Tweak Manager UI actions, despite the
+signing-screen picker having background staging. A slow provider can block the
+main run loop and cause an iOS watchdog termination without a Swift throw.
+
+Library add, add-version/add-files, extraction, repository downloads and both
+Files/IPA Explorer/context-menu shortcuts now use asynchronous preparation.
+Security-scoped copies, validation, size reads and collision naming happen on
+workers. A prepared version is committed with a same-container directory rename;
+component additions rename prepared files, not recopy their contents on the UI
+thread. Failed/cancelled batches clean up, originals stay untouched, and only
+committed components are added to the observable manifest on MainActor. Target
+IDs are resolved again after await, so deleted/reordered tweaks cannot leave an
+out-of-date array index in an import callback. Duplicate import submissions are
+blocked in the library/detail/extraction screens and long library/extraction
+imports show progress. Multi-file preparation is atomic; an invalid component
+rejects that batch rather than silently committing a partial version.
+
+Three added XCTest methods exercise prepared-version collision naming, source
+preservation/cleanup, invalid batch rejection and cancellation. Portable checks
+pass and all nine changed Swift files pass independent grammar parsing, which is
+not an Apple compiler/type/runtime test. The original crash has no stack trace or
+reproduction yet; these concrete blocking/stale-index risks are addressed, but
+on-device confirmation is still needed before claiming the reported crash is
+proven resolved. The separate #128 build-only Release run 42513935741 has passed
+verified artifact prefetch and is executing the real IPA build; no skipped job is
+being counted as build success.
+
+Final import UI review: the detail screen now displays preparation progress and
+repeated import/picker submissions are guarded. Cancelling extraction cancels the
+worker task and waits for cancellation acknowledgement before removing the source
+extraction directory; interactive sheet dismissal is disabled during preparation.
+Already committed separate tweaks are retained if cancelling the remaining batch.
+Portable verification passes. Device testing is deferred to the user once the
+unpublished build for the final commit finishes; the earlier 42513935741 run tests
+only the dependency-cache change, not the later import/UI code.
+
+## Three-part Library and KSign-style quick workflows
+
+Library's segmented header is now Files → Apps → Signed Apps. Apps includes only
+imported originals; Signed Apps includes only signed copies. Scoped filtering,
+selection, hidden counts and list contents stay within their partition; unrelated
+aggregate update rows remain available in the standalone combined library/App Store
+rather than mixing partitions. Existing Library defaults/deep links still target
+Apps, with new signed/signedapps routes and signed-result/highlight routing to the
+Signed Apps segment. Import actions return to Apps.
+
+Native app-list rows offer trailing swipe Delete with confirmation and full-swipe
+disabled; it deletes only the stored copy, not the installed device app. Successful
+deletion clears that UUID from selection. Files retains its existing swipe Delete.
+Card/icon layouts retain their context-menu Delete (native list swipes do not run
+inside SwiftUI grids). Leading app-list swipes adapt KSign's Install/Re-sign for
+signed copies and Sign & Install for imported originals. Explicit sign/install
+intent is request-local and still requires successful checked signing before
+entering VexSign's confirmed-install queue. See THIRD_PARTY_ADAPTATIONS.md for the
+pinned source, original notice, license and exact adaptation boundary.
+
+Four added XCTest methods cover ordered/exclusive partitions, signed routes and
+highlights, action-kind selection and request-only signing options. Portable
+verification passes; Apple compilation and device interaction checks are pending.
+
+### Confirmed-install card completion
+
+Confirmed outcomes now publish Completed and full install progress before the
+queue schedules its existing automatic dismissal. Normal successful installs
+also leave an “Installation completed” toast after dismissal. Cancellation,
+export, guest preparation and signing success alone do not publish this state.
+Late OTA transport callbacks cannot reopen a completed card. An observed partial
+progress -> 100% transition begins independent device verification immediately;
+an initial/stale 100% counter alone does not establish completion.
+
+Six added XCTest methods cover these transitions and their negative cases.
+`make verify` passes 74 portable tests. Changed Swift files pass grammar checks
+(with an empty-tuple parser workaround); Apple compilation/XCTest and physical
+device acceptance remain pending for this change.
+
+### Early installation observation and same-version reinstalls
+
+OTA monitoring now begins when payload transfer starts, not after it ends. The
+installation-start timeout is held until the payload is served, so slow transfers
+do not consume that deadline. Positive installed-record container changes can
+confirm same-version reinstalls even without a readable progress counter; aliases
+of the same path do not count. A matching placeholder observed during monitoring
+can establish a placeholder-to-installed transition despite an unknown initial
+baseline. Unknown/negative lookups alone still cannot establish new installation.
+
+The card distinguishes waiting for iOS from verifying installation instead of
+labeling every confirmation stage Installing. Phase changes enter the task log.
+Seven additional XCTest methods cover early observation, the transfer deadline,
+container replacement and negative/placeholder cases. Portable verification passes
+74 tests; Apple compilation/tests and physical-device acceptance are not yet
+confirmed for this change. These fixes are independently implemented; no new
+upstream implementation was copied.
+
+### Shared workflow trace, reports and material protection
+
+The follow-up reliability pass extends the existing Task Center with explicit
+import/sign/install stages, persisted timelines, independent linked records and
+privacy-allowlisted reports. It also stamps build revisions, protects/migrates
+managed identities and pairing records, and expands log redaction. See
+[workflow reliability and device acceptance](workflow-reliability-acceptance.md)
+for the implementation boundary, migration fallback behavior and pending device
+matrix. Ten new native test methods cover state/result isolation, snapshots,
+report privacy, verification presentation, migrations and redaction. Portable
+checks pass; latest Apple CI and physical-device acceptance remain pending.
+
+### Recovery/resource follow-up and verification stall
+
+See [recovery and verification](recovery-and-verification.md) for the native
+acknowledgement fix, bounded/unconfirmed OTA result, active-attempt journal,
+shared per-copy leases, storage estimates, precise stop semantics, injected
+migration failures and IPA provenance sidecars. Nine additional native tests,
+four provenance tests and four additional wiring checks were added. Portable
+checks pass; latest Apple checks and device acceptance remain pending. The
+previous native compile error in begin(progress:) is addressed in this follow-up.

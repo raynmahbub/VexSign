@@ -60,6 +60,10 @@ enum LogRedaction {
 
 	/// Ordered: a bearer token is masked as a token before the header rule can eat the word.
 	private static let rules: [Rule] = [
+        // PEM blocks and plist pairing-key material can span multiple lines.
+        Rule(pattern: "(?s)-----BEGIN (?:[A-Z ]*PRIVATE KEY|CERTIFICATE)-----.*?-----END (?:[A-Z ]*PRIVATE KEY|CERTIFICATE)-----", template: marker),
+        Rule(pattern: "(?is)<key>\\s*(?:HostPrivateKey|RootPrivateKey|HostCertificate|RootCertificate|EscrowBag|DeviceCertificate|WiFiMACAddress|SystemBUID|HostID)\\s*</key>\\s*<(?:data|string)>.*?</(?:data|string)>", template: marker),
+        Rule(pattern: "(?im)(\\b(?:set-cookie|cookie)\\s*:\\s*)[^\\r\\n]+", template: "$1\(marker)"),
 		// `Bearer eyJhbGciOi…` on its own (an Authorization header is handled below).
 		Rule(
 			pattern: "(?i)\\bbearer\\s+[A-Za-z0-9._~+/=-]{6,}",

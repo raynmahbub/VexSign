@@ -176,7 +176,7 @@ private struct TaskRow: View {
 				Button {
 					_ = center.retry(task)
 				} label: {
-					Image(systemName: "arrow.clockwise")
+					Label(task.kind == .install ? String.localized("Retry Install") : String.localized("Retry"), systemImage: "arrow.clockwise")
 				}
 				.buttonStyle(.borderless)
 				.accessibilityLabel(Text(.localized("Retry")))
@@ -193,16 +193,20 @@ private struct TaskRow: View {
                     Text(LogRedaction.redact(error)).font(.caption.monospaced()).textSelection(.enabled)
                 }
                 Text(TaskReceipt.outcome(for: task)).foregroundStyle(.secondary)
+                DisclosureGroup(.localized("View Report")) {
+                    Text(TaskReceipt.report(for: task))
+                        .font(.caption.monospaced()).textSelection(.enabled)
+                }
                 Button {
                     UIPasteboard.general.string = TaskReceipt.report(for: task)
                     Toast.success(.localized("Copied"))
                 } label: {
                     Label(.localized("Copy Redacted Report"), systemImage: "doc.on.doc")
                 }
-                if task.phase == .failed {
+                if task.phase == .failed || task.phase == .interrupted {
                     recoveryActions
                 }
-                if (task.phase == .failed || task.phase == .cancelled) && !center.canRetry(task) {
+                if (task.phase == .failed || task.phase == .cancelled || task.phase == .interrupted) && !center.canRetry(task) {
                     Text(.localized("Retry is unavailable for this saved task. Restart the action from its original app or download screen."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -253,11 +257,11 @@ private struct TaskRow: View {
 	private var phaseColor: Color {
 		switch task.phase {
 		case .queued: return .secondary
-		case .downloading, .extracting, .signing, .installing: return Color.userTint
+		case .downloading, .extracting, .signing, .installing, .importing, .readyToSign, .signed, .preparingInstallation, .waitingForIOS, .verifying: return Color.userTint
 		case .paused: return .orange
 		case .completed: return .green
 		case .failed: return .orange
-		case .cancelled: return .secondary
+		case .cancelled, .interrupted: return .secondary
 		}
 	}
 
@@ -267,7 +271,7 @@ private struct TaskRow: View {
 				Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
 					.font(.system(size: 8, weight: .bold))
 			}
-			Text(task.phase.title)
+			Text(task.displayPhaseTitle)
 				.font(.system(size: 10, weight: .semibold))
 		}
 		.padding(.horizontal, 7)

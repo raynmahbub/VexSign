@@ -51,8 +51,8 @@ class TabSelectionObserver: ObservableObject {
 
 	private var highlightTimer: Timer?
 	
-	func navigateToLibraryWithHighlight(uuid: String) {
-        librarySection = .apps
+	func navigateToLibraryWithHighlight(uuid: String, isSigned: Bool = false) {
+        librarySection = isSigned ? .signedApps : .apps
 		highlightedAppUUID = uuid
 		DispatchQueue.main.async {
 			self.selectedTab = .library
@@ -208,7 +208,7 @@ struct DownloadButtonView: View {
 						.transition(.scale.combined(with: .opacity))
 					} else {
 						Button {
-							tabSelection.navigateToLibraryWithHighlight(uuid: installedApp.uuid)
+							tabSelection.navigateToLibraryWithHighlight(uuid: installedApp.uuid, isSigned: installedApp.type == .signed)
 						} label: {
 							Text(.localized(installedApp.type == .imported ? "Imported" : "Signed"))
 								.lineLimit(1)
@@ -226,7 +226,7 @@ struct DownloadButtonView: View {
 					Menu {
 						if installedApp.hasUpdate || installedApp.isDowngrade || !installedApp.hasUpdate && !installedApp.isDowngrade {
 							Button {
-								tabSelection.navigateToLibraryWithHighlight(uuid: installedApp.uuid)
+								tabSelection.navigateToLibraryWithHighlight(uuid: installedApp.uuid, isSigned: installedApp.type == .signed)
 							} label: {
 								Label(.localized("View in Library"), systemImage: "square.grid.2x2")
 							}

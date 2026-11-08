@@ -14,6 +14,7 @@ import NimbleExtensions
 struct LibraryView: View {
     /// False when embedded in a workspace or pushed from another navigation stack.
     var ownsNavigationStack: Bool = true
+    var workspaceSection: LibraryWorkspaceSection? = nil
     @StateObject var downloadManager = DownloadManager.shared
     @ObservedObject private var tabSelection = TabSelectionObserver.shared
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
@@ -62,11 +63,12 @@ struct LibraryView: View {
     private var hiddenAppsCount: Int {
         let sCount = _signedApps.filter { if let u = $0.uuid { return lockManager.isAppHidden(u) } else { return false } }.count
         let iCount = _importedApps.filter { if let u = $0.uuid { return lockManager.isAppHidden(u) } else { return false } }.count
-        return sCount + iCount
+        return (workspaceSection?.includesApp(isSigned: true) == false ? 0 : sCount) + (workspaceSection?.includesApp(isSigned: false) == false ? 0 : iCount)
     }
 
     private var filteredSignedApps: [Signed] {
         let filtered = _signedApps.filter { app in
+            guard workspaceSection?.includesApp(isSigned: true) != false else { return false }
             if !lockManager.isRevealingHiddenApps, let uuid = app.uuid, lockManager.isAppHidden(uuid) {
                 return false
             }
@@ -79,6 +81,7 @@ struct LibraryView: View {
     
     private var filteredImportedApps: [Imported] {
         let filtered = _importedApps.filter { app in
+            guard workspaceSection?.includesApp(isSigned: false) != false else { return false }
             if !lockManager.isRevealingHiddenApps, let uuid = app.uuid, lockManager.isAppHidden(uuid) {
                 return false
             }
@@ -113,11 +116,11 @@ struct LibraryView: View {
     }
     
     private var shouldShowSignedSection: Bool {
-        _selectedScope == .all || _selectedScope == .attention || _selectedScope == .signed
+        workspaceSection?.includesApp(isSigned: true) != false && (_selectedScope == .all || _selectedScope == .attention || _selectedScope == .signed)
     }
     
     private var shouldShowImportedSection: Bool {
-        _selectedScope == .all || _selectedScope == .attention || _selectedScope == .imported
+        workspaceSection?.includesApp(isSigned: false) != false && (_selectedScope == .all || _selectedScope == .attention || _selectedScope == .imported)
     }
     
     private var hasNoContent: Bool {
@@ -217,7 +220,7 @@ struct LibraryView: View {
                     BatchSignView(apps: request.apps, mode: request.mode)
                 }
                 .fullScreenCover(item: $_selectedSigningAppPresenting) { app in
-                    SigningView(app: app.base)
+                    SigningView(app: app.base, installAfterSigning: app.installAfterSigning)
                         .compatNavigationTransition(id: app.base.uuid ?? "", ns: _namespace)
                 }
                 .alert(.localized("Import from URL"), isPresented: $_isDownloadingPresenting) {
@@ -281,7 +284,7 @@ struct LibraryView: View {
             }
 
             .compatSearchScopes($_selectedScope) {
-                ForEach(Scope.allCases, id: \.displayName) { scope in
+                ForEach(workspaceSection == nil ? Scope.allCases : [.all, .attention], id: \.displayName) { scope in
                     Text(scope.displayName).tag(scope)
                 }
             }
@@ -340,7 +343,7 @@ struct LibraryView: View {
     // MARK: Apps List Content
     @ViewBuilder
     private var appsListContent: some View {
-        if updateChecker.updateCount > 0, !_editMode.isEditing {
+        if workspaceSection == nil, updateChecker.updateCount > 0, !_editMode.isEditing {
             updatesAvailableSection
         }
 
@@ -682,6 +685,7 @@ struct LibraryView: View {
     private var importMenuActions: some View {
         Button(.localized("Import from Files"), systemImage: "folder") {
             DocumentPicker.open([.ipa, .tipa], multiple: true, folder: .apps) { urls in
+                if !urls.isEmpty { tabSelection.librarySection = .apps }
                 for url in urls {
                     _ = downloadManager.startArchive(from: url, id: "VexSignManualDownload_\(UUID().uuidString)", reviewDuplicates: true)
                 }
@@ -708,6 +712,7 @@ struct LibraryView: View {
         }
         Button(.localized("OK")) {
             if let url = URL(string: _alertDownloadString) {
+                tabSelection.librarySection = .apps
                 _ = downloadManager.startDownload(
                     from: url,
                     id: "VexSignManualDownload_\(UUID().uuidString)"

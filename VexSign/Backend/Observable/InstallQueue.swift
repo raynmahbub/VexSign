@@ -130,17 +130,17 @@ final class InstallQueue: ObservableObject {
 			return
 		}
 
-		// Unified task pipeline: one record per queue run.
+		// One independent task record per item/attempt, not one mutable batch verdict.
 		if unifiedTask == nil {
-			let title = apps.count > 1
-				? String.localized("%lld apps", arguments: apps.count)
-				: (current.base.name ?? .localized("App"))
+			let title = current.base.name ?? .localized("App")
 			let preparesGuest = !current.archive && UserDefaults.standard.integer(forKey: "VexSign.installationMethod") == 2
 			unifiedTask = UnifiedTaskCenter.shared.begin(
 				kind: current.archive || preparesGuest ? .export : .install,
 				title: title,
 				subtitle: preparesGuest ? .localized("Preparing guest import") : (current.archive ? .localized("Exporting") : .localized("Installing")),
-				phase: preparesGuest ? .extracting : .installing
+				phase: current.archive || preparesGuest ? .extracting : .preparingInstallation,
+                progress: -1,
+                subjectID: current.base.uuid
 			)
 		}
 
@@ -152,6 +152,27 @@ final class InstallQueue: ObservableObject {
         } else {
             _discardPreparation()
             installer = AppInstaller(app: current.base, isSharing: current.archive, useLocalhost: useLocalhost)
+        }
+        if let task = unifiedTask {
+            var trace = TaskContext()
+            trace.appVersion = TaskContext.versionToken(current.base.version)
+            trace.artifactID = current.base.uuid
+            if let directory = Storage.shared.getAppDirectory(for: current.base),
+               let info = NSDictionary(contentsOf: directory.appendingPathComponent("Info.plist")) {
+                trace.appBuild = TaskContext.versionToken(info["CFBundleVersion"] as? String)
+            }
+            let method = UserDefaults.standard.integer(forKey: "VexSign.installationMethod")
+            trace.installationMethod = current.archive ? "export" : (method == 1 ? "paired-device" : (method == 2 ? "guest-import" : "OTA"))
+            trace.signingTaskID = UnifiedTaskCenter.shared.history.first {
+                $0.kind == .sign && $0.context?.artifactID == current.base.uuid && current.base.uuid != nil
+            }?.id
+            task.context = trace
+            installer.onWorkflowStage = { [weak self, weak installer] phase in
+                guard let self, let installer, self.installer === installer else { return }
+                task.context?.installationMethod = installer.installationMethodCode
+                UnifiedTaskCenter.shared.transition(task, to: phase)
+            }
+            installer.onConfirmationReason = { reason in task.context?.confirmationReason = reason }
         }
         installer.onPackaged = { [weak self, weak installer] in
             guard let self, let installer, self.installer === installer else { return }
@@ -192,6 +213,15 @@ final class InstallQueue: ObservableObject {
 		advanceScheduler.cancel()
 		failurePresentation = nil
 		outcomes[current.id] = .skipped
+        if let task = unifiedTask {
+            task.context?.confirmationReason = "monitoring-stopped-install-may-continue"
+            UnifiedTaskCenter.shared.transition(task, to: .cancelled)
+            latestReportTask = task
+            unifiedTask = nil
+        }
+        if !current.archive {
+            Toast.info(.localized("Stopped monitoring this app. An installation already accepted by iOS may continue."))
+        }
 		// Skipping a held next item is an explicit request to move on; don't strand
 		// the queue with no installer and no Resume control.
 		isPaused = false
@@ -226,7 +256,23 @@ final class InstallQueue: ObservableObject {
 		retiringInstaller?.stop()
 	}
 
+    var latestReportTask: UnifiedTask?
+
 	private func _handle(_ result: Result<AppInstaller.Outcome, Error>) {
+        if let task = unifiedTask {
+            latestReportTask = task
+            task.context?.installationMethod = installer?.installationMethodCode
+            if task.context?.confirmationReason == nil {
+                switch result {
+                case .success(.installed): task.context?.confirmationReason = "native-installation-completed"
+                case .success(.installedOtherVersion): task.context?.confirmationReason = "device-reports-other-version"
+                case .success(.guestImportPrepared): task.context?.confirmationReason = "guest-prepared-not-installed"
+                case .success(.exported): task.context?.confirmationReason = "exported-not-installed"
+                case .success(.cancelled): task.context?.confirmationReason = "cancelled"
+                case .failure: task.context?.confirmationReason = "operation-failed"
+                }
+            }
+        }
 		switch result {
 		case .success(.cancelled):
 			if let current { outcomes[current.id] = .skipped }
@@ -263,6 +309,7 @@ final class InstallQueue: ObservableObject {
 			}
 
 		case .success(.exported(let package)):
+            _finishUnifiedTask()
 			if let current { outcomes[current.id] = .succeeded }
 			_syncUnifiedTaskProgress()
 			_abandon()
@@ -283,16 +330,20 @@ final class InstallQueue: ObservableObject {
 				arguments: version ?? .localized("unknown")
 			))
 			_syncUnifiedTaskProgress()
+            _finishUnifiedTask()
 			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .success:
             NBHaptic.notify(.success)
+            Toast.success(.localized("Installation completed"), systemImage: "checkmark.circle.fill")
 			if let current { outcomes[current.id] = .succeeded }
 			if let app = installer?.app { InstallCleanup.stage(app) }
 			_syncUnifiedTaskProgress()
+            _finishUnifiedTask()
 			// Let the finished ring land before the next app takes over. The scheduled advance is
 			// invalidated if the user skips/retries or the queue is otherwise reset first.
 			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .failure(let error):
+            unifiedTask?.context?.recordFailure(error)
             _discardPreparation()
             NBHaptic.notify(.error)
 			if let current {
@@ -300,10 +351,15 @@ final class InstallQueue: ObservableObject {
 			}
 			if let task = unifiedTask {
 				UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
-				// The queue may continue with other apps — reopen the record.
-				UnifiedTaskCenter.shared.registerRetry(task) { [weak self] in
-					self?.retryCurrent()
-				}
+				// Keep this failed attempt; a retry starts a separate record.
+                let failedEntryID = current?.id
+                UnifiedTaskCenter.shared.registerRetry(task) { [weak self] in
+                    guard let self, self.current?.id == failedEntryID, self.failurePresentation != nil else {
+                        Toast.info(.localized("Restart installation from Signed Apps. The original task report is retained."))
+                        return
+                    }
+                    self.retryCurrent()
+                }
 				unifiedTask = nil
 			}
             let localTrustFailure: Error?
@@ -325,6 +381,12 @@ final class InstallQueue: ObservableObject {
                 canRetryLocally: installer?.canRetryUsingLocalhost == true,
                 waitingCount: upcoming.count
             )
+            if let confirmation = error as? InstallConfirmation.Failure, confirmation.verdict == .timedOutVerifying {
+                // Keep the report and recovery actions in Activity/the queue pill,
+                // but do not hold the whole app behind an unobservable spinner.
+                isSheetPresented = false
+                Toast.info(.localized("iOS did not expose installation status. Check the Home Screen; the report is available in Activity. No reinstall was started."))
+            }
 		}
 	}
 
@@ -337,10 +399,10 @@ final class InstallQueue: ObservableObject {
     }
 
 	/// Keeps the unified task's progress in step with the queue (index of the
-	/// app being installed out of the total).
+	/// current attempt only; the queue retains its own aggregate counters).
 	private func _syncUnifiedTaskProgress() {
 		guard let task = unifiedTask, !apps.isEmpty else { return }
-		UnifiedTaskCenter.shared.update(task, progress: Double(index + 1) / Double(apps.count))
+		UnifiedTaskCenter.shared.update(task, progress: 1)
 	}
 
     /// Retire a completed queue so its install card does not cover the app screen.
@@ -409,25 +471,14 @@ final class InstallQueue: ObservableObject {
 		isSheetPresented = false
 	}
 
-	/// Closes the unified task record for this queue run.
+	/// Closes the current attempt without rewriting earlier queue outcomes.
 	private func _finishUnifiedTask(cancelled: Bool = false) {
 		guard let task = unifiedTask else { return }
 		unifiedTask = nil
 		if cancelled {
 			UnifiedTaskCenter.shared.transition(task, to: .cancelled)
 		} else {
-			let failedCount = outcomes.values.filter {
-				if case .failed = $0 { return true }
-				return false
-			}.count
-			UnifiedTaskCenter.shared.transition(
-				task,
-				to: failedCount > 0 ? .failed : .completed,
-				progress: 1,
-				error: failedCount > 0
-					? String.localized("%lld install(s) failed", arguments: failedCount)
-					: nil
-			)
+            UnifiedTaskCenter.shared.transition(task, to: .completed, progress: 1)
 		}
 	}
 

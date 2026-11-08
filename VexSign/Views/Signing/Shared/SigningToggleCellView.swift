@@ -47,11 +47,13 @@ struct SigningToggleCellView<T>: View {
 	private var _exportActions: some View {
 		Button {
 			guard let fileURL = _exportableURL else { return }
-			if TweakManager.shared.addTweak(name: fileURL.lastPathComponent, from: fileURL) != nil {
-				Toast.info(.localized("Added to Tweak Manager"))
-			} else {
-				Toast.error(.localized("Could not import this tweak. Check its format, size and file access."), duration: .sticky)
-			}
+            Task { @MainActor in
+                if await TweakManager.shared.importTweak(name: fileURL.lastPathComponent, fromFiles: [fileURL]) != nil {
+                    Toast.info(.localized("Added to Tweak Manager"))
+                } else {
+                    Toast.error(.localized("Could not import this tweak. Check its format, size and file access."), duration: .sticky)
+                }
+            }
 		} label: {
 			Label(.localized("Send to Tweak Manager"), systemImage: "wrench.and.screwdriver")
 		}

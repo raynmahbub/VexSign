@@ -175,6 +175,15 @@ private struct InstallQueueFailureView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+                    if let task = queue.latestReportTask {
+                        DisclosureGroup(.localized("View Report")) {
+                            Text(TaskReceipt.report(for: task))
+                                .font(.caption.monospaced()).textSelection(.enabled)
+                            Button(.localized("Copy Redacted Report")) {
+                                UIPasteboard.general.string = TaskReceipt.report(for: task)
+                            }
+                        }
+                    }
                     if failure.waitingCount > 0 {
                         Text(String.localized("%lld more apps are waiting.", arguments: failure.waitingCount))
                             .font(.caption)
@@ -185,7 +194,7 @@ private struct InstallQueueFailureView: View {
             }
 
             HStack(spacing: 10) {
-                Button(.localized("Retry")) {
+                Button(.localized("Retry Install")) {
                     HeartbeatManager.shared.start(true)
                     queue.retryCurrent()
                 }
@@ -316,6 +325,7 @@ struct InstallQueuePill: View {
 	}
 
 	private func _subtitle(for current: AnyApp) -> String {
+        if queue.failurePresentation != nil { return .localized("Needs review — View Report") }
 		if !queue.upcoming.isEmpty {
 			return .localized("%lld queued", arguments: queue.upcoming.count)
 		}

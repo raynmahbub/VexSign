@@ -24,6 +24,14 @@ final class LogRedactionTests: XCTestCase {
 		XCTAssertTrue(output.contains(LogRedaction.marker), "nothing was masked in: \(output)", file: file, line: line)
 	}
 
+    func testPrivateKeysPairingMaterialAndCookiesAreRedacted() {
+        assertRedacted("-----BEGIN RSA PRIVATE KEY-----\nprivate-bytes\n-----END RSA PRIVATE KEY-----", "private-bytes")
+        assertRedacted("<key>HostPrivateKey</key>\n<data>pairing-bytes</data>", "pairing-bytes")
+        assertRedacted("Cookie: session=private-session; other=private-cookie", "private-session")
+        assertRedacted("Set-Cookie: session=private-session", "private-session")
+        XCTAssertEqual(LogRedaction.redact("Install failed at verifying"), "Install failed at verifying")
+    }
+
 	// MARK: - What must be masked
 
 	func testPasswordAssignmentsAreMasked() {

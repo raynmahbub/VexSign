@@ -203,7 +203,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 	
 	private func _updateStatus(_ newStatus: InstallerStatusViewModel.InstallerStatus) {
 		DispatchQueue.main.async {
-			self.viewModel.status = newStatus
+			self.viewModel.updateTransportStatus(newStatus)
 		}
 	}
 

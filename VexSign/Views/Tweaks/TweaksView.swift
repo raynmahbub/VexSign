@@ -27,6 +27,7 @@ struct TweakLibraryList: View {
 	@State private var _isEditing = false
 	@State private var _selection: Set<UUID> = []
 	@State private var _query = ""
+	@State private var _isImporting = false
 	@AppStorage("VexSign.tweakSort") private var _sortRaw = ItemSortOption.dateNewest.rawValue
 
 	// One sheet/alert modifier each — multiple on the same view shadow each other.
@@ -122,6 +123,7 @@ struct TweakLibraryList: View {
 				.searchable(text: $_query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: Text(.localized("Search tweaks")))
 			}
 		}
+		.overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
 		.toolbar { _toolbar }
 		.selectionActionBar(isActive: _isEditing, actions: _selectionActions)
 		.sheet(item: $_sheet) { sheet in _sheetView(sheet) }
@@ -209,6 +211,7 @@ struct TweakLibraryList: View {
 	// MARK: - Import
 
 	private func _pickImport() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
 			if urls.count >= 10 {
 				_show(.confirmImport(urls))
@@ -219,6 +222,7 @@ struct TweakLibraryList: View {
 	}
 
 	private func _pickIPA() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.ipa, .tipa], folder: .apps) { urls in
 			guard let url = urls.first else { return }
 			_show(.ipaExtract(url))
@@ -226,32 +230,39 @@ struct TweakLibraryList: View {
 	}
 
 	private func _importFiles(_ urls: [URL]) {
-		guard !urls.isEmpty else { return }
-		var addedIds: Set<UUID> = []
-		var importedNames: [String] = []
-		for url in urls {
-			if let tweak = manager.addTweak(name: url.deletingPathExtension().lastPathComponent, from: url) {
-				addedIds.insert(tweak.id)
-				importedNames.append(url.lastPathComponent)
-			}
-		}
-		if !addedIds.isEmpty {
-			let message: String = addedIds.count == 1
-				? String.localized("Imported %@", arguments: importedNames[0])
-				: String.localized("Imported %lld tweaks", arguments: addedIds.count)
-			if importedNames.count < urls.count {
-				Toast.error(String.localized("Imported %lld of %lld tweaks. Some files could not be read or are unsupported.", arguments: importedNames.count, urls.count), duration: .sticky)
-			} else {
-				Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
-			}
-			// Offer to file the new tweaks if folders exist.
-			if !manager.folders.isEmpty {
-				_show(.move(addedIds))
-			}
-		} else {
-			Toast.error(.localized("Couldn't import tweak"), duration: .sticky)
-		}
-	}
+        guard !_isImporting else { return }
+        _isImporting = true
+        Task { @MainActor in
+            defer { _isImporting = false }
+
+            guard !urls.isEmpty else { return }
+            var addedIds: Set<UUID> = []
+            var importedNames: [String] = []
+            for url in urls {
+                if let tweak = await manager.importTweak(name: url.deletingPathExtension().lastPathComponent, fromFiles: [url]) {
+                    addedIds.insert(tweak.id)
+                    importedNames.append(url.lastPathComponent)
+                }
+            }
+            if !addedIds.isEmpty {
+                let message: String = addedIds.count == 1
+                    ? String.localized("Imported %@", arguments: importedNames[0])
+                    : String.localized("Imported %lld tweaks", arguments: addedIds.count)
+                if importedNames.count < urls.count {
+                    Toast.error(String.localized("Imported %lld of %lld tweaks. Some files could not be read or are unsupported.", arguments: importedNames.count, urls.count), duration: .sticky)
+                } else {
+                    Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
+                }
+                // Offer to file the new tweaks if folders exist.
+                if !manager.folders.isEmpty {
+                    _show(.move(addedIds))
+                }
+            } else {
+                Toast.error(.localized("Couldn't import tweak"), duration: .sticky)
+            }
+
+        }
+    }
 
 	// MARK: - Folder alert
 

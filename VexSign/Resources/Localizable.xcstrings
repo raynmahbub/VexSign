@@ -102693,6 +102693,259 @@
           }
         }
       }
+    },
+    "After signing succeeds, iOS will ask to install this app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After signing succeeds, iOS will ask to install this app."
+          }
+        }
+      }
+    },
+    "Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above to browse your storage locations." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above to browse your storage locations."
+          }
+        }
+      }
+    },
+    "On-device browser" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device browser"
+          }
+        }
+      }
+    },
+    "Quick folders — tap to browse, long-press for actions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick folders — tap to browse, long-press for actions."
+          }
+        }
+      }
+    },
+    "Using Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using Files"
+          }
+        }
+      }
+    },
+    "Installation completed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation completed"
+          }
+        }
+      }
+    },
+    "Verifying installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifying installation"
+          }
+        }
+      }
+    },
+    "Waiting for iOS installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for iOS installation"
+          }
+        }
+      }
+    },
+    "Preparing installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing installation"
+          }
+        }
+      }
+    },
+    "Ready to sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to sign"
+          }
+        }
+      }
+    },
+    "Restart installation from Signed Apps. The original task report is retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart installation from Signed Apps. The original task report is retained."
+          }
+        }
+      }
+    },
+    "Retry Install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Install"
+          }
+        }
+      }
+    },
+    "View Report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Report"
+          }
+        }
+      }
+    },
+    "Interrupted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrupted"
+          }
+        }
+      }
+    },
+    "Not enough free storage. This operation needs about %@ of working space; %@ is available. Free space and retry. The original app has not been deleted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough free storage. This operation needs about %@ of working space; %@ is available. Free space and retry. The original app has not been deleted."
+          }
+        }
+      }
+    },
+    "Stop Monitoring" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Monitoring"
+          }
+        }
+      }
+    },
+    "Stopped monitoring this app. An installation already accepted by iOS may continue." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped monitoring this app. An installation already accepted by iOS may continue."
+          }
+        }
+      }
+    },
+    "Stops VexSign monitoring and moves to the next app. An installation already accepted by iOS may continue." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops VexSign monitoring and moves to the next app. An installation already accepted by iOS may continue."
+          }
+        }
+      }
+    },
+    "This app is in use by another operation. Wait for it to finish before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is in use by another operation. Wait for it to finish before retrying."
+          }
+        }
+      }
+    },
+    "VexSign was interrupted. No signing or installation was restarted automatically. Check Signed Apps and the device before starting another attempt." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign was interrupted. No signing or installation was restarted automatically. Check Signed Apps and the device before starting another attempt."
+          }
+        }
+      }
+    },
+    "iOS did not expose installation status. Check the Home Screen; the report is available in Activity. No reinstall was started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS did not expose installation status. Check the Home Screen; the report is available in Activity. No reinstall was started."
+          }
+        }
+      }
+    },
+    "Needs review — View Report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs review — View Report"
+          }
+        }
+      }
+    },
+    "VexSign stopped its work and monitoring. An installation already accepted by iOS may continue; this report does not claim that iOS cancelled it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign stopped its work and monitoring. An installation already accepted by iOS may continue; this report does not claim that iOS cancelled it."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

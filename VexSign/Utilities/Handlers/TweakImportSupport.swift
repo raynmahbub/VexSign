@@ -163,6 +163,61 @@ enum TweakImportSupport {
         return staged
     }
 
+    struct PreparedVersion: Sendable {
+        struct File: Sendable { let name: String; let size: Int64 }
+        let directory: URL
+        let files: [File]
+    }
+
+    /// Copy/validate provider files and assemble a version off the UI thread.
+    /// Commit is then one same-container directory rename, not another large copy.
+    static func prepareVersion(_ sources: [URL]) async throws -> PreparedVersion {
+        let staged = try await stage(sources)
+        defer { discard(staged) }
+        let worker = Task.detached(priority: .userInitiated) {
+            let fm = FileManager.default
+            let directory = fm.temporaryDirectory.appendingPathComponent("VexSignTweak_\(UUID().uuidString)", isDirectory: true)
+            do {
+                try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+                var files: [PreparedVersion.File] = []
+                var taken = Set<String>()
+                for source in staged {
+                    try Task.checkCancellation()
+                    let stem = source.deletingPathExtension().lastPathComponent
+                    let ext = source.pathExtension
+                    var name = source.lastPathComponent
+                    var suffix = 2
+                    while taken.contains(name.lowercased()) {
+                        name = "\(stem) \(suffix).\(ext)"
+                        suffix += 1
+                    }
+                    let destination = directory.appendingPathComponent(name)
+                    try fm.moveItem(at: source, to: destination)
+                    files.append(.init(name: name, size: fm.allocatedSize(at: destination)))
+                    taken.insert(name.lowercased())
+                }
+                try Task.checkCancellation()
+                return PreparedVersion(directory: directory, files: files)
+            } catch {
+                discard([directory.appendingPathComponent("cleanup")])
+                throw error
+            }
+        }
+        let prepared = try await withTaskCancellationHandler {
+            try await worker.value
+        } onCancel: { worker.cancel() }
+        if Task.isCancelled {
+            discardPrepared(prepared)
+            throw CancellationError()
+        }
+        return prepared
+    }
+
+    static func discardPrepared(_ prepared: PreparedVersion) {
+        guard FileManager.default.fileExists(atPath: prepared.directory.path) else { return }
+        discard([prepared.directory.appendingPathComponent("cleanup")])
+    }
+
     static func discard(_ urls: [URL]) {
         let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().standardizedFileURL
         for url in urls {

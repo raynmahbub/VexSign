@@ -76,6 +76,50 @@ final class FiveTabNavigationTests: XCTestCase {
         XCTAssertTrue(selection.ipaExplorerRequested, "Explorer intent must survive until the app library mounts")
     }
 
+    func testLibraryHasThreeOrderedNonoverlappingSections() {
+        XCTAssertEqual(LibraryWorkspaceSection.allCases, [.files, .apps, .signedApps])
+        XCTAssertFalse(LibraryWorkspaceSection.signedApps.title.isEmpty)
+        XCTAssertTrue(LibraryWorkspaceSection.apps.includesApp(isSigned: false))
+        XCTAssertFalse(LibraryWorkspaceSection.apps.includesApp(isSigned: true))
+        XCTAssertTrue(LibraryWorkspaceSection.signedApps.includesApp(isSigned: true))
+        XCTAssertFalse(LibraryWorkspaceSection.signedApps.includesApp(isSigned: false))
+        XCTAssertFalse(LibraryWorkspaceSection.files.includesApp(isSigned: true))
+        XCTAssertFalse(LibraryWorkspaceSection.files.includesApp(isSigned: false))
+    }
+
+    @MainActor
+    func testSignedRoutesAndHighlightsSelectSignedApps() {
+        let selection = TabSelectionObserver()
+        selection.navigate(to: .signedApps)
+        XCTAssertEqual(selection.selectedTab, .library)
+        XCTAssertEqual(selection.librarySection, .signedApps)
+        XCTAssertEqual(WorkspaceRoute.resolve(host: "signedapps"), .signedApps)
+        XCTAssertEqual(WorkspaceRoute.resolve(host: "signed"), .signedApps)
+        selection.navigateToLibraryWithHighlight(uuid: "signed-row", isSigned: true)
+        XCTAssertEqual(selection.librarySection, .signedApps)
+        XCTAssertEqual(selection.highlightedAppUUID, "signed-row")
+        selection.navigateToLibraryWithHighlight(uuid: "imported-row", isSigned: false)
+        XCTAssertEqual(selection.librarySection, .apps)
+    }
+
+    func testKSignStyleActionsRespectStoredAppKind() {
+        XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: true), [.install, .resign])
+        XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: false), [.signAndInstall])
+        XCTAssertFalse(LibraryAppWorkflowAction.actions(isSigned: false).contains(.install),
+                       "Unsigned imports must not bypass signing through the quick action")
+    }
+
+    func testSignAndInstallIntentChangesOnlyTheRequestOptions() {
+        var base = Options.batchBase
+        base.post_installAppAfterSigned = false
+        let request = LibraryAppWorkflowAction.signingOptions(from: base, installAfterSigning: true)
+        XCTAssertTrue(request.post_installAppAfterSigned)
+        XCTAssertFalse(base.post_installAppAfterSigned, "The quick action must not change saved global defaults")
+        XCTAssertFalse(LibraryAppWorkflowAction.signingOptions(from: base, installAfterSigning: false).post_installAppAfterSigned)
+        base.post_installAppAfterSigned = true
+        XCTAssertTrue(LibraryAppWorkflowAction.signingOptions(from: base, installAfterSigning: false).post_installAppAfterSigned)
+    }
+
     func testFreshPreferencesUseFiveNativeTabsIncludingHome() throws {
         let name = "VexSignTabsTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

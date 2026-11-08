@@ -286,11 +286,17 @@ jobs:
           restore-keys: |
             spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-
 
+      - name: Prefetch verified binary archives
+        run: |
+          python3 .github/scripts/prefetch_spm_artifacts.py \
+            --cache "${RUNNER_TEMP}/SwiftPMCache-Release/artifacts"
+
       - name: Compile VexSign
         id: build
         env:
           # Keep DerivedData (and its SourcePackages) under the cached path.
           TMPDIR: ${{ runner.temp }}/
+          SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-Release
         run: |
           set -euo pipefail
 
@@ -313,6 +319,8 @@ jobs:
 
       # Validate the exact packaged commit for every channel, including previews.
       - name: Release simulator tests
+        env:
+          SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-Release
         run: make test
 
       - name: Surface build errors
@@ -375,6 +383,9 @@ jobs:
             echo "short_sha=$(git rev-parse --short=7 HEAD)"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Verify source revision and write IPA checksums
+        run: python3 tools/write-build-provenance.py --directory upload
+
       # Every successful build-only or release run leaves a
       # downloadable IPA on the run page. This is how you test a change
       # without publishing it.
@@ -383,7 +394,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VexSign-${{ steps.get_version.outputs.version }}-${{ steps.get_version.outputs.short_sha }}
-          path: upload/*.ipa
+          path: |
+            upload/*.ipa
+            upload/BUILD.json
+            upload/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
 

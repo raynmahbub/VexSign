@@ -18,6 +18,7 @@ struct TweakDetailView: View {
 	let tweakId: UUID
 
 	@State private var _isPickingFromLibrary = false
+	@State private var _isImporting = false
 	@State private var _newBundleId = ""
 	@State private var _expandedComponents: Set<UUID> = []
 
@@ -39,6 +40,7 @@ struct TweakDetailView: View {
 				Color.clear.onAppear { dismiss() }
 			}
 		}
+        .overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
 		.sheet(isPresented: $_isPickingFromLibrary) {
 			AppLibraryPicker { app in
 				guard let identifier = app.identifier, !identifier.isEmpty else { return }
@@ -52,31 +54,50 @@ struct TweakDetailView: View {
 	}
 
 	private func _addVersion() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
-			let next = (manager.tweak(tweakId)?.versions.count ?? 0) + 1
-			if let version = manager.addVersion(to: tweakId, fromFiles: urls, label: "v\(next)") {
-				if version.components.count == urls.count {
-					Toast.success(.localized("Version added"), systemImage: "plus.circle.fill")
-				} else {
-					_reportIncompleteImport(version.components.count, selected: urls.count)
-				}
-			} else {
-				_reportIncompleteImport(0, selected: urls.count)
-			}
-		}
+            _runImport {
+
+                let next = (manager.tweak(tweakId)?.versions.count ?? 0) + 1
+                if let version = await manager.importVersion(to: tweakId, fromFiles: urls, label: "v\(next)") {
+                    if version.components.count == urls.count {
+                        Toast.success(.localized("Version added"), systemImage: "plus.circle.fill")
+                    } else {
+                        _reportIncompleteImport(version.components.count, selected: urls.count)
+                    }
+                } else {
+                    _reportIncompleteImport(0, selected: urls.count)
+                }
+
+            }
+        }
 	}
 
 	private func _addFiles() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
-			guard let versionId = manager.tweak(tweakId)?.activeVersion?.id else { return }
-			let added = manager.addComponents(to: tweakId, versionId: versionId, fromFiles: urls)
-			if added.count == urls.count {
-				Toast.success(.localized("Added %lld files", arguments: added.count), systemImage: "plus.circle.fill")
-			} else {
-				_reportIncompleteImport(added.count, selected: urls.count)
-			}
-		}
+            _runImport {
+
+                guard let versionId = manager.tweak(tweakId)?.activeVersion?.id else { return }
+                let added = await manager.importComponents(to: tweakId, versionId: versionId, fromFiles: urls)
+                if added.count == urls.count {
+                    Toast.success(.localized("Added %lld files", arguments: added.count), systemImage: "plus.circle.fill")
+                } else {
+                    _reportIncompleteImport(added.count, selected: urls.count)
+                }
+
+            }
+        }
 	}
+
+    private func _runImport(_ work: @escaping @MainActor () async -> Void) {
+        guard !_isImporting else { return }
+        _isImporting = true
+        Task { @MainActor in
+            defer { _isImporting = false }
+            await work()
+        }
+    }
 
 	private func _reportIncompleteImport(_ imported: Int, selected: Int) {
 		Toast.error(String.localized("Imported %lld of %lld files. Some files could not be read or are unsupported.", arguments: imported, selected), duration: .sticky)

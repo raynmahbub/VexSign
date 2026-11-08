@@ -85,6 +85,9 @@ struct ArchiveSafetyValidator {
             try validateDestination(relativePath: components.map(String.init).joined(separator: "/"), root: root)
 
         }
+        if destination != nil {
+            try StoragePreflight.check(bytes: Int64(uncompressedBytes), copies: 1, at: root.deletingLastPathComponent())
+        }
     }
     /// Normalize the base before appending, so Foundation cannot resolve an
     /// alias such as /var -> /private/var on only one side of the comparison.
