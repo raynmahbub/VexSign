@@ -45,7 +45,10 @@ struct TrollStoreHandoffTests {
         #expect(items.first?.value == ipa.absoluteString)
 
         // TrollStore re-parses this value with NSURL, so it has to round-trip.
-        let carried = try #require(URL(string: try #require(items.first?.value)))
+        // Nested `#require` calls expand recursively and fail to compile, so the
+        // unwrap is split in two.
+        let carriedValue = try #require(items.first?.value)
+        let carried = try #require(URL(string: carriedValue))
         #expect(carried.absoluteString == ipa.absoluteString)
     }
 
