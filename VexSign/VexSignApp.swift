@@ -180,6 +180,7 @@ struct VexSignApp: App {
                 if newPhase == .active {
                     Task { @MainActor in
                         SourcesViewModel.shared.resetLoadingState()
+                        LibraryStatusStore.shared.refreshKnown()
                     }
                     appLock.authenticateIfNeeded()
                 }

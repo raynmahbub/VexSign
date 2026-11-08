@@ -137,3 +137,30 @@ executed here. Portable verification and independent Swift grammar parsing passe
 compiler/type/link checks and end-to-end native signing remain unverified. See the
 [signing audit and device handoff](signing-code-audit.md) for the exact scope and
 on-device acceptance steps.
+
+## Device-reported install-status follow-up
+
+A device report showed a successfully installed app with a retained Installing
+card and a Not installed library badge. The install baseline is now captured
+before packaging/prompt presentation rather than after IPA delivery, so fast
+installs cannot become their own already-installed baseline. A known old-to-new
+version transition also provides independent completion evidence with an absent
+or stale progress counter; an unchanged existing app or unknown baseline does not.
+
+The device probe cross-checks LaunchServices workspace installation status instead
+of relying exclusively on a cached proxy flag. Contradictory registered metadata
+without positive installation evidence remains unknown, not a false negative.
+Foreground activation refreshes known library rows. Private selectors remain
+availability-checked; unsupported/restricted evidence cannot guarantee a verdict.
+
+The progress query now calls its actual Objective-C BOOL argument signature rather
+than passing a boxed Boolean through perform. Polling requests nonblocking reads;
+nonfinite fractions are ignored. Nine regression XCTest methods were added.
+Portable checks pass; these device-follow-up edits require a fresh Apple CI/device
+run. The preceding workflow-fix revision 637d3c6 passed all triggered checks,
+including simulator tests and all three companion builds, before these new edits.
+
+The separately reported add-library crash awaits clarification of the import type
+and a crash/reproduction report; no claim is made that it has been fixed. Existing
+in-app self-updates still require an eligible method, valid signing identity and
+iOS installation consent; silent unsigned replacement is not implemented.

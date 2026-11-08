@@ -73,6 +73,7 @@ final class AppInstaller: ObservableObject {
 	/// One idevice retry per install, so a genuinely broken pair doesn't loop.
 	private var _didAttemptIdeviceFallback = false
 	/// The device-side evidence that turns "progress ended" into an answer.
+    private var _installBaseline: InstallWatcher.Baseline?
 	private let _probe: InstalledAppProbing
 	private var _lastPPQRefresh = Date()
 
@@ -119,6 +120,9 @@ final class AppInstaller: ObservableObject {
 			return
 		}
 
+        if !_isSharing, let identifier = app.identifier {
+            _installBaseline = .init(app: _probe.installedApp(for: identifier))
+        }
 		_statusObserver = viewModel.$status
 			.receive(on: DispatchQueue.main)
 			.sink { [weak self] in self?._handle($0) }
@@ -500,10 +504,15 @@ final class AppInstaller: ObservableObject {
 	// is about. The loop still drives the ring and the PPQ heartbeat, but the verdict now
 	/// comes from `InstallConfirmation` and `InstalledAppProbe`.
 	private func _startProgressPolling() {
-		guard _progressTask == nil, let bundleID = app.identifier else { return }
+        guard _progressTask == nil else { return }
+        guard let bundleID = app.identifier, !bundleID.isEmpty else {
+            _finish(.failure(Self.error(.localized("The device installation cannot be verified because the bundle identifier is missing."))))
+            return
+        }
 
 		let probe = _probe
 		let useNovaDNS = _useNovaDNSDynamic
+        let baseline = _installBaseline
 		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version)
 
 		_progressTask = Task.detached(priority: .background) { [weak self] in
@@ -511,7 +520,8 @@ final class AppInstaller: ObservableObject {
 			let verdict = await InstallWatcher.watch(
 				InstallConfirmation(expectation: expectation),
 				probe: probe,
-				progress: { await UIApplication.installProgress(for: bundleID) },
+                baseline: baseline,
+				progress: { await UIApplication.installProgress(for: bundleID, makeSynchronous: false) },
 				onUpdate: { raw, phase in
 					await MainActor.run {
 						installer?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
