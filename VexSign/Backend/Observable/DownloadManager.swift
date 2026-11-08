@@ -438,80 +438,21 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 
 		// Network downloads only — imports must not produce a stuck 0% notification.
-		let notifiableDownloads = activeDownloads.filter { !$0.onlyArchiving }
-		guard !notifiableDownloads.isEmpty else {
-			UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["merged_download_progress"])
-			return
-		}
-
-		let content = UNMutableNotificationContent()
-
-		if notifiableDownloads.count == 1 {
-			let download = notifiableDownloads[0]
-			let percent = Int(download.progress * 100)
-			let bytesFormatted = formatBytes(download.bytesDownloaded)
-			let totalFormatted = formatBytes(download.totalBytes)
-
-			content.title = download.fileName
-			content.body = "\(bytesFormatted) / \(totalFormatted)"
-			content.subtitle = "Progress: \(percent)%"
-		} else {
-			let totalProgress = notifiableDownloads.reduce(0.0) { $0 + $1.progress }
-			let averageProgress = totalProgress / Double(notifiableDownloads.count)
-			let percent = Int(averageProgress * 100)
-
-			let totalBytesDownloaded = notifiableDownloads.reduce(Int64(0)) { $0 + $1.bytesDownloaded }
-			let totalBytesExpected = notifiableDownloads.reduce(Int64(0)) { $0 + $1.totalBytes }
-
-			let bytesFormatted = formatBytes(totalBytesDownloaded)
-			let totalFormatted = formatBytes(totalBytesExpected)
-
-			content.title = "Downloading \(notifiableDownloads.count) files"
-			content.subtitle = "Overall Progress: \(percent)%"
-			content.body = "\(bytesFormatted) / \(totalFormatted)"
-		}
-
-		content.sound = nil
-		content.interruptionLevel = .passive
-
-		let request = UNNotificationRequest(
-			identifier: "merged_download_progress",
-			content: content,
-			trigger: nil
-		)
-
-		UNUserNotificationCenter.current().add(request)
+        guard let request = DownloadNotificationBuilder.progress(forActiveDownloads: activeDownloads) else {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["merged_download_progress"])
+            return
+        }
+        UNUserNotificationCenter.current().add(request)
 	}
-	
+
 	func sendSystemNotification(title: String, body: String, identifier: String) {
-		let content = UNMutableNotificationContent()
-		content.title = title
-		content.body = body
-		content.sound = .default
-		
-		let request = UNNotificationRequest(
-			identifier: identifier,
-			content: content,
-			trigger: nil
-		)
-		
-		UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(
+            DownloadNotificationBuilder.system(title: title, body: body, identifier: identifier)
+        )
 	}
-	
+
 	func sendCompletionNotification(for download: Download, status: String) {
-		let content = UNMutableNotificationContent()
-		content.title = status
-		content.body = download.fileName
-		content.sound = .default
-		content.interruptionLevel = .timeSensitive
-		
-		let request = UNNotificationRequest(
-			identifier: "completion_\(download.id)",
-			content: content,
-			trigger: nil
-		)
-		
-		UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(DownloadNotificationBuilder.completion(for: download, status: status))
 	}
 
 	func showUIErrorMessage(for download: Download, error: NSError) {
@@ -524,14 +465,6 @@ class DownloadManager: NSObject, ObservableObject {
 				message: error.localizedDescription
 			)
 		}
-	}
-	
-	// MARK: - Helper Methods
-	
-	private func formatBytes(_ bytes: Int64) -> String {
-		let formatter = ByteCountFormatter()
-		formatter.countStyle = .binary
-		return formatter.string(fromByteCount: bytes)
 	}
 	
 	// MARK: - Public Methods

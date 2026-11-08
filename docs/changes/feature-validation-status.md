@@ -531,3 +531,29 @@ Diagnostics screens. Updates are marshalled through the main queue; it stores no
 credential contents and does not add an unchecked concurrency boundary. A warning
 for one identity cannot be cleared by a different identity's successful read.
 Steps 5–6 remain pending.
+
+## Maintenance review follow-up — step 5: first bounded manager extraction
+
+DownloadManager delegates notification-request construction to the stateless
+`DownloadNotificationBuilder`. Its existing `updateMergedProgressNotification`,
+`sendSystemNotification` and `sendCompletionNotification` interfaces remain
+unchanged. The manager retains notification eligibility, delivery/removal, Live
+Activity preference, timers, background lifetime and import/download scheduling.
+No additional singleton, concurrency escape hatch or persistence layer is added.
+
+Eight characterization fixtures were written from the pre-extraction manager at
+`e0eedee`: empty/import-only lists, single-download presentation, unweighted merged
+percentages and summed bytes, mixed import/network lists, zero-byte progress,
+system request fields and completion request fields. They lock existing binary
+byte formatting, percentage truncation, request identifiers, sounds and
+interruption levels. In particular, this patch intentionally does not change
+merged percentages to byte-weighted progress or alter existing notification
+wording. Notification permissions/delivery are not exercised by builder tests.
+
+Portable `make verify`, Swift grammar parsing and diff checks pass. Native
+characterization tests were added but cannot be executed in this Linux workspace;
+Apple compilation/XCTest and device notification/Live Activity checks remain
+pending. Before/after native equivalence is not claimed. This completes the first
+small extraction, not a rewrite of every large manager; further slices should
+follow the same characterization-first pattern after Apple validation. Step 6
+(validation-document consolidation) remains pending.
