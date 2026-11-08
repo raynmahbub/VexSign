@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Zip
+import CoreData
 import SwiftUI
 import OSLog
 
@@ -47,6 +47,8 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	}
 
 	func copy() async throws {
+        try _download?.importControl.checkpoint()
+        try Task.checkCancellation()
 		do {
 			try _fileManager.createDirectoryIfNeeded(at: _uniqueWorkDir)
 
@@ -63,11 +65,15 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			try _checkDiskSpace()
 
 			try _fileManager.copyItem(at: _ipa, to: destinationURL)
-			_ipa = destinationURL
+            _ipa = destinationURL
+            try _download?.importControl.checkpoint()
+            try Task.checkCancellation()
 			Logger.misc.info("[\(self._uuid)] File copied to: \(self._ipa.path)")
-		} catch let error as ImportError {
-			throw error
-		} catch {
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as ImportError {
+            throw error
+        } catch {
 			Logger.misc.error("[\(self._uuid)] Copy failed: \(error.localizedDescription)")
 			throw _error(.copy, reason: error.localizedDescription, underlying: error)
 		}
@@ -97,67 +103,30 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		)
 	}
 
-	func extract() async throws {
-		if _ipa.pathExtension == "ipa" {
-			Zip.addCustomFileExtension("ipa")
-		}
-		if _ipa.pathExtension == "tipa" {
-			Zip.addCustomFileExtension("tipa")
-		}
-
-		try ArchiveSafetyValidator.validate(_ipa, destination: _uniqueWorkDir)
-
-		let download = self._download
-
-		do {
-			// Timeout protection against an indefinite hang.
-			try await withThrowingTaskGroup(of: Void.self) { group in
-				group.addTask {
-					try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-						DispatchQueue.global(qos: .utility).async {
-							do {
-								try Zip.unzipFile(
-									self._ipa,
-									destination: self._uniqueWorkDir,
-									overwrite: true,
-									password: nil,
-									progress: { progress in
-										if let download = download {
-											DispatchQueue.main.async {
-												download.unpackageProgress = progress
-											}
-										}
-									}
-								)
-
-								self.uniqueWorkDirPayload = self._uniqueWorkDir.appendingPathComponent("Payload")
-								continuation.resume()
-							} catch {
-								continuation.resume(throwing: error)
-							}
-						}
-					}
-				}
-
-				// 5-minute timeout for large files.
-				group.addTask {
-					try await Task.sleep(for: .seconds(300))
-					throw self._error(.extract, reason: "Extraction timed out after 5 minutes. The file may be very large, incomplete, or corrupted.")
-				}
-
-				try await group.next()!
-
-				group.cancelAll()
-			}
-		} catch let error as ImportError {
-			throw error
-		} catch {
-			Logger.misc.error("[\(self._uuid)] Extract failed: \(error.localizedDescription)")
-			throw _error(.extract, reason: "The IPA could not be extracted. It may be corrupted, incomplete, or password-protected.\nUnderlying: \(error.localizedDescription)", underlying: error)
-		}
-	}
+    func extract() async throws {
+        do {
+            try IPAExtractor.extract(_ipa, to: _uniqueWorkDir, checkpoint: {
+                try Task.checkCancellation()
+                try self._download?.importControl.checkpoint()
+            }, progress: { [download = _download] fraction in
+                if let download {
+                    DispatchQueue.main.async { download.unpackageProgress = fraction }
+                }
+            })
+            uniqueWorkDirPayload = _uniqueWorkDir.appendingPathComponent("Payload")
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as ImportError {
+            throw error
+        } catch {
+            Logger.misc.error("[\(self._uuid)] Extract failed: \(error.localizedDescription)")
+            throw _error(.extract, reason: error.localizedDescription, underlying: error)
+        }
+    }
 
 	func move() async throws {
+        try _download?.importControl.checkpoint()
+        try Task.checkCancellation()
 		guard let payloadURL = uniqueWorkDirPayload else {
 			Logger.misc.error("[\(self._uuid)] Payload URL is nil")
 			throw _error(.payload, reason: "The Payload folder was missing after extraction. The IPA may be malformed.")
@@ -188,7 +157,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	}
 
 	@discardableResult
-	func addToDatabase() async throws -> AppInfoPresentable {
+	func addToDatabase() async throws -> NSManagedObjectID {
 		let app = try await _directory()
 
 		guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
@@ -201,13 +170,17 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			throw _error(.database, reason: "The app bundle could not be read. It may be corrupted or incomplete.")
 		}
 
-		do {
-			// The write runs on the storage write context and returns an object ID;
+        try _download?.importControl.checkpoint()
+        try Task.checkCancellation()
+        try _download?.importControl.beginCommit()
+        let objectID: NSManagedObjectID
+        do {
+            // The write runs on the storage write context and returns an object ID;
 			// the row itself is resolved below on the view context. This used to be
 			// a continuation with a 10 second watchdog, because inserting on the view
 			// context from a detached task could block the main queue - the write
 			// boundary removes that failure mode instead of timing out around it.
-			try await Storage.shared.addImported(
+			objectID = try await Storage.shared.addImported(
 				uuid: _uuid,
 				appName: bundle.name,
 				appIdentifier: bundle.bundleIdentifier,
@@ -223,13 +196,18 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 		_didAddToDatabase = true
 
-		// The library row has to be read on the context's own queue.
-		guard let imported = await MainActor.run(body: { Storage.shared.app(withUuid: _uuid) }) else {
-			throw _error(.database, reason: "The app was saved but could not be read back from the library.")
-		}
+        return objectID
+    }
 
-		return imported
-	}
+    /// Resolve on the view context only when delivering the main-actor result.
+    /// Managed objects must never cross MainActor.run's Sendable result boundary.
+    @MainActor
+    func importedApp(for objectID: NSManagedObjectID) throws -> AppInfoPresentable {
+        guard let imported: Imported = Storage.shared.object(objectID) else {
+            throw _error(.database, reason: "The app was saved but could not be read back from the library.")
+        }
+        return imported
+    }
 
 	private func _directory() async throws -> URL {
 		// Documents/VexSign/Unsigned/\(UUID)

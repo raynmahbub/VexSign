@@ -21,17 +21,30 @@ enum FR {
 		download: Download? = nil,
 		completion: @escaping (Result<AppInfoPresentable, Error>) -> Void
 	) {
-		Task.detached {
-			let handler = AppFileHandler(file: ipa, download: download)
+        Task.detached {
+            let scoped = ipa.startAccessingSecurityScopedResource()
+            defer { if scoped { ipa.stopAccessingSecurityScopedResource() } }
+            let handler = AppFileHandler(file: ipa, download: download)
 			
 			do {
 				try await handler.copy()
 				try await handler.extract()
 				try await handler.move()
-				let app = try await handler.addToDatabase()
-				try? await handler.clean()
+                let objectID = try await handler.addToDatabase()
+                let iconDirectory: URL? = await MainActor.run {
+                    guard let app: Imported = Storage.shared.object(objectID) else { return nil }
+                    return Storage.shared.getAppDirectory(for: app)
+                }
+                let historyIcon = iconDirectory.flatMap { iconTest($0) }
+                if let download, let historyIcon {
+                    await MainActor.run {
+                        UnifiedTaskCenter.shared.captureHistoryIcon(historyIcon, subjectID: download.id)
+                    }
+                }
+                try? await handler.clean()
 				await MainActor.run {
-					completion(.success(app))
+                    do { completion(.success(try handler.importedApp(for: objectID))) }
+                    catch { completion(.failure(error)) }
 				}
 			} catch {
 				try? await handler.clean()
@@ -46,18 +59,20 @@ enum FR {
 	///
 	/// Existing call sites stay source-compatible through the defaulted progress callbacks.
 	/// Signing is owned by a cancellable service rather than an unstructured task; callers can
-	/// observe stage/compatibility events and cancel via `SigningService.shared.cancelAll()`.
+	/// observe stage/compatibility events and cancel their own request ID.
 	static func signPackageFile(
 		_ app: AppInfoPresentable,
 		using options: Options,
 		icon: UIImage?,
 		certificate: CertificatePair?,
         overridesBlockingPreflightIssues: Bool = false,
+        requestID: String = UUID().uuidString,
         onStage: ((SigningStage) -> Void)? = nil,
         onCompatibilityRemoved: (([String]) -> Void)? = nil,
 		completion: @escaping (Result<Signed, Error>) -> Void
 	) {
 		let request = SigningRequest(
+            id: requestID,
 			app: app,
 			options: options,
 			icon: icon,
@@ -65,8 +80,13 @@ enum FR {
 			overridesBlockingPreflightIssues: overridesBlockingPreflightIssues
 		)
 
-		Task { @MainActor in
-			let log = SigningLog.shared
+        Task { @MainActor in
+            // Reject duplicates before changing the shared log or Live Activity.
+            guard SigningService.shared.canStart(request) else {
+                completion(.failure(SigningService.BusyError()))
+                return
+            }
+            let log = SigningLog.shared
 
 			// Re-signing with a different identity is legal, but it costs the user the in-place
 			// update and the app's keychain data. The signing sheet asks before it

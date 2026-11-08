@@ -23,6 +23,8 @@ on:
       - 'AltSourceKit/**'
       - 'Vendor/**'
       - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/prefetch_spm_artifacts.py'
+      - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
   pull_request:
     branches: [main]
@@ -38,6 +40,8 @@ on:
       - 'AltSourceKit/**'
       - 'Vendor/**'
       - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/prefetch_spm_artifacts.py'
+      - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
   workflow_dispatch:
 
@@ -91,8 +95,17 @@ jobs:
           restore-keys: |
             spm-platform-${{ runner.os }}-
 
+      - name: Prefetch verified binary archives
+        run: |
+          python3 .github/scripts/prefetch_spm_artifacts.py \
+            --cache "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}/artifacts"
+
       - name: Build (Debug, unsigned)
         id: build
+        env:
+          # Use a job-owned artifact cache rather than the runner-global SwiftPM
+          # cache: restored package artifacts must not collide with stale downloads.
+          TMPDIR: ${{ runner.temp }}/
         run: |
           set -uo pipefail
           echo "BUILD_LOG=${RUNNER_TEMP}/${{ matrix.scheme }}-build.log" >> "$GITHUB_ENV"
@@ -102,6 +115,7 @@ jobs:
             -configuration Debug \
             -destination '${{ matrix.destination }}' \
             -derivedDataPath "$DERIVED_DATA" \
+            -packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}" \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \

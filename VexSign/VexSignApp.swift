@@ -180,6 +180,7 @@ struct VexSignApp: App {
                 if newPhase == .active {
                     Task { @MainActor in
                         SourcesViewModel.shared.resetLoadingState()
+                        LibraryStatusStore.shared.refreshKnown()
                     }
                     appLock.authenticateIfNeeded()
                 }
@@ -430,7 +431,8 @@ struct VexSignApp: App {
 				// Manual download to show progress in the header; completion reports the real outcome.
 				let id = "VexSignManualDownload_\(UUID().uuidString)"
 				_ = DownloadManager.shared.startArchive(from: destinationURL, id: id) { error in
-					if let error = error {
+					if error is CancellationError { return }
+                    if let error = error {
 						UIAlertController.showErrorWithCopy(
 							title: .localized("Import Failed"),
 							message: error.localizedDescription

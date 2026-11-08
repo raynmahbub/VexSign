@@ -171,6 +171,66 @@ final class SigningServiceTests: XCTestCase {
 		XCTAssertFalse(service.isSigning)
 	}
 
+    @MainActor
+    func testSameAppWithDifferentRequestIDIsRejectedUntilCleanupFinishes() async throws {
+        let app = _signed()
+        let service = SigningService(work: _FakeWork(.waitForCancel([.copying])))
+        let first = _request(app, id: "first")
+        let duplicate = _request(app, id: "duplicate")
+        var ended = false
+        XCTAssertNotNil(service.sign(first) { if $0.isTerminal { ended = true } })
+        XCTAssertFalse(service.canStart(duplicate))
+        XCTAssertNil(service.sign(duplicate) { _ in XCTFail("Rejected run must not emit events") })
+        service.cancel(first.id)
+        try await _wait("cleanup") { ended }
+        XCTAssertTrue(service.canStart(duplicate))
+    }
+
+    @MainActor
+    func testTerminalCallbackCanImmediatelyRestartSameRequest() async throws {
+        let app = _signed()
+        let service = SigningService(work: _FakeWork(.succeed(app, [.copying])))
+        let request = _request(app, id: "restart")
+        var restarted = false
+        var finished = false
+        service.sign(request) { event in
+            guard event.isTerminal else { return }
+            XCTAssertFalse(service.isSigning)
+            restarted = service.sign(request) { if $0.isTerminal { finished = true } } != nil
+        }
+        try await _wait("restarted run") { finished }
+        XCTAssertTrue(restarted)
+        XCTAssertFalse(service.isSigning)
+    }
+
+    @MainActor
+    func testCancellingOneRequestDoesNotCancelAnotherApp() async throws {
+        let service = SigningService(work: _FakeWork(.waitForCancel([.copying])))
+        let first = _request(_signed("First"))
+        let second = _request(_signed("Second"))
+        var a: [SigningEvent] = []
+        var b: [SigningEvent] = []
+        service.sign(first) { a.append($0) }
+        service.sign(second) { b.append($0) }
+        try await _wait("both stages") { !a.isEmpty && !b.isEmpty }
+        service.cancel(first.id)
+        try await _wait("first cancellation") { a.contains { $0.isTerminal } }
+        XCTAssertFalse(b.contains { $0.isTerminal })
+        XCTAssertTrue(service.isSigning)
+        service.cancel(second.id)
+        try await _wait("second cancellation") { b.contains { $0.isTerminal } }
+        XCTAssertFalse(service.isSigning)
+    }
+
+    @MainActor
+    func testWorkCannotEmitAnExtraTerminalEvent() async throws {
+        let app = _signed()
+        let service = SigningService(work: _FakeWork(.extraTerminal(app)))
+        let events = await _collect(service, request: _request(app))
+        XCTAssertEqual(_terminalCount(events), 1)
+        guard case .finished? = events.last else { return XCTFail("Expected final success") }
+    }
+
 	// MARK: - Helpers
 
 	@MainActor
@@ -242,6 +302,7 @@ private enum _TestError: Error {
 private final class _FakeWork: SigningWork {
 	enum Behaviour {
 		case succeed(Signed, [SigningStage])
+        case extraTerminal(Signed)
 		case succeedWithCompatibility(Signed, [SigningStage], [String])
 		case fail(Signed, [SigningStage], Error)
 		/// Reports `.copying` (and anything else asked for) then sleeps until cancelled, which is
@@ -256,7 +317,11 @@ private final class _FakeWork: SigningWork {
 	}
 
 	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
-		switch _behaviour {
+        switch _behaviour {
+        case .extraTerminal(let signed):
+            reporting(.cancelled)
+            reporting(.stage(.copying))
+            return .success(signed)
 		case .succeed(let signed, let stages):
 			for stage in stages {
 				reporting(.stage(stage))

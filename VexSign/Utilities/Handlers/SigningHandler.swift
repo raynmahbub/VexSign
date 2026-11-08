@@ -13,6 +13,7 @@ import NimbleExtensions
 
 final class SigningHandler: NSObject {
 	private let _fileManager = FileManager.default
+    private let executionGate: SigningExecutionGate
 	private let _uuid = UUID().uuidString
 	private var _movedAppPath: URL?
 	// using uuid string is the best way to find the
@@ -38,8 +39,8 @@ final class SigningHandler: NSObject {
 	/// library, so it describes the bytes that are actually kept.
 	private(set) var verification: SignatureVerifier.Report?
 	/// True when the run was started from the preflight sheet's "Sign Anyway". The blocking
-	/// issues the user accepted there are the same ones the post-sign inspection reports, so
-	/// they are logged and kept in `verification` instead of failing the run a second time.
+    /// profile/entitlement compatibility risks may be accepted again post-sign;
+    /// structural failures always reject the output.
 	var overridesBlockingPreflightIssues = false
 	/// Called as each stage begins. Synchronous on purpose: it is delivered to
 	/// `SigningService`'s event queue, which preserves order.
@@ -47,7 +48,8 @@ final class SigningHandler: NSObject {
 	/// Reports the exact extension bundles removed by compatibility mode.
 	var onCompatibilityRemoved: (([String]) -> Void)?
 	
-	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options) {
+	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options, executionGate: SigningExecutionGate) {
+        self.executionGate = executionGate
 		self._app = app
 		self._options = options
 		self._appDescription = app.appDescription
@@ -57,7 +59,8 @@ final class SigningHandler: NSObject {
 	}
 	
 	func copy() async throws {
-		onStage?(.copying)
+        try Task.checkCancellation()
+        onStage?(.copying)
 
 		guard let appUrl = Storage.shared.getAppDirectory(for: _app) else {
 			throw SigningFileHandlerError.appNotFound
@@ -182,7 +185,7 @@ final class SigningHandler: NSObject {
 		// not cover cannot come out correctly — better said now than after the install.
 		try _auditNestedBundles(at: movedAppPath, certificate: appCertificate)
 
-		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate)
+		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate, executionGate: executionGate)
 		try await handler.disinject()
 		
 		if
@@ -198,7 +201,8 @@ final class SigningHandler: NSObject {
 			throw SigningFileHandlerError.missingCertifcate
 		}
 		
-		if let error = handler.hadError {
+        try Task.checkCancellation()
+        if let error = handler.hadError {
 			throw error
 		}
 
@@ -233,7 +237,7 @@ final class SigningHandler: NSObject {
 		let report = SignatureVerifier.verify(bundleAt: path, expectation: expectation)
 		verification = report
 
-		let overriding = overridesBlockingPreflightIssues && report.bundlePath != nil && !report.failures.isEmpty
+		let overriding = overridesBlockingPreflightIssues && !report.failures.isEmpty && !report.stopsRun(overridingBlockingIssues: true)
 		for issue in report.failures {
 			if overriding {
 				SigningLog.shared.warn(.localized("Signature check (signed through): %@", arguments: issue.detail))
@@ -283,36 +287,44 @@ final class SigningHandler: NSObject {
 	func addToDatabase() async throws {
 		let app = try await _directory()
 
-		guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
-			return
-		}
+        guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        // Registration is the commit point. A cancellation before it must leave no row.
+        try Task.checkCancellation()
 
-		let bundle = Bundle(url: appUrl)
+        guard let bundle = Bundle(url: appUrl),
+              let identifier = SignatureVerifier.readInfo(at: appUrl)?["CFBundleIdentifier"] as? String,
+              !identifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              SigningInputValidation.executable(in: appUrl) != nil else {
+            throw SigningFileHandlerError.appNotFound
+        }
 		// Only a `.default` run is signed with the selected certificate; the
 		// modify-only and ad-hoc paths keep the row certificate-free. The ID is
 		// what crosses the queue boundary - never the managed object.
 		let certificateID = _options.signingOption == .default ? appCertificate?.objectID : nil
 
-		try await Storage.shared.addSigned(
+		let objectID = try await Storage.shared.addSigned(
 			uuid: _uuid,
 			certificateID: certificateID,
-			appName: bundle?.name,
-			appIdentifier: bundle?.bundleIdentifier,
+			appName: bundle.name,
+            appIdentifier: identifier,
 			originalAppIdentifier: _originalBundleIdentifier,
-			appVersion: bundle?.version,
-			appIcon: bundle?.iconFileName,
+			appVersion: bundle.version,
+            appIcon: bundle.iconFileName,
 			appDescription: _appDescription
 		)
 
-		Logger.signing.info("[\(self._uuid)] Added to database (original ID: \(self._originalBundleIdentifier ?? "nil"), current ID: \(bundle?.bundleIdentifier ?? "nil"))")
+		Logger.signing.info("[\(self._uuid)] Added to database (original ID: \(self._originalBundleIdentifier ?? "nil"), current ID: \(identifier))")
 
-		// The write hands back an ID; the row itself is resolved on the view
-		// context. Looking it up by UUID keeps the closure free of managed
-		// objects and of a non-Sendable `self`.
-		let uuid = _uuid
-		signedApp = Storage.shared.app(withUuid: uuid) as? Signed
-
-		_didAddToDatabase = true
+        // Resolve the exact committed row by its permanent ID on the view context.
+        // The row is already committed. Preserve its bundle even if resolving it fails,
+        // rather than leaving a saved row pointing at a deleted directory.
+        _didAddToDatabase = true
+        guard let registered: Signed = Storage.shared.object(objectID) else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        signedApp = registered
 	}
 	
 	private func _directory() async throws -> URL {
@@ -789,7 +801,7 @@ enum SigningFileHandlerError: Error, LocalizedError {
 			.localized("Signing failed: the engine refused this app and did not say why. Open the signing log for its output.")
 		case .identityRejected(let reason): reason
 		case .entitlementsUnreadable:
-			.localized("The entitlements file selected in the options could not be read.")
+			.localized("The custom entitlements file must be a readable property-list dictionary.")
 		case .signFailed: "Signing failed."
 		}
 	}

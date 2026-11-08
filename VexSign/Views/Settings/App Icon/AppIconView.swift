@@ -29,7 +29,7 @@ extension AppIconView {
 	static func altImage(_ name: String?) -> UIImage {
 		if name == nil, let logo = UIImage(named: "AppLogo") { return logo }
 		let path = Bundle.main.bundleURL.appendingPathComponent((name ?? "AppIcon60x60") + "@2x.png")
-		return UIImage(contentsOfFile: path.path) ?? UIImage()
+		return UIImage(contentsOfFile: path.path) ?? UIImage(named: "AppLogo") ?? UIImage()
 	}
 }
 
@@ -40,7 +40,7 @@ struct AppIconView: View {
 	// dont translate
 	var sections: [String: [AltIcon]] = [
 		"Main": [
-			AltIcon(displayName: "VexIcon", author: "Vex", key: nil),
+			AltIcon(displayName: "Liquid Glass", author: "VexSign", key: nil),
 			AltIcon(displayName: "VexSign (macOS)", author: "claration", key: "V2Mac"),
 			AltIcon(displayName: "VexSign v1", author: "claration", key: "V1"),
 			AltIcon(displayName: "VexSign v1 (macOS)", author: "claration", key: "V1Mac"),
@@ -78,8 +78,13 @@ extension AppIconView {
 		icon: AppIconView.AltIcon
 	) -> some View {
 		Button {
-			UIApplication.shared.setAlternateIconName(icon.key) { _ in
-				currentIcon = UIApplication.shared.alternateIconName
+			UIApplication.shared.setAlternateIconName(icon.key) { error in
+                Task { @MainActor in
+                    if let error { Toast.error(error.localizedDescription); return }
+                    UserDefaults.standard.set(icon.key ?? "", forKey: "VexSign.selectedAppIcon")
+                    FRIconCache.shared.invalidateAll()
+                    currentIcon = UIApplication.shared.alternateIconName
+                }
 			}
 		} label: {
 			HStack(spacing: 18) {

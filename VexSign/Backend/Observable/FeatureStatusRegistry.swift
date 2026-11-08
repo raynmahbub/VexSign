@@ -115,7 +115,7 @@ enum FeatureStatusRegistry {
 			name: "Encrypted backup",
 			setting: "Settings → Backup & Restore → Create Backup → Password",
 			persistedAs: "VEXBK2 container (ContentKey wrapped by password or Keychain backup.deviceKey)",
-			consumer: "BackupCrypto.seal/unseal → BackupManager.makeBackup/open",
+			consumer: "BackupCrypto.sealFile/unsealFile → BackupManager.makeBackup/open",
 			status: .implemented
 		),
 		FeatureStatusEntry(

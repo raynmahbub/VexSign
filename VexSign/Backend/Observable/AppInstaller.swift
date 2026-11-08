@@ -38,8 +38,33 @@ final class AppInstaller: ObservableObject {
 	private let _useShareSheet = UserDefaults.standard.bool(forKey: "VexSign.useShareSheetForArchiving")
 	private let _useNovaDNSDynamic = UserDefaults.standard.bool(forKey: "VexSign.useNovaDNSDynamic")
 
+    private var _preparedPackage: Task<PreparedInstallationPackage, Error>?
+    private var _packageArchive: InstallationArchive?
+    private(set) var hasPackaged = false
+    var onPackaged: (() -> Void)?
+
+    /// Settings changed while prewarming? Discard the snapshot and build afresh.
+    var preparationMatchesSettings: Bool {
+        _installationMethod == UserDefaults.standard.integer(forKey: "VexSign.installationMethod") &&
+        _serverMethod == UserDefaults.standard.integer(forKey: "VexSign.serverMethod") &&
+        _useNovaDNSDynamic == UserDefaults.standard.bool(forKey: "VexSign.useNovaDNSDynamic") &&
+        _preparationCompression == ArchiveHandler.getCompressionLevel() &&
+        _preparationIPFix == UserDefaults.standard.bool(forKey: "VexSign.ipFix")
+    }
+    private let _preparationCompression = ArchiveHandler.getCompressionLevel()
+    private let _preparationIPFix = UserDefaults.standard.bool(forKey: "VexSign.ipFix")
+
+    /// Packaging only: never starts a server, opens an install URL or reports success.
+    func prepareForQueuedOTA() {
+        guard !_isSharing, _installationMethod == 0, !_hasFinished, _preparedPackage == nil else { return }
+        _preparedPackage = Task { try await _createPackage() }
+    }
+
 	private var _server: ServerInstaller?
 	private var _progressTask: Task<Void, Never>?
+    private var _runTask: Task<Void, Never>?
+    private var _fallbackTask: Task<Void, Never>?
+    private var _confirmationTask: Task<Void, Never>?
 	private var _statusObserver: AnyCancellable?
 	private var _completion: ((Result<Outcome, Error>) -> Void)?
 	private var _hasFinished = false
@@ -48,6 +73,7 @@ final class AppInstaller: ObservableObject {
 	/// One idevice retry per install, so a genuinely broken pair doesn't loop.
 	private var _didAttemptIdeviceFallback = false
 	/// The device-side evidence that turns "progress ended" into an answer.
+    private var _installBaseline: InstallWatcher.Baseline?
 	private let _probe: InstalledAppProbing
 	private var _lastPPQRefresh = Date()
 
@@ -76,6 +102,10 @@ final class AppInstaller: ObservableObject {
 	}
 
 	deinit {
+        _preparedPackage?.cancel()
+        _runTask?.cancel()
+        _fallbackTask?.cancel()
+        _confirmationTask?.cancel()
 		_progressTask?.cancel()
 		_declineCheck?.cancel()
 		if let _declineObserver { NotificationCenter.default.removeObserver(_declineObserver) }
@@ -90,16 +120,32 @@ final class AppInstaller: ObservableObject {
 			return
 		}
 
+        if !_isSharing, let identifier = app.identifier {
+            _installBaseline = .init(app: _probe.installedApp(for: identifier))
+        }
 		_statusObserver = viewModel.$status
 			.receive(on: DispatchQueue.main)
 			.sink { [weak self] in self?._handle($0) }
 
-		Task { await _run() }
+		_runTask = Task { await _run() }
 	}
 
 	/// Stops without reporting an outcome; the caller has already moved on.
-	func stop() {
-		_hasFinished = true
+    func stop() {
+        _hasFinished = true
+        onPackaged = nil
+        _preparedPackage?.cancel()
+        _preparedPackage = nil
+        _packageArchive = nil
+        let server = _server
+        _server = nil
+        if let server { Task { await server.stop() } }
+        _runTask?.cancel()
+        _runTask = nil
+        _fallbackTask?.cancel()
+        _fallbackTask = nil
+        _confirmationTask?.cancel()
+        _confirmationTask = nil
 		_completion = nil
 		_disarmDeclineWatch()
 		_statusObserver = nil
@@ -131,8 +177,22 @@ final class AppInstaller: ObservableObject {
 					throw Self.error(.localized("No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN."))
 				}
 			}
-			let (packageUrl, exported) = try await _package()
-			guard !_hasFinished else { return }
+            let prepared: PreparedInstallationPackage
+            if let pending = _preparedPackage {
+                prepared = try await pending.value
+            } else {
+                prepared = try await _createPackage()
+            }
+            _preparedPackage = nil
+            try Task.checkCancellation()
+            guard !_hasFinished else { return }
+            _packageArchive = prepared.archive
+            let packageUrl = prepared.url
+            let exported = prepared.exported
+            // Hold the lease through native uploads/staging even if Stop clears properties.
+            defer { withExtendedLifetime(prepared.archive) {} }
+            hasPackaged = true
+            onPackaged?()
 
 			guard !_isSharing else {
 				_finish(.success(.exported(_useShareSheet ? exported : nil)))
@@ -164,21 +224,50 @@ final class AppInstaller: ObservableObject {
 	}
 
 	/// Copying and zipping the bundle stays off the main actor; both are long and fully blocking.
-	private func _package() async throws -> (package: URL, exported: URL?) {
-		let app = app
-		let viewModel = viewModel
-		let isSharing = _isSharing
-		let useShareSheet = _useShareSheet
-
-		return try await Task.detached(priority: .userInitiated) {
-			let handler = ArchiveHandler(app: app, viewModel: viewModel)
-			try await handler.move()
-			let package = try await handler.archive()
-
-			guard isSharing else { return (package, nil) }
-			return (package, try await handler.moveToArchive(package, shouldOpen: !useShareSheet))
-		}.value
-	}
+	private func _createPackage() async throws -> PreparedInstallationPackage {
+        let app = app
+        // Resolve managed-object metadata only on the main actor, before file work.
+        guard let source = Storage.shared.getAppDirectory(for: app) else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        let exportName = app.name
+        let exportVersion = app.version
+        let viewModel = viewModel
+        let isSharing = _isSharing
+        let useShareSheet = _useShareSheet
+        let compressForTransfer = !isSharing && _installationMethod == 1
+        let worker = Task.detached(priority: .utility) {
+            try Task.checkCancellation()
+            let archive = try InstallationArchive()
+            let handler = ArchiveHandler(app: app, viewModel: viewModel, workspace: archive.directory)
+            try await handler.move(from: source)
+            try Task.checkCancellation()
+            let package = try await handler.archive(compressForTransfer: compressForTransfer)
+            try Task.checkCancellation()
+            // Once zipped, the original library and IPA are enough; drop the extra Payload copy.
+            try FileManager.default.removeItem(at: archive.directory.appendingPathComponent("Payload"))
+            let exported: URL?
+            if isSharing {
+                exported = try IPAExportNaming.movePackage(package, to: FileManager.default.archives,
+                    name: exportName, version: exportVersion)
+                if !useShareSheet {
+                    await MainActor.run {
+                        if let shared = FileManager.default.archives.toSharedDocumentsURL() {
+                            UIApplication.open(shared)
+                        }
+                    }
+                }
+            } else {
+                exported = nil
+            }
+            return PreparedInstallationPackage(url: package, exported: exported, archive: archive)
+        }
+        return try await withTaskCancellationHandler {
+            try await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
+    }
 
 	private func _serveForOTA(_ packageUrl: URL) async {
 		guard let server = _server else {
@@ -189,6 +278,8 @@ final class AppInstaller: ObservableObject {
 			return
 		}
 
+        guard !_hasFinished, !Task.isCancelled else { return }
+        server.packageArchive = _packageArchive
 		server.packageUrl = packageUrl
 
 		if _serverMethod == 1 {
@@ -196,13 +287,19 @@ final class AppInstaller: ObservableObject {
 			server.manifestUrl = await ManifestService.resolve(for: app, payload: server.payloadEndpoint)
 		}
 
+        guard !_hasFinished, !Task.isCancelled else { return }
 		await server.start()
+        guard !_hasFinished, !Task.isCancelled else {
+            await server.stop()
+            return
+        }
 
 		var failure = server.startupError
 		if failure == nil {
 			failure = await server.selfCheck()
 		}
 
+        guard !_hasFinished, !Task.isCancelled else { return }
 		if let failure {
 			_handleServerFailure(packageUrl: packageUrl, failure)
 		} else {
@@ -215,12 +312,16 @@ final class AppInstaller: ObservableObject {
 	/// pairing exists, otherwise surface the cause with the actionable wording
 	/// and the Semi Local retry.
 	private func _handleServerFailure(packageUrl: URL, _ failure: Error) {
+        guard !_hasFinished, !Task.isCancelled else { return }
 		let pairingExists = FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile())
 		if pairingExists {
 			FileLogger.log("Server setup failed (\(failure.localizedDescription)), falling back to idevice installation", category: "install")
 			SigningLog.shared.info(.localized("Server failed, falling back to idevice installation…"), category: "install")
-			Task {
-				do {
+            let archive = _packageArchive
+            _fallbackTask = Task {
+                defer { withExtendedLifetime(archive) {} }
+                do {
+                    try Task.checkCancellation()
 					try await InstallationProxy(viewModel: viewModel)
 						.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
 				} catch {
@@ -236,6 +337,7 @@ final class AppInstaller: ObservableObject {
 	// MARK: Status
 
 	private func _handle(_ status: InstallerStatusViewModel.InstallerStatus) {
+        guard !_hasFinished else { return }
 		switch status {
 		case .ready where _installationMethod == 0:
 			_openInstall(_serverMethod == 0 ? _server?.iTunesLink : _server?.iTunesLinkExternal)
@@ -252,7 +354,8 @@ final class AppInstaller: ObservableObject {
 			// The IDevice path trusts installd's own phases; corroborate them with the device
 			// before telling the user it worked.
 			if _installationMethod == 1, case .success = result {
-				Task { await _confirmIdeviceInstall() }
+                guard _confirmationTask == nil else { return }
+                _confirmationTask = Task { await _confirmIdeviceInstall() }
 				return
 			}
 			_finish(result.map { .installed })
@@ -313,9 +416,12 @@ final class AppInstaller: ObservableObject {
 
 		viewModel.status = .installing
 
-		Task {
-			do {
-				try await InstallationProxy(viewModel: viewModel)
+        let archive = _packageArchive
+        _fallbackTask = Task {
+            defer { withExtendedLifetime(archive) {} }
+            do {
+                try Task.checkCancellation()
+                try await InstallationProxy(viewModel: viewModel)
 					.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
 			} catch {
 				FileLogger.error("idevice fallback failed: \(error.localizedDescription)", category: "install")
@@ -370,6 +476,10 @@ final class AppInstaller: ObservableObject {
 	private func _finish(_ result: Result<Outcome, Error>) {
 		guard !_hasFinished else { return }
         _hasFinished = true
+        _progressTask?.cancel()
+        _progressTask = nil
+        _confirmationTask?.cancel()
+        _confirmationTask = nil
 		// Only an install the device proved may be counted.
 		if case .success(let outcome) = result, outcome.countsAsInstall {
 			Task { await AnalyticsStore.shared.record(.appsInstalled) }
@@ -394,10 +504,15 @@ final class AppInstaller: ObservableObject {
 	// is about. The loop still drives the ring and the PPQ heartbeat, but the verdict now
 	/// comes from `InstallConfirmation` and `InstalledAppProbe`.
 	private func _startProgressPolling() {
-		guard _progressTask == nil, let bundleID = app.identifier else { return }
+        guard _progressTask == nil else { return }
+        guard let bundleID = app.identifier, !bundleID.isEmpty else {
+            _finish(.failure(Self.error(.localized("The device installation cannot be verified because the bundle identifier is missing."))))
+            return
+        }
 
 		let probe = _probe
 		let useNovaDNS = _useNovaDNSDynamic
+        let baseline = _installBaseline
 		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version)
 
 		_progressTask = Task.detached(priority: .background) { [weak self] in
@@ -405,7 +520,8 @@ final class AppInstaller: ObservableObject {
 			let verdict = await InstallWatcher.watch(
 				InstallConfirmation(expectation: expectation),
 				probe: probe,
-				progress: { await UIApplication.installProgress(for: bundleID) },
+                baseline: baseline,
+				progress: { await UIApplication.installProgress(for: bundleID, makeSynchronous: false) },
 				onUpdate: { raw, phase in
 					await MainActor.run {
 						installer?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
@@ -423,6 +539,7 @@ final class AppInstaller: ObservableObject {
 
 	/// The ring, and the PPQ heartbeat while the payload is being written.
 	private func _handleProgress(raw: Double?, phase: InstallConfirmation.Phase, useNovaDNS: Bool) {
+        guard !_hasFinished else { return }
 		let value: Double
 		switch phase {
 		case .waitingForStart:
@@ -449,6 +566,7 @@ final class AppInstaller: ObservableObject {
 
 	/// The device has spoken: this is the only place an OTA install is reported as done.
 	private func _finishConfirmed(_ verdict: InstallConfirmation.Verdict) {
+        guard !_hasFinished, !Task.isCancelled else { return }
 		_progressTask = nil
 
 		// The device's answer just changed; anything the library cached about this identifier is

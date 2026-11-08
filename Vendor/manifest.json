@@ -25,6 +25,14 @@
       "license": "MIT",
       "licenseFiles": [
         "LICENSE"
+      ],
+      "localPatches": [
+        {
+          "path": "Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift",
+          "description": "Bounded pairing payload streaming, scoped FFI buffer access, file-handle cleanup and cancellation forwarding.",
+          "baseSHA256": "5497ecda8c7ceeb769dbb39d29787025e6da96fa29640d6ab10605ef3b08a5d4",
+          "patchedSHA256": "6f4b8552817c67643ace148172b3426be4f2de0a6c78e61ea60deb3dac5f27c9"
+        }
       ]
     }
   ]

@@ -12,6 +12,8 @@ import NimbleExtensions
 // MARK: - View
 struct SigningTweaksView: View {
 	@State private var _isLibraryPickerPresenting = false
+	@State private var _isImporting = false
+	@State private var _importTask: Task<Void, Never>?
 
 	var app: AppInfoPresentable
 	@Binding var options: Options
@@ -22,6 +24,26 @@ struct SigningTweaksView: View {
 			get: { options.tweakInjections ?? [] },
 			set: { options.tweakInjections = $0 }
 		)
+	}
+
+	private func _importFiles(_ urls: [URL]) {
+		guard !_isImporting else { return }
+		_isImporting = true
+		_importTask = Task { @MainActor in
+			defer { _isImporting = false; _importTask = nil }
+			do {
+				let staged = try await TweakImportSupport.stage(urls)
+				guard !Task.isCancelled else {
+					TweakImportSupport.discard(staged)
+					return
+				}
+				options.injectionFiles.append(contentsOf: staged)
+			} catch is CancellationError {
+				// The staging worker removes all partially imported files.
+			} catch {
+				Toast.error(error.localizedDescription, duration: .sticky)
+			}
+		}
 	}
 
 	// MARK: Body
@@ -37,12 +59,9 @@ struct SigningTweaksView: View {
 				style: .icon,
 				placement: .topBarTrailing
 			) {
+				guard !_isImporting else { return }
 				DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
-					for url in urls {
-						FileManager.default.moveAndStore(url, with: "VexSignTweak") { url in
-							options.injectionFiles.append(url)
-						}
-					}
+					_importFiles(urls)
 				}
 			}
 		}
@@ -51,6 +70,8 @@ struct SigningTweaksView: View {
 				_addFromLibrary(tweak)
 			}
 		}
+		.overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
+		.onDisappear { _importTask?.cancel() }
 		.animation(.smooth, value: options.injectionFiles)
 		.animation(.smooth, value: options.tweakInjections)
 	}

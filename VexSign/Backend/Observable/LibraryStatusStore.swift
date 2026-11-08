@@ -218,6 +218,11 @@ final class LibraryStatusStore: ObservableObject {
 		}
 	}
 
+    /// Refresh rows that remain mounted when returning from the iOS install prompt.
+    func refreshKnown() {
+        for request in Array(knownRequests.values) { self.request(request, force: true) }
+    }
+
 	func invalidateAll() {
 		// Prevent a pre-reset read from repopulating the store or clearing a newer read.
 		generation += 1

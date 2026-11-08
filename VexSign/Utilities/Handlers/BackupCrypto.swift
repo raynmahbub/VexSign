@@ -11,7 +11,8 @@
 // .
 //
 //  Old files still open:
-//    "VEXBK2\n" - encrypted, envelope (this version)
+//    "VEXBK3\n" - chunk-authenticated file stream (current file writer)
+//    "VEXBK2\n" - encrypted, whole-buffer envelope
 //    "VEXBK1\n" - encrypted, password only (earlier versions)
 //    "VEXBK0\n" - plaintext (earlier versions; read, and reported as legacy)
 //
@@ -22,7 +23,7 @@ import CommonCrypto
 import NimbleExtensions
 
 enum BackupCrypto {
-	/// Header of a backup written by this version: always encrypted.
+	/// Header of the legacy whole-buffer API; file backups use streamMagic.
 	private static let magic = Data("VEXBK2\n".utf8)
 	/// Header of a password-only backup written by an earlier version.
 	private static let passwordMagic = Data("VEXBK1\n".utf8)
@@ -35,6 +36,7 @@ enum BackupCrypto {
 	private static let wrappedKeyCount = 60
 	/// Keychain account holding the device key that wraps a passwordless backup.
 	private static let deviceKeyAccount = "backup.deviceKey"
+    private static let deviceKeyCreationLock = NSLock()
 
 	/// Shortest password accepted for a backup that contains signing identities.
 	static let minimumPasswordLength = 8
@@ -53,6 +55,8 @@ enum BackupCrypto {
 		case certificatesNeedPassword
 		case deviceBoundBackup
 		case cryptoFailed
+        case streamTooLarge
+        case legacyTooLarge
 
 		var errorDescription: String? {
 			switch self {
@@ -68,6 +72,10 @@ enum BackupCrypto {
 				String.localized("A backup that includes certificates needs a password of at least %lld characters, because it contains private keys.", arguments: Int64(BackupCrypto.minimumPasswordLength))
 			case .deviceBoundBackup:
 				String.localized("This backup was encrypted for the device that made it. To open it here, back up with a password instead.")
+            case .streamTooLarge:
+                String.localized("This backup exceeds the safe streaming-container size limit.")
+            case .legacyTooLarge:
+                String.localized("This older backup is too large for safe in-memory decryption. Open it with the version that created it and export smaller components.")
 			case .cryptoFailed:
 				String.localized("Backup encryption failed, please try again.")
 			}
@@ -79,7 +87,7 @@ enum BackupCrypto {
 	/// `true` for a file this app can only read with a credential — which is
 	/// every file this version writes.
 	static func isEncrypted(_ data: Data) -> Bool {
-		data.prefix(magic.count) == magic || data.prefix(passwordMagic.count) == passwordMagic
+		data.prefix(magic.count) == magic || data.prefix(passwordMagic.count) == passwordMagic || data.prefix(streamMagic.count) == streamMagic
 	}
 
 	static func isEncrypted(_ url: URL) -> Bool {
@@ -118,7 +126,7 @@ enum BackupCrypto {
 
 		// Older password-only files need one; older plaintext files do not.
 		if head.prefix(passwordMagic.count) == passwordMagic { return true }
-		guard head.prefix(magic.count) == magic else { return false }
+		guard head.prefix(magic.count) == magic || head.prefix(streamMagic.count) == streamMagic else { return false }
 
 		guard let flag = try? handle.read(upToCount: 1),
 			  let byte = flag.first,
@@ -238,6 +246,9 @@ enum BackupCrypto {
 	/// The device key that wraps a passwordless backup. Created on first use and
 	/// kept in the Keychain, so the file is useless without this device.
 	private static func _deviceKey() throws -> SymmetricKey {
+        // Concurrent passwordless exports must not overwrite one another's key.
+        deviceKeyCreationLock.lock()
+        defer { deviceKeyCreationLock.unlock() }
 		if let existing = try _deviceKeyIfPresent() { return existing }
 
 		let bytes = try _randomBytes(32)
@@ -279,4 +290,189 @@ enum BackupCrypto {
 		guard Int(status) == kCCSuccess else { throw Failure.cryptoFailed }
 		return SymmetricKey(data: Data(derived))
 	}
+}
+
+// MARK: - File-stream container (VEXBK3)
+// The envelope wraps one random content key. Each <=1 MiB record has its own
+// AES-GCM tag, deterministic per-file counter nonce, and AAD binding the complete
+// envelope, record index and plaintext length. A tagged zero-length record and
+// mandatory EOF prevent truncation, appending, reordering and record substitution.
+extension BackupCrypto {
+    private static let streamMagic = Data("VEXBK3\n".utf8)
+    static let streamChunkBytes = 1024 * 1024
+    static let maximumStreamBytes: UInt64 = 9 * 1024 * 1024 * 1024
+    private static let maximumLegacyFileBytes: UInt64 = 256 * 1024 * 1024
+    private static let maximumDataRecords = maximumStreamBytes / UInt64(streamChunkBytes)
+
+    static func sealFile(_ input: URL, to output: URL, password: String) throws {
+        let source = try FileHandle(forReadingFrom: input)
+        defer { try? source.close() } // try? ok: preserve the primary operation error.
+        let contentKey = SymmetricKey(size: .bits256)
+        let wrap: Wrap = password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .device : .password
+        let salt: Data
+        let wrappingKey: SymmetricKey
+        if wrap == .device {
+            salt = Data(count: saltCount)
+            wrappingKey = try _deviceKey()
+        } else {
+            salt = try _randomBytes(saltCount)
+            wrappingKey = try _deriveKey(password: password, salt: salt)
+        }
+        var prefix = streamMagic
+        prefix.append(wrap.rawValue)
+        prefix.append(salt)
+        guard let wrapped = try AES.GCM.seal(contentKey.withUnsafeBytes { Data($0) },
+            using: wrappingKey, authenticating: prefix).combined, wrapped.count == wrappedKeyCount else {
+            throw Failure.cryptoFailed
+        }
+        var header = prefix
+        header.append(wrapped)
+        try _writeStreamAtomically(to: output) { destination in
+            try destination.write(contentsOf: header)
+            var index: UInt64 = 0
+            var total: UInt64 = 0
+            while true {
+                try Task.checkCancellation()
+                let terminal = try autoreleasepool { () throws -> Bool in
+                    let plaintext = try source.read(upToCount: streamChunkBytes) ?? Data()
+                    guard UInt64(plaintext.count) <= maximumStreamBytes - total,
+                          plaintext.isEmpty || index < maximumDataRecords else { throw Failure.streamTooLarge }
+                    total += UInt64(plaintext.count)
+                    let length = _streamInteger(UInt64(plaintext.count), bytes: 4)
+                    let box = try AES.GCM.seal(plaintext, using: contentKey,
+                        nonce: _streamNonce(index), authenticating: header + _streamInteger(index, bytes: 8) + length)
+                    try destination.write(contentsOf: length)
+                    try destination.write(contentsOf: box.ciphertext)
+                    try destination.write(contentsOf: box.tag)
+                    return plaintext.isEmpty
+                }
+                if terminal { break }
+                index += 1
+            }
+        }
+    }
+
+    /// Returns the SHA-256 of the authenticated plaintext. No destination is
+    /// published until every record, the terminal tag, EOF and close succeed.
+    static func unsealFile(_ input: URL, to output: URL, password: String) throws -> String {
+        let source = try FileHandle(forReadingFrom: input)
+        defer { try? source.close() } // try? ok: preserve the primary operation error.
+        let magicBytes = try _streamRead(source, count: streamMagic.count)
+        if magicBytes != streamMagic {
+            let size = try source.seekToEnd()
+            guard size <= maximumLegacyFileBytes else { throw Failure.legacyTooLarge }
+            try source.seek(toOffset: 0)
+            let plaintext = try unseal(try _streamRead(source, count: Int(size)), password: password)
+            try Task.checkCancellation()
+            try _writeStreamAtomically(to: output) { try $0.write(contentsOf: plaintext) }
+            return SHA256.hash(data: plaintext).map { String(format: "%02x", $0) }.joined()
+        }
+        let envelope = try _streamRead(source, count: 1 + saltCount + wrappedKeyCount)
+        guard let wrap = Wrap(rawValue: envelope[0]) else { throw Failure.badFormat }
+        let salt = envelope.subdata(in: 1..<(1 + saltCount))
+        let prefix = streamMagic + envelope.prefix(1 + saltCount)
+        let header = streamMagic + envelope
+        let wrappingKey: SymmetricKey
+        if wrap == .password {
+            guard !password.isEmpty else { throw Failure.passwordRequired }
+            wrappingKey = try _deriveKey(password: password, salt: salt)
+        } else {
+            do {
+                guard let key = try _deviceKeyIfPresent() else { throw Failure.deviceBoundBackup }
+                wrappingKey = key
+            } catch { throw Failure.deviceBoundBackup }
+        }
+        let contentKey: SymmetricKey
+        do {
+            let keyBytes = try AES.GCM.open(AES.GCM.SealedBox(combined: envelope.suffix(wrappedKeyCount)),
+                using: wrappingKey, authenticating: prefix)
+            guard keyBytes.count == 32 else { throw Failure.badFormat }
+            contentKey = SymmetricKey(data: keyBytes)
+        } catch {
+            throw wrap == .password ? Failure.wrongPassword : Failure.badFormat
+        }
+        var digest = SHA256()
+        try _writeStreamAtomically(to: output) { destination in
+            var index: UInt64 = 0
+            var total: UInt64 = 0
+            while true {
+                try Task.checkCancellation()
+                let terminal = try autoreleasepool { () throws -> Bool in
+                    let lengthBytes = try _streamRead(source, count: 4)
+                    let length = lengthBytes.reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+                    guard length <= UInt64(streamChunkBytes), length <= maximumStreamBytes - total,
+                          index <= maximumDataRecords, length == 0 || index < maximumDataRecords else {
+                        throw Failure.badFormat
+                    }
+                    total += length
+                    let encrypted = try _streamRead(source, count: Int(length) + 16)
+                    let plaintext: Data
+                    do {
+                        let box = try AES.GCM.SealedBox(nonce: _streamNonce(index),
+                            ciphertext: encrypted.prefix(Int(length)), tag: encrypted.suffix(16))
+                        plaintext = try AES.GCM.open(box, using: contentKey,
+                            authenticating: header + _streamInteger(index, bytes: 8) + lengthBytes)
+                    } catch { throw Failure.wrongPassword }
+                    if length == 0 {
+                        guard (try source.read(upToCount: 1) ?? Data()).isEmpty else { throw Failure.badFormat }
+                        return true
+                    }
+                    digest.update(data: plaintext)
+                    try destination.write(contentsOf: plaintext)
+                    return false
+                }
+                if terminal { break }
+                index += 1
+            }
+        }
+        return digest.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func _streamInteger(_ value: UInt64, bytes: Int) -> Data {
+        Data((0..<bytes).reversed().map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) })
+    }
+
+    private static func _streamNonce(_ index: UInt64) throws -> AES.GCM.Nonce {
+        try AES.GCM.Nonce(data: Data(count: 4) + _streamInteger(index, bytes: 8))
+    }
+
+    private static func _streamRead(_ source: FileHandle, count: Int) throws -> Data {
+        var result = Data()
+        while result.count < count {
+            try Task.checkCancellation()
+            guard let part = try source.read(upToCount: count - result.count), !part.isEmpty else {
+                throw Failure.badFormat
+            }
+            result.append(part)
+        }
+        return result
+    }
+
+    private static func _writeStreamAtomically(to output: URL, body: (FileHandle) throws -> Void) throws {
+        let fm = FileManager.default
+        let temporary = output.deletingLastPathComponent().appendingPathComponent(".vexbackup-\(UUID().uuidString)")
+        guard fm.createFile(atPath: temporary.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
+            throw Failure.cryptoFailed
+        }
+        var published = false
+        defer {
+            if !published {
+                do { try fm.removeItem(at: temporary) }
+                catch { FileLogger.log("Could not remove incomplete backup stream: \(error)", category: "backup") }
+            }
+        }
+        let destination = try FileHandle(forWritingTo: temporary)
+        do {
+            try body(destination)
+            try Task.checkCancellation()
+            try destination.synchronize()
+            try destination.close()
+            // moveItem fails if a destination exists: never clobber an earlier backup.
+            try fm.moveItem(at: temporary, to: output)
+            published = true
+        } catch {
+            try? destination.close() // try? ok: preserve the original encryption/I/O error.
+            throw error
+        }
+    }
 }

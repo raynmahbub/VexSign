@@ -286,6 +286,7 @@ final class ImportAndInstallationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSkipIgnoresStaleTapsAfterAnOutcomeAndAllowsFailureActions() {
         XCTAssertTrue(InstallQueue.canSkip(outcome: .pending, hasFailure: false))
         XCTAssertTrue(InstallQueue.canSkip(outcome: .failed("Install failed"), hasFailure: true))

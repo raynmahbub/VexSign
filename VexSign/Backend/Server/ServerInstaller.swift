@@ -23,6 +23,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 	private let _serverMethod: Int
 	private let _localhostOnly: Bool
 
+    var packageArchive: InstallationArchive?
 	var packageUrl: URL?
 	var manifestUrl: URL?
 	private(set) var startupError: Error?
@@ -53,6 +54,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 			let server = try await setupApp(port: port)
 			_server = server
 			_needsShutdown = true
+            try Task.checkCancellation()
 			_configureRoutes()
 			// Vapor's listener start is synchronous; only creation and shutdown have
 			// async variants.
@@ -65,6 +67,14 @@ class ServerInstaller: Identifiable, ObservableObject {
 		}
 	}
 	
+    /// Stop accepting requests without blocking the main actor in synchronous deinit.
+    /// In-flight response completions independently retain their archive lease.
+    func stop() async {
+        await _shutdownServerAsync()
+        backgroundTaskManager?.stop()
+        backgroundTaskManager = nil
+    }
+
 	deinit {
 		_shutdownServer()
 		backgroundTaskManager?.stop()
@@ -107,7 +117,9 @@ class ServerInstaller: Identifiable, ObservableObject {
 
 				return try await req.fileio.asyncStreamFile(
 					at: packageUrl.path
-				) { result in
+                ) { [archive = self.packageArchive] result in
+                    // Vapor retains this completion until the body finishes or fails.
+                    defer { withExtendedLifetime(archive) {} }
 					// The stream completion is @Sendable and runs off the main actor, so
 					// status changes have to hop back explicitly.
 					switch result {

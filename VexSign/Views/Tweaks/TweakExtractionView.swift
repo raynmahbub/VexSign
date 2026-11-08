@@ -301,15 +301,18 @@ struct TweakExtractionView: View {
 		guard !chosen.isEmpty else { _finish(); return }
 
 		var addedIds: Set<UUID> = []
+		var importedFiles = 0
 		if combine {
 			let name = chosen.first?.url.deletingPathExtension().lastPathComponent ?? .localized("Tweak")
 			if let tweak = manager.addTweak(name: name, fromFiles: chosen.map { $0.url }) {
 				addedIds.insert(tweak.id)
+				importedFiles += tweak.activeVersion?.components.count ?? 0
 			}
 		} else {
 			for candidate in chosen {
 				if let tweak = manager.addTweak(name: candidate.url.deletingPathExtension().lastPathComponent, from: candidate.url) {
 					addedIds.insert(tweak.id)
+					importedFiles += 1
 				}
 			}
 		}
@@ -323,9 +326,13 @@ struct TweakExtractionView: View {
 		let message = combine
 			? String.localized("Imported %@", arguments: combinedTweakName)
 			: (addedIds.count == 1
-				? String.localized("Imported %@", arguments: chosen.first?.name ?? "")
+				? String.localized("Imported %@", arguments: combinedTweakName)
 				: String.localized("Imported %lld tweaks", arguments: addedIds.count))
-		Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
+		if importedFiles < chosen.count {
+			Toast.error(String.localized("Imported %lld of %lld files. Some files could not be read or are unsupported.", arguments: importedFiles, chosen.count), duration: .sticky)
+		} else {
+			Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
+		}
 
 		// Offer to file the new tweaks if folders exist.
 		if !manager.folders.isEmpty {

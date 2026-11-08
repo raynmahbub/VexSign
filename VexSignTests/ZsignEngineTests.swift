@@ -32,6 +32,22 @@ final class ZsignEngineTests: XCTestCase {
 		try super.tearDownWithError()
 	}
 
+    func testEitherNativeFailureSignalRejectsTheOutcome() {
+        for succeeded in [false, true] {
+            let outcome = ZsignEngine.Outcome(succeeded: succeeded, errorMessage: "failed nested binary")
+            XCTAssertThrowsError(try outcome.requireSuccess()) { error in
+                XCTAssertEqual((error as NSError).domain, "app.vexsign.zsign")
+                XCTAssertEqual(error.localizedDescription, "failed nested binary")
+            }
+        }
+        XCTAssertThrowsError(try ZsignEngine.Outcome(succeeded: false, errorMessage: nil).requireSuccess())
+        XCTAssertThrowsError(try ZsignEngine.Outcome(succeeded: true, errorMessage: "").requireSuccess())
+    }
+
+    func testOnlyNativeSuccessWithoutAnErrorPasses() {
+        XCTAssertNoThrow(try ZsignEngine.Outcome(succeeded: true, errorMessage: nil).requireSuccess())
+    }
+
 	// MARK: - Provisioning polarity
 
 	/// The pin writes `embedded.mobileprovision` when the engine flag is `true`

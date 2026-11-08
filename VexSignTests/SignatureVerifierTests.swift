@@ -45,7 +45,7 @@ final class SignatureVerifierTests: XCTestCase {
         expectation.declaredBundleIdentifier = "com.example.different"
         let mismatch = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
         XCTAssertThrowsError(try mismatch.requireAcceptable())
-        XCTAssertTrue(mismatch.failures.contains { $0.code == .bundleIdentifierMismatch })
+        XCTAssertTrue(mismatch.failures.contains { $0.code == .requestedIdentifierMismatch })
         withExtendedLifetime(cached) {}
     }
 
@@ -214,7 +214,7 @@ final class SignatureVerifierTests: XCTestCase {
 		let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
 
 		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .bundleIdentifierMismatch }, _describe(report))
+		XCTAssertTrue(report.failures.contains { $0.code == .requestedIdentifierMismatch }, _describe(report))
 	}
 
 	func testAnUnsignedExecutableIsAFailure() throws {
@@ -239,12 +239,9 @@ final class SignatureVerifierTests: XCTestCase {
 	/// A run started from the preflight sheet's "Sign Anyway" keeps the bundle it just signed:
 	/// the same profile problems are already in the report, and failing here would discard the
 	/// result one stage after the tap. The issues are not hidden — they stay in `failures`.
-	func testAFailureStopsTheRunUnlessTheUserSignedThroughIt() throws {
-		let bundle = try _makeBundle()
-		var expectation = SignatureVerifier.Expectation.freshlySigned
-		expectation.declaredBundleIdentifier = "com.example.requested"
-
-		let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
+	func testAProfileMismatchCanBeExplicitlySignedThrough() throws {
+        let bundle = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.com.other.app"])
+		let report = SignatureVerifier.verify(bundleAt: bundle)
 
 		XCTAssertFalse(report.failures.isEmpty, _describe(report))
 		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false))
@@ -278,6 +275,87 @@ final class SignatureVerifierTests: XCTestCase {
 		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: false))
 		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true))
 	}
+
+    func testStructuralFailuresCannotBeOverridden() {
+        let codes: [SignatureVerifier.Issue.Code] = [.bundleNotFound, .executableMissing, .bundleIdentifierMissing,
+            .missingCodeResources, .unsignedExecutable, .unsignedNestedBundle,
+            .requestedIdentifierMismatch, .profileMissing, .profileUnreadable,
+            .profileIdentifierUnknown, .entitlementUnreadable]
+        for code in codes {
+            let report = SignatureVerifier.Report(bundlePath: "/test.app",
+                issues: [.init(code: code, severity: .failure, detail: code.rawValue)], duration: 0)
+            XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true), code.rawValue)
+            XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true), code.rawValue)
+        }
+    }
+
+    func testOnlyCompatibilityFailuresCanBeOverridden() {
+        let codes: [SignatureVerifier.Issue.Code] = [.profileExpired, .bundleIdentifierMismatch,
+            .nestedIdentifierUncovered, .entitlementNotGranted]
+        for code in codes {
+            let report = SignatureVerifier.Report(bundlePath: "/test.app",
+                issues: [.init(code: code, severity: .failure, detail: code.rawValue)], duration: 0)
+            XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false))
+            XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true))
+            XCTAssertNoThrow(try report.requireAcceptable(overridingBlockingIssues: true))
+        }
+    }
+
+    func testMixedCompatibilityAndStructuralFailuresStillStop() {
+        let report = SignatureVerifier.Report(bundlePath: "/test.app", issues: [
+            .init(code: .profileExpired, severity: .failure, detail: "expired"),
+            .init(code: .unsignedExecutable, severity: .failure, detail: "unsigned")
+        ], duration: 0)
+        XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true))
+    }
+
+    func testIgnoredRequestedIdentifierCannotBeSignedThrough() throws {
+        let bundle = try _makeBundle()
+        var expectation = SignatureVerifier.Expectation.freshlySigned
+        expectation.declaredBundleIdentifier = "com.example.requested"
+        let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
+        XCTAssertTrue(report.failures.contains { $0.code == .requestedIdentifierMismatch })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testExternalExecutableSymlinkFailsVerificationEvenWithOverride() throws {
+        let bundle = try _makeBundle()
+        let executable = bundle.appendingPathComponent("App")
+        let outside = _root.appendingPathComponent("outside")
+        try FileManager.default.moveItem(at: executable, to: outside)
+        try FileManager.default.createSymbolicLink(at: executable, withDestinationURL: outside)
+        let report = SignatureVerifier.verify(bundleAt: bundle)
+        XCTAssertTrue(report.failures.contains { $0.code == .executableMissing })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testEmptyBundleIdentifierCannotBeRegisteredThroughAnOverride() throws {
+        let bundle = try _makeBundle(identifier: "")
+        let report = SignatureVerifier.verify(bundleAt: bundle)
+        XCTAssertTrue(report.failures.contains { $0.code == .bundleIdentifierMissing })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testCodeResourcesMustBeAFileNotADirectory() throws {
+        let bundle = try _makeBundle()
+        let resources = bundle.appendingPathComponent("_CodeSignature/CodeResources")
+        try FileManager.default.removeItem(at: resources)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        let report = SignatureVerifier.verify(bundleAt: bundle)
+        XCTAssertTrue(report.failures.contains { $0.code == .missingCodeResources })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testCodeResourcesCannotBeASymlink() throws {
+        let bundle = try _makeBundle()
+        let resources = bundle.appendingPathComponent("_CodeSignature/CodeResources")
+        let outside = _root.appendingPathComponent("resources")
+        try FileManager.default.moveItem(at: resources, to: outside)
+        try FileManager.default.createSymbolicLink(at: resources, withDestinationURL: outside)
+        let report = SignatureVerifier.verify(bundleAt: bundle)
+        XCTAssertTrue(report.failures.contains { $0.code == .missingCodeResources })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
 
 	// MARK: - Performance
 

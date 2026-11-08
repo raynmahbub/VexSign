@@ -19,8 +19,7 @@ struct AboutView: View {
         NBList(.localized("About")) {
             Section {
                 VStack(spacing: 10) {
-                    Image("AppLogo")
-                        .resizable()
+                    VexBrandLogo()
                         .scaledToFit()
                         .frame(width: 76, height: 76)
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

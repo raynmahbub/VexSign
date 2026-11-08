@@ -93,36 +93,55 @@ protocol InstalledAppProbing: Sendable {
 /// private lookups in this app (`UIApplication+open_private`), and every one is checked with
 /// `responds(to:)` before use.
 struct InstalledAppProbe: InstalledAppProbing {
-	func installedApp(for bundleIdentifier: String) -> InstalledApp? {
-		guard
-			!bundleIdentifier.isEmpty,
-			let proxyClass = Self._proxyClass(),
-			let identifierSelector = Self._selector("YXBwbGljYXRpb25Qcm94eUZvcklkZW50aWZpZXI6"), // applicationProxyForIdentifier:
-			// A class method, so `instancesRespond(to:)` would look in the wrong place — and
-			// calling `perform` on a selector the class does not have raises instead of returning nil.
-			class_getClassMethod(proxyClass, identifierSelector) != nil,
-			let proxy = proxyClass.perform(identifierSelector, with: bundleIdentifier)?
-				.takeUnretainedValue() as? NSObject
-		else {
-			return nil
-		}
+    func installedApp(for bundleIdentifier: String) -> InstalledApp? {
+        guard !bundleIdentifier.isEmpty else { return nil }
+        let workspaceInstalled = Self._workspaceInstalled(bundleIdentifier)
+        guard let proxyClass = Self._proxyClass(),
+              let selector = Self._selector("YXBwbGljYXRpb25Qcm94eUZvcklkZW50aWZpZXI6"),
+              class_getClassMethod(proxyClass, selector) != nil,
+              let proxy = proxyClass.perform(selector, with: bundleIdentifier)?.takeUnretainedValue() as? NSObject else {
+            return Self.resolve(bundleIdentifier, proxy: nil, workspaceInstalled: workspaceInstalled)
+        }
+        // Never substitute host/another app's proxy, including in a hooked runtime.
+        guard Self._string(proxy, "YnVuZGxlSWRlbnRpZmllcg==") == bundleIdentifier else { return nil }
+        guard let installed = Self._bool(proxy, "aXNJbnN0YWxsZWQ=") ?? workspaceInstalled else { return nil }
+        let candidate = InstalledApp(bundleIdentifier: bundleIdentifier,
+            isInstalled: installed,
+            isPlaceholder: Self._bool(proxy, "aXNQbGFjZWhvbGRlcg==") ?? false,
+            version: Self._string(proxy, "c2hvcnRWZXJzaW9uU3RyaW5n"),
+            build: Self._string(proxy, "YnVuZGxlVmVyc2lvbg=="),
+            bundleURL: Self._url(proxy, "YnVuZGxlVVJM"))
+        return Self.resolve(bundleIdentifier, proxy: candidate, workspaceInstalled: workspaceInstalled)
+    }
 
-		guard Self._string(proxy, "YnVuZGxlSWRlbnRpZmllcg==") == bundleIdentifier,
-			let isInstalled = Self._bool(proxy, "aXNJbnN0YWxsZWQ=") else {
-			// Verify the proxy's identity too. Container hooks or a stale lookup must
-			// never turn evidence for the host/another app into a guest install.
-			return nil
-		}
+    /// A workspace query is independent of the proxy's sometimes stale isInstalled
+    /// flag. A registered URL alone is never sufficient positive install evidence.
+    static func resolve(_ identifier: String, proxy: InstalledApp?, workspaceInstalled: Bool?) -> InstalledApp? {
+        guard !identifier.isEmpty else { return nil }
+        if let proxy, proxy.bundleIdentifier != identifier { return nil }
+        if let proxy, proxy.isPlaceholder { return proxy }
+        if workspaceInstalled == true || proxy?.isInstalled == true {
+            return InstalledApp(bundleIdentifier: identifier, isInstalled: true,
+                version: proxy?.version, build: proxy?.build, bundleURL: proxy?.bundleURL)
+        }
+        // Contradictory cached metadata is unknown, not a false Not installed badge.
+        if proxy?.bundleURL != nil { return nil }
+        if workspaceInstalled == false || proxy?.isInstalled == false {
+            return InstalledApp(bundleIdentifier: identifier, isInstalled: false)
+        }
+        return nil
+    }
 
-		return InstalledApp(
-			bundleIdentifier: bundleIdentifier,
-			isInstalled: isInstalled,
-			isPlaceholder: Self._bool(proxy, "aXNQbGFjZWhvbGRlcg==") ?? false,
-			version: Self._string(proxy, "c2hvcnRWZXJzaW9uU3RyaW5n"),
-			build: Self._string(proxy, "YnVuZGxlVmVyc2lvbg=="),
-			bundleURL: Self._url(proxy, "YnVuZGxlVVJM")
-		)
-	}
+    private static func _workspaceInstalled(_ identifier: String) -> Bool? {
+        guard let type = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+              class_getClassMethod(type, NSSelectorFromString("defaultWorkspace")) != nil,
+              let workspace = type.perform(NSSelectorFromString("defaultWorkspace"))?.takeUnretainedValue() as? NSObject else { return nil }
+        let selector = NSSelectorFromString("applicationIsInstalled:")
+        guard workspace.responds(to: selector), let implementation = workspace.method(for: selector) else { return nil }
+        // BOOL is not an Objective-C object: perform/KVC cannot invoke this signature.
+        typealias Query = @convention(c) (AnyObject, Selector, NSString) -> Bool
+        return unsafeBitCast(implementation, to: Query.self)(workspace, selector, identifier as NSString)
+    }
 
 	// MARK: Private lookups
 

@@ -141,7 +141,12 @@ struct FRAppIconView: View {
 
 	var body: some View {
 		Group {
-			if let image = loader.image ?? _cachedImage {
+			if app == nil {
+                VexBrandLogo()
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.2677, style: .continuous))
+            } else if let image = loader.image ?? _cachedImage {
 				Image(uiImage: image)
 					.appIconStyle(size: size)
 			} else {
@@ -168,4 +173,12 @@ struct FRAppIconView: View {
 			dynamic: shouldChangeIconsBasedOffStyle
 		)
 	}
+}
+
+/// In-app branding follows a successful Home Screen icon selection.
+struct VexBrandLogo: View {
+    @AppStorage("VexSign.selectedAppIcon") private var selectedIcon = ""
+    var body: some View {
+        Image(uiImage: AppIconView.altImage(selectedIcon.isEmpty ? nil : selectedIcon)).resizable()
+    }
 }

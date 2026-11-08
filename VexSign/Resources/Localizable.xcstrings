@@ -102506,6 +102506,171 @@
           }
         }
       }
+    },
+    "The custom entitlements file must be a readable property-list dictionary." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The custom entitlements file must be a readable property-list dictionary."
+          }
+        }
+      }
+    },
+    "App Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Library"
+          }
+        }
+      }
+    },
+    "Saves selected components, including signed and imported app bundles. App Library backups are limited to 256 MiB; installed app data is not included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves selected components, including signed and imported app bundles. App Library backups are limited to 256 MiB; installed app data is not included."
+          }
+        }
+      }
+    },
+    "Saves selected components, including signed and imported app bundles. Backups use streaming encryption with an 8 GiB safe extraction limit; installed app data is not included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves selected components, including signed and imported app bundles. Backups use streaming encryption with an 8 GiB safe extraction limit; installed app data is not included."
+          }
+        }
+      }
+    },
+    "This backup exceeds the safe streaming-container size limit." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This backup exceeds the safe streaming-container size limit."
+          }
+        }
+      }
+    },
+    "This older backup is too large for safe in-memory decryption. Open it with the version that created it and export smaller components." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This older backup is too large for safe in-memory decryption. Open it with the version that created it and export smaller components."
+          }
+        }
+      }
+    },
+    "The bundle has no usable bundle identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The bundle has no usable bundle identifier."
+          }
+        }
+      }
+    },
+    "Choose a dylib, Debian package, framework, bundle or app extension." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a dylib, Debian package, framework, bundle or app extension."
+          }
+        }
+      }
+    },
+    "Could not import this tweak. Check its format, size and file access." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not import this tweak. Check its format, size and file access."
+          }
+        }
+      }
+    },
+    "Imported %lld of %lld tweaks. Some files could not be read or are unsupported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported %lld of %lld tweaks. Some files could not be read or are unsupported."
+          }
+        }
+      }
+    },
+    "Importing tweaks…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importing tweaks…"
+          }
+        }
+      }
+    },
+    "The selected file is not a supported Mach-O library or Debian package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected file is not a supported Mach-O library or Debian package."
+          }
+        }
+      }
+    },
+    "The tweak contains a missing, unreadable or unsafe file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak contains a missing, unreadable or unsafe file."
+          }
+        }
+      }
+    },
+    "The tweak exceeds the safe import limit of 512 MiB or 10,000 files." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak exceeds the safe import limit of 512 MiB or 10,000 files."
+          }
+        }
+      }
+    },
+    "Imported %lld of %lld files. Some files could not be read or are unsupported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported %lld of %lld files. Some files could not be read or are unsupported."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

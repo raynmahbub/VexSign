@@ -54,8 +54,14 @@ struct TweakDetailView: View {
 	private func _addVersion() {
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
 			let next = (manager.tweak(tweakId)?.versions.count ?? 0) + 1
-			if manager.addVersion(to: tweakId, fromFiles: urls, label: "v\(next)") != nil {
-				Toast.success(.localized("Version added"), systemImage: "plus.circle.fill")
+			if let version = manager.addVersion(to: tweakId, fromFiles: urls, label: "v\(next)") {
+				if version.components.count == urls.count {
+					Toast.success(.localized("Version added"), systemImage: "plus.circle.fill")
+				} else {
+					_reportIncompleteImport(version.components.count, selected: urls.count)
+				}
+			} else {
+				_reportIncompleteImport(0, selected: urls.count)
 			}
 		}
 	}
@@ -64,10 +70,16 @@ struct TweakDetailView: View {
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
 			guard let versionId = manager.tweak(tweakId)?.activeVersion?.id else { return }
 			let added = manager.addComponents(to: tweakId, versionId: versionId, fromFiles: urls)
-			if !added.isEmpty {
+			if added.count == urls.count {
 				Toast.success(.localized("Added %lld files", arguments: added.count), systemImage: "plus.circle.fill")
+			} else {
+				_reportIncompleteImport(added.count, selected: urls.count)
 			}
 		}
+	}
+
+	private func _reportIncompleteImport(_ imported: Int, selected: Int) {
+		Toast.error(String.localized("Imported %lld of %lld files. Some files could not be read or are unsupported.", arguments: imported, selected), duration: .sticky)
 	}
 
 	// MARK: Export helpers

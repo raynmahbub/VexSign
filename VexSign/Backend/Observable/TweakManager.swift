@@ -22,6 +22,7 @@ final class TweakManager: ObservableObject {
 	@Published private(set) var repositories: [TweakRepository]
 
 	private let _fm = FileManager.default
+	@MainActor private var _isImportingRepository = false
 	private var _manifestURL: URL { _fm.tweaksLibrary.appendingPathComponent("library.json") }
 	private var _foldersURL: URL { _fm.tweaksLibrary.appendingPathComponent("folders.json") }
 	private var _repositoriesURL: URL { _fm.tweaksLibrary.appendingPathComponent("repositories.json") }
@@ -181,15 +182,18 @@ final class TweakManager: ObservableObject {
 	/// place entries under `tweaks`, `packages`, or `items`.
 	@MainActor
 	func addRepository(_ url: URL) async throws -> Int {
+		guard !_isImportingRepository else { throw RepositoryError.invalid("Another tweak repository import is already running.") }
+		_isImportingRepository = true
+		defer { _isImportingRepository = false }
 		guard url.scheme?.lowercased() == "https" else {
 			throw RepositoryError.invalid("Tweak repositories must use HTTPS.")
 		}
-		let (data, response) = try await URLSession.shared.data(from: url)
-		if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-			throw RepositoryError.invalid("The tweak repository returned HTTP \(http.statusCode).")
-		}
-		guard data.count <= 5 * 1_024 * 1_024,
-			  let object = try? JSONSerialization.jsonObject(with: data) else {
+		// Download to disk: checking Data.count only after URLSession.data allocates the
+		// entire untrusted response can terminate the app before the limit is checked.
+		let feed = try await _downloadRepositoryFile(url, maximumBytes: 5 * 1_024 * 1_024)
+		defer { _removeRepositoryDownload(feed) }
+		let data = try Data(contentsOf: feed)
+		guard let object = try? JSONSerialization.jsonObject(with: data) else {
 			throw RepositoryError.invalid("The tweak repository is not valid JSON.")
 		}
 
@@ -212,7 +216,7 @@ final class TweakManager: ObservableObject {
 		try _fm.createDirectory(at: storage, withIntermediateDirectories: true)
 
 		var imported = 0
-		for (index, entry) in entries.prefix(100).enumerated() {
+		for entry in entries.prefix(100) {
 			guard
 				let rawURL = (entry["url"] as? String)
 					?? (entry["download"] as? String)
@@ -221,20 +225,26 @@ final class TweakManager: ObservableObject {
 				downloadURL.scheme?.lowercased() == "https"
 			else { continue }
 
-			let (fileData, fileResponse) = try await URLSession.shared.data(from: downloadURL)
-			if let http = fileResponse as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { continue }
-			guard fileData.count <= 100 * 1_024 * 1_024 else { continue }
-			let ext = downloadURL.pathExtension.isEmpty ? "dylib" : downloadURL.pathExtension
-			let filename = ((entry["name"] as? String)?.isEmpty == false ? (entry["name"] as? String)! : "Tweak \(index + 1)")
-				.replacingOccurrences(of: "/", with: "_")
-			let fileURL = storage.appendingPathComponent(filename).appendingPathExtension(ext)
-			try fileData.write(to: fileURL, options: .atomic)
+			try Task.checkCancellation()
+			let ext = downloadURL.pathExtension.isEmpty ? "dylib" : downloadURL.pathExtension.lowercased()
+			guard ["dylib", "deb"].contains(ext),
+				  let filename = TweakImportSupport.repositoryFilename(for: downloadURL) else { continue }
+			let downloaded = try await _downloadRepositoryFile(downloadURL, maximumBytes: 100 * 1_024 * 1_024)
+			defer { _removeRepositoryDownload(downloaded) }
+			// Preserve legitimate library names (dependencies may refer to them), but
+			// isolate every download and never use a feed's display name as a path.
+			let work = storage.appendingPathComponent(UUID().uuidString, isDirectory: true)
+			try _fm.createDirectory(at: work, withIntermediateDirectories: true)
+			defer { _removeRepositoryDownload(work) }
+			let fileURL = work.appendingPathComponent(filename)
+			try _fm.moveItem(at: downloaded, to: fileURL)
 			let displayName = (entry["name"] as? String) ?? downloadURL.deletingPathExtension().lastPathComponent
 			if addTweak(name: displayName, from: fileURL, versionLabel: (entry["version"] as? String) ?? "1.0") != nil {
 				imported += 1
 			}
 		}
 
+		guard imported > 0 else { throw RepositoryError.invalid("No supported tweaks could be imported from this repository.") }
 		if let index = repositories.firstIndex(where: { $0.url == url }) {
 			repositories[index].name = repositoryName
 			repositories[index].lastFetched = Date()
@@ -244,6 +254,36 @@ final class TweakManager: ObservableObject {
 		}
 		_saveRepositories()
 		return imported
+	}
+
+	/// Disk-backed transport avoids response-sized RAM allocations. Cancel oversized
+	/// transfers during progress, then recheck the completed temporary file.
+	private func _downloadRepositoryFile(_ url: URL, maximumBytes: Int) async throws -> URL {
+		let limit = TweakImportSupport.DownloadLimit(maximumBytes: Int64(maximumBytes))
+		let (file, response) = try await URLSession.shared.download(from: url, delegate: limit)
+		do {
+			try Task.checkCancellation()
+			guard let http = response as? HTTPURLResponse,
+				  http.url?.scheme?.lowercased() == "https",
+				  (200..<300).contains(http.statusCode) else {
+				throw RepositoryError.invalid("The tweak repository download failed or redirected to an insecure URL.")
+			}
+			let values = try file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+			guard values.isRegularFile == true, let bytes = values.fileSize,
+				  bytes > 0, bytes <= maximumBytes else {
+				throw RepositoryError.invalid("The tweak repository download is empty or exceeds its size limit.")
+			}
+			return file
+		} catch {
+			_removeRepositoryDownload(file)
+			throw error
+		}
+	}
+
+	private func _removeRepositoryDownload(_ file: URL) {
+		guard _fm.fileExists(atPath: file.path) else { return }
+		do { try _fm.removeItem(at: file) }
+		catch { FileLogger.error("Could not remove repository download: \(error)", category: "tweaks") }
 	}
 
 	@MainActor
@@ -505,9 +545,14 @@ final class TweakManager: ObservableObject {
 
 			let fileName = _uniqueFileName(source.lastPathComponent, taken: taken)
 			let dest = destDir.appendingPathComponent(fileName)
+			let existed = _fm.fileExists(atPath: dest.path)
 			do {
+				try TweakImportSupport.validate(source)
 				try _fm.copyItem(at: source, to: dest)
+				try TweakImportSupport.validate(dest)
 			} catch {
+				if !existed { _removeRepositoryDownload(dest) }
+				FileLogger.error("Tweak import failed for \(fileName): \(error.localizedDescription)", category: "tweaks")
 				Logger.misc.error("TweakManager store failed for \(fileName): \(error.localizedDescription)")
 				continue
 			}

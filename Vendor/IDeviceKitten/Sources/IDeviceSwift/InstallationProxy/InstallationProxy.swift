@@ -30,7 +30,8 @@ public class InstallationProxy: Identifiable, ObservableObject {
 		var fileHandle: AfcFileHandle?
 		var installproxy: InstallationProxyClientHandle?
 		
-		try await Task.detached(priority: .utility) {
+        let uploadTask = Task.detached(priority: .utility) {
+            try Task.checkCancellation()
 			guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else {
 				throw IDeviceSwiftError(message: "Missing Pairing")
 			}
@@ -45,8 +46,9 @@ public class InstallationProxy: Identifiable, ObservableObject {
 				}
 			}
 			
-			defer {
-				afc_client_free(afcClient)
+            defer {
+                if let handle = fileHandle { _ = afc_file_close(handle) }
+                afc_client_free(afcClient)
 				installation_proxy_client_free(installproxy)
 			}
 			
@@ -94,42 +96,45 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			
 			try await self._updateStatus(with: .sendingPayload)
 			
-			guard let fileHandle = fileHandle else {
-				throw IDeviceSwiftError(message: "Missing File Handle")
-			}
-			
-			let data = try Data(contentsOf: url)
-			let totalSize = data.count
-			let chunkSize = 64 * 1024 * 1024 // 67mb
-			var totalBytesWritten = 0
-			
-			guard let rawBuffer = data.withUnsafeBytes({ $0.baseAddress })?.assumingMemoryBound(to: UInt8.self) else {
-				throw IDeviceSwiftError(message: "Error writing to AFC")
-			}
-			
-			while totalBytesWritten < totalSize {
-				let bytesLeft = totalSize - totalBytesWritten
-				let bytesToWrite = min(chunkSize, bytesLeft)
-				let writePtr = rawBuffer.advanced(by: totalBytesWritten)
-				
-				let result = afc_file_write(fileHandle, writePtr, bytesToWrite)
-				if result != nil {
-					throw IDeviceSwiftError(result)
-				}
-				
-				totalBytesWritten += bytesToWrite
-				
-				let progress = Double(totalBytesWritten) / Double(totalSize)
-				try await self._updateUploadProgress(with: progress)
-			}
-			
-			print(2)
-			
-			let afc_file_close_result = afc_file_close(fileHandle)
-			guard afc_file_close_result == nil else {
-				throw IDeviceSwiftError(afc_file_close_result)
-			}
-			
+            guard let remoteHandle = fileHandle else {
+                throw IDeviceSwiftError(message: "Missing File Handle")
+            }
+
+            // VexSign local patch: bounded reads; the FFI pointer never escapes Data's scope.
+            let input = try FileHandle(forReadingFrom: url)
+            defer { try? input.close() } // try? ok: preserve any original transport failure
+            let totalSize = try input.seekToEnd()
+            guard totalSize > 0 else { throw IDeviceSwiftError(message: "Empty installation payload") }
+            try input.seek(toOffset: 0)
+            let chunkSize = 1024 * 1024
+            var sent: UInt64 = 0
+            var lastProgress = 0.0
+            while sent < totalSize {
+                try Task.checkCancellation()
+                let requested = Int(min(UInt64(chunkSize), totalSize - sent))
+                guard let data = try input.read(upToCount: requested), !data.isEmpty else {
+                    throw IDeviceSwiftError(message: "Installation payload ended before upload completed")
+                }
+                try data.withUnsafeBytes { buffer in
+                    guard let pointer = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                        throw IDeviceSwiftError(message: "Cannot read installation payload bytes")
+                    }
+                    if let error = afc_file_write(remoteHandle, pointer, data.count) {
+                        throw IDeviceSwiftError(error)
+                    }
+                }
+                sent += UInt64(data.count)
+                let progress = Double(sent) / Double(totalSize)
+                if progress - lastProgress >= 0.01 || sent == totalSize {
+                    lastProgress = progress
+                    try await self._updateUploadProgress(with: progress)
+                }
+            }
+            try Task.checkCancellation()
+            let closeError = afc_file_close(remoteHandle)
+            fileHandle = nil // The close consumes the handle; never close it a second time.
+            if let closeError { throw IDeviceSwiftError(closeError) }
+
 			try await self._updateStatus(with: .installing)
 			
 			
@@ -160,7 +165,8 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			
 			print(4)
 			
-			let installError: UnsafeMutablePointer<IdeviceFfiError>? = remoteDir.withCString { cString in
+            try Task.checkCancellation()
+            let installError: UnsafeMutablePointer<IdeviceFfiError>? = remoteDir.withCString { cString in
 				let context = Unmanaged.passUnretained(self).toOpaque()
 				
 				if suspend {
@@ -184,10 +190,15 @@ public class InstallationProxy: Identifiable, ObservableObject {
 			
 			try await Task.sleep(nanoseconds: 350_000_000)
 			try await self._updateStatus(with: .completed(.success(())))
-		}.value
-	}
-	
-	private func _updateStatus(with status: InstallerStatusViewModel.InstallerStatus) async throws {
+        }
+        try await withTaskCancellationHandler(operation: {
+            try await uploadTask.value
+        }, onCancel: {
+            uploadTask.cancel()
+        })
+    }
+
+    private func _updateStatus(with status: InstallerStatusViewModel.InstallerStatus) async throws {
 		await MainActor.run {
 			self.viewModel.status = status
 		}

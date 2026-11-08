@@ -271,7 +271,7 @@ extension WebManagerServer {
 
 			let level = (try? req.query.get(Int.self, at: "compression")) ?? ArchiveHandler.getCompressionLevel()
 			let compression = ZipCompression.allCases[safe: level] ?? .DefaultCompression
-			let filename = self.sanitizedFilename("\(info.name)_\(info.version).ipa")
+			let filename = IPAExportNaming.stem(name: info.name, version: info.version) + ".ipa"
 			let ipaURL = FileManager.default.temporaryDirectory
 				.appendingPathComponent("AppExport_\(UUID().uuidString)", isDirectory: true)
 				.appendingPathComponent(filename)

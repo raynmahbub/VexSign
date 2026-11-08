@@ -85,6 +85,7 @@ struct InstallConfirmation: Equatable, Sendable {
 	let limits: Limits
 	private(set) var phase: Phase = .waitingForStart
 
+	private var _downloadingSince: Date?
 	private var _waitingSince: Date?
 	private var _verifyingAt: Date?
 
@@ -100,7 +101,15 @@ struct InstallConfirmation: Equatable, Sendable {
 		guard !phase.isFinished else { return phase }
 
 		if (progress ?? 0) > 0 {
-			if phase == .waitingForStart { phase = .downloading }
+			if phase == .waitingForStart {
+                _downloadingSince = date
+                phase = .downloading
+            }
+            if phase == .downloading,
+               date.timeIntervalSince(_downloadingSince ?? date) >= limits.verify {
+                // A stuck nonzero counter must not keep the install card alive forever.
+                return beginVerifying(at: date)
+            }
 			return phase
 		}
 
@@ -226,31 +235,47 @@ extension InstallConfirmation.Verdict {
 /// Both install paths feed the same engine through this loop, so there is one rule for what
 /// "installed" means. The I/O is injected, which is also what makes it testable.
 enum InstallWatcher {
+    /// Capture before presenting the install prompt, not after serving the IPA:
+    /// small apps can already be installed when payload delivery completes.
+    struct Baseline: Sendable { let app: InstalledApp? }
+
+    static func hasNewInstalledEvidence(baseline: InstalledApp?, current: InstalledApp?,
+                                        expectation: InstallConfirmation.Expectation) -> Bool {
+        guard let baseline, baseline.bundleIdentifier == expectation.bundleIdentifier,
+              let current, current.bundleIdentifier == expectation.bundleIdentifier,
+              InstalledState.derive(from: current, expecting: expectation.version) == .installed else { return false }
+        if !baseline.isInstalled || baseline.isPlaceholder { return true }
+        if let expected = expectation.version, let previous = baseline.version,
+           !expected.isEmpty, !previous.isEmpty, previous != expected, current.version == expected { return true }
+        if let expected = expectation.build, let previous = baseline.build,
+           previous != expected, current.build == expected { return true }
+        return false
+    }
 	static func watch(
 		_ initial: InstallConfirmation,
 		probe: InstalledAppProbing,
+        baseline: Baseline? = nil,
 		progress: @escaping @Sendable () async -> Double?,
 		interval: Duration = .milliseconds(250),
 		onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in }
 	) async -> InstallConfirmation.Verdict {
         var confirmation = initial
-        let baseline = probe.installedApp(for: initial.expectation.bundleIdentifier)
-        let wasAbsent = baseline?.bundleIdentifier == initial.expectation.bundleIdentifier
-            && baseline?.isInstalled == false && baseline?.isPlaceholder == false
+        let before: InstalledApp?
+        if let baseline { before = baseline.app }
+        else { before = probe.installedApp(for: initial.expectation.bundleIdentifier) }
 
         while !Task.isCancelled {
             let raw = await progress()
-            // Some iOS versions expose no progress counter. A matching app that
-            // was demonstrably absent and now appears is independent evidence.
-            // Unknown baselines or an already installed app cannot prove a new install.
-            if wasAbsent, confirmation.phase == .waitingForStart,
-               let current = probe.installedApp(for: initial.expectation.bundleIdentifier),
-               current.bundleIdentifier == initial.expectation.bundleIdentifier,
-               InstalledState.derive(from: current, expecting: initial.expectation.version) == .installed {
-                _ = confirmation.beginVerifying(at: Date())
-                let phase = confirmation.record(probe: current, at: Date())
-                await onUpdate(raw, phase)
-                if let verdict = phase.verdict { return verdict }
+            // Positive independent evidence can finish a fast install or update
+            // even if the progress counter is unavailable or remains nonzero.
+            if confirmation.phase == .waitingForStart || confirmation.phase == .downloading {
+                let current = probe.installedApp(for: initial.expectation.bundleIdentifier)
+                if hasNewInstalledEvidence(baseline: before, current: current, expectation: initial.expectation) {
+                    _ = confirmation.beginVerifying(at: Date())
+                    let phase = confirmation.record(probe: current, at: Date())
+                    await onUpdate(raw, phase)
+                    if let verdict = phase.verdict { return verdict }
+                }
             }
 			let phase = confirmation.record(progress: raw, at: Date())
 			await onUpdate(raw, phase)

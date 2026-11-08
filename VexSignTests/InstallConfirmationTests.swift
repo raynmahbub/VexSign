@@ -221,6 +221,22 @@ final class InstallConfirmationTests: XCTestCase {
         XCTAssertEqual(verdict, .installed)
     }
 
+    func testNewAppearanceCompletesWithStuckPositiveProgress() async {
+        let verdict = await InstallWatcher.watch(
+            confirmation(), probe: ScriptedProbe([missing, missing, app()]),
+            progress: ProgressScript([0.5, 0.5]).closure, interval: .zero
+        )
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testStuckDownloadingCounterEntersVerificationAtDeadline() {
+        var state = confirmation(limits: .init(start: 120, verify: 10, settle: 0))
+        XCTAssertEqual(state.record(progress: 0.5, at: at(0)), .downloading)
+        XCTAssertEqual(state.record(progress: 0.5, at: at(9)), .downloading)
+        XCTAssertEqual(state.record(progress: 0.5, at: at(10)), .verifying)
+        XCTAssertEqual(state.record(probe: app(), at: at(10)), .finished(.installed))
+    }
+
     func testExistingAppWithoutProgressDoesNotProveNewInstall() async {
         let verdict = await InstallWatcher.watch(
             confirmation(limits: .init(start: 0, verify: 0, settle: 0)),
@@ -235,6 +251,72 @@ final class InstallConfirmationTests: XCTestCase {
             probe: ScriptedProbe([nil, app()]), progress: ProgressScript([nil]).closure, interval: .zero
         )
         XCTAssertEqual(verdict, .timedOutWaiting)
+    }
+
+    func testPrePromptBaselineCompletesAnAlreadyFinishedFastInstall() async {
+        let verdict = await InstallWatcher.watch(confirmation(), probe: FixedProbe(app()),
+            baseline: .init(app: missing), progress: ProgressScript([nil]).closure, interval: .zero)
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testVersionTransitionCompletesEvenWithStuckProgress() async {
+        let verdict = await InstallWatcher.watch(confirmation(), probe: FixedProbe(app()),
+            baseline: .init(app: app(version: "1.1.0")), progress: ProgressScript([0.8]).closure, interval: .zero)
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testExplicitlyUnknownBaselineCannotBeRecapturedAsAbsent() async {
+        let verdict = await InstallWatcher.watch(
+            confirmation(limits: .init(start: 0, verify: 0, settle: 0)),
+            probe: ScriptedProbe([missing, app()]), baseline: .init(app: nil),
+            progress: ProgressScript([nil]).closure, interval: .zero)
+        XCTAssertEqual(verdict, .timedOutWaiting)
+    }
+
+    func testSameInstalledVersionDoesNotProveAReinstall() {
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: app(), current: app(),
+            expectation: .init(bundleIdentifier: bundleID, version: "1.2.0")))
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: nil, current: app(),
+            expectation: .init(bundleIdentifier: bundleID, version: "1.2.0")))
+    }
+
+    func testPlaceholderMustBecomeARealInstalledApp() {
+        let placeholder = InstalledApp(bundleIdentifier: bundleID, isInstalled: false, isPlaceholder: true)
+        let expected = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: "1.2.0")
+        XCTAssertTrue(InstallWatcher.hasNewInstalledEvidence(baseline: placeholder, current: app(), expectation: expected))
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: missing, current: placeholder, expectation: expected))
+    }
+
+    func testUnexpectedVersionAndWrongIdentityDoNotProveCompletion() {
+        let expected = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: "1.2.0")
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: missing,
+            current: app(version: "9.0"), expectation: expected))
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: missing,
+            current: InstalledApp(bundleIdentifier: "other.app", isInstalled: true), expectation: expected))
+    }
+
+    func testWorkspacePositiveRepairsStaleProxyWithoutLosingVersion() {
+        let stale = InstalledApp(bundleIdentifier: bundleID, isInstalled: false, version: "1.2.0",
+            build: "12", bundleURL: URL(fileURLWithPath: "/private/var/containers/Bundle/Application/example/Test.app"))
+        let result = InstalledAppProbe.resolve(bundleID, proxy: stale, workspaceInstalled: true)
+        XCTAssertEqual(InstalledState.derive(from: result, expecting: "1.2.0"), .installed)
+        XCTAssertEqual(result?.build, "12")
+    }
+
+    func testRegisteredURLAloneCannotProveInstallationOrAbsence() {
+        let stale = InstalledApp(bundleIdentifier: bundleID, isInstalled: false,
+            bundleURL: URL(fileURLWithPath: "/private/var/containers/Bundle/Application/example/Test.app"))
+        XCTAssertNil(InstalledAppProbe.resolve(bundleID, proxy: stale, workspaceInstalled: nil))
+        XCTAssertNil(InstalledAppProbe.resolve(bundleID, proxy: stale, workspaceInstalled: false))
+        XCTAssertNil(InstalledAppProbe.resolve(bundleID, proxy: nil, workspaceInstalled: nil))
+    }
+
+    func testWorkspaceCannotOverrideWrongIdentityOrPlaceholder() {
+        let wrong = InstalledApp(bundleIdentifier: "other.app", isInstalled: true)
+        XCTAssertNil(InstalledAppProbe.resolve(bundleID, proxy: wrong, workspaceInstalled: true))
+        let placeholder = InstalledApp(bundleIdentifier: bundleID, isInstalled: false, isPlaceholder: true)
+        let candidate = InstalledAppProbe.resolve(bundleID, proxy: placeholder, workspaceInstalled: true)
+        XCTAssertEqual(InstalledState.derive(from: candidate, expecting: nil), .unknown)
     }
 
 	func testWatcherNeverReportsSuccessWhenTheAppIsMissing() async {

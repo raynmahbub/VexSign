@@ -15,11 +15,12 @@
 //  Downloads are mirrored from `DownloadManager` (which already models
 //  download → import → sign phases); signing and installation flows report
 //  in through `begin(...)`/`transition(...)` at their natural boundaries.
-//  History persists the last 200 finished tasks as JSON — titles and outcome
-//  metadata only, never credentials or file contents.
+//  History persists the last 200 finished tasks as JSON; imported-app thumbnails
+//  are kept separately on device. Neither store contains credentials or IPA contents.
 //
 
 import Foundation
+import UIKit
 import Combine
 import OSLog
 import NimbleExtensions
@@ -229,6 +230,7 @@ final class UnifiedTaskCenter: ObservableObject {
 	@Published private(set) var history: [UnifiedTask] = []
 
 	/// Registered retry handlers (in-memory only — a retry needs the live flow).
+	private let iconArchive = TaskIconArchive()
 	private var retryHandlers: [String: () -> Void] = [:]
 	private var downloadMirrors: [String: UnifiedTask] = [:]
 	private var cancellables = Set<AnyCancellable>()
@@ -412,6 +414,26 @@ final class UnifiedTaskCenter: ObservableObject {
 		}
 	}
 
+    func historyIcon(for task: UnifiedTask) -> UIImage? { iconArchive.image(for: task.id) }
+
+    func captureHistoryIcon(_ image: UIImage, subjectID: String) {
+        // The center can be initialized lazily by the first completed import.
+        // Materialize its mirror before storing that import's thumbnail.
+        _syncMirrored(downloads: DownloadManager.shared.downloads)
+        guard let task = (tasks + history).first(where: { $0.subjectID == subjectID }) else { return }
+        do {
+            try iconArchive.store(image, for: task.id)
+            objectWillChange.send()
+        } catch {
+            Logger.misc.warning("Could not save task thumbnail: \(error.localizedDescription)")
+        }
+    }
+
+    private func pruneHistoryIcons() {
+        do { try iconArchive.prune(keeping: Set((tasks + history).map(\.id))) }
+        catch { Logger.misc.warning("Could not prune task thumbnails: \(error.localizedDescription)") }
+    }
+
 	// MARK: - Persistence
 
 	private func _loadHistory() {
@@ -419,10 +441,12 @@ final class UnifiedTaskCenter: ObservableObject {
 		      let snapshots = try? JSONDecoder().decode([UnifiedTask.Snapshot].self, from: data) else {
 			return
 		}
-		history = snapshots.map { UnifiedTask.from($0) }
+		history = Array(snapshots.prefix(Self.historyLimit)).map { UnifiedTask.from($0) }
+        pruneHistoryIcons()
 	}
 
-	private func _persistHistory() {
+    private func _persistHistory() {
+        pruneHistoryIcons()
 		let snapshots = history.map { $0.snapshot }
 		if let data = try? JSONEncoder().encode(snapshots) {
 			do {
@@ -435,7 +459,8 @@ final class UnifiedTaskCenter: ObservableObject {
 
 	/// Clears the persisted history (Settings → Diagnostics).
 	func clearHistory() {
-		history = []
+        history = []
+        pruneHistoryIcons()
 		try? FileManager.default.removeItem(at: Self.historyFileURL)
 		objectWillChange.send()
 	}
