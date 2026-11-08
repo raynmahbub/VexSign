@@ -40,6 +40,7 @@ struct TweakDetailView: View {
 				Color.clear.onAppear { dismiss() }
 			}
 		}
+        .overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
 		.sheet(isPresented: $_isPickingFromLibrary) {
 			AppLibraryPicker { app in
 				guard let identifier = app.identifier, !identifier.isEmpty else { return }
@@ -53,6 +54,7 @@ struct TweakDetailView: View {
 	}
 
 	private func _addVersion() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
             _runImport {
 
@@ -72,6 +74,7 @@ struct TweakDetailView: View {
 	}
 
 	private func _addFiles() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
             _runImport {
 

@@ -25,6 +25,7 @@ struct TweakExtractionView: View {
 	@State private var _expanded: Set<String> = []
 	@State private var _query = ""
 	@State private var _isImporting = false
+    @State private var _importTask: Task<Void, Never>?
 	@State private var _seeded = false
 	@State private var _showImportConfirm = false
 	@State private var _pendingCombine = false
@@ -81,7 +82,7 @@ struct TweakExtractionView: View {
 			}
 			.toolbar {
 				ToolbarItem(placement: .topBarLeading) {
-					Button(.localized("Cancel")) { _finish() }
+					Button(.localized("Cancel")) { _cancelImport() }
 				}
 				if !candidates.isEmpty {
 					ToolbarItem(placement: .topBarTrailing) {
@@ -156,6 +157,7 @@ struct TweakExtractionView: View {
 		} message: {
 			Text(verbatim: .localized("You're about to add %lld items to your Tweak Manager. Many of these are usually part of the app, not tweaks.", arguments: _selection.count))
 		}
+        .interactiveDismissDisabled(_isImporting)
 		.overlay { if _isImporting { ProgressView(.localized("Importing tweaks…")).padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
 		.onAppear {
 			guard !_seeded else { return }
@@ -301,8 +303,14 @@ struct TweakExtractionView: View {
 	private func _import(combine: Bool) {
         guard !_isImporting else { return }
         _isImporting = true
-        Task { @MainActor in
-            defer { _isImporting = false }
+        _importTask = Task { @MainActor in
+            defer {
+                _isImporting = false
+                _importTask = nil
+                // Wait for preparation to acknowledge cancellation before removing
+                // the extraction directory it may still be reading.
+                if Task.isCancelled { _finish() }
+            }
 
             let chosen = candidates.filter { _selection.contains($0.id) }
             guard !chosen.isEmpty else { _finish(); return }
@@ -317,6 +325,7 @@ struct TweakExtractionView: View {
                 }
             } else {
                 for candidate in chosen {
+                    guard !Task.isCancelled else { return }
                     if let tweak = await manager.importTweak(name: candidate.url.deletingPathExtension().lastPathComponent, fromFiles: [candidate.url]) {
                         addedIds.insert(tweak.id)
                         importedFiles += 1
@@ -324,6 +333,7 @@ struct TweakExtractionView: View {
                 }
             }
 
+            guard !Task.isCancelled else { return }
             guard !addedIds.isEmpty else {
                 Toast.error(.localized("Couldn't import tweak"), duration: .sticky)
                 _finish()
@@ -349,6 +359,11 @@ struct TweakExtractionView: View {
             }
 
         }
+    }
+
+    private func _cancelImport() {
+        if let task = _importTask { task.cancel() }
+        else { _finish() }
     }
 
 	private func _finish() {

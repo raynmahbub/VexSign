@@ -332,3 +332,12 @@ on-device confirmation is still needed before claiming the reported crash is
 proven resolved. The separate #128 build-only Release run 42513935741 has passed
 verified artifact prefetch and is executing the real IPA build; no skipped job is
 being counted as build success.
+
+Final import UI review: the detail screen now displays preparation progress and
+repeated import/picker submissions are guarded. Cancelling extraction cancels the
+worker task and waits for cancellation acknowledgement before removing the source
+extraction directory; interactive sheet dismissal is disabled during preparation.
+Already committed separate tweaks are retained if cancelling the remaining batch.
+Portable verification passes. Device testing is deferred to the user once the
+unpublished build for the final commit finishes; the earlier 42513935741 run tests
+only the dependency-cache change, not the later import/UI code.

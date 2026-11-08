@@ -211,6 +211,7 @@ struct TweakLibraryList: View {
 	// MARK: - Import
 
 	private func _pickImport() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.dylib, .deb], multiple: true, folder: .tweaks) { urls in
 			if urls.count >= 10 {
 				_show(.confirmImport(urls))
@@ -221,6 +222,7 @@ struct TweakLibraryList: View {
 	}
 
 	private func _pickIPA() {
+        guard !_isImporting else { return }
 		DocumentPicker.open([.ipa, .tipa], folder: .apps) { urls in
 			guard let url = urls.first else { return }
 			_show(.ipaExtract(url))
