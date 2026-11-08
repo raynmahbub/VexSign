@@ -58,10 +58,11 @@ extension SigningDylibView {
 		guard
 			let path = Storage.shared.getAppDirectory(for: app),
 			let bundle = Bundle(url: path),
-			!bundle.exec.isEmpty
+			!bundle.exec.isEmpty,
+			let executable = TweakImportSupport.containedRegularFile(path.appendingPathComponent(bundle.exec), in: path)
 		else { return }
 
-		let allDylibs = MachOReader.dylibs(forExecutableAt: path.appendingPathComponent(bundle.exec))
+		let allDylibs = MachOReader.dylibs(forExecutableAt: executable)
 
 		_dylibs = allDylibs.filter { $0.hasPrefix("@rpath") || $0.hasPrefix("@executable_path") }
 		_hiddenDylibCount = allDylibs.count - _dylibs.count
@@ -72,15 +73,7 @@ extension SigningDylibView {
 	private func _resolveURLs(for dylibs: [String], appRoot: URL) -> [String: URL] {
 		var resolved: [String: URL] = [:]
 		for dylib in dylibs {
-			let candidate: URL
-			if dylib.hasPrefix("@rpath/") {
-				candidate = appRoot.appendingPathComponent("Frameworks").appendingPathComponent(String(dylib.dropFirst("@rpath/".count)))
-			} else if dylib.hasPrefix("@executable_path/") {
-				candidate = appRoot.appendingPathComponent(String(dylib.dropFirst("@executable_path/".count)))
-			} else {
-				continue
-			}
-			if FileManager.default.fileExists(atPath: candidate.path) {
+			if let candidate = TweakImportSupport.resolvedDylibURL(dylib, in: appRoot) {
 				resolved[dylib] = candidate
 			}
 		}

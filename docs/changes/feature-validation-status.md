@@ -164,3 +164,41 @@ The separately reported add-library crash awaits clarification of the import typ
 and a crash/reproduction report; no claim is made that it has been fixed. Existing
 in-app self-updates still require an eligible method, valid signing identity and
 iOS installation consent; silent unsigned replacement is not implemented.
+
+## Tweak/library import and self-update hardening
+
+Follow-up to the ambiguous add-library crash report (not a reproduced crash fix):
+
+- Validate tweak input kinds, readable regular files and nonsymlink directory
+  contents before and after copying. Local components are limited to 512 MiB and
+  directory trees to 10,000 entries. Dylib and Debian package headers are checked
+  before downstream processing; this does not prove full binary/archive validity,
+  signature validity or injection compatibility. Versioned/symlink-based frameworks
+  must be flattened to a self-contained nonsymlink iOS framework before import.
+- Manual signing-screen imports stage security-scoped files on a worker, publish
+  URLs only after successful validation, report errors, and clean up failed or
+  cancelled batches instead of registering nonexistent paths after a failed copy.
+- Repository feeds/files download to disk rather than response-sized Data buffers.
+  A per-task delegate cancels oversized reported transfers (5 MiB feed, 100 MiB
+  component), including unknown-length bodies as progress grows, and refuses
+  HTTPS downgrades. Completed file sizes and final HTTPS responses are rechecked.
+  Download staging is cleaned up; original library filenames are preserved without
+  treating feed display names as paths. Concurrent repository imports are rejected.
+- Failed/partial library imports no longer receive an unconditional success toast.
+  Import failures are also written to the on-device log.
+- Dylib browser exports resolve only regular files within the app bundle, including
+  after symlink resolution. Mach-O command parsing honors the declared command
+  region, caps iteration, rejects header-pointing/unterminated names and handles
+  FAT64 offsets without truncating their high bits.
+- Server-based in-app self-update now captures its install baseline before opening
+  the iOS prompt and uses nonblocking progress polling, matching normal OTA installs.
+  Existing in-app signing/update methods and iOS consent requirements are retained.
+
+Seventeen additional XCTest methods cover import inputs, staging/cancellation,
+repository limit decisions/filenames, local browser containment and malformed
+Mach-O commands. Portable `make verify` passes (74 Python tests plus repository
+checks); these new Swift tests and compilation require Apple CI. The previous
+104944c revision's Debug build and simulator tests have passed. Device acceptance
+still needs the specific failing add-library action/log and repeat installation
+and self-update tests; CI success alone does not prove either reported device issue
+resolved.

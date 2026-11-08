@@ -510,8 +510,10 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		phase = .signing
 		let installURL = try await requestServerSign(version: release.version, certificate: certificate)
 		phase = .installing
+		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
+		let baseline = InstallWatcher.Baseline(app: InstalledAppProbe().installedApp(for: bundleId))
 		guard await UIApplication.shared.open(installURL) else { return false }
-		return try await pollInstallProgress(expectedVersion: release.version)
+		return try await pollInstallProgress(expectedVersion: release.version, baseline: baseline)
 	}
 
 	/// Watches one OTA update to a verdict.
@@ -521,7 +523,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	/// install started but the device does not show it. `progress == 0` used to be enough to call
 	/// this a success; it is not.
 	@MainActor
-	private func pollInstallProgress(expectedVersion: String) async throws -> Bool {
+	private func pollInstallProgress(expectedVersion: String, baseline: InstallWatcher.Baseline) async throws -> Bool {
 		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
 
 		let probe = InstalledAppProbe()
@@ -532,7 +534,8 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 				limits: .init(start: 40, verify: 600, settle: 20)
 			),
 			probe: probe,
-			progress: { await UIApplication.installProgress(for: bundleId) },
+			baseline: baseline,
+			progress: { await UIApplication.installProgress(for: bundleId, makeSynchronous: false) },
 			onUpdate: { [weak self] raw, phase in
 				guard let self else { return }
 				await MainActor.run {

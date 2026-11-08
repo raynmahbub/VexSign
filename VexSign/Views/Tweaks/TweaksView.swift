@@ -228,16 +228,22 @@ struct TweakLibraryList: View {
 	private func _importFiles(_ urls: [URL]) {
 		guard !urls.isEmpty else { return }
 		var addedIds: Set<UUID> = []
+		var importedNames: [String] = []
 		for url in urls {
 			if let tweak = manager.addTweak(name: url.deletingPathExtension().lastPathComponent, from: url) {
 				addedIds.insert(tweak.id)
+				importedNames.append(url.lastPathComponent)
 			}
 		}
 		if !addedIds.isEmpty {
 			let message: String = addedIds.count == 1
-				? String.localized("Imported %@", arguments: urls[0].lastPathComponent)
+				? String.localized("Imported %@", arguments: importedNames[0])
 				: String.localized("Imported %lld tweaks", arguments: addedIds.count)
-			Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
+			if importedNames.count < urls.count {
+				Toast.error(String.localized("Imported %lld of %lld tweaks. Some files could not be read or are unsupported.", arguments: importedNames.count, urls.count), duration: .sticky)
+			} else {
+				Toast.success(message, systemImage: "wrench.and.screwdriver.fill")
+			}
 			// Offer to file the new tweaks if folders exist.
 			if !manager.folders.isEmpty {
 				_show(.move(addedIds))
