@@ -1,4 +1,7 @@
-# Workflow reliability and device acceptance
+# Workflow design and device test procedure
+
+> Design and test instructions only. Current verdicts and release gates live in
+> the sole [Validation and acceptance](feature-validation-status.md) record.
 
 ## Implemented
 
@@ -47,14 +50,11 @@ This is a focused code review and hardening pass, not an independent security
 certification. Protection after first unlock supports background operation; it
 is not equivalent to requiring an unlocked device for every subsequent read.
 
-## Required before merge
+## User device test procedure
 
-Do not merge PR #133 until both Apple Debug build and simulator XCTest jobs pass
-for its latest source, and the intended IPA's build metadata matches that source.
-An older successful run does not validate a newer commit. Portable checks and
-Swift grammar parsing do not establish Apple compilation or device acceptance.
-
-## User device test matrix (not yet executed)
+Record results only in [Validation and acceptance](feature-validation-status.md),
+with the exact source SHA, IPA hash and device/iOS version. The scenarios below
+are instructions, not claims that tests have passed.
 
 Use the unpublished IPA built from the final PR head. In Settings -> About,
 verify Source commit matches the build's recorded source SHA. Keep the same IPA
@@ -75,5 +75,5 @@ for the whole matrix and attach a copied report for each unexpected result.
 | Legacy credentials after upgrade | Existing identities/pairing still usable after unlock; managed copies no longer remain in shared Documents on successful migration. |
 | Copy report / relaunch | Stage history survives; report includes safe build/evidence fields, no passwords/keys/pairing contents. |
 
-The device matrix remains pending for the user. No device result is claimed by
-coding or CI alone.
+Record each observed outcome against the exact IPA source in the authoritative
+acceptance record. Coding or CI alone cannot establish a device result.
