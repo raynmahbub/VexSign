@@ -298,6 +298,10 @@ def install_smoke_sources(work):
         'Provisioning/NativeProfileCMSEnvelope.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCMSEnvelope.swift',
         'Provisioning/NativeAppleProfileCMSVerifier.swift': 'Sources/NativeSigningLinkSmoke/NativeAppleProfileCMSVerifier.swift',
         'Tests/NativeAppleProfileCMSTests.swift': 'Tests/NativeSigningCodecTests/NativeAppleProfileCMSTests.swift',
+        # Backs the OpenSSLBuilt cases: the DER is a test resource, so it has to
+        # land under the staged test target's own directory (relative to
+        # Tests/NativeSigningCodecTests, hence the ../..).
+        'Fixtures/cms_v1_sha256_rsa.der': 'Fixtures/cms_v1_sha256_rsa.der',
         'Provisioning/NativeProfileCertificateInventoryPolicy.swift': 'Sources/NativeSigningLinkSmoke/NativeProfileCertificateInventoryPolicy.swift',
         'Tests/NativeProfileCertificateInventoryTests.swift': 'Tests/NativeSigningCodecTests/NativeProfileCertificateInventoryTests.swift',
         'Provisioning/SideSignBoundProfilePortal.swift': 'Sources/NativeSigningLinkSmoke/SideSignBoundProfilePortal.swift',

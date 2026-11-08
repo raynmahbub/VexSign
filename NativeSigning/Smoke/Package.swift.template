@@ -15,6 +15,6 @@ let package = Package(
     ]), .testTarget(name: "NativeSigningCodecTests", dependencies: [
         .target(name: "NativeSigningLinkSmoke"),
         .product(name: "SideSign", package: "SideSign")
-    ])],
+    ], resources: [.copy("Fixtures/cms_v1_sha256_rsa.der")])],
     swiftLanguageModes: [.v6]
 )
