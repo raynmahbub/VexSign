@@ -67,8 +67,10 @@ struct SigningView: View {
 	
 	var app: AppInfoPresentable
 	
-	init(app: AppInfoPresentable) {
+	init(app: AppInfoPresentable, installAfterSigning: Bool = false) {
 		self.app = app
+        __temporaryOptions = State(initialValue: LibraryAppWorkflowAction.signingOptions(
+            from: OptionsManager.shared.options, installAfterSigning: installAfterSigning))
 		let storedCert = UserDefaults.standard.integer(forKey: "vexsign.selectedCert")
 		__temporaryCertificate = State(initialValue: storedCert)
 	}
@@ -256,7 +258,9 @@ extension SigningView {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                         Text(_currentStage?.title ?? .localized("Preparing signing request"))
                             .font(.headline)
-                        Text(.localized("Signing is separate from installation."))
+                        Text(_temporaryOptions.post_installAppAfterSigned
+                             ? .localized("After signing succeeds, iOS will ask to install this app.")
+                             : .localized("Signing is separate from installation."))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -463,6 +467,7 @@ extension SigningView {
                         InstallQueue.shared.enqueue(signed, exporting: true)
                     } else if intent == .library {
                         TabBarPreferences.shared.setHidden(.library, false)
+                        TabSelectionObserver.shared.librarySection = .signedApps
                         TabSelectionObserver.shared.selectedTab = .library
                     }
 

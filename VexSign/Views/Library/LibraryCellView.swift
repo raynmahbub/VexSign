@@ -110,7 +110,10 @@ struct LibraryCellView: View {
             Button(.localized("Delete"), role: .destructive) {
                 // A failed delete used to look like a tap that did nothing: the row stayed and
                 // nothing was said. Say it instead.
-                if !Storage.shared.deleteApp(for: app) {
+                let uuid = app.uuid
+                if Storage.shared.deleteApp(for: app) {
+                    if let uuid { selectedAppUUIDs.remove(uuid) }
+                } else {
                     Toast.error(
                         .localized("Couldn't delete the app. The stored copy is still in the Library; try again."),
                         duration: .sticky
@@ -143,7 +146,7 @@ struct LibraryCellView: View {
 				selectedInfoAppPresenting = AnyApp(base: app)
 			}
 		}
-		.swipeActions {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			if !isEditing {
 				if let update = updateChecker.hasUpdate(for: app), let url = update.downloadURL {
 					Button {
@@ -170,6 +173,19 @@ struct LibraryCellView: View {
 				_actions(for: app)
 			}
 		}
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if !isEditing {
+                ForEach(LibraryAppWorkflowAction.actions(isSigned: app.isSigned), id: \.self) { action in
+                    Button {
+                        _performWorkflow(action)
+                    } label: {
+                        Label(action.title, systemImage: action.systemImage)
+                    }
+                    .tint(Color.accentColor)
+                }
+            }
+        }
+
 		.sheet(item: $_explorerApp) { app in
 			IPALibraryExplorerView(app: app.base)
 		}
@@ -350,6 +366,25 @@ struct LibraryCellView: View {
 
 // MARK: - Extension: View
 extension LibraryCellView {
+    // KSign-style install/re-sign/sign-and-install actions, routed through
+    // VexSign's checked signing and evidence-based installation pipeline.
+    private func _performWorkflow(_ action: LibraryAppWorkflowAction) {
+        let perform = {
+            switch action {
+            case .install: InstallQueue.shared.enqueue(app)
+            case .resign:
+                Presentation.afterDismiss { selectedSigningAppPresenting = AnyApp(base: app) }
+            case .signAndInstall:
+                Presentation.afterDismiss { selectedSigningAppPresenting = AnyApp(base: app, installAfterSigning: true) }
+            }
+        }
+        if let uuid = app.uuid, lockManager.isAppLocked(uuid), !lockManager.isSessionUnlocked(uuid) {
+            lockManager.authenticateForApp(uuid: uuid, name: app.name ?? .localized("Application")) { success in
+                if success { perform() }
+            }
+        } else { perform() }
+    }
+
 	@ViewBuilder
 	private func _actions(for app: AppInfoPresentable) -> some View {
         Button(.localized("Delete"), systemImage: "trash", role: .destructive) {

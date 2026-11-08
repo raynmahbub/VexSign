@@ -341,3 +341,27 @@ Already committed separate tweaks are retained if cancelling the remaining batch
 Portable verification passes. Device testing is deferred to the user once the
 unpublished build for the final commit finishes; the earlier 42513935741 run tests
 only the dependency-cache change, not the later import/UI code.
+
+## Three-part Library and KSign-style quick workflows
+
+Library's segmented header is now Files → Apps → Signed Apps. Apps includes only
+imported originals; Signed Apps includes only signed copies. Scoped filtering,
+selection, hidden counts and list contents stay within their partition; unrelated
+aggregate update rows remain available in the standalone combined library/App Store
+rather than mixing partitions. Existing Library defaults/deep links still target
+Apps, with new signed/signedapps routes and signed-result/highlight routing to the
+Signed Apps segment. Import actions return to Apps.
+
+Native app-list rows offer trailing swipe Delete with confirmation and full-swipe
+disabled; it deletes only the stored copy, not the installed device app. Successful
+deletion clears that UUID from selection. Files retains its existing swipe Delete.
+Card/icon layouts retain their context-menu Delete (native list swipes do not run
+inside SwiftUI grids). Leading app-list swipes adapt KSign's Install/Re-sign for
+signed copies and Sign & Install for imported originals. Explicit sign/install
+intent is request-local and still requires successful checked signing before
+entering VexSign's confirmed-install queue. See THIRD_PARTY_ADAPTATIONS.md for the
+pinned source, original notice, license and exact adaptation boundary.
+
+Four added XCTest methods cover ordered/exclusive partitions, signed routes and
+highlights, action-kind selection and request-only signing options. Portable
+verification passes; Apple compilation and device interaction checks are pending.

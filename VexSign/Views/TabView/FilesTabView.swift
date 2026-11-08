@@ -271,7 +271,7 @@ struct FilesTabView: View {
                     .contextMenu {
                         fileContextMenu(entry: entry)
                     }
-                    .swipeActions(edge: .trailing) {
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             FileManagerActions.delete([entry.url])
                             vm.reload()

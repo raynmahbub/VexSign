@@ -17,7 +17,9 @@ struct LibraryWorkspaceView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
                 switch selection.librarySection {
-                case .apps: LibraryView(ownsNavigationStack: false)
+                case .apps, .signedApps:
+                    LibraryView(ownsNavigationStack: false, workspaceSection: selection.librarySection)
+                        .id(selection.librarySection)
                 case .files: FilesTabView(ownsNavigationStack: false)
                 }
             }

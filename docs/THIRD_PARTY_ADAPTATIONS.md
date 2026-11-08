@@ -47,3 +47,26 @@ User export, OTA and companion packaging defaults are unchanged, and the saved
 preference is not rewritten. Four XCTest cases cover transfer selection,
 preserved preferences and out-of-range indices. Smaller payloads may reduce
 transfer costs, but no device performance improvement is claimed without measurement.
+
+## Signed / unsigned Library workflow actions
+
+- **Upstream:** [Nyasami/Ksign](https://github.com/Nyasami/Ksign), confirmed by the user.
+- **Reviewed revision:** `c14dedc0c9dadb669021cce83435b14f781b8412`.
+- **Source:** [`Ksign/Views/Library/LibraryCellView.swift`](https://github.com/Nyasami/Ksign/blob/c14dedc0c9dadb669021cce83435b14f781b8412/Ksign/Views/Library/LibraryCellView.swift), signed Install/Re-sign and unsigned Sign & Install actions.
+- **Original file notice:** LibraryAppIconView.swift, Feather; created by samara on 11.04.2025; subsequent KSign contributors.
+- **License:** GPL-3.0; repository [LICENSE](../LICENSE) retained.
+- **VexSign locations:** `Utilities/LibraryAppWorkflowAction.swift`, LibraryCellView leading swipe actions, AnyApp request metadata, SigningView initialization.
+
+Adapted the action/intent split into a testable policy and explicit per-request
+install-after-signing intent. Signed rows offer Install and Re-sign; imported rows
+offer Sign & Install while retaining their normal Sign button. The new leading
+swipes require authentication for locked apps and disable accidental full-swipe
+execution. VexSign's signing preflight, checked native results, certificate handling,
+confirmed-install watcher, queue dismissal and Installed badge handoff are kept.
+Global signing defaults are not changed by the quick action.
+
+Also reviewed KSign ArchiveHandler, SigningHandler and InstallPreviewView at that
+revision. Their packaging/signing/pairing/OTA capabilities already have counterparts
+in VexSign; they are not duplicated wholesale. In particular, upstream forced
+installer/identifier unwraps, progress-based assumptions and late/shadowed signing
+error checks are not imported. No third-party certificates or binaries were added.

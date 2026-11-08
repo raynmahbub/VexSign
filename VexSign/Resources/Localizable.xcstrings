@@ -102693,6 +102693,17 @@
           }
         }
       }
+    },
+    "After signing succeeds, iOS will ask to install this app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After signing succeeds, iOS will ask to install this app."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
