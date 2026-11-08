@@ -5,14 +5,21 @@ import Foundation
 enum ProtectedCertificateFiles {
     private static let lock = NSLock()
 
-    static func directory(legacy: URL, destination: URL) -> URL {
+    static func directory(legacy: URL, destination: URL,
+                          migration: (URL, URL) throws -> Void = { try migrate(legacy: $0, destination: $1) },
+                          report: (CredentialMigrationIssue?) -> Void = {
+                              CredentialMigrationDiagnostics.report(source: .certificateFiles, issue: $0)
+                          }) -> URL {
         lock.lock()
         defer { lock.unlock() }
         do {
-            try migrate(legacy: legacy, destination: destination)
+            try migration(legacy, destination)
+            report(nil)
             return destination
         } catch {
-            // A locked disk must not silently discard access to a stored identity.
+            report(CredentialMigrationIssue.classify(error))
+            // Access failure may mean protected data or permissions, not corruption.
+            // Do not remove remaining legacy files or hide the fallback from users.
             return FileManager.default.fileExists(atPath: legacy.path) ? legacy : destination
         }
     }
@@ -44,9 +51,18 @@ enum ProtectedCertificateFiles {
 
     static func protect(_ root: URL) throws {
         let fm = FileManager.default
-        let children = fm.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        let rootInfo = try root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard rootInfo.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
+        var enumerationError: Error?
+        let children = fm.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                                     errorHandler: { _, error in
+                                         enumerationError = error
+                                         return false
+                                     })
+        if rootInfo.isDirectory == true && children == nil { throw CocoaError(.fileReadUnknown) }
         var urls = [root]
         while let url = children?.nextObject() as? URL { urls.append(url) }
+        if let enumerationError { throw enumerationError }
         for url in urls {
             let info = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
             guard info.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }

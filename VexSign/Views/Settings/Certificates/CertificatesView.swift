@@ -18,6 +18,7 @@ private enum CertificateAddSheet: String, Identifiable {
 
 // MARK: - View
 struct CertificatesView: View {
+    @ObservedObject private var migration = CredentialMigrationDiagnostics.shared
 	@AppStorage("vexsign.selectedCert") private var _storedSelectedCert: Int = 0
 	
 	@State private var _addSheet: CertificateAddSheet?
@@ -50,6 +51,12 @@ struct CertificatesView: View {
 	// MARK: Body
 	var body: some View {
 		NBGrid {
+            ForEach(migration.warnings, id: \.self) { warning in
+                Label(warning.message, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
 			if !_certificates.isEmpty {
 				_healthHeader
 			}
@@ -59,7 +66,7 @@ struct CertificatesView: View {
 		}
 		.navigationTitle(.localized("Certificates"))
 		.overlay {
-			if _certificates.isEmpty {
+			if _certificates.isEmpty && migration.warnings.isEmpty {
 				NBContentUnavailable(
 					.localized("No Certificates"),
 					systemImage: "questionmark.folder.fill",

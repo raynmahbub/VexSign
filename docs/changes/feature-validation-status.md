@@ -497,3 +497,37 @@ exclusively accessed on its private serial queue. URL/IO dependencies are immuta
 production callbacks return value snapshots/results to the main actor. Test IO
 injections must follow the same queue-confinement contract. No general shared
 mutable task-model access was added. Steps 4–6 remain pending.
+
+## Maintenance review follow-up — step 4: credential-migration visibility
+
+Certificate-directory fallback now reports an allowlisted migration warning,
+without exposing paths, UUIDs, certificate names, raw errors or passwords in UI
+or logs. Certificates and Diagnostics display session-only warnings. Successful
+retry clears only that migration source/identity's issue, not another identity's
+failure. Keychain unavailability, ambiguous filesystem access failure, insufficient
+storage and other failures are distinct. Filesystem permission errors are not
+claimed to prove a device lock, nor are unknown failures called permanent.
+
+Read-through password migration now has an injectable ordering seam: a secure
+read/write must succeed before plaintext cleanup. If database cleanup fails, the
+managed object's original password value is restored and the error propagates;
+securely stored credentials remain intact. File migration keeps its resumable,
+collision-preserving behavior and per-identity fallback. Enumeration failures now
+abort protection/movement rather than silently skipping inaccessible descendants.
+User-selected originals are not removed; already migrated managed copies may
+reside privately while unmigrated originals remain at the legacy location.
+
+Eight new native tests cover classification, file fallback/retry with byte
+preservation, locked Keychain read/write ordering, empty-password migration,
+existing secure-value precedence, per-identity warning resolution and redacted
+warning content. Portable `make verify`, Swift grammar parsing and diff checks
+pass. Apple compilation/XCTest and device lock/storage-failure tests remain
+pending. Retrying means repeating the original action; warnings do not trigger
+unattended credential reads or destructive repair.
+
+Singleton-baseline exception: one main-actor session-only diagnostic aggregator
+bridges synchronous/background migration callers to the existing Certificates and
+Diagnostics screens. Updates are marshalled through the main queue; it stores no
+credential contents and does not add an unchecked concurrency boundary. A warning
+for one identity cannot be cleared by a different identity's successful read.
+Steps 5–6 remain pending.
