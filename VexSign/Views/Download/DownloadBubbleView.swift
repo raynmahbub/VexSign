@@ -143,7 +143,7 @@ struct DownloadBubbleView: View {
             .onAppear {
                 model.bind(to: activeDownloads)
             }
-            .onChange(of: activeDownloads.map { $0.id }) { _ in
+            .onChange(of: activeDownloads.map { $0.id }) { _, _ in
                 model.bind(to: activeDownloads)
             }
         }

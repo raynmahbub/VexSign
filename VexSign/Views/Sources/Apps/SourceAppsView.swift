@@ -181,27 +181,27 @@ struct SourceAppsView: View {
                 _forceUpdateTrigger += 1
             }
         }
-        .onChange(of: viewModel.isFinished, perform: handleViewModelFinished)
-        .onChange(of: _sortOption, perform: handleSortOptionChange)
-        .onChange(of: appNavigationManager.pendingAppNavigation, perform: handlePendingNavigation)
-        .onChange(of: _sources, perform: handleSourcesChange)
-        .onChange(of: _uiReadyForNavigation, perform: handleUIReadyChange)
-        .onChange(of: signedApps.count) { _ in
+        .onChange(of: viewModel.isFinished) { _, newValue in handleViewModelFinished(newValue) }
+        .onChange(of: _sortOption) { _, newValue in handleSortOptionChange(newValue) }
+        .onChange(of: appNavigationManager.pendingAppNavigation) { _, newValue in handlePendingNavigation(newValue) }
+        .onChange(of: _sources) { _, newValue in handleSourcesChange(newValue) }
+        .onChange(of: _uiReadyForNavigation) { _, newValue in handleUIReadyChange(newValue) }
+        .onChange(of: signedApps.count) { _, _ in
             Task { @MainActor in
                 await refreshUpdateCountIfNeeded()
             }
         }
-        .onChange(of: importedApps.count) { _ in
+        .onChange(of: importedApps.count) { _, _ in
             Task { @MainActor in
                 await refreshUpdateCountIfNeeded()
             }
         }
-        .onChange(of: updateChecker.updateCount) { _ in
+        .onChange(of: updateChecker.updateCount) { _, _ in
             if let sources = _sources {
                 _localUpdateCount = calculateLocalUpdateCount(for: sources)
             }
         }
-        .onChange(of: _localUpdateCount) { newCount in
+        .onChange(of: _localUpdateCount) { _, newCount in
             if newCount == 0 {
                 if showUpdatesOnly {
                     showUpdatesOnly = false
@@ -211,7 +211,7 @@ struct SourceAppsView: View {
                 }
             }
         }
-        .onChange(of: _selectedTab) { _ in
+        .onChange(of: _selectedTab) { _, _ in
             _forceUpdateTrigger += 1
         }
         .onReceive(TabSelectionObserver.shared.$sourcesRetapped.dropFirst()) { _ in

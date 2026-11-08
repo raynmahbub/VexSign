@@ -408,19 +408,19 @@ struct AppStoreView: View {
                 guard !Task.isCancelled else { return }
                 await rebuildFilteredCatalog()
             }
-            .onChange(of: premiumFilter.stamp) { _ in
+            .onChange(of: premiumFilter.stamp) { _, _ in
                 Task {
                     await viewModel.fetchSources(sources, refresh: true)
                     await rebuildAppCatalog()
                 }
             }
-            .onChange(of: privacyManager.hiddenAppUUIDs) { _ in
+            .onChange(of: privacyManager.hiddenAppUUIDs) { _, _ in
                 Task { await rebuildAppCatalog() }
             }
-            .onChange(of: privacyManager.strictHidingEnabled) { _ in
+            .onChange(of: privacyManager.strictHidingEnabled) { _, _ in
                 Task { await rebuildAppCatalog() }
             }
-            .onChange(of: privacyManager.isRevealingHiddenApps) { _ in
+            .onChange(of: privacyManager.isRevealingHiddenApps) { _, _ in
                 Task { await rebuildAppCatalog() }
             }
             // Deleting a repository (swipe, context menu, Sources tab) while a
@@ -429,7 +429,7 @@ struct AppStoreView: View {
             .onReceive(viewModel.$sources.dropFirst()) { _ in
                 Task { await rebuildAppCatalog() }
             }
-            .onChange(of: sources.count) { _ in
+            .onChange(of: sources.count) { _, _ in
                 viewModel.evictDeletedSources(valid: Array(sources))
             }
         }

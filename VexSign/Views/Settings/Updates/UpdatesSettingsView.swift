@@ -54,8 +54,8 @@ struct UpdatesSettingsView: View {
 			_manager.refreshConfiguration()
 			Task { await _refreshNotificationAuthorization() }
 		}
-		.onChange(of: _method) { _ in _manager.refreshConfiguration() }
-		.onChange(of: _notifyOnRelease) { enabled in
+		.onChange(of: _method) { _, _ in _manager.refreshConfiguration() }
+		.onChange(of: _notifyOnRelease) { _, enabled in
 			guard enabled else { return }
 			// Ask here, where the person just said yes — never from a background check.
 			Task { await _requestNotificationPermission() }

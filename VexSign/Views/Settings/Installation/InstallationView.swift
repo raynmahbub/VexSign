@@ -74,7 +74,7 @@ struct InstallationView: View {
 				Button(.localized("Recheck installation prerequisites"), action: _refreshPreflight)
 			}
 		}
-		.onChange(of: _installationMethod) { newValue in
+		.onChange(of: _installationMethod) { _, newValue in
             NBHaptic.selection()
 			guard newValue == 1 else { return }
 			_showMethodChangedAlert = true
@@ -90,10 +90,10 @@ struct InstallationView: View {
 			))
 		}
 		.onAppear(perform: _refreshPreflight)
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             if phase == .active { _refreshPreflight() }
         }
-		.onChange(of: _installationMethod) { _ in _refreshPreflight() }
+		.onChange(of: _installationMethod) { _, _ in _refreshPreflight() }
 		.animation(.default, value: _installationMethod)
     }
 

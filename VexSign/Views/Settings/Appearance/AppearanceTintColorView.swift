@@ -66,7 +66,7 @@ struct AppearanceTintColorView: View {
             .padding(.top, 2)
         }
         .padding(.vertical, 6)
-        .onChange(of: _selectedColorHex) { value in
+        .onChange(of: _selectedColorHex) { _, value in
             UIApplication.topViewController()?.view.window?.tintColor = UIColor(Color(hex: value))
         }
     }

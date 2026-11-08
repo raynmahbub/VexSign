@@ -124,7 +124,7 @@ struct MinimizedDownloadHeader: View {
         .onAppear {
             model.bind(to: downloads)
         }
-        .onChange(of: downloads.map { $0.id }) { _ in
+        .onChange(of: downloads.map { $0.id }) { _, _ in
             model.bind(to: downloads)
         }
     }
@@ -221,7 +221,7 @@ struct CollapsedDownloadHeader: View {
         .onAppear {
             model.bind(to: downloads)
         }
-        .onChange(of: downloads.map { $0.id }) { _ in
+        .onChange(of: downloads.map { $0.id }) { _, _ in
             model.bind(to: downloads)
         }
     }
@@ -369,7 +369,7 @@ struct ExpandedDownloadHeader: View {
 		.onAppear {
 			model.bind(to: downloads)
 		}
-		.onChange(of: downloads.map { $0.id }) { _ in
+		.onChange(of: downloads.map { $0.id }) { _, _ in
 			model.bind(to: downloads)
 		}
 	}

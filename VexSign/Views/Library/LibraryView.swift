@@ -245,7 +245,7 @@ struct LibraryView: View {
                     Text("This action cannot be undone.")
                 }
                 .onAppear { presentPendingExplorer() }
-                .onChange(of: tabSelection.ipaExplorerRequested) { _ in presentPendingExplorer() }
+                .onChange(of: tabSelection.ipaExplorerRequested) { _, _ in presentPendingExplorer() }
                 .onReceive(NotificationCenter.default.publisher(for: .openIPAExplorer)) { _ in
                     Presentation.afterDismiss { _isExplorerPresenting = true }
                 }

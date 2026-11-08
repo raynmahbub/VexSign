@@ -185,7 +185,7 @@ struct SigningMethodsView: View {
                 pendingChallenge = challenge
             }
         }
-        .onChange(of: nativeManager.snapshot) { snapshot in
+        .onChange(of: nativeManager.snapshot) { _, snapshot in
             guard let operation = pendingOperation, let phase = snapshot?.phase else { return }
             switch phase {
             case .awaitingTeamSelection(let id, _, _) where id == operation.id:

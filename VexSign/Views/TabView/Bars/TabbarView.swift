@@ -55,7 +55,7 @@ struct TabbarView: View {
             }
         }
         .onAppear { repairSelection() }
-        .onChange(of: visibleTabs) { _ in repairSelection() }
+        .onChange(of: visibleTabs) { _, _ in repairSelection() }
     }
 
     @ViewBuilder
@@ -97,7 +97,7 @@ struct TabbarView: View {
             }
         }
         .onAppear { visitedTabs.insert(currentTab) }
-        .onChange(of: currentTab) { tab in visitedTabs.insert(tab) }
+        .onChange(of: currentTab) { _, tab in visitedTabs.insert(tab) }
     }
 
     private func repairSelection() {

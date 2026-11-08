@@ -136,7 +136,7 @@ struct PremiumSettingsView: View {
 		} label: {
 			Label(.localized("Custom Limit"), systemImage: "pencil")
 		}
-		.onChange(of: _customLimit) { value in
+		.onChange(of: _customLimit) { _, value in
 			let digits = String(value.filter(\.isNumber).prefix(6))
 			if digits != value {
 				_customLimit = digits

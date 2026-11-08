@@ -302,13 +302,13 @@ struct DownloadButtonView: View {
 		.onDisappear { 
 			cancellable?.cancel() 
 		}
-		.onChange(of: downloadManager.downloads.description) { _ in
+		.onChange(of: downloadManager.downloads.description) { _, _ in
 			setupObserver()
 		}
-		.onChange(of: signedApps.count) { _ in
+		.onChange(of: signedApps.count) { _, _ in
 			checkIfInstalled()
 		}
-		.onChange(of: importedApps.count) { _ in
+		.onChange(of: importedApps.count) { _, _ in
 			checkIfInstalled()
 		}
 		.animation(hasAppeared ? .easeInOut(duration: 0.25) : nil, value: downloadManager.getDownload(by: app.currentUniqueId) != nil)
