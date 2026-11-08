@@ -149,6 +149,9 @@ final class LibraryStatusStore: ObservableObject {
 	/// Keep snapshots (never managed objects) so invalidation can re-read visible rows.
 	private var knownRequests: [String: Request] = [:]
 	private var generation = 0
+    // A just-confirmed install is stronger evidence than an immediately stale or
+    // restricted inventory lookup. Keep this handoff short-lived, never persistent.
+    private var confirmations: [String: (app: InstalledApp, date: Date)] = [:]
 	/// Bumped by every new read, so a read already running when the device's answer
 	/// changed cannot publish the answer it was about to.
 	private var epoch: [String: Int] = [:]
@@ -187,6 +190,8 @@ final class LibraryStatusStore: ObservableObject {
 	func request(_ request: Request, maxAge: TimeInterval = defaultMaxAge, force: Bool = false) {
 		let changed = knownRequests[request.uuid] != request
 		knownRequests[request.uuid] = request
+        let seeded = applyingConfirmation(to: statuses[request.uuid] ?? LibraryAppStatus(), request: request)
+        if seeded.installed != .unknown { statuses[request.uuid] = seeded }
 		guard force || changed || _needsRead(request.uuid, maxAge: maxAge) else { return }
 
 		// A forced refresh may supersede an in-flight read. Only the newest read owns
@@ -218,6 +223,32 @@ final class LibraryStatusStore: ObservableObject {
 		}
 	}
 
+    func recordConfirmedInstallation(bundleIdentifier: String, version: String?, now: Date = Date()) {
+        guard !bundleIdentifier.isEmpty else { return }
+        confirmations = confirmations.filter { now.timeIntervalSince($0.value.date) >= 0 && now.timeIntervalSince($0.value.date) <= Self.defaultMaxAge }
+        confirmations[bundleIdentifier] = (InstalledApp(bundleIdentifier: bundleIdentifier, isInstalled: true, version: version), now)
+        for request in Array(knownRequests.values) where request.bundleIdentifier == bundleIdentifier {
+            var status = statuses[request.uuid] ?? LibraryAppStatus()
+            status.bundleIdentifier = bundleIdentifier
+            status.installed = .unknown
+            status = applyingConfirmation(to: status, request: request, now: now)
+            statuses[request.uuid] = status
+            self.request(request, force: true)
+        }
+    }
+
+    private func applyingConfirmation(to status: LibraryAppStatus, request: Request, now: Date = Date()) -> LibraryAppStatus {
+        guard status.installed == .unknown, let identifier = request.bundleIdentifier,
+              let receipt = confirmations[identifier],
+              now.timeIntervalSince(receipt.date) >= 0,
+              now.timeIntervalSince(receipt.date) <= Self.defaultMaxAge else { return status }
+        var updated = status
+        updated.bundleIdentifier = identifier
+        updated.installed = InstalledState.derive(from: receipt.app, expecting: request.expectedVersion)
+        updated.updatedAt = now
+        return updated
+    }
+
     /// Refresh rows that remain mounted when returning from the iOS install prompt.
     func refreshKnown() {
         for request in Array(knownRequests.values) { self.request(request, force: true) }
@@ -226,6 +257,7 @@ final class LibraryStatusStore: ObservableObject {
 	func invalidateAll() {
 		// Prevent a pre-reset read from repopulating the store or clearing a newer read.
 		generation += 1
+        confirmations.removeAll()
 		lastAttempt.removeAll()
 		statuses.removeAll()
 		knownRequests.removeAll()
@@ -281,7 +313,8 @@ final class LibraryStatusStore: ObservableObject {
 					// one, so drop this.
 					guard (store.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0) else { continue }
 					store.inflight.remove(uuid)
-					store.statuses[uuid] = status
+                    guard let request = store.knownRequests[uuid] else { continue }
+					store.statuses[uuid] = store.applyingConfirmation(to: status, request: request)
 				}
 			}
 		}

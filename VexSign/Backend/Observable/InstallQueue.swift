@@ -283,7 +283,7 @@ final class InstallQueue: ObservableObject {
 				arguments: version ?? .localized("unknown")
 			))
 			_syncUnifiedTaskProgress()
-			_scheduleAdvance(after: 1.2, for: current?.id)
+			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .success:
             NBHaptic.notify(.success)
 			if let current { outcomes[current.id] = .succeeded }
@@ -291,7 +291,7 @@ final class InstallQueue: ObservableObject {
 			_syncUnifiedTaskProgress()
 			// Let the finished ring land before the next app takes over. The scheduled advance is
 			// invalidated if the user skips/retries or the queue is otherwise reset first.
-			_scheduleAdvance(after: 1.2, for: current?.id)
+			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .failure(let error):
             _discardPreparation()
             NBHaptic.notify(.error)

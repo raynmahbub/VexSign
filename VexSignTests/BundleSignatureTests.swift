@@ -454,6 +454,49 @@ final class BundleSignatureTests: XCTestCase {
 		XCTAssertEqual(missing?.tone, .neutral)
 	}
 
+    @MainActor
+    func testConfirmedInstallImmediatelyUpdatesVisibleAndLaterMountedRows() async throws {
+        let store = LibraryStatusStore(probe: StubProbe(app: nil), readSignature: { _ in .noCodeSignature })
+        let request = LibraryStatusStore.Request(uuid: "visible", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: true)
+        store.request(request)
+        try await waitUntil { store.statuses["visible"]?.isKnown == true }
+        store.recordConfirmedInstallation(bundleIdentifier: "example.app", version: "1")
+        XCTAssertEqual(store.statuses["visible"]?.installed, .installed)
+        let visibleSeed = store.statuses["visible"]?.updatedAt
+        let later = LibraryStatusStore.Request(uuid: "later", bundleIdentifier: "example.app", expectedVersion: "2", bundleURL: nil, isSigned: true)
+        store.request(later)
+        XCTAssertEqual(store.statuses["later"]?.installed, .installedOtherVersion("1"))
+        let laterSeed = store.statuses["later"]?.updatedAt
+        // Wait for both actual publications, not an arbitrary sleep.
+        try await waitUntil {
+            store.statuses["visible"]?.updatedAt != visibleSeed && store.statuses["later"]?.updatedAt != laterSeed
+        }
+        XCTAssertEqual(store.statuses["visible"]?.installed, .installed)
+        XCTAssertEqual(store.statuses["later"]?.installed, .installedOtherVersion("1"))
+    }
+
+    @MainActor
+    func testConfirmedInstallDoesNotLeakToOtherIdentifiersOrSurviveReset() {
+        let store = LibraryStatusStore(probe: StubProbe(app: nil))
+        store.recordConfirmedInstallation(bundleIdentifier: "example.app", version: "1")
+        let other = LibraryStatusStore.Request(uuid: "other", bundleIdentifier: "other.app", expectedVersion: "1", bundleURL: nil, isSigned: false)
+        store.request(other)
+        XCTAssertNotEqual(store.statuses["other"]?.installed, .installed)
+        store.invalidateAll()
+        let request = LibraryStatusStore.Request(uuid: "reset", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: false)
+        store.request(request)
+        XCTAssertNotEqual(store.statuses["reset"]?.installed, .installed)
+    }
+
+    @MainActor
+    func testOldConfirmationCannotMarkAnAppInstalled() {
+        let store = LibraryStatusStore(probe: StubProbe(app: nil))
+        store.recordConfirmedInstallation(bundleIdentifier: "example.app", version: "1", now: Date().addingTimeInterval(-60))
+        let request = LibraryStatusStore.Request(uuid: "expired", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: false)
+        store.request(request)
+        XCTAssertNotEqual(store.statuses["expired"]?.installed, .installed)
+    }
+
 	@MainActor
 	func testInvalidationImmediatelyRefreshesAnAlreadyVisibleRow() async throws {
 		let probe = ControlledLibraryProbe()
