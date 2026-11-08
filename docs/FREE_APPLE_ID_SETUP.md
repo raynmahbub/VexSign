@@ -24,6 +24,15 @@ This guide walks you through setting up and using VexSign's **Free Apple ID sign
 - **Paired Device**: Your iOS device paired with a Mac (for device UDID retrieval)
 - **TrollStore** (optional): For permanent installation on iOS 14.0–16.6.1
 
+> **This flow cannot sign yet.** VexSign can authenticate a free Apple ID, select
+> a team, register a device and record a provisioning profile, but nothing
+> converts that identity and profile into the certificate pair the signer reads.
+> Profile creation is additionally gated on a CMS verifier that shipping builds
+> do not supply. Treat the steps below as the shape of the flow, not a working
+> end-to-end path — [Free Apple ID handoff](NATIVE_SIGNING_HANDOFF.md) lists the
+> three closed gates and what each needs. Signing with an imported
+> `.p12` + `.mobileprovision` is the supported path.
+
 ---
 
 ## Anisette Provider Setup

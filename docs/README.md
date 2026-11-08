@@ -19,6 +19,7 @@ versioned with the code.
 | [Architecture](ARCHITECTURE.md) | You are changing the app shell, task pipeline, storage or packages. |
 | [Design](DESIGN.md) | You are adding a screen or component and need the visual and accessibility rules. |
 | [Native signing architecture](NATIVE_SIGNING_ARCHITECTURE.md) | You are working on the experimental on-device account and provisioning backend. |
+| [Free Apple ID handoff](NATIVE_SIGNING_HANDOFF.md) | You are wiring (or reviewing) the join between native provisioning and the signer — read this before promising a Free Apple ID flow. |
 | [Signing and import reliability](changes/native-signing-and-import.md) | You need native execution ownership, input validation, extraction guarantees and their acceptance tests. |
 | [Web tools](WEBTOOLS.md) | You are integrating with the browser manager, API or WebDAV. |
 | [Source signing](SOURCE_SIGNING.md) | You publish a repository and want signed source metadata. |

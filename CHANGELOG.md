@@ -37,6 +37,20 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - The "Refresh All (TrollStore)" sheet no longer claims to have triggered a
   refresh. TrollStore accepts no refresh URL command; the sheet explains that and
   offers to open TrollStore instead.
+### Documentation
+
+- Document the Free Apple ID handoff gap instead of leaving it to be
+  rediscovered: `docs/NATIVE_SIGNING_HANDOFF.md` names the three closed gates
+  (no production CMS verifier, no profile export, no identity export reachable
+  from the app), the six-stage design that closes them, and the order that keeps
+  each intermediate state honest. `docs/FREE_APPLE_ID_SETUP.md` now says at the
+  top that the flow cannot sign yet.
+- `tools/check-native-handoff.py` (wired into `make verify`) keeps the
+  `nativeAppleAccountSigning` capability tied to its wiring: flipping it to
+  `.implemented` without an export adapter and a package-side profile export
+  fails, as does deleting the "handoff is not enabled" copy while the flag still
+  says `.notIntegrated`.
+
 - `tools/update-repo.sh` no longer writes a markdown image into the source
   "news" caption. Release bodies open with the app icon, and the raw markdown
   image reference landed in `app-repo.json` verbatim for 1.1.0 and 1.2.0;
