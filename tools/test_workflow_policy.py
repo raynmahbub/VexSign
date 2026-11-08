@@ -129,8 +129,47 @@ class WorkflowPolicyTests(unittest.TestCase):
         text = (WORKFLOWS / 'platform-check.yml').read_text()
         self.assertIn('TMPDIR: ${{ runner.temp }}/', text)
         self.assertIn('-packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}"', text)
-        self.assertIn('-disablePackageRepositoryCache', text)
+        self.assertIn('prefetch_spm_artifacts.py', text)
+        self.assertIn('--cache "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}/artifacts"', text)
         self.assertNotIn('continue-on-error:', text)
+
+    def test_binary_prefetch_checksums_deduplication_and_failure_cleanup(self):
+        import hashlib
+        prefetch = runpy.run_path(str(ROOT / '.github/scripts/prefetch_spm_artifacts.py'))
+        payload = b'verified archive bytes'
+        checksum = hashlib.sha256(payload).hexdigest()
+        urls = ['https://github.com/example/archive.zip#A', 'https://github.com/example/archive.zip#B']
+        calls = []
+
+        def download(url, destination):
+            calls.append(url)
+            destination.write_bytes(payload)
+
+        with tempfile.TemporaryDirectory() as folder:
+            cache = Path(folder)
+            artifacts = [(url, checksum) for url in urls]
+            prefetch['prefetch'](cache, artifacts, download)
+            self.assertEqual(calls, ['https://github.com/example/archive.zip'])
+            for url in urls:
+                self.assertEqual((cache / prefetch['cache_key'](url)).read_bytes(), payload)
+            prefetch['prefetch'](cache, artifacts, download)
+            self.assertEqual(len(calls), 1)
+            original = cache / prefetch['cache_key'](urls[0])
+            with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch'):
+                prefetch['prefetch'](cache, [(urls[0], '0' * 64)], download)
+            self.assertEqual(original.read_bytes(), payload)
+            self.assertFalse(any(path.name.startswith('.prefetch-') for path in cache.iterdir()))
+
+    def test_binary_prefetch_never_publishes_failed_downloads(self):
+        prefetch = runpy.run_path(str(ROOT / '.github/scripts/prefetch_spm_artifacts.py'))
+        def download(url, destination):
+            destination.write_bytes(b'partial')
+            raise RuntimeError('network failure')
+        with tempfile.TemporaryDirectory() as folder:
+            cache = Path(folder)
+            with self.assertRaisesRegex(RuntimeError, 'network failure'):
+                prefetch['prefetch'](cache, [('https://github.com/example/archive.zip', '0' * 64)], download)
+            self.assertEqual(list(cache.iterdir()), [])
 
     def test_package_resolution_annotations_include_the_root_cause(self):
         with tempfile.TemporaryDirectory() as folder:

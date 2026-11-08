@@ -91,6 +91,11 @@ jobs:
           restore-keys: |
             spm-platform-${{ runner.os }}-
 
+      - name: Prefetch verified binary archives
+        run: |
+          python3 .github/scripts/prefetch_spm_artifacts.py \
+            --cache "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}/artifacts"
+
       - name: Build (Debug, unsigned)
         id: build
         env:
@@ -107,7 +112,6 @@ jobs:
             -destination '${{ matrix.destination }}' \
             -derivedDataPath "$DERIVED_DATA" \
             -packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}" \
-            -disablePackageRepositoryCache \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
