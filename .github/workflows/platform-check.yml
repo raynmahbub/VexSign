@@ -23,6 +23,8 @@ on:
       - 'AltSourceKit/**'
       - 'Vendor/**'
       - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/prefetch_spm_artifacts.py'
+      - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
   pull_request:
     branches: [main]
@@ -38,6 +40,8 @@ on:
       - 'AltSourceKit/**'
       - 'Vendor/**'
       - '.github/scripts/select_xcode.sh'
+      - '.github/scripts/prefetch_spm_artifacts.py'
+      - '.github/scripts/xcodebuild_report.py'
       - '.github/workflows/platform-check.yml'
   workflow_dispatch:
 

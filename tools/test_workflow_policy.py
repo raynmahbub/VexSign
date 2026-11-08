@@ -130,6 +130,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('TMPDIR: ${{ runner.temp }}/', text)
         self.assertIn('-packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}"', text)
         self.assertIn('prefetch_spm_artifacts.py', text)
+        self.assertEqual(text.count("      - '.github/scripts/prefetch_spm_artifacts.py'"), 2)
         self.assertIn('--cache "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}/artifacts"', text)
         self.assertNotIn('continue-on-error:', text)
 
