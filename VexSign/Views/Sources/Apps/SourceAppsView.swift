@@ -181,11 +181,11 @@ struct SourceAppsView: View {
                 _forceUpdateTrigger += 1
             }
         }
-        .onChange(of: viewModel.isFinished) { _, newValue in handleViewModelFinished(newValue) }
-        .onChange(of: _sortOption) { _, newValue in handleSortOptionChange(newValue) }
-        .onChange(of: appNavigationManager.pendingAppNavigation) { _, newValue in handlePendingNavigation(newValue) }
-        .onChange(of: _sources) { _, newValue in handleSourcesChange(newValue) }
-        .onChange(of: _uiReadyForNavigation) { _, newValue in handleUIReadyChange(newValue) }
+        .onChange(of: viewModel.isFinished, perform: handleViewModelFinished)
+        .onChange(of: _sortOption, perform: handleSortOptionChange)
+        .onChange(of: appNavigationManager.pendingAppNavigation, perform: handlePendingNavigation)
+        .onChange(of: _sources, perform: handleSourcesChange)
+        .onChange(of: _uiReadyForNavigation, perform: handleUIReadyChange)
         .onChange(of: signedApps.count) { _, _ in
             Task { @MainActor in
                 await refreshUpdateCountIfNeeded()
@@ -314,17 +314,17 @@ struct SourceAppsView: View {
         }
     }
     
-    private func handleViewModelFinished(_ isFinished: Bool) {
+    private func handleViewModelFinished(_ oldValue: Bool, _ isFinished: Bool) {
         if isFinished {
             _load()
         }
     }
     
-    private func handleSortOptionChange(_ newValue: SortOption) {
+    private func handleSortOptionChange(_ oldValue: SortOption, _ newValue: SortOption) {
         _sortOptionRawValue = newValue.rawValue
     }
     
-    private func handleSourcesChange(_ sources: [ASRepository]?) {
+    private func handleSourcesChange(_ oldValue: [ASRepository]?, _ sources: [ASRepository]?) {
         guard sources != nil, !isLoading else { return }
 
         Task { @MainActor in
@@ -338,7 +338,7 @@ struct SourceAppsView: View {
         }
     }
     
-    private func handleUIReadyChange(_ isReady: Bool) {
+    private func handleUIReadyChange(_ oldValue: Bool, _ isReady: Bool) {
         if isReady && appNavigationManager.pendingAppNavigation != nil && !_isProcessingNavigation {
             handlePendingNavigationWhenReady()
         }
@@ -360,7 +360,7 @@ struct SourceAppsView: View {
     
     // MARK: - Navigation Handling
     
-    private func handlePendingNavigation(_ pendingNavigation: AppNavigationManager.PendingAppNavigation?) {
+    private func handlePendingNavigation(_ oldValue: AppNavigationManager.PendingAppNavigation?, _ pendingNavigation: AppNavigationManager.PendingAppNavigation?) {
         guard let navigation = pendingNavigation else { return }
         
         if _lastProcessedNavigationId == navigation.navigationId && _isProcessingNavigation {

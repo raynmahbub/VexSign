@@ -30,6 +30,13 @@ class DownloadOverlaySheetViewController: UIViewController {
 
         updateBackgroundColor()
 
+        // Replaces the deprecated traitCollectionDidChange override: refresh the
+        // background when the colour appearance actually changes. The legacy path
+        // could also fire on collection-size changes, which never affected it.
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _) in
+            self.updateBackgroundColor()
+        }
+
         let content = DownloadOverlaySheetContent(
             downloadManager: downloadManager,
             isPresented: isPresented
@@ -67,11 +74,4 @@ class DownloadOverlaySheetViewController: UIViewController {
         }
     }
 
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-
-        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            updateBackgroundColor()
-        }
-    }
 }

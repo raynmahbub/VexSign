@@ -54,8 +54,8 @@ struct FilesTabView: View {
             }
             .listStyle(.insetGrouped)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: Text(.localized("Search files")))
-            .onChange(of: query) { vm.query = $0 }
-            .onChange(of: showHidden) { vm.showsHidden = $0; vm.reload() }
+            .onChange(of: query) { _, newQuery in vm.query = newQuery }
+            .onChange(of: showHidden) { _, newValue in vm.showsHidden = newValue; vm.reload() }
             .toolbar { toolbar }
             .scrollIndicators(.hidden)
             .refreshable { vm.reload() }
