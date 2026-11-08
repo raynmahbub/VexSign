@@ -157,7 +157,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	}
 
 	@discardableResult
-	func addToDatabase() async throws -> AppInfoPresentable {
+	func addToDatabase() async throws -> NSManagedObjectID {
 		let app = try await _directory()
 
 		guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
@@ -196,13 +196,18 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 		_didAddToDatabase = true
 
-		// The library row has to be read on the context's own queue.
-		guard let imported = await MainActor.run(body: { Storage.shared.object(objectID) as Imported? }) else {
-			throw _error(.database, reason: "The app was saved but could not be read back from the library.")
-		}
+        return objectID
+    }
 
-		return imported
-	}
+    /// Resolve on the view context only when delivering the main-actor result.
+    /// Managed objects must never cross MainActor.run's Sendable result boundary.
+    @MainActor
+    func importedApp(for objectID: NSManagedObjectID) throws -> AppInfoPresentable {
+        guard let imported: Imported = Storage.shared.object(objectID) else {
+            throw _error(.database, reason: "The app was saved but could not be read back from the library.")
+        }
+        return imported
+    }
 
 	private func _directory() async throws -> URL {
 		// Documents/VexSign/Unsigned/\(UUID)

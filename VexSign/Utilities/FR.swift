@@ -30,8 +30,11 @@ enum FR {
 				try await handler.copy()
 				try await handler.extract()
 				try await handler.move()
-                let app = try await handler.addToDatabase()
-                let iconDirectory = await MainActor.run { Storage.shared.getAppDirectory(for: app) }
+                let objectID = try await handler.addToDatabase()
+                let iconDirectory: URL? = await MainActor.run {
+                    guard let app: Imported = Storage.shared.object(objectID) else { return nil }
+                    return Storage.shared.getAppDirectory(for: app)
+                }
                 let historyIcon = iconDirectory.flatMap { iconTest($0) }
                 if let download, let historyIcon {
                     await MainActor.run {
@@ -40,7 +43,8 @@ enum FR {
                 }
                 try? await handler.clean()
 				await MainActor.run {
-					completion(.success(app))
+                    do { completion(.success(try handler.importedApp(for: objectID))) }
+                    catch { completion(.failure(error)) }
 				}
 			} catch {
 				try? await handler.clean()

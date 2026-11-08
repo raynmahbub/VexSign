@@ -192,7 +192,7 @@ def main() -> int:
     warnings_3p = Counter()
     bare_errors: list[str] = []
 
-    for raw in lines:
+    for line_index, raw in enumerate(lines):
         line = raw.rstrip()
         match = DIAG_RE.match(line)
         if match:
@@ -215,6 +215,21 @@ def main() -> int:
         match = BARE_ERROR_RE.match(line)
         if match:
             msg = match["msg"].strip()
+            # SwiftPM emits the actionable dependency-resolution reason on the
+            # following indented lines, not on xcodebuild's generic error line.
+            if "could not resolve package dependencies" in msg.lower():
+                context = []
+                for following in lines[line_index + 1:line_index + 21]:
+                    if not following.strip():
+                        if context:
+                            break
+                        continue
+                    if following[:1].isspace():
+                        context.append(following.strip())
+                    else:
+                        break
+                if context:
+                    msg += "\n" + "\n".join(context)
             if msg and msg not in bare_errors:
                 bare_errors.append(msg)
 
