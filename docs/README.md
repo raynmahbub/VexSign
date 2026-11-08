@@ -27,6 +27,7 @@ versioned with the code.
 
 | Guide | Use it when |
 | --- | --- |
+| [Current validation status](changes/feature-validation-status.md) | You need the authoritative source-pinned implementation, portable, Apple and device acceptance record. |
 | [Device acceptance](DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |

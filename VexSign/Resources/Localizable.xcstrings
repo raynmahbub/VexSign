@@ -102946,6 +102946,105 @@
           }
         }
       }
+    },
+    "Deletion could not be completed. Your app records were kept; recovery files, if any, are retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletion could not be completed. Your app records were kept; recovery files, if any, are retained."
+          }
+        }
+      }
+    },
+    "Recent task history could not be saved. Previously saved history has not been replaced." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent task history could not be saved. Previously saved history has not been replaced."
+          }
+        }
+      }
+    },
+    "Task history cannot be read. Existing data is retained; new history will be saved after access is restored." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task history cannot be read. Existing data is retained; new history will be saved after access is restored."
+          }
+        }
+      }
+    },
+    "Task history recovery could not be saved. The original history was kept; history writes are paused." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task history recovery could not be saved. The original history was kept; history writes are paused."
+          }
+        }
+      }
+    },
+    "Unreadable task history was preserved in a recovery file. New task history can still be saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unreadable task history was preserved in a recovery file. New task history can still be saved."
+          }
+        }
+      }
+    },
+    "Credential migration cannot access its files. Unlock the device and retry; if the warning continues, review file access. Unmigrated originals are retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential migration cannot access its files. Unlock the device and retry; if the warning continues, review file access. Unmigrated originals are retained."
+          }
+        }
+      }
+    },
+    "Credential migration could not finish. Retry the original action; if the warning continues, review certificate storage and Keychain access. Do not delete the original credentials." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential migration could not finish. Retry the original action; if the warning continues, review certificate storage and Keychain access. Do not delete the original credentials."
+          }
+        }
+      }
+    },
+    "Credential migration is waiting for Keychain access. Unlock the device and retry the original action. Existing credentials have not been discarded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential migration is waiting for Keychain access. Unlock the device and retry the original action. Existing credentials have not been discarded."
+          }
+        }
+      }
+    },
+    "Credential migration needs more storage. Free space and retry the original action. Unmigrated originals are retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential migration needs more storage. Free space and retry the original action. Unmigrated originals are retained."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

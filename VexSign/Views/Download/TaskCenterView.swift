@@ -55,9 +55,32 @@ struct TaskCenterView: View {
         !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var historyWarning: String? {
+        switch center.historyPersistenceIssue {
+        case .inaccessible, .notLoaded:
+            return .localized("Task history cannot be read. Existing data is retained; new history will be saved after access is restored.")
+        case .corruptPreserved:
+            return .localized("Unreadable task history was preserved in a recovery file. New task history can still be saved.")
+        case .preservationFailed:
+            return .localized("Task history recovery could not be saved. The original history was kept; history writes are paused.")
+        case .writeFailed:
+            return .localized("Recent task history could not be saved. Previously saved history has not been replaced.")
+        case nil:
+            return nil
+        }
+    }
+
 	var body: some View {
 		NBNavigationView(.localized("Task Center"), displayMode: .inline, ownsNavigationStack: ownsNavigationStack) {
 			List {
+                if let historyWarning {
+                    Section {
+                        Label(historyWarning, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
 				Section {
 					Picker(.localized("Show"), selection: $filter) {
 						ForEach(TaskFilter.allCases) { f in

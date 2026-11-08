@@ -366,6 +366,8 @@ extension IPAFileViewerView {
 		}
 
 		do {
+			let lease = try _workspace.acquireEditingLease()
+			defer { withExtendedLifetime(lease) {} }
 			try data.write(to: entry.url, options: .atomic)
 			_workspace.markDirty()
 			_load(force: true)
@@ -376,13 +378,19 @@ extension IPAFileViewerView {
 	}
 
 	private func _save(plist: Any) {
-		guard IPAFileLoader.write(plist: plist, to: entry.url) else {
-			Toast.error(.localized("Invalid property list"), duration: .long)
-			return
+		do {
+			let lease = try _workspace.acquireEditingLease()
+			defer { withExtendedLifetime(lease) {} }
+			guard IPAFileLoader.write(plist: plist, to: entry.url) else {
+				Toast.error(.localized("Invalid property list"), duration: .long)
+				return
+			}
+			_workspace.markDirty()
+			_load(force: true)
+			Toast.success(.localized("Saved"), systemImage: "checkmark.circle")
+		} catch {
+			Toast.error(error.localizedDescription, duration: .long)
 		}
-		_workspace.markDirty()
-		_load(force: true)
-		Toast.success(.localized("Saved"), systemImage: "checkmark.circle")
 	}
 
 	private func _rename() {

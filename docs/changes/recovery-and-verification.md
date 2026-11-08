@@ -1,5 +1,8 @@
 # Recovery, resource ownership and installation verification
 
+> Implementation/design notes only. Current source-pinned validation and acceptance
+> live exclusively in [Validation and acceptance](feature-validation-status.md).
+
 ## Verification stall
 
 Native installation-proxy completion arrives only after its device command
@@ -72,17 +75,9 @@ and hashes its actual bytes. Locally extracted artifacts can be checked with
 These checks identify corruption/build mismatch; they are not a signing identity
 or a substitute for normal signature verification.
 
-## Validation and pending device checks
+## Validation reference
 
-Nine added native tests cover restart isolation, lease ownership/lifetime, disk
-estimates, bounded evidence, and migration failures. Four new portable provenance
-tests plus four additional wiring checks run in make verify and CI. Swift grammar
-and portable checks pass; latest Apple compilation/XCTest and device acceptance
-remain pending. The previous CI extra-progress-argument compile failure is fixed
-by adding the missing defaulted begin(progress:) parameter.
-
-Test the exact latest IPA: native success/rejection, OTA with visible and filtered
-status, reinstall/update, large IPA/low disk, stop during native/OTA work, restart
-during signing/installing, competing actions on one copy, unrelated parallel
-copies, and legacy credential migration after unlock. Keep PR #133 unmerged until
-latest Apple checks pass; collect device reports without passwords/keys/records.
+See [Validation and acceptance](feature-validation-status.md) for the evaluated
+source SHA, portable checks, exact Apple CI evidence and pending device scenarios.
+Native test descriptions above describe test coverage, not execution results.
+Use the exact built IPA and record its source and hash before device testing.

@@ -16,6 +16,7 @@ import CoreData
 import IDeviceSwift
 
 struct DiagnosticsCenterView: View {
+    @ObservedObject private var migration = CredentialMigrationDiagnostics.shared
 	@ObservedObject private var taskCenter = UnifiedTaskCenter.shared
 	@ObservedObject private var sourcesViewModel = SourcesViewModel.shared
 
@@ -30,6 +31,15 @@ struct DiagnosticsCenterView: View {
 	var body: some View {
 		NBNavigationView(.localized("Diagnostics"), displayMode: .inline) {
 			List {
+                if !migration.warnings.isEmpty {
+                    Section {
+                        ForEach(migration.warnings, id: \.self) { warning in
+                            Label(warning.message, systemImage: "exclamationmark.triangle")
+                                .font(.footnote)
+                        }
+                    }
+                }
+
 				overviewSection
 				certificatesSection
 				repositoriesSection

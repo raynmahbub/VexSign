@@ -8,6 +8,7 @@
 import CoreData
 import OSLog
 import SwiftUI
+import NimbleExtensions
 
 // MARK: - Class extension: Apps (Shared)
 extension Storage {
@@ -31,21 +32,25 @@ extension Storage {
 		return deleteApps([app])
 	}
 
-	/// One save for the whole batch: saving per item mid-edit blows up the SwiftUI list diff.
-	///
-	/// Everything that can go wrong here used to go wrong silently — a file that would not be
-	/// removed was swallowed by `try?`, and a save that failed only reached the unified log — so
-	/// "Delete does nothing" had no visible cause. The save is checked now and the result is
-	/// reported back; the file removal is logged, and never stops the row from going away.
-	///
-	/// - Returns: false when at least one row could not be deleted.
+    /// Quarantine first, commit deletion in an isolated context, then purge.
+    /// Save failures cannot roll back unrelated edits in the view context.
+    /// Post-commit cleanup failure is tracked and retried at launch.
+
 	@discardableResult
-	func deleteApps(_ apps: [AppInfoPresentable]) -> Bool {
+	func deleteApps(_ apps: [AppInfoPresentable],
+                    saveDeletion: (NSManagedObjectContext) throws -> Void = { try $0.save() }) -> Bool {
 		StorageConcurrency.requireMainQueue()
 		guard !apps.isEmpty else { return true }
+        let resolved = apps.compactMap { _deletableRow(for: $0) }
+        let ids = Array(Set(resolved.map(\.objectID)))
+        guard resolved.count == apps.count, !ids.isEmpty,
+              ids.allSatisfy({ !$0.isTemporaryID }),
+              Set(ids.compactMap { $0.persistentStore?.identifier }).count == 1 else { return false }
+        let managedApps = resolved.compactMap { $0 as? AppInfoPresentable }
+        guard managedApps.count == resolved.count else { return false }
         var leases: [AppOperationRegistry.Lease] = []
         do {
-            for key in Set(apps.compactMap(AppOperationRegistry.key)) {
+            for key in Set(managedApps.compactMap(AppOperationRegistry.key)) {
                 leases.append(try AppOperationRegistry.shared.acquire(key))
             }
         } catch {
@@ -54,43 +59,96 @@ extension Storage {
         }
         defer { withExtendedLifetime(leases) {} }
 
-		var deletedAny = false
-		for app in apps {
-			if let url = getUuidDirectory(for: app) {
-				do {
-					try FileManager.default.removeItem(at: url)
-				} catch let error as NSError where error.code == NSFileNoSuchFileError {
-					// Already gone: the row is what matters.
-				} catch {
-					Logger.misc.error("Could not remove \(url.path): \(error.localizedDescription)")
-				}
-			}
-			// A caller may hand over a row from another context (the storage screen and the
-			// automation paths fetch off the main queue); `delete` on a foreign object is a
-			// no-op at best, so it is resolved here first.
-			guard let object = _deletableRow(for: app) else { continue }
-			context.delete(object)
-			deletedAny = true
-		}
-
-		guard deletedAny else { return false }
-		guard context.hasChanges else { return true }
-
-		do {
-			try context.save()
-		} catch {
-			Logger.misc.error("CoreData save failed while deleting apps: \(error.localizedDescription)")
-			return false
-		}
+        // Resolve all rows before moving anything. A sibling context makes save
+        // failure rollback local to this deletion, not unrelated UI edits.
+        let deletion = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        deletion.persistentStoreCoordinator = container.persistentStoreCoordinator
+        deletion.mergePolicy = NSErrorMergePolicy
+        var transaction: StagedAppDeletion?
+        do {
+            let rows = try ids.map { id -> NSManagedObject in
+                guard let entity = id.entity.name else { throw CocoaError(.fileReadCorruptFile) }
+                let fetch = NSFetchRequest<NSManagedObject>(entityName: entity)
+                fetch.predicate = NSPredicate(format: "SELF == %@", id)
+                fetch.fetchLimit = 1
+                guard let row = try deletion.fetch(fetch).first else { throw CocoaError(.fileNoSuchFile) }
+                return row
+            }
+            let originals = try rows.map { row -> (URL, URL) in
+                guard let app = row as? AppInfoPresentable, let directory = getUuidDirectory(for: app),
+                      Self._allowedDeletionOriginal(directory) else { throw CocoaError(.fileReadCorruptFile) }
+                return (directory, row.objectID.uriRepresentation())
+            }
+            let staged = try StagedAppDeletion(root: Self._deletionRoot, originals: originals)
+            transaction = staged
+            try staged.stage()
+            for row in rows { deletion.delete(row) }
+            try saveDeletion(deletion)
+        } catch {
+            deletion.rollback()
+            if let transaction {
+                do { try transaction.recover(rowExists: _deletionRowExists, allowedOriginal: Self._allowedDeletionOriginal) }
+                catch { Logger.misc.error("Deletion rollback deferred; recovery files retained.") }
+            }
+            Toast.error(String.localized("Deletion could not be completed. Your app records were kept; recovery files, if any, are retained."))
+            return false
+        }
+        NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
+        if let transaction {
+            do { try transaction.recover(rowExists: { _ in false }, allowedOriginal: Self._allowedDeletionOriginal) }
+            catch { Logger.misc.warning("Deleted app cleanup deferred; tracked quarantine retained.") }
+        }
 
 		Task { @MainActor in WidgetStatusPublisher.publish() }
 		return true
 	}
 
+    private static var _deletionRoot: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PendingAppDeletions", isDirectory: true)
+    }
+
+    private static func _allowedDeletionOriginal(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL
+        guard path.isFileURL, !path.lastPathComponent.isEmpty,
+              !url.path.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }) else { return false }
+        let parent = path.deletingLastPathComponent().resolvingSymlinksInPath()
+        return [FileManager.default.signed, FileManager.default.unsigned].contains {
+            $0.resolvingSymlinksInPath() == parent
+        }
+    }
+
+    private func _deletionRowExists(_ uri: URL) throws -> Bool {
+        guard let id = container.persistentStoreCoordinator.managedObjectID(forURIRepresentation: uri),
+              let entity = id.entity.name else { throw CocoaError(.fileReadCorruptFile) }
+        let reader = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        reader.persistentStoreCoordinator = container.persistentStoreCoordinator
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: entity)
+        request.predicate = NSPredicate(format: "SELF == %@", id)
+        request.includesPendingChanges = false
+        return try reader.count(for: request) > 0
+    }
+
+    /// Run after the persistent store loads and before automatic cleanup. Failed
+    /// or protected/unreadable transactions remain on disk for the next launch.
+    func recoverPendingAppDeletions() {
+        StorageConcurrency.requireMainQueue()
+        guard FileManager.default.fileExists(atPath: Self._deletionRoot.path) else { return }
+        do {
+            let directories = try FileManager.default.contentsOfDirectory(at: Self._deletionRoot, includingPropertiesForKeys: nil)
+            for directory in directories {
+                do {
+                    let transaction = try StagedAppDeletion(directory: directory)
+                    try transaction.recover(rowExists: _deletionRowExists, allowedOriginal: Self._allowedDeletionOriginal)
+                } catch { Logger.misc.warning("Pending app deletion recovery deferred; files retained.") }
+            }
+        } catch { Logger.misc.warning("Pending app deletion journal is unavailable; no files changed.") }
+    }
+
 	/// The same row, but owned by the main-queue context.
 	private func _deletableRow(for app: AppInfoPresentable) -> NSManagedObject? {
-		guard let object = app as? NSManagedObject, !object.isDeleted else { return nil }
-		if object.managedObjectContext === context { return object }
+		guard let object = app as? NSManagedObject else { return nil }
+		if object.managedObjectContext === context { return object.isDeleted ? nil : object }
 
 		var resolved: NSManagedObject?
 		context.performAndWait {
