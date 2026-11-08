@@ -150,6 +150,10 @@ jobs:
           python3 tools/error-discipline.py
           python3 tools/singleton-freeze.py
           python3 tools/concurrency-discipline.py
+          python3 tools/check-native-handoff.py
+          # The CMS fixture is generated elsewhere (OpenSSL) and must keep
+          # conforming to the subset the parser accepts; drift fails here.
+          python3 NativeSigning/Fixtures/make_cms_fixture.py --check
 
       # Documentation links plus the offline regression suites.
       - name: Docs and regressions

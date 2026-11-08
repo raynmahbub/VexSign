@@ -45,6 +45,19 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   from the app), the six-stage design that closes them, and the order that keeps
   each intermediate state honest. `docs/FREE_APPLE_ID_SETUP.md` now says at the
   top that the flow cannot sign yet.
+- Add an independently generated CMS fixture for the Apple-profile parser.
+  Every existing case in `NativeAppleProfileCMSTests` builds its envelope with
+  the same DER helpers the parser was written against, so it could only prove
+  self-consistency. `NativeSigning/Fixtures/make_cms_fixture.py` now produces an
+  envelope with OpenSSL and asserts the exact subset
+  `NativeProfileCMSEnvelope.parse` accepts (v1, definite lengths, one SHA-256
+  digest algorithm, attached `id-data`, issuerAndSerialNumber, DER-sorted
+  signed attributes with a matching `messageDigest`, 256–512-byte RSA
+  signature). The committed bytes back three new cases: it parses, it still
+  fails Apple trust as a self-signed certificate, and tampering is rejected at
+  the right layer — a payload edit fails parse, a signature edit parses and
+  fails verification (`openssl cms -verify` agrees on both). A drift check runs
+  in `make verify` and in CI.
 - `tools/check-native-handoff.py` (wired into `make verify`) keeps the
   `nativeAppleAccountSigning` capability tied to its wiring: flipping it to
   `.implemented` without an export adapter and a package-side profile export

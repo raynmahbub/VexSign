@@ -262,6 +262,10 @@ jobs:
             2>&1 | tee "$RUNNER_TEMP/combined-signing-resolution.log"
           python3 NativeSigning/prepare_combined_smoke.py \
             --verify-resolved .build/combined-signing-smoke/Package.resolved
+      - name: Verify the CMS fixture still matches its recorded digest
+        run: |
+          set -euo pipefail
+          python3 NativeSigning/Fixtures/make_cms_fixture.py --check
       - name: Prepare pinned isolated package graph
         run: |
           set -euo pipefail

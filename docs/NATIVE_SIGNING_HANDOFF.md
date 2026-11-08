@@ -49,6 +49,22 @@ selected by default"*. So in a shipping build `profileOperationsAvailable()` is
 false, and `NativeSigningManager.requireProfileOperations()` fails before any
 quota-affecting request. That is the intended fail-closed behaviour.
 
+**What has been validated so far** (`NativeSigning/Fixtures/` and the
+`testOpenSSLBuilt…` cases):
+
+| Question | Evidence |
+| --- | --- |
+| Does the parser accept a real CMS SignedData envelope? | Yes for the parsed subset. `Fixtures/make_cms_fixture.py` generates one with OpenSSL and checks the exact constraints `NativeProfileCMSEnvelope.parse` enforces: v1, definite lengths, one SHA-256 digest algorithm, attached `id-data`, issuerAndSerialNumber, DER-sorted signed attributes with matching `messageDigest`, 256–512-byte RSA signature. |
+| Is the subset the same one OpenSSL produces by default? | Yes. OpenSSL adds `signingTime`, which the parser carries without trusting it — a good default, because it means the parser does not depend on Apple's attribute set matching ours exactly. |
+| Does a structurally valid envelope still fail Apple trust? | Yes. The fixture is self-signed with an ephemeral RSA-2048 key and `verifyAppleProvisioningCMS` rejects it; structural parse is deliberately not trust. |
+| Does tampering get caught at the right layer? | Yes. A flipped payload bit breaks the `messageDigest` comparison (parse rejects); a flipped signature bit still parses (the signature is opaque to the envelope) and fails at `verifySignature` — confirmed with `openssl cms -verify`. |
+
+**What is still missing to promote the verifier:** an Apple-issued profile
+fixture or a device-captured CMS whose chain actually reaches one of the pinned
+roots, a real `SecKeyVerifySignature` pass against it, and native compilation.
+The pin set in `apple-cms-policy-review.json` has not been re-checked against
+Apple's current roots.
+
 ### 2. No profile bytes leave the package
 
 The import path VexSign already has takes two **files**:

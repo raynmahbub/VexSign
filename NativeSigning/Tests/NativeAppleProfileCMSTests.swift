@@ -105,6 +105,69 @@ final class NativeAppleProfileCMSTests: XCTestCase {
         } catch { XCTAssertEqual(error as? NativeProfileValidationError, .cmsRejected) }
     }
 
+    // MARK: - Externally generated fixture
+    //
+    // Every other case in this file builds its envelope with the same DER helpers
+    // the parser was written against, so it can only prove self-consistency. This
+    // envelope was produced by OpenSSL (`openssl cms -sign -binary -nodetach -md
+    // sha256 -outform DER`) and validated independently by
+    // Fixtures/make_cms_fixture.py, which checks the exact subset
+    // `NativeProfileCMSEnvelope.parse` enforces. If the parser ever tightens or
+    // drifts, this is the case that notices.
+
+    static let fixturePayload = Data("com.example.vexsign.fixture-profile-payload".utf8)
+
+    private func fixtureCMS() throws -> Data {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "cms_v1_sha256_rsa", withExtension: "der"),
+                                "fixture resource missing; regenerate with Fixtures/make_cms_fixture.py --generate")
+        return try Data(contentsOf: url)
+    }
+
+    func testOpenSSLBuiltEnvelopeParses() throws {
+        let cms = try fixtureCMS()
+        let parsed = try NativeProfileCMSEnvelope.parse(cms)
+        XCTAssertEqual(parsed.payload, Self.fixturePayload)
+        XCTAssertEqual(parsed.certificates.count, 1)
+        XCTAssertEqual(parsed.signature.count, 256, "RSA 2048 PKCS#1 v1.5 signature")
+        // OpenSSL adds signingTime; the parser must carry it in the signed set
+        // without ever treating it as trust or expiry evidence.
+        XCTAssertEqual(parsed.signedAttributes.first, 0x31, "signed attributes are re-tagged as a SET")
+        XCTAssertFalse(parsed.signature.isEmpty)
+    }
+
+    func testOpenSSLBuiltEnvelopeStillNeedsAppleTrust() async throws {
+        // A structurally valid, genuinely RSA-signed CMS from a self-signed
+        // certificate must not become an accepted profile. Only the pin set and
+        // the leaf/issuer CN checks can grant that, and they cannot pass here.
+        let cms = try fixtureCMS()
+        do {
+            _ = try await NativeAppleProfileCMSVerifier().verifyAppleProvisioningCMS(cms, now: Date())
+            XCTFail("Self-signed fixture must not pass Apple trust checks")
+        } catch { XCTAssertEqual(error as? NativeProfileValidationError, .cmsRejected) }
+    }
+
+    func testOpenSSLBuiltEnvelopeTamperingIsRejected() throws {
+        let cms = try fixtureCMS()
+
+        // Flip one bit in the encapsulated payload: messageDigest no longer matches.
+        var payloadTampered = cms
+        let needle = Self.fixturePayload
+        let range = try XCTUnwrap(payloadTampered.range(of: needle))
+        payloadTampered[range.lowerBound] ^= 0x01
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(payloadTampered))
+
+        // Flip one bit in the signature: structure still parses (the signature is
+        // opaque to the envelope), so this documents the boundary precisely —
+        // parse is shape-only, verifySignature is what rejects it.
+        var signatureTampered = cms
+        signatureTampered[signatureTampered.index(before: signatureTampered.endIndex)] ^= 0x01
+        XCTAssertNoThrow(try NativeProfileCMSEnvelope.parse(signatureTampered))
+
+        // Truncation and trailing bytes are structural failures.
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(Data(cms.dropLast())))
+        XCTAssertThrowsError(try NativeProfileCMSEnvelope.parse(cms + Data([0])))
+    }
+
     func testEphemeralRSASignatureAndTamperingPrimitive() throws {
         let attributes: [String: Any] = [kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
             kSecAttrKeySizeInBits as String: 2048, kSecAttrIsPermanent as String: false]
