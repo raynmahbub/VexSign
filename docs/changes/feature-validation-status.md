@@ -232,3 +232,31 @@ manual re-sign/reinstall step is necessary when that configured path is eligible
 Portable make verify passes, including 74 Python tests. New Swift tests, compiler
 checks, on-device sheet transitions and the exact reported crash need Apple/device
 validation; none has been inferred from portable checks alone.
+
+## False “Not installed” Library badge
+
+The follow-up Aidoku screenshot still shows a negative badge for an installed app.
+The runtime probe could turn legacy LaunchServices false results into absence,
+even when those results were filtered or stale. It now first requests a modern
+LSBundleRecord using bundleRecordWithBundleIdentifier:allowPlaceholder:error:
+with placeholders disallowed. Positive evidence requires an LSApplicationRecord
+for the exact identifier, an explicitly false placeholder flag, no known system
+placeholder flag, and a file bundle URL returned by that record. Version/build
+metadata comes from the record rather than the stale compatibility proxy. The
+factory is called with a typed BOOL/error-pointer ABI and availability guards.
+The selector's signature was checked against the runtime declarations at
+https://github.com/SparkDev97/iOS14-Runtime-Headers/blob/master/Frameworks/CoreServices.framework/LSBundleRecord.h
+and LSApplicationRecord.h in that directory; no implementation code was copied.
+
+If modern records are unavailable, legacy positive evidence remains usable.
+Legacy negatives, individually or together, are now unknown rather than claiming
+absence; the unknown state has no Library badge. A URL alone, a stored signed
+copy, a container guest or a prior installation attempt still cannot establish
+installation. This is intentionally conservative when iOS denies inventory
+access, and does not weaken the install watcher's unknown-baseline checks.
+
+Four new XCTest methods cover filtered negatives, canonical-record precedence,
+version comparison, mismatching identity and placeholder/type/URL rejection.
+Portable make verify passes (74 Python tests plus repository checks). Native
+compilation/tests and confirmation on the affected device are still required;
+this checkout cannot execute Apple frameworks locally.
