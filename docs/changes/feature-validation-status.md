@@ -365,3 +365,18 @@ pinned source, original notice, license and exact adaptation boundary.
 Four added XCTest methods cover ordered/exclusive partitions, signed routes and
 highlights, action-kind selection and request-only signing options. Portable
 verification passes; Apple compilation and device interaction checks are pending.
+
+### Confirmed-install card completion
+
+Confirmed outcomes now publish Completed and full install progress before the
+queue schedules its existing automatic dismissal. Normal successful installs
+also leave an “Installation completed” toast after dismissal. Cancellation,
+export, guest preparation and signing success alone do not publish this state.
+Late OTA transport callbacks cannot reopen a completed card. An observed partial
+progress -> 100% transition begins independent device verification immediately;
+an initial/stale 100% counter alone does not establish completion.
+
+Six added XCTest methods cover these transitions and their negative cases.
+`make verify` passes 74 portable tests. Changed Swift files pass grammar checks
+(with an empty-tuple parser workaround); Apple compilation/XCTest and physical
+device acceptance remain pending for this change.

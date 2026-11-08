@@ -86,6 +86,7 @@ struct InstallConfirmation: Equatable, Sendable {
 	private(set) var phase: Phase = .waitingForStart
 
 	private var _downloadingSince: Date?
+    private var _observedIncompleteProgress = false
 	private var _waitingSince: Date?
 	private var _verifyingAt: Date?
 
@@ -104,6 +105,16 @@ struct InstallConfirmation: Equatable, Sendable {
 			if phase == .waitingForStart {
                 _downloadingSince = date
                 phase = .downloading
+            }
+            if let progress, progress.isFinite, progress > 0, progress < 1 {
+                _observedIncompleteProgress = true
+            }
+            // Some iOS versions leave the counter at 100% rather than resetting
+            // it. A real in-progress -> full transition can start verification;
+            // an initial/stale full counter alone cannot bypass the deadline.
+            if let progress, progress.isFinite, progress >= 1, _observedIncompleteProgress,
+               phase == .downloading {
+                return beginVerifying(at: date)
             }
             if phase == .downloading,
                date.timeIntervalSince(_downloadingSince ?? date) >= limits.verify {

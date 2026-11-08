@@ -102748,6 +102748,17 @@
           }
         }
       }
+    },
+    "Installation completed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation completed"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -11,6 +11,7 @@
 //
 
 import Foundation
+import IDeviceSwift
 import os
 import XCTest
 @testable import VexSign
@@ -227,6 +228,68 @@ final class InstallConfirmationTests: XCTestCase {
             progress: ProgressScript([0.5, 0.5]).closure, interval: .zero
         )
         XCTAssertEqual(verdict, .installed)
+    }
+
+    func testIncompleteToFullProgressVerifiesWithoutWaitingForReset() {
+        var state = confirmation()
+        XCTAssertEqual(state.record(progress: 0.4, at: at(0)), .downloading)
+        XCTAssertEqual(state.record(progress: 1, at: at(1)), .verifying)
+        XCTAssertEqual(state.record(probe: app(), at: at(1)), .finished(.installed))
+    }
+
+    func testFullProgressStillRequiresIndependentDeviceEvidence() {
+        var state = confirmation(limits: .init(start: 120, verify: 10, settle: 0))
+        _ = state.record(progress: 0.4, at: at(0))
+        _ = state.record(progress: 1, at: at(1))
+        XCTAssertEqual(state.record(probe: nil, at: at(2)), .verifying)
+        XCTAssertEqual(state.record(probe: missing, at: at(3)), .verifying)
+        XCTAssertEqual(state.record(probe: missing, at: at(11)), .finished(.notInstalled))
+    }
+
+    func testInitialFullCounterCannotProveAReinstall() {
+        var state = confirmation()
+        XCTAssertEqual(state.record(progress: 1, at: at(0)), .downloading)
+        XCTAssertEqual(state.record(progress: 1, at: at(1)), .downloading)
+        XCTAssertEqual(state.record(probe: app(), at: at(1)), .downloading)
+    }
+
+    @MainActor
+    func testConfirmedInstallPublishesCompletedCardBeforeQueueDismissal() {
+        for outcome in [AppInstaller.Outcome.installed, .installedOtherVersion("1.1")] {
+            let model = InstallerStatusViewModel(status: .installing, isIdevice: false)
+            model.installProgress = 0.99
+            outcome.publishConfirmedCompletion(to: model)
+            XCTAssertEqual(model.installProgress, 1)
+            XCTAssertTrue(model.isCompleted)
+            guard case .completed(.success) = model.status else {
+                XCTFail("A confirmed install must not keep displaying Installing")
+                continue
+            }
+        }
+    }
+
+    @MainActor
+    func testLateTransportCallbackCannotReopenACompletedCard() {
+        let model = InstallerStatusViewModel(status: .sendingPayload, isIdevice: false)
+        model.updateTransportStatus(.installing)
+        XCTAssertFalse(model.isCompleted)
+        AppInstaller.Outcome.installed.publishConfirmedCompletion(to: model)
+        model.updateTransportStatus(.sendingPayload)
+        model.updateTransportStatus(.installing)
+        model.updateTransportStatus(.broken(NSError(domain: "late-stream", code: 1)))
+        XCTAssertTrue(model.isCompleted)
+        XCTAssertEqual(model.installProgress, 1)
+    }
+
+    @MainActor
+    func testSigningExportCancellationAndGuestPreparationCannotCompleteInstallCard() {
+        for outcome in [AppInstaller.Outcome.cancelled, .exported(nil), .guestImportPrepared] {
+            let model = InstallerStatusViewModel(status: .installing, isIdevice: false)
+            model.installProgress = 0.3
+            outcome.publishConfirmedCompletion(to: model)
+            XCTAssertEqual(model.installProgress, 0.3)
+            XCTAssertFalse(model.isCompleted)
+        }
     }
 
     func testStuckDownloadingCounterEntersVerificationAtDeadline() {

@@ -286,6 +286,7 @@ final class InstallQueue: ObservableObject {
 			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .success:
             NBHaptic.notify(.success)
+            Toast.success(.localized("Installation completed"), systemImage: "checkmark.circle.fill")
 			if let current { outcomes[current.id] = .succeeded }
 			if let app = installer?.app { InstallCleanup.stage(app) }
 			_syncUnifiedTaskProgress()

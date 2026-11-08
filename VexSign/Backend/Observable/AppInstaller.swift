@@ -482,6 +482,9 @@ final class AppInstaller: ObservableObject {
         _confirmationTask = nil
 		// Only an install the device proved may be counted.
 		if case .success(let outcome) = result, outcome.countsAsInstall {
+            // Publish the terminal card state after _hasFinished is set. Any
+            // status observer delivery can no longer start a second confirmation.
+            outcome.publishConfirmedCompletion(to: viewModel)
 			Task { await AnalyticsStore.shared.record(.appsInstalled) }
 		}
         _disarmDeclineWatch()
@@ -624,6 +627,13 @@ final class AppInstaller: ObservableObject {
 }
 
 extension AppInstaller.Outcome {
+    @MainActor
+    func publishConfirmedCompletion(to model: InstallerStatusViewModel) {
+        guard countsAsInstall else { return }
+        model.installProgress = 1
+        model.status = .completed(.success(()))
+    }
+
 	/// Whether this outcome is an install the device proved. Counting or celebrating anything
 	/// else is what was.
 	var countsAsInstall: Bool {
