@@ -260,3 +260,22 @@ version comparison, mismatching identity and placeholder/type/URL rejection.
 Portable make verify passes (74 Python tests plus repository checks). Native
 compilation/tests and confirmation on the affected device are still required;
 this checkout cannot execute Apple frameworks locally.
+
+## Confirmed install → Library handoff
+
+A confirmed OTA/IDevice verdict now publishes installation evidence directly to
+LibraryStatusStore before completing the queue item. Visible rows update
+immediately, and newly mounted rows can use the same evidence. An inconclusive
+background inventory read cannot erase that confirmation during the normal
+30-second cache handoff. Confirmations are identifier-specific, version-aware,
+nonpersistent, expire after 30 seconds and are cleared on full store reset; fresh
+conclusive device evidence still wins. Failed, cancelled, exported or staged guest
+packages do not create confirmations. This is not an assumption based on progress
+reaching 100 percent.
+
+Successful queue items now advance/dismiss after 0.25 seconds rather than 1.2
+seconds, preserving the existing guarded overlay-window cleanup. Queued apps
+continue in sequence; failures retain recovery controls. Three additional Swift
+regression tests exercise immediate/late-mounted badges, background-read handoff,
+version differences, identity isolation, reset and expiry. Portable make verify
+passes (74 tests); native compiler/simulator and device validation remain pending.

@@ -572,7 +572,10 @@ final class AppInstaller: ObservableObject {
 		// The device's answer just changed; anything the library cached about this identifier is
 		// now the version of the truth that would make it wrong.
 		if verdict.provesInstalled, let identifier = app.identifier {
-			LibraryStatusStore.shared.invalidate(bundleIdentifier: identifier)
+            let installedVersion: String?
+            if case .installedOtherVersion(let version) = verdict { installedVersion = version }
+            else { installedVersion = app.version }
+            LibraryStatusStore.shared.recordConfirmedInstallation(bundleIdentifier: identifier, version: installedVersion)
 		}
 
 		switch verdict {
