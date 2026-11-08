@@ -191,10 +191,13 @@ final class SigningService {
 	private var _runs: [String: Task<Void, Never>] = [:]
     /// A fresh request ID must not bypass ownership of the same library bundle.
     private var _appOwners: [String: String] = [:]
+    private var _leases: [String: AppOperationRegistry.Lease] = [:]
 	private let work: SigningWork
+    private let ownership: AppOperationRegistry
 
-	init(work: SigningWork = SigningPipeline()) {
+	init(work: SigningWork = SigningPipeline(), ownership: AppOperationRegistry = .shared) {
 		self.work = work
+        self.ownership = ownership
 	}
 
 	var isSigning: Bool {
@@ -212,6 +215,8 @@ final class SigningService {
 		onEvent: @MainActor @escaping (SigningEvent) -> Void
 	) -> String? {
         guard canStart(request) else { return nil }
+        do { _leases[request.id] = try ownership.acquire(_appKey(request)) }
+        catch { return nil }
         if let appKey = _appKey(request) { _appOwners[appKey] = request.id }
 
 		let id = request.id
@@ -257,11 +262,11 @@ final class SigningService {
     func canStart(_ request: SigningRequest) -> Bool {
         guard _runs[request.id] == nil else { return false }
         guard let key = _appKey(request) else { return true }
-        return _appOwners[key] == nil
+        return _appOwners[key] == nil && !ownership.isBusy(key)
     }
 
     private func _appKey(_ request: SigningRequest) -> String? {
-        request.app.uuid.map { "\(request.app.isSigned ? "signed" : "imported"):\($0)" }
+        AppOperationRegistry.key(request.app)
     }
 
 	func cancel(_ id: String) {
@@ -278,6 +283,7 @@ final class SigningService {
 
 	private func _finish(_ id: String) {
         _runs[id] = nil
+        _leases[id] = nil
         _appOwners = _appOwners.filter { $0.value != id }
     }
 
@@ -295,7 +301,7 @@ final class SigningService {
 extension SigningService {
 	struct BusyError: LocalizedError {
 		var errorDescription: String? {
-			.localized("This app is already being signed.")
+			.localized("This app is in use by another operation. Wait for it to finish before retrying.")
 		}
 	}
 }

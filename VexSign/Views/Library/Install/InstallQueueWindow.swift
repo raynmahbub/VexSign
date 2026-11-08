@@ -325,6 +325,7 @@ struct InstallQueuePill: View {
 	}
 
 	private func _subtitle(for current: AnyApp) -> String {
+        if queue.failurePresentation != nil { return .localized("Needs review — View Report") }
 		if !queue.upcoming.isEmpty {
 			return .localized("%lld queued", arguments: queue.upcoming.count)
 		}

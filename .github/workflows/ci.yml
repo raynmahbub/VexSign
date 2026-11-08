@@ -162,6 +162,7 @@ jobs:
           python3 tools/test_autopilot.py
           python3 tools/test_workflow_policy.py
           python3 tools/test_workflow_trace_policy.py
+          python3 tools/test_build_provenance.py
 
       - name: Upload findings
         if: always()

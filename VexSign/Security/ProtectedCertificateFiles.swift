@@ -17,7 +17,7 @@ enum ProtectedCertificateFiles {
         }
     }
 
-    static func migrate(legacy: URL, destination: URL) throws {
+    static func migrate(legacy: URL, destination: URL, beforeMove: (URL, URL) throws -> Void = { _, _ in }) throws {
         let fm = FileManager.default
         var destination = destination
         try fm.createDirectory(at: destination, withIntermediateDirectories: true,
@@ -26,13 +26,14 @@ enum ProtectedCertificateFiles {
         values.isExcludedFromBackup = true
         try destination.setResourceValues(values)
         if fm.fileExists(atPath: legacy.path) {
-            for child in try fm.contentsOfDirectory(at: legacy, includingPropertiesForKeys: nil) {
+            for child in try fm.contentsOfDirectory(at: legacy, includingPropertiesForKeys: nil).sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
                 let target = destination.appendingPathComponent(child.lastPathComponent)
                 try protect(child)
                 // Preserve any older conflicting copy, but never replace the
                 // currently registered identity with it.
                 let output = fm.fileExists(atPath: target.path)
                     ? destination.appendingPathComponent("legacy-\(UUID().uuidString)") : target
+                try beforeMove(child, output)
                 try fm.moveItem(at: child, to: output)
             }
             try fm.removeItem(at: legacy) // Empty only; failed moves throw above.

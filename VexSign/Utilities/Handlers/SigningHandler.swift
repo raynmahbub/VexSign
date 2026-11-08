@@ -70,6 +70,7 @@ final class SigningHandler: NSObject {
 
 		let movedAppURL = _uniqueWorkDir.appendingPathComponent(appUrl.lastPathComponent)
 
+        try StoragePreflight.checkBundle(appUrl, copies: 2, destination: _uniqueWorkDir)
 		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
 		_movedAppPath = movedAppURL
 

@@ -43,6 +43,16 @@ extension Storage {
 	func deleteApps(_ apps: [AppInfoPresentable]) -> Bool {
 		StorageConcurrency.requireMainQueue()
 		guard !apps.isEmpty else { return true }
+        var leases: [AppOperationRegistry.Lease] = []
+        do {
+            for key in Set(apps.compactMap(AppOperationRegistry.key)) {
+                leases.append(try AppOperationRegistry.shared.acquire(key))
+            }
+        } catch {
+            Toast.error(error.localizedDescription)
+            return false
+        }
+        defer { withExtendedLifetime(leases) {} }
 
 		var deletedAny = false
 		for app in apps {

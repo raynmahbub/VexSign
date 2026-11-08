@@ -90,14 +90,14 @@ private struct InstallStatusView: View {
 				}
 
 				Button(action: onCancel) {
-					Label(String.localized("Skip"), systemImage: "xmark")
+					Label(String.localized("Stop Monitoring"), systemImage: "xmark")
 						.font(.footnote.weight(.semibold))
 						.labelStyle(.titleAndIcon)
 						.foregroundStyle(.secondary)
 				}
 				.buttonStyle(.bordered)
 				.controlSize(.small)
-				.accessibilityHint(Text(verbatim: String.localized("Cancel this app and move to the next one.")))
+				.accessibilityHint(Text(verbatim: String.localized("Stops VexSign monitoring and moves to the next app. An installation already accepted by iOS may continue.")))
 				.compatTransition()
 			}
 		}

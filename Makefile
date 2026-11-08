@@ -129,6 +129,7 @@ verify: docs-check
 	@echo "== workflow trigger policy =="
 	@python3 tools/test_workflow_policy.py
 	@python3 tools/test_workflow_trace_policy.py
+	@python3 tools/test_build_provenance.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="

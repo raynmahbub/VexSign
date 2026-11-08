@@ -410,3 +410,13 @@ for the implementation boundary, migration fallback behavior and pending device
 matrix. Ten new native test methods cover state/result isolation, snapshots,
 report privacy, verification presentation, migrations and redaction. Portable
 checks pass; latest Apple CI and physical-device acceptance remain pending.
+
+### Recovery/resource follow-up and verification stall
+
+See [recovery and verification](recovery-and-verification.md) for the native
+acknowledgement fix, bounded/unconfirmed OTA result, active-attempt journal,
+shared per-copy leases, storage estimates, precise stop semantics, injected
+migration failures and IPA provenance sidecars. Nine additional native tests,
+four provenance tests and four additional wiring checks were added. Portable
+checks pass; latest Apple checks and device acceptance remain pending. The
+previous native compile error in begin(progress:) is addressed in this follow-up.

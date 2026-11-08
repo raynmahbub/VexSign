@@ -31,6 +31,8 @@ final class AppCloner {
 	}
 
 	func clone(app: AppInfoPresentable, customName: String? = nil, customBundleId: String? = nil, asUnsigned: Bool = false, iconOrdinal: Int? = nil) async throws -> AppInfoPresentable {
+        let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app))
+        defer { withExtendedLifetime(lease) {} }
 		guard let srcDir = Storage.shared.getUuidDirectory(for: app), _fm.fileExists(atPath: srcDir.path) else {
 			throw CloneError.appNotFound
 		}
@@ -41,7 +43,11 @@ final class AppCloner {
 
         defer { if !registered { try? _fm.removeItem(at: destDir) } }
         do {
-            try await Task.detached(priority: .userInitiated) { try FileManager.default.copyItem(at: srcDir, to: destDir) }.value
+            try await Task.detached(priority: .userInitiated) { try StoragePreflight.checkBundle(srcDir, copies: 1, destination: destDir.deletingLastPathComponent()); try FileManager.default.copyItem(at: srcDir, to: destDir) }.value
+        } catch let error as StoragePreflight.Insufficient {
+            throw error
+        } catch is CancellationError {
+            throw CancellationError()
 		} catch {
 			try? _fm.removeItem(at: destDir)
 			throw CloneError.copyFailed

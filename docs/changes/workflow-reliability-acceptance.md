@@ -23,9 +23,10 @@
   visible after redaction.
 - About displays the source revision. Makefile IPA and CI builds stamp the actual
   checked-out Git revision into Info.plist without changing CFBundleVersion.
-- Native completion awaiting device corroboration displays Verifying rather than
-  prematurely displaying Completed or disabling Skip. Verified outcomes update
-  both the card and library badge through the same finish path.
+- Successful native installation-proxy command acknowledgement is authoritative
+  device evidence; it is no longer vetoed by sandbox-filtered LaunchServices.
+  OTA still requires installed-app evidence and cannot complete from progress
+  alone. Confirmed outcomes update card and badge through the same finish path.
 - Three Library partitions remain. Unsigned context actions include Sign and
   Sign & Install; signed actions retain Install, Re-sign and Export. Advanced
   network/pairing configuration remains in its existing Settings screens.
@@ -70,7 +71,7 @@ for the whole matrix and attach a copied report for each unexpected result.
 | Large IPA / slow transfer | UI responsive; transfer does not consume install-start timeout; app resumes correctly after foregrounding. |
 | Failed install -> Retry Install | Existing signed artifact reused, no new signing run; original failure report retained. |
 | Batch with success and failure | Separate per-app results; earlier failure cannot relabel a later successful attempt. |
-| Native pairing install | Verifying remains cancellable; card only completes after confirmation. |
+| Native pairing install | Native command success completes without a second sandbox lookup; command errors never count as success. |
 | Legacy credentials after upgrade | Existing identities/pairing still usable after unlock; managed copies no longer remain in shared Documents on successful migration. |
 | Copy report / relaunch | Stage history survives; report includes safe build/evidence fields, no passwords/keys/pairing contents. |
 

@@ -35,6 +35,35 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('SigningService', source)
         self.assertIn('self.current?.id == failedEntryID', source)
 
+    def test_native_acknowledgement_does_not_wait_on_private_probe(self):
+        source = self.text('VexSign/Backend/Observable/AppInstaller.swift')
+        native = source.split('private func _confirmIdeviceInstall()', 1)[1].split('extension AppInstaller.Outcome', 1)[0]
+        self.assertNotIn('InstallWatcher.confirm', native)
+        self.assertNotIn('_probe.installedApp', native)
+        self.assertIn('native-installation-completed', native)
+
+    def test_ota_observation_failure_does_not_trigger_reinstall(self):
+        source = self.text('VexSign/Backend/Observable/AppInstaller.swift')
+        failure = source.split('case .notInstalled, .timedOutWaiting, .timedOutVerifying:', 1)[1].split('private func _confirmIdeviceInstall', 1)[0]
+        self.assertIn('_finish(.failure(error))', failure)
+        self.assertNotIn('viewModel.status = .broken', failure)
+
+    def test_resource_ownership_is_wired_to_managed_operations(self):
+        for path in ['VexSign/Utilities/Signing/SigningService.swift',
+                     'VexSign/Backend/Observable/AppInstaller.swift',
+                     'VexSign/Utilities/Handlers/AppCloner.swift',
+                     'VexSign/Backend/Storage/Storage+Shared.swift']:
+            self.assertIn('AppOperationRegistry', self.text(path))
+
+    def test_source_journal_and_build_sidecars_are_wired(self):
+        center = self.text('VexSign/Backend/Observable/UnifiedTaskCenter.swift')
+        self.assertIn('(tasks + history).map', center)
+        self.assertIn('task.recoverAfterRestart()', center)
+        self.assertIn('progress: Double = 0', center)
+        release = self.text('.github/workflows/release.yml')
+        for required in ['write-build-provenance.py --directory upload', 'upload/BUILD.json', 'upload/SHA256SUMS']:
+            self.assertIn(required, release)
+
 
 if __name__ == '__main__':
     unittest.main()

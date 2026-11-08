@@ -213,6 +213,15 @@ final class InstallQueue: ObservableObject {
 		advanceScheduler.cancel()
 		failurePresentation = nil
 		outcomes[current.id] = .skipped
+        if let task = unifiedTask {
+            task.context?.confirmationReason = "monitoring-stopped-install-may-continue"
+            UnifiedTaskCenter.shared.transition(task, to: .cancelled)
+            latestReportTask = task
+            unifiedTask = nil
+        }
+        if !current.archive {
+            Toast.info(.localized("Stopped monitoring this app. An installation already accepted by iOS may continue."))
+        }
 		// Skipping a held next item is an explicit request to move on; don't strand
 		// the queue with no installer and no Resume control.
 		isPaused = false
@@ -372,6 +381,12 @@ final class InstallQueue: ObservableObject {
                 canRetryLocally: installer?.canRetryUsingLocalhost == true,
                 waitingCount: upcoming.count
             )
+            if let confirmation = error as? InstallConfirmation.Failure, confirmation.verdict == .timedOutVerifying {
+                // Keep the report and recovery actions in Activity/the queue pill,
+                // but do not hold the whole app behind an unobservable spinner.
+                isSheetPresented = false
+                Toast.info(.localized("iOS did not expose installation status. Check the Home Screen; the report is available in Activity. No reinstall was started."))
+            }
 		}
 	}
 

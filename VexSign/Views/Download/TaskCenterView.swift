@@ -203,10 +203,10 @@ private struct TaskRow: View {
                 } label: {
                     Label(.localized("Copy Redacted Report"), systemImage: "doc.on.doc")
                 }
-                if task.phase == .failed {
+                if task.phase == .failed || task.phase == .interrupted {
                     recoveryActions
                 }
-                if (task.phase == .failed || task.phase == .cancelled) && !center.canRetry(task) {
+                if (task.phase == .failed || task.phase == .cancelled || task.phase == .interrupted) && !center.canRetry(task) {
                     Text(.localized("Retry is unavailable for this saved task. Restart the action from its original app or download screen."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -261,7 +261,7 @@ private struct TaskRow: View {
 		case .paused: return .orange
 		case .completed: return .green
 		case .failed: return .orange
-		case .cancelled: return .secondary
+		case .cancelled, .interrupted: return .secondary
 		}
 	}
 

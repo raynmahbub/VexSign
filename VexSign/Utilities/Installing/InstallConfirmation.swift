@@ -41,6 +41,8 @@ struct InstallConfirmation: Equatable, Sendable {
 		var verify: TimeInterval = 600
 		/// How long the device gets to show the app, or to report the new version.
 		var settle: TimeInterval = 20
+        /// Unreadable/filtered evidence must not leave the UI spinning for ten minutes.
+        var unavailableEvidence: TimeInterval = 30
 	}
 
 	enum Phase: Equatable, Sendable {
@@ -191,7 +193,9 @@ struct InstallConfirmation: Equatable, Sendable {
             }
 
 		case .unknown:
-			break
+            if date.timeIntervalSince(verifyStart) >= min(limits.verify, limits.unavailableEvidence) {
+                return _finish(.timedOutVerifying)
+            }
 		}
 
 		if date.timeIntervalSince(verifyStart) >= limits.verify {

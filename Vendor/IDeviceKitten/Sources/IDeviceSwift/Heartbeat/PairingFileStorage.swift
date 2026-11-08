@@ -21,7 +21,7 @@ public enum PairingFileStorage {
     }
 
     @discardableResult
-    public static func migrate(legacy: URL, destination: URL) throws -> URL {
+    public static func migrate(legacy: URL, destination: URL, beforeMove: (URL, URL) throws -> Void = { _, _ in }) throws -> URL {
         let fm = FileManager.default
         var directory = destination.deletingLastPathComponent()
         try fm.createDirectory(at: directory, withIntermediateDirectories: true,
@@ -37,6 +37,7 @@ public enum PairingFileStorage {
             // record privately as well, rather than leaving it in shared Documents.
             let target = fm.fileExists(atPath: destination.path)
                 ? directory.appendingPathComponent("legacy-\(UUID().uuidString).plist") : destination
+            try beforeMove(legacy, target)
             try fm.moveItem(at: legacy, to: target)
         }
         if fm.fileExists(atPath: destination.path) {

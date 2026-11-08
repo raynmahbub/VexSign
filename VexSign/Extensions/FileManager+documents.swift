@@ -47,7 +47,12 @@ extension FileManager {
 	}
 	/// Gives apps Certificates directory with a UUID appending path
 	func certificates(_ uuid: String) -> URL {
-		certificates.appendingPathComponent(uuid)
+        let base = certificates
+        let migrated = urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Private/Certificates", isDirectory: true).appendingPathComponent(uuid)
+        // A previous migration may have moved only some UUID directories before
+        // storage became unavailable. Resolve each identity, not just the root.
+        return fileExists(atPath: migrated.path) ? migrated : base.appendingPathComponent(uuid)
 	}
 
 	/// Gives the Tweak Manager library directory

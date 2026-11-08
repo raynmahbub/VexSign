@@ -26,7 +26,7 @@ enum TaskReceipt {
         }
         let reasons = ["import-registered", "signature-verified-and-artifact-registered", "native-installation-completed", "device-confirmed-installed",
                        "device-reports-other-version", "device-did-not-report-installed-app", "install-start-not-observed",
-                       "installation-evidence-unavailable", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed"]
+                       "installation-evidence-unavailable", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue"]
         if let reason = context?.confirmationReason, reasons.contains(reason) { lines.append("Result evidence: " + reason) }
         if task.phase == .failed, let category = context?.errorCategory,
            ["network", "filesystem", "security", "operation"].contains(category), let code = context?.errorCode {
@@ -50,6 +50,12 @@ enum TaskReceipt {
     }
 
     static func outcome(for task: UnifiedTask) -> String {
+        if task.kind == .install && task.phase == .cancelled {
+            return .localized("VexSign stopped its work and monitoring. An installation already accepted by iOS may continue; this report does not claim that iOS cancelled it.")
+        }
+        if task.phase == .interrupted {
+            return .localized("VexSign was interrupted. No signing or installation was restarted automatically. Check Signed Apps and the device before starting another attempt.")
+        }
         if task.kind == .sign && task.phase == .completed {
             return .localized("Signing completed. This receipt does not confirm that the signed copy is still retained or installed on the device.")
         }

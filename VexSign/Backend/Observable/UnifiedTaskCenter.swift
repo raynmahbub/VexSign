@@ -68,6 +68,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 	case completed
 	case failed
 	case cancelled
+    case interrupted
 
 	/// Paused is a sub-state of downloading surfaced by the task center.
 	case paused
@@ -88,6 +89,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 		case .completed: .localized("Completed")
 		case .failed: .localized("Failed")
 		case .cancelled: .localized("Cancelled")
+        case .interrupted: .localized("Interrupted")
 		case .paused: .localized("Paused")
 		}
 	}
@@ -110,7 +112,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
     }
 
 	var isTerminal: Bool {
-		self == .completed || self == .failed || self == .cancelled
+		self == .completed || self == .failed || self == .cancelled || self == .interrupted
 	}
 
 	var isInProgress: Bool { !isTerminal }
@@ -206,6 +208,17 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
         self.stageHistory = [.init(phase: phase, date: createdAt)]
 	}
 
+    func recoverAfterRestart(at date: Date = Date()) {
+        guard !phase.isTerminal else { return }
+        failureStage = phase
+        // Recovery is not another installation/signing attempt.
+        phase = .interrupted
+        updatedAt = max(updatedAt, date)
+        stageHistory.append(.init(phase: .interrupted, date: updatedAt))
+        if stageHistory.count > 256 { stageHistory.removeFirst(stageHistory.count - 256) }
+        context?.confirmationReason = "interrupted-process-exit"
+    }
+
     /// One transition authority for UI, persistence and receipts. Progress updates
     /// never establish success; only callers with an actual operation result do.
     @discardableResult
@@ -261,7 +274,7 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 			kind: UnifiedTaskKind(rawValue: snapshot.kind) ?? .download,
 			title: snapshot.title,
 			subtitle: snapshot.subtitle,
-			phase: UnifiedTaskPhase(rawValue: snapshot.phase) ?? .completed,
+			phase: UnifiedTaskPhase(rawValue: snapshot.phase) ?? .interrupted,
 			subjectID: snapshot.subjectID
 		)
 		task.failureStage = snapshot.failureStage.flatMap { UnifiedTaskPhase(rawValue: $0) }
@@ -311,10 +324,12 @@ final class UnifiedTaskCenter: ObservableObject {
 		title: String,
 		subtitle: String? = nil,
 		phase: UnifiedTaskPhase = .queued,
+        progress: Double = 0,
 		subjectID: String? = nil
 	) -> UnifiedTask {
-		let task = UnifiedTask(kind: kind, title: title, subtitle: subtitle, phase: phase, subjectID: subjectID)
+		let task = UnifiedTask(kind: kind, title: title, subtitle: subtitle, phase: phase, progress: progress, subjectID: subjectID)
 		tasks.insert(task, at: 0)
+        _persistHistory()
 		return task
 	}
 
@@ -323,11 +338,12 @@ final class UnifiedTaskCenter: ObservableObject {
 		if let progress { task.progress = progress }
 		task.errorText = error.map(LogRedaction.redact)
         if phase == .failed, task.context?.confirmationReason == nil { task.context?.confirmationReason = "operation-failed" }
-        if phase == .cancelled { task.context?.confirmationReason = "cancelled" }
+        if phase == .cancelled, task.context?.confirmationReason != "monitoring-stopped-install-may-continue" { task.context?.confirmationReason = "cancelled" }
 		task.updatedAt = Date()
 		if phase.isTerminal {
 			_finalize(task)
 		} else {
+            _persistHistory()
 			objectWillChange.send()
 		}
 	}
@@ -503,15 +519,20 @@ final class UnifiedTaskCenter: ObservableObject {
 		      let snapshots = try? JSONDecoder().decode([UnifiedTask.Snapshot].self, from: data) else {
 			return
 		}
-		history = Array(snapshots.prefix(Self.historyLimit)).map { UnifiedTask.from($0) }
-        pruneHistoryIcons()
+		history = Array(snapshots.prefix(Self.historyLimit)).map {
+            let task = UnifiedTask.from($0)
+            task.recoverAfterRestart()
+            return task
+        }
+        _persistHistory()
 	}
 
     private func _persistHistory() {
         pruneHistoryIcons()
-		let snapshots = history.map { $0.snapshot }
+		let snapshots = (tasks + history).map { $0.snapshot }
 		if let data = try? JSONEncoder().encode(snapshots) {
 			do {
+                try FileManager.default.createDirectory(at: Self.historyFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 				try data.write(to: Self.historyFileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
 			} catch {
 				Logger.misc.warning("Task history persist failed: \(error.localizedDescription, privacy: .public)")
@@ -523,7 +544,7 @@ final class UnifiedTaskCenter: ObservableObject {
 	func clearHistory() {
         history = []
         pruneHistoryIcons()
-		try? FileManager.default.removeItem(at: Self.historyFileURL)
+        _persistHistory()
 		objectWillChange.send()
 	}
 
