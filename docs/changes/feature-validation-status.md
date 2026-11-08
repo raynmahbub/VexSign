@@ -464,3 +464,36 @@ ownership, not coordination with external filesystem writers. Read-only previews
 are not locked, and this patch does not add editor conflict/version tracking.
 
 Steps 3–6 remain pending.
+
+## Maintenance review follow-up — step 3: task-history persistence
+
+`TaskHistoryJournal` owns one FIFO utility queue for reads, JSON encoding and
+protected atomic replacement. Main-actor task references never cross into the
+writer: the center captures value snapshots and merges recovered records with
+work started while the initial read was pending. Persistence is gated until the
+original has been read, confirmed missing, or successfully preserved. Clear
+requests during loading do not accidentally restore cleared records.
+
+Access failures (including locked protected data, permissions and transient IO)
+are distinct from malformed/unsupported JSON; access failure is not diagnosed as
+corruption. Access failures block replacement and retry on subsequent activity or
+protected-data availability. Malformed history is copied to a protected,
+backup-excluded `TaskHistory-recovery-<UUID>.json` before removing the original;
+failed preservation blocks writes. Task Center displays non-sensitive warnings,
+and logs contain no raw paths or journal content. Failed encoding/writes retain
+the previous atomic journal and may retry on later activity/device unlock.
+
+Seven native tests cover corruption preservation, unavailable-read recovery,
+failed preservation, FIFO/off-main writes, failed-write retry, encoding failure
+and interrupted-task reconstruction. Portable `make verify`, Swift grammar
+parsing and diff checks pass. Apple compilation/XCTest and device lock/kill tests
+remain pending. Atomic replacement does not certify power-loss durability;
+forced exit may lose snapshots still queued in memory. Recovery copies are
+retained, not automatically deleted or silently merged.
+
+Concurrency-baseline exception: `TaskHistoryJournal` uses one unchecked Sendable
+boundary because its only mutable operational field (`writable`) is private and
+exclusively accessed on its private serial queue. URL/IO dependencies are immutable;
+production callbacks return value snapshots/results to the main actor. Test IO
+injections must follow the same queue-confinement contract. No general shared
+mutable task-model access was added. Steps 4–6 remain pending.

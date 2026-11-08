@@ -102957,6 +102957,50 @@
           }
         }
       }
+    },
+    "Recent task history could not be saved. Previously saved history has not been replaced." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent task history could not be saved. Previously saved history has not been replaced."
+          }
+        }
+      }
+    },
+    "Task history cannot be read. Existing data is retained; new history will be saved after access is restored." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task history cannot be read. Existing data is retained; new history will be saved after access is restored."
+          }
+        }
+      }
+    },
+    "Task history recovery could not be saved. The original history was kept; history writes are paused." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task history recovery could not be saved. The original history was kept; history writes are paused."
+          }
+        }
+      }
+    },
+    "Unreadable task history was preserved in a recovery file. New task history can still be saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unreadable task history was preserved in a recovery file. New task history can still be saved."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

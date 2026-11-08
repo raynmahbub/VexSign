@@ -304,6 +304,12 @@ final class UnifiedTaskCenter: ObservableObject {
 	private var downloadMirrors: [String: UnifiedTask] = [:]
 	private var cancellables = Set<AnyCancellable>()
 
+    @Published private(set) var historyPersistenceIssue: TaskHistoryJournal.Issue?
+    private let historyJournal = TaskHistoryJournal(url: UnifiedTaskCenter.historyFileURL)
+    private var historyLoaded = false
+    private var historyLoading = false
+    private var clearHistoryRequested = false
+
 	private static let historyLimit = 200
 	private static var historyFileURL: URL {
 		let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -314,6 +320,14 @@ final class UnifiedTaskCenter: ObservableObject {
 	private init() {
 		_loadHistory()
 		_mirrorDownloads()
+        NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if !self.historyLoaded { self._loadHistory() }
+                else { self._persistHistory() }
+            }
+            .store(in: &cancellables)
 	}
 
 	// MARK: - Task lifecycle (explicit flows: sign, install, export, update)
@@ -515,35 +529,67 @@ final class UnifiedTaskCenter: ObservableObject {
 	// MARK: - Persistence
 
 	private func _loadHistory() {
-		guard let data = try? Data(contentsOf: Self.historyFileURL),
-		      let snapshots = try? JSONDecoder().decode([UnifiedTask.Snapshot].self, from: data) else {
-			return
-		}
-		history = Array(snapshots.prefix(Self.historyLimit)).map {
-            let task = UnifiedTask.from($0)
-            task.recoverAfterRestart()
-            return task
+        guard !historyLoading, !historyLoaded else { return }
+        historyLoading = true
+        historyJournal.load { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                self.historyLoading = false
+                switch result {
+                case .blocked(let issue):
+                    self.historyPersistenceIssue = issue
+                    Logger.misc.warning("Task history unavailable; original retained and writes blocked.")
+                case .loaded(let snapshots, let warning):
+                    self.historyLoaded = true
+                    self.historyPersistenceIssue = warning
+                    if warning != nil {
+                        Logger.misc.warning("Unreadable task history preserved in a recovery file.")
+                    }
+                    if !self.clearHistoryRequested {
+                        // Live work may have started while disk IO was running.
+                        let liveIDs = Set((self.tasks + self.history).map(\.id))
+                        let recovered = snapshots.filter { !liveIDs.contains($0.id) }.map {
+                            let task = UnifiedTask.from($0)
+                            task.recoverAfterRestart()
+                            return task
+                        }
+                        self.history = Array((self.history + recovered)
+                            .sorted { $0.updatedAt > $1.updatedAt }.prefix(Self.historyLimit))
+                    }
+                    self.clearHistoryRequested = false
+                    self._persistHistory()
+                }
+            }
         }
-        _persistHistory()
 	}
 
     private func _persistHistory() {
+        guard historyLoaded else {
+            // Retry unavailable reads on subsequent activity or device unlock.
+            // Never replace a journal we have not successfully read/preserved.
+            _loadHistory()
+            return
+        }
         pruneHistoryIcons()
-		let snapshots = (tasks + history).map { $0.snapshot }
-		if let data = try? JSONEncoder().encode(snapshots) {
-			do {
-                try FileManager.default.createDirectory(at: Self.historyFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-				try data.write(to: Self.historyFileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-			} catch {
-				Logger.misc.warning("Task history persist failed: \(error.localizedDescription, privacy: .public)")
-			}
-		}
+        // Capture values on the main actor; no mutable UnifiedTask crosses to IO.
+        let snapshots = (tasks + history).map { $0.snapshot }
+        historyJournal.save(snapshots) { [weak self] issue in
+            Task { @MainActor in
+                guard let self else { return }
+                if let issue {
+                    self.historyPersistenceIssue = issue
+                    Logger.misc.warning("Task history write failed; prior atomic journal retained.")
+                } else if self.historyPersistenceIssue == .writeFailed {
+                    self.historyPersistenceIssue = nil
+                }
+            }
+        }
 	}
 
 	/// Clears the persisted history (Settings → Diagnostics).
 	func clearHistory() {
+        clearHistoryRequested = !historyLoaded
         history = []
-        pruneHistoryIcons()
         _persistHistory()
 		objectWillChange.send()
 	}

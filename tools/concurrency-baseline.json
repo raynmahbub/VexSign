@@ -2,5 +2,6 @@
   "VexSign/Backend/Observable/Download.swift": 1,
   "VexSign/Backend/Observable/UnifiedTaskCenter.swift": 1,
   "VexSign/Backend/Services/AppOperationRegistry.swift": 2,
+  "VexSign/Backend/Services/TaskHistoryJournal.swift": 1,
   "VexSign/Utilities/Handlers/AppFileHandler.swift": 1
 }
