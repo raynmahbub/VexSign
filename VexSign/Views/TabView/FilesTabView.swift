@@ -168,7 +168,7 @@ struct FilesTabView: View {
                 HStack(spacing: 8) {
                     Label("\(quickFolders.count) locations", systemImage: "point.3.connected.trianglepath.dotted").font(.caption2).foregroundStyle(.secondary)
                     Spacer()
-                    Text(.localized("Ksign-style browser")).font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                    Text(.localized("On-device browser")).font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                 }
             }
             .padding(.vertical, 6)
@@ -214,7 +214,7 @@ struct FilesTabView: View {
         } header: {
             Label(.localized("Quick Access"), systemImage: "star.fill").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.tint)
         } footer: {
-            Text(.localized("Ksign-style quick folders — tap to browse, long-press for actions."))
+            Text(.localized("Quick folders — tap to browse, long-press for actions."))
         }
     }
 
@@ -372,8 +372,8 @@ struct FilesTabView: View {
     private var infoSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 6) {
-                Label(.localized("How Ksign files works"), systemImage: "info.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(.localized("Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above like Ksign's locations.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Label(.localized("Using Files"), systemImage: "info.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(.localized("Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above to browse your storage locations.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
             .accessibilityElement(children: .combine)

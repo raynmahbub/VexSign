@@ -102704,6 +102704,50 @@
           }
         }
       }
+    },
+    "Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above to browse your storage locations." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above to browse your storage locations."
+          }
+        }
+      }
+    },
+    "On-device browser" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device browser"
+          }
+        }
+      }
+    },
+    "Quick folders — tap to browse, long-press for actions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick folders — tap to browse, long-press for actions."
+          }
+        }
+      }
+    },
+    "Using Files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using Files"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
