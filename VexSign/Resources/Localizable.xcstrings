@@ -102946,6 +102946,17 @@
           }
         }
       }
+    },
+    "Deletion could not be completed. Your app records were kept; recovery files, if any, are retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletion could not be completed. Your app records were kept; recovery files, if any, are retained."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

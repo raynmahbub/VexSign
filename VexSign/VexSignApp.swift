@@ -537,6 +537,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 		_createPipeline()
 		_createDocumentsDirectories()
 		StorageManager.purgeStaleTemporary()
+        Storage.shared.recoverPendingAppDeletions()
 		InstallCleanup.flushOnLaunch()
 		_addDefaultCertificates()
 		_registerBackgroundTasks()

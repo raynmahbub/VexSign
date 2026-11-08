@@ -420,3 +420,26 @@ migration failures and IPA provenance sidecars. Nine additional native tests,
 four provenance tests and four additional wiring checks were added. Portable
 checks pass; latest Apple checks and device acceptance remain pending. The
 previous native compile error in begin(progress:) is addressed in this follow-up.
+
+## Maintenance review follow-up — step 1: deletion consistency
+
+Library deletion now stages app directories in a protected, backup-excluded
+quarantine before deleting database rows in an isolated sibling context. A save
+failure rolls that context back without saving/discarding unrelated UI edits;
+files are restored when the persistent row can be confirmed. Cleanup after a
+successful commit may be deferred, but its manifest remains tracked. Startup
+reconciles pending manifests before automatic install cleanup. Unavailable store
+queries, conflicting originals and invalid paths retain recovery material rather
+than deleting or overwriting it. Only a single persistent store is admitted per
+batch; unsaved rows are rejected.
+
+Seven native tests cover rollback, partial staging failure, cleanup retry,
+unavailable database evidence, original-file conflicts and Core Data edit
+isolation. `make verify`, Swift grammar parsing and diff checks pass. Apple
+compilation/XCTest and device interruption testing remain pending. Atomic file
+writes/process-restart recovery are not a power-loss durability certification.
+
+This is the first maintenance checkpoint. Editor ownership, journal persistence,
+migration warning visibility, behavior-preserving component extraction and
+validation-document consolidation remain subsequent review steps—not completed
+by this patch. No new end-user capability was added.
