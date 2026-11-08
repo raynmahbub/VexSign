@@ -50,7 +50,10 @@ false, and `NativeSigningManager.requireProfileOperations()` fails before any
 quota-affecting request. That is the intended fail-closed behaviour.
 
 **What has been validated so far** (`NativeSigning/Fixtures/` and the
-`testOpenSSLBuilt…` cases):
+`testOpenSSLBuilt…` cases). Note the scope: these assert the parser against
+bytes it did not author, on Linux, in the Python checks; the Swift cases run
+only in the manual `link-smoke` job, so treat them as verified logic, not as
+evidence that the package compiles:
 
 | Question | Evidence |
 | --- | --- |

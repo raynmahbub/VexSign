@@ -303,6 +303,35 @@ def generate() -> dict:
     return facts
 
 
+SWIFT_TESTS = HERE.parent / "Tests/NativeAppleProfileCMSTests.swift"
+
+
+def check_swift_literal(facts: dict) -> None:
+    """The Swift cases carry the same bytes as a base64 literal.
+
+    A test resource path resolves one way in `NativeSigning/Package.swift` and
+    another in the flattened smoke package, so the fixture is inlined. That makes
+    drift possible in a way a single source of truth is not — hence this check.
+    """
+    import base64
+    import re
+
+    if not SWIFT_TESTS.is_file():
+        raise SystemExit(f"missing {SWIFT_TESTS}")
+
+    match = re.search(r'fixtureCMSBase64 = """\n(.*?)\n"""', SWIFT_TESTS.read_text(), re.S)
+    if not match:
+        raise SystemExit("could not find the fixtureCMSBase64 literal in the Swift tests")
+
+    decoded = base64.b64decode("".join(match.group(1).split()), validate=True)
+    actual = hashlib.sha256(decoded).hexdigest()
+    if actual != facts["cms_sha256"]:
+        raise SystemExit(
+            f"inline fixture drifted: Swift literal sha256={actual} "
+            f"fixture der sha256={facts['cms_sha256']}"
+        )
+
+
 def check() -> dict:
     if not DER_PATH.is_file() or not META_PATH.is_file():
         raise SystemExit(f"missing fixture: {DER_PATH.name} / {META_PATH.name} (run --generate)")
@@ -311,6 +340,7 @@ def check() -> dict:
     for key in ("cms_sha256", "payload_sha256", "cms_length", "signature_bytes", "certificates"):
         if recorded.get(key) != facts[key]:
             raise SystemExit(f"fixture drift: {key} recorded={recorded.get(key)} actual={facts[key]}")
+    check_swift_literal(facts)
     return facts
 
 
@@ -322,6 +352,8 @@ def main() -> int:
     args = parser.parse_args()
 
     facts = generate() if args.generate else check()
+    if args.generate:
+        check_swift_literal(facts)
     print(json.dumps(facts, indent=2))
     print("\nfixture conforms to the subset NativeProfileCMSEnvelope.parse accepts")
     return 0

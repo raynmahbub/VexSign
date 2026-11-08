@@ -53,11 +53,13 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   `NativeProfileCMSEnvelope.parse` accepts (v1, definite lengths, one SHA-256
   digest algorithm, attached `id-data`, issuerAndSerialNumber, DER-sorted
   signed attributes with a matching `messageDigest`, 256–512-byte RSA
-  signature). The committed bytes back three new cases: it parses, it still
-  fails Apple trust as a self-signed certificate, and tampering is rejected at
-  the right layer — a payload edit fails parse, a signature edit parses and
-  fails verification (`openssl cms -verify` agrees on both). A drift check runs
-  in `make verify` and in CI.
+  signature). The bytes back three new cases: it parses, it still fails Apple
+  trust as a self-signed certificate, and tampering is rejected at the right
+  layer — a payload edit fails parse, a signature edit parses and fails
+  verification (`openssl cms -verify` agrees on both). The fixture is inlined
+  as base64 rather than a bundle resource, because the test file compiles in
+  two different package layouts; `--check` verifies the inline copy against the
+  committed DER so they cannot drift. It runs in `make verify` and in CI.
 - `tools/check-native-handoff.py` (wired into `make verify`) keeps the
   `nativeAppleAccountSigning` capability tied to its wiring: flipping it to
   `.implemented` without an export adapter and a package-side profile export
