@@ -93,6 +93,10 @@ jobs:
 
       - name: Build (Debug, unsigned)
         id: build
+        env:
+          # Use a job-owned artifact cache rather than the runner-global SwiftPM
+          # cache: restored package artifacts must not collide with stale downloads.
+          TMPDIR: ${{ runner.temp }}/
         run: |
           set -uo pipefail
           echo "BUILD_LOG=${RUNNER_TEMP}/${{ matrix.scheme }}-build.log" >> "$GITHUB_ENV"
@@ -102,6 +106,7 @@ jobs:
             -configuration Debug \
             -destination '${{ matrix.destination }}' \
             -derivedDataPath "$DERIVED_DATA" \
+            -packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}" \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \

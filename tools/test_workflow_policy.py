@@ -8,6 +8,9 @@ from pathlib import Path
 import fnmatch
 import re
 import runpy
+import subprocess
+import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -121,6 +124,28 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertEqual(match['line'], '12')
             self.assertEqual(match['col'], column)
             self.assertIn('assertion failed', match['msg'])
+
+    def test_platform_build_uses_job_owned_package_and_temporary_paths(self):
+        text = (WORKFLOWS / 'platform-check.yml').read_text()
+        self.assertIn('TMPDIR: ${{ runner.temp }}/', text)
+        self.assertIn('-packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}"', text)
+        self.assertNotIn('continue-on-error:', text)
+
+    def test_package_resolution_annotations_include_the_root_cause(self):
+        with tempfile.TemporaryDirectory() as folder:
+            log = Path(folder) / 'build.log'
+            log.write_text('xcodebuild: error: Could not resolve package dependencies:\n'
+                           '  Package Example requires a newer Swift tools version.\n'
+                           '  Required: 6.4; installed: 6.2.\n\n')
+            result = subprocess.run([
+                sys.executable, str(ROOT / '.github/scripts/xcodebuild_report.py'),
+                '--log', str(log), '--build-exit', '74', '--warnings-as-errors', 'false',
+                '--summary', str(Path(folder) / 'summary.md'), '--workspace', str(ROOT),
+            ], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('Package Example requires a newer Swift tools version.', result.stdout)
+            self.assertIn('Required: 6.4; installed: 6.2.', result.stdout)
+            self.assertIn('::error', result.stdout)
 
     def test_pull_requests_run_only_path_filtered_validators(self):
         validators = {*VALIDATORS, 'docs.yml'}
