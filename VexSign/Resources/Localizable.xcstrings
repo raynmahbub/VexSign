@@ -102495,6 +102495,17 @@
           }
         }
       }
+    },
+    "Queue paused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queue paused"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -116,12 +116,12 @@ private struct InstallQueueSheet: View {
 				.frame(maxWidth: .infinity, maxHeight: .infinity)
 				.background(Color(UIColor.secondarySystemBackground))
             } else if let failure = queue.failurePresentation {
-                InstallQueueFailureView(queue: queue, failure: failure)
+                InstallQueueFailureView(queue: queue, failure: failure, entryID: queue.current?.id)
             } else if let installer = queue.installer, let current = queue.current {
 				InstallCardView(
 					installer: installer,
 					upcoming: queue.upcoming,
-					onCancel: queue.skip,
+					onCancel: { queue.skip(forEntryID: current.id) },
 					onPause: {
 						if queue.isPaused { queue.resume() } else { queue.pause() }
 					},
@@ -129,6 +129,14 @@ private struct InstallQueueSheet: View {
 				)
 				.id(current.id)
 				.transition(.opacity)
+            } else if queue.isPaused, let current = queue.current {
+                InstallQueuePausedView(
+                    app: current,
+                    onResume: queue.resume,
+                    onSkip: { queue.skip(forEntryID: current.id) }
+                )
+                    .id(current.id)
+                    .transition(.opacity)
 			} else {
 				Color(UIColor.secondarySystemBackground)
 			}
@@ -147,6 +155,7 @@ private struct InstallQueueSheet: View {
 private struct InstallQueueFailureView: View {
     @ObservedObject var queue: InstallQueue
     let failure: InstallQueue.FailurePresentation
+    let entryID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -196,7 +205,7 @@ private struct InstallQueueFailureView: View {
             HStack {
                 Button(failure.waitingCount == 0 ? String.localized("Close") : String.localized("Skip")) {
                     HeartbeatManager.shared.start(true)
-                    queue.skip()
+                    queue.skip(forEntryID: entryID)
                 }
                 .buttonStyle(.bordered)
                 Spacer()
@@ -209,6 +218,46 @@ private struct InstallQueueFailureView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(UIColor.secondarySystemBackground))
+    }
+}
+
+// MARK: - View: Paused queue
+/// A completed item can advance into a held next item without creating an installer. Keep
+/// the sheet actionable instead of leaving a blank surface with no way to resume the queue.
+private struct InstallQueuePausedView: View {
+    let app: AnyApp
+    let onResume: () -> Void
+    let onSkip: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                FRAppIconView(app: app.base, size: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(.localized("Queue paused"))
+                        .font(.headline)
+                    Text(verbatim: app.base.name ?? String.localized("App"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: onResume) {
+                    Label(String.localized("Resume Queue"), systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                Button(action: onSkip) {
+                    Label(String.localized("Skip"), systemImage: "xmark")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color(UIColor.secondarySystemBackground))
     }
 }

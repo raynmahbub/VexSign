@@ -145,13 +145,24 @@ final class InstallQueue: ObservableObject {
 	}
 
 	/// Skips the current app permanently (marks it skipped and moves on).
-	func skip() {
-        NBHaptic.tap()
-        advanceScheduler.cancel()
-        failurePresentation = nil
-		guard let current else { _abandon(); return }
+	func skip(forEntryID entryID: String? = nil) {
+		guard !isFinished, let current, entryID == nil || current.id == entryID else { return }
+		// A completion can arrive just before SwiftUI removes the Skip control. Ignore
+		// that stale tap so it cannot cancel the successful item's automatic dismissal.
+		guard Self.canSkip(outcome: outcomes[current.id], hasFailure: failurePresentation != nil) else { return }
+
+		NBHaptic.tap()
+		advanceScheduler.cancel()
+		failurePresentation = nil
 		outcomes[current.id] = .skipped
+		// Skipping a held next item is an explicit request to move on; don't strand
+		// the queue with no installer and no Resume control.
+		isPaused = false
 		_abandon()
+	}
+
+	static func canSkip(outcome: InstallOutcome?, hasFailure: Bool) -> Bool {
+		hasFailure || outcome == .pending
 	}
 
     func stopAfterFailure() {
@@ -173,8 +184,9 @@ final class InstallQueue: ObservableObject {
 
 	/// Marks the failed app as pending again and rebuilds a fresh installer for it.
 	private func _teardownInstaller() {
-		installer?.stop()
+		let retiringInstaller = installer
 		installer = nil
+		retiringInstaller?.stop()
 	}
 
 	private func _handle(_ result: Result<AppInstaller.Outcome, Error>) {
