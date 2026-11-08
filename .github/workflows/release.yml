@@ -286,11 +286,17 @@ jobs:
           restore-keys: |
             spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-
 
+      - name: Prefetch verified binary archives
+        run: |
+          python3 .github/scripts/prefetch_spm_artifacts.py \
+            --cache "${RUNNER_TEMP}/SwiftPMCache-Release/artifacts"
+
       - name: Compile VexSign
         id: build
         env:
           # Keep DerivedData (and its SourcePackages) under the cached path.
           TMPDIR: ${{ runner.temp }}/
+          SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-Release
         run: |
           set -euo pipefail
 
@@ -313,6 +319,8 @@ jobs:
 
       # Validate the exact packaged commit for every channel, including previews.
       - name: Release simulator tests
+        env:
+          SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-Release
         run: make test
 
       - name: Surface build errors

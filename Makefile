@@ -7,6 +7,8 @@ IPA_FILE := packages/$(NAME)-$(APP_VERSION).ipa
 # TMPDIR is unset in some environments (plain Linux CI, bare shells); without a
 # fallback the paths below would resolve to "/$(NAME)" and fail on permissions.
 TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
+# Optional job-owned verified binary cache; ordinary local builds keep Xcode defaults.
+SPM_CACHE_PATH ?=
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
 .PHONY: test-server test-cloud help docs-check all clean bootstrap test verify lint deploy-server strict-concurrency audit-packages $(SCHEMES)
@@ -47,6 +49,7 @@ bootstrap:
 # Install-server TLS is generated and persisted on each device, not in an IPA.
 $(SCHEMES):
 	xcodebuild \
+	    $(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",) \
 	    -project VexSign.xcodeproj \
 	    -scheme "$@" \
 	    -configuration Release \
@@ -165,6 +168,7 @@ test:
 	fi; \
 	echo "Testing on $$dest"; \
 	xcodebuild \
+	    $(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",) \
 	    -workspace VexSign.xcworkspace \
 	    -scheme VexSignTests \
 	    -configuration Debug \

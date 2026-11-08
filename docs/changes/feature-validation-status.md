@@ -279,3 +279,26 @@ continue in sequence; failures retain recovery controls. Three additional Swift
 regression tests exercise immediate/late-mounted badges, background-read handoff,
 version differences, identity isolation, reset and expiry. Portable make verify
 passes (74 tests); native compiler/simulator and device validation remain pending.
+
+## GitHub issue queue follow-up (#126, #128, #130)
+
+Current main 2f03b49 passes CI run 42511925196: both the unsigned iOS Debug
+build and simulator tests completed successfully. This supersedes the historical
+simulator compile failures tracked by #126 (SigningServiceTests return type) and
+#128 (main-actor canSkip tests). The later Release workflow_run successes did not
+compile an IPA: only version-bump ran, while build/publish were skipped. They must
+not be cited as proof that #128's separate Release dependency failure is fixed.
+
+Release now prefetches the same checksum-verified binary archives used by the
+companion validation workflow and shares an explicit job-owned SwiftPM cache
+between make and make test. Local Makefile invocations keep Xcode defaults unless
+SPM_CACHE_PATH is supplied. Pins, checksum verification, simulator testing and
+publication permissions remain unchanged. A workflow-policy regression failed
+before the change and passes afterwards; portable make verify passes. An explicit
+unpublished build-only Release run is still required to validate the native path.
+
+The previous merged fixes for #130 cover finished-overlay retirement, stable
+library bindings, conservative installed-app lookup and confirmed-install badge
+handoff. The add-library crash remains unreproduced. Keep that issue open pending
+exact steps/crash logs and device confirmation rather than declaring it resolved
+from portable checks or CI alone.
