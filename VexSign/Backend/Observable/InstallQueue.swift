@@ -353,16 +353,27 @@ final class InstallQueue: ObservableObject {
 		guard index + 1 < apps.count else {
 			isFinished = true
             _finishUnifiedTask()
-            let wasPresented = isSheetPresented
-            isSheetPresented = false
-            // The sheet's onDismiss clears state after its dismissal animation.
-            if !wasPresented { clear() }
+            _dismissFinishedQueue()
             return
 		}
 
 		index += 1
 		activate()
 	}
+
+    /// onDismiss is normally responsible for clearing the queue, but UIKit/SwiftUI
+    /// can lose that callback when an OTA prompt backgrounds the overlay window.
+    /// Retire it after the animation even in that case. Reset/enqueue cancels this
+    /// timer, so an earlier completion cannot close a newer installation.
+    private func _dismissFinishedQueue() {
+        let wasPresented = isSheetPresented
+        isSheetPresented = false
+        guard wasPresented else { clear(); return }
+        advanceScheduler.schedule(after: 0.6) { [weak self] in
+            guard let self, self.isFinished, !self.isSheetPresented else { return }
+            self.clear()
+        }
+    }
 
 	/// Dismiss first so the card doesn't blank out mid animation.
 	private func _abandon() {
@@ -377,7 +388,7 @@ final class InstallQueue: ObservableObject {
 			_teardownInstaller()
 			isFinished = true
 			_finishUnifiedTask()
-			isSheetPresented = false
+            _dismissFinishedQueue()
 			return
 		}
 

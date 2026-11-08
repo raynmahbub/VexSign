@@ -319,6 +319,48 @@ final class InstallConfirmationTests: XCTestCase {
         XCTAssertEqual(InstalledState.derive(from: candidate, expecting: nil), .unknown)
     }
 
+    func testFilteredLegacyNegativesAreUnknownNotNotInstalled() {
+        for workspace in [nil, false] as [Bool?] {
+            for proxy in [nil, missing] as [InstalledApp?] {
+                let result = InstalledAppProbe.resolve(bundleID, proxy: proxy, workspaceInstalled: workspace)
+                XCTAssertNil(result)
+                XCTAssertEqual(InstalledState.derive(from: result, expecting: nil), .unknown)
+                XCTAssertNil(InstalledBadge(InstalledState.derive(from: result, expecting: nil)))
+            }
+        }
+    }
+
+    func testCanonicalApplicationRecordOverridesLegacyFalseWithoutLosingVersion() {
+        let record = app(version: "1.2.0")
+        let result = InstalledAppProbe.resolve(bundleID, proxy: missing, workspaceInstalled: false, applicationRecord: record)
+        XCTAssertEqual(result, record)
+        XCTAssertEqual(InstalledState.derive(from: result, expecting: "1.2.0"), .installed)
+        XCTAssertEqual(InstalledState.derive(from: result, expecting: "9.0"), .installedOtherVersion("1.2.0"))
+    }
+
+    func testCanonicalRecordCannotSubstituteAnotherIdentifierOrPlaceholder() {
+        let wrong = InstalledApp(bundleIdentifier: "other.app", isInstalled: true)
+        XCTAssertNil(InstalledAppProbe.resolve(bundleID, proxy: nil, workspaceInstalled: true, applicationRecord: wrong))
+        XCTAssertNil(InstalledAppProbe.resolve(bundleID, proxy: nil, workspaceInstalled: true, applicationRecord: app(placeholder: true)))
+    }
+
+    func testRecordValidationRequiresAnApplicationAndAnExplicitNonplaceholder() {
+        func record(identifier: String? = nil, application: Bool = true, placeholder: Bool? = false,
+                    systemPlaceholder: Bool? = false, url: URL? = URL(fileURLWithPath: "/private/var/containers/Bundle/Application/example/Test.app")) -> InstalledApp? {
+            InstalledAppProbe.installedRecord(bundleID, recordIdentifier: identifier ?? bundleID,
+                isApplication: application, isPlaceholder: placeholder, isSystemPlaceholder: systemPlaceholder,
+                version: "1.2.0", build: "12", bundleURL: url)
+        }
+        XCTAssertEqual(record()?.build, "12")
+        XCTAssertNil(record(identifier: "another.app"))
+        XCTAssertNil(record(application: false))
+        XCTAssertNil(record(placeholder: nil))
+        XCTAssertNil(record(placeholder: true))
+        XCTAssertNil(record(systemPlaceholder: true))
+        XCTAssertNil(record(url: nil))
+        XCTAssertNil(record(url: URL(string: "https://example.com/Test.app")))
+    }
+
 	func testWatcherNeverReportsSuccessWhenTheAppIsMissing() async {
 		let verdict = await InstallWatcher.watch(
 			confirmation(limits: .init(start: 120, verify: 0, settle: 0)),

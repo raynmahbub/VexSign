@@ -95,6 +95,11 @@ protocol InstalledAppProbing: Sendable {
 struct InstalledAppProbe: InstalledAppProbing {
     func installedApp(for bundleIdentifier: String) -> InstalledApp? {
         guard !bundleIdentifier.isEmpty else { return nil }
+        // Modern LaunchServices records remain usable on devices where the legacy
+        // workspace/proxy APIs return filtered false values for installed apps.
+        if let record = Self._applicationRecord(bundleIdentifier) {
+            return Self.resolve(bundleIdentifier, proxy: nil, workspaceInstalled: nil, applicationRecord: record)
+        }
         let workspaceInstalled = Self._workspaceInstalled(bundleIdentifier)
         guard let proxyClass = Self._proxyClass(),
               let selector = Self._selector("YXBwbGljYXRpb25Qcm94eUZvcklkZW50aWZpZXI6"),
@@ -116,8 +121,12 @@ struct InstalledAppProbe: InstalledAppProbing {
 
     /// A workspace query is independent of the proxy's sometimes stale isInstalled
     /// flag. A registered URL alone is never sufficient positive install evidence.
-    static func resolve(_ identifier: String, proxy: InstalledApp?, workspaceInstalled: Bool?) -> InstalledApp? {
+    static func resolve(_ identifier: String, proxy: InstalledApp?, workspaceInstalled: Bool?, applicationRecord: InstalledApp? = nil) -> InstalledApp? {
         guard !identifier.isEmpty else { return nil }
+        if let record = applicationRecord {
+            guard record.bundleIdentifier == identifier, record.isInstalled, !record.isPlaceholder else { return nil }
+            return record
+        }
         if let proxy, proxy.bundleIdentifier != identifier { return nil }
         if let proxy, proxy.isPlaceholder { return proxy }
         if workspaceInstalled == true || proxy?.isInstalled == true {
@@ -126,10 +135,44 @@ struct InstalledAppProbe: InstalledAppProbing {
         }
         // Contradictory cached metadata is unknown, not a false Not installed badge.
         if proxy?.bundleURL != nil { return nil }
-        if workspaceInstalled == false || proxy?.isInstalled == false {
-            return InstalledApp(bundleIdentifier: identifier, isInstalled: false)
-        }
+        // A private query's false result is also returned for restricted/filtered
+        // access. Even two legacy negatives cannot establish device-wide absence.
         return nil
+    }
+
+    /// Accept only a matching real application record, never an extension, a
+    /// placeholder, or a URL obtained independently of a successful record lookup.
+    static func installedRecord(_ identifier: String, recordIdentifier: String?,
+                                isApplication: Bool, isPlaceholder: Bool?,
+                                isSystemPlaceholder: Bool?, version: String?,
+                                build: String?, bundleURL: URL?) -> InstalledApp? {
+        guard !identifier.isEmpty, recordIdentifier == identifier, isApplication,
+              isPlaceholder == false, isSystemPlaceholder != true,
+              let bundleURL, bundleURL.isFileURL else { return nil }
+        return InstalledApp(bundleIdentifier: identifier, isInstalled: true,
+                            version: version, build: build, bundleURL: bundleURL)
+    }
+
+    private static func _applicationRecord(_ identifier: String) -> InstalledApp? {
+        guard let type = NSClassFromString("LSBundleRecord") as? NSObject.Type,
+              let applicationType = NSClassFromString("LSApplicationRecord") else { return nil }
+        let selector = NSSelectorFromString("bundleRecordWithBundleIdentifier:allowPlaceholder:error:")
+        guard let method = class_getClassMethod(type, selector) else { return nil }
+        // This factory returns an autoreleased object. Its BOOL and NSError **
+        // arguments require the real ABI; NSObject.perform cannot express them.
+        typealias Lookup = @convention(c) (AnyObject, Selector, NSString, Bool,
+            UnsafeMutablePointer<Unmanaged<AnyObject>?>?) -> Unmanaged<AnyObject>?
+        let lookup = unsafeBitCast(method_getImplementation(method), to: Lookup.self)
+        guard let record = lookup(type as AnyObject, selector, identifier as NSString, false, nil)?
+            .takeUnretainedValue() as? NSObject else { return nil }
+        return installedRecord(identifier,
+            recordIdentifier: _string(record, "YnVuZGxlSWRlbnRpZmllcg=="),
+            isApplication: record.isKind(of: applicationType),
+            isPlaceholder: _bool(record, "aXNQbGFjZWhvbGRlcg=="),
+            isSystemPlaceholder: _bool(record, "aXNTeXN0ZW1QbGFjZWhvbGRlcg=="),
+            version: _string(record, "c2hvcnRWZXJzaW9uU3RyaW5n"),
+            build: _string(record, "YnVuZGxlVmVyc2lvbg=="),
+            bundleURL: _url(record, "VVJM"))
     }
 
     private static func _workspaceInstalled(_ identifier: String) -> Bool? {

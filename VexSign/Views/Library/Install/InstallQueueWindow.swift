@@ -145,7 +145,6 @@ private struct InstallQueueSheet: View {
         .presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(200)])
 		.presentationDragIndicator(.visible)
 		.onAppear { queue.activate() }
-		.onDisappear { queue.isSheetPresented = false }
 	}
 }
 

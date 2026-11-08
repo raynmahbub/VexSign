@@ -35,8 +35,8 @@ struct TweakInjectConfigView: View {
 				Text(.localized("Turn the whole tweak on or off for this sign. Configure each file below."))
 			}
 
-			ForEach($spec.files) { $file in
-				_fileSection($file)
+			ForEach(spec.files) { file in
+				_fileSection(IdentifiedArrayBinding.element(file, in: $spec.files))
 			}
 		}
 	}

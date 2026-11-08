@@ -111,7 +111,7 @@ struct UpdatesSettingsView: View {
 					Label(String.localized("Update available: %@", arguments: available.version), systemImage: "arrow.up.circle.fill")
 						.foregroundStyle(Color.accentColor)
 					Spacer()
-					Button(.localized("View")) { _selected = available }
+					Button(.localized("Update in App")) { _selected = available }
 						.font(.subheadline.bold())
 				}
 			} else if _manager.hasChecked, let latest = _manager.latestSemver {
@@ -171,6 +171,9 @@ struct UpdatesSettingsView: View {
 		Group {
 			NBSection(.localized("Options")) {
 				Toggle(.localized("Automatic Update Checks"), isOn: $_autoCheck)
+				Text(.localized("Updates can be signed and installed from VexSign. Select your original signing certificate and an install method below; external signing is not required. iOS still asks you to approve installation."))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
 				Picker(.localized("Install Method"), selection: $_method) {
 					Text(.localized("Server")).tag(0)
 					Text(.localized("IDevice")).tag(1)
