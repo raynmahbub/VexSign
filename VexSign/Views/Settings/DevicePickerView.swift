@@ -197,9 +197,7 @@ final class IDeviceManager {
 
     /// Returns the path to the pairing file
     private var pairingFilePath: String {
-        // Default Feather pairing file location
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("pairingFile.plist").path
+        HeartbeatManager.pairingFile()
     }
 
     /// Attempts to read the pairing file and extract device UDID

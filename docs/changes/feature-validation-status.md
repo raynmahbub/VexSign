@@ -398,3 +398,15 @@ container replacement and negative/placeholder cases. Portable verification pass
 74 tests; Apple compilation/tests and physical-device acceptance are not yet
 confirmed for this change. These fixes are independently implemented; no new
 upstream implementation was copied.
+
+### Shared workflow trace, reports and material protection
+
+The follow-up reliability pass extends the existing Task Center with explicit
+import/sign/install stages, persisted timelines, independent linked records and
+privacy-allowlisted reports. It also stamps build revisions, protects/migrates
+managed identities and pairing records, and expands log redaction. See
+[workflow reliability and device acceptance](workflow-reliability-acceptance.md)
+for the implementation boundary, migration fallback behavior and pending device
+matrix. Ten new native test methods cover state/result isolation, snapshots,
+report privacy, verification presentation, migrations and redaction. Portable
+checks pass; latest Apple CI and physical-device acceptance remain pending.

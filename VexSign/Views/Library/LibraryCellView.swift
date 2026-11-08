@@ -489,6 +489,9 @@ extension LibraryCellView {
 				InstallQueue.shared.enqueue(app, exporting: true)
 			}
 		} else {
+            Button(.localized("Sign & Install"), systemImage: "signature") {
+                _performWorkflow(.signAndInstall)
+            }
 			Button(.localized("Sign"), systemImage: "signature") {
 				Presentation.afterDismiss { selectedSigningAppPresenting = AnyApp(base: app) }
 			}

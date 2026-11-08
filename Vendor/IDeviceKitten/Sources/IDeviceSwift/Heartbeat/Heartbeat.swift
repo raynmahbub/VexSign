@@ -71,8 +71,8 @@ public class HeartbeatManager {
 	}
 	
 	/// Returns (idevice) pairing file path
-	/// - Returns: `Documents/Feather/pairingFile.plist`
+	/// Migrates legacy Documents credentials into protected Application Support.
 	static public func pairingFile() -> String {
-		FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("pairingFile.plist").relativePath
+		PairingFileStorage.path()
 	}
 }

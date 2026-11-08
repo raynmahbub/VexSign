@@ -51,6 +51,7 @@ final class CertificateFileHandler: NSObject {
 		try _fileManager.createDirectory(at: destinationURL, withIntermediateDirectories: true)
 		try _fileManager.copyItem(at: _key, to: destinationURL.appendingPathComponent(_key.lastPathComponent))
 		try _fileManager.copyItem(at: _provision, to: destinationURL.appendingPathComponent(_provision.lastPathComponent))
+        try ProtectedCertificateFiles.protect(destinationURL)
 	}
 	
 	@MainActor

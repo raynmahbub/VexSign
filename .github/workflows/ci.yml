@@ -161,6 +161,7 @@ jobs:
           python3 tools/test_release_assets.py
           python3 tools/test_autopilot.py
           python3 tools/test_workflow_policy.py
+          python3 tools/test_workflow_trace_policy.py
 
       - name: Upload findings
         if: always()
@@ -229,6 +230,7 @@ jobs:
             -resultBundlePath "$RESULT_BUNDLE" \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -424,6 +426,7 @@ jobs:
             -parallel-testing-worker-count 2 \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \

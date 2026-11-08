@@ -62,6 +62,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 	case queued
 	case downloading
 	case extracting
+    case importing, readyToSign, signed, preparingInstallation, waitingForIOS, verifying
 	case signing
 	case installing
 	case completed
@@ -73,6 +74,12 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 
 	var title: String {
 		switch self {
+        case .importing: .localized("Importing")
+        case .readyToSign: .localized("Ready to sign")
+        case .signed: .localized("Signed")
+        case .preparingInstallation: .localized("Preparing installation")
+        case .waitingForIOS: .localized("Waiting for iOS installation")
+        case .verifying: .localized("Verifying installation")
 		case .queued: .localized("Queued")
 		case .downloading: .localized("Downloading")
 		case .extracting: .localized("Extracting")
@@ -84,6 +91,23 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 		case .paused: .localized("Paused")
 		}
 	}
+
+    /// Separate operations share one vocabulary, not one success verdict.
+    /// Queue installs can start a new item at preparation after verification.
+    func canTransition(to next: Self, kind: UnifiedTaskKind) -> Bool {
+        guard !isTerminal else { return false }
+        if kind == .sign {
+            if next == .failed || next == .cancelled || next == self { return true }
+            switch self {
+            case .queued, .readyToSign: return next == .signing
+            case .signing: return next == .signed || next == .completed
+            case .signed: return next == .completed
+            default: return false
+            }
+        }
+        if kind == .install, [.signing, .signed, .readyToSign, .importing].contains(next) { return false }
+        return true
+    }
 
 	var isTerminal: Bool {
 		self == .completed || self == .failed || self == .cancelled
@@ -100,9 +124,9 @@ enum TaskRecoveryGuide: Equatable {
     static func resolve(kind: UnifiedTaskKind, failureStage: UnifiedTaskPhase?) -> Self {
         switch failureStage {
         case .downloading: return .download
-        case .extracting: return .archive
+        case .extracting, .importing, .readyToSign: return .archive
         case .signing: return .signing
-        case .installing: return .installation
+        case .installing, .preparingInstallation, .waitingForIOS, .verifying: return .installation
         default:
             switch kind {
             case .download: return .download
@@ -151,6 +175,14 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 	var updatedAt: Date
 	/// Identifies the originating flow (download id, app uuid, …) for retry.
 	var subjectID: String?
+    var context: TaskContext?
+    var stageHistory: [TaskStageEntry]
+
+    var displayPhaseTitle: String {
+        if phase == .completed && kind == .sign { return UnifiedTaskPhase.signed.title }
+        if phase == .completed && kind == .importIPA { return UnifiedTaskPhase.readyToSign.title }
+        return phase.title
+    }
 
 	init(
 		id: String = UUID().uuidString,
@@ -170,7 +202,25 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 		self.createdAt = Date()
 		self.updatedAt = Date()
 		self.subjectID = subjectID
+        self.context = TaskContext()
+        self.stageHistory = [.init(phase: phase, date: createdAt)]
 	}
+
+    /// One transition authority for UI, persistence and receipts. Progress updates
+    /// never establish success; only callers with an actual operation result do.
+    @discardableResult
+    func move(to next: UnifiedTaskPhase, at date: Date = Date()) -> Bool {
+        guard phase.canTransition(to: next, kind: kind) else { return false }
+        let timestamp = max(updatedAt, date)
+        if phase != next {
+            stageHistory.append(.init(phase: next, date: timestamp))
+            if stageHistory.count > 256 { stageHistory.removeFirst(stageHistory.count - 256) }
+        }
+        if next == .failed { failureStage = phase }
+        phase = next
+        updatedAt = timestamp
+        return true
+    }
 
 	/// Persistable snapshot for the history file.
 	struct Snapshot: Codable {
@@ -184,6 +234,8 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 		var createdAt: Date
 		var updatedAt: Date
 		var subjectID: String?
+        var context: TaskContext?
+        var stageHistory: [TaskStageEntry]?
 	}
 
 	var snapshot: Snapshot {
@@ -197,7 +249,9 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 			errorText: errorText,
 			createdAt: createdAt,
 			updatedAt: updatedAt,
-			subjectID: subjectID
+			subjectID: subjectID,
+            context: context,
+            stageHistory: stageHistory
 		)
 	}
 
@@ -211,9 +265,11 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 			subjectID: snapshot.subjectID
 		)
 		task.failureStage = snapshot.failureStage.flatMap { UnifiedTaskPhase(rawValue: $0) }
-		task.errorText = snapshot.errorText
+		task.errorText = snapshot.errorText.map(LogRedaction.redact)
 		task.createdAt = snapshot.createdAt
 		task.updatedAt = snapshot.updatedAt
+        task.context = snapshot.context
+        task.stageHistory = snapshot.stageHistory ?? [.init(phase: task.phase, date: snapshot.updatedAt)]
 		return task
 	}
 }
@@ -263,13 +319,11 @@ final class UnifiedTaskCenter: ObservableObject {
 	}
 
 	func transition(_ task: UnifiedTask, to phase: UnifiedTaskPhase, progress: Double? = nil, error: String? = nil) {
-		guard !task.phase.isTerminal else { return }
-		if phase.isTerminal, phase == .failed {
-			task.failureStage = task.phase
-		}
-		task.phase = phase
+        guard task.move(to: phase) else { return }
 		if let progress { task.progress = progress }
-		task.errorText = error
+		task.errorText = error.map(LogRedaction.redact)
+        if phase == .failed, task.context?.confirmationReason == nil { task.context?.confirmationReason = "operation-failed" }
+        if phase == .cancelled { task.context?.confirmationReason = "cancelled" }
 		task.updatedAt = Date()
 		if phase.isTerminal {
 			_finalize(task)
@@ -304,20 +358,11 @@ final class UnifiedTaskCenter: ObservableObject {
 	@discardableResult
 	func retry(_ task: UnifiedTask) -> Bool {
 		guard canRetry(task), let handler = retryHandlers[task.id] else { return false }
-		// Move back to the front as a fresh attempt.
-		retryHandlers.removeValue(forKey: task.id)
-		if let index = tasks.firstIndex(where: { $0.id == task.id }) {
-			tasks.remove(at: index)
-		} else if let index = history.firstIndex(where: { $0.id == task.id }) {
-			history.remove(at: index)
-		}
-		task.phase = .queued
-		task.progress = 0
-		task.failureStage = nil
-		task.errorText = nil
-		task.updatedAt = Date()
-		tasks.insert(task, at: 0)
-		objectWillChange.send()
+        retryHandlers.removeValue(forKey: task.id)
+        // Resumed downloads receive a fresh mirror too, not a terminal record
+        // whose progress would be silently ignored.
+        let mirrorIDs = downloadMirrors.filter { $0.value.id == task.id }.map(\.key)
+        for id in mirrorIDs { downloadMirrors.removeValue(forKey: id) }
 		handler()
 		return true
 	}
@@ -397,13 +442,14 @@ final class UnifiedTaskCenter: ObservableObject {
 			case .queued: newPhase = .queued
 			case .downloading: newPhase = .downloading
 			case .paused: newPhase = .paused
-			case .importing: newPhase = .extracting
+			case .importing: newPhase = .importing
 			case .signing: newPhase = .signing
 			case .completed: newPhase = .completed
 			}
 
 			if newPhase.isTerminal {
 				if !task.phase.isTerminal {
+                    if task.kind == .importIPA { transition(task, to: .readyToSign) }
 					transition(task, to: .completed)
 				}
 			} else if task.phase != newPhase {
@@ -413,6 +459,22 @@ final class UnifiedTaskCenter: ObservableObject {
 			}
 		}
 	}
+
+    func recordImportedArtifact(_ app: AppInfoPresentable, task: UnifiedTask?, downloadID: String?) {
+        _syncMirrored(downloads: DownloadManager.shared.downloads)
+        guard let record = task ?? (tasks + history).first(where: { $0.subjectID == downloadID && downloadID != nil }) else { return }
+        var context = record.context ?? TaskContext()
+        context.artifactID = app.uuid
+        context.appVersion = TaskContext.versionToken(app.version)
+        if let directory = Storage.shared.getAppDirectory(for: app),
+           let info = NSDictionary(contentsOf: directory.appendingPathComponent("Info.plist")) {
+            context.appBuild = TaskContext.versionToken(info["CFBundleVersion"] as? String)
+        }
+        context.confirmationReason = "import-registered"
+        record.context = context
+        transition(record, to: .readyToSign)
+        if task != nil { transition(record, to: .completed, progress: 1) }
+    }
 
     func historyIcon(for task: UnifiedTask) -> UIImage? { iconArchive.image(for: task.id) }
 
@@ -450,7 +512,7 @@ final class UnifiedTaskCenter: ObservableObject {
 		let snapshots = history.map { $0.snapshot }
 		if let data = try? JSONEncoder().encode(snapshots) {
 			do {
-				try data.write(to: Self.historyFileURL, options: .atomic)
+				try data.write(to: Self.historyFileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
 			} catch {
 				Logger.misc.warning("Task history persist failed: \(error.localizedDescription, privacy: .public)")
 			}

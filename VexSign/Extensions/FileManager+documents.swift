@@ -40,7 +40,10 @@ extension FileManager {
 	
 	/// Gives apps Certificates directory
 	var certificates: URL {
-		URL.documentsDirectory.appendingPathComponent("Certificates")
+        let legacy = URL.documentsDirectory.appendingPathComponent("Certificates")
+        let destination = urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Private/Certificates", isDirectory: true)
+        return ProtectedCertificateFiles.directory(legacy: legacy, destination: destination)
 	}
 	/// Gives apps Certificates directory with a UUID appending path
 	func certificates(_ uuid: String) -> URL {

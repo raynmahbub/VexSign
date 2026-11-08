@@ -102781,6 +102781,61 @@
           }
         }
       }
+    },
+    "Preparing installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing installation"
+          }
+        }
+      }
+    },
+    "Ready to sign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to sign"
+          }
+        }
+      }
+    },
+    "Restart installation from Signed Apps. The original task report is retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart installation from Signed Apps. The original task report is retained."
+          }
+        }
+      }
+    },
+    "Retry Install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Install"
+          }
+        }
+      }
+    },
+    "View Report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Report"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

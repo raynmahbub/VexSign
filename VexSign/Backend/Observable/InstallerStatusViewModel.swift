@@ -11,6 +11,12 @@ import IDeviceSwift
 import NimbleExtensions
 
 extension InstallerStatusViewModel {
+    @MainActor
+    func beginDeviceVerification() {
+        installProgress = min(installProgress, 0.99)
+        status = .installing
+    }
+
     /// A delayed/repeated payload callback cannot undo a device-confirmed
     /// completion while the card is animating away.
     @MainActor

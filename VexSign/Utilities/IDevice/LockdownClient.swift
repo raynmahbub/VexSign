@@ -20,6 +20,7 @@
 /// above.
 
 import Foundation
+import IDeviceSwift
 import UIKit
 import os
 
@@ -76,7 +77,7 @@ public actor LockdownClient {
 
         guard let data = try? Data(contentsOf: pairingFileURL), // try? ok: the unreadable file is the failure being reported
               let udid = Self.udid(in: data) else {
-            logger.error("Pairing file at \(self.pairingFileURL.path, privacy: .public) is not a readable pairing record")
+            logger.error("The pairing file is not a readable pairing record")
             throw LockdownClientError.invalidPairingFile
         }
 
@@ -175,8 +176,7 @@ public actor LockdownClient {
 
 /// Convenience function to get device info from the default pairing file.
 public func getPairedDeviceInfo() async throws -> DeviceInfo {
-    let pairingFileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        .appendingPathComponent("pairingFile.plist")
+    let pairingFileURL = URL(fileURLWithPath: HeartbeatManager.pairingFile())
 
     let client = LockdownClient(pairingFileURL: pairingFileURL)
     try await client.connect()

@@ -37,6 +37,11 @@ struct AboutView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
+                    Text(verbatim: "Source commit: " + BuildIdentity.commit)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .foregroundStyle(.secondary)
+
                     Text(verbatim: "Version \(Bundle.main.version)\(Bundle.main.buildNumber.isEmpty ? "" : " (\(Bundle.main.buildNumber))")")
                         .font(.caption)
                         .foregroundStyle(.secondary)

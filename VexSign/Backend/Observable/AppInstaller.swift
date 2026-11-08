@@ -45,6 +45,8 @@ final class AppInstaller: ObservableObject {
     private var _packageArchive: InstallationArchive?
     private(set) var hasPackaged = false
     var onPackaged: (() -> Void)?
+    var onWorkflowStage: ((UnifiedTaskPhase) -> Void)?
+    var onConfirmationReason: ((String) -> Void)?
 
     /// Settings changed while prewarming? Discard the snapshot and build afresh.
     var preparationMatchesSettings: Bool {
@@ -81,6 +83,12 @@ final class AppInstaller: ObservableObject {
 	private var _lastPPQRefresh = Date()
 
 	var fallbackPageURL: URL? { _server?.pageEndpoint }
+
+    var installationMethodCode: String {
+        if _isSharing { return "export" }
+        if _installationMethod == 2 { return "guest-import" }
+        return _installationMethod == 1 || _didAttemptIdeviceFallback ? "paired-device" : "OTA"
+    }
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
 
@@ -137,6 +145,8 @@ final class AppInstaller: ObservableObject {
     func stop() {
         _hasFinished = true
         onPackaged = nil
+        onWorkflowStage = nil
+        onConfirmationReason = nil
         _preparedPackage?.cancel()
         _preparedPackage = nil
         _packageArchive = nil
@@ -318,6 +328,8 @@ final class AppInstaller: ObservableObject {
         guard !_hasFinished, !Task.isCancelled else { return }
 		let pairingExists = FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile())
 		if pairingExists {
+            _didAttemptIdeviceFallback = true
+            installationPhase = .downloading
 			FileLogger.log("Server setup failed (\(failure.localizedDescription)), falling back to idevice installation", category: "install")
 			SigningLog.shared.info(.localized("Server failed, falling back to idevice installation…"), category: "install")
             let archive = _packageArchive
@@ -343,25 +355,35 @@ final class AppInstaller: ObservableObject {
         guard !_hasFinished else { return }
 		switch status {
 		case .ready where _installationMethod == 0:
+            onWorkflowStage?(.waitingForIOS)
 			_openInstall(_serverMethod == 0 ? _server?.iTunesLink : _server?.iTunesLinkExternal)
 		case .sendingManifest:
+            onWorkflowStage?(.waitingForIOS)
 			_armDeclineWatch()
 		case .sendingPayload:
+            onWorkflowStage?(.installing)
 			isPresentingFallbackPage = false
 			_disarmDeclineWatch()
             // Begin observing before the transfer completes; small installs can
             // finish before its HTTP completion callback reaches the main actor.
-            if _installationMethod == 0 { _startProgressPolling() }
-		case .installing where _installationMethod == 0:
+            if _installationMethod == 0, !_didAttemptIdeviceFallback { _startProgressPolling() }
+		case .installing where _installationMethod == 0 && !_didAttemptIdeviceFallback:
             _hasServedPayload = true
+            onWorkflowStage?(installationPhase == .waitingForStart ? .waitingForIOS : (installationPhase == .verifying ? .verifying : .installing))
 			_startProgressPolling()
+        case .installing:
+            onWorkflowStage?(installationPhase == .verifying ? .verifying : .installing)
 		case .completed(let result):
 			_progressTask?.cancel()
 			_progressTask = nil
 			// The IDevice path trusts installd's own phases; corroborate them with the device
 			// before telling the user it worked.
-			if _installationMethod == 1, case .success = result {
+			if _installationMethod == 1 || _didAttemptIdeviceFallback, case .success = result {
                 guard _confirmationTask == nil else { return }
+                // Native completion starts corroboration; it must not expose
+                // Completed or remove Skip while that check is still pending.
+                installationPhase = .verifying
+                viewModel.beginDeviceVerification()
                 _confirmationTask = Task { await _confirmIdeviceInstall() }
 				return
 			}
@@ -417,6 +439,7 @@ final class AppInstaller: ObservableObject {
 		guard let packageUrl = _server?.packageUrl else { return false }
 
 		_didAttemptIdeviceFallback = true
+        installationPhase = .downloading
 
 		FileLogger.log("OTA install failed (\(error.localizedDescription)), falling back to idevice installation", category: "install")
 		SigningLog.shared.info(.localized("Install failed, falling back to idevice installation…"), category: "install")
@@ -492,6 +515,12 @@ final class AppInstaller: ObservableObject {
             // Publish the terminal card state after _hasFinished is set. Any
             // status observer delivery can no longer start a second confirmation.
             outcome.publishConfirmedCompletion(to: viewModel)
+            if let identifier = app.identifier {
+                let version: String?
+                if case .installedOtherVersion(let reported) = outcome { version = reported }
+                else { version = app.version }
+                LibraryStatusStore.shared.recordConfirmedInstallation(bundleIdentifier: identifier, version: version)
+            }
 			Task { await AnalyticsStore.shared.record(.appsInstalled) }
 		}
         _disarmDeclineWatch()
@@ -553,6 +582,12 @@ final class AppInstaller: ObservableObject {
         guard !_hasFinished else { return }
         if installationPhase != phase {
             installationPhase = phase
+            switch phase {
+            case .waitingForStart: onWorkflowStage?(_hasServedPayload ? .waitingForIOS : .installing)
+            case .downloading: onWorkflowStage?(.installing)
+            case .verifying: onWorkflowStage?(.verifying)
+            case .finished: break
+            }
             FileLogger.log("installation phase: \(phase)", category: "install")
         }
 		let value: Double
@@ -583,15 +618,8 @@ final class AppInstaller: ObservableObject {
 	private func _finishConfirmed(_ verdict: InstallConfirmation.Verdict) {
         guard !_hasFinished, !Task.isCancelled else { return }
 		_progressTask = nil
+        onConfirmationReason?(verdict.diagnosticCode)
 
-		// The device's answer just changed; anything the library cached about this identifier is
-		// now the version of the truth that would make it wrong.
-		if verdict.provesInstalled, let identifier = app.identifier {
-            let installedVersion: String?
-            if case .installedOtherVersion(let version) = verdict { installedVersion = version }
-            else { installedVersion = app.version }
-            LibraryStatusStore.shared.recordConfirmedInstallation(bundleIdentifier: identifier, version: installedVersion)
-		}
 
 		switch verdict {
 		case .installed:
@@ -623,6 +651,7 @@ final class AppInstaller: ObservableObject {
 	/// There is no progress counter to watch here — installd reported completion itself — so the
 	/// engine goes straight to verification and only the device's answer finishes the install.
 	private func _confirmIdeviceInstall() async {
+        onWorkflowStage?(.verifying)
 		guard let bundleID = app.identifier, !bundleID.isEmpty else {
 			_finish(.failure(Self.error(.localized("The device installation cannot be verified because the bundle identifier is missing."))))
 			return

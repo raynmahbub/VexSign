@@ -72,7 +72,7 @@ extension Storage {
             do {
                 try SecureSecretStore.delete(account)
             } catch {
-                Logger.misc.error("Could not remove Keychain item \(account): \(error.localizedDescription)")
+                Logger.misc.error("Could not remove certificate Keychain item; cleanup will require an unlocked Keychain.")
             }
         }
 		Task { @MainActor in

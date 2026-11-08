@@ -22,6 +22,10 @@ enum FR {
 		completion: @escaping (Result<AppInfoPresentable, Error>) -> Void
 	) {
         Task.detached {
+            let importRecord: UnifiedTask? = await MainActor.run {
+                guard download == nil else { return nil }
+                return UnifiedTaskCenter.shared.begin(kind: .importIPA, title: .localized("Import IPA"), phase: .importing)
+            }
             let scoped = ipa.startAccessingSecurityScopedResource()
             defer { if scoped { ipa.stopAccessingSecurityScopedResource() } }
             let handler = AppFileHandler(file: ipa, download: download)
@@ -43,14 +47,27 @@ enum FR {
                 }
                 try? await handler.clean()
 				await MainActor.run {
-                    do { completion(.success(try handler.importedApp(for: objectID))) }
-                    catch { completion(.failure(error)) }
+                    do {
+                        let imported = try handler.importedApp(for: objectID)
+                        UnifiedTaskCenter.shared.recordImportedArtifact(imported, task: importRecord, downloadID: download?.id)
+                        completion(.success(imported))
+                    } catch {
+                        if let importRecord {
+                            importRecord.context?.recordFailure(error)
+                            UnifiedTaskCenter.shared.transition(importRecord, to: .failed, error: error.localizedDescription)
+                        }
+                        completion(.failure(error))
+                    }
 				}
 			} catch {
 				try? await handler.clean()
-				await MainActor.run {
-					completion(.failure(error))
-				}
+                await MainActor.run {
+                    if let importRecord {
+                        importRecord.context?.recordFailure(error)
+                        UnifiedTaskCenter.shared.transition(importRecord, to: error is CancellationError ? .cancelled : .failed, error: error.localizedDescription)
+                    }
+                    completion(.failure(error))
+                }
 			}
 		}
 	}
@@ -110,6 +127,24 @@ enum FR {
 				subjectID: app.uuid
 			)
 
+            var trace = TaskContext()
+            trace.appVersion = TaskContext.versionToken(app.version)
+            trace.importTaskID = (UnifiedTaskCenter.shared.tasks + UnifiedTaskCenter.shared.history).first {
+                $0.context?.artifactID == app.uuid && app.uuid != nil && ($0.kind == .importIPA || $0.kind == .download)
+            }?.id
+            if let directory = Storage.shared.getAppDirectory(for: app),
+               let info = NSDictionary(contentsOf: directory.appendingPathComponent("Info.plist")) {
+                trace.appBuild = TaskContext.versionToken(info["CFBundleVersion"] as? String)
+            }
+            if let certificateID = certificate?.uuid {
+                trace.certificateReference = TaskContext.fingerprint(Data(certificateID.utf8))
+            }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            do { trace.optionsFingerprint = TaskContext.fingerprint(try encoder.encode(options)) }
+            catch { log.warn("Could not record the signing-options fingerprint.") }
+            task.context = trace
+
 			let keepAlive = BackgroundTaskManager(
 				taskName: "Signing",
 				expirationTitle: .localized("Signing continuing"),
@@ -131,6 +166,9 @@ enum FR {
 					keepAlive.stop()
 					log.success(.localized("Signed successfully"))
 					SigningLiveActivityManager.shared.complete(appName: request.name)
+                    task.context?.artifactID = signed.uuid
+                    task.context?.confirmationReason = "signature-verified-and-artifact-registered"
+                    UnifiedTaskCenter.shared.transition(task, to: .signed, progress: 1)
 					UnifiedTaskCenter.shared.transition(task, to: .completed, progress: 1)
 					completion(.success(signed))
 
@@ -142,6 +180,7 @@ enum FR {
 					completion(.failure(CancellationError()))
 
 				case .failed(let error):
+                    task.context?.recordFailure(error)
 					keepAlive.stop()
 					log.error(error.localizedDescription)
 					SigningLiveActivityManager.shared.cancel()
@@ -248,8 +287,10 @@ enum FR {
 		}
 		let data = try Data(contentsOf: url)
 		try validatePairingFile(data)
-		let dest = URL.documentsDirectory.appendingPathComponent("pairingFile.plist")
-		try data.write(to: dest, options: .atomic)
+		let dest = URL(fileURLWithPath: HeartbeatManager.pairingFile())
+        // Atomic replacement leaves the previous record intact on write failure.
+		try data.write(to: dest, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)
 		HeartbeatManager.shared.start(true)
 	}
 	

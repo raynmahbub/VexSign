@@ -57,6 +57,7 @@ $(SCHEMES):
 	    -sdk $(PLATFORM) \
 	    -derivedDataPath $(TMP) \
 	    -skipPackagePluginValidation \
+	    VEXSIGN_SOURCE_COMMIT="$(shell git rev-parse HEAD)" \
 	    CODE_SIGNING_ALLOWED=NO \
 	    ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES=NO
 
@@ -127,6 +128,7 @@ verify: docs-check
 	@python3 tools/concurrency-discipline.py
 	@echo "== workflow trigger policy =="
 	@python3 tools/test_workflow_policy.py
+	@python3 tools/test_workflow_trace_policy.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="

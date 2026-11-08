@@ -225,6 +225,16 @@ extension InstallConfirmation {
 // MARK: - Verdict text
 
 extension InstallConfirmation.Verdict {
+    var diagnosticCode: String {
+        switch self {
+        case .installed: return "device-confirmed-installed"
+        case .installedOtherVersion: return "device-reports-other-version"
+        case .notInstalled: return "device-did-not-report-installed-app"
+        case .timedOutWaiting: return "install-start-not-observed"
+        case .timedOutVerifying: return "installation-evidence-unavailable"
+        case .cancelled: return "cancelled"
+        }
+    }
 	/// User-facing explanation, or nil when there is nothing to say.
 	var message: String? {
 		switch self {
