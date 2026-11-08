@@ -102671,6 +102671,28 @@
           }
         }
       }
+    },
+    "Update in App" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update in App"
+          }
+        }
+      }
+    },
+    "Updates can be signed and installed from VexSign. Select your original signing certificate and an install method below; external signing is not required. iOS still asks you to approve installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates can be signed and installed from VexSign. Select your original signing certificate and an install method below; external signing is not required. iOS still asks you to approve installation."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

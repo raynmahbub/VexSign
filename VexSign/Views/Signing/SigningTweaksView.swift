@@ -85,8 +85,8 @@ extension SigningTweaksView {
 			.localized("From Library"),
 			secondary: _specs.wrappedValue.isEmpty ? nil : "\(_specs.wrappedValue.count)"
 		) {
-			ForEach(_specs) { $spec in
-				_libraryRow(spec: $spec)
+			ForEach(_specs.wrappedValue) { spec in
+				_libraryRow(spec: IdentifiedArrayBinding.element(spec, in: _specs))
 			}
 
 			Button {

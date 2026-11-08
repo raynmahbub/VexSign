@@ -202,3 +202,33 @@ checks); these new Swift tests and compilation require Apple CI. The previous
 still needs the specific failing add-library action/log and repeat installation
 and self-update tests; CI success alone does not prove either reported device issue
 resolved.
+
+## Remaining library-binding / overlay follow-up
+
+The add-library report remains ambiguous and has no reproduction or crash trace.
+Signing's Add From Library rows and nested file editors now use identity-resolved
+bindings rather than retaining SwiftUI array indices across insertion, reordering
+and removal. Removed rows retain a read-only snapshot for their exit animation;
+late writes are ignored instead of indexing an absent row or modifying its
+neighbor. Four XCTest methods exercise current reads, reordering, removal and
+nested removal. This addresses a plausible crash class, not a confirmed root cause.
+
+Finished install queues now have a cancellable 0.6-second retirement fallback after
+dismissing the sheet, so cleanup of the separate UIWindow does not depend solely
+on SwiftUI delivering onDismiss after an OTA prompt/background transition. Reset
+or enqueue cancels the fallback and it checks that the queue is still finished
+and not presented. The sheet no longer writes presentation state from onDisappear,
+which could otherwise dismiss a newer queue during an older sheet's exit.
+Failures are still actionable and are not automatically discarded. This only
+retires confirmed/completed queues; it does not manufacture install evidence.
+
+Settings → Updates now explicitly labels the available release action Update in
+App and explains the existing signing/install flow. Automatic update checks and
+in-app signing/install are already implemented; unattended unsigned replacement
+is not supported. Select the original signing certificate and configure IDevice
+(pairing/tunnel) or Server installation, then approve the update in iOS. No external
+manual re-sign/reinstall step is necessary when that configured path is eligible.
+
+Portable make verify passes, including 74 Python tests. New Swift tests, compiler
+checks, on-device sheet transitions and the exact reported crash need Apple/device
+validation; none has been inferred from portable checks alone.
