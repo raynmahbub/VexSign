@@ -105,9 +105,11 @@ enum InstallPreflight {
 			return .ready
 
 		case .trollstore:
+			// Availability is "TrollStore installed this copy of VexSign", not
+			// "TrollStore is on the device": an app cannot tell those apart.
 			return inputs.trollStoreDetected
 				? .ready
-				: .unavailable(.localized("TrollStore is not installed on this device. VexSign never installs it — without it this route does nothing."))
+				: .unavailable(.localized("No TrollStore install of VexSign was detected. VexSign never installs TrollStore, and a missing marker does not prove it is absent — share the signed IPA to TrollStore instead."))
 		}
 	}
 
@@ -139,7 +141,7 @@ enum InstallPreflight {
 			case .export:
 				return .localized("Share the signed IPA and install it elsewhere. Nothing on this device has to be working.")
 			case .trollstore:
-				return .localized("A TrollStore URL handler was detected. VexSign can hand it an IPA; a URL handler alone does not prove TrollStore is installed or that installation will succeed.")
+				return .localized("VexSign can hand a signed IPA to TrollStore through apple-magnifier://install. TrollStore installs it itself, and VexSign cannot confirm the result.")
 			}
 		case .missing(let message), .unavailable(let message), .unknown(let message):
 			return message

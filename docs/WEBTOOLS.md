@@ -170,7 +170,7 @@ Guards:
   to it.
 - The generated profile is **unsigned**, so iOS says so. Sign it with your own
   certificate to remove the warning.
-- Install flow on iOS 16+: Settings → *Profile Downloaded* → Install; remove it
+- Install flow on iOS 17+: Settings → *Profile Downloaded* → Install; remove it
   afterwards.
 
 ## Deployment

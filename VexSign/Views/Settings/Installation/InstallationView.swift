@@ -109,13 +109,11 @@ struct InstallationView: View {
 		)
 	}
 
-	/// Probe only the scheme used by our handoff. Apple's Magnifier scheme can
-	/// answer on stock iOS and must not be mistaken for TrollStore.
+	/// TrollStore's own marker beside the app bundle. Apple's Magnifier scheme
+	/// answers on stock iOS, so a scheme probe alone would report TrollStore
+	/// everywhere; see `TrollStoreHandoff`.
 	private func _trollStoreDetected() -> Bool {
-		["trollstore://"].contains { string in
-			guard let url = URL(string: string) else { return false }
-			return UIApplication.shared.canOpenURL(url)
-		}
+		TrollStoreHandoff.installedByTrollStore()
 	}
 
 	@ViewBuilder

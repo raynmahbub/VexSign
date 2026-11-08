@@ -196,10 +196,7 @@ struct SetupHealthView: View {
         inputs = InstallPreflightInputs(
             hasServerCertificate: LocalTLSIdentity.current() != nil,
             hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
-            trollStoreDetected: ["trollstore://"].contains { scheme in
-                guard let url = URL(string: scheme) else { return false }
-                return UIApplication.shared.canOpenURL(url)
-            },
+            trollStoreDetected: TrollStoreHandoff.installedByTrollStore(),
             hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable
         )

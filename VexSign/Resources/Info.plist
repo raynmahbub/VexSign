@@ -194,9 +194,10 @@
 		<string>livecontainer</string>
 		<string>localdevvpn</string>
 		<string>tg</string>
-		<!-- Used only to answer "is TrollStore installed?" for the install preflight. -->
+		<!-- TrollStore's hand-off target: since 1.3 it answers on Apple's Magnifier
+		     scheme and registers none of its own. VexSign only checks whether this
+		     scheme can be opened; it is not a "TrollStore is installed" signal. -->
 		<string>apple-magnifier</string>
-		<string>trollstore</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
