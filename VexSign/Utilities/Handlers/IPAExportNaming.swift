@@ -18,7 +18,13 @@ enum IPAExportNaming {
 		// Budget decomposed bytes too: filesystem normalization can expand characters.
 		// Leave room for the collision suffix and extension; keep characters whole.
 		for character in parts.joined(separator: " ") {
-			let text = character.unicodeScalars.contains(where: unsafe.contains) ? "_" : String(character)
+            // Foundation includes Unicode format characters in controlCharacters.
+            // Keep ZWJ/ZWNJ so emoji sequences and joined-script names stay whole;
+            // other controls (including bidi overrides) remain disallowed.
+            let hasUnsafeScalar = character.unicodeScalars.contains { scalar in
+                unsafe.contains(scalar) && scalar.value != 0x200D && scalar.value != 0x200C
+            }
+            let text = hasUnsafeScalar ? "_" : String(character)
 			guard (stem + text).decomposedStringWithCanonicalMapping.utf8.count <= 180 else { break }
 			stem += text
 		}

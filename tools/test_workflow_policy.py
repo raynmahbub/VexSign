@@ -129,6 +129,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         text = (WORKFLOWS / 'platform-check.yml').read_text()
         self.assertIn('TMPDIR: ${{ runner.temp }}/', text)
         self.assertIn('-packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}"', text)
+        self.assertIn('-disablePackageRepositoryCache', text)
         self.assertNotIn('continue-on-error:', text)
 
     def test_package_resolution_annotations_include_the_root_cause(self):

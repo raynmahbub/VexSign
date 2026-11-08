@@ -107,6 +107,7 @@ jobs:
             -destination '${{ matrix.destination }}' \
             -derivedDataPath "$DERIVED_DATA" \
             -packageCachePath "${RUNNER_TEMP}/SwiftPMCache-${{ matrix.scheme }}" \
+            -disablePackageRepositoryCache \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \

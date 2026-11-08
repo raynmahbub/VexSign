@@ -214,7 +214,7 @@ final class SignatureVerifierTests: XCTestCase {
 		let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
 
 		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .bundleIdentifierMismatch }, _describe(report))
+		XCTAssertTrue(report.failures.contains { $0.code == .requestedIdentifierMismatch }, _describe(report))
 	}
 
 	func testAnUnsignedExecutableIsAFailure() throws {

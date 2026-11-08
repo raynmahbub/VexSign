@@ -37,6 +37,15 @@ final class IPAExportNamingTests: XCTestCase {
         XCTAssertLessThanOrEqual(accented.decomposedStringWithCanonicalMapping.utf8.count, 180)
     }
 
+    func testUnicodeJoinersArePreservedButBidiControlsAreNot() {
+        let family = "👨‍👩‍👧‍👦"
+        XCTAssertEqual(IPAExportNaming.stem(name: family, version: nil), family)
+        let joinedName = "می\u{200C}روم"
+        XCTAssertEqual(IPAExportNaming.stem(name: joinedName, version: nil), joinedName)
+        let unsafeName = IPAExportNaming.stem(name: "\u{202E}hidden\nname", version: nil)
+        XCTAssertFalse(unsafeName.unicodeScalars.contains { $0.value == 0x202E || $0.value == 10 })
+    }
+
     func testRepeatedExportsNeverOverwriteExistingPackages() throws {
         try fixture { root in
             let archives = root.appendingPathComponent("Archives")
