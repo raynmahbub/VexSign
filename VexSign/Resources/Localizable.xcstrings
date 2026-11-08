@@ -102759,6 +102759,28 @@
           }
         }
       }
+    },
+    "Verifying installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifying installation"
+          }
+        }
+      }
+    },
+    "Waiting for iOS installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for iOS installation"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

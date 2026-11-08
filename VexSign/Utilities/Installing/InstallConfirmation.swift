@@ -98,7 +98,7 @@ struct InstallConfirmation: Equatable, Sendable {
 	// MARK: Progress
 
 	/// Feeds one progress sample. `nil` means the device could not read the counter at all.
-	mutating func record(progress: Double?, at date: Date) -> Phase {
+	mutating func record(progress: Double?, at date: Date, allowStartTimeout: Bool = true) -> Phase {
 		guard !phase.isFinished else { return phase }
 
 		if (progress ?? 0) > 0 {
@@ -126,6 +126,12 @@ struct InstallConfirmation: Equatable, Sendable {
 
 		switch phase {
 		case .waitingForStart:
+            // Observe during payload transfer, but do not charge a slow transfer
+            // against the time allowed for iOS to begin installing it.
+            guard allowStartTimeout else {
+                _waitingSince = nil
+                return phase
+            }
 			// Counted from the first sample, so a caller that starts watching late still times out.
 			_waitingSince = _waitingSince ?? date
 			if date.timeIntervalSince(_waitingSince ?? date) >= limits.start {
@@ -260,7 +266,19 @@ enum InstallWatcher {
            !expected.isEmpty, !previous.isEmpty, previous != expected, current.version == expected { return true }
         if let expected = expectation.build, let previous = baseline.build,
            previous != expected, current.build == expected { return true }
+        // iOS can replace the installation container without changing either
+        // version string. Both paths must come from positive installed records;
+        // a URL by itself, or an unknown baseline, is not installation evidence.
+        if let before = installedBundlePath(baseline.bundleURL),
+           let after = installedBundlePath(current.bundleURL), before != after { return true }
         return false
+    }
+
+    private static func installedBundlePath(_ url: URL?) -> String? {
+        guard let url, url.isFileURL, url.pathExtension == "app" else { return nil }
+        let path = url.standardizedFileURL.path
+        // LaunchServices can expose the same container through either alias.
+        return path.hasPrefix("/private/var/") ? String(path.dropFirst(8)) : path
     }
 	static func watch(
 		_ initial: InstallConfirmation,
@@ -268,10 +286,11 @@ enum InstallWatcher {
         baseline: Baseline? = nil,
 		progress: @escaping @Sendable () async -> Double?,
 		interval: Duration = .milliseconds(250),
+        startTimeoutEnabled: @escaping @Sendable () async -> Bool = { true },
 		onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in }
 	) async -> InstallConfirmation.Verdict {
         var confirmation = initial
-        let before: InstalledApp?
+        var before: InstalledApp?
         if let baseline { before = baseline.app }
         else { before = probe.installedApp(for: initial.expectation.bundleIdentifier) }
 
@@ -281,6 +300,13 @@ enum InstallWatcher {
             // even if the progress counter is unavailable or remains nonzero.
             if confirmation.phase == .waitingForStart || confirmation.phase == .downloading {
                 let current = probe.installedApp(for: initial.expectation.bundleIdentifier)
+                // A positively observed placeholder is fresh install activity,
+                // even when pre-prompt lookup was restricted. Do not promote a
+                // filtered negative/unknown lookup into an "absent" baseline.
+                if let current, current.bundleIdentifier == initial.expectation.bundleIdentifier,
+                   current.isPlaceholder {
+                    before = current
+                }
                 if hasNewInstalledEvidence(baseline: before, current: current, expectation: initial.expectation) {
                     _ = confirmation.beginVerifying(at: Date())
                     let phase = confirmation.record(probe: current, at: Date())
@@ -288,7 +314,8 @@ enum InstallWatcher {
                     if let verdict = phase.verdict { return verdict }
                 }
             }
-			let phase = confirmation.record(progress: raw, at: Date())
+			let phase = confirmation.record(progress: raw, at: Date(),
+                allowStartTimeout: await startTimeoutEnabled())
 			await onUpdate(raw, phase)
 
 			if phase == .verifying {

@@ -380,3 +380,21 @@ Six added XCTest methods cover these transitions and their negative cases.
 `make verify` passes 74 portable tests. Changed Swift files pass grammar checks
 (with an empty-tuple parser workaround); Apple compilation/XCTest and physical
 device acceptance remain pending for this change.
+
+### Early installation observation and same-version reinstalls
+
+OTA monitoring now begins when payload transfer starts, not after it ends. The
+installation-start timeout is held until the payload is served, so slow transfers
+do not consume that deadline. Positive installed-record container changes can
+confirm same-version reinstalls even without a readable progress counter; aliases
+of the same path do not count. A matching placeholder observed during monitoring
+can establish a placeholder-to-installed transition despite an unknown initial
+baseline. Unknown/negative lookups alone still cannot establish new installation.
+
+The card distinguishes waiting for iOS from verifying installation instead of
+labeling every confirmation stage Installing. Phase changes enter the task log.
+Seven additional XCTest methods cover early observation, the transfer deadline,
+container replacement and negative/placeholder cases. Portable verification passes
+74 tests; Apple compilation/tests and physical-device acceptance are not yet
+confirmed for this change. These fixes are independently implemented; no new
+upstream implementation was copied.

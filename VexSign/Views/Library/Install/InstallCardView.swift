@@ -24,6 +24,7 @@ struct InstallCardView: View {
 			InstallStatusView(
 				app: installer.app,
 				viewModel: installer.viewModel,
+                installationPhase: installer.installationPhase,
 				upcoming: upcoming,
 				onCancel: onCancel,
 				onPause: onPause,
@@ -44,6 +45,7 @@ struct InstallCardView: View {
 private struct InstallStatusView: View {
 	var app: AppInfoPresentable
 	@ObservedObject var viewModel: InstallerStatusViewModel
+    var installationPhase: InstallConfirmation.Phase
 	var upcoming: [AnyApp]
 	var onCancel: () -> Void
 	var onPause: (() -> Void)?
@@ -105,9 +107,18 @@ private struct InstallStatusView: View {
 		.animation(.easeInOut(duration: 0.25), value: isPaused)
 	}
 
+    private var _statusLabel: String {
+        guard case .installing = viewModel.status else { return viewModel.statusLabel }
+        switch installationPhase {
+        case .waitingForStart: return .localized("Waiting for iOS installation")
+        case .verifying: return .localized("Verifying installation")
+        default: return viewModel.statusLabel
+        }
+    }
+
 	@ViewBuilder
 	private func _status() -> some View {
-		Label(viewModel.statusLabel, systemImage: viewModel.statusImage)
+		Label(_statusLabel, systemImage: viewModel.statusImage)
 			.padding()
 			.labelStyle(.titleAndIcon)
 			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)

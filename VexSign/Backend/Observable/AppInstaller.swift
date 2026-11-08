@@ -31,6 +31,9 @@ final class AppInstaller: ObservableObject {
 
 	/// redirect page fallback.
 	@Published var isPresentingFallbackPage = false
+    @Published private(set) var installationPhase: InstallConfirmation.Phase = .waitingForStart
+    private var _hasServedPayload = false
+
 
 	private let _isSharing: Bool
 	private let _installationMethod = UserDefaults.standard.integer(forKey: "VexSign.installationMethod")
@@ -346,7 +349,11 @@ final class AppInstaller: ObservableObject {
 		case .sendingPayload:
 			isPresentingFallbackPage = false
 			_disarmDeclineWatch()
+            // Begin observing before the transfer completes; small installs can
+            // finish before its HTTP completion callback reaches the main actor.
+            if _installationMethod == 0 { _startProgressPolling() }
 		case .installing where _installationMethod == 0:
+            _hasServedPayload = true
 			_startProgressPolling()
 		case .completed(let result):
 			_progressTask?.cancel()
@@ -525,6 +532,7 @@ final class AppInstaller: ObservableObject {
 				probe: probe,
                 baseline: baseline,
 				progress: { await UIApplication.installProgress(for: bundleID, makeSynchronous: false) },
+                startTimeoutEnabled: { await installer?._hasServedPayload ?? true },
 				onUpdate: { raw, phase in
 					await MainActor.run {
 						installer?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
@@ -543,6 +551,10 @@ final class AppInstaller: ObservableObject {
 	/// The ring, and the PPQ heartbeat while the payload is being written.
 	private func _handleProgress(raw: Double?, phase: InstallConfirmation.Phase, useNovaDNS: Bool) {
         guard !_hasFinished else { return }
+        if installationPhase != phase {
+            installationPhase = phase
+            FileLogger.log("installation phase: \(phase)", category: "install")
+        }
 		let value: Double
 		switch phase {
 		case .waitingForStart:
