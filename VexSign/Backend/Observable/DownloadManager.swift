@@ -46,7 +46,7 @@ class DownloadManager: NSObject, ObservableObject {
 
 	/// Unpacking or auto signing. Both hold the keep-alive open.
 	var processingDownloads: [Download] {
-		downloads.filter { $0.phase == .importing || $0.phase == .signing }
+		downloads.filter { $0.isImporting || $0.isSigning }
 	}
 
 	var hasUnfinishedWork: Bool {
@@ -640,8 +640,15 @@ class DownloadManager: NSObject, ObservableObject {
 		DispatchQueue.global().async {
 			FR.handlePackageFile(url, download: download) { result in
 				switch result {
-				case .failure(let error):
-					UINotificationFeedbackGenerator().notificationOccurred(.error)
+                case .failure(let error):
+                    if error is CancellationError {
+                        self.allActivityDownloads.removeValue(forKey: download.id)
+                        self.finishedDownloadingIDs.remove(download.id)
+                        self.finishImport(of: download, succeeded: false)
+                        completion?(error)
+                        return
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
 
 					if let completion = completion {
 						// Caller owns the error UI; don't also fire the generic delegate alert.
@@ -681,7 +688,15 @@ class DownloadManager: NSObject, ObservableObject {
 		return download
 	}
 	
-	func resumeDownload(_ download: Download) {
+    func resumeDownload(_ download: Download) {
+        if download.isImporting {
+            download.importControl.resume()
+            download.isPaused = false
+            download.isActive = true
+            objectWillChange.send()
+            return
+        }
+        guard !download.isSigning, !download.onlyArchiving else { return }
 		// Game Mode pauses downloads on purpose; the automatic paths (becoming active again,
 		// a background task waking up) must not quietly undo that.
 		guard !GameMode.isEnabled else { return }
@@ -723,7 +738,14 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 	}
 
-	func pauseDownload(_ download: Download) {
+    func pauseDownload(_ download: Download) {
+        if download.isImporting {
+            guard download.importControl.pause() else { return }
+            download.isPaused = true
+            objectWillChange.send()
+            return
+        }
+        guard !download.isSigning, !download.onlyArchiving else { return }
 		download.task?.cancel { resumeData in
 			download.resumeData = resumeData
 			self.saveResumeData(for: download)
@@ -732,7 +754,17 @@ class DownloadManager: NSObject, ObservableObject {
 		download.isActive = false
 	}
 	
-	func cancelDownload(_ download: Download) {
+    func cancelDownload(_ download: Download) {
+        // Auto-sign is a separate owner; do not hide a still-running signer.
+        guard !download.isSigning else { return }
+        if download.isImporting {
+            guard download.importControl.cancel() else { return }
+            download.isPaused = false
+            // Keep the row until the worker has stopped and cleaned its files.
+            objectWillChange.send()
+            return
+        }
+        download.importControl.cancel()
 		download.task?.cancel()
 		download.isActive = false
 
@@ -767,8 +799,8 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 	
 	/// Stops every network/import job represented by the current Live Activity.
-	/// Unlike pause, this removes the jobs from the queue and immediately ends
-	/// the Dynamic Island activity.
+    /// Network jobs leave immediately. Imports leave only after cooperative cancellation
+    /// and workspace cleanup; an auto-sign run is not hidden or cancelled by this action.
 	func cancelAllDownloads() {
 		let currentDownloads = downloads.filter { $0.isActive || $0.isPaused || $0.isImporting || $0.isSigning }
 		for download in currentDownloads {
@@ -987,8 +1019,14 @@ class DownloadManager: NSObject, ObservableObject {
 
 		FR.handlePackageFile(url, download: dl) { result in
 			switch result {
-			case .failure(let error):
-				UINotificationFeedbackGenerator().notificationOccurred(.error)
+            case .failure(let error):
+                if error is CancellationError {
+                    self.allActivityDownloads.removeValue(forKey: dl.id)
+                    self.finishedDownloadingIDs.remove(dl.id)
+                    self.finishImport(of: dl, succeeded: false)
+                    return
+                }
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
 
 				if self.isAppInBackground {
 					self.sendCompletionNotification(for: dl, status: "❌ Import failed: \(error.localizedDescription)")

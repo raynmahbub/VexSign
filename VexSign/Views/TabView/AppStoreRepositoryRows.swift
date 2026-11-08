@@ -155,14 +155,13 @@ struct RepoMiniBadge: View {
                     if let image = state.image {
                         image.resizable().scaledToFill()
                     } else {
-                        Image("AppLogo").resizable().scaledToFill()
+                        VexBrandLogo().scaledToFill()
                     }
                 }
                 .processors([.resize(width: 28), .circle()])
                 .frame(width: 14, height: 14)
             } else {
-                Image("AppLogo")
-                    .resizable()
+                VexBrandLogo()
                     .scaledToFit()
                     .frame(width: 14, height: 14)
                     .clipShape(Circle())

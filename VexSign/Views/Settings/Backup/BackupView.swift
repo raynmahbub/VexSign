@@ -32,7 +32,7 @@ struct BackupView: View {
 					Label(.localized("Create Backup"), systemImage: "square.and.arrow.up")
 				}
 			} footer: {
-				Text(.localized("Saves what you pick to one file. Signed and imported apps aren't included."))
+				Text(.localized("Saves selected components, including signed and imported app bundles. Backups use streaming encryption with an 8 GiB safe extraction limit; installed app data is not included."))
 			}
 
 			Section {
@@ -83,7 +83,17 @@ struct BackupView: View {
 				detail: _archiveDetail(archive),
 				footer: .localized("Nothing is deleted. Anything already here is skipped."),
 				onConfirm: { components, _ in
-					_pendingSummary = BackupManager.shared.restore(archive, components: components)
+                    _isWorking = true
+                    Task {
+                        do {
+                            _pendingSummary = try await BackupManager.shared.restore(archive, components: components)
+                            _isWorking = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { _presentRestoreComplete() }
+                        } catch {
+                            _isWorking = false
+                            Toast.error(error.localizedDescription, duration: .long)
+                        }
+                    }
 				}
 			)
 		}

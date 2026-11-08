@@ -37,6 +37,7 @@ enum SignatureVerifier {
 		enum Code: String, Equatable {
 			case bundleNotFound
 			case executableMissing
+            case bundleIdentifierMissing
 			case missingCodeResources
 			case unsignedExecutable
 			case unsignedNestedBundle
@@ -45,6 +46,7 @@ enum SignatureVerifier {
 			case profileExpired
 			case profileIdentifierUnknown
 			case bundleIdentifierMismatch
+            case requestedIdentifierMismatch
 			case nestedIdentifierUncovered
 			case entitlementUnreadable
 			case entitlementNotGranted
@@ -74,20 +76,20 @@ enum SignatureVerifier {
             let errorDescription: String?
         }
 
-        /// Whether this report has to stop the run that produced the bundle.
-        ///
-        /// Failures do — with one deliberate exception. A run started from the preflight sheet's
-        /// "Sign Anyway" is a user who has already read the same profile problems and chosen to
-        /// sign regardless; failing here would throw away a bundle they explicitly asked for, one
-        /// stage after the tap, which is how a blocking preflight issue turns into "signing is
-        /// broken" (1.0 signed these bundles without asking at all). The issues are still logged,
-        /// still counted, and still visible in the log the sheet shows.
-        ///
-        /// A missing bundle is not a judgement call and never survives an override: there is
-        /// nothing to register.
+        /// Sign Anyway accepts only profile/entitlement compatibility risks. It
+        /// cannot excuse missing signatures, unsafe executables or ignored options.
         func stopsRun(overridingBlockingIssues: Bool) -> Bool {
             guard bundlePath != nil else { return true }
-            return !failures.isEmpty && !overridingBlockingIssues
+            return failures.contains { issue in
+                guard overridingBlockingIssues else { return true }
+                switch issue.code {
+                case .profileExpired, .bundleIdentifierMismatch,
+                     .nestedIdentifierUncovered, .entitlementNotGranted:
+                    return false
+                default:
+                    return true
+                }
+            }
         }
 
         func requireAcceptable(overridingBlockingIssues: Bool = false) throws {
@@ -200,11 +202,12 @@ enum SignatureVerifier {
 
         // Bundle caches metadata by path, including the identifier read before
         // modification. Inspect the current plist bytes, not that cached object.
-        let executableName = info["CFBundleExecutable"] as? String
-        let executable = executableName.flatMap { name -> URL? in
-            guard !name.isEmpty, name != ".", name != "..", !name.contains("/") else { return nil }
-            return bundleURL.appendingPathComponent(name)
+        let producedIdentifier = info["CFBundleIdentifier"] as? String
+        if producedIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            issues.append(Issue(code: .bundleIdentifierMissing, severity: .failure,
+                detail: .localized("The bundle has no usable bundle identifier.")))
         }
+        let executable = SigningInputValidation.executable(in: bundleURL)
 		if executable == nil {
 			issues.append(
 				Issue(
@@ -221,7 +224,7 @@ enum SignatureVerifier {
 
 		issues += _profileIssues(
 			in: bundleURL,
-            producedIdentifier: info["CFBundleIdentifier"] as? String,
+            producedIdentifier: producedIdentifier,
 			executable: executable,
 			expectation: expectation
 		)
@@ -233,10 +236,9 @@ enum SignatureVerifier {
 
 	private static func _signatureIssues(in bundleURL: URL, executable: URL?) -> [Issue] {
 		var issues: [Issue] = []
-		let fm = FileManager.default
-
 		let codeResources = bundleURL.appendingPathComponent("_CodeSignature/CodeResources")
-		if !fm.fileExists(atPath: codeResources.path) {
+        let resourceValues = try? codeResources.resourceValues(forKeys: [.isRegularFileKey, .isReadableKey, .isSymbolicLinkKey]) // try? ok: missing/unreadable signature resources are a verification failure.
+        if resourceValues?.isRegularFile != true || resourceValues?.isReadable != true || resourceValues?.isSymbolicLink == true {
 			issues.append(
 				Issue(
 					code: .missingCodeResources,
@@ -307,7 +309,7 @@ enum SignatureVerifier {
 		if let declared = expectation.declaredBundleIdentifier, !declared.isEmpty, declared != producedIdentifier {
 			issues.append(
 				Issue(
-					code: .bundleIdentifierMismatch,
+					code: .requestedIdentifierMismatch,
 					severity: .failure,
 					detail: .localized(
 						"Asked for bundle identifier %@ but the bundle says %@.",

@@ -41,6 +41,7 @@ final class InstallQueue: ObservableObject {
 	@Published private(set) var outcomes: [String: InstallOutcome] = [:]
 
 	/// The unified-task record for the current queue run (nil when idle).
+    private var preparedNext: (id: String, installer: AppInstaller)?
 	private var unifiedTask: UnifiedTask?
 	/// Success stays on screen briefly for feedback, but a later Skip/Retry must cancel that
 	/// pending transition so it cannot advance a different app after the queue has moved on.
@@ -95,7 +96,28 @@ final class InstallQueue: ObservableObject {
 		InstallQueueWindow.shared.ensure()
 		isSheetPresented = true
 		activate()
+        if installer?.hasPackaged == true { _prepareNext() }
 	}
+
+    /// One lookahead only. Preparation overlaps the current OTA transfer/verification,
+    /// not another archive build, prompt or server. Pause keeps a ready package parked.
+    private func _prepareNext() {
+        guard !isFinished, !hasFailure, installer?.hasPackaged == true,
+              let current, let next = upcoming.first,
+              InstallPreparationPolicy.allows(
+                installationMethod: UserDefaults.standard.integer(forKey: "VexSign.installationMethod"),
+                currentIsExport: current.archive, nextIsExport: next.archive) else { return }
+        guard preparedNext?.id != next.id else { return }
+        _discardPreparation()
+        let nextInstaller = AppInstaller(app: next.base)
+        preparedNext = (next.id, nextInstaller)
+        nextInstaller.prepareForQueuedOTA()
+    }
+
+    private func _discardPreparation() {
+        preparedNext?.installer.stop()
+        preparedNext = nil
+    }
 
 	/// Never starts in the background since an OTA install needs its prompt on screen.
 	func activate(useLocalhost: Bool = false) {
@@ -122,9 +144,24 @@ final class InstallQueue: ObservableObject {
 			)
 		}
 
-		let installer = AppInstaller(app: current.base, isSharing: current.archive, useLocalhost: useLocalhost)
+        let installer: AppInstaller
+        if let prepared = preparedNext, prepared.id == current.id,
+           !useLocalhost, prepared.installer.preparationMatchesSettings {
+            installer = prepared.installer
+            preparedNext = nil
+        } else {
+            _discardPreparation()
+            installer = AppInstaller(app: current.base, isSharing: current.archive, useLocalhost: useLocalhost)
+        }
+        installer.onPackaged = { [weak self, weak installer] in
+            guard let self, let installer, self.installer === installer else { return }
+            self._prepareNext()
+        }
 		self.installer = installer
-		installer.start { [weak self] result in self?._handle(result) }
+		installer.start { [weak self, weak installer] result in
+            guard let self, let installer, self.installer === installer else { return }
+            self._handle(result)
+        }
 	}
 
 	/// Pauses between apps: the current install finishes, the next holds.
@@ -196,6 +233,7 @@ final class InstallQueue: ObservableObject {
 			_syncUnifiedTaskProgress()
 			_abandon()
 		case .success(.guestImportPrepared):
+            _discardPreparation()
 			if let current { outcomes[current.id] = .guestPrepared }
 			unifiedTask?.subtitle = .localized("Guest import prepared — finish in container")
 			// The host accepts one pending import. Never run a batch through a restart
@@ -255,6 +293,7 @@ final class InstallQueue: ObservableObject {
 			// invalidated if the user skips/retries or the queue is otherwise reset first.
 			_scheduleAdvance(after: 1.2, for: current?.id)
 		case .failure(let error):
+            _discardPreparation()
             NBHaptic.notify(.error)
 			if let current {
 				outcomes[current.id] = .failed(String(describing: error))
@@ -347,6 +386,7 @@ final class InstallQueue: ObservableObject {
 
 	/// Finishes with the remainder marked skipped, used by "Stop".
 	private func _abandonAndFinish() {
+        _discardPreparation()
         advanceScheduler.cancel()
         failurePresentation = nil
 		for entry in apps.dropFirst(index + 1) where outcomes[entry.id] == nil || outcomes[entry.id] == .pending {
@@ -381,6 +421,7 @@ final class InstallQueue: ObservableObject {
 	}
 
 	private func _reset() {
+        _discardPreparation()
         advanceScheduler.cancel()
         failurePresentation = nil
 		_teardownInstaller()

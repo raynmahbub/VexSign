@@ -42,8 +42,7 @@ struct VexHomeSurface<Content: View>: View {
 
 struct VexHomeMark: View {
     var body: some View {
-        Image("AppLogo")
-            .resizable()
+        VexBrandLogo()
             .scaledToFit()
             .frame(width: 44, height: 44)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.mark, style: .continuous))

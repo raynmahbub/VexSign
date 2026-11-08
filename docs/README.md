@@ -19,6 +19,7 @@ versioned with the code.
 | [Architecture](ARCHITECTURE.md) | You are changing the app shell, task pipeline, storage or packages. |
 | [Design](DESIGN.md) | You are adding a screen or component and need the visual and accessibility rules. |
 | [Native signing architecture](NATIVE_SIGNING_ARCHITECTURE.md) | You are working on the experimental on-device account and provisioning backend. |
+| [Signing and import reliability](changes/native-signing-and-import.md) | You need native execution ownership, input validation, extraction guarantees and their acceptance tests. |
 | [Web tools](WEBTOOLS.md) | You are integrating with the browser manager, API or WebDAV. |
 | [Source signing](SOURCE_SIGNING.md) | You publish a repository and want signed source metadata. |
 
@@ -31,6 +32,7 @@ versioned with the code.
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [CI repair assistant](CI_REPAIR_ASSISTANT.md) | You are configuring or reviewing AI-proposed draft PRs for failed CI. |
 | [Upstream review](UPSTREAM_REVIEW.md) | You want the dated upstream feature snapshot and porting caveats—not a list of shipped VexSign features. |
+| [Signing comparison notes](research/public-signer-comparison.md) | You need the concise public-source comparison, reviewed revisions and licensing context. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |
 | [Changelog](../CHANGELOG.md) | You need the user-visible history. |
 
@@ -54,6 +56,7 @@ Keep deployment instructions beside the component they describe:
 - [Native signing package](../NativeSigning/README.md)
 - [Experimental embedded container](../EmbeddedContainer/README.md)
 - [Vendored dependencies and licenses](../Vendor/README.md)
+- [Third-party code adaptations](THIRD_PARTY_ADAPTATIONS.md)
 
 ## Why separate documents?
 

@@ -130,9 +130,15 @@ private struct TaskRow: View {
 				RoundedRectangle(cornerRadius: 10, style: .continuous)
 					.fill(phaseColor.opacity(0.14))
 					.frame(width: 40, height: 40)
-				Image(systemName: task.kind.icon)
-					.font(.system(size: 16, weight: .semibold))
-					.foregroundStyle(phaseColor)
+                if let icon = center.historyIcon(for: task) {
+                    Image(uiImage: icon).resizable().scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: task.kind.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(phaseColor)
+                }
 			}
 
 			VStack(alignment: .leading, spacing: 4) {

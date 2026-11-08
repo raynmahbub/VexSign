@@ -221,6 +221,22 @@ final class InstallConfirmationTests: XCTestCase {
         XCTAssertEqual(verdict, .installed)
     }
 
+    func testNewAppearanceCompletesWithStuckPositiveProgress() async {
+        let verdict = await InstallWatcher.watch(
+            confirmation(), probe: ScriptedProbe([missing, missing, app()]),
+            progress: ProgressScript([0.5, 0.5]).closure, interval: .zero
+        )
+        XCTAssertEqual(verdict, .installed)
+    }
+
+    func testStuckDownloadingCounterEntersVerificationAtDeadline() {
+        var state = confirmation(limits: .init(start: 120, verify: 10, settle: 0))
+        XCTAssertEqual(state.record(progress: 0.5, at: at(0)), .downloading)
+        XCTAssertEqual(state.record(progress: 0.5, at: at(9)), .downloading)
+        XCTAssertEqual(state.record(progress: 0.5, at: at(10)), .verifying)
+        XCTAssertEqual(state.record(probe: app(), at: at(10)), .finished(.installed))
+    }
+
     func testExistingAppWithoutProgressDoesNotProveNewInstall() async {
         let verdict = await InstallWatcher.watch(
             confirmation(limits: .init(start: 0, verify: 0, settle: 0)),

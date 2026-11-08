@@ -103,8 +103,8 @@ struct SigningRequest: Identifiable {
 	let icon: UIImage?
 	let certificate: CertificatePair?
 	/// True when the caller is the signing sheet after the user accepted blocking preflight
-	/// issues ("Sign Anyway"). Those issues are exactly what the post-sign inspection reports,
-	/// so the run keeps its bundle instead of failing after the tap. Every path that never
+	/// issues ("Sign Anyway"). Post-sign profile/entitlement compatibility failures
+    /// may be accepted, but structural failures and ignored options still reject output. Every path that never
 	/// shows the preflight sheet — batch, Update All, automation, self-update — leaves this
 	/// false and keeps the strict behaviour.
 	let overridesBlockingPreflightIssues: Bool
@@ -147,12 +147,13 @@ protocol SigningWork {
 
 /// The real pipeline: the same steps `SigningHandler` always ran, in the same order.
 struct SigningPipeline: SigningWork {
+    let executionGate = SigningExecutionGate()
 	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
 		let log = SigningLog.shared
 		log.reset()
 		log.info(.localized("Preparing to sign %@", arguments: request.name))
 
-		let handler = SigningHandler(app: request.app, options: request.options)
+		let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
 		handler.appCertificate = request.certificate
 		handler.appIcon = request.icon
 		handler.onStage = { reporting(.stage($0)) }
@@ -188,6 +189,8 @@ final class SigningService {
 
 	/// Runs are keyed by request id so a caller can cancel its own and leave the rest alone.
 	private var _runs: [String: Task<Void, Never>] = [:]
+    /// A fresh request ID must not bypass ownership of the same library bundle.
+    private var _appOwners: [String: String] = [:]
 	private let work: SigningWork
 
 	init(work: SigningWork = SigningPipeline()) {
@@ -208,16 +211,23 @@ final class SigningService {
 		_ request: SigningRequest,
 		onEvent: @MainActor @escaping (SigningEvent) -> Void
 	) -> String? {
-		guard _runs[request.id] == nil else { return nil }
+        guard canStart(request) else { return nil }
+        if let appKey = _appKey(request) { _appOwners[appKey] = request.id }
 
 		let id = request.id
 		let work = self.work
 		let (events, feeder) = _stream()
 
 		_runs[id] = Task.detached(priority: .userInitiated) {
-			let result = await work.run(request) { event in
-				feeder.yield(event)
-			}
+			let result: Result<Signed, Error>
+            if Task.isCancelled {
+                result = .failure(CancellationError())
+            } else {
+                result = await work.run(request) { event in
+                    // Only the service owns terminal events; work reports progress.
+                    if !event.isTerminal { feeder.yield(event) }
+                }
+            }
 
 			switch result {
 			case .success(let signed):
@@ -234,15 +244,25 @@ final class SigningService {
 		// One consumer, so the callbacks keep the pipeline's order without a lock of our own.
 		Task { @MainActor [weak self] in
 			for await event in events {
-				onEvent(event)
-				if event.isTerminal {
-					self?._finish(id)
-				}
+                // Release before notifying clients: a completion may synchronously retry.
+                if event.isTerminal { self?._finish(id) }
+                onEvent(event)
 			}
 		}
 
 		return id
 	}
+
+    /// Main-actor admission check, also used before starting UI side effects.
+    func canStart(_ request: SigningRequest) -> Bool {
+        guard _runs[request.id] == nil else { return false }
+        guard let key = _appKey(request) else { return true }
+        return _appOwners[key] == nil
+    }
+
+    private func _appKey(_ request: SigningRequest) -> String? {
+        request.app.uuid.map { "\(request.app.isSigned ? "signed" : "imported"):\($0)" }
+    }
 
 	func cancel(_ id: String) {
 		_runs[id]?.cancel()
@@ -257,8 +277,9 @@ final class SigningService {
 	}
 
 	private func _finish(_ id: String) {
-		_runs[id] = nil
-	}
+        _runs[id] = nil
+        _appOwners = _appOwners.filter { $0.value != id }
+    }
 
 	/// `AsyncStream.makeStream()` is iOS 17; this is the same thing, built the iOS 16 way —
 	/// the initialiser hands back the continuation synchronously.

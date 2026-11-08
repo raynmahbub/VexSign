@@ -22,6 +22,7 @@ struct SigningView: View {
 	@State private var _temporaryOptions: Options = OptionsManager.shared.options
 	@State private var _temporaryCertificate: Int
 	@State private var _isSigning = false
+    @State private var _signingRequestID: String?
     @State private var _currentStage: SigningStage?
     @State private var _reachedStages: Set<SigningStage> = []
     @State private var _signingError: String?
@@ -357,7 +358,7 @@ extension SigningView {
 	/// walk), removes everything it copied, and reports back as cancelled — so the sheet stays
 	/// usable and nothing half-signed is left in the library.
 	private func _stopSigning() {
-		SigningService.shared.cancelAll()
+		if let id = _signingRequestID { SigningService.shared.cancel(id) }
 	}
 
 	private func _beginSign(overridingBlockingIssues: Bool = false) {
@@ -368,13 +369,15 @@ extension SigningView {
         _wasCancelled = false
         _currentStage = nil
         _reachedStages = []
-		_isSigning = true
+        let requestID = UUID().uuidString
+        _signingRequestID = requestID
+        _isSigning = true
 		if _autoShowLogs {
             // A preflight sheet may have just finished dismissing. Present logs after that
             // transition completes instead of replacing its item mid-dismissal (which can leave
             // only the system's blurred presentation backdrop visible on iOS).
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                guard _isSigning else { return }
+                guard _isSigning, _signingRequestID == requestID else { return }
                 _presentedSheet = .logs
             }
         }
@@ -385,6 +388,7 @@ extension SigningView {
 			icon: appIcon,
 			certificate: _selectedCert(),
 			overridesBlockingPreflightIssues: overridingBlockingIssues,
+            requestID: requestID,
             onStage: { stage in
                 let previousStep = _currentStage.map { SigningWorkspaceStep(stage: $0) }
                 _currentStage = stage
@@ -397,8 +401,10 @@ extension SigningView {
             onCompatibilityRemoved: { components in
                 _compatibilityRemovedComponents.append(contentsOf: components)
             }
-		) { result in
-			switch result {
+        ) { result in
+            guard _signingRequestID == requestID else { return }
+            _signingRequestID = nil
+            switch result {
 			case .failure(let error):
 				// Keep the sheet open so the user can fix and retry.
 				_isSigning = false

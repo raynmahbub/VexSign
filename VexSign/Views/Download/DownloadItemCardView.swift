@@ -148,6 +148,6 @@ struct DownloadItemCardView: View {
     }
 
     private var shouldShowPauseButton: Bool {
-        (model.phase == .downloading || model.phase == .paused) && !download.onlyArchiving
+        download.canPause
     }
 }

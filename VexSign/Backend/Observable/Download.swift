@@ -11,6 +11,7 @@ import BackgroundTasks
 import ActivityKit
 
 class Download: Identifiable, @unchecked Sendable {
+    let importControl = ImportControl()
 	@Published var progress: Double = 0.0
 	@Published var bytesDownloaded: Int64 = 0
 	@Published var totalBytes: Int64 = 0
@@ -22,7 +23,7 @@ class Download: Identifiable, @unchecked Sendable {
 
 	var phase: DownloadPhase {
 		if isSigning { return .signing }
-		if isImporting { return .importing }
+		if isImporting { return isPaused ? .paused : .importing }
 		if unpackageProgress >= 1.0 { return .completed }
 		if onlyArchiving || progress >= 1.0 { return .importing }
 		if isPaused { return .paused }
@@ -32,7 +33,7 @@ class Download: Identifiable, @unchecked Sendable {
 	var phaseProgress: Double {
 		switch phase {
 		case .queued: return 0
-		case .downloading, .paused: return progress
+		case .downloading, .paused: return isImporting ? unpackageProgress : progress
 		case .importing: return unpackageProgress
 		case .signing, .completed: return 1
 		}
@@ -106,7 +107,8 @@ struct DownloadProgressSummary: Equatable {
 
 	init(_ downloads: [Download]) {
 		let byPhase = Dictionary(grouping: downloads, by: \.phase)
-		let pending = (byPhase[.downloading] ?? []) + (byPhase[.queued] ?? []) + (byPhase[.paused] ?? [])
+        let pausedImports = (byPhase[.paused] ?? []).filter { $0.isImporting }
+        let pending = (byPhase[.downloading] ?? []) + (byPhase[.queued] ?? []) + (byPhase[.paused] ?? []).filter { !$0.isImporting }
 		let importing = byPhase[.importing] ?? []
 		let signing = byPhase[.signing] ?? []
 
@@ -124,9 +126,9 @@ struct DownloadProgressSummary: Equatable {
 			} else {
 				progress = Self.average(pending.map(\.phaseProgress))
 			}
-		} else if !importing.isEmpty || !signing.isEmpty {
-			phase = importing.isEmpty ? .signing : .importing
-			progress = Self.average((importing + signing).map(\.phaseProgress))
+        } else if !importing.isEmpty || !signing.isEmpty || !pausedImports.isEmpty {
+            phase = !importing.isEmpty ? .importing : (!signing.isEmpty ? .signing : .paused)
+            progress = Self.average((importing + signing + pausedImports).map(\.phaseProgress))
 		} else {
 			phase = downloads.isEmpty ? .queued : .completed
 			progress = downloads.isEmpty ? 0 : 1

@@ -22,17 +22,17 @@ final class ArchiveHandler: NSObject {
 	private let _uniqueWorkDir: URL
 	private var backgroundTaskManager: BackgroundTaskManager?
 	
-	init(app: AppInfoPresentable, viewModel: InstallerStatusViewModel) {
+	init(app: AppInfoPresentable, viewModel: InstallerStatusViewModel, workspace: URL? = nil) {
 		self.viewModel = viewModel
 		self._app = app
-		self._uniqueWorkDir = _fileManager.temporaryDirectory
-			.appendingPathComponent("VexSignInstall_\(_uuid)", isDirectory: true)
+		self._uniqueWorkDir = workspace ?? (_fileManager.temporaryDirectory
+            .appendingPathComponent("VexSignInstall_\(_uuid)", isDirectory: true))
 		
 		super.init()
 	}
 	
-	func move() async throws {
-		guard let appUrl = Storage.shared.getAppDirectory(for: _app) else {
+	func move(from source: URL? = nil) async throws {
+		guard let appUrl = source ?? Storage.shared.getAppDirectory(for: _app) else {
 			throw SigningFileHandlerError.appNotFound
 		}
 		
@@ -45,7 +45,7 @@ final class ArchiveHandler: NSObject {
 		_payloadUrl = payloadUrl
 	}
 	
-	func archive() async throws -> URL {
+	func archive(compressForTransfer: Bool = false) async throws -> URL {
 		// Keep archiving alive in the background.
 		await MainActor.run {
 			if self.backgroundTaskManager == nil {
@@ -58,7 +58,7 @@ final class ArchiveHandler: NSObject {
 			}
 		}
 
-		return try await Task.detached(priority: .background) { [self] in
+		let worker = Task.detached(priority: .background) { [self] in
 			defer {
 				Task { @MainActor in
 					self.backgroundTaskManager?.stop()
@@ -66,6 +66,7 @@ final class ArchiveHandler: NSObject {
 				}
 			}
 
+            try Task.checkCancellation()
 			guard let payloadUrl = self._payloadUrl else {
 				throw SigningFileHandlerError.appNotFound
 			}
@@ -76,7 +77,9 @@ final class ArchiveHandler: NSObject {
 			try AppArchiver.zip(
 				payload: payloadUrl,
 				to: ipaUrl,
-				compression: ZipCompression.allCases[ArchiveHandler.getCompressionLevel()],
+				compression: ArchiveTransferPolicy.compression(
+                    storedIndex: ArchiveHandler.getCompressionLevel(), compressForTransfer: compressForTransfer
+                ),
 				progress: { progress in
 					guard gate.admit(progress) else { return }
 					Task { @MainActor in
@@ -84,8 +87,14 @@ final class ArchiveHandler: NSObject {
 					}
 				})
 
+            try Task.checkCancellation()
 			return ipaUrl
-		}.value
+		}
+        return try await withTaskCancellationHandler {
+            try await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
 	}
 	
     /// A handoff retains only the IPA, never a second unpacked copy of the app.
@@ -113,16 +122,10 @@ final class ArchiveHandler: NSObject {
     }
 
 	func moveToArchive(_ package: URL, shouldOpen: Bool = false) async throws -> URL? {
-		let appName = _app.name ?? "App"
-		let appVersion = _app.version ?? "1.0"
-		let appendingString = "\(appName)_\(appVersion)_\(Int(Date().timeIntervalSince1970)).ipa"
-		let dest = _fileManager.archives.appendingPathComponent(appendingString)
-		
-		try? _fileManager.moveItem(
-			at: package,
-			to: dest
-		)
-		
+        let dest = try IPAExportNaming.movePackage(
+            package, to: _fileManager.archives, name: _app.name, version: _app.version
+        )
+
 		if shouldOpen {
 			await MainActor.run {
 				if let sharedURL = FileManager.default.archives.toSharedDocumentsURL() {

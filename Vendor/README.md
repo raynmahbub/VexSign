@@ -55,3 +55,16 @@ Zsign carries both `LICENSE` (MIT) and `LICENSE_LC` (Apache-2.0); preserve both.
 Commit dates in the table/manifest are UTC dates. When checking a refresh, compare
 file blobs with the declared upstream tree, not merely the short commit label.
 Dependency/binary downloads still require network access and upstream availability.
+
+## Local IDeviceKitten patch
+
+The upstream pin is unchanged. `manifest.json` records a local patch and before/after
+SHA-256 hashes for `Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift`.
+The patch streams pairing payloads in 1 MiB chunks instead of loading the whole
+IPA, scopes native byte pointers to `withUnsafeBytes`, closes remote handles on
+error, throttles upload progress and forwards parent task cancellation to the
+worker. Native in-progress calls are not forcibly interruptible. Upstream MIT
+notices are retained. On refresh, reapply or retire this patch explicitly rather
+than assuming this file is byte-identical to the pinned upstream snapshot.
+
+Real AFC upload, transport failure and close behavior still require device tests.

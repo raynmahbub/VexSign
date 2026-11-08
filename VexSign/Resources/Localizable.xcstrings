@@ -102506,6 +102506,83 @@
           }
         }
       }
+    },
+    "The custom entitlements file must be a readable property-list dictionary." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The custom entitlements file must be a readable property-list dictionary."
+          }
+        }
+      }
+    },
+    "App Library" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Library"
+          }
+        }
+      }
+    },
+    "Saves selected components, including signed and imported app bundles. App Library backups are limited to 256 MiB; installed app data is not included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves selected components, including signed and imported app bundles. App Library backups are limited to 256 MiB; installed app data is not included."
+          }
+        }
+      }
+    },
+    "Saves selected components, including signed and imported app bundles. Backups use streaming encryption with an 8 GiB safe extraction limit; installed app data is not included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves selected components, including signed and imported app bundles. Backups use streaming encryption with an 8 GiB safe extraction limit; installed app data is not included."
+          }
+        }
+      }
+    },
+    "This backup exceeds the safe streaming-container size limit." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This backup exceeds the safe streaming-container size limit."
+          }
+        }
+      }
+    },
+    "This older backup is too large for safe in-memory decryption. Open it with the version that created it and export smaller components." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This older backup is too large for safe in-memory decryption. Open it with the version that created it and export smaller components."
+          }
+        }
+      }
+    },
+    "The bundle has no usable bundle identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The bundle has no usable bundle identifier."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

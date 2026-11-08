@@ -74,6 +74,16 @@ enum ZsignEngine {
 		let succeeded: Bool
 		/// The engine surfaces a message but no type of its own; the message is kept verbatim.
 		let errorMessage: String?
+
+        /// Either native failure signal rejects the run, including a contradictory
+        /// success flag accompanied by a failed-files message.
+        func requireSuccess() throws {
+            if let errorMessage {
+                throw NSError(domain: "app.vexsign.zsign", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: errorMessage])
+            }
+            guard succeeded else { throw SigningFileHandlerError.engineRefused }
+        }
 	}
 
 	// MARK: - Identity

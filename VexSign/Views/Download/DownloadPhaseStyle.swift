@@ -46,10 +46,16 @@ extension DownloadPhase {
 }
 
 extension Download {
+    var canPause: Bool {
+        if isSigning { return false }
+        if isImporting { return importControl.isControllable }
+        return !onlyArchiving && (phase == .downloading || phase == .paused)
+    }
 	var canCancel: Bool {
 		switch phase {
 		case .queued, .downloading, .paused: return true
-		case .importing, .signing, .completed: return false
+		case .importing: return importControl.isControllable
+        case .signing, .completed: return false
 		}
 	}
 }

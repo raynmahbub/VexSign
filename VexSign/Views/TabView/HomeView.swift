@@ -596,6 +596,7 @@ struct HomeView: View {
             appName: stagedURL.deletingPathExtension().lastPathComponent,
             reviewDuplicates: true
         ) { error in
+            if error is CancellationError { return }
             if let error {
                 Toast.error(error.localizedDescription, duration: .long)
             }

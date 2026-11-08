@@ -247,9 +247,9 @@ struct DownloadsTabView: View {
                         }
                     }
                     .swipeActions(edge: .leading) {
-                        if dl.isPaused {
+                        if dl.canPause && dl.isPaused {
                             Button { DownloadManager.shared.resumeDownload(dl) } label: { Label(.localized("Resume"), systemImage: "play.fill") }.tint(.green)
-                        } else if dl.isActive {
+                        } else if dl.canPause {
                             Button { DownloadManager.shared.pauseDownload(dl) } label: { Label(.localized("Pause"), systemImage: "pause.fill") }.tint(.orange)
                         }
                     }
@@ -514,9 +514,9 @@ private struct DownloadRow: View {
                     .buttonStyle(.bordered).tint(Theme.tint).controlSize(.mini)
                 } else {
                     Menu {
-                        if download.isPaused {
+                        if download.canPause && download.isPaused {
                             Button(.localized("Resume"), systemImage: "play.fill") { DownloadManager.shared.resumeDownload(download) }
-                        } else if download.isActive {
+                        } else if download.canPause {
                             Button(.localized("Pause"), systemImage: "pause.fill") { DownloadManager.shared.pauseDownload(download) }
                         }
                         if download.canCancel {

@@ -13,6 +13,7 @@ import NimbleExtensions
 final class ZsignHandler {
 	var hadError: Error?
 
+	private let executionGate: SigningExecutionGate
 	private var _appUrl: URL
 	private var _options: Options
 	private var _certificate: CertificatePair?
@@ -20,8 +21,10 @@ final class ZsignHandler {
 	init(
 		appUrl: URL,
 		options: Options = OptionsManager.shared.options,
-		cert: CertificatePair? = nil
+		cert: CertificatePair? = nil,
+        executionGate: SigningExecutionGate
 	) {
+		self.executionGate = executionGate
 		self._appUrl = appUrl
 		self._options = options
 		self._certificate = cert
@@ -34,21 +37,20 @@ final class ZsignHandler {
 
 		SigningLog.shared.info(.localized("Removing injected dylibs"))
 
-		let bundle = Bundle(url: _appUrl)
-		let execPath = _appUrl.appendingPathComponent(bundle?.exec ?? "").relativePath
-
-		if !ZsignEngine.removeInjectedDylibs(_options.disInjectionFiles, fromExecutableAt: execPath) {
-			throw SigningFileHandlerError.disinjectFailed
-		}
+        guard let executable = SigningInputValidation.executable(in: _appUrl) else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        try await executionGate.withPermit {
+            guard ZsignEngine.removeInjectedDylibs(_options.disInjectionFiles, fromExecutableAt: executable.path) else {
+                throw SigningFileHandlerError.disinjectFailed
+            }
+        }
 	}
 
 	func sign() async throws {
 		guard let cert = _certificate else {
 			throw SigningFileHandlerError.missingCertifcate
 		}
-
-		StdoutCapture.shared.start { SigningLog.shared.info($0) }
-		defer { StdoutCapture.shared.stop() }
 
 		var request = ZsignEngine.Request(appPath: _appUrl.relativePath)
 		request.provisionPath = Storage.shared.getFile(.provision, from: cert)?.path ?? ""
@@ -58,13 +60,10 @@ final class ZsignHandler {
 		request.removeProvisioning = _options.removeProvisioning
 
 		try _rejectRefusedIdentity(for: cert, provisionPath: request.provisionPath, p12Path: request.p12Path)
-		try run(request)
+        try await _runExclusively(request)
 	}
 
 	func adhocSign() async throws {
-		StdoutCapture.shared.start { SigningLog.shared.info($0) }
-		defer { StdoutCapture.shared.stop() }
-
 		var request = ZsignEngine.Request(
 			appPath: _appUrl.relativePath,
 			isAdHoc: true,
@@ -72,16 +71,31 @@ final class ZsignHandler {
 		)
 		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
 
-		// Ad-hoc runs need no identity, so only the entitlements file can be unusable.
-		if
-			let path = _options.appEntitlementsFile?.path,
-			!path.isEmpty,
-			_data(at: path) == nil {
-			throw SigningFileHandlerError.entitlementsUnreadable
-		}
-
-		try run(request)
+        try await _runExclusively(request)
 	}
+
+    /// Validate custom entitlements for both certificate and ad-hoc requests. Capture and
+    /// cache cleanup must start only after acquiring native-engine ownership.
+    private func _runExclusively(_ request: ZsignEngine.Request) async throws {
+        guard SigningInputValidation.executable(in: _appUrl) != nil else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        guard SigningInputValidation.entitlementsAreUsable(at: request.entitlementsPath) else {
+            throw SigningFileHandlerError.entitlementsUnreadable
+        }
+        try await executionGate.withPermit {
+            // Recheck after waiting: inputs may have changed while queued.
+            guard SigningInputValidation.executable(in: self._appUrl) != nil else {
+                throw SigningFileHandlerError.appNotFound
+            }
+            guard SigningInputValidation.entitlementsAreUsable(at: request.entitlementsPath) else {
+                throw SigningFileHandlerError.entitlementsUnreadable
+            }
+            StdoutCapture.shared.start { SigningLog.shared.info($0) }
+            defer { StdoutCapture.shared.stop() }
+            try self.run(request)
+        }
+    }
 
 	// MARK: - Identity
 
@@ -129,19 +143,10 @@ final class ZsignHandler {
 
 		let outcome = ZsignEngine.sign(request)
 
-		if let message = outcome.errorMessage {
-			let error = NSError(
-				domain: "app.vexsign.zsign",
-				code: 1,
-				userInfo: [NSLocalizedDescriptionKey: message]
-			)
-			hadError = error
-			throw error
-		}
-		if !outcome.succeeded {
-			// No message: the engine gave up before it had a bundle to complain about, or it
-			// failed a step it does not report. The log holds whatever it printed.
-			throw SigningFileHandlerError.engineRefused
-		}
+        do { try outcome.requireSuccess() }
+        catch {
+            hadError = error
+            throw error
+        }
 	}
 }

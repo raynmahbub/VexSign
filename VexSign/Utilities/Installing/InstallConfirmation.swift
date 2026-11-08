@@ -85,6 +85,7 @@ struct InstallConfirmation: Equatable, Sendable {
 	let limits: Limits
 	private(set) var phase: Phase = .waitingForStart
 
+	private var _downloadingSince: Date?
 	private var _waitingSince: Date?
 	private var _verifyingAt: Date?
 
@@ -100,7 +101,15 @@ struct InstallConfirmation: Equatable, Sendable {
 		guard !phase.isFinished else { return phase }
 
 		if (progress ?? 0) > 0 {
-			if phase == .waitingForStart { phase = .downloading }
+			if phase == .waitingForStart {
+                _downloadingSince = date
+                phase = .downloading
+            }
+            if phase == .downloading,
+               date.timeIntervalSince(_downloadingSince ?? date) >= limits.verify {
+                // A stuck nonzero counter must not keep the install card alive forever.
+                return beginVerifying(at: date)
+            }
 			return phase
 		}
 
@@ -243,7 +252,7 @@ enum InstallWatcher {
             // Some iOS versions expose no progress counter. A matching app that
             // was demonstrably absent and now appears is independent evidence.
             // Unknown baselines or an already installed app cannot prove a new install.
-            if wasAbsent, confirmation.phase == .waitingForStart,
+            if wasAbsent, (confirmation.phase == .waitingForStart || confirmation.phase == .downloading),
                let current = probe.installedApp(for: initial.expectation.bundleIdentifier),
                current.bundleIdentifier == initial.expectation.bundleIdentifier,
                InstalledState.derive(from: current, expecting: initial.expectation.version) == .installed {

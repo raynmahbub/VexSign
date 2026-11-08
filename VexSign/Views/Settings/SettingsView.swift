@@ -343,8 +343,7 @@ private extension SettingsView {
         Section {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 13) {
-                    Image("AppLogo")
-                        .resizable()
+                    VexBrandLogo()
                         .scaledToFit()
                         .frame(width: 62, height: 62)
                         .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))

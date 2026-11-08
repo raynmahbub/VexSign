@@ -17,8 +17,9 @@ struct BackupComponents: OptionSet, Hashable, Codable {
 	static let sources = BackupComponents(rawValue: 1 << 1)
 	static let settings = BackupComponents(rawValue: 1 << 2)
 	static let tweaks = BackupComponents(rawValue: 1 << 3)
+    static let library = BackupComponents(rawValue: 1 << 4)
 
-	static let ordered: [BackupComponents] = [.certificates, .sources, .settings, .tweaks]
+	static let ordered: [BackupComponents] = [.certificates, .sources, .settings, .tweaks, .library]
 
 	init(rawValue: Int) { self.rawValue = rawValue }
 
@@ -37,6 +38,7 @@ struct BackupComponents: OptionSet, Hashable, Codable {
 		case .sources: .localized("Sources")
 		case .settings: .localized("Settings")
 		case .tweaks: .localized("Tweaks")
+        case .library: .localized("App Library")
 		default: ""
 		}
 	}
@@ -47,6 +49,7 @@ struct BackupComponents: OptionSet, Hashable, Codable {
 		case .sources: "globe.desk"
 		case .settings: "gear"
 		case .tweaks: "wrench.and.screwdriver"
+        case .library: "square.stack.3d.up"
 		default: "questionmark"
 		}
 	}
@@ -62,6 +65,7 @@ struct BackupManifest: Codable {
 	var selectedCertUUID: String?
 	var certificates: [Cert]
 	var sources: [Source]
+    var apps: [LibraryBackupEntry]? = nil
 
 	struct Cert: Codable {
 		var uuid: String
@@ -91,6 +95,7 @@ struct BackupManifest: Codable {
 		switch component {
 		case .certificates: certificates.count
 		case .sources: sources.count
+        case .library: apps?.count ?? 0
 		default: counts?[String(component.rawValue)]
 		}
 	}
@@ -196,7 +201,8 @@ final class BackupManager {
 
 	func availableComponents() -> (components: BackupComponents, counts: [BackupComponents: Int]) {
 		let counts: [BackupComponents: Int] = [
-			.certificates: Storage.shared.getAllCertificates().count,
+            .library: Storage.shared.getAllApps().count,
+            .certificates: Storage.shared.getAllCertificates().count,
 			.sources: Storage.shared.getSources().count,
 			.tweaks: TweakManager.shared.tweaks.count,
 			.settings: UserDefaults.standard.dictionaryRepresentation().keys.filter(Self.isBackupableSettingKey).count
@@ -218,7 +224,8 @@ final class BackupManager {
 		try _fm.createDirectory(at: staging, withIntermediateDirectories: true)
 		defer { try? _fm.removeItem(at: staging) }
 
-		var written: BackupComponents = []
+        if components.contains(.library) { try requireIdleLibrary() }
+        var written: BackupComponents = []
 		var counts: [String: Int] = [:]
 		var certEntries: [BackupManifest.Cert] = []
 		var sources: [BackupManifest.Source] = []
@@ -280,10 +287,41 @@ final class BackupManager {
 			written.insert(.tweaks)
 		}
 
+        var libraryEntries: [LibraryBackupEntry] = []
+        if components.contains(.library) {
+            // Snapshot managed-object metadata on the main actor; only URLs/value records
+            // cross into the file-copy worker. A missing app fails the backup, never skips it.
+            let snapshots = try Storage.shared.getAllApps().map { app -> (LibraryBackupEntry, URL) in
+                guard let uuid = app.uuid, let bundle = Storage.shared.getAppDirectory(for: app) else {
+                    throw LibraryBackupSupport.Failure.invalidEntry
+                }
+                let entry = LibraryBackupEntry(uuid: uuid, bundleName: bundle.lastPathComponent,
+                    signed: app.isSigned, name: app.name, identifier: app.identifier,
+                    originalIdentifier: app.originalIdentifier, version: app.version,
+                    appDescription: app.appDescription, certificateUUID: (app as? Signed)?.certificate?.uuid)
+                try LibraryBackupSupport.validate(entry)
+                return (entry, bundle)
+            }
+            libraryEntries = try await Task.detached(priority: .utility) {
+                var total: Int64 = 0
+                for (entry, bundle) in snapshots {
+                    let bytes = try LibraryBackupSupport.validateTree(bundle)
+                    guard bytes <= LibraryBackupSupport.maximumBytes - total else { throw LibraryBackupSupport.Failure.tooLarge }
+                    total += bytes
+                    let destination = staging.appendingPathComponent("library").appendingPathComponent(entry.uuid)
+                    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                    try FileManager.default.copyItem(at: bundle, to: destination.appendingPathComponent(entry.bundleName))
+                }
+                _ = try LibraryBackupSupport.validateTree(staging)
+                return snapshots.map { $0.0 }
+            }.value
+            if !libraryEntries.isEmpty { written.insert(.library) }
+        }
+
 		guard !written.isEmpty else { throw Failure.empty }
 
-		let manifest = BackupManifest(
-			version: 2,
+		var manifest = BackupManifest(
+			version: 3,
 			createdAt: Date(),
 			appVersion: Bundle.main.version,
 			contents: written,
@@ -293,49 +331,86 @@ final class BackupManager {
 			certificates: certEntries,
 			sources: sources
 		)
-		let encoder = JSONEncoder()
+        manifest.apps = libraryEntries.isEmpty ? nil : libraryEntries
+        let encoder = JSONEncoder()
 		encoder.outputFormatting = [.prettyPrinted]
-		try encoder.encode(manifest).write(to: staging.appendingPathComponent("manifest.json"))
+        let manifestData = try encoder.encode(manifest)
+        guard manifestData.count <= LibraryBackupSupport.maximumManifestBytes else { throw BackupCrypto.Failure.badFormat }
+        try manifestData.write(to: staging.appendingPathComponent("manifest.json"))
+        if components.contains(.library) {
+            _ = try await Task.detached { try LibraryBackupSupport.validateTree(staging) }.value
+        }
 
 		let packDir = _fm.uniqueTemporaryDirectory("VexBackupPack")
 		try _fm.createDirectory(at: packDir, withIntermediateDirectories: true)
 		defer { try? _fm.removeItem(at: packDir) }
 		let packURL = packDir.appendingPathComponent("pack.zip")
 
-		let packed = try await Task.detached(priority: .userInitiated) {
-			try Zip.zipFiles(paths: [staging], zipFilePath: packURL, password: nil, progress: nil)
-			return try BackupCrypto.seal(try Data(contentsOf: packURL), password: password)
-		}.value
-
 		let outDir = _fm.uniqueTemporaryDirectory("VexBackupOut")
-		try _fm.createDirectory(at: outDir, withIntermediateDirectories: true)
-		let file = outDir.appendingPathComponent("VexSign-Backup-\(Self._stamp()).vexbackup")
-		try packed.write(to: file)
+        try _fm.createDirectory(at: outDir, withIntermediateDirectories: true)
+        let file = outDir.appendingPathComponent("VexSign-Backup-\(Self._stamp()).vexbackup")
+        do {
+            let worker = Task.detached(priority: .userInitiated) {
+                try Task.checkCancellation()
+                try Zip.zipFiles(paths: [staging], zipFilePath: packURL, password: nil, progress: nil)
+                // Never emit a container our own safety policy would refuse to restore.
+                try ArchiveSafetyValidator.validate(packURL)
+                try Task.checkCancellation()
+                try BackupCrypto.sealFile(packURL, to: file, password: password)
+            }
+            try await withTaskCancellationHandler {
+                try await worker.value
+            } onCancel: { worker.cancel() }
+        } catch {
+            do { try _fm.removeItem(at: outDir) }
+            catch { FileLogger.log("Could not clean failed backup output: \(error)", category: "backup") }
+            throw error
+        }
 		return file
 	}
 
 	func open(_ url: URL, password: String) async throws -> BackupArchive {
-		let data = try Data(contentsOf: url)
 		let work = _fm.uniqueTemporaryDirectory("VexRestore")
 		try _fm.createDirectory(at: work, withIntermediateDirectories: true)
 
 		do {
 			let extractDir = work.appendingPathComponent("extract")
-			let packHash = try await Task.detached(priority: .userInitiated) {
-				let plaintext = try BackupCrypto.unseal(data, password: password)
-				let packURL = work.appendingPathComponent("pack.zip")
-				try plaintext.write(to: packURL)
-				try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
-				try ArchiveSafetyValidator.validate(packURL)
-				try Zip.unzipFile(packURL, destination: extractDir, overwrite: true, password: nil)
-				return SHA256.hash(data: plaintext).map { String(format: "%02x", $0) }.joined()
-			}.value
+            let worker = Task.detached(priority: .userInitiated) {
+                let packURL = work.appendingPathComponent("pack.zip")
+                let hash = try BackupCrypto.unsealFile(url, to: packURL, password: password)
+                try Task.checkCancellation()
+                try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
+                try ArchiveSafetyValidator.validate(packURL)
+                try Zip.unzipFile(packURL, destination: extractDir, overwrite: true, password: nil)
+                try Task.checkCancellation()
+                return hash
+            }
+            let packHash = try await withTaskCancellationHandler {
+                try await worker.value
+            } onCancel: { worker.cancel() }
 
 			guard let root = _findRoot(in: extractDir) else { throw BackupCrypto.Failure.badFormat }
-			let manifestData = try Data(contentsOf: root.appendingPathComponent("manifest.json"))
+            let manifestURL = root.appendingPathComponent("manifest.json")
+            guard let metadataSize = try manifestURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                  metadataSize <= LibraryBackupSupport.maximumManifestBytes else { throw BackupCrypto.Failure.badFormat }
+			let manifestData = try Data(contentsOf: manifestURL)
 			let manifest = try JSONDecoder().decode(BackupManifest.self, from: manifestData)
 
-			// Decryption already fails closed; this checks that the container holds
+            guard (1...3).contains(manifest.version) else { throw BackupCrypto.Failure.badFormat }
+            if manifest.storedContents.contains(.library) {
+                guard manifest.version >= 3, let apps = manifest.apps, !apps.isEmpty,
+                      Set(apps.map(\.uuid)).count == apps.count else { throw BackupCrypto.Failure.badFormat }
+                for entry in apps {
+                    try LibraryBackupSupport.validate(entry)
+                    let bundle = root.appendingPathComponent("library").appendingPathComponent(entry.uuid).appendingPathComponent(entry.bundleName)
+                    guard _fm.fileExists(atPath: bundle.appendingPathComponent("Info.plist").path) else {
+                        throw LibraryBackupSupport.Failure.invalidEntry
+                    }
+                }
+                _ = try await Task.detached { try LibraryBackupSupport.validateTree(root) }.value
+            }
+
+            // Decryption already fails closed; this checks that the container holds
 			// what its manifest claims before the user commits to a restore.
 			let certRoot = root.appendingPathComponent("certs")
 			let present = manifest.certificates.filter {
@@ -353,13 +428,14 @@ final class BackupManager {
 		}
 	}
 
-	func restore(_ archive: BackupArchive, components: BackupComponents) -> BackupRestoreSummary {
+    func restore(_ archive: BackupArchive, components: BackupComponents) async throws -> BackupRestoreSummary {
 		let manifest = archive.manifest
 		let root = archive.root
 		let wanted = components.intersection(archive.contents)
-		var summary = BackupRestoreSummary()
+        var summary = BackupRestoreSummary()
+        if wanted.contains(.library) { try requireIdleLibrary() }
 
-		if wanted.contains(.certificates) {
+        if wanted.contains(.certificates) {
 			var added = 0
 			var skipped = 0
 			let existing = Set(Storage.shared.getAllCertificates().compactMap { $0.uuid })
@@ -431,8 +507,65 @@ final class BackupManager {
 			summary.record(.tweaks, added: added, skipped: (manifest.count(of: .tweaks) ?? added) - added)
 		}
 
+        if wanted.contains(.library) {
+            var added = 0
+            var skipped = 0
+            var existing = Set(Storage.shared.getAllApps().compactMap { $0.uuid })
+            for entry in manifest.apps ?? [] {
+                try requireIdleLibrary()
+                try LibraryBackupSupport.validate(entry)
+                if existing.contains(entry.uuid) { skipped += 1; continue }
+                let source = root.appendingPathComponent("library").appendingPathComponent(entry.uuid).appendingPathComponent(entry.bundleName)
+                let destination = entry.signed ? _fm.signed(entry.uuid) : _fm.unsigned(entry.uuid)
+                // Never overwrite an untracked directory either.
+                if _fm.fileExists(atPath: destination.path) { skipped += 1; continue }
+                var copied = false
+                do {
+                    try await Task.detached(priority: .utility) {
+                        _ = try LibraryBackupSupport.validateTree(source)
+                        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                        do { try FileManager.default.copyItem(at: source, to: destination.appendingPathComponent(entry.bundleName)) }
+                        catch {
+                            try FileManager.default.removeItem(at: destination)
+                            throw error
+                        }
+                    }.value
+                    copied = true
+                    try requireIdleLibrary()
+                    guard let bundle = Bundle(url: destination.appendingPathComponent(entry.bundleName)),
+                          bundle.bundleIdentifier != nil else { throw LibraryBackupSupport.Failure.invalidEntry }
+                    if entry.signed {
+                        let certificateID = Storage.shared.getAllCertificates().first { $0.uuid == entry.certificateUUID }?.objectID
+                        try await Storage.shared.addSigned(uuid: entry.uuid, certificateID: certificateID,
+                            appName: entry.name ?? bundle.name, appIdentifier: bundle.bundleIdentifier,
+                            originalAppIdentifier: entry.originalIdentifier, appVersion: bundle.version,
+                            appIcon: bundle.iconFileName, appDescription: entry.appDescription)
+                    } else {
+                        try await Storage.shared.addImported(uuid: entry.uuid, appName: entry.name ?? bundle.name,
+                            appIdentifier: bundle.bundleIdentifier, appVersion: bundle.version,
+                            appIcon: bundle.iconFileName, appDescription: entry.appDescription)
+                    }
+                    existing.insert(entry.uuid)
+                    added += 1
+                } catch {
+                    if copied {
+                        do { try _fm.removeItem(at: destination) }
+                        catch { FileLogger.log("Library restore rollback failed: \(error)", category: "backup") }
+                    }
+                    // Fail loudly; earlier completed entries remain, and a retry skips them.
+                    throw error
+                }
+            }
+            summary.record(.library, added: added, skipped: skipped)
+        }
+
 		return summary
 	}
+
+    private func requireIdleLibrary() throws {
+        guard !SigningService.shared.isSigning, !DownloadManager.shared.hasUnfinishedWork,
+              InstallQueue.shared.current == nil else { throw LibraryBackupSupport.Failure.busy }
+    }
 
 	private func _findRoot(in dir: URL) -> URL? {
 		if _fm.fileExists(atPath: dir.appendingPathComponent("manifest.json").path) { return dir }

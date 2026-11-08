@@ -496,8 +496,7 @@ struct AppStoreView: View {
                         }
                     }
                 } label: {
-                    Image("AppLogo")
-                        .resizable()
+                    VexBrandLogo()
                         .scaledToFit()
                         .frame(width: 28, height: 28)
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -674,8 +673,7 @@ struct AppStoreView: View {
             VStack(alignment: .leading, spacing: 12) {
                 // Eyebrow badge
                 HStack(spacing: 6) {
-                    Image("AppLogo")
-                        .resizable()
+                    VexBrandLogo()
                         .scaledToFit()
                         .frame(width: 20, height: 20)
                         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
