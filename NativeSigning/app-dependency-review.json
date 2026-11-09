@@ -1,8 +1,8 @@
 {
  "schema": 1,
- "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Baseline re-digested after normalising the workspace and project Package.resolved to one identical v2 pin file (42 versioned pins, content unchanged); the Xcode resolver remains the authority for transitive pins.",
+ "scope": "Vapor/Crypto/ASN1 promotion landed with the SideSign app integration (Vapor 4.122.3 permits Crypto 4.3.1). Baseline re-digested after normalising the workspace and project Package.resolved to one identical v2 pin file (42 versioned pins, content unchanged); the Xcode resolver remains the authority for transitive pins. Re-recorded when swift-http-types moved 1.5.1 -> 1.6.0: the pinned swift-nio-extras enables the FoundationURL trait, which 1.5.1 does not declare, so the app graph could not resolve at all. 1.6.0 declares it. Manifest digest was computed from the tagged upstream tree, and the method was validated against the previously recorded 1.5.1 digest before use.",
  "app_pins_file": "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
- "app_pins_sha256": "cb0b49ffb52c91df6e38fe52c26572140a1bdc3df8d5cf505aadb59c61cc68f7",
+ "app_pins_sha256": "41550ab1856c225a6975b054cbe82153beaeb75c4921b47b1a21fa221cf10cbb",
  "confirmed_blocker": {
   "identity": "vapor",
   "version": "4.122.3",
@@ -136,8 +136,8 @@
   },
   {
    "identity": "swift-http-types",
-   "revision": "45eb0224913ea070ec4fba17291b9e7ecf4749ca",
-   "manifest_sha256": "eee95007beae33be3f0da02eca355ffd0597469244e109e54fed275ed9fe553f"
+   "revision": "db774a277f60063a32d854f2980299caf06da041",
+   "manifest_sha256": "bc7362c73dcceca1037a3790ea0beafc87f04512badcfb6d4f97a54318c71487"
   },
   {
    "identity": "swift-log",

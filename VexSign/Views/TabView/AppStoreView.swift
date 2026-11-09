@@ -36,7 +36,7 @@ struct AppStoreView: View {
     @State private var catalogRevision = 0
     @State private var catalogBuildGeneration = 0
     @State private var catalogFilterGeneration = 0
-    @AppStorage("VexSign.repositorySort") private var _repositorySortRaw = RepositorySortOption.priority.rawValue
+    @AppStorage("VexSign.repositorySort") var _repositorySortRaw = RepositorySortOption.priority.rawValue
 
     private let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
 
@@ -282,7 +282,10 @@ struct AppStoreView: View {
 
     var updateCount: Int { updateChecker.updateCount }
 
-    private struct SourceHealthSummary {
+    /// Internal, not private: `sourceHealthCard` renders it from
+    /// AppStoreView+Repositories.swift, and a private type cannot be the type of
+    /// a non-private property.
+    struct SourceHealthSummary {
         let healthy: Int
         let failed: Int
         let stale: Int

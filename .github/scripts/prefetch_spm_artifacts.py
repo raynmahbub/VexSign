@@ -47,12 +47,17 @@ def prefetch(cache, artifacts=ARTIFACTS, download=None):
     cache.mkdir(parents=True, exist_ok=True)
     if download is None:
         def download(url, target):
-            subprocess.run([
+            result = subprocess.run([
                 'curl', '--fail', '--location', '--silent', '--show-error',
                 '--proto', '=https', '--proto-redir', '=https',
                 '--retry', '4', '--retry-all-errors', '--connect-timeout', '30',
                 '--max-time', '300', '--output', str(target), url,
-            ], check=True)
+            ], capture_output=True, text=True)
+            if result.returncode:
+                raise RuntimeError(
+                    f'Failed to download {url} (curl exit {result.returncode}): '
+                    f'{result.stderr.strip() or "no curl diagnostic"}'
+                )
     with tempfile.TemporaryDirectory(prefix='.prefetch-', dir=cache) as work:
         downloaded = {}
         for url, expected in artifacts:
@@ -80,7 +85,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cache', required=True, type=Path)
     args = parser.parse_args()
-    prefetch(args.cache)
+    try:
+        prefetch(args.cache)
+    except Exception as error:
+        # Actions annotations remain visible even when the full job log cannot
+        # be downloaded. Escape workflow-command delimiters, but still fail.
+        message = str(error).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+        print(f'::error title=Binary archive prefetch failed::{message}', flush=True)
+        raise
 
 
 if __name__ == '__main__':
