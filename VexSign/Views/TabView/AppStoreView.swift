@@ -282,7 +282,10 @@ struct AppStoreView: View {
 
     var updateCount: Int { updateChecker.updateCount }
 
-    private struct SourceHealthSummary {
+    /// Internal, not private: `sourceHealthCard` renders it from
+    /// AppStoreView+Repositories.swift, and a private type cannot be the type of
+    /// a non-private property.
+    struct SourceHealthSummary {
         let healthy: Int
         let failed: Int
         let stale: Int
