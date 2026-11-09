@@ -14,14 +14,14 @@ import OSLog
 // MARK: - Shared Update Checker
 final class AppUpdateChecker: ObservableObject {
     static let shared = AppUpdateChecker()
-    
+
     @Published private(set) var appsWithUpdates: Set<String> = []
     @Published private(set) var updateCount: Int = 0
     @Published private(set) var availableUpdates: [SourcedUpdate] = []
-    
+
     private var updateCache: [String: Bool] = [:]
     private let cacheQueue = DispatchQueue(label: "com.vexsign.updatechecker", attributes: .concurrent)
-    
+
     // Only immutable values cross into the update worker; never FetchedResults or NSManagedObject.
     struct InstalledSnapshot: Sendable {
         let version: String?
@@ -97,7 +97,7 @@ final class AppUpdateChecker: ObservableObject {
     }
 
     private init() {}
-    
+
     func checkForUpdates(
         app: ASRepository.App,
         signedApps: FetchedResults<Signed>,
@@ -209,7 +209,7 @@ final class AppUpdateChecker: ObservableObject {
                         .map { $0.element }
                 }
             }
-            
+
             let finalUpdatesSet = Set(sourcedList.map(\.id))
             for key in newCache.keys { newCache[key] = finalUpdatesSet.contains(key) }
             let finalUpdateCount = Set(sourcedList.compactMap(\.installedAppUUID)).count
@@ -294,13 +294,13 @@ final class AppUpdateChecker: ObservableObject {
                 }
             }
         }
-        
+
         return hasUpdate(
             installedVersion: installed.version,
             sourceVersion: app.currentVersion
         )
     }
-    
+
     @MainActor
     func clearCache() {
         updateWorker?.cancel()
@@ -313,7 +313,7 @@ final class AppUpdateChecker: ObservableObject {
             updateCache.removeAll()
         }
     }
-    
+
     @MainActor
     func findInstalledApp(
         for app: ASRepository.App,
@@ -336,7 +336,7 @@ final class AppUpdateChecker: ObservableObject {
     ) -> (version: String?, uuid: String, name: String?, identifier: String?, sourceURL: URL?)? {
         let appBundleId = app.id ?? ""
         let appNameLower = app.currentName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         guard !appBundleId.isEmpty || !appNameLower.isEmpty else { return nil }
 
         func normalizeName(_ name: String) -> String {
@@ -371,7 +371,7 @@ final class AppUpdateChecker: ObservableObject {
                        (normSource.contains(normStored) || normStored.contains(normSource))
             }
         }
-        
+
         let lookup = index ?? InstalledIndex(signed: signedApps, imported: importedApps)
         let exact = lookup.exact(appBundleId)
         // Exact identity always wins over name similarity. Name fallback is only for manual opt-in.
@@ -389,7 +389,7 @@ final class AppUpdateChecker: ObservableObject {
         guard let selected, let uuid = selected.uuid else { return nil }
         return (selected.version, uuid, selected.name, selected.identifier ?? selected.originalIdentifier, selected.source)
     }
-    
+
     /// Privacy filtering is performed before values leave the view-context queue.
     private func isStrictlyHidden(_ uuid: String?) -> Bool {
         guard let uuid, !uuid.isEmpty,
@@ -446,30 +446,30 @@ final class AppUpdateChecker: ObservableObject {
     func hasUpdate(installedVersion: String?, sourceVersion: String?) -> Bool {
         guard let currentVersion = installedVersion,
               let newVersion = sourceVersion else { return false }
-        
+
         return isNewerVersion(newVersion, than: currentVersion)
     }
-    
+
     private func isNewerVersion(_ new: String, than old: String) -> Bool {
         let newComponents = new.split(separator: ".").compactMap { Int($0) }
         let oldComponents = old.split(separator: ".").compactMap { Int($0) }
-        
+
         let maxCount = max(newComponents.count, oldComponents.count)
-        
+
         for i in 0..<maxCount {
             let newValue = i < newComponents.count ? newComponents[i] : 0
             let oldValue = i < oldComponents.count ? oldComponents[i] : 0
-            
+
             if newValue > oldValue {
                 return true
             } else if newValue < oldValue {
                 return false
             }
         }
-        
+
         return false
     }
-    
+
     @MainActor
     func refreshUpdateCount(
         sources: [ASRepository],
@@ -492,7 +492,7 @@ final class AppUpdateChecker: ObservableObject {
         let imported = Storage.shared.getImportedApps()
         await precomputeAllUpdates(sources: repos, signedApps: signed, importedApps: imported)
     }
-    
+
     @MainActor
     private func performUpdateCheck(
         sources: [ASRepository],

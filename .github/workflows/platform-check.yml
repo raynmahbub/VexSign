@@ -74,7 +74,7 @@ jobs:
             destination: 'generic/platform=watchOS Simulator'
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Paths
         run: echo "DERIVED_DATA=${RUNNER_TEMP}/DerivedData-${{ matrix.scheme }}" >> "$GITHUB_ENV"
 
@@ -88,7 +88,7 @@ jobs:
       # first leg saves it, every leg restores into its own DerivedData.
       - name: Restore Swift packages
         id: packages
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
           key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
@@ -132,7 +132,7 @@ jobs:
 
       - name: Save Swift packages
         if: success() && matrix.scheme == 'VexSignTV' && steps.packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData-${{ matrix.scheme }}/SourcePackages
           key: spm-platform-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
@@ -152,7 +152,7 @@ jobs:
 
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: platform-build-log-${{ matrix.scheme }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/${{ matrix.scheme }}-build.log

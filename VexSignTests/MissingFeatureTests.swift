@@ -367,59 +367,53 @@ final class MissingFeatureTests: XCTestCase {
 
 	// MARK: - Tab structure
 
-	/// The five primary tabs are an immutable navigation structure: fixed
-	/// order, always visible, never hideable or reorderable.
-	func testPrimaryTabsAreImmutableAndAlwaysVisible() {
-		let preferences = TabBarPreferences.shared
+	func testNavigatorCanHideAndReorderDestinationsButKeepsRecoveryTabs() throws {
+		let name = "VexSignNavigatorTests.\(UUID().uuidString)"
+		let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+		defer { defaults.removePersistentDomain(forName: name) }
+		let preferences = TabBarPreferences(defaults: defaults)
 
-		XCTAssertEqual(
-			TabBarPreferences.primaryTabs,
-			[.library, .appStore, .home, .downloads, .settings],
-			"The required order is Library → App Store → Home → Activity → Settings"
-		)
-
-		// Every primary tab is visible in the resolved bar, in order.
-		let leading = Array(preferences.visibleTabs.prefix(TabBarPreferences.primaryTabs.count))
-		XCTAssertEqual(leading, TabBarPreferences.primaryTabs)
-
-		// Hiding a primary tab must be a no-op.
-		let hiddenBefore = preferences.isHidden(.appStore)
-		preferences.setHidden(.appStore, true)
-		XCTAssertFalse(preferences.isHidden(.appStore), "Primary tabs can never be hidden")
-		XCTAssertTrue(preferences.visibleTabs.contains(.appStore))
-		preferences.setHidden(.appStore, false)
-		XCTAssertEqual(preferences.isHidden(.appStore), hiddenBefore)
-
-		// Reordering must never touch the primary order.
-		let secondary = preferences.order
-		if !secondary.isEmpty {
-			preferences.moveSecondary(from: IndexSet(integer: secondary.count - 1), to: 0)
-			let leadingAfterMove = Array(preferences.visibleTabs.prefix(TabBarPreferences.primaryTabs.count))
-			XCTAssertEqual(leadingAfterMove, TabBarPreferences.primaryTabs)
-			XCTAssertTrue(preferences.visibleTabs.count >= TabBarPreferences.primaryTabs.count)
-		}
-
-		// Only legacy/secondary tabs are customizable.
-		for tab in TabBarPreferences.primaryTabs {
-			XCTAssertFalse(TabBarPreferences.hideableTabs.contains(tab))
-			XCTAssertFalse(TabBarPreferences.secondaryTabs.contains(tab))
-		}
+		XCTAssertEqual(preferences.visibleTabs, [.library, .appStore, .home, .downloads, .settings])
+		XCTAssertEqual(TabBarPreferences.requiredTabs, [.home, .settings])
 		XCTAssertTrue(TabBarPreferences.secondaryTabs.contains(.sources))
+
+		preferences.setHidden(.library, true)
+		XCTAssertFalse(preferences.visibleTabs.contains(.library))
+		XCTAssertTrue(preferences.visibleTabs.contains(.home))
+		XCTAssertTrue(preferences.visibleTabs.contains(.settings))
+		XCTAssertFalse(preferences.isHideable(.home))
+		XCTAssertFalse(preferences.isHideable(.settings))
+
+		preferences.defaultLaunch = .appStore
+		preferences.setHidden(.appStore, true)
+		XCTAssertEqual(preferences.defaultLaunch, .home, "A hidden launch tab falls back to Home")
+		preferences.setHidden(.home, true)
+		preferences.setHidden(.settings, true)
+		XCTAssertTrue(preferences.visibleTabs.contains(.home))
+		XCTAssertTrue(preferences.visibleTabs.contains(.settings))
+
+		preferences.setHidden(.library, false)
+		let oldOrder = preferences.orderedTabs
+		preferences.move(from: IndexSet(integer: 0), to: oldOrder.count)
+		XCTAssertNotEqual(preferences.orderedTabs, oldOrder)
+		XCTAssertEqual(Set(preferences.orderedTabs), Set(TabEnum.allCases))
+
+		let restored = TabBarPreferences(defaults: defaults)
+		XCTAssertEqual(restored.orderedTabs, preferences.orderedTabs)
+		XCTAssertFalse(restored.visibleTabs.contains(.appStore))
 	}
 
-	func testLegacyTabsRemainCustomizable() {
-		let preferences = TabBarPreferences.shared
-		let wasHidden = preferences.isHidden(.sources)
-		addTeardownBlock { preferences.setHidden(.sources, wasHidden) }
-
-		preferences.setHidden(.sources, true)
-		XCTAssertTrue(preferences.isHidden(.sources))
-		XCTAssertFalse(preferences.visibleTabs.contains(.sources), "A hidden legacy tab leaves the bar")
-		XCTAssertTrue(preferences.visibleTabs.contains(.library), "Primary tabs stay visible regardless")
+	func testLegacyDestinationsCanStillBeShownAndHidden() throws {
+		let name = "VexSignNavigatorTests.\(UUID().uuidString)"
+		let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+		defer { defaults.removePersistentDomain(forName: name) }
+		let preferences = TabBarPreferences(defaults: defaults)
 
 		preferences.setHidden(.sources, false)
-		XCTAssertFalse(preferences.isHidden(.sources))
 		XCTAssertTrue(preferences.visibleTabs.contains(.sources))
+		preferences.setHidden(.sources, true)
+		XCTAssertTrue(preferences.isHidden(.sources))
+		XCTAssertFalse(preferences.visibleTabs.contains(.sources))
 	}
 
 	// MARK: - Fixtures

@@ -138,6 +138,7 @@ that, so a claim can be traced to code instead of a promise:
 | Clone Wizard and icon badges | `VexSign/Utilities/Handlers/AppCloner.swift` (badge is drawn onto a writable PNG icon), `VexSign/CloneWizard/CloneWizardView.swift` |
 | File manager and QuickLook | `VexSign/Views/FileManager/FileManagerView.swift`, `VexSign/Views/Settings/Files & Compression/` |
 | AltStore-compatible sources and ESign parsing | `AltSourceKit/`, `VexSign/Utilities/SourceFeedLoader.swift` |
+| Public GitHub release IPA sources (single IPA asset; no bundle-ID matching guarantee) | `VexSign/Utilities/GitHubReleaseSource.swift`, `FR.swift`, `SourceFeedLoader.swift` |
 | Repository sync, ETag revalidation and offline catalog | `VexSign/RepositorySync/RepositorySyncEngine.swift`, `VexSign/Views/Sources/SourcesViewModel.swift` |
 | Source health dashboard | `VexSign/Views/Sources/SourceHealthDashboardView.swift` |
 | Discover, ranking and bundle grouping | `VexSign/Views/TabView/AppStoreView.swift` (state, catalog, body), `AppStoreView+Discover.swift`, `AppStoreView+Repositories.swift`, `AppStoreRepositoryRows.swift`, `VexSign/Views/Sources/Apps/` |

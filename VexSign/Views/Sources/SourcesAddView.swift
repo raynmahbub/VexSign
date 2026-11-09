@@ -161,7 +161,8 @@ struct SourcesAddView: View {
 				.keyboardType(.URL)
 				.textInputAutocapitalization(.never)
 		} footer: {
-			Text(.localized("The only supported repositories are AltStore repositories."))
+			Text(.localized("Supports AltStore-compatible sources and GitHub repositories with one .ipa asset in the latest release."))
+			Text(.localized("GitHub release sources do not include bundle IDs, so automatic update matching may not be available."))
 			Text(verbatim: "[\(String.localized("Learn more about how to setup a repository..."))](https://faq.altstore.io/developers/make-a-source)")
 		}
 	}

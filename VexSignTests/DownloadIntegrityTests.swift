@@ -55,6 +55,36 @@ final class DownloadIntegrityTests: XCTestCase {
 
 	private var empty = DownloadIntegrity.Expectation()
 
+	func testPackageTransferSizeLimitHandlesDeclaredAndStreamingSizes() {
+		let limit = DownloadIntegrity.maximumPackageBytes
+		XCTAssertFalse(DownloadIntegrity.transferExceedsPackageLimit(expectedBytes: limit, receivedBytes: limit))
+		XCTAssertTrue(DownloadIntegrity.transferExceedsPackageLimit(expectedBytes: limit + 1, receivedBytes: 0))
+		XCTAssertTrue(DownloadIntegrity.transferExceedsPackageLimit(expectedBytes: -1, receivedBytes: limit + 1))
+		XCTAssertFalse(DownloadIntegrity.transferExceedsPackageLimit(expectedBytes: -1, receivedBytes: 0))
+		XCTAssertTrue(DownloadIntegrity.expectationExceedsPackageLimit(.init(byteCount: limit + 1)))
+		XCTAssertFalse(DownloadIntegrity.expectationExceedsPackageLimit(.init()))
+	}
+
+	func testTemporaryStagingDirectoryIsCreatedBeforeMove() throws {
+		let staging = try DownloadStagingPath.createTemporaryDirectory(label: "UpdateAllTests")
+		addTeardownBlock { try FileManager.default.removeItem(at: staging) }
+		XCTAssertTrue((try staging.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == true)
+		let stagedFile = DownloadStagingPath.destination(in: staging, suggestedFilename: "update.ipa")
+		try Data("ipa".utf8).write(to: stagedFile)
+		XCTAssertTrue(FileManager.default.fileExists(atPath: stagedFile.path))
+	}
+
+	func testStagingFilenameIsSingleComponentAndUnique() {
+		let directory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+		let first = DownloadStagingPath.destination(in: directory, suggestedFilename: "../../Library/app.ipa")
+		let second = DownloadStagingPath.destination(in: directory, suggestedFilename: "..\\Library\\app.ipa")
+		XCTAssertEqual(first.deletingLastPathComponent(), directory)
+		XCTAssertEqual(second.deletingLastPathComponent(), directory)
+		XCTAssertNotEqual(first, second)
+		XCTAssertTrue(first.lastPathComponent.hasSuffix("-app.ipa"))
+		XCTAssertEqual(DownloadStagingPath.safeFilename("../.."), "download.ipa")
+	}
+
 	// MARK: - Nothing declared
 
 	func testEmptyExpectationIsUnverified() throws {
@@ -105,6 +135,23 @@ final class DownloadIntegrityTests: XCTestCase {
 		XCTAssertTrue(message.contains("3"), message)
 		XCTAssertTrue(message.contains("7"), message)
 		XCTAssertTrue(message.contains("Nothing was imported"), message)
+	}
+
+	func testAutomaticImportRejectsMismatchAndAllowsUnverifiedSource() throws {
+		let url = try writeFile(named: "update.ipa", contents: "truncated")
+		let mismatch = DownloadIntegrity.automaticImportFailure(
+			fileAt: url,
+			expectation: DownloadIntegrity.Expectation(byteCount: 100),
+			fileName: "update.ipa"
+		)
+		XCTAssertNotNil(mismatch)
+		XCTAssertTrue(mismatch?.contains("Nothing was imported") == true, mismatch ?? "")
+
+		XCTAssertNil(DownloadIntegrity.automaticImportFailure(
+			fileAt: url,
+			expectation: .init(),
+			fileName: "update.ipa"
+		), "Sources with no declared size/hash remain supported")
 	}
 
 	func testMissingFileReportsAnUnreadableSize() throws {

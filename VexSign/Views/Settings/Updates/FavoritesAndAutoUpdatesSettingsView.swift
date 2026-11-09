@@ -147,7 +147,7 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
             Toggle(.localized("Auto-Install After Signing"), isOn: $prefs.autoInstallAfterUpdate)
                 .tint(Color.userTint)
         } footer: {
-            Text(.localized("Downloaded IPAs will be signed with your chosen certificate. If Auto-Install is enabled, VexSign will trigger on-device installation via the local loopback server."))
+            Text(.localized("Downloaded IPAs are signed with your chosen certificate. When automatic install queueing is enabled, eligible signed updates enter the install queue and begin when VexSign is active; iOS may still require confirmation."))
         }
     }
 
@@ -217,7 +217,7 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
                             // Auto update toggle button
                             Button {
                                 NBHaptic.tap()
-                                prefs.toggleAutoUpdate(for: uuid)
+                                prefs.toggleAutoUpdate(for: uuid, allUUIDs: Set(allApps.compactMap { $0.uuid }))
                             } label: {
                                 Image(systemName: isAuto ? "arrow.triangle.2.circlepath.circle.fill" : "arrow.triangle.2.circlepath.circle")
                                     .font(.system(size: 20))

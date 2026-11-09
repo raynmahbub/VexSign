@@ -518,8 +518,7 @@ struct HomeView: View {
     // MARK: - Working actions
 
     private func openTab(_ tab: TabEnum) {
-        // Primary tabs are always visible; only a hidden legacy tab needs to
-        // be surfaced again before switching to it.
+        // Re-surface any destination hidden in Settings before navigating to it.
         TabBarPreferences.shared.setHidden(tab, false)
         TabSelectionObserver.shared.selectedTab = tab
     }

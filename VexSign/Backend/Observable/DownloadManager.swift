@@ -513,6 +513,16 @@ class DownloadManager: NSObject, ObservableObject {
                 self.startDownload(from: url, id: id, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID, recoveredResumeData: recoveredResumeData)
             }
         }
+		if DownloadIntegrity.expectationExceedsPackageLimit(integrity) {
+			Task { @MainActor in Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? "", duration: .long) }
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+		}
+		do {
+			try PackageDownloadURLPolicy.validateInitialURL(url)
+		} catch {
+			Task { @MainActor in Toast.error(error.localizedDescription, duration: .long) }
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+		}
 		// Game Mode (Settings → Game Mode): the one place every download funnels through, so
 		// nothing reaches the network while it is on. Callers discard the return value, and
 		// an unstarted download is never appended to `downloads`, so the UI stays on "Get".
@@ -661,6 +671,22 @@ class DownloadManager: NSObject, ObservableObject {
         // A second request for the same active URL is a no-op, not a replacement task.
         guard download.task?.state != .running, !download.isWaitingForSlot else { return }
         guard networkPolicyAllowsStarting else { return }
+        if DownloadIntegrity.expectationExceedsPackageLimit(download.integrity) {
+            download.isActive = false
+            download.isPaused = false
+            DispatchQueue.main.async {
+                Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? "", duration: .long)
+            }
+            return
+        }
+        do {
+            try PackageDownloadURLPolicy.validateInitialURL(download.url)
+        } catch {
+            download.isActive = false
+            download.isPaused = false
+            DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .long) }
+            return
+        }
         if download.task?.state != .suspended {
             if download.resumeData == nil { download.resumeData = loadResumeData(for: download) }
             let session = (isAppInBackground ? _backgroundSession : _foregroundSession) ?? URLSession.shared

@@ -103227,6 +103227,369 @@
           }
         }
       }
+    },
+    "%lld signed; %lld queued" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld signed; %lld queued"
+          }
+        }
+      }
+    },
+    "%lld signed; automatic install queueing is off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld signed; automatic install queueing is off"
+          }
+        }
+      }
+    },
+    "Allow Automatic Updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Automatic Updates"
+          }
+        }
+      }
+    },
+    "Check Frequency" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Frequency"
+          }
+        }
+      }
+    },
+    "Customize Tabs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Customize Tabs"
+          }
+        }
+      }
+    },
+    "Daily" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily"
+          }
+        }
+      }
+    },
+    "Enter a GitHub repository URL, such as github.com/owner/repository." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a GitHub repository URL, such as github.com/owner/repository."
+          }
+        }
+      }
+    },
+    "Every 12 Hours" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every 12 Hours"
+          }
+        }
+      }
+    },
+    "Every 3 Hours" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every 3 Hours"
+          }
+        }
+      }
+    },
+    "Every 6 Hours" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every 6 Hours"
+          }
+        }
+      }
+    },
+    "GitHub release sources do not include bundle IDs, so automatic update matching may not be available." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub release sources do not include bundle IDs, so automatic update matching may not be available."
+          }
+        }
+      }
+    },
+    "GitHub returned HTTP %lld while loading the latest release." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub returned HTTP %lld while loading the latest release."
+          }
+        }
+      }
+    },
+    "GitHub's latest release response could not be read." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub's latest release response could not be read."
+          }
+        }
+      }
+    },
+    "Hide tab titles for a compact icon-only bar. VoiceOver labels remain available." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide tab titles for a compact icon-only bar. VoiceOver labels remain available."
+          }
+        }
+      }
+    },
+    "Hourly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hourly"
+          }
+        }
+      }
+    },
+    "Pause Automatic Updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause Automatic Updates"
+          }
+        }
+      }
+    },
+    "Reorder any tab and hide destinations you do not use. Home and Settings stay visible so you can always return here and restore your navigation. The tab bar adapts to the number of visible destinations." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorder any tab and hide destinations you do not use. Home and Settings stay visible so you can always return here and restore your navigation. The tab bar adapts to the number of visible destinations."
+          }
+        }
+      }
+    },
+    "Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Required"
+          }
+        }
+      }
+    },
+    "Show Tab Labels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Tab Labels"
+          }
+        }
+      }
+    },
+    "Supports AltStore-compatible sources and GitHub repositories with one .ipa asset in the latest release." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supports AltStore-compatible sources and GitHub repositories with one .ipa asset in the latest release."
+          }
+        }
+      }
+    },
+    "Tab Labels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab Labels"
+          }
+        }
+      }
+    },
+    "The latest GitHub release has no .ipa asset." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The latest GitHub release has no .ipa asset."
+          }
+        }
+      }
+    },
+    "The latest release has multiple IPA assets. Use an AltStore source instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The latest release has multiple IPA assets. Use an AltStore source instead."
+          }
+        }
+      }
+    },
+    "This update is waiting for Wi-Fi." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This update is waiting for Wi-Fi."
+          }
+        }
+      }
+    },
+    "VexSign asks iOS to run checks from hourly to daily. iOS decides the actual time; background checks are best-effort, not an exact schedule." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign asks iOS to run checks from hourly to daily. iOS decides the actual time; background checks are best-effort, not an exact schedule."
+          }
+        }
+      }
+    },
+    "Checks for updates, then signs apps allowed by your auto-update settings. If automatic install queueing is enabled, it adds them to the install queue. iOS decides when the background task runs and may require installation confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks for updates, then signs apps allowed by your auto-update settings. If automatic install queueing is enabled, it adds them to the install queue. iOS decides when the background task runs and may require installation confirmation."
+          }
+        }
+      }
+    },
+    "Downloaded IPAs are signed with your chosen certificate. When automatic install queueing is enabled, eligible signed updates enter the install queue and begin when VexSign is active; iOS may still require confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloaded IPAs are signed with your chosen certificate. When automatic install queueing is enabled, eligible signed updates enter the install queue and begin when VexSign is active; iOS may still require confirmation."
+          }
+        }
+      }
+    },
+    "Package downloads must use HTTPS. Enable 'Allow Insecure HTTP Sources' in Settings → Security only for a trusted local source." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Package downloads must use HTTPS. Enable 'Allow Insecure HTTP Sources' in Settings → Security only for a trusted local source."
+          }
+        }
+      }
+    },
+    "The package URL is invalid or uses an unsupported scheme." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package URL is invalid or uses an unsupported scheme."
+          }
+        }
+      }
+    },
+    "The package download tried to redirect from HTTPS to an insecure connection, so it was blocked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package download tried to redirect from HTTPS to an insecure connection, so it was blocked."
+          }
+        }
+      }
+    },
+    "Repository URLs must have a host and must not embed a username or password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository URLs must have a host and must not embed a username or password."
+          }
+        }
+      }
+    },
+    "Package exceeds the 8 GiB safety limit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Package exceeds the 8 GiB safety limit"
+          }
+        }
+      }
+    },
+    "The package is larger than the 8 GiB safety limit." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package is larger than the 8 GiB safety limit."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -9,14 +9,30 @@ import UIKit
 import UserNotifications
 import BackgroundTasks
 import ActivityKit
+import NimbleExtensions
 
 // MARK: - URLSessionDownloadDelegate
 
 extension DownloadManager: URLSessionDownloadDelegate {
+
+	func urlSession(
+		_ session: URLSession,
+		task: URLSessionTask,
+		willPerformHTTPRedirection response: HTTPURLResponse,
+		newRequest request: URLRequest,
+		completionHandler: @escaping (URLRequest?) -> Void
+	) {
+		guard let safeRequest = PackageDownloadURLPolicy.redirectRequest(from: response.url, to: request) else {
+			completionHandler(nil)
+			return
+		}
+		completionHandler(safeRequest)
+	}
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
-        defer { networkTransferFinished(download, task: downloadTask) }
+		defer { networkTransferFinished(download, task: downloadTask) }
+		if download.exceededPackageSizeLimit { return }
 		
 		if isAppInBackground {
 			let activeDownloads = downloads.filter { $0.progress > 0 && $0.progress < 1.0 && $0.id != download.id }
@@ -31,7 +47,10 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			try FileManager.default.createDirectoryIfNeeded(at: customTempDir)
 
 			let suggestedFileName = downloadTask.response?.suggestedFilename ?? download.fileName
-			let destinationURL = DownloadStagingName.destination(in: customTempDir, suggestedFilename: suggestedFileName)
+			let destinationURL = DownloadStagingPath.destination(
+				in: customTempDir,
+				suggestedFilename: suggestedFileName
+			)
 
 			try FileManager.default.moveItem(at: location, to: destinationURL)
 
@@ -60,6 +79,14 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
+		if DownloadIntegrity.transferExceedsPackageLimit(
+			expectedBytes: totalBytesExpectedToWrite,
+			receivedBytes: totalBytesWritten
+		) {
+			download.exceededPackageSizeLimit = true
+			downloadTask.cancel()
+			return
+		}
 
         let now = Date()
         let completed = totalBytesExpectedToWrite > 0 && totalBytesWritten >= totalBytesExpectedToWrite
@@ -109,6 +136,38 @@ extension DownloadManager: URLSessionDownloadDelegate {
         defer { networkTransferFinished(download, task: downloadTask) }
 
 		let nsError = error as NSError
+
+		if download.exceededPackageSizeLimit {
+			download.exceededPackageSizeLimit = false
+			download.isActive = false
+			download.isPaused = false
+			let limitError = NSError(
+				domain: "VexSign.Download",
+				code: 1,
+				userInfo: [NSLocalizedDescriptionKey: PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? ""]
+			)
+			if isAppInBackground {
+				sendCompletionNotification(for: download, status: "❌ " + .localized("Package exceeds the 8 GiB safety limit"))
+			} else {
+				showUIErrorMessage(for: download, error: limitError)
+			}
+			DispatchQueue.main.async {
+				self.allActivityDownloads.removeValue(forKey: download.id)
+				self.finishedDownloadingIDs.remove(download.id)
+				if let index = self.getDownloadIndex(by: download.id) { self.downloads.remove(at: index) }
+				let remaining = self.downloads.filter {
+					($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused) ||
+					($0.unpackageProgress > 0 && $0.unpackageProgress < 1.0)
+				}
+				if !remaining.isEmpty && self.downloadActivity != nil {
+					self.forceNextProgressUpdate()
+					self.updateLiveActivity(activeDownloads: remaining)
+				} else {
+					self.dismissLiveActivityImmediately()
+				}
+			}
+			return
+		}
 
 		// Cancelled — stash resume data and bail.
 		if nsError.code == NSURLErrorCancelled {

@@ -106,8 +106,9 @@ final class SourcesViewModel: ObservableObject {
 		}
 		let doomedIDs = Set(doomed.map { Self._id(for: $0) })
 		staleSourceIDs.subtract(doomedIDs)
-		for id in doomedIDs {
-			SourcePreferences.removeAllData(for: id)
+		for source in doomed {
+			let id = Self._id(for: source)
+			SourcePreferences.removeAllData(for: id, automaticUpdateAlias: source.sourceURL?.absoluteString)
 			RepositorySnapshotCache.remove(identifier: id)
 		}
 	}
@@ -197,18 +198,19 @@ final class SourcesViewModel: ObservableObject {
 				transportBlocked.append((source, id))
 				continue
 			}
-			var headers = VexSignAPI.authHeaders(for: url)
+			let isGitHubReleaseSource = GitHubReleaseSource.isGitHubRepositoryURL(url)
+			var headers = isGitHubReleaseSource ? [:] : VexSignAPI.authHeaders(for: url)
 			#if canImport(AltSourceKit)
-			if !EsignSourceKey.customApiKey.isEmpty, headers["X-API-Key"] == nil {
+			if !isGitHubReleaseSource, !EsignSourceKey.customApiKey.isEmpty, headers["X-API-Key"] == nil {
 				headers["X-API-Key"] = EsignSourceKey.customApiKey
 			}
 			#endif
 			items.append(FetchItem(
 				source: source,
 				identifier: Self._id(for: source, fallbackURL: url),
-				url: VexSignAPI.catalogURL(for: url),
+				url: isGitHubReleaseSource ? url : VexSignAPI.catalogURL(for: url),
 				headers: headers,
-				isPremium: VexSignAPI.isPremiumSource(url)
+				isPremium: !isGitHubReleaseSource && VexSignAPI.isPremiumSource(url)
 			))
 		}
 

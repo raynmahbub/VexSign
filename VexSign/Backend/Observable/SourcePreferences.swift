@@ -19,6 +19,7 @@ enum SourcePreferences {
 	private static let lastSuccessKey = "VexSign.sources.lastSuccess"
 	private static let failureCountKey = "VexSign.sources.failureCount"
 	private static let rateLimitUntilKey = "VexSign.sources.rateLimitUntil"
+	private static let autoUpdatesKey = "VexSign.sources.autoUpdates"
 
 	/// Health of one repository, as consumed by the Source Health dashboard.
 	struct Health {
@@ -60,6 +61,23 @@ enum SourcePreferences {
 
 	static func isPinned(_ id: String) -> Bool {
 		pinned.contains(id)
+	}
+
+	/// Source-level opt-out for scheduled signing. Missing values preserve the
+	/// existing behavior and mean the source is eligible for automatic updates.
+	static func autoUpdatesEnabled(for id: String) -> Bool {
+		let values: [String: Bool] = _dictionary(autoUpdatesKey)
+		return values[id] ?? true
+	}
+
+	static func setAutoUpdatesEnabled(_ enabled: Bool, for id: String) {
+		var values: [String: Bool] = _dictionary(autoUpdatesKey)
+		if enabled {
+			values.removeValue(forKey: id)
+		} else {
+			values[id] = false
+		}
+		UserDefaults.standard.set(values, forKey: autoUpdatesKey)
 	}
 
 	static func setPinned(_ id: String, pinned isPinned: Bool) {
@@ -179,7 +197,7 @@ enum SourcePreferences {
 	}
 
 	/// Removes every stored trace of a deleted repository.
-	static func removeAllData(for id: String) {
+	static func removeAllData(for id: String, automaticUpdateAlias: String? = nil) {
 		for key in [lastFetchKey, lastSuccessKey, failureCountKey, rateLimitUntilKey] {
 			var map = _dictionary(key) as [String: Double]
 			map.removeValue(forKey: id)
@@ -188,6 +206,11 @@ enum SourcePreferences {
 		var errors = _dictionary(lastErrorKey) as [String: String]
 		errors.removeValue(forKey: id)
 		UserDefaults.standard.set(errors, forKey: lastErrorKey)
+
+		var autoUpdates: [String: Bool] = _dictionary(autoUpdatesKey)
+		autoUpdates.removeValue(forKey: id)
+		if let automaticUpdateAlias { autoUpdates.removeValue(forKey: automaticUpdateAlias) }
+		UserDefaults.standard.set(autoUpdates, forKey: autoUpdatesKey)
 	}
 
 	static func recordFetch(id: String, error: String?) {

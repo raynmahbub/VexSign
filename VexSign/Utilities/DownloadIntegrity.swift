@@ -19,6 +19,19 @@ import AltSourceKit
 import NimbleExtensions
 
 enum DownloadIntegrity {
+	/// Generous bound shared with archive inspection so one untrusted IPA
+	/// cannot consume unbounded temporary storage before its contents are checked.
+	static let maximumPackageBytes: Int64 = 8 * 1_024 * 1_024 * 1_024
+
+	static func transferExceedsPackageLimit(expectedBytes: Int64, receivedBytes: Int64) -> Bool {
+		(expectedBytes > 0 && expectedBytes > maximumPackageBytes) || receivedBytes > maximumPackageBytes
+	}
+
+	static func expectationExceedsPackageLimit(_ expectation: Expectation?) -> Bool {
+		guard let expected = expectation?.byteCount else { return false }
+		return transferExceedsPackageLimit(expectedBytes: expected, receivedBytes: 0)
+	}
+
 	// MARK: Expectation
 
 	/// What the source said the file should be. An empty expectation means "nothing declared", and
@@ -96,6 +109,17 @@ enum DownloadIntegrity {
 			return .mismatch(failures)
 		}
 		return checks == 0 ? .unverified : .verified(checks: checks)
+	}
+
+	/// Automatic Update All has no interactive override for a source mismatch:
+	/// return a failure message so the caller can delete the file and stop before import.
+	static func automaticImportFailure(
+		fileAt url: URL,
+		expectation: Expectation,
+		fileName: String
+	) -> String? {
+		guard case .mismatch(let failures) = verify(fileAt: url, expectation: expectation) else { return nil }
+		return describe(failures, fileName: fileName)
 	}
 
 	/// The file's size in bytes, or nil when it cannot be read.

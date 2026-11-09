@@ -352,6 +352,11 @@ enum FR {
 			return
 		}
 
+		if let apiURL = GitHubReleaseSource.apiURL(for: url) {
+			_handleGitHubSource(url, apiURL: apiURL, showAlerts: showAlerts, completion: competion)
+			return
+		}
+
 		var headers: [String: String] = VexSignAPI.authHeaders(for: url)
 		#if canImport(AltSourceKit)
 		// Belt-and-braces: also attach the premium key directly when a non-empty
@@ -406,7 +411,63 @@ enum FR {
 			}
 		}
 	}
-	
+
+	private static func _handleGitHubSource(
+		_ sourceURL: URL,
+		apiURL: URL,
+		showAlerts: Bool,
+		completion: @escaping (Result<String, Error>) -> Void
+	) {
+		Task.detached {
+			do {
+				var request = URLRequest(url: apiURL)
+				request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+				request.setValue("VexSign", forHTTPHeaderField: "User-Agent")
+				request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+				let (data, response) = try await URLSession.shared.data(for: request)
+				guard let response = response as? HTTPURLResponse else {
+					throw GitHubReleaseSource.Failure.malformedRelease
+				}
+				guard (200..<300).contains(response.statusCode) else {
+					throw GitHubReleaseSource.Failure.httpStatus(response.statusCode)
+				}
+				let repository = try GitHubReleaseSource.repository(from: data, sourceURL: sourceURL)
+				await MainActor.run {
+					_addGitHubRepository(repository, sourceURL: sourceURL, showAlerts: showAlerts, completion: completion)
+				}
+			} catch {
+				if showAlerts {
+					DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
+				}
+				completion(.failure(error))
+			}
+		}
+	}
+
+	@MainActor
+	private static func _addGitHubRepository(
+		_ repository: ASRepository,
+		sourceURL: URL,
+		showAlerts: Bool,
+		completion: (Result<String, Error>) -> Void
+	) {
+		let id = repository.id ?? sourceURL.absoluteString
+		guard !Storage.shared.sourceExists(id) else {
+			let error = NSError(domain: "VexSign", code: 1, userInfo: [NSLocalizedDescriptionKey: "Repository already added."])
+			if showAlerts { Toast.error(error.localizedDescription, duration: .sticky) }
+			completion(.failure(error))
+			return
+		}
+		Storage.shared.addSource(sourceURL, repository: repository, id: id) { error in
+			if let error {
+				if showAlerts { Toast.error(error.localizedDescription, duration: .sticky) }
+				completion(.failure(error))
+			} else {
+				completion(.success(repository.name ?? sourceURL.absoluteString))
+			}
+		}
+	}
+
 	static func exportCertificateAndOpenUrl(using template: String) {
 		// Helper that performs the export for a given certificate
 		func performExport(for certificate: CertificatePair) {

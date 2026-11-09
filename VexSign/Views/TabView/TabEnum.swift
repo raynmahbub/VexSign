@@ -84,14 +84,14 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
         }
     }
 
-    /// Five defaults, including Home; Files remains available as an optional tab.
+    /// Familiar initial order, including the Home and Settings recovery tabs.
     static var defaultTabs: [TabEnum] {
         [.library, .appStore, .home, .downloads, .settings]
     }
 
-    /// Legacy/secondary destinations: the only customizable tabs. They appear
-    /// after the five primary tabs when the user surfaces them in
-    /// Settings → Tab Bar (deep links and migration also rely on this list).
+    /// Destinations which were optional in the previous navigation layout.
+    /// Kept as a separate migration/default group; users can now reorder them
+    /// alongside the default tabs.
     static var customizableTabs: [TabEnum] {
         [.files, .sources, .logs, .tweaks, .certificates]
     }

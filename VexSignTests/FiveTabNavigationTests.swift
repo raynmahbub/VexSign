@@ -128,6 +128,41 @@ final class FiveTabNavigationTests: XCTestCase {
         XCTAssertEqual(preferences.visibleTabs, [.library, .appStore, .home, .downloads, .settings])
         XCTAssertEqual(preferences.resolvedLaunchTab, .home)
         XCTAssertTrue(preferences.isHidden(.files))
+        XCTAssertTrue(preferences.showLabels)
+    }
+
+    func testTabLabelVisibilityPersistsAcrossLaunches() throws {
+        let name = "VexSignTabsTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        let preferences = TabBarPreferences(defaults: defaults)
+        preferences.showLabels = false
+        XCTAssertFalse(TabBarPreferences(defaults: defaults).showLabels)
+
+        let stored = try XCTUnwrap(defaults.data(forKey: "VexSign.tabBarPreferences"))
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: stored) as? [String: Any])
+        XCTAssertEqual(payload["showLabels"] as? Bool, false)
+    }
+
+    func testVersionThreePreferencesMigrateCustomOrderAndIconOnlyMode() throws {
+        let name = "VexSignTabsTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let legacy: [String: Any] = [
+            "version": 3,
+            "order": ["certificates", "sources", "files", "tweaks", "logs"],
+            "hidden": ["files", "logs"],
+            "defaultLaunch": "home",
+            "minimal": false,
+            "showLabels": false
+        ]
+        defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: "VexSign.tabBarPreferences")
+
+        let preferences = TabBarPreferences(defaults: defaults)
+        XCTAssertEqual(Array(preferences.orderedTabs.suffix(5)), [.certificates, .sources, .files, .tweaks, .logs])
+        XCTAssertTrue(preferences.isHidden(.files))
+        XCTAssertFalse(preferences.showLabels)
     }
 
     func testLegacySixTabOrderMigratesWithoutKeepingFilesMandatory() throws {
@@ -143,6 +178,7 @@ final class FiveTabNavigationTests: XCTestCase {
         let preferences = TabBarPreferences(defaults: defaults)
         XCTAssertEqual(preferences.visibleTabs.count, 5)
         XCTAssertEqual(preferences.resolvedLaunchTab, .home)
+        XCTAssertTrue(preferences.showLabels, "Existing preference files migrate to the familiar labeled tab bar")
         preferences.setHidden(.files, false)
         XCTAssertTrue(preferences.visibleTabs.contains(.files))
         let reloaded = TabBarPreferences(defaults: defaults)

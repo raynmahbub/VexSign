@@ -69,6 +69,8 @@ class Download: Identifiable, @unchecked Sendable {
 	/// fails — exactly like any other failed import — so the one deliberate override is offered in
 	/// the alert, and this is what it imports.
 	var retainedPackageURL: URL?
+	/// Set immediately before a size-limit cancellation so it is not mistaken for a user pause.
+	var exceededPackageSizeLimit = false
 
 	var isManual: Bool {
 		id.contains("VexSignManualDownload")

@@ -62,7 +62,14 @@ struct SourceFeedLoader: Sendable {
 		)
 		defer { SourceFeedSignposts.loader.endInterval("source", signpost) }
 
-		switch await fetcher(url, headers) {
+		// GitHub repository URLs are virtual sources: fetch the latest release from
+		// the public API, then adapt its single IPA asset to the normal feed model.
+		let isGitHubReleaseSource = GitHubReleaseSource.isGitHubRepositoryURL(url)
+		let requestURL = GitHubReleaseSource.apiURL(for: url) ?? url
+		// Do not forward credentials meant for a private repository host to GitHub's
+		// public API endpoint (e.g. a configured premium/API key header).
+		let requestHeaders = isGitHubReleaseSource ? [:] : headers
+		switch await fetcher(requestURL, requestHeaders) {
 		case .failure(let error):
 			Logger.misc.error(
 				"Source fetch FAILED \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -84,13 +91,27 @@ struct SourceFeedLoader: Sendable {
 				)
 			}
 
+			let feedPayload: Data
+			if isGitHubReleaseSource {
+				do {
+					feedPayload = try GitHubReleaseSource.feedPayload(from: payload, sourceURL: url)
+				} catch {
+					return SourceFeedResult(
+						identifier: identifier,
+						outcome: .failed(message: error.localizedDescription, rateLimited: false)
+					)
+				}
+			} else {
+				feedPayload = payload
+			}
+
 			// The decode that follows runs off the main actor by design, so the
 			// "this will block the interface" signal is always false here.
 			willDecode?(false)
 
 			// a source that claims a signature is checked before anything from it is
 			// published. Unsigned is the normal case and stays accepted; a broken signature is not.
-			let provenance = SourceProvenanceVerifier.evaluate(payload)
+			let provenance = SourceProvenanceVerifier.evaluate(feedPayload)
 			SourceProvenanceStore.record(provenance, for: url)
 
 			if case .claimedButInvalid(let reason) = provenance {
@@ -104,13 +125,13 @@ struct SourceFeedLoader: Sendable {
 			}
 
 			do {
-				let repository = try Self.decode(payload)
-				return SourceFeedResult(identifier: identifier, outcome: .decoded(repository, payload: payload))
+				let repository = try Self.decode(feedPayload)
+				return SourceFeedResult(identifier: identifier, outcome: .decoded(repository, payload: feedPayload))
 			} catch {
 				Logger.misc.error(
 					"Source decode FAILED \(identifier, privacy: .public): \(error.localizedDescription, privacy: .public)"
 				)
-				return SourceFeedResult(identifier: identifier, outcome: .invalid(payload: payload))
+				return SourceFeedResult(identifier: identifier, outcome: .invalid(payload: feedPayload))
 			}
 		}
 	}
