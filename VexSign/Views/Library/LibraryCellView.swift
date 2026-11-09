@@ -585,6 +585,7 @@ extension LibraryCellView {
 					_withAppAccess { InstallQueue.shared.enqueue(app, exporting: true) }
 				}
 			}
+			.buttonStyle(.borderless)
 		} else {
 			Button {
 				NBHaptic.tap()
@@ -597,8 +598,8 @@ extension LibraryCellView {
 				)
 			}
 			.accessibilityLabel(Text(.localized("Sign")))
+			.buttonStyle(.borderless)
 		}
-		.buttonStyle(.borderless)
 	}
 
 	private func _quickAction(

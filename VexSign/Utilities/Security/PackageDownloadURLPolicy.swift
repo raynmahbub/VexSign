@@ -98,6 +98,16 @@ final class PackageDownloadRedirectDelegate: NSObject, URLSessionDownloadDelegat
         return _didExceedLimit
     }
 
+    // The async `download(for:delegate:)` API owns and returns its temporary
+    // download file, so this delegate only observes transfer progress/redirects.
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
+        // Intentionally empty; the async API manages and returns this file.
+    }
+
     func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,

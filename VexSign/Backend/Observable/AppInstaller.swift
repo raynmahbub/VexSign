@@ -162,13 +162,15 @@ final class AppInstaller: ObservableObject {
         _installBaselineTask = Task.detached(priority: .utility) { [weak self] in
             let baselineApp = await probe.installedAppWithTimeout(for: identifier)
             let baseline = InstallWatcher.Baseline(app: baselineApp)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self, !self._hasFinished else { return }
-                self._installBaseline = baseline
-                self._installBaselineTask = nil
-            }
+            guard !Task.isCancelled, let self else { return }
+            await self._acceptInstallBaseline(baseline)
         }
+    }
+
+    private func _acceptInstallBaseline(_ baseline: InstallWatcher.Baseline) {
+        guard !_hasFinished else { return }
+        _installBaseline = baseline
+        _installBaselineTask = nil
     }
 
 	/// Stops without reporting an outcome; the caller has already moved on.
