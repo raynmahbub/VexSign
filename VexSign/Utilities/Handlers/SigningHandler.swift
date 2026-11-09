@@ -637,8 +637,11 @@ extension SigningHandler {
 				SigningLog.shared.warn(summary)
 			}
         }
-        try report.requireCompatibleProfile()
-    }
+		if !report.isClean, overridesBlockingPreflightIssues {
+			SigningLog.shared.warn(.localized("Signing anyway: retained extensions the profile does not cover may not work after installation."))
+		}
+		try report.requireCompatibleProfile(overridingBlockingIssues: overridesBlockingPreflightIssues)
+	}
 
 	private func _removePresetFiles(for app: URL) async throws {
 		var files = [
