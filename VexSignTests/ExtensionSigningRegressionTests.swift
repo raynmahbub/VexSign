@@ -120,6 +120,19 @@ final class ExtensionSigningRegressionTests: XCTestCase {
 		XCTAssertEqual(target.removableExtensionIdentifiers, ["com.me.app.widget"])
 	}
 
+	func testDefaultOptionsBlockRatherThanAutomaticallyRemoveUncoveredExtension() {
+		let target = ProfileCompatibility.Target(
+			app: _TestApp(identifier: "com.me.app"),
+			options: .defaultOptions,
+			nestedBundleIdentifiers: ["com.other.widget"],
+			removableExtensionIdentifiers: ["com.other.widget"]
+		)
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.me.*"), target: target
+		)
+		XCTAssertTrue(evaluation.issues.contains { $0.code == .extensionNotCovered && $0.isBlocking })
+	}
+
 	// MARK: - 2. "Sign Anyway" is honoured
 
 	func testUncoveredExtensionStillBlocksWithoutAnOverride() throws {

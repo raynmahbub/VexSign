@@ -137,7 +137,7 @@ final class SigningHandler: NSObject {
 
 		try await _removePresetFiles(for: movedAppPath)
 		try await _removeWatchIfNeeded(for: movedAppPath)
-		// Compatibility mode (on by default) removes only known-uncovered nested app bundles.
+		// If explicitly enabled, compatibility mode removes only known-uncovered app extensions.
 		// The separate blanket option below can still remove every app extension.
 		try await _removeAppExtensionsIfNeeded(for: movedAppPath)
 		try await _removeUnsupportedNestedBundlesIfNeeded(for: movedAppPath)
@@ -521,11 +521,8 @@ extension SigningHandler {
 		new newIdentifier: String,
 		for app: URL
 	) async throws {
-		// Only skip the plugin bundle-id rewrite when extensions are being stripped.
-		// When extensions are preserved (default), their bundle ids are still rewritten
-		// so they remain children of the new app identifier — the original behavior.
-		guard !_options.removeAppExtensions else { return }
-
+		// Rewrite all nested bundles, including retained Watch apps even when the
+		// user chose to remove app extensions. Removed extensions are stripped later.
 		let pluginBundles = _enumerateFiles(at: app) {
 			$0.hasSuffix(".app") || $0.hasSuffix(".appex")
 		}
@@ -619,9 +616,8 @@ extension SigningHandler {
 
 	/// Logs what the selected profile can do for each nested bundle in the payload.
 	private func _auditNestedBundles(at app: URL, certificate: CertificatePair?) throws {
-		// Extensions that were stripped above are no longer in the payload, so there is nothing
-		// to audit and nothing to warn about.
-		guard _options.signingOption == .default, !_options.removeAppExtensions else { return }
+		// Stripped extensions are gone, but retained Watch apps still need profile coverage.
+		guard _options.signingOption == .default else { return }
 
 		let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
 		let report = NestedBundleAudit.report(appBundle: app, profilePattern: pattern)

@@ -115,8 +115,8 @@ struct Options: Codable, Equatable {
 	/// If app extensions (PlugIns/ and Extensions/) should be stripped from the app bundle.
 	/// Defaults to `false` so widget/app extensions are preserved when signing.
 	var removeAppExtensions: Bool
-	/// Automatically removes only nested app bundles the selected profile cannot sign.
-	/// Covered extensions are preserved; unknown coverage is left untouched.
+	/// When explicitly enabled, removes app extensions the selected profile cannot sign.
+	/// Covered extensions, Watch apps, and extensions with unknown coverage are preserved.
 	var autoRemoveUnsupportedExtensions: Bool
 	/// Gives each signed app a keychain group derived from its bundle id so apps can't read each other's entries
 	var keychainIsolation: Bool
@@ -182,7 +182,7 @@ struct Options: Codable, Equatable {
 		changeLanguageFilesForCustomDisplayName: false,
 		injectIntoExtensions: false,
 		removeAppExtensions: false,
-		autoRemoveUnsupportedExtensions: true,
+		autoRemoveUnsupportedExtensions: false,
 		keychainIsolation: false,
 		enableJIT: false,
 		fixFilePicker: false,
