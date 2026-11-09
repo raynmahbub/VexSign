@@ -61,7 +61,7 @@ import SwiftUI
 
 public class NBUIVariableBlurView: UIView {
 	private let effectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
-	private var maskView: UIImageView?
+	private var gradientMaskImageView: UIImageView?
 
 	/// Kept for source compatibility. UIKit exposes supported blur styles, not a
 	/// variable blur radius; this scales the standard effect's opacity instead.
@@ -90,7 +90,7 @@ public class NBUIVariableBlurView: UIView {
 	override public func layoutSubviews() {
 		super.layoutSubviews()
 		effectView.frame = bounds
-		maskView?.frame = effectView.bounds
+		gradientMaskImageView?.frame = effectView.bounds
 	}
 
 	private func configureEffectView() {
@@ -113,14 +113,14 @@ public class NBUIVariableBlurView: UIView {
 
 	private func updateGradientMask() {
 		guard let gradientMask else {
-			maskView = nil
+			gradientMaskImageView = nil
 			effectView.mask = nil
 			return
 		}
 		let mask = UIImageView(image: gradientMask)
 		mask.contentMode = .scaleToFill
 		mask.frame = effectView.bounds
-		maskView = mask
+		gradientMaskImageView = mask
 		effectView.mask = mask
 		setNeedsLayout()
 	}

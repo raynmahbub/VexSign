@@ -109,6 +109,7 @@ strict-concurrency:
 # `make` are the parts that need a toolchain.
 #   make verify
 verify: docs-check
+	@python3 tools/check_ios_icon_assets.py
 	@python3 tools/test_public_blur_policy.py
 	@python3 tools/test_performance_fixtures.py
 	@python3 tools/test_ci_repair_agent.py
