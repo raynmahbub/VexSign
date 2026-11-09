@@ -238,8 +238,8 @@ PAGE_SCRIPT = """
 const $ = (id) => document.getElementById(id);
 
 function issueRow(issue) {
-  return '<div class="issue ' + issue.severity + '">' + issue.message +
-    (issue.suggestion ? ' <span class="muted">' + issue.suggestion + '</span>' : '') + '</div>';
+  return '<div class="issue ' + esc(issue.severity) + '">' + esc(issue.message) +
+    (issue.suggestion ? ' <span class="muted">' + esc(issue.suggestion) + '</span>' : '') + '</div>';
 }
 
 async function post(path, payload) {
@@ -276,8 +276,8 @@ async function build() {
     window.__manifest = body;
 
     const probe = body.probe
-      ? '<p class="muted">Probe: <code>' + body.probe.method + '</code> ' + body.probe.status +
-        ' · ' + (body.probe.contentType || 'no content-type') +
+      ? '<p class="muted">Probe: <code>' + esc(body.probe.method) + '</code> ' + esc(body.probe.status) +
+        ' · ' + esc(body.probe.contentType || 'no content-type') +
         ' · ' + (body.probe.contentLength / 1048576).toFixed(1) + ' MB' +
         (body.probe.redirects.length ? ' · ' + body.probe.redirects.length + ' redirect(s)' : '') + '</p>'
       : '';
@@ -288,7 +288,7 @@ async function build() {
       '</span></div>' + probe +
       '<div style="margin-top:0.6rem">' + body.issues.map(issueRow).join('') + '</div>' +
       '<h2 style="margin-top:1rem">Install link</h2>' +
-      '<div class="row"><code id="link">' + body.installLink + '</code>' +
+      '<div class="row"><code id="link">' + esc(body.installLink) + '</code>' +
       '<button class="btn secondary" id="copy">Copy</button></div>' +
       '<p class="muted">Open that link on the device after the manifest is hosted at the URL above.</p>' +
       '<div class="row" style="margin-top:0.6rem">' +
@@ -313,7 +313,7 @@ async function build() {
       pre.textContent = body.manifest;
     });
   } catch (error) {
-    result.innerHTML = '<div class="issue error">' + error.message + '</div>';
+    result.innerHTML = '<div class="issue error">' + esc(error.message) + '</div>';
   }
 }
 
@@ -328,15 +328,15 @@ async function probeOnly() {
     result.innerHTML =
       '<div class="row"><span class="pill ' + (body.ok ? 'ok' : 'bad') + '">' +
       (body.ok ? 'reachable' : 'not installable') + '</span>' +
-      '<span class="muted"><code>' + body.method + '</code> ' + body.status + ' · ' +
-      (body.contentType || 'no content-type') + ' · ' +
+      '<span class="muted"><code>' + esc(body.method) + '</code> ' + esc(body.status) + ' · ' +
+      esc(body.contentType || 'no content-type') + ' · ' +
       (body.contentLength ? (body.contentLength / 1048576).toFixed(1) + ' MB' : 'unknown size') + '</span></div>' +
       (body.redirects.length
-        ? '<p class="muted">Redirects: ' + body.redirects.map((url) => '<code>' + url + '</code>').join(' → ') + '</p>'
+        ? '<p class="muted">Redirects: ' + body.redirects.map((url) => '<code>' + esc(url) + '</code>').join(' → ') + '</p>'
         : '') +
       '<div style="margin-top:0.6rem">' + body.issues.map(issueRow).join('') + '</div>';
   } catch (error) {
-    result.innerHTML = '<div class="issue error">' + error.message + '</div>';
+    result.innerHTML = '<div class="issue error">' + esc(error.message) + '</div>';
   }
 }
 

@@ -258,7 +258,7 @@ let deadline = Date.now() + SESSION_SECONDS * 1000;
 
 function rows(pairs) {
   return pairs.filter(p => p[1] !== undefined && p[1] !== null && p[1] !== '')
-    .map(p => `<tr><th>${p[0]}</th><td>${p[1]}</td></tr>`).join('');
+    .map(p => `<tr><th>${esc(p[0])}</th><td>${esc(p[1])}</td></tr>`).join('');
 }
 
 function setState(text, cls) {
@@ -276,7 +276,7 @@ async function poll() {
       $('countdown').textContent = '';
       $('result').hidden = false;
       $('facts').innerHTML = rows([
-        ['UDID', `<code>${data.device.DEVICE_UDID}</code>`],
+        ['UDID', `<code>${esc(data.device.DEVICE_UDID)}</code>`],
         ['Device', data.device.PRODUCT],
         ['Name', data.device.DEVICE_NAME],
         ['iOS version', data.device.VERSION],
