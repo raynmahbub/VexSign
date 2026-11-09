@@ -10990,89 +10990,6 @@
         }
       }
     },
-    "A modified version of VexSign, by Vex." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "نسخة معدّلة من VexSign، من إعداد Vex."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upravená verze VexSignu od Vexa."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eine von Vex modifizierte Version von VexSign."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A modified version of VexSign, by Vex."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una versión modificada de VexSign, por Vex."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Une version modifiée de VexSign, par Vex."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Versi modifikasi dari VexSign, oleh Vex."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una versione modificata di VexSign, di Vex."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zmodyfikowana wersja VexSigna autorstwa Vexa."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Изменённая версия VexSign от Vex."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VexSign'ın Vex tarafından değiştirilmiş bir sürümü."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Phiên bản chỉnh sửa của VexSign, bởi Vex."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "由 Vex 修改的 VexSign 版本。"
-          }
-        }
-      }
-    },
     "A previous VexSign premium activation was found on this device. Would you like to restore your premium repositories?" : {
       "localizations" : {
         "ar" : {
@@ -26010,89 +25927,6 @@
         }
       }
     },
-    "Donate to Vex" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تبرّع لـ Vex"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Přispět Vexovi"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Für Vex spenden"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Donate to Vex"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Donar a Vex"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Faire un don à Vex"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Donasi ke Vex"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dona a Vex"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wesprzyj Vexa"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поддержать Vex"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vex'a bağış yap"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ủng hộ Vex"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打赏 Vex"
-          }
-        }
-      }
-    },
     "Donations" : {
       "comment" : "Title for the big donation card",
       "extractionState" : "manual",
@@ -36307,89 +36141,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "导入失败"
-          }
-        }
-      }
-    },
-    "Import failed." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "فشل الاستيراد."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Import selhal."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Import fehlgeschlagen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Import failed."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Error al importar."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Échec de l'importation."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impor gagal."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Importazione non riuscita."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Import nie powiódł się."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось импортировать."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İçe aktarma başarısız."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nhập thất bại."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导入失败。"
           }
         }
       }
@@ -52934,83 +52685,6 @@
         }
       }
     },
-    "Processing..." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "جارٍ المعالجة..."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zpracovávání..."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wird verarbeitet …"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Procesando..."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Traitement en cours..."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Memproses..."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elaborazione..."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Przetwarzanie..."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обработка..."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İşleniyor…"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đang xử lý..."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在处理…"
-          }
-        }
-      }
-    },
     "Properties" : {
       "comment" : "Select custom properties for the app",
       "extractionState" : "manual",
@@ -60660,89 +60334,6 @@
         }
       }
     },
-    "Search" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "بحث"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hledat"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suchen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buscar"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rechercher"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cari"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cerca"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Szukaj"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поиск"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ara"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tìm kiếm"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "搜索"
-          }
-        }
-      }
-    },
     "Search apps" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -61623,172 +61214,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "所选证书的文件缺失。"
-          }
-        }
-      }
-    },
-    "Self-update needs the IDevice install method with a pairing file. Set it up under Installation." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يحتاج التحديث الذاتي إلى طريقة تثبيت IDevice مع ملف اقتران. قم بإعداده من قسم التثبيت."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatická aktualizace potřebuje metodu instalace IDevice s párovacím souborem. Nastavte ji v sekci Instalace."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Selbstaktualisierung benötigt die IDevice-Installationsmethode mit einer Pairing-Datei. Richte sie unter Installation ein."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Self-update needs the IDevice install method with a pairing file. Set it up under Installation."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La autoactualización necesita el método de instalación IDevice con un archivo de emparejamiento. Configúralo en Instalación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La mise à jour automatique nécessite la méthode d'installation IDevice avec un fichier d'appairage. Configurez-la dans Installation."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan mandiri memerlukan metode instalasi IDevice dengan berkas pemasangan. Atur di bagian Instalasi."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'aggiornamento automatico richiede il metodo di installazione IDevice con un file di associazione. Configuralo in Installazione."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Samodzielna aktualizacja wymaga metody instalacji IDevice z plikiem parowania. Skonfiguruj ją w sekcji Instalacja."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Для самообновления нужен способ установки IDevice с файлом сопряжения. Настройте его в разделе «Установка»."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kendi kendine güncelleme, eşleştirme dosyasıyla IDevice kurulum yöntemini gerektirir. Kurulum bölümünden yapılandırın."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tự cập nhật cần phương thức cài đặt IDevice với tệp ghép nối. Thiết lập trong phần Cài đặt."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自我更新需要带配对文件的 IDevice 安装方式。请在“安装”中配置。"
-          }
-        }
-      }
-    },
-    "Self-update requires the IDevice install method with a pairing file. Set it up in Installation settings." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يتطلب التحديث الذاتي طريقة تثبيت IDevice مع ملف اقتران. قم بإعداده من إعدادات التثبيت."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Automatická aktualizace vyžaduje metodu instalace IDevice s párovacím souborem. Nastavte ji v nastavení Instalace."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Selbstaktualisierung erfordert die IDevice-Installationsmethode mit einer Pairing-Datei. Richte sie in den Installationseinstellungen ein."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Self-update requires the IDevice install method with a pairing file. Set it up in Installation settings."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La autoactualización requiere el método de instalación IDevice con un archivo de emparejamiento. Configúralo en los ajustes de Instalación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La mise à jour automatique nécessite la méthode d'installation IDevice avec un fichier d'appairage. Configurez-la dans les réglages d'Installation."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan mandiri memerlukan metode instalasi IDevice dengan berkas pemasangan. Atur di pengaturan Instalasi."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'aggiornamento automatico richiede il metodo di installazione IDevice con un file di associazione. Configuralo nelle impostazioni di Installazione."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Samodzielna aktualizacja wymaga metody instalacji IDevice z plikiem parowania. Skonfiguruj ją w ustawieniach Instalacji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Для самообновления нужен способ установки IDevice с файлом сопряжения. Настройте его в разделе «Установка»."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kendi kendine güncelleme, eşleştirme dosyasıyla IDevice kurulum yöntemini gerektirir. Kurulum ayarlarından yapılandırın."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tự cập nhật yêu cầu phương thức cài đặt IDevice với tệp ghép nối. Thiết lập trong cài đặt Cài đặt."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自我更新需要使用带配对文件的 IDevice 安装方式。请在“安装”设置中配置。"
           }
         }
       }
@@ -68285,83 +67710,6 @@
         }
       }
     },
-    "Swipe left to reset. Premium repos cannot be deleted individually." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اسحب لليسار لإعادة التعيين. لا يمكن حذف المستودعات المميزة بشكل فردي."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Přejeďte vlevo pro reset. Premium repozitáře nelze mazat jednotlivě."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zum Zurücksetzen nach links wischen. Premium-Repos können nicht einzeln gelöscht werden."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desliza a la izquierda para restablecer. Los repos premium no se pueden eliminar individualmente."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Balayez vers la gauche pour réinitialiser. Les dépôts premium ne peuvent pas être supprimés individuellement."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Geser ke kiri untuk mengatur ulang. Repositori premium tidak dapat dihapus satu per satu."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scorri verso sinistra per reimpostare. I repository premium non possono essere eliminati singolarmente."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Przesuń w lewo, aby zresetować. Repozytoriów premium nie można usuwać pojedynczo."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Проведите влево для сброса. Премиум-репозитории нельзя удалять по отдельности."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sıfırlamak için sola kaydırın. Premium depolar tek tek silinemez."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vuốt sang trái để đặt lại. Không thể xóa từng kho premium riêng lẻ."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "向左滑动以重置。高级仓库无法单独删除。"
-          }
-        }
-      }
-    },
     "Swipe to hide" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -70388,172 +69736,6 @@
         }
       }
     },
-    "The updater server isn't available in this build." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "خادم التحديث غير متوفر في هذه النسخة."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server aktualizací není v tomto sestavení dostupný."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Update-Server ist in diesem Build nicht verfügbar."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The updater server isn't available in this build."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servidor de actualizaciones no está disponible en esta compilación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le serveur de mise à jour n'est pas disponible dans cette version."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server pembaru tidak tersedia di build ini."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il server di aggiornamento non è disponibile in questa build."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Serwer aktualizacji jest niedostępny w tej wersji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сервер обновлений недоступен в этой сборке."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncelleme sunucusu bu derlemede kullanılamıyor."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Máy chủ cập nhật không khả dụng trong bản dựng này."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此版本中更新服务器不可用。"
-          }
-        }
-      }
-    },
-    "The updater server rejected the request%@" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "رفض خادم التحديث الطلب%@"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server aktualizací odmítl požadavek%@"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Update-Server hat die Anfrage abgelehnt%@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The updater server rejected the request%@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servidor de actualizaciones rechazó la solicitud%@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le serveur de mise à jour a refusé la requête%@"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server pembaru menolak permintaan%@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il server di aggiornamento ha rifiutato la richiesta%@"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Serwer aktualizacji odrzucił żądanie%@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сервер обновлений отклонил запрос%@"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncelleme sunucusu isteği reddetti%@"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Máy chủ cập nhật đã từ chối yêu cầu%@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新服务器拒绝了请求%@"
-          }
-        }
-      }
-    },
     "The updater server returned no install link." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -72161,89 +71343,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这将永久删除 %lld 个插件及其文件。"
-          }
-        }
-      }
-    },
-    "This release has no downloadable IPA." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا يحتوي هذا الإصدار على ملف IPA قابل للتنزيل."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tato verze nemá ke stažení žádný soubor IPA."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieses Release enthält keine herunterladbare IPA."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This release has no downloadable IPA."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta versión no tiene un IPA descargable."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette version n'a pas d'IPA téléchargeable."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rilis ini tidak memiliki IPA yang dapat diunduh."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questa release non ha un IPA scaricabile."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ta wersja nie ma pliku IPA do pobrania."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "В этом релизе нет загружаемого IPA."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bu sürümde indirilebilir bir IPA yok."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bản phát hành này không có IPA để tải xuống."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此版本没有可下载的 IPA。"
           }
         }
       }
@@ -74331,89 +73430,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更新"
-          }
-        }
-      }
-    },
-    "Updates are signed on-device before installing. Choose which certificate to use, or follow your globally selected certificate." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يتم توقيع التحديثات على الجهاز قبل التثبيت. اختر الشهادة المراد استخدامها، أو اتبع شهادتك المحددة عالميًا."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizace se před instalací podepisují přímo v zařízení. Zvolte, který certifikát použít, nebo použijte globálně vybraný certifikát."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updates werden vor der Installation auf dem Gerät signiert. Wähle ein Zertifikat oder verwende dein global ausgewähltes Zertifikat."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updates are signed on-device before installing. Choose which certificate to use, or follow your globally selected certificate."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las actualizaciones se firman en el dispositivo antes de instalarse. Elige qué certificado usar o sigue el certificado seleccionado globalmente."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les mises à jour sont signées sur l'appareil avant l'installation. Choisissez le certificat à utiliser ou suivez votre certificat sélectionné globalement."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pembaruan ditandatangani di perangkat sebelum dipasang. Pilih sertifikat yang akan digunakan, atau ikuti sertifikat yang dipilih secara global."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gli aggiornamenti vengono firmati sul dispositivo prima dell'installazione. Scegli quale certificato usare o segui il certificato selezionato globalmente."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktualizacje są podpisywane na urządzeniu przed instalacją. Wybierz certyfikat lub użyj globalnie wybranego certyfikatu."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Обновления подписываются на устройстве перед установкой. Выберите сертификат или используйте глобально выбранный."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Güncellemeler yüklenmeden önce cihazda imzalanır. Kullanılacak sertifikayı seçin veya genel olarak seçili sertifikayı kullanın."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bản cập nhật được ký trên thiết bị trước khi cài đặt. Chọn chứng chỉ để dùng, hoặc theo chứng chỉ đã chọn chung."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新会在安装前于设备上签名。请选择要使用的证书，或沿用全局所选证书。"
           }
         }
       }
@@ -77672,83 +76688,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "配对文件不可用并且与设备不匹配，请导入可用的的配置文件。"
-          }
-        }
-      }
-    },
-    "Your premium access is active. Premium repositories are protected and cannot be deleted individually. Swipe left or tap Reset to deactivate." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "وصولك المميز نشط. المستودعات المميزة محمية ولا يمكن حذفها بشكل فردي. اسحب لليسار أو اضغط إعادة تعيين لإلغاء التفعيل."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Váš premium přístup je aktivní. Premium repozitáře jsou chráněné a nelze je mazat jednotlivě. Přejeďte vlevo nebo klepněte na Reset pro deaktivaci."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dein Premium-Zugang ist aktiv. Premium-Repositories sind geschützt und können nicht einzeln gelöscht werden. Wische nach links oder tippe auf Zurücksetzen, um ihn zu deaktivieren."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu acceso premium está activo. Los repositorios premium están protegidos y no se pueden eliminar individualmente. Desliza a la izquierda o toca Restablecer para desactivarlo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre accès premium est actif. Les dépôts premium sont protégés et ne peuvent pas être supprimés individuellement. Balayez vers la gauche ou touchez Réinitialiser pour désactiver."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Akses premium Anda aktif. Repositori premium dilindungi dan tidak dapat dihapus satu per satu. Geser ke kiri atau ketuk Atur Ulang untuk menonaktifkan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il tuo accesso premium è attivo. I repository premium sono protetti e non possono essere eliminati singolarmente. Scorri verso sinistra o tocca Reimposta per disattivare."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Twój dostęp premium jest aktywny. Repozytoria premium są chronione i nie można ich usuwać pojedynczo. Przesuń w lewo lub dotknij Zresetuj, aby dezaktywować."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ваш премиум-доступ активен. Премиум-репозитории защищены и не могут быть удалены по отдельности. Проведите влево или нажмите «Сбросить» для деактивации."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium erişiminiz etkin. Premium depolar korunur ve tek tek silinemez. Devre dışı bırakmak için sola kaydırın veya Sıfırla'ya dokunun."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quyền truy cập premium của bạn đang hoạt động. Các kho premium được bảo vệ và không thể xóa riêng lẻ. Vuốt sang trái hoặc chạm Đặt lại để hủy kích hoạt."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的高级访问权限已激活。高级仓库受到保护，无法单独删除。向左滑动或点按“重置”即可停用。"
           }
         }
       }
@@ -103042,6 +101981,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Credential migration needs more storage. Free space and retry the original action. Unmigrated originals are retained."
+          }
+        }
+      }
+    },
+    "Signing anyway: retained extensions the profile does not cover may not work after installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing anyway: retained extensions the profile does not cover may not work after installation."
+          }
+        }
+      }
+    },
+    "Not confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not confirmed"
+          }
+        }
+      }
+    },
+    "VexSign finished, but iOS did not expose installation status, so this receipt cannot say whether the app was installed. Check the Home Screen and the app details in Library before installing again. No reinstall was started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign finished, but iOS did not expose installation status, so this receipt cannot say whether the app was installed. Check the Home Screen and the app details in Library before installing again. No reinstall was started."
+          }
+        }
+      }
+    },
+    "Check the Home Screen and the app details in Library. iOS did not report the result, so the app may already be installed. Install again only if it is missing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the Home Screen and the app details in Library. iOS did not report the result, so the app may already be installed. Install again only if it is missing."
           }
         }
       }

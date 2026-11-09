@@ -75,6 +75,14 @@ jobs:
       - name: Sync deterministic repository metadata
         run: python3 tools/sync-strings.py --write
 
+      # Only removes keys Xcode marked stale AND that no longer appear as a
+      # literal anywhere in the app; in-use stale markings are left alone.
+      - name: Prune dead localisation keys
+        run: python3 tools/sync-strings.py --prune-stale
+
+      - name: Report translation coverage
+        run: python3 tools/sync-strings.py --report --markdown >> "$GITHUB_STEP_SUMMARY"
+
       - name: Validate the result
         run: make verify
 
