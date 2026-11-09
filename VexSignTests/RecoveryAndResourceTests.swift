@@ -118,10 +118,22 @@ final class RecoveryAndResourceTests: XCTestCase {
         try Data("second-key".utf8).write(to: legacy.appendingPathComponent("b.p12"))
         XCTAssertThrowsError(try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination,
             beforeMove: { source, _ in if source.lastPathComponent == "b.p12" { throw CocoaError(.fileWriteOutOfSpace) } }))
-        // TEMPORARY DIAGNOSTIC: report what the failed migration actually left behind.
+        // TEMPORARY DIAGNOSTIC: nothing moved, so find the call that throws.
+        var throwReport = "no-throw"
+        do {
+            try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination)
+            throwReport = "UNEXPECTED-SUCCESS"
+        } catch { throwReport = "error=(\(error as NSError).domain)/\(error as NSError).code \(error)" }
+
+        var protectReport = "ok"
+        do { try ProtectedCertificateFiles.protect(legacy.appendingPathComponent("a.p12")) }
+        catch { protectReport = "error=(\(error as NSError).domain)/\(error as NSError).code \(error)" }
+
+        let attrs = try? FileManager.default.attributesOfItem(atPath: legacy.appendingPathComponent("a.p12").path)
+        let protection = attrs?[.protectionKey] ?? "<none>"
         let destinationContents = (try? FileManager.default.contentsOfDirectory(atPath: destination.path)) ?? ["<unreadable>"]
         let legacyContents = (try? FileManager.default.contentsOfDirectory(atPath: legacy.path)) ?? ["<unreadable>"]
-        XCTFail("DIAG destination=\(destinationContents) legacy=\(legacyContents)")
+        XCTFail("DIAG migrate=\(throwReport) | protect=\(protectReport) | protection=\(protection) | destination=\(destinationContents) legacy=\(legacyContents)")
         XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("b.p12")), Data("second-key".utf8))
         try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination)
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("b.p12")), Data("second-key".utf8))
