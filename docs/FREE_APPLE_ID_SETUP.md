@@ -17,12 +17,21 @@ This guide walks you through setting up and using VexSign's **Free Apple ID sign
 
 ## Prerequisites
 
-- **iOS Device**: iPhone/iPad running iOS 16.0 or later
-- **VexSign App**: Built from the `arena/a28af82e-vexsign` branch
+- **iOS Device**: iPhone/iPad running iOS 17.0 or later
+- **VexSign App**: A [release](https://github.com/raynmahbub/VexSign/releases) build or your own build of the current branch
 - **Apple ID**: A valid Apple ID (free tier works)
 - **Anisette Provider**: An HTTPS endpoint returning Apple authentication headers (see below)
 - **Paired Device**: Your iOS device paired with a Mac (for device UDID retrieval)
 - **TrollStore** (optional): For permanent installation on iOS 14.0–16.6.1
+
+> **This flow cannot sign yet.** VexSign can authenticate a free Apple ID, select
+> a team, register a device and record a provisioning profile, but nothing
+> converts that identity and profile into the certificate pair the signer reads.
+> Profile creation is additionally gated on a CMS verifier that shipping builds
+> do not supply. Treat the steps below as the shape of the flow, not a working
+> end-to-end path — [Free Apple ID handoff](NATIVE_SIGNING_HANDOFF.md) lists the
+> three closed gates and what each needs. Signing with an imported
+> `.p12` + `.mobileprovision` is the supported path.
 
 ---
 
@@ -175,15 +184,32 @@ docker run -d -p 8080:8080 -e PORT=8080 anisette-server
 
 ## Installing via TrollStore
 
-If you have **TrollStore** installed (iOS 14.0–16.6.1):
+TrollStore is a separate app that perma-signs IPAs on the iOS versions the
+CoreTrust bug covers (roughly 14.0–16.6.1 and 17.0). VexSign never installs it.
 
-1. After provisioning, go to **Settings** → **Signing Methods** → **TrollStore**
-2. Tap **Install App via TrollStore**
-3. Select the signed app from the list
-4. Tap **Install** - opens TrollStore via URL scheme
-5. For bulk refresh: Tap **Refresh All (TrollStore)**
+1. Sign an app first — TrollStore installs a **signed** IPA.
+2. Go to **Settings** → **Signing Methods** → **TrollStore**.
+3. Tap **Send a Signed IPA to TrollStore**, pick the signed IPA and tap
+   **Open <file> in TrollStore**.
 
-**Note**: TrollStore provides permanent installation (no 7-day expiry).
+How the hand-off works: TrollStore registers **no URL scheme of its own**. Since
+1.3 it replaces Apple's `apple-magnifier` scheme, so VexSign opens
+`apple-magnifier://install?url=<IPA URL>` (see TrollStore's
+`TSSceneDelegate.m`). TrollStore then downloads/consumes that IPA and installs
+it itself.
+
+Limits worth knowing:
+
+- **VexSign cannot confirm the result.** iOS reports only that the URL opened;
+  on a device without TrollStore — or with TrollStore's *URL Scheme* setting
+  off — the same URL opens the Magnifier app instead.
+- **"Detected" means this copy of VexSign was installed by TrollStore**, which
+  is the only positive signal an app can read (TrollStore's `_TrollStore`
+  marker next to the bundle). A normal install cannot see it, so a *not
+  detected* verdict does not prove TrollStore is missing. Use **Share Signed
+  IPA Instead** and open the file from TrollStore in that case.
+- **No refresh command.** TrollStore does not accept a URL command to refresh
+  app registrations; use **Refresh All App Registrations** inside TrollStore.
 
 ---
 
@@ -293,7 +319,7 @@ You can also trigger renewal manually:
 | **7 Days** | Profiles expire after 7 days (auto-renewal available) |
 | **No Push/iCloud** | Free certs don't support push notifications, iCloud, App Groups |
 | **Development Only** | Cannot create distribution/App Store profiles |
-| **iOS 16+** | Requires iOS 16.0 or later |
+| **iOS 17+** | Requires iOS 17.0 or later |
 | **No Wildcards** | Each bundle ID must be registered individually |
 
 ---

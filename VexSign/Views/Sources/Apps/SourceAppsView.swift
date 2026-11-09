@@ -181,54 +181,35 @@ struct SourceAppsView: View {
                 _forceUpdateTrigger += 1
             }
         }
-        .onChange(of: viewModel.isFinished, perform: handleViewModelFinished)
-        .onChange(of: _sortOption, perform: handleSortOptionChange)
-        .onChange(of: appNavigationManager.pendingAppNavigation, perform: handlePendingNavigation)
-        .onChange(of: _sources, perform: handleSourcesChange)
-        .onChange(of: _uiReadyForNavigation, perform: handleUIReadyChange)
-        .onChange(of: signedApps.count) { _ in
-            Task { @MainActor in
-                await refreshUpdateCountIfNeeded()
-            }
-        }
-        .onChange(of: importedApps.count) { _ in
-            Task { @MainActor in
-                await refreshUpdateCountIfNeeded()
-            }
-        }
-        .onChange(of: updateChecker.updateCount) { _ in
-            if let sources = _sources {
-                _localUpdateCount = calculateLocalUpdateCount(for: sources)
-            }
-        }
-        .onChange(of: _localUpdateCount) { newCount in
-            if newCount == 0 {
-                if showUpdatesOnly {
-                    showUpdatesOnly = false
+        .modifier(SourceAppsObservationModifiers(
+            viewModel: viewModel,
+            sortOption: _sortOption,
+            pendingNavigation: appNavigationManager.pendingAppNavigation,
+            sources: _sources,
+            isUIReadyForNavigation: _uiReadyForNavigation,
+            signedAppsCount: signedApps.count,
+            importedAppsCount: importedApps.count,
+            updateCount: updateChecker.updateCount,
+            localUpdateCount: _localUpdateCount,
+            selectedTab: _selectedTab,
+            onViewModelFinished: handleViewModelFinished,
+            onSortOptionChange: handleSortOptionChange,
+            onPendingNavigation: handlePendingNavigation,
+            onSourcesChange: handleSourcesChange,
+            onUIReadyChange: handleUIReadyChange,
+            onUpdateCountsChanged: { Task { @MainActor in await refreshUpdateCountIfNeeded() } },
+            onLocalUpdateCountChange: { newCount in
+                if newCount == 0 {
+                    if showUpdatesOnly { showUpdatesOnly = false }
+                    if _selectedTab == .updates { _selectedTab = .all }
                 }
-                if _selectedTab == .updates {
-                    _selectedTab = .all
-                }
-            }
-        }
-        .onChange(of: _selectedTab) { _ in
-            _forceUpdateTrigger += 1
-        }
-        .onReceive(TabSelectionObserver.shared.$sourcesRetapped.dropFirst()) { _ in
-            if _selectedTab != .all {
-                _selectedTab = .all
-            }
-            if showUpdatesOnly {
-                showUpdatesOnly = false
-            }
-        }
-        .navigationDestinationIfAvailable(item: $_selectedRoute) { route in
-            SourceAppsDetailView(source: route.source, app: route.app)
-        }
+            },
+            onTabChange: { _forceUpdateTrigger += 1 }
+        ))
     }
-    
+
     // MARK: - View Builders
-    
+
     @ViewBuilder
     private func tableView(for sources: [ASRepository]) -> some View {
         let effectiveShowUpdatesOnly = _sourcesShowUpdatesAsTab ? (_selectedTab == .updates) : showUpdatesOnly
@@ -544,5 +525,55 @@ extension View {
         } else {
             self
         }
+    }
+}
+
+// MARK: - Observation modifiers
+
+/// The change/react hooks used by `SourceAppsView`.
+///
+/// These live in their own `ViewModifier` because inlined into `body` the
+/// modifier chain is large enough that the type checker bails out with
+/// "unable to type-check this expression in reasonable time". Every closure
+/// here does exactly what the equivalent inline modifier used to do — the
+/// split is purely for compiler throughput.
+///
+/// `onChange` uses the two-parameter form throughout: the single-parameter and
+/// `perform:` overloads are deprecated as of iOS 17, and this app's floor is
+/// 17.0, so using them turns every call site into a build warning.
+private struct SourceAppsObservationModifiers: ViewModifier {
+    var viewModel: SourcesViewModel
+
+    var sortOption: SourceAppsView.SortOption
+    var pendingNavigation: AppNavigationManager.PendingAppNavigation?
+    var sources: [ASRepository]?
+    var isUIReadyForNavigation: Bool
+    var signedAppsCount: Int
+    var importedAppsCount: Int
+    var updateCount: Int
+    var localUpdateCount: Int
+    var selectedTab: SourceAppsView.SourceTab
+
+    var onViewModelFinished: (Bool) -> Void
+    var onSortOptionChange: (SourceAppsView.SortOption) -> Void
+    var onPendingNavigation: (AppNavigationManager.PendingAppNavigation?) -> Void
+    var onSourcesChange: ([ASRepository]?) -> Void
+    var onUIReadyChange: (Bool) -> Void
+    var onUpdateCountsChanged: () -> Void
+    var onLocalUpdateCountChange: (Int) -> Void
+    var onTabChange: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: viewModel.isFinished) { _, newValue in onViewModelFinished(newValue) }
+            .onChange(of: sortOption) { _, newValue in onSortOptionChange(newValue) }
+            .onChange(of: pendingNavigation) { _, newValue in onPendingNavigation(newValue) }
+            .onChange(of: sources) { _, newValue in onSourcesChange(newValue) }
+            .onChange(of: isUIReadyForNavigation) { _, newValue in onUIReadyChange(newValue) }
+            .onChange(of: signedAppsCount) { _, _ in onUpdateCountsChanged() }
+            .onChange(of: importedAppsCount) { _, _ in onUpdateCountsChanged() }
+            .onChange(of: updateCount) { _, _ in onUpdateCountsChanged() }
+            .onChange(of: localUpdateCount) { _, newValue in onLocalUpdateCountChange(newValue) }
+            .onChange(of: selectedTab) { _, _ in onTabChange() }
     }
 }

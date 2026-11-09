@@ -1,0 +1,12 @@
+{
+  "cms_sha256": "d2ecc474a54889b8896984fbf83ddcca836988e4e7810ffb6514acc756eee4db",
+  "payload_sha256": "bba50b206b9bd5e18370541fb4e8d93db0e18f9d349b33b4774dc99206a756be",
+  "payload_length": 43,
+  "cms_length": 1600,
+  "certificates": 1,
+  "signature_bytes": 256,
+  "signed_attributes": 4,
+  "generated_by": "openssl cms -sign -binary -nodetach -md sha256 -outform DER",
+  "key": "ephemeral RSA 2048, self-signed, 1 day",
+  "note": "Synthetic credential for parser testing only; never an Apple trust anchor."
+}

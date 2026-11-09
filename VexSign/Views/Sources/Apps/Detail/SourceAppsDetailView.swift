@@ -301,7 +301,7 @@ struct SourceAppsDetailView: View {
 				)
 			}
 		}
-		.onChange(of: appNavigationManager.pendingAppNavigation) { pending in
+		.onChange(of: appNavigationManager.pendingAppNavigation) { _, pending in
             // if a new navigation is waiting, pop back so SourceAppsView can handle it
             if pending != nil {
                 dismiss()

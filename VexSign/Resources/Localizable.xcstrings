@@ -101985,6 +101985,204 @@
         }
       }
     },
+    "No TrollStore install of VexSign was detected. VexSign never installs TrollStore, and a missing marker does not prove it is absent — share the signed IPA to TrollStore instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No TrollStore install of VexSign was detected. VexSign never installs TrollStore, and a missing marker does not prove it is absent — share the signed IPA to TrollStore instead."
+          }
+        }
+      }
+    },
+    "Open %@ in TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open %@ in TrollStore"
+          }
+        }
+      }
+    },
+    "Open TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open TrollStore"
+          }
+        }
+      }
+    },
+    "Opening TrollStore…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening TrollStore…"
+          }
+        }
+      }
+    },
+    "Opening…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening…"
+          }
+        }
+      }
+    },
+    "Refresh All Apps in TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh All Apps in TrollStore"
+          }
+        }
+      }
+    },
+    "Send a Signed IPA to TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send a Signed IPA to TrollStore"
+          }
+        }
+      }
+    },
+    "Share Signed IPA Instead" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Signed IPA Instead"
+          }
+        }
+      }
+    },
+    "This copy of VexSign was installed by TrollStore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy of VexSign was installed by TrollStore"
+          }
+        }
+      }
+    },
+    "TrollStore install not detected here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore install not detected here"
+          }
+        }
+      }
+    },
+    "TrollStore installs signed IPAs permanently: no 7-day expiry and no Apple ID. VexSign hands the IPA over through TrollStore's install URL and cannot read back the result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore installs signed IPAs permanently: no 7-day expiry and no Apple ID. VexSign hands the IPA over through TrollStore's install URL and cannot read back the result."
+          }
+        }
+      }
+    },
+    "TrollStore performs the install itself. VexSign cannot confirm the result — check TrollStore, then launch the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore performs the install itself. VexSign cannot confirm the result — check TrollStore, then launch the app."
+          }
+        }
+      }
+    },
+    "TrollStore was not detected for this install. VexSign can only tell when this copy of the app itself was installed by TrollStore; on any other install it cannot see TrollStore. Install the signed IPA from TrollStore directly." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore was not detected for this install. VexSign can only tell when this copy of the app itself was installed by TrollStore; on any other install it cannot see TrollStore. Install the signed IPA from TrollStore directly."
+          }
+        }
+      }
+    },
+    "VexSign can hand a signed IPA to TrollStore through apple-magnifier://install. TrollStore installs it itself, and VexSign cannot confirm the result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign can hand a signed IPA to TrollStore through apple-magnifier://install. TrollStore installs it itself, and VexSign cannot confirm the result."
+          }
+        }
+      }
+    },
+    "VexSign can only recognise a TrollStore install of itself, by the marker TrollStore leaves beside the app. On this copy it cannot see one, which does not prove TrollStore is absent. VexSign never installs TrollStore." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign can only recognise a TrollStore install of itself, by the marker TrollStore leaves beside the app. On this copy it cannot see one, which does not prove TrollStore is absent. VexSign never installs TrollStore."
+          }
+        }
+      }
+    },
+    "VexSign cannot start a refresh for you — TrollStore does not accept a URL command for it. Open TrollStore, then use Refresh All App Registrations there. Only apps TrollStore installed are affected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot start a refresh for you — TrollStore does not accept a URL command for it. Open TrollStore, then use Refresh All App Registrations there. Only apps TrollStore installed are affected."
+          }
+        }
+      }
+    },
+    "iOS did not open the URL. TrollStore may not be installed, or its URL Scheme setting is off." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS did not open the URL. TrollStore may not be installed, or its URL Scheme setting is off."
+          }
+        }
+      }
+    },
+    "iOS refused to open the TrollStore hand-off URL, so nothing was installed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refused to open the TrollStore hand-off URL, so nothing was installed."
+          }
+        }
+      }
+    },
     "Signing anyway: retained extensions the profile does not cover may not work after installation." : {
       "extractionState" : "manual",
       "localizations" : {

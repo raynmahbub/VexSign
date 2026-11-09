@@ -89,7 +89,7 @@ struct SigningAdvancedView: View {
 				}
 			}
 			.id(Self._modifyID)
-			.onChange(of: _isModifyExpanded) { expanded in
+			.onChange(of: _isModifyExpanded) { _, expanded in
 				guard expanded else { return }
 				DispatchQueue.main.async {
 					withAnimation(.smooth) {

@@ -74,7 +74,7 @@ struct InstallationView: View {
 				Button(.localized("Recheck installation prerequisites"), action: _refreshPreflight)
 			}
 		}
-		.onChange(of: _installationMethod) { newValue in
+		.onChange(of: _installationMethod) { _, newValue in
             NBHaptic.selection()
 			guard newValue == 1 else { return }
 			_showMethodChangedAlert = true
@@ -90,10 +90,10 @@ struct InstallationView: View {
 			))
 		}
 		.onAppear(perform: _refreshPreflight)
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             if phase == .active { _refreshPreflight() }
         }
-		.onChange(of: _installationMethod) { _ in _refreshPreflight() }
+		.onChange(of: _installationMethod) { _, _ in _refreshPreflight() }
 		.animation(.default, value: _installationMethod)
     }
 
@@ -109,13 +109,11 @@ struct InstallationView: View {
 		)
 	}
 
-	/// Probe only the scheme used by our handoff. Apple's Magnifier scheme can
-	/// answer on stock iOS and must not be mistaken for TrollStore.
+	/// TrollStore's own marker beside the app bundle. Apple's Magnifier scheme
+	/// answers on stock iOS, so a scheme probe alone would report TrollStore
+	/// everywhere; see `TrollStoreHandoff`.
 	private func _trollStoreDetected() -> Bool {
-		["trollstore://"].contains { string in
-			guard let url = URL(string: string) else { return false }
-			return UIApplication.shared.canOpenURL(url)
-		}
+		TrollStoreHandoff.installedByTrollStore()
 	}
 
 	@ViewBuilder

@@ -3,6 +3,7 @@
 /// Integrates paid certificates, free Apple ID (NativeSigning), and TrollStore.
 
 import SwiftUI
+import UIKit
 import NimbleViews
 import NimbleExtensions
 import NativeSigning
@@ -184,7 +185,7 @@ struct SigningMethodsView: View {
                 pendingChallenge = challenge
             }
         }
-        .onChange(of: nativeManager.snapshot) { snapshot in
+        .onChange(of: nativeManager.snapshot) { _, snapshot in
             guard let operation = pendingOperation, let phase = snapshot?.phase else { return }
             switch phase {
             case .awaitingTeamSelection(let id, _, _) where id == operation.id:
@@ -362,32 +363,32 @@ struct SigningMethodsView: View {
             let caps = SigningMethodAvailability.current(for: .trollStore)
 
             if caps.isAvailable {
-                Label(.localized("TrollStore detected — permanent installation available"), systemImage: "checkmark.circle.fill")
+                Label(.localized("This copy of VexSign was installed by TrollStore"), systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.subheadline)
 
-                Text(.localized("TrollStore allows permanent, certificate-free installation of signed IPAs on iOS 14.0–16.6.1. No 7-day expiry, no Apple ID needed."))
+                Text(.localized("TrollStore installs signed IPAs permanently: no 7-day expiry and no Apple ID. VexSign hands the IPA over through TrollStore's install URL and cannot read back the result."))
                     .font(.caption).foregroundStyle(.secondary)
 
                 Button {
                     showTrollStoreInstall = true
                 } label: {
-                    Label(.localized("Install App via TrollStore"), systemImage: "t.square.fill")
+                    Label(.localized("Send a Signed IPA to TrollStore"), systemImage: "t.square.fill")
                 }
                 .buttonStyle(.borderedProminent)
 
                 Button {
                     showTrollStoreRefresh = true
                 } label: {
-                    Label(.localized("Refresh All (TrollStore)"), systemImage: "arrow.triangle.2.circlepath")
+                    Label(.localized("Open TrollStore"), systemImage: "arrow.up.forward.app")
                 }
                 .buttonStyle(.bordered)
             } else {
-                Label(.localized("TrollStore not available on this device"), systemImage: "exclamationmark.triangle.fill")
+                Label(.localized("TrollStore install not detected here"), systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.subheadline)
 
-                Text(.localized("TrollStore requires iOS 14.0–16.6.1 and a separate installation. VexSign can detect it but cannot install it."))
+                Text(.localized("VexSign can only recognise a TrollStore install of itself, by the marker TrollStore leaves beside the app. On this copy it cannot see one, which does not prove TrollStore is absent. VexSign never installs TrollStore."))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -634,14 +635,28 @@ private struct TrollStoreInstallView: View {
                         if isInstalling {
                             HStack {
                                 ProgressView().scaleEffect(0.8)
-                                Text(.localized("Installing…"))
+                                Text(.localized("Opening TrollStore…"))
                             }
                         } else {
-                            Label(String.localized("Install %@", arguments: download.fileName), systemImage: "t.square.fill")
+                            Label(String.localized("Open %@ in TrollStore", arguments: download.fileName), systemImage: "t.square.fill")
                         }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isInstalling)
+
+                    Button {
+                        share(download)
+                    } label: {
+                        Label(.localized("Share Signed IPA Instead"), systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.bordered)
+
+                    // The hand-off is a request to another app. Nothing here can
+                    // observe whether TrollStore finished installing it.
+                    Text(.localized("TrollStore performs the install itself. VexSign cannot confirm the result — check TrollStore, then launch the app."))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
 
                 if let error = installError {
@@ -677,31 +692,34 @@ private struct TrollStoreInstallView: View {
             return
         }
 
-        // Use TrollStore's URL scheme
-        guard var components = URLComponents(url: URL(string: "trollstore://install")!, resolvingAgainstBaseURL: false) else {
-            installError = .localized("Invalid TrollStore URL")
-            return
-        }
-        components.queryItems = [URLQueryItem(name: "url", value: ipaURL.absoluteString)]
-        guard let installURL = components.url else {
-            installError = .localized("Failed to create install URL")
-            return
-        }
-
-        let success = await UIApplication.shared.open(installURL)
-        if !success {
-            installError = .localized("TrollStore installation failed or was cancelled")
-        } else {
+        // TrollStore answers on Apple's Magnifier scheme; `trollstore://` is not
+        // registered by any TrollStore release. The URL builder keeps the IPA's
+        // own query intact, and the outcome stays a hand-off: iOS opening the URL
+        // is not evidence that TrollStore installed anything.
+        switch await TrollStoreHandoff.handOff(ipaURL: ipaURL) {
+        case .openedUnverified:
             dismiss()
+        case .openFailed:
+            installError = .localized("iOS refused to open the TrollStore hand-off URL, so nothing was installed.")
         }
+    }
+
+    /// Share sheet, so the signed IPA can be handed to TrollStore even when the
+    /// scheme is off or this copy of the app cannot locate TrollStore.
+    private func share(_ download: Download) {
+        guard let ipaURL = download.retainedPackageURL ?? download.pendingFileURL,
+              FileManager.default.fileExists(atPath: ipaURL.path) else {
+            installError = .localized("Signed IPA file not found")
+            return
+        }
+        UIActivityViewController.show(activityItems: [ipaURL])
     }
 }
 
 private struct TrollStoreRefreshView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var isRefreshing = false
-    @State private var refreshResult: String?
-    @State private var errorMessage: String?
+    @State private var isOpening = false
+    @State private var openFailed = false
 
     var body: some View {
         NavigationStack {
@@ -710,39 +728,37 @@ private struct TrollStoreRefreshView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(Color.accentColor)
 
-                Text(.localized("Refresh All Apps via TrollStore"))
+                Text(.localized("Refresh All Apps in TrollStore"))
                     .font(.title2.weight(.semibold))
 
-                Text(.localized("This will trigger TrollStore to refresh all installed apps, extending their validity. Requires TrollStore to be installed and accessible."))
+                // TrollStore has no URL command for a refresh: `TSSceneDelegate`
+                // only handles install and enable-jit. Claiming to have triggered
+                // one would be inventing work that never happened.
+                Text(.localized("VexSign cannot start a refresh for you — TrollStore does not accept a URL command for it. Open TrollStore, then use Refresh All App Registrations there. Only apps TrollStore installed are affected."))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
                 Button {
-                    Task { await refreshAll() }
+                    Task { await openTrollStore() }
                 } label: {
-                    if isRefreshing {
+                    if isOpening {
                         HStack {
                             ProgressView().scaleEffect(0.8)
-                            Text(.localized("Refreshing…"))
+                            Text(.localized("Opening…"))
                         }
                     } else {
-                        Label(.localized("Refresh All"), systemImage: "arrow.triangle.2.circlepath")
+                        Label(.localized("Open TrollStore"), systemImage: "arrow.up.forward.app")
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isRefreshing)
+                .disabled(isOpening)
 
-                if let result = refreshResult {
-                    Text(result)
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-
-                if let error = errorMessage {
-                    Text(error)
+                if openFailed {
+                    Text(.localized("iOS did not open the URL. TrollStore may not be installed, or its URL Scheme setting is off."))
                         .font(.caption)
                         .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
                 }
             }
             .padding()
@@ -756,22 +772,18 @@ private struct TrollStoreRefreshView: View {
         .presentationDetents([.medium])
     }
 
-    private func refreshAll() async {
-        isRefreshing = true
-        refreshResult = nil
-        errorMessage = nil
-        defer { isRefreshing = false }
+    private func openTrollStore() async {
+        isOpening = true
+        openFailed = false
+        defer { isOpening = false }
 
-        guard let url = URL(string: "trollstore://refresh") else {
-            errorMessage = .localized("Invalid TrollStore URL")
+        guard let url = URL(string: "\(TrollStoreHandoff.scheme)://") else {
+            openFailed = true
             return
         }
-
-        let success = await UIApplication.shared.open(url)
-        if success {
-            refreshResult = .localized("Refresh triggered successfully. Check TrollStore for progress.")
-        } else {
-            errorMessage = .localized("Failed to trigger refresh. Is TrollStore installed?")
+        let outcome = await TrollStoreHandoff.open(url)
+        if outcome == .openFailed {
+            openFailed = true
         }
     }
 }

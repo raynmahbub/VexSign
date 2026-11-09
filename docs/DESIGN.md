@@ -95,7 +95,7 @@ The Home refresh introduces reusable pieces in
 | `VexToolRow` | Workspace tool row with icon and optional chevron. |
 
 Use these before adding another card style. They are deliberately plain SwiftUI
-and work on iOS 16 and later.
+and work on iOS 17 and later.
 
 ## Home hierarchy
 

@@ -52,11 +52,11 @@ struct CleanupView: View {
 			_historySection
 		}
 		.task { await _refreshReclaimable() }
-		.onChange(of: _isEnabled) { _ in Task { await _refreshReclaimable() } }
-		.onChange(of: _clearCache) { _ in Task { await _refreshReclaimable() } }
-		.onChange(of: _clearTemporary) { _ in Task { await _refreshReclaimable() } }
-		.onChange(of: _removeLeftovers) { _ in Task { await _refreshReclaimable() } }
-		.onChange(of: _clearArchives) { _ in Task { await _refreshReclaimable() } }
+		.onChange(of: _isEnabled) { _, _ in Task { await _refreshReclaimable() } }
+		.onChange(of: _clearCache) { _, _ in Task { await _refreshReclaimable() } }
+		.onChange(of: _clearTemporary) { _, _ in Task { await _refreshReclaimable() } }
+		.onChange(of: _removeLeftovers) { _, _ in Task { await _refreshReclaimable() } }
+		.onChange(of: _clearArchives) { _, _ in Task { await _refreshReclaimable() } }
 	}
 }
 

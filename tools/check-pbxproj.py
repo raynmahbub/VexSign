@@ -8,6 +8,7 @@ There is no Xcode here, so this checks what can be checked without it:
   3. the membership-exception files really exist
   4. the iOS app embeds the watch app, and the watch app embeds its widget
   5. every target's SDKROOT / deployment target look sane for its platform
+  6. no embedded iOS extension asks for a newer iOS than the app that embeds it
 """
 
 from __future__ import annotations
@@ -61,6 +62,7 @@ for match in re.finditer(r"^\t\t([0-9A-F]{24}) /\* (\w+) \*/ = \{\n\t\t\tisa = P
     targets[match.group(2)] = match.group(1)
 
 expected = {
+    "VexSignWidgetExtensionExtension": ("iphoneos", "IPHONEOS_DEPLOYMENT_TARGET", "com.vexsign.app.widget"),
     "VexSignTV": ("appletvos", "TVOS_DEPLOYMENT_TARGET", "com.vexsign.app.tv"),
     "VexSignVision": ("xros", "XROS_DEPLOYMENT_TARGET", "com.vexsign.app.vision"),
     "VexSignWatch": ("watchos", "WATCHOS_DEPLOYMENT_TARGET", "com.vexsign.app.watch"),
@@ -147,6 +149,35 @@ embeds(body(targets["VexSignWatch"]), "Embed Foundation Extensions", widgets_pro
 dependency_targets = [body(dep) for dep in ids_in(re.search(r"dependencies = \((.*?)\n\t\t\t\);", vexsign_body, re.DOTALL).group(1))]
 if not any(targets["VexSignWatch"] in chunk for chunk in dependency_targets):
     problems.append("VexSign has no target dependency on VexSignWatch")
+
+# 6. extension minimum iOS must not exceed the host app's
+#
+# An appex whose MinimumOSVersion is higher than the embedding app's is
+# invalid (ITMS-90362), and a signer that validates nested bundles can reject
+# the IPA before it is ever installed. The widget target sat at 26.0 while the
+# app was 16.0, which is exactly this mismatch.
+def deployment_target(target: str, key: str) -> set[str]:
+    values = set()
+    target_body = body(targets[target])
+    for config_id in ids_in(body(re.search(r"buildConfigurationList = ([0-9A-F]{24})", target_body).group(1))):
+        found = re.search(rf"{key} = ([0-9.]+);", body(config_id))
+        if found:
+            values.add(found.group(1))
+    return values
+
+
+def _version(value: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in value.split("."))
+
+
+host_targets = deployment_target("VexSign", "IPHONEOS_DEPLOYMENT_TARGET")
+extension_targets = deployment_target("VexSignWidgetExtensionExtension", "IPHONEOS_DEPLOYMENT_TARGET")
+if host_targets and extension_targets and _version(max(extension_targets)) > _version(min(host_targets)):
+    problems.append(
+        "VexSignWidgetExtensionExtension: IPHONEOS_DEPLOYMENT_TARGET "
+        f"{sorted(extension_targets)} is newer than VexSign's {sorted(host_targets)}; "
+        "an embedded extension cannot require a newer iOS than its host app"
+    )
 
 print(f"targets found: {', '.join(sorted(targets))}")
 print(f"object ids defined: {len(defined)}")

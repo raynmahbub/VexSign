@@ -107,41 +107,29 @@ struct SigningMethodAvailability: Equatable {
             let available = TrollStoreDetector.isAvailable
             return SigningMethodAvailability(
                 isAvailable: available,
-                availabilityReason: available ? nil : .localized("TrollStore not detected on this device")
+                availabilityReason: available ? nil : TrollStoreDetector.unavailabilityReason
             )
         }
     }
 }
 
 // MARK: - TrollStoreDetector
-/// Detects if TrollStore is installed and available for installation.
+/// Whether TrollStore can be used on this device, and what that answer is based on.
+///
+/// Every iOS device answers `canOpenURL("apple-magnifier://")` — it is Apple's
+/// Magnifier scheme — so a scheme probe can never report "TrollStore is here".
+/// The only positive evidence available to an app is TrollStore's own
+/// `_TrollStore` marker next to its bundle, which is how TrollStore recognises
+/// the apps it may replace in place. A normal (non-TrollStore) install cannot
+/// read that directory, so this answers `false` there: it can confirm, never
+/// prove absence of TrollStore.
 enum TrollStoreDetector {
     static var isAvailable: Bool {
-        // Check for TrollStore's URL scheme or helper app
-        // This is a simplified check; real implementation would use the
-        // TrollStoreHelper framework or check for specific files/URL schemes
-        if let url = URL(string: "trollstore://"), UIApplication.shared.canOpenURL(url) {
-            return true
-        }
-        // Also check for TrollStore's entitlement injection capability
-        // by looking for the helper at known paths
-        return false
+        TrollStoreHandoff.installedByTrollStore()
     }
 
-    static func install(ipaURL: URL, completion: @escaping (Bool, Error?) -> Void) {
-        // Use TrollStore's URL scheme to trigger installation
-        // trollstore://install?url=<encoded_ipa_url>
-        guard var components = URLComponents(url: URL(string: "trollstore://install")!, resolvingAgainstBaseURL: false) else {
-            completion(false, NSError(domain: "VexSign", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid TrollStore URL"]))
-            return
-        }
-        components.queryItems = [URLQueryItem(name: "url", value: ipaURL.absoluteString)]
-        guard let installURL = components.url else {
-            completion(false, NSError(domain: "VexSign", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create TrollStore install URL"]))
-            return
-        }
-        UIApplication.shared.open(installURL) { success in
-            completion(success, success ? nil : NSError(domain: "VexSign", code: -1, userInfo: [NSLocalizedDescriptionKey: "TrollStore installation failed or was cancelled"]))
-        }
+    /// Why the method is unavailable, without implying TrollStore is not installed.
+    static var unavailabilityReason: String {
+        .localized("TrollStore was not detected for this install. VexSign can only tell when this copy of the app itself was installed by TrollStore; on any other install it cannot see TrollStore. Install the signed IPA from TrollStore directly.")
     }
 }
