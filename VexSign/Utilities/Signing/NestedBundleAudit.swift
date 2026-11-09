@@ -86,7 +86,13 @@ enum NestedBundleAudit {
             }
         }
 
-        func requireCompatibleProfile() throws {
+        /// Stops the run when a retained extension is known not to be covered.
+        ///
+        /// `overridingBlockingIssues` is the user's explicit "Sign Anyway" from the preflight
+        /// sheet. The post-sign verifier already honours it; this audit used to ignore it, so
+        /// confirming the override still aborted the sign with no way through (#137).
+        func requireCompatibleProfile(overridingBlockingIssues: Bool = false) throws {
+            guard !overridingBlockingIssues else { return }
             guard isClean else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
         }
 
@@ -153,6 +159,24 @@ enum NestedBundleAudit {
 		return Set(bundles(in: appBundle).compactMap { bundle in
 			bundle.kind == .appExtension ? bundle.identifier : nil
 		})
+	}
+
+	// MARK: Identifier rewrite
+
+	/// The identifier a nested bundle will carry after the app's bundle id is changed.
+	///
+	/// Both `SigningHandler._modifyPluginIdentifiers` and the pinned engine
+	/// (`ZBundle::ModifyPluginsBundleId`, `Vendor/Zsign/src/bundle.cpp:390`) rewrite every
+	/// nested `.app`/`.appex` by replacing the old app identifier with the new one. Coverage
+	/// therefore has to be judged on the *result*: an extension that looks uncovered before
+	/// the rename is covered afterwards whenever the profile covers the new identifier.
+	/// Comparing the pre-rename value is what made a wildcard profile appear to reject
+	/// extensions it actually covers (#137).
+	static func rewrittenIdentifier(_ identifier: String, from oldBase: String?, to newBase: String?) -> String {
+		guard let oldBase, !oldBase.isEmpty, let newBase, !newBase.isEmpty, oldBase != newBase else {
+			return identifier
+		}
+		return identifier.replacingOccurrences(of: oldBase, with: newBase)
 	}
 
 	// MARK: Reporting

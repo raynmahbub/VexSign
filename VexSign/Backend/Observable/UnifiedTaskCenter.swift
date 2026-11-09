@@ -69,6 +69,12 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 	case failed
 	case cancelled
     case interrupted
+	/// VexSign finished, but iOS never exposed enough evidence to say whether the
+	/// app was installed. Not a success claim and not a failure: private
+	/// LaunchServices lookups are filtered on modern iOS, so an install that
+	/// worked can be unobservable. Reporting that as "Failed" told users to retry
+	/// an app that was already on their Home Screen.
+	case unconfirmed
 
 	/// Paused is a sub-state of downloading surfaced by the task center.
 	case paused
@@ -90,6 +96,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 		case .failed: .localized("Failed")
 		case .cancelled: .localized("Cancelled")
         case .interrupted: .localized("Interrupted")
+		case .unconfirmed: .localized("Not confirmed")
 		case .paused: .localized("Paused")
 		}
 	}
@@ -113,6 +120,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
 
 	var isTerminal: Bool {
 		self == .completed || self == .failed || self == .cancelled || self == .interrupted
+			|| self == .unconfirmed
 	}
 
 	var isInProgress: Bool { !isTerminal }
@@ -375,12 +383,14 @@ final class UnifiedTaskCenter: ObservableObject {
 	}
 
 	func registerRetry(_ task: UnifiedTask, handler: @escaping () -> Void) {
-		guard !task.phase.isTerminal || task.phase == .failed || task.phase == .cancelled else { return }
+		guard !task.phase.isTerminal || task.phase == .failed || task.phase == .cancelled
+			|| task.phase == .unconfirmed else { return }
 		retryHandlers[task.id] = handler
 	}
 
     func canRetry(_ task: UnifiedTask) -> Bool {
-        (task.phase == .failed || task.phase == .cancelled) && retryHandlers[task.id] != nil
+        (task.phase == .failed || task.phase == .cancelled || task.phase == .unconfirmed)
+			&& retryHandlers[task.id] != nil
     }
 
 	/// Retry a failed/cancelled task when its flow registered a handler.

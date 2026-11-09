@@ -39,7 +39,7 @@ final class TweakManager: ObservableObject {
 	// MARK: Persistence
 
 	private func _load() {
-		guard let data = try? Data(contentsOf: _manifestURL) else { return }
+		guard let data = try? Data(contentsOf: _manifestURL) else { return } // try? ok: optional manifest; a missing file is an empty library
 		self.tweaks = TweakManager.decodeLenientArray(ManagedTweak.self, from: data)
 	}
 
@@ -57,7 +57,7 @@ final class TweakManager: ObservableObject {
 	}
 
 	private func _loadFolders() {
-		guard let data = try? Data(contentsOf: _foldersURL) else { return }
+		guard let data = try? Data(contentsOf: _foldersURL) else { return } // try? ok: optional folders file; a missing file means no folders
 		self.folders = TweakManager.decodeLenientArray(TweakFolder.self, from: data)
 	}
 
@@ -75,7 +75,7 @@ final class TweakManager: ObservableObject {
 	}
 
 	private func _loadRepositories() {
-		guard let data = try? Data(contentsOf: _repositoriesURL) else { return }
+		guard let data = try? Data(contentsOf: _repositoriesURL) else { return } // try? ok: optional repositories file; a missing file means no repositories
 		repositories = TweakManager.decodeLenientArray(TweakRepository.self, from: data)
 	}
 
@@ -193,7 +193,7 @@ final class TweakManager: ObservableObject {
 		let feed = try await _downloadRepositoryFile(url, maximumBytes: 5 * 1_024 * 1_024)
 		defer { _removeRepositoryDownload(feed) }
 		let data = try Data(contentsOf: feed)
-		guard let object = try? JSONSerialization.jsonObject(with: data) else {
+		guard let object = try? JSONSerialization.jsonObject(with: data) else { // try? ok: decode failure is surfaced as RepositoryError.invalid below
 			throw RepositoryError.invalid("The tweak repository is not valid JSON.")
 		}
 
@@ -438,7 +438,7 @@ final class TweakManager: ObservableObject {
 		else { return }
 
 		let version = tweaks[tIndex].versions[vIndex]
-		try? _fm.removeFileIfNeeded(at: fileURL(forTweak: tweakId, version: version, component: component))
+		try? _fm.removeFileIfNeeded(at: fileURL(forTweak: tweakId, version: version, component: component)) // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 		tweaks[tIndex].versions[vIndex].components.removeAll { $0.id == componentId }
 
 		if tweaks[tIndex].versions[vIndex].components.isEmpty {
@@ -460,7 +460,7 @@ final class TweakManager: ObservableObject {
 
 	func deleteTweak(_ id: UUID) {
 		guard let index = tweaks.firstIndex(where: { $0.id == id }) else { return }
-		try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary(id.uuidString))
+		try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary(id.uuidString)) // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 		tweaks.remove(at: index)
 		_save()
 	}
@@ -470,7 +470,7 @@ final class TweakManager: ObservableObject {
 	func deleteTweaks(_ ids: Set<UUID>) {
 		guard !ids.isEmpty else { return }
 		for id in ids {
-			try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary(id.uuidString))
+			try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary(id.uuidString)) // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 		}
 		tweaks.removeAll { ids.contains($0.id) }
 		_save()
@@ -480,15 +480,15 @@ final class TweakManager: ObservableObject {
 	@discardableResult
 	func mergeFromBackup(tweaksDir: URL) -> Int {
 		var added = 0
-		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("library.json")) {
+		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("library.json")) { // try? ok: best-effort legacy library migration
 			let incoming = TweakManager.decodeLenientArray(ManagedTweak.self, from: data)
 			let existing = Set(tweaks.map { $0.id })
 			for tweak in incoming where !existing.contains(tweak.id) {
 				let src = tweaksDir.appendingPathComponent(tweak.id.uuidString)
 				let dst = _fm.tweaksLibrary(tweak.id.uuidString)
 				if !_fm.fileExists(atPath: dst.path), _fm.fileExists(atPath: src.path) {
-					try? _fm.createDirectoryIfNeeded(at: _fm.tweaksLibrary)
-					try? _fm.copyItem(at: src, to: dst)
+					try? _fm.createDirectoryIfNeeded(at: _fm.tweaksLibrary) // try? ok: best-effort legacy library migration
+					try? _fm.copyItem(at: src, to: dst) // try? ok: best-effort legacy library migration
 				}
 				guard _fm.fileExists(atPath: dst.path) else { continue }
 				tweaks.append(tweak)
@@ -497,7 +497,7 @@ final class TweakManager: ObservableObject {
 			_save()
 		}
 
-		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("folders.json")) {
+		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("folders.json")) { // try? ok: best-effort legacy folders migration
 			let incoming = TweakManager.decodeLenientArray(TweakFolder.self, from: data)
 			let existing = Set(folders.map { $0.id })
 			for folder in incoming where !existing.contains(folder.id) {
@@ -514,13 +514,13 @@ final class TweakManager: ObservableObject {
 		tweaks = []
 		folders = []
 		repositories = []
-		try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary)
+		try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary) // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 	}
 
 	func deleteVersion(_ versionId: UUID, from tweakId: UUID) {
 		guard let index = tweaks.firstIndex(where: { $0.id == tweakId }) else { return }
 		if let version = tweaks[index].versions.first(where: { $0.id == versionId }) {
-			try? _fm.removeFileIfNeeded(
+			try? _fm.removeFileIfNeeded( // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 				at: _fm.tweaksLibrary(tweakId.uuidString).appendingPathComponent(version.id.uuidString)
 			)
 		}
@@ -640,7 +640,7 @@ final class TweakManager: ObservableObject {
 		}
 
 		if result.isEmpty, existing.isEmpty {
-			try? _fm.removeFileIfNeeded(at: destDir)
+			try? _fm.removeFileIfNeeded(at: destDir) // try? ok: best-effort removal of an empty import directory
 		}
 		return result
 	}
@@ -675,7 +675,7 @@ final class TweakManager: ObservableObject {
 
 			if sources.count == 1 {
 				let source = sources[0]
-				let isDir = (try? source.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+				let isDir = (try? source.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false // try? ok: best-effort directory probe; treat unreadable as a file
 				if !isDir {
 					let dest = exportDir.appendingPathComponent(source.lastPathComponent)
 					try _fm.copyItem(at: source, to: dest)
@@ -732,15 +732,15 @@ final class TweakManager: ObservableObject {
 private struct _FailableElement<T: Decodable>: Decodable {
 	let value: T?
 	init(from decoder: Decoder) throws {
-		value = try? T(from: decoder)
+		value = try? T(from: decoder) // try? ok: lenient per-element decode; failures are dropped by decodeLenientArray
 	}
 }
 
 extension TweakManager {
 	/// Drops only the entries that fail to decode instead of losing the whole file.
 	static func decodeLenientArray<T: Decodable>(_ type: T.Type, from data: Data) -> [T] {
-		if let all = try? JSONDecoder().decode([T].self, from: data) { return all }
-		guard let elements = try? JSONDecoder().decode([_FailableElement<T>].self, from: data) else { return [] }
+		if let all = try? JSONDecoder().decode([T].self, from: data) { return all } // try? ok: lenient array decode; falls back to per-element decoding
+		guard let elements = try? JSONDecoder().decode([_FailableElement<T>].self, from: data) else { return [] } // try? ok: lenient array decode; an unreadable file yields an empty array
 		return elements.compactMap { $0.value }
 	}
 }

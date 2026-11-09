@@ -377,25 +377,25 @@ PAGE_SCRIPT = """
 const $ = (id) => document.getElementById(id);
 
 function pill(text, kind) {
-  return '<span class="pill ' + kind + '">' + text + '</span>';
+  return '<span class="pill ' + kind + '">' + esc(text) + '</span>';
 }
 
 function renderIssues(issues) {
   if (!issues.length) return '<div class="issue note">No problems found.</div>';
   return issues.map((issue) =>
-    '<div class="issue ' + issue.severity + '">' +
-    (issue.app ? '<strong>' + issue.app + '</strong> — ' : '') + issue.message +
-    (issue.suggestion ? ' <span class="muted">' + issue.suggestion + '</span>' : '') +
+    '<div class="issue ' + esc(issue.severity) + '">' +
+    (issue.app ? '<strong>' + esc(issue.app) + '</strong> — ' : '') + esc(issue.message) +
+    (issue.suggestion ? ' <span class="muted">' + esc(issue.suggestion) + '</span>' : '') +
     '</div>').join('');
 }
 
 function renderApps(apps) {
   if (!apps.length) return '<p class="muted">No apps in this feed.</p>';
   const rows = apps.map((app) =>
-    '<tr><td>' + (app.name || '<em class="muted">unnamed</em>') + '</td>' +
-    '<td><code>' + (app.bundleIdentifier || '—') + '</code></td>' +
-    '<td>' + (app.version || '—') + '</td>' +
-    '<td>' + (app.developerName || '—') + '</td>' +
+    '<tr><td>' + (app.name ? esc(app.name) : '<em class="muted">unnamed</em>') + '</td>' +
+    '<td><code>' + esc(app.bundleIdentifier || '—') + '</code></td>' +
+    '<td>' + esc(app.version || '—') + '</td>' +
+    '<td>' + esc(app.developerName || '—') + '</td>' +
     '<td>' + (app.size ? (app.size / 1048576).toFixed(1) + ' MB' : '—') + '</td>' +
     '<td>' + (app.downloadURL ? pill('download', 'ok') : pill('missing', 'bad')) + '</td>' +
     '<td>' + (app.iconURL ? pill('icon', 'ok') : pill('none', 'idle')) + '</td></tr>').join('');
@@ -417,7 +417,7 @@ async function decode() {
 
     const kind = body.errorCount ? 'bad' : (body.warningCount ? 'warn' : 'ok');
     const aliases = Object.entries(body.aliasesUsed)
-      .map(([key, count]) => '<code>' + key + '</code> ×' + count).join(' ');
+      .map(([key, count]) => '<code>' + esc(key) + '</code> ×' + esc(count)).join(' ');
     const stats = body.stats;
 
     result.innerHTML =
@@ -447,7 +447,7 @@ async function decode() {
       }
     });
   } catch (error) {
-    result.innerHTML = '<div class="issue error">' + error.message + '</div>';
+    result.innerHTML = '<div class="issue error">' + esc(error.message) + '</div>';
   }
 }
 

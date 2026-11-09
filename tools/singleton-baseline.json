@@ -43,7 +43,6 @@
   "VexSign/RepositorySync/RepositorySyncEngine.swift": 1,
   "VexSign/Security/AppLockManager.swift": 1,
   "VexSign/Security/CredentialMigrationDiagnostics.swift": 1,
-  "VexSign/Security/SecureSecretStore.swift": 1,
   "VexSign/Utilities/AntiRevoke/AntiRevokeManager.swift": 1,
   "VexSign/Utilities/AppNavigationManager.swift": 1,
   "VexSign/Utilities/AppStoreTracker.swift": 1,

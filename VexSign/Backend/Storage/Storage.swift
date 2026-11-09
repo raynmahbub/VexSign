@@ -159,7 +159,7 @@ final class Storage: ObservableObject {
 	@MainActor
 	func object<T: NSManagedObject>(_ id: NSManagedObjectID) -> T? {
 		guard !id.isTemporaryID else { return nil }
-		return (try? context.existingObject(with: id)) as? T
+		return (try? context.existingObject(with: id)) as? T // try? ok: optional object lookup; nil when the row is gone
 	}
 	
 	func saveContext() {
@@ -189,13 +189,17 @@ final class Storage: ObservableObject {
 	func clearContext<T: NSManagedObject>(request: NSFetchRequest<T>) {
 		StorageConcurrency.requireMainQueue()
 		let deleteRequest = NSBatchDeleteRequest(fetchRequest: (request as? NSFetchRequest<NSFetchRequestResult>)!)
-		_ = try? context.execute(deleteRequest)
+		do {
+			_ = try context.execute(deleteRequest)
+		} catch {
+			Logger.misc.error("Batch delete failed: \(error.localizedDescription, privacy: .public)")
+		}
 	}
 	
 	func countContent<T: NSManagedObject>(for type: T.Type) -> String {
 		StorageConcurrency.requireMainQueue()
 		let request = T.fetchRequest()
-		return "\((try? context.count(for: request)) ?? 0)"
+		return "\((try? context.count(for: request)) ?? 0)" // try? ok: display count; an unreadable store shows zero
 	}
 
 	private static func _migrateLegacyStoreIfNeeded() {
@@ -220,7 +224,7 @@ final class Storage: ObservableObject {
 		
 		for (oldFile, newFile) in zip(legacyFiles, newFiles) {
 			if fm.fileExists(atPath: oldFile.path) {
-				try? fm.moveItem(at: oldFile, to: newFile)
+				try? fm.moveItem(at: oldFile, to: newFile) // try? ok: best-effort legacy store migration
 			}
 		}
 	}
@@ -274,20 +278,20 @@ final class Storage: ObservableObject {
 		viewContext.performAndWait {
 			let signedRequest: NSFetchRequest<Signed> = Signed.fetchRequest()
 			signedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
-			if let apps = try? viewContext.fetch(signedRequest) {
+			if let apps = try? viewContext.fetch(signedRequest) { // try? ok: best-effort sort-index backfill
 				for (index, app) in apps.enumerated() { app.sortIndex = Int32(index) }
 			}
 
 			let importedRequest: NSFetchRequest<Imported> = Imported.fetchRequest()
 			importedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
-			if let apps = try? viewContext.fetch(importedRequest) {
+			if let apps = try? viewContext.fetch(importedRequest) { // try? ok: best-effort sort-index backfill
 				for (index, app) in apps.enumerated() { app.sortIndex = Int32(index) }
 			}
 
 			// Not `saveContext()`: that guard logs a fault, and the fetch above
 			// already established the queue this work runs on.
 			if viewContext.hasChanges {
-				try? viewContext.save()
+				try? viewContext.save() // try? ok: best-effort sort-index persistence; see the comment above on avoiding saveContext's fault log
 			}
 		}
 		UserDefaults.standard.set(true, forKey: key)
@@ -306,12 +310,12 @@ final class Storage: ObservableObject {
 		]
 
 		for file in files {
-			try? fm.removeItem(at: file)
+			try? fm.removeItem(at: file) // try? ok: best-effort store destruction
 		}
 
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.signed)
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)
+		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.signed) // try? ok: best-effort store destruction
+		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned) // try? ok: best-effort store destruction
+		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates) // try? ok: best-effort store destruction
 		UserDefaults.standard.set(0, forKey: "vexsign.selectedCert")
 	}
 }

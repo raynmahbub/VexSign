@@ -139,7 +139,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 			// Copy first so a file provider can't yank the source mid-extraction. A large IPA
 			// takes a moment, so it happens off the main actor while the overlay is up.
 			let localCopy = contents.appendingPathComponent(url.lastPathComponent)
-			try? fileManager.removeItem(at: localCopy)
+			try? fileManager.removeItem(at: localCopy) // try? ok: best-effort workspace cleanup
 			try await Task.detached(priority: .userInitiated) {
 				try FileManager.default.copyItem(at: url, to: localCopy)
 			}.value
@@ -152,10 +152,10 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 			try fileManager.createDirectoryIfNeeded(at: destination)
 
 			try await unzip(localCopy, to: destination)
-			try? fileManager.removeItem(at: localCopy)
+			try? fileManager.removeItem(at: localCopy) // try? ok: best-effort workspace cleanup
 
 			guard let appURL = findApp(in: destination) else {
-				try? fileManager.removeItem(at: workspaceRoot)
+				try? fileManager.removeItem(at: workspaceRoot) // try? ok: best-effort workspace cleanup
 				throw IPAWorkspaceError.appNotFound
 			}
 
@@ -170,10 +170,10 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 			workspace._writeMetadata()
 			return workspace
 		} catch let error as IPAWorkspaceError {
-			try? fileManager.removeItem(at: workspaceRoot)
+			try? fileManager.removeItem(at: workspaceRoot) // try? ok: best-effort workspace cleanup
 			throw error
 		} catch {
-			try? fileManager.removeItem(at: workspaceRoot)
+			try? fileManager.removeItem(at: workspaceRoot) // try? ok: best-effort workspace cleanup
 			throw IPAWorkspaceError.extractionFailed(error.localizedDescription)
 		}
 	}
@@ -320,7 +320,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 				}
 			}.value
 
-			if !hasPayload { try? _fileManager.removeItem(at: packaged) }
+			if !hasPayload { try? _fileManager.removeItem(at: packaged) } // try? ok: best-effort removal of an incomplete export
 
 			builtArchive = target
 			changeCount = 0
@@ -330,7 +330,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 			return target
 		} catch {
-			if !hasPayload { try? _fileManager.removeItem(at: packaged) }
+			if !hasPayload { try? _fileManager.removeItem(at: packaged) } // try? ok: best-effort removal of an incomplete export
 			throw IPAWorkspaceError.rebuildFailed(error.localizedDescription)
 		}
 	}
@@ -408,7 +408,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 	/// Deletes the workspace's temporary files. Library apps are never touched.
 	func discard() {
 		guard !isLibraryApp else { return }
-		try? _fileManager.removeItem(at: Self.root.appendingPathComponent(id, isDirectory: true))
+		try? _fileManager.removeItem(at: Self.root.appendingPathComponent(id, isDirectory: true)) // try? ok: best-effort workspace cleanup
 	}
 
 	// MARK: Filesystem
@@ -428,7 +428,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 			"name": name
 		]
 		let url = Self.root.appendingPathComponent(id, isDirectory: true).appendingPathComponent(".workspace.json")
-		try? JSONSerialization.data(withJSONObject: metadata, options: .prettyPrinted).write(to: url)
+		try? JSONSerialization.data(withJSONObject: metadata, options: .prettyPrinted).write(to: url) // try? ok: best-effort workspace metadata; the workspace stays usable without it
 	}
 
 	// MARK: Static helpers
@@ -442,8 +442,8 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 	static func metadata(at directory: URL) -> (fileName: String, date: Date)? {
 		guard
-			let data = try? Data(contentsOf: directory.appendingPathComponent(".workspace.json")),
-			let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+			let data = try? Data(contentsOf: directory.appendingPathComponent(".workspace.json")), // try? ok: optional workspace metadata read
+			let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], // try? ok: optional workspace metadata read
 			let fileName = object["fileName"] as? String
 		else {
 			return nil
@@ -455,7 +455,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 	/// Every workspace still on disk, newest first.
 	static func recents() -> [IPAWorkspaceRecord] {
 		let fileManager = FileManager.default
-		let urls = (try? fileManager.contentsOfDirectory(
+		let urls = (try? fileManager.contentsOfDirectory( // try? ok: best-effort workspace listing
 			at: root,
 			includingPropertiesForKeys: [.contentModificationDateKey],
 			options: [.skipsHiddenFiles]
@@ -463,7 +463,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 		return urls.compactMap { url -> IPAWorkspaceRecord? in
 			guard let metadata = metadata(at: url) else { return nil }
-			let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? metadata.date
+			let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? metadata.date // try? ok: best-effort modification date; fall back to metadata
 			return IPAWorkspaceRecord(
 				id: url.lastPathComponent,
 				name: metadata.fileName,
@@ -476,15 +476,15 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 	/// Removes every workspace (used by Reset and the home screen's "Clear" action).
 	static func discardAll() {
-		try? FileManager.default.removeItem(at: root)
+		try? FileManager.default.removeItem(at: root) // try? ok: best-effort workspace cleanup
 	}
 
 	private static func findApp(in directory: URL) -> URL? {
 		let fileManager = FileManager.default
 
 		func firstApp(_ url: URL) -> URL? {
-			let contents = (try? fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? []
-			return contents.first { $0.pathExtension.lowercased() == "app" && (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+			let contents = (try? fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? [] // try? ok: best-effort app-bundle discovery
+			return contents.first { $0.pathExtension.lowercased() == "app" && (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true } // try? ok: best-effort app-bundle discovery
 		}
 
 		let payload = directory.appendingPathComponent("Payload", isDirectory: true)
@@ -497,7 +497,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 		}
 
 		for case let url as URL in enumerator where url.pathExtension.lowercased() == "app" {
-			if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+			if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { // try? ok: best-effort directory probe
 				return url
 			}
 		}

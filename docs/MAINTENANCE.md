@@ -60,10 +60,25 @@ branches are **not** auto-merged. Failed checks are not repeatedly retried. Requ
 reviews/queues/environment protections are never bypassed.
 
 **Repository maintenance → hygiene** runs weekly, adds missing English
-localisation keys, runs `make verify`, and opens/refreshes a PR only when the
-catalogue changes. **audit** is a separate read-only-source job that reports root
-Xcode package updates in an issue. Hourly runs do not repeat these weekly jobs.
+localisation keys, prunes dead ones, reports per-language translation coverage in
+the run summary, runs `make verify`, and opens/refreshes a PR only when the
+catalogue changes. Pruning is conservative: a key is removed only when Xcode
+marked it `stale` **and** it no longer appears as a literal anywhere in the app, so
+a stale-but-still-used `Text("…")` string keeps its translations. **audit** is a
+separate read-only-source job that reports root Xcode package updates in an issue.
+Hourly runs do not repeat these weekly jobs.
 Manual tasks: `all`, `bot-prs`, `hygiene`, `audit`.
+
+Local catalogue commands (no network):
+
+```bash
+python3 tools/sync-strings.py --report          # per-language coverage
+python3 tools/sync-strings.py --prune-stale     # remove stale-and-absent keys
+```
+
+Coverage is currently around 27% for each of the twelve non-English languages.
+Treat the report as the translation backlog: prefer completing a few languages
+over advertising many that fall back to English for most strings.
 
 ## Dependencies
 

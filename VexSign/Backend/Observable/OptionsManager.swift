@@ -15,7 +15,6 @@ class OptionsManager: ObservableObject {
 	
 	@Published var options: Options
 	private let _key = "signing_options"
-	private let _extensionCompatibilityMigrationKey = "signing_options.auto_remove_unsupported_extensions_migrated"
 	
 	init() {
 		var loadedOptions: Options
@@ -27,18 +26,13 @@ class OptionsManager: ObservableObject {
 			loadedOptions = Options.defaultOptions
 		}
 
-		// Compatibility mode used to default off, so a saved Options blob can contain an
-		// implicit false even for users who never changed the toggle. Enable the safer
-		// keep-compatible/remove-known-uncovered behaviour once on upgrade; users can still
-		// switch it off afterwards, and that explicit choice is preserved on later launches.
-		let didMigrateCompatibility = !UserDefaults.standard.bool(forKey: _extensionCompatibilityMigrationKey)
-		if didMigrateCompatibility {
-			loadedOptions.autoRemoveUnsupportedExtensions = true
-			UserDefaults.standard.set(true, forKey: _extensionCompatibilityMigrationKey)
-		}
-
+		// Compatibility mode *removes* extensions, so it must never be switched on over a
+		// saved choice. Older blobs that predate the key already decode to the default
+		// (`Options.init(from:)`), which is all the migration this needs: forcing the flag
+		// true here also overwrote an explicit "off" and silently deleted extensions the
+		// user had asked to keep (#137).
 		self.options = loadedOptions
-		if didMigrateCompatibility || UserDefaults.standard.data(forKey: _key) == nil {
+		if UserDefaults.standard.data(forKey: _key) == nil {
 			self.saveOptions()
 		}
 	}

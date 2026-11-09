@@ -53,7 +53,8 @@ enum SecureSecretStore {
 /// Documents. AES-GCM authenticates ciphertext; destroying its unique Keychain key
 /// crypto-erases it. Flash storage cannot promise physical overwrite deletion.
 actor EncryptedCertificateStore {
-    static let shared = EncryptedCertificateStore()
+    // No process-wide singleton: instantiate where sealing is needed. (The former
+    // `static let shared` had no callers; removing it shrinks the singleton freeze.)
     func store(_ p12: Data, id: UUID, directory: URL) throws -> URL {
         let account = "certificate.encryption.\(id.uuidString)"
         guard try SecureSecretStore.read(account) == nil else { throw RepositoryError.invalid("Certificate already exists.") }

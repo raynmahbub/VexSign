@@ -381,7 +381,7 @@ function badge(status) {
 
 function rows(pairs) {
   return pairs.filter(p => p[1] !== null && p[1] !== undefined && p[1] !== '')
-    .map(p => `<tr><th>${p[0]}</th><td>${String(p[1])}</td></tr>`).join('');
+    .map(p => `<tr><th>${esc(p[0])}</th><td>${esc(p[1])}</td></tr>`).join('');
 }
 
 // --- minimal XML plist reader -------------------------------------------------
@@ -489,7 +489,7 @@ async function analyse(file) {
   $('badge').innerHTML = badge(report.status);
   $('facts').innerHTML = rows(report.facts);
   $('entitlements').innerHTML = report.entitlementKeys.length
-    ? `<p class="muted" style="margin:0.8rem 0 0.3rem">Entitlement keys</p><pre>${report.entitlementKeys.join('\\n')}</pre>`
+    ? `<p class="muted" style="margin:0.8rem 0 0.3rem">Entitlement keys</p><pre>${esc(report.entitlementKeys.join('\\n'))}</pre>`
     : '';
 }
 
@@ -528,9 +528,9 @@ $('server-check').addEventListener('click', async () => {
       `<p style="margin:0.8rem 0 0.3rem"><strong>Server parse</strong> ${badge(data.status)}</p>` +
       `<table>${rows(pairs)}</table>` +
       `<p class="muted" style="margin:0.6rem 0 0.2rem">Revocation lookup</p>` +
-      `<p class="issue ${data.revocation.listed ? 'error' : 'note'}">${data.revocation.note}${data.revocation.label ? ' — ' + data.revocation.label : ''}</p>`;
+      `<p class="issue ${data.revocation.listed ? 'error' : 'note'}">${esc(data.revocation.note)}${data.revocation.label ? ' — ' + esc(data.revocation.label) : ''}</p>`;
   } catch (error) {
-    $('server-result').innerHTML = `<p class="issue error">${error.message}</p>`;
+    $('server-result').innerHTML = `<p class="issue error">${esc(error.message)}</p>`;
   }
 });
 </script>

@@ -120,11 +120,26 @@ TOOLS = [
 ]
 
 
+# Shared helper for every tool page. Several tools render values that originate
+# outside this server — a decoded repository feed, a device's reported name, a
+# certificate name from the phone, a chosen file name — into `innerHTML`. Those
+# values must be escaped first, or a malicious feed/device turns the tool page
+# into script running in this origin (which can then reach the relay endpoints).
+SHARED_JS = r"""
+// Escape untrusted text before it reaches innerHTML.
+const esc = (value) => String(value === null || value === undefined ? '' : value)
+  .replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+"""
+
+
 def page(title: str, body: str, request: Request, subtitle: str = "", scripts: str = "") -> HTMLResponse:
     """Wrap a page body in the shared chrome.
 
     `subtitle` and `body` are supplied by this module (never by request data);
-    anything interpolated from the request is escaped by the caller.
+    anything interpolated from the request is escaped by the caller. Page
+    scripts get `esc()` for escaping untrusted values on the client side.
     """
     nav = " ".join(
         f'<a href="{href}">{html.escape(name)}</a>' for href, name, _, _ in TOOLS
@@ -153,6 +168,7 @@ def page(title: str, body: str, request: Request, subtitle: str = "", scripts: s
   VexSign is open source: <a href="https://github.com/raynmahbub/VexSign">github.com/raynmahbub/VexSign</a>.
   These tools run on your own deployment and keep no logs of what you upload.
 </footer>
+<script>{SHARED_JS}</script>
 {scripts}
 </body>
 </html>

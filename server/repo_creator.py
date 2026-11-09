@@ -482,7 +482,7 @@ function appCard(app, index) {
   return `
   <details class="card" style="margin:0.6rem 0 0" ${index === apps.length - 1 ? 'open' : ''}>
     <summary style="cursor:pointer;font-weight:600">
-      ${app.name || 'Untitled app'} <span class="muted">${app.bundleIdentifier || 'no bundle id'}</span>
+      ${esc(app.name || 'Untitled app')} <span class="muted">${esc(app.bundleIdentifier || 'no bundle id')}</span>
     </summary>
     <div class="grid two" style="margin-top:0.6rem">
       <div><label>Name</label><input data-f="name" value="${escapeAttr(app.name)}"></div>
@@ -493,7 +493,7 @@ function appCard(app, index) {
       <div><label>Subtitle</label><input data-f="subtitle" value="${escapeAttr(app.subtitle)}"></div>
       <div><label>Download URL (.ipa)</label><input data-f="downloadURL" value="${escapeAttr(app.downloadURL)}"></div>
       <div><label>Icon URL</label><input data-f="iconURL" value="${escapeAttr(app.iconURL)}"></div>
-      <div><label>Size (bytes)</label><input data-f="size" type="number" min="0" value="${app.size || 0}"></div>
+      <div><label>Size (bytes)</label><input data-f="size" type="number" min="0" value="${escapeAttr(app.size || 0)}"></div>
       <div><label>Category</label><select data-f="category">${options}</select></div>
       <div><label>Tint colour</label><input data-f="tintColor" value="${escapeAttr(app.tintColor)}"></div>
       <div><label>Screenshot URLs (one per line)</label><textarea data-f="screenshotURLs">${escapeAttr((app.screenshotURLs || []).join('\\n'))}</textarea></div>
@@ -507,7 +507,9 @@ function appCard(app, index) {
 }
 
 function escapeAttr(value) {
-  return String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  // One escaping rule for the whole tool surface: the shared helper also covers
+  // '>' and apostrophes, and is what every other tool page uses.
+  return esc(value);
 }
 
 function render() {
@@ -594,7 +596,7 @@ $('add-app').addEventListener('click', () => {
 
 $('validate').addEventListener('click', async () => {
   try { renderIssues(await postJSON('/api/tools/repo/validate', { draft: draft() })); }
-  catch (error) { $('issues').innerHTML = `<p class="issue error">${error.message}</p>`; }
+  catch (error) { $('issues').innerHTML = `<p class="issue error">${esc(error.message)}</p>`; }
 });
 
 $('export').addEventListener('click', async () => {
@@ -604,7 +606,7 @@ $('export').addEventListener('click', async () => {
     $('output').textContent = result.json;
     download(result.filename, result.json);
     renderIssues(await postJSON('/api/tools/repo/validate', { draft: draft() }));
-  } catch (error) { $('issues').innerHTML = `<p class="issue error">${error.message}</p>`; }
+  } catch (error) { $('issues').innerHTML = `<p class="issue error">${esc(error.message)}</p>`; }
 });
 
 $('ota').addEventListener('click', () => { $('ota-card').hidden = !$('ota-card').hidden; });

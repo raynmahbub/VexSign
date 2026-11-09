@@ -50,7 +50,7 @@ bootstrap:
 $(SCHEMES):
 	xcodebuild \
 	    $(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",) \
-	    -project VexSign.xcodeproj \
+	    -workspace VexSign.xcworkspace \
 	    -scheme "$@" \
 	    -configuration Release \
 	    -arch arm64 \
@@ -118,8 +118,11 @@ verify: docs-check
 	@python3 .github/scripts/quick_check.py --no-swiftc
 	@echo "== Xcode project structure =="
 	@python3 tools/check-pbxproj.py
+	@echo "== package graph (workspace/project pins) =="
+	@python3 tools/check-package-graph.py
 	@echo "== localisation catalogue =="
 	@python3 tools/sync-strings.py --check
+	@python3 tools/test_sync_strings.py
 	@echo "== error discipline =="
 	@python3 tools/error-discipline.py
 	@echo "== singleton freeze =="
@@ -134,6 +137,8 @@ verify: docs-check
 	@python3 tools/test_workflow_policy.py
 	@python3 tools/test_workflow_trace_policy.py
 	@python3 tools/test_build_provenance.py
+	@python3 tools/test_package_graph.py
+	@python3 tools/test_coverage_report.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="

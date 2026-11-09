@@ -15,7 +15,7 @@ import AltSourceKit
 
 struct AppStoreView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var viewModel = SourcesViewModel.shared
+    @ObservedObject var viewModel = SourcesViewModel.shared
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
     @ObservedObject private var premiumFilter = PremiumFilterPreferences.shared
     @ObservedObject private var privacyManager = AppLockManager.shared
@@ -26,9 +26,9 @@ struct AppStoreView: View {
     @FetchRequest(entity: Imported.entity(), sortDescriptors: [])
     private var importedApps: FetchedResults<Imported>
 
-    @State private var searchText = ""
-    @State private var selectedSegment: StoreSegment = .discover
-    @State private var isAddingPresenting = false
+    @State var searchText = ""
+    @State var selectedSegment: StoreSegment = .discover
+    @State var isAddingPresenting = false
     @State private var appSortOption: AppSortOption = .name
     @State private var selectedCategory: String = "All"
     @State private var catalogItems: [SourcedAppItem] = []
@@ -40,7 +40,7 @@ struct AppStoreView: View {
 
     private let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
 
-    private let communityRepos: [CommunityRepoItem] = [
+    let communityRepos: [CommunityRepoItem] = [
         .init(name: "SideStore Community", subtitle: "Official SideStore community apps", url: URL(string: "https://community-apps.sidestore.io/sidecommunity.json")!, iconName: "globe.desk.fill"),
         .init(name: "Ksign Repo", subtitle: "Esign-style curated tools & signers", url: URL(string: "https://raw.githubusercontent.com/Nyasami/Ksign/refs/heads/main/repo.json")!, iconName: "app.badge.fill"),
         .init(name: "LiveContainer", subtitle: "Run multiple iOS apps side-by-side", url: URL(string: "https://raw.githubusercontent.com/LiveContainer/LiveContainer/refs/heads/main/apps.json")!, iconName: "square.stack.3d.up.fill"),
@@ -63,7 +63,7 @@ struct AppStoreView: View {
         entity: AltSource.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)],
         animation: .snappy
-    ) private var sources: FetchedResults<AltSource>
+    ) var sources: FetchedResults<AltSource>
 
     enum StoreSegment: String, CaseIterable, Identifiable {
         case discover = "Discover"
@@ -114,7 +114,7 @@ struct AppStoreView: View {
         let app: ASRepository.App
     }
 
-    private var nonExcludedSources: [AltSource] {
+    var nonExcludedSources: [AltSource] {
         let visible = sources.filter { !VexSignAPI.isSourceExcluded($0.identifier ?? $0.sourceURL?.absoluteString ?? "") }
         let ids = visible.map { $0.identifier ?? $0.sourceURL?.absoluteString ?? "" }
         let order = SourcePreferences.order(for: ids).enumerated().reduce(into: [String: Int]()) { result, item in
@@ -128,7 +128,7 @@ struct AppStoreView: View {
         }
     }
 
-    private var filteredSources: [AltSource] {
+    var filteredSources: [AltSource] {
         let base = nonExcludedSources
         let matched = searchText.isEmpty ? base : base.filter { ($0.name ?? "").localizedCaseInsensitiveContains(searchText) }
         let selected = RepositorySortOption(rawValue: _repositorySortRaw) ?? .priority
@@ -165,11 +165,11 @@ struct AppStoreView: View {
 
     // The catalog is flattened once after repository loading, off the main thread. App Store
     // sections read these cached arrays; no body evaluation walks every repository/app again.
-    private var allSourcedApps: [SourcedAppItem] { catalogItems }
+    var allSourcedApps: [SourcedAppItem] { catalogItems }
     private var sortedAndFilteredApps: [SourcedAppItem] { filteredCatalogItems }
 
     @MainActor
-    private func rebuildAppCatalog() async {
+    func rebuildAppCatalog() async {
         catalogBuildGeneration &+= 1
         let generation = catalogBuildGeneration
         let references: [CatalogSourceReference] = nonExcludedSources.compactMap { source in
@@ -280,7 +280,7 @@ struct AppStoreView: View {
         filteredCatalogItems = filtered
     }
 
-    private var updateCount: Int { updateChecker.updateCount }
+    var updateCount: Int { updateChecker.updateCount }
 
     private struct SourceHealthSummary {
         let healthy: Int
@@ -289,7 +289,7 @@ struct AppStoreView: View {
         let neverFetched: Int
     }
 
-    private var sourceHealth: SourceHealthSummary {
+    var sourceHealth: SourceHealthSummary {
         let staleAfter: TimeInterval = 24 * 60 * 60
         var healthy = 0
         var failed = 0
@@ -521,421 +521,6 @@ struct AppStoreView: View {
         }
     }
 
-    // MARK: - Apple App Store Date & Editorial Header
-    private var headerTodayDate: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(todayDateFormatted)
-                    .font(.caption.weight(.heavy))
-                    .tracking(0.8)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-
-                HStack(spacing: 8) {
-                    Text(.localized("App Store"))
-                        .font(.title2.weight(.bold))
-                    Text("•")
-                        .foregroundStyle(.tertiary)
-                    Text(.localized("On-device"))
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-
-            if !viewModel.isFinished {
-                ProgressView()
-                    .controlSize(.small)
-                    .padding(.trailing, 4)
-            }
-        }
-        .padding(.horizontal, 4)
-    }
-
-    private var todayDateFormatted: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, MMMM d"
-        return formatter.string(from: Date())
-    }
-
-    /// Banner shown while some repositories are being served from the offline
-    /// snapshot cache. Browsing keeps working; data may be outdated.
-    private var offlineBanner: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(.localized("Showing Saved Copies"))
-                    .font(.subheadline.weight(.semibold))
-                Text(.localized("Some repositories couldn't be refreshed. You're browsing the last saved copy."))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Button {
-                Task {
-                    await viewModel.fetchSources(sources, refresh: true)
-                    await rebuildAppCatalog()
-                }
-            } label: {
-                Text(.localized("Retry"))
-                    .font(.caption.weight(.semibold))
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        }
-        .padding(12)
-        .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.orange.opacity(0.25), lineWidth: 1))
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: - Apple Style Segmented Filter Pills
-    private var segmentPills: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(StoreSegment.allCases) { seg in
-                    let isSelected = selectedSegment == seg
-                    Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            selectedSegment = seg
-                            // A segment is a real destination, not a filter on
-                            // the current search result. Clear search so every
-                            // App Store tab remains reachable after searching.
-                            searchText = ""
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            if seg == .updates && updateCount > 0 {
-                                Text("\(updateCount)")
-                                    .font(.caption2.weight(.bold))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(isSelected ? .white.opacity(0.25) : Color.userTint, in: Capsule())
-                                    .foregroundStyle(.white)
-                            }
-                            Text(seg.rawValue)
-                                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(isSelected ? Color.userTint : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
-                        .foregroundStyle(isSelected ? .white : .primary)
-                        .overlay(Capsule().strokeBorder(Color.primary.opacity(isSelected ? 0 : 0.08), lineWidth: 1))
-                    }
-                    .buttonStyle(VexSignFlareButtonStyle())
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-
-    // MARK: - Discover Section (Apple Official Today View)
-    @ViewBuilder
-    private var discoverSection: some View {
-        VStack(spacing: 24) {
-            // Apple Today Hero Editorial Card
-            heroTodayCard
-
-            // Updates alert if available
-            if updateCount > 0 {
-                updatesNotificationCard
-            }
-
-            // Must-Have Utilities & Tweaks Shelf (Apple horizontal carousel)
-            mustHaveShelf
-
-            // Top Free Sideloaded Apps (Apple ranked 3-row charts)
-            topAppsRankedSection
-
-            // Merged Repositories Master Card
-            allRepositoriesBannerCard
-        }
-    }
-
-    // MARK: Hero Editorial Today Card
-    private var heroTodayCard: some View {
-        let featuredItem = allSourcedApps.first
-
-        return ZStack(alignment: .bottomLeading) {
-            // Vibrant Apple-style gradient with depth
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.36, blue: 0.95),
-                    Color(red: 0.20, green: 0.52, blue: 1.0),
-                    Color(red: 0.45, green: 0.20, blue: 0.95)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            VStack(alignment: .leading, spacing: 12) {
-                // Eyebrow badge
-                HStack(spacing: 6) {
-                    VexBrandLogo()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
-                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                    Text("FEATURED ON VEXSIGN")
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.0)
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-
-                // Main headline
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(featuredItem?.app.currentName ?? "Discover & Sideload")
-                        .font(.title2.weight(.heavy))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-
-                    Text(featuredItem?.app.currentDescription ?? "Sign & install any iOS app on-device without PC or revocations.")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.88))
-                        .lineLimit(2)
-                }
-
-                Spacer(minLength: 16)
-
-                // Bottom App Bar with GET button & repo logo badge
-                if let item = featuredItem {
-                    NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
-                        HStack(spacing: 12) {
-                            ZStack(alignment: .bottomTrailing) {
-                                AppStoreIconView(app: item.app, size: 48)
-                                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-
-                                // Repo logo badge
-                                RepoMiniBadge(source: item.source)
-                            }
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.app.currentName)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(1)
-                                Text(item.sourceName.isEmpty ? .localized("Repository") : item.sourceName)
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.8))
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            DownloadButtonView(app: item.app)
-                                .tint(.white)
-                        }
-                        .padding(12)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    HStack(spacing: 8) {
-                        Image(systemName: "globe.desk.fill")
-                        Text("\(nonExcludedSources.count) sources connected")
-                            .font(.caption.weight(.medium))
-                    }
-                    .foregroundStyle(.white.opacity(0.9))
-                }
-            }
-            .padding(18)
-        }
-        .frame(minHeight: 250)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color(red: 0.04, green: 0.36, blue: 0.95).opacity(0.28), radius: 18, y: 10)
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(0.18), lineWidth: 1))
-    }
-
-    // MARK: Must-Have Utilities & Tweaks Shelf
-    @ViewBuilder
-    private var mustHaveShelf: some View {
-        let items = Array(allSourcedApps.prefix(8))
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Must-Have Apps"))
-                            .font(.title3.weight(.bold))
-                        Text(.localized("Hand-picked community essentials"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button {
-                        withAnimation { selectedSegment = .apps }
-                    } label: {
-                        Text(.localized("See All"))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.userTint)
-                    }
-                }
-                .padding(.horizontal, 4)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(items) { item in
-                            NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ZStack(alignment: .bottomTrailing) {
-                                        AppStoreIconView(app: item.app, size: 76)
-                                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-                                            .shadow(color: Color.black.opacity(0.08), radius: 6, y: 3)
-
-                                        // Repo logo badge
-                                        RepoMiniBadge(source: item.source)
-                                            .offset(x: 4, y: 4)
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(item.app.currentName)
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(.primary)
-                                            .lineLimit(1)
-
-                                        Text(item.app.currentDescription ?? item.sourceName)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
-
-                                    DownloadButtonView(app: item.app)
-                                }
-                                .frame(width: 100)
-                                .padding(10)
-                                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 2)
-                }
-            }
-        }
-    }
-
-    // MARK: Top Apps Ranked List (Apple 3-Row Style)
-    @ViewBuilder
-    private var topAppsRankedSection: some View {
-        let topList = Array(allSourcedApps.prefix(9))
-        if !topList.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Top Free Apps"))
-                            .font(.title3.weight(.bold))
-                        Text(.localized("Popular across all repositories"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button {
-                        withAnimation { selectedSegment = .apps }
-                    } label: {
-                        Text(.localized("See All"))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.userTint)
-                    }
-                }
-                .padding(.horizontal, 4)
-
-                VStack(spacing: 0) {
-                    ForEach(Array(topList.enumerated()), id: \.element.id) { index, item in
-                        NavigationLink(destination: SourceAppsDetailView(source: item.repository, app: item.app)) {
-                            HStack(spacing: 12) {
-                                // Ranking number
-                                Text("\(index + 1)")
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 24, alignment: .center)
-
-                                ZStack(alignment: .bottomTrailing) {
-                                    AppStoreIconView(app: item.app, size: 52)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-
-                                    RepoMiniBadge(source: item.source)
-                                }
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(item.app.currentName)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-
-                                    Text(item.app.currentDescription ?? item.sourceName)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-
-                                    if let ver = item.app.currentVersion {
-                                        Text(ver)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    }
-                                }
-
-                                Spacer(minLength: 8)
-
-                                DownloadButtonView(app: item.app)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        if index < topList.count - 1 {
-                            Divider().padding(.leading, 84).opacity(0.5)
-                        }
-                    }
-                }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-        }
-    }
-
-    // MARK: All Repositories Master Card
-    private var allRepositoriesBannerCard: some View {
-        NavigationLink {
-            SourceAppsView(object: nonExcludedSources, viewModel: viewModel, onRefresh: {
-                await viewModel.fetchSources(sources, refresh: true)
-            })
-        } label: {
-            HStack(spacing: 14) {
-                Image("Repositories")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 46, height: 46)
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(.localized("All Repositories"))
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text(verbatim: String.localized("%lld sources • %lld apps available", arguments: nonExcludedSources.count, allSourcedApps.count))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(14)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: - Apps Catalog Section (Ksign App Store Catalog)
     private var appsCatalogSection: some View {
         VStack(spacing: 16) {
@@ -1040,313 +625,6 @@ struct AppStoreView: View {
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
             }
         }
-    }
-
-    private var sourceHealthCard: some View {
-        let health = sourceHealth
-        let attentionCount = health.failed + health.stale + health.neverFetched
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "waveform.path.ecg")
-                    .foregroundStyle(Color.userTint)
-                Text(.localized("Source Health"))
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Text(String.localized("%lld total", arguments: sources.count))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(spacing: 8) {
-                sourceHealthPill(String.localized("%lld healthy", arguments: health.healthy), color: .green)
-                sourceHealthPill(String.localized("%lld failed", arguments: health.failed), color: health.failed > 0 ? .red : .secondary)
-                sourceHealthPill(String.localized("%lld needs refresh", arguments: health.stale + health.neverFetched), color: attentionCount > 0 ? .orange : .secondary)
-            }
-
-            if attentionCount > 0 {
-                Button {
-                    Task { await viewModel.fetchSources(sources, refresh: true) }
-                } label: {
-                    Label(.localized("Refresh All Sources"), systemImage: "arrow.clockwise")
-                        .font(.caption.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.userTint)
-            }
-
-            if let latest = sources.compactMap({
-                SourcePreferences.lastFetch(for: $0.identifier ?? $0.sourceURL?.absoluteString ?? "")
-            }).max() {
-                Text(String.localized("Last refresh %@", arguments: latest.formatted(date: .abbreviated, time: .shortened)))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(14)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-    }
-
-    private func sourceHealthPill(_ title: String, color: Color) -> some View {
-        Text(title)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.13), in: Capsule())
-    }
-
-    // MARK: - Repositories Section (merged into App Store)
-    private var repositoriesSection: some View {
-        VStack(spacing: 16) {
-            // Repositories summary header
-            HStack {
-                Text(.localized("Sources & Repositories"))
-                    .font(.headline)
-                Spacer()
-                Menu {
-                    Picker(.localized("Sort Repositories"), selection: $_repositorySortRaw) {
-                        ForEach(RepositorySortOption.allCases, id: \.rawValue) { option in
-                            Text(option.label).tag(option.rawValue)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.userTint)
-                }
-                Button {
-                    isAddingPresenting = true
-                } label: {
-                    Label(.localized("Add Source"), systemImage: "plus")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(Color.userTint, in: Capsule())
-                        .foregroundStyle(.white)
-                }
-                .accessibilityLabel(Text(.localized("Add Source")))
-
-                NavigationLink {
-                    SourceHealthDashboardView()
-                } label: {
-                    Image(systemName: "heart.text.clipboard")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.userTint)
-                }
-                .accessibilityLabel(Text(.localized("Source Health")))
-            }
-            .padding(.horizontal, 4)
-
-            sourceHealthCard
-
-            // Master "All Repositories" Card
-            allRepositoriesBannerCard
-
-            // Repositories List
-            if filteredSources.isEmpty {
-                NBContentUnavailable(.localized("No Repositories"), systemImage: "bag.fill", description: .localized("Get started by adding community repositories.")) {
-                    Button { isAddingPresenting = true } label: { Label(.localized("Add Source"), systemImage: "plus") }
-                        .buttonStyle(.borderedProminent).tint(Color.userTint)
-                }
-                .padding(.vertical, 20)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(filteredSources.enumerated()), id: \.element.objectID) { index, source in
-                        NavigationLink {
-                            SourceAppsView(object: [source], viewModel: viewModel, onRefresh: {
-                                await viewModel.fetchSources(sources, refresh: true)
-                            })
-                        } label: {
-                            RepositoryRow(source: source, repository: viewModel.sources[source], isStale: viewModel.isStale(source))
-                        }
-                        .buttonStyle(.plain)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                Storage.shared.deleteSource(for: source)
-                            } label: {
-                                Label(.localized("Delete"), systemImage: "trash")
-                            }
-                        }
-
-                        if index < filteredSources.count - 1 {
-                            Divider().padding(.leading, 74).opacity(0.5)
-                        }
-                    }
-                }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-
-            // Community Directory (1-Tap Add)
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Community Directory"))
-                            .font(.headline)
-                        Text(.localized("Tap Add to add verified community repositories"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 4)
-
-                VStack(spacing: 0) {
-                    ForEach(Array(communityRepos.enumerated()), id: \.element.id) { index, item in
-                        let isAdded = nonExcludedSources.contains { $0.sourceURL?.absoluteString == item.url.absoluteString || ($0.identifier ?? "") == item.url.absoluteString }
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.userTint.opacity(0.12))
-                                    .frame(width: 40, height: 40)
-                                Image(systemName: item.iconName)
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(Color.userTint)
-                            }
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                Text(item.subtitle)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            Button {
-                                if !isAdded {
-                                    Storage.shared.addSource(item.url, name: item.name, identifier: item.url.absoluteString) { err in
-                                        if err == nil {
-                                            Toast.success(String.localized("Added %@", arguments: item.name), systemImage: "checkmark.circle.fill")
-                                            Task { await viewModel.fetchSources(sources, refresh: true) }
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Text(isAdded ? .localized("ADDED") : .localized("ADD"))
-                                    .font(.caption.weight(.bold))
-                                    .padding(.horizontal, 14).padding(.vertical, 6)
-                                    .background(isAdded ? Color.secondary.opacity(0.15) : Color.userTint, in: Capsule())
-                                    .foregroundStyle(isAdded ? Color.secondary : Color.white)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(isAdded)
-                        }
-                        .padding(.horizontal, 14).padding(.vertical, 10)
-
-                        if index < communityRepos.count - 1 {
-                            Divider().padding(.leading, 66).opacity(0.5)
-                        }
-                    }
-                }
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-        }
-    }
-
-    // MARK: - Updates Section
-    private var updatesSection: some View {
-        VStack(spacing: 16) {
-            updatesNotificationCard
-
-            NavigationLink(destination: UpdateMatchingSettingsView()) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.userTint.opacity(0.12))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.userTint)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Update Matching Rules"))
-                            .font(.subheadline.weight(.semibold))
-                        Text(.localized("Configure name matching, beta filters & developers"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(14)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-
-            if updateCount > 0 {
-                NavigationLink(destination: UpdatesView()) {
-                    HStack {
-                        Label(.localized("View All Pending Updates"), systemImage: "arrow.triangle.2.circlepath")
-                            .font(.headline)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                    }
-                    .padding(16)
-                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .foregroundStyle(Color.userTint)
-                }
-                .buttonStyle(.plain)
-            } else {
-                VStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Color.userTint)
-                    Text(.localized("All Apps Are Up to Date"))
-                        .font(.headline)
-                    Text(.localized("Your installed applications are on the latest versions from your sources."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 36)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
-        }
-    }
-
-    private var updatesNotificationCard: some View {
-        NavigationLink(destination: UpdatesView()) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(Color.userTint.opacity(0.14)).frame(width: 44, height: 44)
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color.userTint)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(.localized("Updates Available"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text(verbatim: updateCount == 1 ? String.localized("1 app has an update") : String.localized("%lld apps have updates", arguments: updateCount))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text(.localized("UPDATE ALL"))
-                    .font(.caption.weight(.heavy))
-                    .tracking(0.4)
-                    .padding(.horizontal, 14).padding(.vertical, 6)
-                    .background(Color.userTint, in: Capsule())
-                    .foregroundStyle(.white)
-            }
-            .padding(14)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Search Results View

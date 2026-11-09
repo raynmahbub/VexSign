@@ -258,7 +258,15 @@ struct ImportError: LocalizedError {
 			"Step: \(step.rawValue)"
 		]
 		if let underlying = underlying {
-			lines.append("Detail: \(underlying.domain) (\(underlying.code))")
+			// The domain and code alone are not diagnosable: every archive-safety
+			// rejection shares one domain, and the message is what names the offending
+			// entry ("unsupported symbolic link: Payload/…"). Keep both, so a report
+			// says what happened as well as where it came from.
+			let detail = underlying.localizedDescription
+			if !detail.isEmpty, detail != reason {
+				lines.append("Detail: \(detail)")
+			}
+			lines.append("Source: \(underlying.domain) (\(underlying.code))")
 		}
 		lines.append("Ref: \(id)")
 		return lines.joined(separator: "\n")

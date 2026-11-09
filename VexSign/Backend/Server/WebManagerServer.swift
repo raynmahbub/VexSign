@@ -128,7 +128,7 @@ enum WebManagerRouter {
 					if case .failure(let error) = result {
 						Logger.misc.error("Transfer import failed: \(error.localizedDescription)")
 					}
-					try? FileManager.default.removeItem(at: url)
+					try? FileManager.default.removeItem(at: url) // try? ok: cleanup after a reported import failure
 				}
 			case .tweaks:
 				if url.pathExtension.lowercased() == "zip" {
@@ -138,7 +138,7 @@ enum WebManagerRouter {
 						name: url.deletingPathExtension().lastPathComponent,
 						from: url
 					)
-					try? FileManager.default.removeItem(at: url)
+					try? FileManager.default.removeItem(at: url) // try? ok: cleanup after a reported import failure
 				}
 			case .inbox:
 				break
@@ -164,9 +164,9 @@ enum WebManagerRouter {
 							added += 1
 						}
 					}
-					try? FileManager.default.removeItem(at: result.workDir)
+					try? FileManager.default.removeItem(at: result.workDir) // try? ok: the work directory is scratch space; CleanupManager sweeps whatever survives
 					if added > 0 {
-						try? FileManager.default.removeItem(at: url)
+						try? FileManager.default.removeItem(at: url) // try? ok: cleanup after a reported import failure
 						Logger.misc.info("Imported \(added) tweak(s) from \(url.lastPathComponent)")
 					} else {
 						Logger.misc.info("No tweaks found in \(url.lastPathComponent); left in inbox")
@@ -267,7 +267,7 @@ final class WebManagerServer {
 				self._debounceQueue.async { self._pendingRoutes[path] = nil }
 
 				// Skip the 0-byte transient.
-				let size = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?.int64Value ?? 0
+				let size = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?.int64Value ?? 0 // try? ok: display-only file size in the file listing
 				guard size > 0 else { return }
 
 				if WebManagerRouter.destination(for: url) != .inbox {
@@ -373,8 +373,14 @@ final class WebManagerServer {
 		successStatus: HTTPResponseStatus
 	) -> EventLoopFuture<Response> {
 		let fm = FileManager.default
-		try? fm.createDirectoryIfNeeded(at: destination.deletingLastPathComponent())
-		try? fm.removeItem(at: destination)
+		do {
+			try fm.createDirectoryIfNeeded(at: destination.deletingLastPathComponent())
+		} catch {
+			// Not fatal by itself — the directory may already exist. `createFile`
+			// below decides, and this is the only record of why it then failed.
+			Logger.misc.error("Web upload: could not create the destination directory: \(error.localizedDescription)")
+		}
+		try? fm.removeItem(at: destination) // try? ok: the destination usually does not exist yet; createFile below is the arbiter and reports a real failure
 
 		guard fm.createFile(atPath: destination.path, contents: nil) else {
 			return request.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
@@ -395,17 +401,17 @@ final class WebManagerServer {
 				do {
 					try handle.write(contentsOf: Data(buffer.readableBytesView))
 				} catch {
-					try? handle.close()
+					try? handle.close() // try? ok: closing a handle whose write already failed; the write error is what the promise reports
 					promise.fail(error)
 				}
 				return request.eventLoop.makeSucceededFuture(())
 			case .error(let error):
-				try? handle.close()
-				try? fm.removeItem(at: destination)
+				try? handle.close() // try? ok: closing a handle after the body drain failed; the drain error is what the promise reports
+				try? fm.removeItem(at: destination) // try? ok: removing the partial upload; the drain error is what the promise reports
 				promise.fail(error)
 				return request.eventLoop.makeSucceededFuture(())
 			case .end:
-				try? handle.close()
+				try? handle.close() // try? ok: closing the handle at end of body; the bytes are already flushed and reported
 				if report { self._onReceive(destination.lastPathComponent) }
 				if route {
 					if keepOriginal {
