@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "status": "promoted to the app baseline (Vapor 4.122.3 / Crypto 4.3.1 / ASN1 1.6.0); retained as the source/API review for that graph",
+ "status": "promoted to the app baseline (Vapor 4.122.3 / Crypto 4.3.1 / ASN1 1.6.0); retained as the source/API review for that graph. Baseline re-recorded when swift-http-types moved 1.5.1 -> 1.6.0: the pinned swift-nio-extras enables its FoundationURL trait, which 1.5.1 does not declare, so the graph could not resolve. No candidate pin changed.",
  "vapor": {
   "version": "4.122.3",
   "revision": "48852309b11230e62a89b41a9c578c93f4d2d916",
@@ -40,5 +40,5 @@
    "version": "2.36.0"
   }
  },
- "app_baseline_sha256": "cb0b49ffb52c91df6e38fe52c26572140a1bdc3df8d5cf505aadb59c61cc68f7"
+ "app_baseline_sha256": "41550ab1856c225a6975b054cbe82153beaeb75c4921b47b1a21fa221cf10cbb"
 }
