@@ -9,6 +9,7 @@ import SwiftUI
 import NimbleViews
 import Zsign
 import UIKit
+import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - View
