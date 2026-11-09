@@ -118,22 +118,43 @@ final class RecoveryAndResourceTests: XCTestCase {
         try Data("second-key".utf8).write(to: legacy.appendingPathComponent("b.p12"))
         XCTAssertThrowsError(try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination,
             beforeMove: { source, _ in if source.lastPathComponent == "b.p12" { throw CocoaError(.fileWriteOutOfSpace) } }))
-        // TEMPORARY DIAGNOSTIC: nothing moved, so find the call that throws.
-        var throwReport = "no-throw"
-        do {
-            try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination)
-            throwReport = "UNEXPECTED-SUCCESS"
-        } catch { throwReport = "error=(\(error as NSError).domain)/\(error as NSError).code \(error)" }
+        // TEMPORARY DIAGNOSTIC: compact, one fact per failure so GitHub's
+        // 512-character annotation truncation cannot hide any of them.
+        func code(_ error: Error) -> String {
+            let ns = error as NSError
+            return "\(ns.domain == NSCocoaErrorDomain ? "Cocoa" : ns.domain)/\(ns.code)"
+        }
 
-        var protectReport = "ok"
+        var protectResult = "ok"
         do { try ProtectedCertificateFiles.protect(legacy.appendingPathComponent("a.p12")) }
-        catch { protectReport = "error=(\(error as NSError).domain)/\(error as NSError).code \(error)" }
+        catch { protectResult = code(error) }
 
-        let attrs = try? FileManager.default.attributesOfItem(atPath: legacy.appendingPathComponent("a.p12").path)
-        let protection = attrs?[.protectionKey] ?? "<none>"
-        let destinationContents = (try? FileManager.default.contentsOfDirectory(atPath: destination.path)) ?? ["<unreadable>"]
-        let legacyContents = (try? FileManager.default.contentsOfDirectory(atPath: legacy.path)) ?? ["<unreadable>"]
-        XCTFail("DIAG migrate=\(throwReport) | protect=\(protectReport) | protection=\(protection) | destination=\(destinationContents) legacy=\(legacyContents)")
+        var attrResult = "ok"
+        var protection = "<none>"
+        do {
+            let url = legacy.appendingPathComponent("a.p12")
+            try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                                  ofItemAtPath: url.path)
+            protection = (try? url.resourceValues(forKeys: [.protectionKey]))?.protectionKey?.rawValue ?? "<unset>"
+        } catch { attrResult = code(error) }
+
+        var valuesResult = "ok"
+        do {
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            var d = destination
+            try d.setResourceValues(values)
+        } catch { valuesResult = code(error) }
+
+        var directoryResult = "ok"
+        do { try FileManager.default.createDirectory(at: destination.appendingPathComponent("probe"),
+                                                    withIntermediateDirectories: true,
+                                                    attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
+                                                                 .posixPermissions: 0o700]) }
+        catch { directoryResult = code(error) }
+
+        XCTFail("P1 protect=\(protectResult) setAttr=\(attrResult) protection=\(protection) values=\(valuesResult) mkdir=\(directoryResult)")
+
         XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("b.p12")), Data("second-key".utf8))
         try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination)
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("b.p12")), Data("second-key".utf8))
