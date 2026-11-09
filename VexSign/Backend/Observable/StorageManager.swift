@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import Nuke
 import NimbleExtensions
 
@@ -137,7 +138,7 @@ final class StorageManager: ObservableObject {
 		}
 
 		for item in deletable where item.appUuid == nil {
-			try? FileManager.default.removeItem(at: item.url)
+			try? FileManager.default.removeItem(at: item.url) // try? ok: deleting an unclaimed file during an explicit user cleanup; the entry leaves the report either way
 		}
 
 		let removed = Set(deletable.map(\.id))
@@ -168,8 +169,18 @@ final class StorageManager: ObservableObject {
 			)
 		}
 
-		let certificates = (try? storage.context.fetch(CertificatePair.fetchRequest()))?
-			.compactMap(\.uuid) ?? []
+		let certificates: [String]
+		let certificatesKnown: Bool
+		do {
+			certificates = try storage.context.fetch(CertificatePair.fetchRequest()).compactMap(\.uuid)
+			certificatesKnown = true
+		} catch {
+			// Swallowing this used to hand cleanup an empty certificate list, which
+			// reads as "no certificates installed" and deletes all of them.
+			Logger.misc.error("Storage: could not read certificates; treating them as protected: \(error.localizedDescription)")
+			certificates = []
+			certificatesKnown = false
+		}
 
 		var protected: Set<String> = []
 		if let store = storage.container.persistentStoreDescriptions.first?.url?.standardizedFileURL {
@@ -179,7 +190,8 @@ final class StorageManager: ObservableObject {
 			}
 		}
 
-		return LibrarySnapshot(apps: apps, certificates: Set(certificates), protected: protected)
+		return LibrarySnapshot(apps: apps, certificates: Set(certificates), protected: protected,
+							   certificatesKnown: certificatesKnown)
 	}
 }
 
@@ -201,10 +213,16 @@ extension StorageManager {
 
 	nonisolated static func purgeStaleTemporary() {
 		let fm = FileManager.default
-		guard let items = try? fm.contentsOfDirectory(
-			at: fm.temporaryDirectory,
-			includingPropertiesForKeys: [.contentModificationDateKey]
-		) else {
+		let items: [URL]
+		do {
+			items = try fm.contentsOfDirectory(
+				at: fm.temporaryDirectory,
+				includingPropertiesForKeys: [.contentModificationDateKey]
+			)
+		} catch {
+			// Nothing is deleted when the listing fails, but say so: a silent return
+			// looked identical to "temporary directory already empty".
+			Logger.misc.error("Storage: could not list temporary files: \(error.localizedDescription)")
 			return
 		}
 
@@ -214,7 +232,7 @@ extension StorageManager {
 			if item.lastPathComponent == staging {
 				StorageScanner.purge(contentsOf: item, olderThan: 24 * 60 * 60)
 			} else {
-				try? fm.removeItem(at: item)
+				try? fm.removeItem(at: item) // try? ok: best-effort temporary cleanup; a file in use stays and is retried on the next pass
 			}
 		}
 	}
@@ -254,7 +272,7 @@ extension StorageManager {
 		case .temporary:
 			StorageScanner.purgeTemporary(preservingDownloads: preservingDownloads)
 		case .leftovers:
-			for url in StorageScanner.leftovers(library) { try? FileManager.default.removeItem(at: url) }
+			for url in StorageScanner.leftovers(library) { try? FileManager.default.removeItem(at: url) } // try? ok: explicit user cleanup; a file that refuses to delete is reported again by the next scan
 		case .archives:
 			StorageScanner.purge(contentsOf: FileManager.default.archives)
 		default:
@@ -284,9 +302,18 @@ struct LibrarySnapshot {
 	let apps: [String: AppDescriptor]
 	let certificates: Set<String>
 	let protected: Set<String>
+	/// False when the certificate fetch failed. An empty `certificates` then means
+	/// "unknown", not "none": treating it as none would make every installed
+	/// certificate look like an orphan and `clear(.leftovers)` would delete it.
+	var certificatesKnown: Bool = true
 
 	func owns(_ uuid: String, signed: Bool) -> Bool {
 		apps[uuid]?.isSigned == signed
+	}
+
+	/// Fail closed: with no certificate list, nothing is an orphan.
+	func ownsCertificate(_ uuid: String) -> Bool {
+		certificatesKnown ? certificates.contains(uuid) : true
 	}
 
 	func protects(_ url: URL) -> Bool {
@@ -309,7 +336,7 @@ private enum StorageScanner {
 	static func scan(_ library: LibrarySnapshot) -> StorageReport {
 		let signed = partition(fm.signed) { library.owns($0, signed: true) }
 		let imported = partition(fm.unsigned) { library.owns($0, signed: false) }
-		let certificates = partition(fm.certificates) { library.certificates.contains($0) }
+		let certificates = partition(fm.certificates) { library.ownsCertificate($0) }
 
 		let inbox = contents(of: fm.webManagerInbox)
 		let leftoverSize = signed.orphanSize + imported.orphanSize + certificates.orphanSize
@@ -358,7 +385,7 @@ private enum StorageScanner {
 		case .temporary:
 			purge(contentsOf: fm.temporaryDirectory)
 		case .leftovers:
-			for url in leftovers(library) { try? fm.removeItem(at: url) }
+			for url in leftovers(library) { try? fm.removeItem(at: url) } // try? ok: explicit user cleanup; a file that refuses to delete is reported again by the next scan
 		case .archives:
 			purge(contentsOf: fm.archives)
 		default:
@@ -390,7 +417,7 @@ private enum StorageScanner {
 		let staging = fm.downloadStaging.lastPathComponent
 		for url in contents(of: fm.temporaryDirectory) {
 			if preservingDownloads, url.lastPathComponent == staging { continue }
-			try? fm.removeItem(at: url)
+			try? fm.removeItem(at: url) // try? ok: best-effort temporary cleanup, honouring the preserve-downloads flag above
 		}
 	}
 
@@ -406,11 +433,11 @@ private enum StorageScanner {
 		for url in contents(of: directory) {
 			if
 				let age,
-				let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+				let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate, // try? ok: an entry with no readable modification date is treated as old, which is the existing behaviour
 				Date().timeIntervalSince(modified) < age {
 				continue
 			}
-			try? fm.removeItem(at: url)
+			try? fm.removeItem(at: url) // try? ok: best-effort purge; whatever survives is still measured and reported
 		}
 	}
 
@@ -464,7 +491,7 @@ private enum StorageScanner {
 	}
 
 	private static func entry(_ url: URL, _ library: LibrarySnapshot) -> StorageEntry {
-		let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey])
+		let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey]) // try? ok: display metadata for a storage row; a file that cannot be statted shows as a non-directory
 		let isDirectory = values?.isDirectory == true
 
 		return StorageEntry(
@@ -487,7 +514,7 @@ private enum StorageScanner {
 	static func leftovers(_ library: LibrarySnapshot) -> [URL] {
 		partition(fm.signed) { library.owns($0, signed: true) }.orphans
 		+ partition(fm.unsigned) { library.owns($0, signed: false) }.orphans
-		+ partition(fm.certificates) { library.certificates.contains($0) }.orphans
+		+ partition(fm.certificates) { library.ownsCertificate($0) }.orphans
 		+ contents(of: fm.webManagerInbox)
 	}
 
@@ -511,7 +538,7 @@ private enum StorageScanner {
 	}
 
 	private static func contents(of directory: URL) -> [URL] {
-		(try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+		(try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] // try? ok: listing a directory that may not exist yet; no entries is the correct answer then
 	}
 
 	private static func measure(_ category: StorageCategory, _ directory: URL) -> StorageUsage {

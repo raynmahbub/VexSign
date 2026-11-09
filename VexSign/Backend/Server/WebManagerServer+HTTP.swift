@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import OSLog
 import Vapor
 import Zip
 
@@ -91,7 +92,7 @@ extension WebManagerServer {
 
 		app.on(.DELETE, "api", "files", ":name") { [weak self] req -> Response in
 			guard let self, let raw = req.parameters.get("name") else { return Response(status: .badRequest) }
-			try? FileManager.default.removeItem(at: self.inbox.appendingPathComponent(self.sanitizedFilename(raw)))
+			try? FileManager.default.removeItem(at: self.inbox.appendingPathComponent(self.sanitizedFilename(raw))) // try? ok: best-effort removal of a partial upload; the upload failure is what the client is told
 			return Response(status: .noContent)
 		}
 
@@ -192,7 +193,7 @@ extension WebManagerServer {
 			let dir = FileManager.default.uniqueTemporaryDirectory("CertUpload")
 			let p12URL = dir.appendingPathComponent("certificate.p12")
 			let provURL = dir.appendingPathComponent("certificate.mobileprovision")
-			defer { try? FileManager.default.removeItem(at: dir) }
+			defer { try? FileManager.default.removeItem(at: dir) } // try? ok: defer cleanup of a scratch directory on every exit path, including the throwing ones
 
 			do {
 				try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -269,7 +270,7 @@ extension WebManagerServer {
 			}
 			guard let info else { return Response(status: .notFound) }
 
-			let level = (try? req.query.get(Int.self, at: "compression")) ?? ArchiveHandler.getCompressionLevel()
+			let level = (try? req.query.get(Int.self, at: "compression")) ?? ArchiveHandler.getCompressionLevel() // try? ok: an absent or non-integer query parameter falls back to the user's compression preference
 			let compression = ZipCompression.allCases[safe: level] ?? .DefaultCompression
 			let filename = IPAExportNaming.stem(name: info.name, version: info.version) + ".ipa"
 			let ipaURL = FileManager.default.temporaryDirectory
@@ -302,23 +303,31 @@ extension WebManagerServer {
 
 	private func _inboxFiles() -> [WebManagerFileInfo] {
 		let fm = FileManager.default
-		guard let contents = try? fm.contentsOfDirectory(
-			at: inbox,
-			includingPropertiesForKeys: [.fileSizeKey],
-			options: [.skipsHiddenFiles]
-		) else { return [] }
+		let contents: [URL]
+		do {
+			contents = try fm.contentsOfDirectory(
+				at: inbox,
+				includingPropertiesForKeys: [.fileSizeKey],
+				options: [.skipsHiddenFiles]
+			)
+		} catch {
+			// The list is still empty, but the log distinguishes "no files" from
+			// "could not read the inbox" — the UI showed the same thing for both.
+			Logger.misc.error("Web manager: could not list the inbox: \(error.localizedDescription)")
+			return []
+		}
 
 		return contents
 			.filter { !$0.hasDirectoryPath }
 			.map { url in
-				let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+				let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 // try? ok: display-only file size; an unreadable file still gets a row, with size 0
 				return WebManagerFileInfo(name: url.lastPathComponent, size: size)
 			}
 			.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 	}
 
 	private static func json<T: Content>(_ value: T) -> Response {
-		let data = (try? JSONEncoder().encode(value)) ?? Data("[]".utf8)
+		let data = (try? JSONEncoder().encode(value)) ?? Data("[]".utf8) // try? ok: encoding a fixed response shape; [] keeps the JSON contract if it ever fails
 		var headers = HTTPHeaders()
 		headers.contentType = .json
 		return Response(status: .ok, headers: headers, body: .init(data: data))
@@ -345,14 +354,14 @@ extension WebManagerServer {
 		var isDir: ObjCBool = false
 		guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return 0 }
 		if isDir.boolValue { return dirSize(url) }
-		return (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+		return (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 // try? ok: size helper; a file that cannot be statted reports 0
 	}
 
 	private static func dirSize(_ url: URL?) -> Int {
 		guard let url, let en = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else { return 0 }
 		var total = 0
-		for case let f as URL in en where (try? f.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
-			total += (try? f.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+		for case let f as URL in en where (try? f.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true { // try? ok: an entry that cannot be statted is not counted as a regular file
+			total += (try? f.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 // try? ok: size accounting only; an unreadable entry contributes 0
 		}
 		return total
 	}
@@ -360,7 +369,7 @@ extension WebManagerServer {
 	private static let pageHTML: String = {
 		guard
 			let url = Bundle.main.url(forResource: "WebManager", withExtension: "html"),
-			let html = try? String(contentsOf: url, encoding: .utf8)
+			let html = try? String(contentsOf: url, encoding: .utf8) // try? ok: a missing or unreadable bundled page falls back to the inline heading below
 		else { return "<h1>VexSign Web Manager</h1>" }
 		return html
 	}()

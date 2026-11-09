@@ -162,7 +162,7 @@ extension WebManagerServer {
 				}
 			}
 			streamed.whenFailure { error in
-				try? FileManager.default.removeItem(at: staging)
+				try? FileManager.default.removeItem(at: staging) // try? ok: the stream failed and promise.fail reports it; this only removes the partial staging directory
 				promise.fail(error)
 			}
 
@@ -177,7 +177,7 @@ extension WebManagerServer {
 	@MainActor
 	private func _signAndPackage(request: Request, ipaURL: URL, staging: URL) async -> Response {
 		guard AutoSignManager.canSign else {
-			try? FileManager.default.removeItem(at: staging)
+			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(
 				status: .preconditionFailed,
 				body: .init(string: "No certificate available. Import one in Settings → Certificates.")
@@ -194,7 +194,7 @@ extension WebManagerServer {
 		}
 
 		guard let app = imported.app else {
-			try? FileManager.default.removeItem(at: staging)
+			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(
 				status: .unprocessableEntity,
 				body: .init(string: imported.error?.localizedDescription ?? "Could not read that IPA.")
@@ -205,12 +205,12 @@ extension WebManagerServer {
 		switch await AutoSignManager.shared.sign(app) {
 		case .success(let result): signed = result
 		case .failure(let error):
-			try? FileManager.default.removeItem(at: staging)
+			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(status: .internalServerError, body: .init(string: error.localizedDescription))
 		}
 
 		guard let directory = Storage.shared.getAppDirectory(for: signed) else {
-			try? FileManager.default.removeItem(at: staging)
+			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(status: .internalServerError, body: .init(string: "Signed app disappeared before it could be packaged."))
 		}
 
@@ -220,7 +220,7 @@ extension WebManagerServer {
 				try AppArchiver.archive(appDir: directory, to: output, compression: .DefaultCompression)
 			}.value
 		} catch {
-			try? FileManager.default.removeItem(at: staging)
+			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(status: .internalServerError, body: .init(string: error.localizedDescription))
 		}
 
@@ -228,7 +228,7 @@ extension WebManagerServer {
 		let response: Response
 		do {
 			response = try await request.fileio.asyncStreamFile(at: output.path) { _ in
-				try? FileManager.default.removeItem(at: staging)
+				try? FileManager.default.removeItem(at: staging) // try? ok: the completion handler runs after the response is sent; a leftover temp directory is CleanupManager's job
 			}
 		} catch {
 			try? FileManager.default.removeItem(at: staging) // try? ok: best-effort staging cleanup
@@ -241,7 +241,7 @@ extension WebManagerServer {
 			version: signed.version ?? "",
 			ipa: output.lastPathComponent
 		)
-		let encoded = (try? JSONEncoder().encode(body)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+		let encoded = (try? JSONEncoder().encode(body)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}" // try? ok: advisory response header; a body that cannot be encoded must not fail an already-signed IPA
 		response.headers.replaceOrAdd(name: "X-VexSign-Signed-App", value: encoded)
 		return response
 	}
@@ -255,7 +255,7 @@ extension WebManagerServer {
 	}
 
 	private static func apiJSON<T: Encodable>(_ value: T) -> Response {
-		let data = (try? JSONEncoder().encode(value)) ?? Data("{}".utf8)
+		let data = (try? JSONEncoder().encode(value)) ?? Data("{}".utf8) // try? ok: encoding a fixed Encodable response shape; {} keeps the JSON contract if it ever fails
 		var headers = HTTPHeaders()
 		headers.contentType = .json
 		return Response(status: .ok, headers: headers, body: .init(data: data))
@@ -272,8 +272,8 @@ extension WebManagerServer {
 		) else { return 0 }
 
 		var total = 0
-		for case let file as URL in enumerator where (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
-			total += (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+		for case let file as URL in enumerator where (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true { // try? ok: an entry that cannot be statted is not counted as a regular file
+			total += (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 // try? ok: size accounting only; an unreadable entry contributes 0 rather than failing the total
 		}
 		return total
 	}
