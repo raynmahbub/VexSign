@@ -54,7 +54,8 @@ def generate(root, payload_mib=16, small_files=2000, catalog_apps=10000):
         manifest['fixtures'].append({'file': path.name, 'bytes': path.stat().st_size,
                                      'sha256': digest(path)})
     catalog = [{'bundleIdentifier': f'invalid.fixture.app{i}', 'name': f'Fixture {i}',
-                'version': '2.0', 'downloadURL': f'https://example.invalid/{i}.ipa'} for i in range(catalog_apps)]
+                'version': '2.0', 'iconURL': 'https://example.invalid/icon.png',
+                'downloadURL': f'https://example.invalid/{i}.ipa'} for i in range(catalog_apps)]
     (root / 'catalog.json').write_text(json.dumps({'name': 'Synthetic source', 'apps': catalog}))
     (root / 'library.json').write_text(json.dumps([
         {'identifier': f'invalid.fixture.app{i}', 'version': '1.0', 'uuid': f'fixture-{i}'}

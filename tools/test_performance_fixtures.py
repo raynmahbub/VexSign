@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import tempfile
 import unittest
 import zipfile
@@ -20,6 +21,9 @@ class FixturesTests(unittest.TestCase):
                 with zipfile.ZipFile(Path(directory) / 'a' / row['file']) as archive:
                     self.assertIsNone(archive.testzip())
                     self.assertEqual(len(archive.namelist()), len(set(archive.namelist())))
+            catalog = json.loads((Path(directory) / 'a' / 'catalog.json').read_text())
+            self.assertEqual(len(catalog['apps']), 20)
+            self.assertTrue(all(app.get('iconURL') for app in catalog['apps']))
             result = fixtures.benchmark(Path(directory) / 'a', 2)
             self.assertFalse(result['ios_verified'])
             self.assertEqual(len(result['results']), 3)

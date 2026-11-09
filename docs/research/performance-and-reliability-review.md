@@ -1,5 +1,12 @@
 # VexSign: upstream comparison and reliability work
 
+> Latest validation: full macOS unsigned build, IPA checks and simulator XCTest
+> passed for `3ae30e2` in [CI run 42602611745](https://github.com/raynmahbub/VexSign/actions/runs/42602611745).
+> See the [completion handoff](remaining-roadmap-implementation.md) for superseding
+> implementation details and remaining physical-device acceptance. Earlier local-only
+> validation notes below are historical checkpoints, not the final CI status.
+
+
 **2026-11-08 — implementation branch, not device acceptance.**
 
 ## Scope and evidence

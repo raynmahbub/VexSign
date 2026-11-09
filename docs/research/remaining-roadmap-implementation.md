@@ -1,5 +1,12 @@
 # Remaining roadmap implementation and acceptance handoff
 
+**Latest Apple validation:** the full CI run for app/test-source commit
+`3ae30e2643adc918797207eeb58fc71a6e63f737` passed repository gates, the macOS
+unsigned app build/IPA checks, and the simulator XCTest suite:
+[CI run 42602611745](https://github.com/raynmahbub/VexSign/actions/runs/42602611745).
+The historical “not run” notes below describe earlier local-only checkpoints,
+not this final remote result. Physical-device acceptance remains outstanding.
+
 This continues the [performance/reliability review](performance-and-reliability-review.md).
 It records code changes, not a claim that every roadmap goal or device acceptance
 step has passed. No Apple compiler is available in this workspace.
@@ -126,3 +133,31 @@ changed/new Swift files found no newly introduced syntax errors (one grammar
 limitation also occurs in the original `UpdateAllManager`). This is **not** Swift
 type checking or an Apple build. The existing build/test CI is the next gate;
 no release dispatch or capability promotion is authorized by that test run.
+
+
+## Apple CI result and final handoff
+
+The app and simulator suite were actually compiled and run remotely, after coding:
+
+| Run | Source commit | Actual result |
+| --- | --- | --- |
+| 42597902440 | `cc6f3ab` | Build found missing `IDeviceSwift` import in readiness view; fixed rather than suppressing the compiler error. Superseded simulator job cancelled. |
+| 42599193514 | `77fb89f` | App build, unsigned packaging and artifact validation passed. Simulator result: 901 tests, 895 passed, four new matching fixtures failed on missing required `iconURL`, two skipped. |
+| 42602611745 | `3ae30e2` | **All CI jobs passed:** repository gates, macOS unsigned Debug build/IPA validation, and simulator XCTest. The fixture schema was corrected, with no relaxed decoder, native/CMS gate, or assertion. |
+
+The final documentation/Python-only commit adds `iconURL` to generated synthetic
+source catalogs too, with a portable regression. It does not change Swift app or
+test sources from the successful Apple run. `make verify` was rerun after that
+correction.
+
+[Unsigned IPA artifact](https://github.com/raynmahbub/VexSign/actions/runs/42602611745/artifacts/13666608671)
+(`VexSign-unsigned-3ae30e2643adc918797207eeb58fc71a6e63f737-42602611745-1`).
+This is a CI test artifact, not a published release, and it requires appropriate
+signing before installation on a physical device. Artifacts expire under CI's
+retention policy. No release was dispatched and no PR was merged.
+
+Only `arena/0e283629-vexsign` was pushed. The app's runtime capability gates remain
+unchanged. Actual device installation, native capability acceptance, force-quit
+recovery/fault injection and real-device performance measurements still require
+the acceptance matrix above. Full proprietary cross-signer backup adapters and a
+whole-file audit of every upstream repository are not claimed.
