@@ -166,6 +166,19 @@ final class NestedBundleAuditTests: XCTestCase {
 		)
 	}
 
+	func testRetainedWatchStillBlocksAfterAppExtensionsAreRemoved() throws {
+		try makeBundle("PlugIns/Widget.appex", identifier: "com.example.widget")
+		let watch = try makeBundle("Watch/Example Watch.app", identifier: "com.other.watch")
+		for extensionURL in AppExtensionEnumerator.appexBundles(in: appBundle) {
+			try FileManager.default.removeItem(at: extensionURL)
+		}
+
+		let remaining = report(pattern: "TEAM.com.example.*")
+		XCTAssertTrue(FileManager.default.fileExists(atPath: watch.path))
+		XCTAssertEqual(remaining.entries.map(\.bundle.kind), [.watchApp])
+		XCTAssertThrowsError(try remaining.requireCompatibleProfile())
+	}
+
 	/// An extension is only reported when the comparison actually says no. Without a profile, or
 	/// without an identifier, nothing is known — and unknown must never be dressed up as a failure.
 	func testWithoutAProfileEverythingIsUnknownAndNeverReported() throws {

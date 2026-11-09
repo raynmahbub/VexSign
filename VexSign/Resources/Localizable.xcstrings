@@ -102226,6 +102226,17 @@
           }
         }
       }
+    },
+    "When enabled, compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions. Watch apps and extensions with unknown coverage are left intact. Remove All App Extensions is the separate, blanket option." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions. Watch apps and extensions with unknown coverage are left intact. Remove All App Extensions is the separate, blanket option."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

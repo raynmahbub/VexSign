@@ -102,6 +102,15 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('runner.arch', combined)
         self.assertIn('TMPDIR: ${{ runner.temp }}/', combined)
 
+    def test_combined_native_input_uses_an_isolated_swiftpm_artifact_cache(self):
+        combined = (WORKFLOWS / 'embedded-container.yml').read_text()
+        native_input = combined.split('      - name: Build standalone VexSign native input', 1)[1]
+        native_input = native_input.split('      - name: Report standalone build diagnostics', 1)[0]
+        self.assertIn('SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-NativeInput', native_input)
+        self.assertIn('make VexSign', native_input)
+        makefile = (ROOT / 'Makefile').read_text()
+        self.assertIn('$(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",)', makefile)
+
     def test_combined_build_exposes_failures_and_preserves_native_input(self):
         text = (WORKFLOWS / 'embedded-container.yml').read_text()
         for stage in ('native_input', 'combined'):

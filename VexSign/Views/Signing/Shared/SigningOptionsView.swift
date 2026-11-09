@@ -171,7 +171,7 @@ struct SigningOptionsView: View {
 			)
 		} footer: {
 			VStack(alignment: .leading, spacing: 6) {
-				Text(.localized("Compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions or Watch apps. Unknown coverage is left intact. Remove All App Extensions is the separate, blanket option."))
+				Text(.localized("When enabled, compatibility mode keeps extensions the selected profile covers and removes only known-uncovered app extensions. Watch apps and extensions with unknown coverage are left intact. Remove All App Extensions is the separate, blanket option."))
 				Text(.localized("Removing the provisioning file excludes the mobileprovision file from the signed app bundle."))
 			}
 		}

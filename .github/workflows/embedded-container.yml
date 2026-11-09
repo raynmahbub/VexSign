@@ -145,6 +145,10 @@ jobs:
         id: native_input
         env:
           TMPDIR: ${{ runner.temp }}/
+          # Do not reuse the restored global SwiftPM artifact cache. Its stale
+          # binary archives caused "already exists in file system" resolution
+          # failures in this build; xcodebuild gets a job-owned cache instead.
+          SPM_CACHE_PATH: ${{ runner.temp }}/SwiftPMCache-NativeInput
         run: |
           set -uo pipefail
           APP_VERSION="$(grep -oE 'MARKETING_VERSION = [^;]+;' VexSign.xcodeproj/project.pbxproj \
