@@ -118,43 +118,46 @@ final class RecoveryAndResourceTests: XCTestCase {
         try Data("second-key".utf8).write(to: legacy.appendingPathComponent("b.p12"))
         XCTAssertThrowsError(try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination,
             beforeMove: { source, _ in if source.lastPathComponent == "b.p12" { throw CocoaError(.fileWriteOutOfSpace) } }))
-        // TEMPORARY DIAGNOSTIC: compact, one fact per failure so GitHub's
-        // 512-character annotation truncation cannot hide any of them.
-        func code(_ error: Error) -> String {
-            let ns = error as NSError
-            return "\(ns.domain == NSCocoaErrorDomain ? "Cocoa" : ns.domain)/\(ns.code)"
+        // main carried a temporary, unconditional XCTFail here to find which
+        // primitive refuses on the simulator. The cause is fixed in
+        // ProtectedCertificateFiles.applyProtectionAttributes, so the real assertion is
+        // back — but the probes are kept for the failure path only, so a regression still
+        // names the culprit in the annotation instead of just "no such file".
+        var facts = "the first file moved before the injected failure"
+        let firstMoved = destination.appendingPathComponent("a.p12")
+        if !FileManager.default.fileExists(atPath: firstMoved.path) {
+            func code(_ error: Error) -> String {
+                let ns = error as NSError
+                return "\(ns.domain == NSCocoaErrorDomain ? "Cocoa" : ns.domain)/\(ns.code)"
+            }
+
+            var protectResult = "ok"
+            do { try ProtectedCertificateFiles.protect(legacy.appendingPathComponent("a.p12")) }
+            catch { protectResult = code(error) }
+
+            var attrResult = "ok"
+            do { try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                                      ofItemAtPath: legacy.appendingPathComponent("a.p12").path) }
+            catch { attrResult = code(error) }
+
+            var valuesResult = "ok"
+            do {
+                var values = URLResourceValues()
+                values.isExcludedFromBackup = true
+                var probe = destination
+                try probe.setResourceValues(values)
+            } catch { valuesResult = code(error) }
+
+            var directoryResult = "ok"
+            do { try FileManager.default.createDirectory(at: destination.appendingPathComponent("probe"),
+                                                        withIntermediateDirectories: true,
+                                                        attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
+                                                                     .posixPermissions: 0o700]) }
+            catch { directoryResult = code(error) }
+
+            facts = "P1 protect=\(protectResult) setAttr=\(attrResult) values=\(valuesResult) mkdir=\(directoryResult)"
         }
-
-        var protectResult = "ok"
-        do { try ProtectedCertificateFiles.protect(legacy.appendingPathComponent("a.p12")) }
-        catch { protectResult = code(error) }
-
-        var attrResult = "ok"
-        var protection = "<none>"
-        do {
-            let url = legacy.appendingPathComponent("a.p12")
-            try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-                                                  ofItemAtPath: url.path)
-            protection = (try? url.resourceValues(forKeys: [.protectionKey]))?.protectionKey?.rawValue ?? "<unset>"
-        } catch { attrResult = code(error) }
-
-        var valuesResult = "ok"
-        do {
-            var values = URLResourceValues()
-            values.isExcludedFromBackup = true
-            var d = destination
-            try d.setResourceValues(values)
-        } catch { valuesResult = code(error) }
-
-        var directoryResult = "ok"
-        do { try FileManager.default.createDirectory(at: destination.appendingPathComponent("probe"),
-                                                    withIntermediateDirectories: true,
-                                                    attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
-                                                                 .posixPermissions: 0o700]) }
-        catch { directoryResult = code(error) }
-
-        XCTFail("P1 protect=\(protectResult) setAttr=\(attrResult) protection=\(protection) values=\(valuesResult) mkdir=\(directoryResult)")
-
+        XCTAssertEqual(try? Data(contentsOf: firstMoved), Data("first-key".utf8), facts)
         XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("b.p12")), Data("second-key".utf8))
         try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination)
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("b.p12")), Data("second-key".utf8))

@@ -72,12 +72,21 @@ enum ProfileCompatibility {
 		) {
 			let requested = ProfileCompatibility.entitlements(at: options.appEntitlementsFile)
 			let override = options.appIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+			let effectiveOverride = (override?.isEmpty == false) ? override : nil
+
+			// The app identifier below is already the one the options will produce. The nested
+			// identifiers come off disk, so they still carry the *old* base; the signer rewrites
+			// them the same way. Judging them unrewritten reported extensions as uncovered that
+			// the profile covers after the rename (#137).
+			let rewrite: (String) -> String = {
+				NestedBundleAudit.rewrittenIdentifier($0, from: app.identifier, to: effectiveOverride)
+			}
 
 			self.init(
-				bundleIdentifier: (override?.isEmpty == false ? override : nil) ?? app.identifier,
-				nestedBundleIdentifiers: nestedBundleIdentifiers,
+				bundleIdentifier: effectiveOverride ?? app.identifier,
+				nestedBundleIdentifiers: nestedBundleIdentifiers.map(rewrite),
 				automaticallyRemoveUncoveredExtensions: options.autoRemoveUnsupportedExtensions,
-				removableExtensionIdentifiers: removableExtensionIdentifiers,
+				removableExtensionIdentifiers: removableExtensionIdentifiers.map { Set($0.map(rewrite)) },
 				requestedEntitlements: requested,
 				teamIdentifier: ProfileCompatibility.teamIdentifier(in: requested)
 			)

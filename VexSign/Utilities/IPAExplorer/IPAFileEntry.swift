@@ -136,19 +136,19 @@ struct IPABundleSummary {
 	private static func icon(in appURL: URL, bundle: Bundle?) -> UIImage? {
 		guard let base = bundle?.iconFileName, !base.isEmpty else { return nil }
 
-		let files = (try? FileManager.default.contentsOfDirectory(at: appURL, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? []
+		let files = (try? FileManager.default.contentsOfDirectory(at: appURL, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? [] // try? ok: best-effort bundle listing
 		let matches = files
 			.filter { $0.lastPathComponent.lowercased().hasPrefix(base.lowercased()) && $0.pathExtension.lowercased() == "png" }
 			.sorted { ($0.lastPathComponent.count) > ($1.lastPathComponent.count) }
 
-		guard let url = matches.first, let data = try? Data(contentsOf: url) else { return nil }
+		guard let url = matches.first, let data = try? Data(contentsOf: url) else { return nil } // try? ok: optional icon read; no icon when unreadable
 		return UIImage(data: data)
 	}
 
 	private static func fileCount(in appURL: URL) -> Int {
 		guard let enumerator = FileManager.default.enumerator(at: appURL, includingPropertiesForKeys: [.isDirectoryKey]) else { return 0 }
 		var count = 0
-		for case let url as URL in enumerator where (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false {
+		for case let url as URL in enumerator where (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false { // try? ok: best-effort file probe during enumeration
 			count += 1
 		}
 		return count
@@ -185,7 +185,7 @@ enum IPAFileLoader {
 		includesHidden: Bool = false,
 		measuringDirectorySize: Bool = true
 	) -> [IPAFileEntry] {
-		let urls = (try? _fileManager.contentsOfDirectory(
+		let urls = (try? _fileManager.contentsOfDirectory( // try? ok: best-effort directory listing
 			at: directory,
 			includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey],
 			options: []
@@ -201,7 +201,7 @@ enum IPAFileLoader {
 	}
 
 	static func entry(at url: URL, measuringDirectorySize: Bool = true) -> IPAFileEntry {
-		let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .totalFileAllocatedSizeKey, .contentModificationDateKey])
+		let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .totalFileAllocatedSizeKey, .contentModificationDateKey]) // try? ok: best-effort attribute probe; unknown attributes render as placeholders
 		let isDirectory = values?.isDirectory == true
 
 		return IPAFileEntry(
@@ -244,7 +244,7 @@ enum IPAFileLoader {
 		}
 
 		// Unlabeled small files are almost always text (`.strings` variants, licence files).
-		if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0, size < 1_048_576, isText(url) {
+		if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0, size < 1_048_576, isText(url) { // try? ok: best-effort size probe gating the text preview
 			return .text
 		}
 
@@ -254,9 +254,9 @@ enum IPAFileLoader {
 	// MARK: Sniffing
 
 	static func head(of url: URL, count: Int) -> Data? {
-		guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
-		defer { try? handle.close() }
-		guard let data = try? handle.read(upToCount: count) else { return nil }
+		guard let handle = try? FileHandle(forReadingFrom: url) else { return nil } // try? ok: optional preview read; nil when the file cannot be opened
+		defer { try? handle.close() } // try? ok: preserve the primary read result
+		guard let data = try? handle.read(upToCount: count) else { return nil } // try? ok: optional preview read; nil when the file cannot be read
 		return data
 	}
 
@@ -304,7 +304,7 @@ enum IPAFileLoader {
 
 	/// Raw text of a file, when it decodes.
 	static func text(at url: URL) -> String? {
-		guard let data = try? Data(contentsOf: url) else { return nil }
+		guard let data = try? Data(contentsOf: url) else { return nil } // try? ok: optional file read; nil when unreadable
 		if let text = String(data: data, encoding: .utf8) { return text }
 		if let text = String(data: data, encoding: .isoLatin1) { return text }
 		return nil
@@ -313,9 +313,9 @@ enum IPAFileLoader {
 	/// XML text for a property list, binary or not. `nil` when it can't be parsed.
 	static func plistText(at url: URL) -> String? {
 		guard
-			let data = try? Data(contentsOf: url),
-			let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
-			let xml = try? PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0)
+			let data = try? Data(contentsOf: url), // try? ok: optional plist read; nil when unreadable
+			let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil), // try? ok: optional plist parse; nil when not a plist
+			let xml = try? PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0) // try? ok: optional plist-to-XML conversion for display
 		else {
 			return nil
 		}
@@ -325,8 +325,8 @@ enum IPAFileLoader {
 	/// Parsed property list, when it is one.
 	static func plist(at url: URL) -> Any? {
 		guard
-			let data = try? Data(contentsOf: url),
-			let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+			let data = try? Data(contentsOf: url), // try? ok: optional plist read; nil when unreadable
+			let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) // try? ok: optional plist parse; nil when not a plist
 		else {
 			return nil
 		}
@@ -336,10 +336,10 @@ enum IPAFileLoader {
 	/// Writes a property list (XML) and returns whether it parsed first.
 	@discardableResult
 	static func write(plist object: Any, to url: URL) -> Bool {
-		guard let data = try? PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0) else {
+		guard let data = try? PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0) else { // try? ok: serialisation failure is surfaced as a false return
 			return false
 		}
-		return (try? data.write(to: url, options: .atomic)) != nil
+		return (try? data.write(to: url, options: .atomic)) != nil // try? ok: write failure is surfaced as a false return
 	}
 
 	/// Formatted byte count, shared by every row and header in the explorer.

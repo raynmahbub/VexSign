@@ -1,13 +1,22 @@
-// AnisetteServer - A minimal HTTP server that provides Apple Anisette headers
-// for VexSign's Free Apple ID signing flow.
+// AnisetteServer — a PROTOCOL MOCK for VexSign's Free Apple ID signing flow.
 //
-// This server implements the required endpoint that returns 10 Apple headers
-// as JSON, which VexSign uses for authenticating with Apple's services.
+// ⚠️ This does NOT produce valid Anisette data. It returns the ten required
+// header fields with FABRICATED values (a random serial, a UUID-derived hash,
+// a fixed routing number) so the client/server wire format can be exercised
+// locally. Apple's services will reject these headers; this server cannot be
+// used to actually authenticate or provision. For a working provider, deploy a
+// real Anisette implementation (for example an anisette-v3 compatible service)
+// and point VexSign at it over HTTPS.
 //
-// Deployment: This can be run on any server with Swift 5.9+ (Linux/macOS).
-// For production, use a proper web framework like Vapor or Hummingbird.
+// Platform: macOS only. It uses Apple's Network framework, which is not
+// available on Linux. Build and run with Swift 5.9+ on macOS:
 //
-// Required headers (10 total):
+//     swift run            # from this directory
+//     PORT=9000 swift run  # override the listen port
+//
+// Endpoint: GET http://localhost:<port>/anisette
+//
+// Required header fields (10 total), returned as {"headers": { ... }}:
 // - X-Apple-I-MD
 // - X-Apple-I-MD-M
 // - X-Apple-I-MD-RINFO
@@ -20,6 +29,7 @@
 // - X-Mme-Device-Id
 
 import Foundation
+import Network
 
 struct AnisetteResponse: Codable {
     let headers: [String: String]
@@ -28,7 +38,7 @@ struct AnisetteResponse: Codable {
 actor AnisetteServer {
     private let port: UInt16
     private let deviceID: String
-    private let server: HTTPServer?
+    private let server: HTTPServer
 
     init(port: UInt16 = 8080) {
         self.port = port
@@ -37,33 +47,30 @@ actor AnisetteServer {
     }
 
     func start() async throws {
-        guard let server = server else { return }
         try await server.start { request in
-            return await self.handleRequest(request)
+            await self.handleRequest(request)
         }
-        print("Anisette Server started on port \(port)")
-        print("Endpoint: http://localhost:\(port)/anisette")
     }
 
     private func handleRequest(_ request: HTTPRequest) async -> HTTPResponse {
-        // Only accept GET requests to /anisette
+        // Only accept GET requests to /anisette.
         guard request.method == "GET", request.path == "/anisette" else {
             return HTTPResponse(status: 404, body: "Not Found")
         }
 
-        // Generate the 10 required Apple headers
-        let headers = generateAnisetteHeaders()
-
-        let response = AnisetteResponse(headers: headers)
+        let response = AnisetteResponse(headers: generateAnisetteHeaders())
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try! encoder.encode(response)
-
-        return HTTPResponse(
-            status: 200,
-            headers: ["Content-Type": "application/json"],
-            body: data
-        )
+        do {
+            let data = try encoder.encode(response)
+            return HTTPResponse(
+                status: 200,
+                headers: ["Content-Type": "application/json"],
+                body: data
+            )
+        } catch {
+            return HTTPResponse(status: 500, body: "Encoding failed: \(error)")
+        }
     }
 
     private func generateAnisetteHeaders() -> [String: String] {
@@ -75,15 +82,16 @@ actor AnisetteServer {
         let timezone = TimeZone.current.identifier
         let locale = Locale.current.identifier
 
-        // Generate MD5-based identifiers (simplified - real implementation uses Apple's algorithm)
-        let deviceIDHash = deviceID.data(using: .utf8)!.base64EncodedString()
-        let md = "\(deviceIDHash.prefix(32))"
-        let mdM = "\(deviceIDHash.suffix(32))"
+        // FABRICATED identifiers for wire-format testing only. A real provider
+        // derives these from Apple's algorithm and a provisioned machine identity.
+        let deviceIDHash = Data(deviceID.utf8).base64EncodedString()
+        let md = String(deviceIDHash.prefix(32))
+        let mdM = String(deviceIDHash.suffix(32))
 
         return [
             "X-Apple-I-MD": md,
             "X-Apple-I-MD-M": mdM,
-            "X-Apple-I-MD-RINFO": "1710000000", // Unix timestamp
+            "X-Apple-I-MD-RINFO": "1710000000",
             "X-Apple-I-MD-LU": "\(Int(now.timeIntervalSince1970))",
             "X-Apple-I-SRL-NO": "\(Int.random(in: 100000...999999))",
             "X-Apple-I-Client-Time": clientTime,
@@ -95,7 +103,7 @@ actor AnisetteServer {
     }
 }
 
-// Simple HTTP Server implementation
+// Simple HTTP server implementation (macOS / Network framework).
 struct HTTPRequest {
     let method: String
     let path: String
@@ -117,7 +125,7 @@ struct HTTPResponse {
     init(status: Int, body: String) {
         self.status = status
         self.headers = ["Content-Type": "text/plain"]
-        self.body = body.data(using: .utf8)
+        self.body = Data(body.utf8)
     }
 }
 
@@ -130,16 +138,19 @@ actor HTTPServer {
     }
 
     func start(handler: @escaping @Sendable (HTTPRequest) async -> HTTPResponse) async throws {
+        guard let endpointPort = NWEndpoint.Port(rawValue: port) else {
+            throw NWError.posix(.EINVAL)
+        }
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
 
-        let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
+        let listener = try NWListener(using: parameters, on: endpointPort)
         self.listener = listener
 
         listener.stateUpdateHandler = { state in
             switch state {
             case .ready:
-                print("Server listening on port \(self.port)")
+                print("Mock Anisette server listening on port \(self.port)")
             case .failed(let error):
                 print("Server failed: \(error)")
             default:
@@ -155,7 +166,7 @@ actor HTTPServer {
 
         listener.start(queue: .main)
 
-        // Keep the server running
+        // Keep the server running until the task is cancelled.
         try await Task.sleep(nanoseconds: UInt64.max)
     }
 
@@ -163,14 +174,9 @@ actor HTTPServer {
         connection.start(queue: .main)
 
         do {
-            // Read request
             let requestData = try await readData(from: connection)
             let request = parseRequest(requestData)
-
-            // Handle request
             let response = await handler(request)
-
-            // Send response
             try await writeResponse(response, to: connection)
         } catch {
             print("Connection error: \(error)")
@@ -181,6 +187,7 @@ actor HTTPServer {
 
     private func readData(from connection: NWConnection) async throws -> Data {
         var data = Data()
+        let separator = Data("\r\n\r\n".utf8)
 
         while true {
             let chunk = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
@@ -191,14 +198,15 @@ actor HTTPServer {
                         continuation.resume(returning: content)
                     } else if isComplete {
                         continuation.resume(returning: nil)
+                    } else {
+                        continuation.resume(returning: nil)
                     }
                 }
             }
 
             if let chunk = chunk {
                 data.append(chunk)
-                // Check if we have the full HTTP request (double CRLF)
-                if data.contains("\r\n\r\n".data(using: .ascii)!) {
+                if data.range(of: separator) != nil {
                     break
                 }
             } else {
@@ -218,6 +226,9 @@ actor HTTPServer {
         }
 
         let parts = firstLine.split(separator: " ")
+        guard parts.count >= 2 else {
+            return HTTPRequest(method: "", path: "", headers: [:], body: nil)
+        }
         let method = String(parts[0])
         let path = String(parts[1])
 
@@ -238,7 +249,7 @@ actor HTTPServer {
         let bodyData: Data?
         if bodyStart < lines.count {
             let bodyString = lines[bodyStart...].joined(separator: "\r\n")
-            bodyData = bodyString.data(using: .utf8)
+            bodyData = Data(bodyString.utf8)
         } else {
             bodyData = nil
         }
@@ -247,7 +258,7 @@ actor HTTPServer {
     }
 
     private func writeResponse(_ response: HTTPResponse, to connection: NWConnection) async throws {
-        var responseString = "HTTP/1.1 \(response.status) OK\r\n"
+        var responseString = "HTTP/1.1 \(response.status)\r\n"
 
         for (key, value) in response.headers {
             responseString += "\(key): \(value)\r\n"
@@ -259,7 +270,7 @@ actor HTTPServer {
 
         responseString += "\r\n"
 
-        var responseData = responseString.data(using: .utf8)!
+        var responseData = Data(responseString.utf8)
         if let body = response.body {
             responseData.append(body)
         }
@@ -276,14 +287,12 @@ actor HTTPServer {
     }
 }
 
-// Network framework import
-import Network
-
-// Main entry point
+// Main entry point.
 @main
 struct AnisetteServerMain {
     static func main() async {
         let port = UInt16(ProcessInfo.processInfo.environment["PORT"] ?? "8080") ?? 8080
+        print("Starting PROTOCOL MOCK Anisette server (fabricated headers; not valid for Apple).")
         let server = AnisetteServer(port: port)
 
         do {

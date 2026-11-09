@@ -52,9 +52,9 @@ struct AnisetteProviderTests {
     }
 
     @Test("AnisetteProviderDescriptor defaultHTTPS")
-    func testDefaultHTTPS() {
+    func testDefaultHTTPS() throws {
         let endpoint = URL(string: "https://my-server.com/anisette")!
-        let descriptor = AnisetteProviderDescriptor.defaultHTTPS(
+        let descriptor = try AnisetteProviderDescriptor.defaultHTTPS(
             endpoint: endpoint,
             identity: "vexsign.local",
             policyRevision: 1
@@ -64,6 +64,21 @@ struct AnisetteProviderTests {
         #expect(descriptor.displayName == "Custom Anisette Server")
         #expect(descriptor.policyRevision == "1")
         #expect(descriptor.endpoint == endpoint)
+    }
+
+    @Test("defaultHTTPS propagates validation failure instead of trapping")
+    func testDefaultHTTPSPropagatesInvalidEndpoint() {
+        var thrown: Error?
+        do {
+            _ = try AnisetteProviderDescriptor.defaultHTTPS(
+                endpoint: URL(string: "http://example.com/anisette")!,
+                identity: "vexsign.local",
+                policyRevision: 1
+            )
+        } catch {
+            thrown = error
+        }
+        #expect(thrown as? AnisetteConsentError == .invalidProvider)
     }
 
     @Test("AnisetteProviderDescriptor refuses a non-HTTPS endpoint")
@@ -140,7 +155,7 @@ struct AnisetteProviderTests {
 
         // Same construction the factory does internally; if the transport and the
         // provider's constrained initializer ever drift apart this stops compiling.
-        let descriptor = AnisetteProviderDescriptor.defaultHTTPS(
+        let descriptor = try AnisetteProviderDescriptor.defaultHTTPS(
             endpoint: URL(string: "https://my-server.com/anisette")!,
             identity: "vexsign.local",
             policyRevision: 1
@@ -154,8 +169,8 @@ struct AnisetteProviderTests {
     // MARK: - LocalAnisetteProvider Tests
 
     @Test("LocalAnisetteProvider refuses to invent headers")
-    func testLocalProviderWithoutStaticHeaders() async {
-        let descriptor = AnisetteProviderDescriptor.defaultHTTPS(
+    func testLocalProviderWithoutStaticHeaders() async throws {
+        let descriptor = try AnisetteProviderDescriptor.defaultHTTPS(
             endpoint: URL(string: "https://my-server.com/anisette")!,
             identity: "vexsign.local",
             policyRevision: 1

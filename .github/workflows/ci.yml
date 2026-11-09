@@ -146,7 +146,9 @@ jobs:
       - name: Repository gates
         run: |
           python3 tools/check-pbxproj.py
+          python3 tools/check-package-graph.py
           python3 tools/sync-strings.py --check
+          python3 tools/test_sync_strings.py
           python3 tools/error-discipline.py
           python3 tools/singleton-freeze.py
           python3 tools/concurrency-discipline.py
@@ -167,6 +169,8 @@ jobs:
           python3 tools/test_workflow_policy.py
           python3 tools/test_workflow_trace_policy.py
           python3 tools/test_build_provenance.py
+          python3 tools/test_package_graph.py
+          python3 tools/test_coverage_report.py
 
       - name: Upload findings
         if: always()
@@ -476,6 +480,27 @@ jobs:
             --warnings-as-errors false \
             --title "Tests" \
             --workspace "$GITHUB_WORKSPACE"
+
+      # The shared VexSignTests scheme enables code coverage. Report the overall
+      # number and the least-covered first-party files so test work (and the
+      # try?/singleton burn-down) can be targeted instead of guessed at.
+      # Reporting only: this never turns a passing test run red.
+      - name: Report coverage
+        if: always() && steps.test.outcome != 'skipped'
+        continue-on-error: true
+        run: |
+          python3 .github/scripts/coverage_report.py \
+            --result-bundle "$RESULT_BUNDLE" \
+            --json "${RUNNER_TEMP}/coverage.json"
+
+      - name: Upload coverage report
+        if: always() && steps.test.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/coverage.json
+          if-no-files-found: ignore
+          retention-days: 3
 
       # A failure is usually a destination or embedding problem, not an
       # assertion. Print what this runner actually offers.

@@ -57,7 +57,7 @@ final class IPAChangeJournal {
 		self.backupsDirectory = directory.appendingPathComponent("Backups", isDirectory: true)
 		self.manifestURL = directory.appendingPathComponent("changes.json")
 
-		try? FileManager.default.createDirectoryIfNeeded(at: backupsDirectory)
+		try? FileManager.default.createDirectoryIfNeeded(at: backupsDirectory) // try? ok: best-effort backup directory; a failed backup is reported by the caller
 		_load()
 	}
 
@@ -109,7 +109,7 @@ final class IPAChangeJournal {
 		let fileManager = FileManager.default
 		guard fileManager.fileExists(atPath: url.path) else { return nil }
 
-		try? fileManager.createDirectoryIfNeeded(at: backupsDirectory)
+		try? fileManager.createDirectoryIfNeeded(at: backupsDirectory) // try? ok: best-effort backup directory; a failed backup is reported by the caller
 
 		let name = UUID().uuidString
 		let backupURL = backupsDirectory.appendingPathComponent(name)
@@ -118,7 +118,7 @@ final class IPAChangeJournal {
 			return name
 		} catch {
 			// Try byte-level copy when the file provider refuses a direct copy.
-			if let data = try? Data(contentsOf: url) {
+			if let data = try? Data(contentsOf: url) { // try? ok: optional backup read; a missing backup restores nothing
 				do {
 					try data.write(to: backupURL)
 				} catch {
@@ -138,7 +138,7 @@ final class IPAChangeJournal {
 
 	private func removeBackup(_ name: String?) {
 		guard let name else { return }
-		try? FileManager.default.removeItem(at: backupsDirectory.appendingPathComponent(name))
+		try? FileManager.default.removeItem(at: backupsDirectory.appendingPathComponent(name)) // try? ok: best-effort backup pruning
 	}
 
 	// MARK: Undo
@@ -158,7 +158,7 @@ final class IPAChangeJournal {
 				// Remove the added file/folder; leave a non-empty folder alone.
 				var isDirectory: ObjCBool = false
 				if fileManager.fileExists(atPath: target.path, isDirectory: &isDirectory), isDirectory.boolValue {
-					let contents = (try? fileManager.contentsOfDirectory(atPath: target.path)) ?? []
+					let contents = (try? fileManager.contentsOfDirectory(atPath: target.path)) ?? [] // try? ok: best-effort directory probe during restore
 					guard contents.isEmpty else { return false }
 				}
 				try fileManager.removeItem(at: target)
@@ -184,8 +184,8 @@ final class IPAChangeJournal {
 	/// Drops the whole journal (after a successful rebuild) without touching the files.
 	func clearAll() {
 		changes.removeAll()
-		try? FileManager.default.removeItem(at: backupsDirectory)
-		try? FileManager.default.removeItem(at: manifestURL)
+		try? FileManager.default.removeItem(at: backupsDirectory) // try? ok: best-effort journal cleanup
+		try? FileManager.default.removeItem(at: manifestURL) // try? ok: best-effort journal cleanup
 	}
 
 	/// Reverts every change, newest first, restoring the app bundle to its pre-session state.
@@ -207,7 +207,7 @@ final class IPAChangeJournal {
 
 	private func persist() {
 		let fileManager = FileManager.default
-		try? fileManager.createDirectoryIfNeeded(at: root)
+		try? fileManager.createDirectoryIfNeeded(at: root) // try? ok: best-effort journal directory; in-memory changes remain authoritative
 
 		let payload = changes.map { change -> [String: Any] in
 			[
@@ -219,16 +219,16 @@ final class IPAChangeJournal {
 			]
 		}
 
-		if let data = try? JSONSerialization.data(withJSONObject: payload,
+		if let data = try? JSONSerialization.data(withJSONObject: payload, // try? ok: best-effort journal serialisation; in-memory changes remain authoritative
 			options: [.prettyPrinted]) {
-			try? data.write(to: manifestURL, options: .atomic)
+			try? data.write(to: manifestURL, options: .atomic) // try? ok: best-effort journal persistence; in-memory changes remain authoritative
 		}
 	}
 
 	private func _load() {
 		guard
-			let data = try? Data(contentsOf: manifestURL),
-			let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+			let data = try? Data(contentsOf: manifestURL), // try? ok: optional journal load; a missing manifest starts an empty journal
+			let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] // try? ok: optional journal load; a corrupt manifest starts an empty journal
 		else {
 			return
 		}

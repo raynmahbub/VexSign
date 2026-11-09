@@ -53,6 +53,9 @@ enum TaskReceipt {
         if task.kind == .install && task.phase == .cancelled {
             return .localized("VexSign stopped its work and monitoring. An installation already accepted by iOS may continue; this report does not claim that iOS cancelled it.")
         }
+        if task.phase == .unconfirmed {
+            return .localized("VexSign finished, but iOS did not expose installation status, so this receipt cannot say whether the app was installed. Check the Home Screen and the app details in Library before installing again. No reinstall was started.")
+        }
         if task.phase == .interrupted {
             return .localized("VexSign was interrupted. No signing or installation was restarted automatically. Check Signed Apps and the device before starting another attempt.")
         }

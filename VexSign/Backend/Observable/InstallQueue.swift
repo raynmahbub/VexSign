@@ -343,14 +343,21 @@ final class InstallQueue: ObservableObject {
 			// invalidated if the user skips/retries or the queue is otherwise reset first.
 			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .failure(let error):
-            unifiedTask?.context?.recordFailure(error)
-            _discardPreparation()
-            NBHaptic.notify(.error)
+			// iOS filtering its own install status is not a failed install. Keep the
+			// report and the recovery actions, but do not record a failure the device
+			// never reported.
+			let unconfirmed = (error as? InstallConfirmation.Failure)?.verdict == .timedOutVerifying
+			if !unconfirmed {
+				unifiedTask?.context?.recordFailure(error)
+			}
+			_discardPreparation()
+			NBHaptic.notify(unconfirmed ? .warning : .error)
 			if let current {
 				outcomes[current.id] = .failed(String(describing: error))
 			}
 			if let task = unifiedTask {
-				UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
+				UnifiedTaskCenter.shared.transition(task, to: unconfirmed ? .unconfirmed : .failed,
+													error: unconfirmed ? nil : error.localizedDescription)
 				// Keep this failed attempt; a retry starts a separate record.
                 let failedEntryID = current?.id
                 UnifiedTaskCenter.shared.registerRetry(task) { [weak self] in

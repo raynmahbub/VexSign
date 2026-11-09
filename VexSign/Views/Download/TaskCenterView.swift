@@ -226,10 +226,10 @@ private struct TaskRow: View {
                 } label: {
                     Label(.localized("Copy Redacted Report"), systemImage: "doc.on.doc")
                 }
-                if task.phase == .failed || task.phase == .interrupted {
+                if task.phase == .failed || task.phase == .interrupted || task.phase == .unconfirmed {
                     recoveryActions
                 }
-                if (task.phase == .failed || task.phase == .cancelled || task.phase == .interrupted) && !center.canRetry(task) {
+                if (task.phase == .failed || task.phase == .cancelled || task.phase == .interrupted || task.phase == .unconfirmed) && !center.canRetry(task) {
                     Text(.localized("Retry is unavailable for this saved task. Restart the action from its original app or download screen."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -248,7 +248,14 @@ private struct TaskRow: View {
     private var recoveryActions: some View {
         let guide = TaskRecoveryGuide.resolve(kind: task.kind, failureStage: task.failureStage)
         Text(.localized("Suggested next steps")).font(.caption.bold())
-        Text(guide.detail).font(.caption).foregroundStyle(.secondary)
+        if task.phase == .unconfirmed {
+            // Nothing is known to have failed, so do not send the user back through the
+            // installation-method checklist first.
+            Text(.localized("Check the Home Screen and the app details in Library. iOS did not report the result, so the app may already be installed. Install again only if it is missing."))
+                .font(.caption).foregroundStyle(.secondary)
+        } else {
+            Text(guide.detail).font(.caption).foregroundStyle(.secondary)
+        }
         switch guide {
         case .download:
             NavigationLink(destination: DownloadsSettingsView()) {
@@ -284,6 +291,7 @@ private struct TaskRow: View {
 		case .paused: return .orange
 		case .completed: return .green
 		case .failed: return .orange
+		case .unconfirmed: return .orange
 		case .cancelled, .interrupted: return .secondary
 		}
 	}

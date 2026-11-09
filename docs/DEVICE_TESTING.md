@@ -97,3 +97,39 @@ In addition to the checks above, native-primary reports require:
 The final two paths are still incomplete. Leave those observations **pending**;
 a bootstrap/build-only test must not be recorded as full product acceptance.
 The agent/hosted runner cannot perform these physical-device checks.
+
+### What each pending path is actually waiting on
+
+Both are blocked on evidence, not on a missing screen. The prerequisites below
+are what a maintainer with hardware has to produce; none of them can be inferred
+from a green CI run.
+
+**`native_owned_sign_install`** — the code path exists
+(`NativeSigning/Identity/NativeProtectedSigningHandoff.swift`), and it refuses to
+run without CMS verification:
+
+1. `NativeAppleProfileCMSVerifier` is written against public `Security` APIs and
+   pins Apple roots, but it has **never been compiled on macOS or checked against
+   a real Apple-issued profile**. That is why `NativeProvisioningProfileValidator`
+   defaults to *unavailable* and `appleCMS()` is an explicit internal opt-in.
+2. Promote it only after verifying, on macOS, that it accepts genuine profiles
+   from the current Apple generation and rejects tampered ones. A verifier that
+   merely parses a plist is not evidence of trust — do not enable it to make a
+   report pass.
+3. Then, on the intended device: owned native identity, fresh profile/status
+   checks, explicit signing approval, and confirm the installed app launches.
+
+**`scoped_unattended_renewal`** — there is no scoped-grant model in the codebase
+yet. `BackgroundAutomation` has an enabled flag and a policy, but nothing that
+issues a *grant* with an expiry, a revocation and a cancellation, which is what
+this check exercises. Implementing that is new security-sensitive behaviour, so
+it needs its own design and review, not an acceptance run:
+
+1. An explicit grant recording scope, expiry and the approving user action.
+2. Expiry, revocation and cancellation that actually stop unattended work.
+3. A renewal that ends in a **verified installation** on the device. The check
+   says so deliberately: a review queue entry or a success banner is not a pass.
+
+Until both are satisfied the guard in `tools/test_device_acceptance.py` keeps the
+README's "experimental" wording tied to this section. Removing the caveat and
+leaving the paths unexercised is the failure mode that guard exists to prevent.

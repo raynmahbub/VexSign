@@ -93,7 +93,7 @@ enum BackupCrypto {
 	static func isEncrypted(_ url: URL) -> Bool {
 		do {
 			let handle = try FileHandle(forReadingFrom: url)
-			defer { try? handle.close() }
+			defer { try? handle.close() } // try? ok: preserve the primary operation error
 			let head = try handle.read(upToCount: magic.count) ?? Data()
 			return isEncrypted(head)
 		} catch {
@@ -111,24 +111,24 @@ enum BackupCrypto {
 	/// `true` when the file predates the encrypted container and can be read
 	/// without a password. The UI says so before restoring one.
 	static func isLegacyPlaintext(_ url: URL) -> Bool {
-		guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
-		defer { try? handle.close() }
-		guard let head = try? handle.read(upToCount: plainMagic.count) else { return false }
+		guard let handle = try? FileHandle(forReadingFrom: url) else { return false } // try? ok: magic probe; an unreadable file is simply not this format
+		defer { try? handle.close() } // try? ok: preserve the primary operation error
+		guard let head = try? handle.read(upToCount: plainMagic.count) else { return false } // try? ok: magic probe; a short read is not this format
 		return head == plainMagic
 	}
 
 	/// `true` when opening this file needs the user's password. A passwordless
 	/// backup made on this device does not.
 	static func needsPassword(_ url: URL) -> Bool {
-		guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
-		defer { try? handle.close() }
-		guard let head = try? handle.read(upToCount: magic.count) else { return false }
+		guard let handle = try? FileHandle(forReadingFrom: url) else { return false } // try? ok: magic probe; an unreadable file is simply not this format
+		defer { try? handle.close() } // try? ok: preserve the primary operation error
+		guard let head = try? handle.read(upToCount: magic.count) else { return false } // try? ok: magic probe; a short read is not this format
 
 		// Older password-only files need one; older plaintext files do not.
 		if head.prefix(passwordMagic.count) == passwordMagic { return true }
 		guard head.prefix(magic.count) == magic || head.prefix(streamMagic.count) == streamMagic else { return false }
 
-		guard let flag = try? handle.read(upToCount: 1),
+		guard let flag = try? handle.read(upToCount: 1), // try? ok: magic probe; a missing flag byte is not this format
 			  let byte = flag.first,
 			  let wrap = Wrap(rawValue: byte) else {
 			return true
@@ -206,7 +206,7 @@ enum BackupCrypto {
 		case .device:
 			// A failed Keychain read (locked, or a different device) is the same
 			// answer to the user: this file cannot be opened here.
-			guard let key = (try? _deviceKeyIfPresent()) else { throw Failure.deviceBoundBackup }
+			guard let key = (try? _deviceKeyIfPresent()) else { throw Failure.deviceBoundBackup } // try? ok: failure is surfaced as Failure.deviceBoundBackup
 			wrappingKey = key
 		}
 

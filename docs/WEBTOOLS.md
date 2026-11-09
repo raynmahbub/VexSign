@@ -198,16 +198,43 @@ Environment variables:
 | `PUBLIC_BASE_URL` | inferred from forwarding headers | Absolute base for generated URLs (UDID callback, OTA links) |
 | `VEXSIGN_ALLOW_PUBLIC_TARGETS` | off | Let the signer relay reach non-private hosts |
 
-Tests: 63 cases across `server/tests/test_web_tools.py` (25) and
-`server/tests/test_signer_decoder_installer.py` (38). The new file covers the
-target guard (private allowed, public refused, env override), read-only relay
-enforcement, upstream 401/412 passthrough, the streamed signed IPA and its
-filename, all five feed dialects, alias normalisation, validator errors, the
-4 MiB fetch cap, dialect conversion, https-only manifests, and every probe
-outcome (HEAD ok, HEAD refused → GET, 404, HTML body, cleartext redirect,
-connection failure). Outbound calls go through `httpx.MockTransport`, so the
-suite never touches the network.
+## Untrusted values in the page
+
+Every tool page displays data that did not originate on this server:
+
+| Tool | Untrusted input |
+| --- | --- |
+| Repository Decoder | app names, versions, developers and issues from any remote feed |
+| Repository Creator | a feed pulled in from a URL and rendered as editable cards |
+| UDID Grabber | attributes reported by the device |
+| Signer Console | certificate name from the phone, names of files you pick |
+| Certificate Check | fields parsed from an uploaded provisioning profile, entitlement keys, revocation notes |
+| App Installer | content type, status and redirect URLs returned by the probed host |
+
+All of those reach `innerHTML`, so every one is passed through the shared `esc()`
+helper that `web_chrome.page()` injects before the page script. `escapeAttr()` in
+the repository creator delegates to the same helper, so there is one escaping
+rule rather than two. Without it, a malicious feed
+or a device named like markup would run script in the tool's origin — which can
+then call the relay endpoints.
+
+When adding a tool, escape any value you did not construct yourself, and add a
+case to `server/tests/test_tool_xss.py`. Those tests execute `esc()` in Node when
+it is available (and skip that part when it is not) rather than only grepping for
+it, plus assert each page still routes its untrusted fields through the helper.
+
+## Tests
+
+| File | Covers |
+| --- | --- |
+| `test_web_tools.py` | Repo creator, certificate checker, UDID page/profile/callback |
+| `test_signer_decoder_installer.py` | Target guard (private allowed, public refused, env override), read-only relay enforcement, upstream 401/412 passthrough, streamed signed IPA and filename, all five feed dialects, alias normalisation, validator errors, the 4 MiB fetch cap, dialect conversion, https-only manifests, every probe outcome (HEAD ok, HEAD refused → GET, 404, HTML body, cleartext redirect, connection failure) |
+| `test_udid_sessions.py` | Session TTL/expiry, the hard cap with oldest-first eviction, touch-to-keep behaviour, CMS-wrapped plist parsing, attribute allow-listing, unsigned removable profile payload, callback rejection paths, and that sessions never touch the DB or disk |
+| `test_tool_xss.py` | `esc()` executed against markup/quotes/nullish values, every tool page escaping its untrusted fields, and the `rows`/`issueRow`/`escapeAttr` page helpers extracted and run in Node against a payload |
+
+Outbound calls go through `httpx.MockTransport`, so the suite never touches the
+network.
 
 ```sh
-cd server && python -m pytest tests/ -q     # 85 passed in total
+cd server && python -m pytest tests/ -q
 ```

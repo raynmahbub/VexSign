@@ -330,7 +330,7 @@ async function connect() {
     const pill = s.certValid ? (days <= 3 ? 'warn' : 'ok') : 'bad';
     $('status').innerHTML =
       '<span class="pill ' + pill + '">' + (s.certValid ? 'certificate valid' : 'no usable certificate') + '</span>' +
-      ' <span class="muted">' + (s.certName || 'unnamed') + ' &middot; ' + days + ' days left &middot; ' +
+      ' <span class="muted">' + esc(s.certName || 'unnamed') + ' &middot; ' + esc(days) + ' days left &middot; ' +
       s.installedApps + ' apps &middot; ' + s.signedApps + ' signed &middot; ' + s.pendingUpdates + ' updates &middot; ' +
       body.latencyMs + ' ms</span>';
     $('queue-card').hidden = false;
@@ -350,9 +350,9 @@ function renderQueue() {
     const row = document.createElement('div');
     row.className = 'row';
     row.style.justifyContent = 'space-between';
-    row.innerHTML = '<span>' + (index + 1) + '. ' + job.name +
+    row.innerHTML = '<span>' + (index + 1) + '. ' + esc(job.name) +
       ' <span class="muted">' + (job.size / 1048576).toFixed(1) + ' MB</span></span>' +
-      '<span class="pill ' + job.state.pill + '" id="state-' + index + '">' + job.state.label + '</span>';
+      '<span class="pill ' + esc(job.state.pill) + '" id="state-' + index + '">' + esc(job.state.label) + '</span>';
     $('queue').appendChild(row);
   });
 }
