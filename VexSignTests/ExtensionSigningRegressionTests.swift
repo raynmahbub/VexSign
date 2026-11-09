@@ -107,6 +107,45 @@ final class ExtensionSigningRegressionTests: XCTestCase {
 		XCTAssertFalse(evaluation.hasBlocking, _describe(evaluation))
 	}
 
+	func testIdentifierOverrideMatchesPreflightAndPlistForBlankAndPaddedInput() {
+		for (input, expected): (String, String?) in [("", nil), ("  \n ", nil), ("  com.me.app \n", "com.me.app")] {
+			let options = _options(identifier: input, compatibility: false)
+			let target = ProfileCompatibility.Target(
+				app: _TestApp(identifier: "com.vendor.app"), options: options,
+				nestedBundleIdentifiers: ["com.vendor.app.widget"]
+			)
+			let info = NSMutableDictionary(dictionary: ["CFBundleIdentifier": "com.vendor.app"])
+			InfoPlistPlan.apply(options, to: info)
+			XCTAssertEqual(options.effectiveAppIdentifier, expected)
+			XCTAssertEqual(target.bundleIdentifier, expected ?? "com.vendor.app")
+			XCTAssertEqual(info["CFBundleIdentifier"] as? String, target.bundleIdentifier)
+			XCTAssertEqual(target.nestedBundleIdentifiers, [
+				expected.map { "\($0).widget" } ?? "com.vendor.app.widget"
+			])
+		}
+	}
+
+	func testMinimumOSPreviewMatchesSigningPlanAndUserOverridePrecedence() {
+		let original: [String: Any] = ["MinimumOSVersion": "18.0"]
+		var options = Options.defaultOptions
+		func assertPreview(_ expected: String?, file: StaticString = #filePath, line: UInt = #line) {
+			let preview = MergedInfoPlist(original: original, options: options).effective
+			let output = NSMutableDictionary(dictionary: original)
+			InfoPlistPlan.apply(options, to: output)
+			XCTAssertEqual(preview["MinimumOSVersion"] as? String, expected, file: file, line: line)
+			XCTAssertEqual(output["MinimumOSVersion"] as? String, expected, file: file, line: line)
+		}
+		assertPreview("18.0")
+		options.minimumAppRequirement = .v16
+		assertPreview("16.0")
+		options.removeMinimumOSVersion = true
+		assertPreview(nil)
+		options.infoPlistOverrideDict = ["MinimumOSVersion": "19.0"]
+		assertPreview("19.0")
+		options.infoPlistRemovals = ["MinimumOSVersion"]
+		assertPreview(nil)
+	}
+
 	func testCompatibilityModeSeesTheSameRewrittenIdentifiersAsTheBlockingCheck() {
 		// The removable set is rewritten too, otherwise an issue would be downgraded to a
 		// warning for an identifier the handler will never look for.

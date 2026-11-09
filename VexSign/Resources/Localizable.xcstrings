@@ -102237,6 +102237,996 @@
           }
         }
       }
+    },
+    "%lld of %lld nested bundles are not covered; %lld have unknown coverage." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld nested bundles are not covered; %lld have unknown coverage."
+          }
+        }
+      }
+    },
+    "Coverage could not be determined for %@ (%@)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coverage could not be determined for %@ (%@)."
+          }
+        }
+      }
+    },
+    "Minimum OS Version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum OS Version"
+          }
+        }
+      }
+    },
+    "Not declared or unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not declared or unavailable"
+          }
+        }
+      }
+    },
+    "This is the planned Info.plist value, not a compatibility check. Lowering or removing it does not make unsupported apps work." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is the planned Info.plist value, not a compatibility check. Lowering or removing it does not make unsupported apps work."
+          }
+        }
+      }
+    },
+    "Could not retrieve GitHub releases. Try again later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not retrieve GitHub releases. Try again later."
+          }
+        }
+      }
+    },
+    "Enter owner/repository or an HTTPS GitHub repository URL." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter owner/repository or an HTTPS GitHub repository URL."
+          }
+        }
+      }
+    },
+    "Find IPA Releases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find IPA Releases"
+          }
+        }
+      }
+    },
+    "GitHub denied or rate-limited this request. Try again later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub denied or rate-limited this request. Try again later."
+          }
+        }
+      }
+    },
+    "GitHub returned an invalid release response." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub returned an invalid release response."
+          }
+        }
+      }
+    },
+    "Import from GitHub" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import from GitHub"
+          }
+        }
+      }
+    },
+    "Include Prereleases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Include Prereleases"
+          }
+        }
+      }
+    },
+    "No IPA assets were found in the first 20 releases. Prereleases are hidden unless enabled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No IPA assets were found in the first 20 releases. Prereleases are hidden unless enabled."
+          }
+        }
+      }
+    },
+    "Prerelease" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prerelease"
+          }
+        }
+      }
+    },
+    "Public availability is not a safety guarantee. Only import IPAs from developers you trust. No automatic update tracking is added." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public availability is not a safety guarantee. Only import IPAs from developers you trust. No automatic update tracking is added."
+          }
+        }
+      }
+    },
+    "Queries GitHub's public API without signing in. Shows up to 20 recent releases. Choosing an IPA starts a normal download; it does not sign or install it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queries GitHub's public API without signing in. Shows up to 20 recent releases. Choosing an IPA starts a normal download; it does not sign or install it."
+          }
+        }
+      }
+    },
+    "The GitHub release response exceeds the metadata size limit." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The GitHub release response exceeds the metadata size limit."
+          }
+        }
+      }
+    },
+    "The public GitHub repository was not found." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The public GitHub repository was not found."
+          }
+        }
+      }
+    },
+    "owner/repository or GitHub URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "owner/repository or GitHub URL"
+          }
+        }
+      }
+    },
+    "Queries GitHub's public API without signing in. Shows up to 20 recent releases. Choosing an IPA uses your existing download and auto-sign settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queries GitHub's public API without signing in. Shows up to 20 recent releases. Choosing an IPA uses your existing download and auto-sign settings."
+          }
+        }
+      }
+    },
+    "%lld verifying" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld verifying"
+          }
+        }
+      }
+    },
+    "Check retained renewal inputs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check retained renewal inputs"
+          }
+        }
+      }
+    },
+    "Checking package integrity..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking package integrity..."
+          }
+        }
+      }
+    },
+    "Could not remove a cancelled verification file: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not remove a cancelled verification file: %@"
+          }
+        }
+      }
+    },
+    "Installation prerequisites available; successful installation has not been verified." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation prerequisites available; successful installation has not been verified."
+          }
+        }
+      }
+    },
+    "Library bundle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library bundle"
+          }
+        }
+      }
+    },
+    "Missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing"
+          }
+        }
+      }
+    },
+    "No fixed certificate was saved. Repeat signing uses the current selection; identity continuity is not established." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No fixed certificate was saved. Repeat signing uses the current selection; identity continuity is not established."
+          }
+        }
+      }
+    },
+    "No recognized installation method is selected. Review Installation settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No recognized installation method is selected. Review Installation settings."
+          }
+        }
+      }
+    },
+    "No signing certificate is available." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No signing certificate is available."
+          }
+        }
+      }
+    },
+    "Present" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Present"
+          }
+        }
+      }
+    },
+    "Renewal readiness" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewal readiness"
+          }
+        }
+      }
+    },
+    "Retained signing inputs available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retained signing inputs available"
+          }
+        }
+      }
+    },
+    "Review required before repeat signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review required before repeat signing"
+          }
+        }
+      }
+    },
+    "Saved signing settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved signing settings"
+          }
+        }
+      }
+    },
+    "Selected installation method" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected installation method"
+          }
+        }
+      }
+    },
+    "The resolved signing certificate has expired." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The resolved signing certificate has expired."
+          }
+        }
+      }
+    },
+    "The resolved signing certificate is marked revoked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The resolved signing certificate is marked revoked."
+          }
+        }
+      }
+    },
+    "The saved certificate is unavailable. The current selection would be used instead; signing identity is not preserved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved certificate is unavailable. The current selection would be used instead; signing identity is not preserved."
+          }
+        }
+      }
+    },
+    "The saved certificate record is available. File presence and expiry do not prove that signing or renewal will work." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved certificate record is available. File presence and expiry do not prove that signing or renewal will work."
+          }
+        }
+      }
+    },
+    "This checks retained local inputs only. It does not verify private-key usability, provisioning compatibility, source freshness, unattended renewal, or an update that preserves installed app data. Signing and installation gates still apply. Refresh after changing settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This checks retained local inputs only. It does not verify private-key usability, provisioning compatibility, source freshness, unattended renewal, or an update that preserves installed app data. Signing and installation gates still apply. Refresh after changing settings."
+          }
+        }
+      }
+    },
+    "Verifying" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifying"
+          }
+        }
+      }
+    },
+    "Deployment targets disagree" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deployment targets disagree"
+          }
+        }
+      }
+    },
+    "Download again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download again"
+          }
+        }
+      }
+    },
+    "Encrypted executable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encrypted executable"
+          }
+        }
+      }
+    },
+    "Executable inspection incomplete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Executable inspection incomplete"
+          }
+        }
+      }
+    },
+    "Executable platform unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Executable platform unknown"
+          }
+        }
+      }
+    },
+    "Executable requires newer iOS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Executable requires newer iOS"
+          }
+        }
+      }
+    },
+    "Executable unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Executable unavailable"
+          }
+        }
+      }
+    },
+    "Forget recovery record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forget recovery record"
+          }
+        }
+      }
+    },
+    "Interrupted downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrupted downloads"
+          }
+        }
+      }
+    },
+    "Less than 128 MiB is available for important usage. Signing copies and packaging need additional space; this is a warning threshold, not an exact space estimate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Less than 128 MiB is available for important usage. Signing copies and packaging need additional space; this is a warning threshold, not an exact space estimate."
+          }
+        }
+      }
+    },
+    "Low working disk space" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low working disk space"
+          }
+        }
+      }
+    },
+    "No import is replayed automatically. An interrupted import may already have saved a library copy: check Library before retrying. Download again uses your existing auto-sign settings. Forget removes only the checkpoint, not the retained IPA. Token-bearing URLs are not saved; reopen the original source when no retry is offered." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No import is replayed automatically. An interrupted import may already have saved a library copy: check Library before retrying. Download again uses your existing auto-sign settings. Forget removes only the checkpoint, not the retained IPA. Token-bearing URLs are not saved; reopen the original source when no retry is offered."
+          }
+        }
+      }
+    },
+    "No supported platform load command was found. Compatibility has not been established." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No supported platform load command was found. Compatibility has not been established."
+          }
+        }
+      }
+    },
+    "Preflight input could not be read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preflight input could not be read"
+          }
+        }
+      }
+    },
+    "Review retained IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review retained IPA"
+          }
+        }
+      }
+    },
+    "The executable deployment target exceeds this device's iOS version. Removing the plist minimum does not make newer APIs compatible." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The executable deployment target exceeds this device's iOS version. Removing the plist minimum does not make newer APIs compatible."
+          }
+        }
+      }
+    },
+    "The executable requires newer iOS than the bundle plist declares. Changing metadata cannot lower the binary deployment target." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The executable requires newer iOS than the bundle plist declares. Changing metadata cannot lower the binary deployment target."
+          }
+        }
+      }
+    },
+    "The library bundle has no readable executable inside its own directory." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library bundle has no readable executable inside its own directory."
+          }
+        }
+      }
+    },
+    "The selected Mach-O slice could not be inspected safely. This is not evidence of compatible architecture, platform, or encryption state." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected Mach-O slice could not be inspected safely. This is not evidence of compatible architecture, platform, or encryption state."
+          }
+        }
+      }
+    },
+    "The selected executable slice declares encryption. Re-signing does not decrypt App Store executables." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected executable slice declares encryption. Re-signing does not decrypt App Store executables."
+          }
+        }
+      }
+    },
+    "The selected executable slice is not an arm64 iOS-device binary." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected executable slice is not an arm64 iOS-device binary."
+          }
+        }
+      }
+    },
+    "Unsupported executable platform" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsupported executable platform"
+          }
+        }
+      }
+    },
+    "Bundle identifier for release tracking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle identifier for release tracking"
+          }
+        }
+      }
+    },
+    "Check tracked releases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check tracked releases"
+          }
+        }
+      }
+    },
+    "No reviewable releases, or this app's update rules currently suppress tracking." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reviewable releases, or this app's update rules currently suppress tracking."
+          }
+        }
+      }
+    },
+    "Public availability is not a safety guarantee. Only import IPAs from developers you trust. Tracked releases require explicit review; nothing is downloaded automatically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public availability is not a safety guarantee. Only import IPAs from developers you trust. Tracked releases require explicit review; nothing is downloaded automatically."
+          }
+        }
+      }
+    },
+    "Stop tracking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop tracking"
+          }
+        }
+      }
+    },
+    "Track this release and asset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Track this release and asset"
+          }
+        }
+      }
+    },
+    "Tracked GitHub releases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tracked GitHub releases"
+          }
+        }
+      }
+    },
+    "Tracking stores the explicitly chosen release and asset IDs with a bundle identifier for per-app update rules. Checks are manual and rate-limited, reuse conditional metadata, and never download or choose replacement assets automatically. At most 10 subscriptions are retained. Review every new release; asset names alone do not establish app identity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tracking stores the explicitly chosen release and asset IDs with a bundle identifier for per-app update rules. Checks are manual and rate-limited, reuse conditional metadata, and never download or choose replacement assets automatically. At most 10 subscriptions are retained. Review every new release; asset names alone do not establish app identity."
+          }
+        }
+      }
+    },
+    "VexSign backup schema %lld. Other signers’ backup formats are not supported. Restoring a library copy does not restore an installed app’s private data or prove installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign backup schema %lld. Other signers’ backup formats are not supported. Restoring a library copy does not restore an installed app’s private data or prove installation."
+          }
+        }
+      }
+    },
+    "An executable slice declares encryption. Re-signing does not decrypt it: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An executable slice declares encryption. Re-signing does not decrypt it: %@"
+          }
+        }
+      }
+    },
+    "An iOS bundle has no arm64 iOS-device executable slice: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An iOS bundle has no arm64 iOS-device executable slice: %@"
+          }
+        }
+      }
+    },
+    "An import commit was recorded or attempted. Check Library before downloading again; this input is not replayed automatically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An import commit was recorded or attempted. Check Library before downloading again; this input is not replayed automatically."
+          }
+        }
+      }
+    },
+    "Estimated signing working space: %@. This is not a disk reservation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated signing working space: %@. This is not a disk reservation."
+          }
+        }
+      }
+    },
+    "Inspecting executable slices and working space…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inspecting executable slices and working space…"
+          }
+        }
+      }
+    },
+    "Mach-O slice bounds or load commands are invalid or unsupported: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mach-O slice bounds or load commands are invalid or unsupported: %@"
+          }
+        }
+      }
+    },
+    "Recheck and import retained IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recheck and import retained IPA"
+          }
+        }
+      }
+    },
+    "The declared executable could not be read safely: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The declared executable could not be read safely: %@"
+          }
+        }
+      }
+    },
+    "The executable platform could not be established: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The executable platform could not be established: %@"
+          }
+        }
+      }
+    },
+    "The library bundle is unavailable for inspection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library bundle is unavailable for inspection."
+          }
+        }
+      }
+    },
+    "Release tracking state could not be saved. No request or update was accepted; retry after storage access is restored." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Release tracking state could not be saved. No request or update was accepted; retry after storage access is restored."
+          }
+        }
+      }
+    },
+    "%lld GitHub releases need review" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld GitHub releases need review"
+          }
+        }
+      }
+    },
+    "Check during enabled maintenance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check during enabled maintenance"
+          }
+        }
+      }
+    },
+    "Review cached releases" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review cached releases"
+          }
+        }
+      }
+    },
+    "Tracking stores the explicitly chosen release and asset IDs with a bundle identifier for per-app update rules. Checks are rate-limited and reuse conditional metadata. Optional maintenance checks require automation to be enabled and never download or choose replacement assets automatically. At most 10 subscriptions are retained. Review every new release; asset names alone do not establish app identity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tracking stores the explicitly chosen release and asset IDs with a bundle identifier for per-app update rules. Checks are rate-limited and reuse conditional metadata. Optional maintenance checks require automation to be enabled and never download or choose replacement assets automatically. At most 10 subscriptions are retained. Review every new release; asset names alone do not establish app identity."
+          }
+        }
+      }
+    },
+    "No import is replayed automatically. An interrupted import may already have saved a library copy: check Library before retrying. Resume or download again uses your existing auto-sign settings. A saved system resume blob is used only if its original URL matches; otherwise a fresh download is required. Forget removes only the checkpoint, not the retained IPA. Token-bearing URLs are not saved; reopen the original source when no retry is offered." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No import is replayed automatically. An interrupted import may already have saved a library copy: check Library before retrying. Resume or download again uses your existing auto-sign settings. A saved system resume blob is used only if its original URL matches; otherwise a fresh download is required. Forget removes only the checkpoint, not the retained IPA. Token-bearing URLs are not saved; reopen the original source when no retry is offered."
+          }
+        }
+      }
+    },
+    "Resume or download again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume or download again"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

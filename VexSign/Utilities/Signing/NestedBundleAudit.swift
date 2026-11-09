@@ -51,8 +51,8 @@ enum NestedBundleAudit {
 		case covered(pattern: String)
 		/// The profile exists and does not cover it.
 		case notCovered(pattern: String)
-		/// Nothing to compare: no profile selected, or the bundle has no identifier. Unknown is
-		/// not a problem — it is the absence of evidence, and it is never reported as one.
+		/// Nothing to compare: no profile selected, or the bundle has no identifier.
+		/// This is reported as unknown rather than as a proven mismatch.
 		case unknown
 
 		var isNotCovered: Bool {
@@ -76,8 +76,9 @@ enum NestedBundleAudit {
 
 		var isEmpty: Bool { entries.isEmpty }
 		var uncovered: [Entry] { entries.filter { $0.coverage.isNotCovered } }
-		/// True when nothing is known to be wrong. An `unknown` entry is not a failure.
-		var isClean: Bool { uncovered.isEmpty }
+		var unknown: [Entry] { entries.filter { $0.coverage == .unknown } }
+		/// Clean means every scanned bundle is actually covered, not merely unverified.
+		var isClean: Bool { uncovered.isEmpty && unknown.isEmpty }
 
         struct IncompatibleProfile: LocalizedError {
             let details: String
@@ -93,28 +94,31 @@ enum NestedBundleAudit {
         /// confirming the override still aborted the sign with no way through (#137).
         func requireCompatibleProfile(overridingBlockingIssues: Bool = false) throws {
             guard !overridingBlockingIssues else { return }
-            guard isClean else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
+            guard uncovered.isEmpty else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
         }
 
-		/// One line per bundle that cannot be signed correctly, in scan order.
+		/// Explain known mismatches and unknown coverage without conflating them.
 		var warnings: [String] {
-			uncovered.compactMap { entry in
-				guard case let .notCovered(pattern) = entry.coverage else { return nil }
-
+			entries.compactMap { entry in
 				let name = entry.bundle.displayName
 				let identifier = entry.bundle.identifier ?? .localized("unknown identifier")
-
-				if let shipped = entry.shippedProfileIdentifier, shipped != pattern {
+				switch entry.coverage {
+				case .covered:
+					return nil
+				case .unknown:
+					return .localized("Coverage could not be determined for %@ (%@).", arguments: name, identifier)
+				case let .notCovered(pattern):
+					if let shipped = entry.shippedProfileIdentifier, shipped != pattern {
+						return .localized(
+							"%@ (%@) ships a profile for %@; the selected profile covers %@, so the extension cannot be signed correctly.",
+							arguments: name, identifier, shipped, pattern
+						)
+					}
 					return .localized(
-						"%@ (%@) ships a profile for %@; the selected profile covers %@, so the extension cannot be signed correctly.",
-						arguments: name, identifier, shipped, pattern
+						"%@ (%@) is not covered by %@, so the extension cannot be signed correctly.",
+						arguments: name, identifier, pattern
 					)
 				}
-
-				return .localized(
-					"%@ (%@) is not covered by %@, so the extension cannot be signed correctly.",
-					arguments: name, identifier, pattern
-				)
 			}
 		}
 
@@ -123,6 +127,12 @@ enum NestedBundleAudit {
 			guard !isEmpty else { return nil }
 			if isClean {
 				return .localized("%lld nested bundle(s) covered by the profile.", arguments: entries.count)
+			}
+			if !unknown.isEmpty {
+				return .localized(
+					"%lld of %lld nested bundles are not covered; %lld have unknown coverage.",
+					arguments: uncovered.count, entries.count, unknown.count
+				)
 			}
 			return .localized(
 				"%lld of %lld nested bundles are not covered by this profile.",

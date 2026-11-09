@@ -61,6 +61,7 @@ struct AutomationRunResult {
 	var skipped: Int
 	var cleanup: CleanupSummary?
     var failed: Int = 0
+    var githubReleaseReviews: Int = 0
 }
 
 // Stores counts and outcomes only; no app names, credentials or source URLs.
@@ -154,18 +155,21 @@ enum BackgroundAutomation {
 		// The only chance a scheduled pass has to notice a new VexSign release. Checked before the
 		// source guard: self-updates do not depend on any repository being configured.
 		await SelfUpdateManager.shared.check()
+        guard !Task.isCancelled else { return nil }
+        let trackedReleases = await GitHubSubscriptionStore.shared.checkDueSubscriptions()
+        guard !Task.isCancelled else { return nil }
 
 		let policy = BackgroundAutomationPreferences.policy
 		let storage = Storage.shared
 		let sources = storage.getSources()
-        guard !sources.isEmpty else {
-            AutomationHistoryStore.shared.record("noSources", fromBackground: fromBackground)
-            return nil
-        }
 
 		// 1. Refresh repositories.
-		await SourcesViewModel.shared.fetchSources(sources, refresh: true)
-		let repositories = Array(SourcesViewModel.shared.sources.values)
+		if !sources.isEmpty {
+            await SourcesViewModel.shared.fetchSources(sources, refresh: true)
+        }
+        guard !Task.isCancelled else { return nil }
+        // Do not reuse stale in-memory repositories when the configured source list is empty.
+        let repositories = sources.isEmpty ? [] : Array(SourcesViewModel.shared.sources.values)
 
 		// 2. Recompute the update set.
 		let signedApps = storage.getSignedApps()
@@ -185,6 +189,8 @@ enum BackgroundAutomation {
 			cleanup: nil
 		)
 
+        result.githubReleaseReviews = trackedReleases.reviewable
+        result.failed += trackedReleases.failed
 		// 3. Sign & queue, when that policy is set.
 		if policy == .signAndQueue {
             // Repository refresh suspends this actor; a manual queue may have
@@ -205,17 +211,19 @@ enum BackgroundAutomation {
 
 			if !tasks.isEmpty {
 				await UpdateAllManager.shared.run(tasks: tasks)
-				result.failed = UpdateAllManager.shared.failed
+				result.failed += UpdateAllManager.shared.failed
 				result.signed = UpdateAllManager.shared.succeeded
 				result.queueAdded = UpdateAllManager.shared.tasks.filter { $0.state == .finished }.count
 				result.skipped = UpdateAllManager.shared.tasks.filter { $0.state == .skipped }.count
 			}
 		}
 
-		// 4. Free Apple ID profile renewal (if signed in)
+		guard !Task.isCancelled else { return nil }
+        // 4. Free Apple ID profile renewal (if signed in)
 		await renewFreeAppleIDProfiles()
 
-		// 5. Run the Auto Cleanup sweep.
+		guard !Task.isCancelled else { return nil }
+        // 5. Run the Auto Cleanup sweep.
 		result.cleanup = CleanupManager.shared.cleanNow()
 
 		// 6. One summarizing notification.
@@ -247,6 +255,9 @@ enum BackgroundAutomation {
 		} else {
 			lines.append(.localized("No updates"))
 		}
+        if result.githubReleaseReviews > 0 {
+            lines.append(String.localized("%lld GitHub releases need review", arguments: result.githubReleaseReviews))
+        }
 		if result.signed > 0 {
 			lines.append(String.localized("%lld signed and queued", arguments: result.signed))
 		}

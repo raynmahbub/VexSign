@@ -35,6 +35,24 @@ final class DownloadIntegrityTests: XCTestCase {
 		return url
 	}
 
+    func testHashStopsAtChunkCheckpoint() throws {
+        let url = directory.appendingPathComponent("large.ipa")
+        try Data(repeating: 42, count: 3 * 1024 * 1024).write(to: url)
+        var checks = 0
+        XCTAssertThrowsError(try FileIntegrity.sha256(of: url, cancellationCheck: {
+            checks += 1
+            if checks == 3 { throw CancellationError() }
+        })) { XCTAssertTrue($0 is CancellationError) }
+        XCTAssertEqual(checks, 3)
+    }
+
+    func testCancelledVerificationDoesNotReturnMismatch() throws {
+        let url = try writeFile(named: "cancelled.ipa", contents: "payload")
+        XCTAssertThrowsError(try DownloadIntegrity.verify(fileAt: url, expectation: empty, cancellationCheck: {
+            throw CancellationError()
+        })) { XCTAssertTrue($0 is CancellationError) }
+    }
+
 	private var empty = DownloadIntegrity.Expectation()
 
 	// MARK: - Nothing declared

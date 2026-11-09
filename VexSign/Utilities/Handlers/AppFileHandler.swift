@@ -145,6 +145,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			try _fileManager.removeFileIfNeeded(at: destinationURL)
 
 			try _fileManager.moveItem(at: payloadURL, to: destinationURL)
+            LibrarySizeSnapshot.invalidate()
 			Logger.misc.info("[\(self._uuid)] Moved Payload to: \(destinationURL.path)")
 
 			try? _fileManager.removeItem(at: _uniqueWorkDir)
@@ -172,6 +173,9 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
         try _download?.importControl.checkpoint()
         try Task.checkCancellation()
+        if let download = _download {
+            try await MainActor.run { try download.importCommitCheckpoint?(self._uuid, false) }
+        }
         try _download?.importControl.beginCommit()
         let objectID: NSManagedObjectID
         do {
@@ -195,6 +199,10 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		}
 
 		_didAddToDatabase = true
+        if let download = _download {
+            // The callback swallows post-commit persistence failure, keeping the UUID checkpoint.
+            try await MainActor.run { try download.importCommitCheckpoint?(self._uuid, true) }
+        }
 
         return objectID
     }

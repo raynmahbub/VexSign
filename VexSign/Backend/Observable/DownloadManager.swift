@@ -34,6 +34,10 @@ class DownloadManager: NSObject, ObservableObject {
 	weak var errorDelegate: ErrorDelegate?
 	
 	@Published var downloads: [Download] = []
+    @Published var interruptedDownloads: [DownloadRecoveryJournal.Record] = []
+    @Published var recoveryWarning: String?
+    var recoveryJournal: DownloadRecoveryJournal?
+    var integrityDecisions: [ObjectIdentifier: Download] = [:]
 	@Published var currentDownloadSpeed: Int64 = 0
 
 	var manualDownloads: [Download] {
@@ -41,16 +45,16 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 
 	var activeNetworkDownloads: [Download] {
-		downloads.filter { !$0.onlyArchiving && ($0.isActive || $0.progress > 0) && $0.progress < 1.0 && !$0.isPaused }
+		downloads.filter { !$0.onlyArchiving && $0.isActive && !$0.isWaitingForSlot && !$0.isVerifying && !$0.isImporting && !$0.isSigning && !$0.isPaused && $0.task?.state == .running }
 	}
 
 	/// Unpacking or auto signing. Both hold the keep-alive open.
 	var processingDownloads: [Download] {
-		downloads.filter { $0.isImporting || $0.isSigning }
+		downloads.filter { $0.isVerifying || $0.isImporting || $0.isSigning }
 	}
 
 	var hasUnfinishedWork: Bool {
-		downloads.contains { $0.isActive || $0.isImporting || $0.isSigning || ($0.progress > 0 && $0.progress < 1.0) }
+		downloads.contains { $0.isActive || $0.isWaitingForSlot || $0.isVerifying || $0.isImporting || $0.isSigning || ($0.progress > 0 && $0.progress < 1.0) }
 	}
 
 	var _backgroundSession: URLSession!
@@ -83,6 +87,8 @@ class DownloadManager: NSObject, ObservableObject {
 	var isCreatingLiveActivity = false
 
 	private var speedTracker = DownloadSpeedTracker()
+    private var isBatchControllingDownloads = false
+    private let configureSystemServices: Bool
 
 	var completedDownloadNames: [String] = []
 	var isActivityShowingCompletion = false
@@ -93,8 +99,19 @@ class DownloadManager: NSObject, ObservableObject {
 	// Downloads that finished downloading (X in the X/Y counter) — distinct from archiving completion.
 	var finishedDownloadingIDs: Set<String> = []
 
-	override init() {
-		super.init()
+    override convenience init() {
+        self.init(configureServices: true)
+    }
+
+    /// Tests can supply isolated sessions without registering notifications or background work.
+    init(configureServices: Bool) {
+        self.configureSystemServices = configureServices
+        super.init()
+        guard configureServices else { return }
+        let journal = DownloadRecoveryJournal(root: DownloadRecoveryJournal.directory)
+        recoveryJournal = journal
+        do { interruptedDownloads = try journal.load() }
+        catch { recoveryWarning = error.localizedDescription }
 
 		let foregroundConfig = URLSessionConfiguration.default
 		foregroundConfig.timeoutIntervalForRequest = 300 // 5 min
@@ -105,7 +122,7 @@ class DownloadManager: NSObject, ObservableObject {
 		foregroundConfig.multipathServiceType = .handover
 		foregroundConfig.waitsForConnectivity = false
 
-		_foregroundSession = URLSession(configuration: foregroundConfig, delegate: self, delegateQueue: nil)
+		_foregroundSession = URLSession(configuration: foregroundConfig, delegate: self, delegateQueue: .main)
 
 		let backgroundConfig: URLSessionConfiguration = URLSessionConfiguration.background(withIdentifier: "com.vexsign.app.background")
 		backgroundConfig.isDiscretionary = false // don't wait for ideal conditions
@@ -118,7 +135,22 @@ class DownloadManager: NSObject, ObservableObject {
 		backgroundConfig.waitsForConnectivity = false
 		backgroundConfig.networkServiceType = .responsiveData
 
-		_backgroundSession = URLSession(configuration: backgroundConfig, delegate: self, delegateQueue: nil)
+		_backgroundSession = URLSession(configuration: backgroundConfig, delegate: self, delegateQueue: .main)
+        // No silent replay: unowned restored transfers require explicit recovery review.
+        _backgroundSession.getAllTasks { [weak self] tasks in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for task in tasks where !self.downloads.contains(where: { $0.task === task }) { task.cancel() }
+            }
+        }
+
+        // Monitor initialization is deliberate even before the first Wi-Fi-only download.
+        _ = DownloadPreferences.isOnExpensivePath
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        for name in [DownloadPreferences.pathChanged, UIDevice.batteryStateDidChangeNotification,
+                     UserDefaults.didChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(networkPolicyDidChange), name: name, object: nil)
+        }
 
 		requestNotificationPermissions()
 
@@ -227,6 +259,7 @@ class DownloadManager: NSObject, ObservableObject {
 
 	@objc private func appDidBecomeActive() {
 		consumeWidgetDownloadControl()
+        reconcileNetworkPolicy()
 		isAppInBackground = false
 		backgroundEntryTime = nil
 
@@ -255,9 +288,8 @@ class DownloadManager: NSObject, ObservableObject {
 
 		processPendingDownloads()
 
-		for download in downloads where download.isPaused {
-			resumeDownload(download)
-		}
+        // Foregrounding is not consent to undo an explicit user pause.
+        drainNetworkQueue()
 
 		let pausedDownloads = downloads.filter { $0.isPaused }
 		if !pausedDownloads.isEmpty && downloadActivity != nil {
@@ -315,7 +347,7 @@ class DownloadManager: NSObject, ObservableObject {
 		let deadline = DispatchTime.now() + .milliseconds(500)
 
 		for download in downloads {
-			if let task = download.task, task.state == .running {
+			if let task = download.task, (task.state == .running || task.state == .suspended) {
 				saveGroup.enter()
 				task.cancel { resumeData in
 					download.resumeData = resumeData
@@ -346,6 +378,7 @@ class DownloadManager: NSObject, ObservableObject {
 
 	private func handleProgressTick() {
 		consumeWidgetDownloadControl()
+        drainNetworkQueue()
 		sampleDownloadSpeed()
 
 		if isAppInBackground {
@@ -375,22 +408,19 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 	}
 	
-	func saveResumeData(for download: Download) {
-		guard let resumeData = download.resumeData else { return }
-		
-		let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-		let resumeDataPath = documentsPath.appendingPathComponent("ResumeData_\(download.id).data")
-		
-		try? resumeData.write(to: resumeDataPath)
-	}
-	
-	private func loadResumeData(for download: Download) -> Data? {
-		let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-		let resumeDataPath = documentsPath.appendingPathComponent("ResumeData_\(download.id).data")
-		
-		return try? Data(contentsOf: resumeDataPath)
-	}
-	
+    func saveResumeData(for download: Download) {
+        guard let data = download.resumeData, let recoveryJournal else { return }
+        do { try recoveryJournal.saveResumeData(data, id: download.recoveryID, source: download.url) }
+        catch {
+            DispatchQueue.main.async { self.recoveryWarning = error.localizedDescription }
+        }
+    }
+
+    private func loadResumeData(for download: Download) -> Data? {
+        do { return try recoveryJournal?.resumeData(id: download.recoveryID, source: download.url) }
+        catch { recoveryWarning = error.localizedDescription; return nil }
+    }
+
 	// MARK: - Notification Methods
 
 	func updateMergedProgressNotification() {
@@ -474,8 +504,15 @@ class DownloadManager: NSObject, ObservableObject {
 		id: String = UUID().uuidString,
 		appName: String? = nil,
 		appDescription: String? = nil,
-		integrity: DownloadIntegrity.Expectation? = nil
+		integrity: DownloadIntegrity.Expectation? = nil,
+        recoveryID: UUID = UUID(),
+        recoveredResumeData: Data? = nil
 	) -> Download {
+        if !Thread.isMainThread {
+            return DispatchQueue.main.sync {
+                self.startDownload(from: url, id: id, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID, recoveredResumeData: recoveredResumeData)
+            }
+        }
 		// Game Mode (Settings → Game Mode): the one place every download funnels through, so
 		// nothing reaches the network while it is on. Callers discard the return value, and
 		// an unstarted download is never appended to `downloads`, so the UI stays on "Get".
@@ -498,25 +535,18 @@ class DownloadManager: NSObject, ObservableObject {
 			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
 		}
 
-		let running = downloads.filter { !$0.onlyArchiving && ($0.isActive || $0.progress > 0) && $0.progress < 1.0 && !$0.isPaused }.count
-		if running >= DownloadPreferences.maxParallel {
-			Task { @MainActor in
-				Toast.info(.localized("Waiting for a download slot (%lld max).", arguments: DownloadPreferences.maxParallel), systemImage: "arrow.down.circle")
-			}
-		}
-
         if let existingDownload = downloads.first(where: { $0.url == url }) {
             // Same URL: keep the row, but take the promise this call was given (a later source
             // fetch may know a size the first one did not).
-            if let integrity {
+            if let integrity, !existingDownload.isVerifying, !existingDownload.isImporting, !existingDownload.isSigning {
                 existingDownload.integrity = integrity
             }
             resumeDownload(existingDownload)
             return existingDownload
         }
 
-        let download = Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
-        download.isActive = true
+        let download = Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID)
+        download.isWaitingForSlot = true
 
 		let session = isAppInBackground ? _backgroundSession! : _foregroundSession!
 
@@ -530,38 +560,31 @@ class DownloadManager: NSObject, ObservableObject {
 		// Auth headers for premium sources.
 		VexSignAPI.applyAuthHeaders(to: &request)
 
-		let task = session.downloadTask(with: request)
+        let task: URLSessionDownloadTask
+        if let recoveredResumeData { task = session.downloadTask(withResumeData: recoveredResumeData) }
+        else { task = session.downloadTask(with: request) }
 		download.task = task
 		task.priority = 1.0
-		task.resume()
-
-		DispatchQueue.main.async {
-			self.objectWillChange.send()
-			self.downloads.append(download)
-
-			self.startProgressTimer()
-
-			if self.isAppInBackground {
-				self.ensureKeepAlive()
-			}
-
-			// BGContinuedProcessingTask keeps work going in the background on iOS 19+.
-			if #available(iOS 19.0, *) {
-				if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-					appDelegate.submitContinuedProcessingTask()
-				}
-			}
-
-			Task {
-				self.startLiveActivityIfNeeded()
-			}
-		}
+        // Register ownership before a task can deliver callbacks or a duplicate request arrives.
+        ownImportRecovery(download)
+        downloads.append(download)
+        checkpointRecovery(download, stage: .downloading)
+        drainNetworkQueue()
+        if configureSystemServices {
+            startProgressTimer()
+            if isAppInBackground { ensureKeepAlive() }
+            if #available(iOS 19.0, *), let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+                appDelegate.submitContinuedProcessingTask()
+            }
+            startLiveActivityIfNeeded()
+        }
 
 		return download
 	}
 	
 	func startArchive(from url: URL, id: String = UUID().uuidString, appName: String? = nil, reviewDuplicates: Bool = false, completion: ((Error?) -> Void)? = nil) -> Download {
 		let download = Download(id: id, url: url, onlyArchiving: true, appName: appName)
+        ownImportRecovery(download)
 		download.isActive = true
 
 		DispatchQueue.main.async {
@@ -622,91 +645,157 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 	
     func resumeDownload(_ download: Download) {
-        if download.isImporting {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.resumeDownload(download) }
+            return
+        }
+        if download.isImporting || download.isVerifying {
             download.importControl.resume()
             download.isPaused = false
             download.isActive = true
             objectWillChange.send()
             return
         }
-        guard !download.isSigning, !download.onlyArchiving else { return }
-		// Game Mode pauses downloads on purpose; the automatic paths (becoming active again,
-		// a background task waking up) must not quietly undo that.
-		guard !GameMode.isEnabled else { return }
+        guard !download.isSigning, !download.onlyArchiving, download.progress < 1.0,
+              downloads.contains(where: { $0 === download }) else { return }
+        // A second request for the same active URL is a no-op, not a replacement task.
+        guard download.task?.state != .running, !download.isWaitingForSlot else { return }
+        guard networkPolicyAllowsStarting else { return }
+        if download.task?.state != .suspended {
+            if download.resumeData == nil { download.resumeData = loadResumeData(for: download) }
+            let session = (isAppInBackground ? _backgroundSession : _foregroundSession) ?? URLSession.shared
+            if let resumeData = download.resumeData {
+                download.task = session.downloadTask(withResumeData: resumeData)
+                download.resumeData = nil
+            } else {
+                var request = URLRequest(url: download.url)
+                request.allowsExpensiveNetworkAccess = !DownloadPreferences.wifiOnly
+                request.allowsConstrainedNetworkAccess = !DownloadPreferences.wifiOnly
+                VexSignAPI.applyAuthHeaders(to: &request)
+                download.task = session.downloadTask(with: request)
+            }
+        }
+        download.isPaused = false
+        download.isWaitingForSlot = true
+        download.isActive = false
+        drainNetworkQueue()
+        if configureSystemServices {
+            startProgressTimer()
+            if isAppInBackground { ensureKeepAlive() }
+        }
+    }
 
-		if download.resumeData == nil {
-			download.resumeData = loadResumeData(for: download)
-		}
-		
-		let session = (isAppInBackground ? _backgroundSession : _foregroundSession) ?? URLSession.shared
-		
-		if let resumeData = download.resumeData {
-			let task = session.downloadTask(withResumeData: resumeData)
-			download.task = task
-			task.resume()
-			download.isActive = true
-			download.isPaused = false
-		} else {
-			let url = download.task?.originalRequest?.url ?? download.url
-			var request = URLRequest(url: url)
-			VexSignAPI.applyAuthHeaders(to: &request)
-			let task = session.downloadTask(with: request)
-			download.task = task
-			task.resume()
-			download.isActive = true
-			download.isPaused = false
-		}
-		
-		DispatchQueue.main.async {
-			self.startProgressTimer()
+    private var networkPolicyAllowsStarting: Bool {
+        !GameMode.isEnabled
+            && (!DownloadPreferences.wifiOnly || !DownloadPreferences.isOnExpensivePath)
+            && (!DownloadPreferences.chargeOnly || DownloadPreferences.isCharging)
+    }
 
-			let activeDownloads = self.downloads.filter {
-				($0.progress > 0 && $0.progress < 1.0) ||
-				($0.unpackageProgress > 0 && $0.unpackageProgress < 1.0)
-			}
-			if !activeDownloads.isEmpty && self.downloadActivity != nil {
-				self.forceNextProgressUpdate()
-				self.updateLiveActivity(activeDownloads: activeDownloads)
-			}
-		}
-	}
+    @objc private func networkPolicyDidChange() {
+        reconcileNetworkPolicy()
+    }
+
+    /// Policy-held tasks remain waiting, distinct from explicit user pauses.
+    func reconcileNetworkPolicy(allowed: Bool? = nil) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.reconcileNetworkPolicy(allowed: allowed) }
+            return
+        }
+        let canRun = allowed ?? networkPolicyAllowsStarting
+        if !canRun {
+            for download in downloads where !download.isImporting && !download.isVerifying && !download.isSigning && !download.onlyArchiving && download.progress < 1 {
+                if download.task?.state == .running {
+                    download.task?.suspend()
+                    download.isActive = false
+                    if !download.isPaused { download.isWaitingForSlot = true }
+                }
+            }
+        } else { drainNetworkQueue() }
+    }
+
+    /// FIFO admission shared by new and resumed transfers. Waiting rows own suspended tasks.
+    /// All admission and row registration is serialized on the main queue.
+    func drainNetworkQueue() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.drainNetworkQueue() }
+            return
+        }
+        guard !isBatchControllingDownloads, networkPolicyAllowsStarting else { return }
+        let waiting = downloads.filter { $0.isWaitingForSlot && !$0.isPaused }
+        let slots = max(0, DownloadPreferences.maxParallel - activeNetworkDownloads.count)
+        for download in waiting.prefix(slots) {
+            guard download.task?.state == .suspended else { continue }
+            download.isWaitingForSlot = false
+            download.isActive = true
+            download.task?.resume()
+        }
+    }
+
+    /// Release a network slot independently of the subsequent verification/import owner.
+    func networkTransferFinished(_ download: Download, task: URLSessionTask) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.networkTransferFinished(download, task: task) }
+            return
+        }
+        guard download.task === task else { return }
+        download.isActive = false
+        download.isWaitingForSlot = false
+        drainNetworkQueue()
+    }
 
     func pauseDownload(_ download: Download) {
-        if download.isImporting {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.pauseDownload(download) }
+            return
+        }
+        if download.isImporting || download.isVerifying {
             guard download.importControl.pause() else { return }
             download.isPaused = true
             objectWillChange.send()
             return
         }
         guard !download.isSigning, !download.onlyArchiving else { return }
-		download.task?.cancel { resumeData in
-			download.resumeData = resumeData
-			self.saveResumeData(for: download)
-		}
-		download.isPaused = true
-		download.isActive = false
-	}
-	
+        if download.task?.state == .running { download.task?.suspend() }
+        download.isWaitingForSlot = false
+        download.isPaused = true
+        download.isActive = false
+        drainNetworkQueue()
+    }
+
     func cancelDownload(_ download: Download) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.cancelDownload(download) }
+            return
+        }
+        if integrityDecisions.removeValue(forKey: ObjectIdentifier(download)) != nil {
+            download.packageVerification.cancel()
+            download.importControl.cancel()
+            if let url = download.retainedPackageURL {
+                download.retainedPackageURL = nil
+                finishCancelledVerification(url: url, dl: download)
+            }
+            return
+        }
         // Auto-sign is a separate owner; do not hide a still-running signer.
         guard !download.isSigning else { return }
-        if download.isImporting {
+        if download.isImporting || download.isVerifying {
             guard download.importControl.cancel() else { return }
+            download.packageVerification.cancel()
             download.isPaused = false
             // Keep the row until the worker has stopped and cleaned its files.
             objectWillChange.send()
             return
         }
         download.importControl.cancel()
+        download.packageVerification.cancel()
+        clearRecovery(download)
 		download.task?.cancel()
+        download.isWaitingForSlot = false
 		download.isActive = false
 
-		let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-		let resumeDataPath = documentsPath.appendingPathComponent("ResumeData_\(download.id).data")
-		try? FileManager.default.removeItem(at: resumeDataPath)
 
 		DispatchQueue.main.async {
-			if let index = self.downloads.firstIndex(where: { $0.id == download.id }) {
+			if let index = self.downloads.firstIndex(where: { $0 === download }) {
 				self.objectWillChange.send()
 
 				// Drop from tracking so a manually stopped download leaves overall progress.
@@ -714,6 +803,7 @@ class DownloadManager: NSObject, ObservableObject {
 				self.finishedDownloadingIDs.remove(download.id)
 
 				self.downloads.remove(at: index)
+                self.drainNetworkQueue()
 
 				let remainingActiveDownloads = self.downloads.filter {
 					$0.progress > 0 && $0.progress < 1.0 && !$0.isPaused
@@ -735,15 +825,27 @@ class DownloadManager: NSObject, ObservableObject {
     /// Network jobs leave immediately. Imports leave only after cooperative cancellation
     /// and workspace cleanup; an auto-sign run is not hidden or cancelled by this action.
 	func cancelAllDownloads() {
-		let currentDownloads = downloads.filter { $0.isActive || $0.isPaused || $0.isImporting || $0.isSigning }
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.cancelAllDownloads() }
+            return
+        }
+        isBatchControllingDownloads = true
+        defer { isBatchControllingDownloads = false }
+		let currentDownloads = downloads.filter { $0.isActive || $0.isWaitingForSlot || $0.isPaused || $0.isVerifying || $0.isImporting || $0.isSigning } + Array(integrityDecisions.values)
 		for download in currentDownloads {
 			cancelDownload(download)
 		}
 	}
 
 	func pauseAllDownloads() {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.pauseAllDownloads() }
+            return
+        }
+        isBatchControllingDownloads = true
+        defer { isBatchControllingDownloads = false }
 		let currentDownloads = downloads.filter {
-			$0.isActive || ($0.progress > 0 && $0.progress < 1.0) || $0.isImporting || $0.isSigning
+			$0.isActive || $0.isWaitingForSlot || ($0.progress > 0 && $0.progress < 1.0) || $0.isVerifying || $0.isImporting || $0.isSigning
 		}
 		for download in currentDownloads {
 			pauseDownload(download)
@@ -762,6 +864,10 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 	
 	func resumeAllDownloads() {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.resumeAllDownloads() }
+            return
+        }
 		// Resuming is user-initiated here (button, Live Activity, Shortcut), so say why
 		// nothing happened instead of leaving the button looking broken.
 		guard !GameMode.isEnabled else {

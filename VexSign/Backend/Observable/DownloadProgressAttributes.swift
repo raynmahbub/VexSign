@@ -12,12 +12,13 @@ enum DownloadPhase: String, Codable, Hashable {
 	case queued
 	case downloading
 	case paused
+	case verifying
 	case importing
 	case signing
 	case completed
 
 	var isProcessing: Bool {
-		self == .importing || self == .signing
+		self == .verifying || self == .importing || self == .signing
 	}
 
 	var icon: String {
@@ -25,6 +26,7 @@ enum DownloadPhase: String, Codable, Hashable {
 		case .queued: return "clock"
 		case .downloading: return "arrow.down"
 		case .paused: return "pause.fill"
+		case .verifying: return "checkmark.shield"
 		case .importing: return "shippingbox.fill"
 		case .signing: return "signature"
 		case .completed: return "checkmark"

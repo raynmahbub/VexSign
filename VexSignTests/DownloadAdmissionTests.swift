@@ -1,0 +1,181 @@
+import Foundation
+import XCTest
+@testable import VexSign
+
+/// No real network, notification registration, background sessions or Live Activities.
+final class DownloadAdmissionTests: XCTestCase {
+    @MainActor
+    private func withManager(_ body: (DownloadManager) throws -> Void) rethrows {
+        let keys = [DownloadPreferences.maxParallelKey, DownloadPreferences.wifiOnlyKey,
+                    DownloadPreferences.chargeOnlyKey, GameMode.enabledKey]
+        let defaults = UserDefaults.standard
+        let previous = keys.map { defaults.object(forKey: $0) }
+        defer {
+            for (key, value) in zip(keys, previous) {
+                if let value { defaults.set(value, forKey: key) }
+                else { defaults.removeObject(forKey: key) }
+            }
+        }
+        defaults.set(1, forKey: DownloadPreferences.maxParallelKey)
+        defaults.set(false, forKey: DownloadPreferences.wifiOnlyKey)
+        defaults.set(false, forKey: DownloadPreferences.chargeOnlyKey)
+        defaults.set(false, forKey: GameMode.enabledKey)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HeldDownloadProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let manager = DownloadManager(configureServices: false)
+        manager._foregroundSession = session
+        manager._backgroundSession = session
+        defer {
+            for download in manager.downloads { download.task?.cancel() }
+            session.invalidateAndCancel()
+        }
+        try body(manager)
+    }
+
+    @MainActor
+    func testVerificationClaimsOwnershipBeforeReturningAndCancelInvalidatesIt() throws {
+        let manager = DownloadManager(configureServices: false)
+        let download = Download(id: "verification-test", url: url(99))
+        manager.downloads.append(download)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".ipa")
+        try Data("payload".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        // Pause before starting, making the worker wait at its first cooperative checkpoint.
+        XCTAssertTrue(download.importControl.pause())
+        download.isPaused = true
+        try manager.handlePackageFile(url: file, dl: download)
+        XCTAssertTrue(download.isVerifying)
+        XCTAssertEqual(download.phase, .paused)
+        XCTAssertEqual(download.phaseProgress, 0)
+        XCTAssertNil(download.packageVerification.begin())
+        try manager.handlePackageFile(url: file, dl: download)
+        manager.cancelDownload(download)
+        XCTAssertFalse(download.importControl.isControllable)
+        XCTAssertFalse(download.packageVerification.acceptOverride())
+        // Cancellation is cooperative: the row stays until the worker releases the file.
+        XCTAssertTrue(download.isVerifying)
+    }
+
+    @MainActor
+    func testPolicyTransitionHoldsRunningTaskWithoutUndoingManualPause() {
+        withManager { manager in
+            let running = manager.startDownload(from: url(90))
+            let manual = manager.startDownload(from: url(91))
+            manager.pauseDownload(manual)
+            manager.reconcileNetworkPolicy(allowed: false)
+            XCTAssertEqual(running.task?.state, .suspended)
+            XCTAssertTrue(running.isWaitingForSlot)
+            XCTAssertFalse(running.isPaused)
+            manager.reconcileNetworkPolicy(allowed: true)
+            XCTAssertEqual(running.task?.state, .running)
+            XCTAssertTrue(manual.isPaused)
+            XCTAssertEqual(manual.task?.state, .suspended)
+        }
+    }
+
+    private func url(_ index: Int) -> URL { URL(string: "https://example.invalid/\(index).ipa")! }
+
+    @MainActor
+    func testCapQueuesExcessWorkAndDuplicateDoesNotReplaceRunningTask() throws {
+        try withManager { manager in
+            let first = manager.startDownload(from: url(1))
+            let task = try XCTUnwrap(first.task)
+            let second = manager.startDownload(from: url(2))
+            XCTAssertEqual(manager.activeNetworkDownloads.count, 1)
+            XCTAssertEqual(first.task?.state, .running)
+            XCTAssertEqual(second.task?.state, .suspended)
+            XCTAssertEqual(second.phase, .queued)
+            XCTAssertTrue(second.isWaitingForSlot)
+            XCTAssertTrue(manager.startDownload(from: url(1)) === first)
+            XCTAssertTrue(first.task === task)
+            XCTAssertEqual(manager.downloads.count, 2)
+        }
+    }
+
+    @MainActor
+    func testSlotReleaseAdmitsNextWaitingTransfer() throws {
+        try withManager { manager in
+            let first = manager.startDownload(from: url(1))
+            let second = manager.startDownload(from: url(2))
+            let third = manager.startDownload(from: url(3))
+            let task = try XCTUnwrap(first.task)
+            first.progress = 1
+            manager.networkTransferFinished(first, task: task)
+            XCTAssertTrue(second.isActive)
+            XCTAssertFalse(second.isWaitingForSlot)
+            XCTAssertTrue(third.isWaitingForSlot)
+            XCTAssertEqual(manager.activeNetworkDownloads.count, 1)
+        }
+    }
+
+    @MainActor
+    func testPauseAllIncludesQueuedTransfersAndResumePreservesTaskOwnership() throws {
+        try withManager { manager in
+            let first = manager.startDownload(from: url(1))
+            let second = manager.startDownload(from: url(2))
+            let original = try XCTUnwrap(first.task)
+            manager.pauseAllDownloads()
+            XCTAssertTrue(first.isPaused)
+            XCTAssertTrue(second.isPaused)
+            XCTAssertEqual(manager.activeNetworkDownloads.count, 0)
+            manager.drainNetworkQueue()
+            XCTAssertEqual(manager.activeNetworkDownloads.count, 0)
+            manager.resumeAllDownloads()
+            XCTAssertTrue(first.task === original)
+            XCTAssertEqual(manager.activeNetworkDownloads.count, 1)
+            XCTAssertTrue(second.isWaitingForSlot)
+        }
+    }
+
+    @MainActor
+    func testResumeAndQueueDrainRespectGameMode() {
+        withManager { manager in
+            let first = manager.startDownload(from: url(1))
+            let second = manager.startDownload(from: url(2))
+            manager.pauseDownload(first)
+            manager.pauseAllDownloads()
+            UserDefaults.standard.set(true, forKey: GameMode.enabledKey)
+            manager.resumeDownload(first)
+            manager.drainNetworkQueue()
+            XCTAssertEqual(manager.activeNetworkDownloads.count, 0)
+            XCTAssertTrue(first.isPaused)
+            XCTAssertTrue(second.isPaused)
+        }
+    }
+
+    @MainActor
+    func testStagingNamesCannotCollideOrEscapeTheirOwnerDirectory() {
+        let root = URL(fileURLWithPath: "/fixture/staging", isDirectory: true)
+        let first = DownloadStagingName.destination(in: root, suggestedFilename: "App.ipa")
+        let second = DownloadStagingName.destination(in: root, suggestedFilename: "App.ipa")
+        XCTAssertNotEqual(first, second)
+        for name in ["../../App.ipa", "../..", "a\\b.ipa", "", String(repeating: "🚀", count: 300) + ".ipa"] {
+            let url = DownloadStagingName.destination(in: root, suggestedFilename: name)
+            XCTAssertEqual(url.deletingLastPathComponent(), root)
+            XCTAssertLessThanOrEqual(url.lastPathComponent.decomposedStringWithCanonicalMapping.utf8.count, 255)
+            XCTAssertFalse(url.lastPathComponent.contains("\\"))
+        }
+    }
+
+    @MainActor
+    func testOldCompletionCannotReleaseReplacementTaskSlot() throws {
+        try withManager { manager in
+            let first = manager.startDownload(from: url(1))
+            let oldTask = try XCTUnwrap(first.task)
+            let replacement = manager._foregroundSession.downloadTask(with: url(1))
+            first.task = replacement
+            first.isActive = true
+            manager.networkTransferFinished(first, task: oldTask)
+            XCTAssertTrue(first.isActive)
+            oldTask.cancel()
+        }
+    }
+}
+
+private final class HeldDownloadProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {} // Deliberately held until the test cancels the session.
+    override func stopLoading() {}
+}

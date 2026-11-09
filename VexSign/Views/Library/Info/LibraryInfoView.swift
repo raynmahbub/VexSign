@@ -9,6 +9,7 @@ import SwiftUI
 import NimbleViews
 import Zsign
 import UIKit
+import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - View
@@ -16,6 +17,10 @@ struct LibraryInfoView: View {
 	var app: AppInfoPresentable
 	@State private var _displayedDescription: String?
 	@State private var _isClonePresenting = false
+    @State private var _renewalReadiness: RenewalReadiness?
+    @State private var _renewalInstallation: InstallMethodReport?
+    @State private var _renewalCheckedAt: Date?
+    @State private var _renewalIssues: [PreflightIssue] = []
     @State private var _isResigning = false
     @ObservedObject private var _tasks = UnifiedTaskCenter.shared
     @State private var _isCompanionPresenting = false
@@ -33,6 +38,7 @@ struct LibraryInfoView: View {
 				}
 
                 _workspaceStatusSection()
+                _renewalReadinessSection()
 				_infoSection(for: app)
 				_signatureSection(for: app)
 				_certSection(for: app)
@@ -110,6 +116,85 @@ extension LibraryInfoView {
         } header: { Text(.localized("Workspace status")) } footer: {
             Text(.localized("A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state."))
         }
+    }
+
+    @ViewBuilder
+    private func _renewalReadinessSection() -> some View {
+        Section {
+            Button(.localized("Check retained renewal inputs"), systemImage: "checklist") {
+                _refreshRenewalReadiness()
+            }
+            if let report = _renewalReadiness {
+                Text(report.retainedInputsAvailable
+                     ? String.localized("Retained signing inputs available")
+                     : String.localized("Review required before repeat signing"))
+                LabeledContent(.localized("Library bundle"), value: report.hasLibraryBundle ? String.localized("Present") : String.localized("Missing"))
+                LabeledContent(.localized("Saved signing settings"), value: report.hasSavedSettings ? String.localized("Present") : String.localized("Missing"))
+                Text(_renewalIdentityDescription(report.identity)).font(.caption)
+                ForEach(_renewalIssues) { issue in
+                    VStack(alignment: .leading) {
+                        Text(issue.title).font(.caption.bold())
+                        Text(LogRedaction.redact(issue.detail)).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if let installation = _renewalInstallation {
+                    LabeledContent(.localized("Selected installation method"), value: installation.method.title)
+                    switch installation.readiness {
+                    case .ready:
+                        Text(.localized("Installation prerequisites available; successful installation has not been verified."))
+                    case .missing(let reason), .unavailable(let reason), .unknown(let reason):
+                        Text(reason).font(.caption)
+                    }
+                } else {
+                    Text(.localized("No recognized installation method is selected. Review Installation settings."))
+                }
+                if let checkedAt = _renewalCheckedAt {
+                    Text(checkedAt, style: .time).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        } header: { Text(.localized("Renewal readiness")) } footer: {
+            Text(.localized("This checks retained local inputs only. It does not verify private-key usability, provisioning compatibility, source freshness, unattended renewal, or an update that preserves installed app data. Signing and installation gates still apply. Refresh after changing settings."))
+        }
+    }
+
+    private func _renewalIdentityDescription(_ identity: RenewalIdentityReadiness) -> String {
+        switch identity {
+        case .missing: return .localized("No signing certificate is available.")
+        case .expired: return .localized("The resolved signing certificate has expired.")
+        case .revoked: return .localized("The resolved signing certificate is marked revoked.")
+        case .fallback: return .localized("The saved certificate is unavailable. The current selection would be used instead; signing identity is not preserved.")
+        case .currentSelection: return .localized("No fixed certificate was saved. Repeat signing uses the current selection; identity continuity is not established.")
+        case .savedIdentity: return .localized("The saved certificate record is available. File presence and expiry do not prove that signing or renewal will work.")
+        }
+    }
+
+    @MainActor
+    private func _refreshRenewalReadiness() {
+        let profile = SigningProfileStore.shared.profile(forBundleID: app.identifier)
+        let certificate = SigningProfileStore.shared.certificate(for: profile)
+        let bundleExists = Storage.shared.getAppDirectory(for: app).map {
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: $0.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        } ?? false
+        _renewalReadiness = RenewalReadiness(RenewalReadinessInputs(
+            hasLibraryBundle: bundleExists, hasSavedSettings: profile != nil,
+            savedCertificateUUID: profile?.certificateUUID, resolvedCertificateUUID: certificate?.uuid,
+            hasCertificate: certificate != nil,
+            certificateExpired: (certificate?.expiration).map { $0 <= Date() } ?? false,
+            certificateRevoked: certificate?.revoked == true
+        ))
+        _renewalIssues = PreflightChecks.run(app: app, options: (profile?.options ?? Options.batchBase).resolved(for: app), certificate: certificate).issues
+        let inputs = InstallPreflightInputs(
+            hasServerCertificate: LocalTLSIdentity.current() != nil,
+            hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
+            trollStoreDetected: TrollStoreHandoff.installedByTrollStore(),
+            hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
+            hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable
+        )
+        if let method = InstallMethodKind.selected(forStoredValue: UserDefaults.standard.integer(forKey: "VexSign.installationMethod")) {
+            _renewalInstallation = InstallMethodReport(method: method, readiness: InstallPreflight.readiness(for: method, inputs))
+        } else { _renewalInstallation = nil }
+        _renewalCheckedAt = Date()
     }
 
     private func _openCompanionWorkflow() {

@@ -230,7 +230,13 @@ extension StorageManager {
 		for item in items {
 			// A background download can finish while the app is dead, so staged IPAs get a day to be imported.
 			if item.lastPathComponent == staging {
-				StorageScanner.purge(contentsOf: item, olderThan: 24 * 60 * 60)
+                do {
+                    let retained = try DownloadRecoveryJournal(root: DownloadRecoveryJournal.directory).retainedStagingNames()
+                    StorageScanner.purge(contentsOf: item, olderThan: 24 * 60 * 60, preservingNames: retained)
+                } catch {
+                    // Protected/corrupt recovery state cannot authorize deletion of its retained inputs.
+                    Logger.misc.error("Storage: retained download staging while recovery state is inaccessible.")
+                }
 			} else {
 				try? fm.removeItem(at: item) // try? ok: best-effort temporary cleanup; a file in use stays and is retried on the next pass
 			}
@@ -429,8 +435,9 @@ private enum StorageScanner {
 		}
 	}
 
-	static func purge(contentsOf directory: URL, olderThan age: TimeInterval? = nil) {
+	static func purge(contentsOf directory: URL, olderThan age: TimeInterval? = nil, preservingNames: Set<String> = []) {
 		for url in contents(of: directory) {
+            if preservingNames.contains(url.lastPathComponent) { continue }
 			if
 				let age,
 				let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate, // try? ok: an entry with no readable modification date is treated as old, which is the existing behaviour

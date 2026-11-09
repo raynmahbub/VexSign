@@ -28,7 +28,7 @@ enum InfoPlistPlan {
 		if options.experiment_disableLiquidGlass { changes["UIDesignRequiresCompatibility"] = true }
 		if options.experiment_supportLiquidGlass { changes["UIDesignRequiresCompatibility"] = false }
 
-		if let identifier = options.appIdentifier {
+		if let identifier = options.effectiveAppIdentifier {
 			changes["CFBundleIdentifier"] = identifier
 		}
 		if let name = options.appName {

@@ -1,0 +1,236 @@
+{
+  "date": "2026-11-08",
+  "scope": "Selected source modules and workflow policy comparison; not a whole-repository audit or runtime verification.",
+  "repositories": [
+    {
+      "repository": "8yy/BatSign",
+      "revision": "d60dbee57228e74d4502c24ff825f154fa33c45b",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Feather/Backend/Observable/AutoUpdateManager.swift",
+        "Feather/Utilities/BSInstallWatcher.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "LiveContainer/LiveContainer",
+      "revision": "9d6ea09b05afa2c8fc537c372795a294db631311",
+      "licenseMetadata": "AGPL-3.0",
+      "selectedSourceModulesInspected": [
+        "LiveContainerSwiftUI/Views/AppList/LCDownloadView.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build.yml",
+        ".github/workflows/update_source.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "Mesutcydev/ForgeSign-iOS",
+      "revision": "a08e67910cf9a74e38d71d65835ef4f97d29d6b3",
+      "licenseMetadata": null,
+      "selectedSourceModulesInspected": [
+        "App/Services/IPAPreflight.swift",
+        "App/Services/Refresh/RefreshPlanner.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/ios.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "NexSideloading/NexStore",
+      "revision": "d4c7fc15cf187de1f0704ed6d23b36236e614a16",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "NexStore/Backend/Observable/CertificateStatusManager.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "NuzProjects/Feather",
+      "revision": "1436e8609053d836f7c69e771b56b06dca52dcda",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Feather/Core/ReleaseRules.swift",
+        "Feather/Features/Library/GitHubImportView.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build-ipa.yml",
+        ".github/workflows/core-checks.yml",
+        ".github/workflows/fully-local-cert.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/ui-screenshots.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "Nyasami/Ksign",
+      "revision": "c14dedc0c9dadb669021cce83435b14f781b8412",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Ksign/Views/Library/LibraryCellView.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/beta.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "ProStore-iOS/ProStore",
+      "revision": "f244d5397970bd7f31e258811a49e4e408a92054",
+      "licenseMetadata": "MIT",
+      "selectedSourceModulesInspected": [
+        "Sources/prostore/signing/DownloadSignManager.swift",
+        "Sources/prostore/certificates/certChecker.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build-ipa.yml",
+        ".github/workflows/simulator-build.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "SideStore/SideStore",
+      "revision": "4f3d18d98c5fbee72c80f787ceb2e8e09ded60a6",
+      "licenseMetadata": "AGPL-3.0",
+      "selectedSourceModulesInspected": [
+        "SideStore/Core/Certificates/OCSPValidator.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/alpha.yml",
+        ".github/workflows/attach_build_products.yml",
+        ".github/workflows/nightly.yml",
+        ".github/workflows/pr.yml",
+        ".github/workflows/stable.yml",
+        ".github/workflows/triage.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "TomerGamerTV/FeatherPlus",
+      "revision": "9af4713cf6d5c1db3a1f24ddabca53008a46ac5a",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Feather/Utilities/Handlers/ArchiveHandler.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "claration/feather",
+      "revision": "31ab6de455f2a6108f6830e343dee826310c03be",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Feather/Views/Signing/Shared/SigningOptionsView.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "faroukbmiled/RyukSign",
+      "revision": "844466cee6f212291913ba5216f8f19a9c016dea",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "RyukSign/Backend/Observable/DownloadManager.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "gliddd4/MySign",
+      "revision": "c5a41629ad5dba5c804438fc3c2f2e6c421d4633",
+      "licenseMetadata": null,
+      "selectedSourceModulesInspected": [
+        "mysignipasigner/Tabs/Downloads/DownloadManager.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "gliddd4/MySignReincarnated",
+      "revision": "c21554d69de8821d6fd3a323371badbeb7d764e0",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "RyukSign/Backend/Observable/DownloadHistory.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "ihateios/SignOs",
+      "revision": "a424b3542590ebab0ec46f6bfaf458556f2b11cb",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Feather/Backend/Observable/AutoUpdateManager.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "korboybeats/KorSign",
+      "revision": "f20892f43177476ef769b2ac76fc038f87d963ec",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "KorSign/Utilities/Handlers/ArchiveHandler.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/release.yml",
+        ".github/workflows/update_repo.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "mirazbakis/Odysseus",
+      "revision": "2664dadedf9aca36fda0925a8aada92e2c79323f",
+      "licenseMetadata": "GPL-3.0",
+      "selectedSourceModulesInspected": [
+        "Feather/Backend/Certificates/ODOCSPChecker.swift"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build.yml"
+      ],
+      "wholeRepositoryAudited": false
+    },
+    {
+      "repository": "pwnapplehat/iPASide",
+      "revision": "f31250e9123d586526393a31d1d31468a9ad33d5",
+      "licenseMetadata": "MIT",
+      "selectedSourceModulesInspected": [
+        "src/iPASide.Engine/ipaside_engine/doctor.py",
+        "src/iPASide.Engine/ipaside_engine/ipa.py"
+      ],
+      "workflowFilesRetrievedForPolicyComparison": [
+        ".github/workflows/build-lc-helper.yml",
+        ".github/workflows/ci.yml"
+      ],
+      "wholeRepositoryAudited": false
+    }
+  ]
+}

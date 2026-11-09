@@ -14,7 +14,7 @@ extension DownloadPhase {
 		case .queued: return .secondary
 		case .downloading: return .accentColor
 		case .paused: return .orange
-		case .importing, .signing: return .userTintDeep
+		case .verifying, .importing, .signing: return .userTintDeep
 		case .completed: return .green
 		}
 	}
@@ -28,6 +28,7 @@ extension DownloadPhase {
 		case .queued: return .localized("Queued")
 		case .downloading: return .localized("Downloading")
 		case .paused: return .localized("Paused")
+		case .verifying: return .localized("Verifying")
 		case .importing: return .localized("Importing")
 		case .signing: return .localized("Signing")
 		case .completed: return .localized("Completed")
@@ -38,6 +39,7 @@ extension DownloadPhase {
 extension DownloadPhase {
 	var processingDetail: String? {
 		switch self {
+		case .verifying: return .localized("Checking package integrity...")
 		case .importing: return .localized("Unpacking...")
 		case .signing: return .localized("Signing...")
 		default: return nil
@@ -48,13 +50,13 @@ extension DownloadPhase {
 extension Download {
     var canPause: Bool {
         if isSigning { return false }
-        if isImporting { return importControl.isControllable }
-        return !onlyArchiving && (phase == .downloading || phase == .paused)
+        if isImporting || isVerifying { return importControl.isControllable }
+        return !onlyArchiving && (phase == .queued || phase == .downloading || phase == .paused)
     }
 	var canCancel: Bool {
 		switch phase {
 		case .queued, .downloading, .paused: return true
-		case .importing: return importControl.isControllable
+		case .verifying, .importing: return importControl.isControllable
         case .signing, .completed: return false
 		}
 	}
@@ -67,6 +69,7 @@ extension DownloadProgressSummary {
 		var parts: [String] = []
 		if downloadingCount > 0 { parts.append(.localized("%lld downloading", arguments: downloadingCount)) }
 		if pausedCount > 0 { parts.append(.localized("%lld paused", arguments: pausedCount)) }
+		if verifyingCount > 0 { parts.append(.localized("%lld verifying", arguments: verifyingCount)) }
 		if importingCount > 0 { parts.append(.localized("%lld importing", arguments: importingCount)) }
 		if signingCount > 0 { parts.append(.localized("%lld signing", arguments: signingCount)) }
 		return parts.isEmpty ? .localized("Preparing...") : parts.joined(separator: ", ")

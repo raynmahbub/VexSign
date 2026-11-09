@@ -12,6 +12,14 @@ import ActivityKit
 
 class Download: Identifiable, @unchecked Sendable {
     let importControl = ImportControl()
+    let recoveryID: UUID
+    var importLibraryUUID: String?
+    /// Invoked on the main actor, before/after the import database commit.
+    var importCommitCheckpoint: ((String, Bool) throws -> Void)?
+    let packageVerification = PackageVerificationOwner()
+    var verificationAuditHash: String?
+    var lastProgressPublication: Date = .distantPast
+    @Published var isVerifying: Bool = false
 	@Published var progress: Double = 0.0
 	@Published var bytesDownloaded: Int64 = 0
 	@Published var totalBytes: Int64 = 0
@@ -20,20 +28,24 @@ class Download: Identifiable, @unchecked Sendable {
 	@Published var isPaused: Bool = false
 	@Published var isImporting: Bool = false
 	@Published var isSigning: Bool = false
+    @Published var isWaitingForSlot: Bool = false
 
 	var phase: DownloadPhase {
 		if isSigning { return .signing }
+        if isVerifying { return isPaused ? .paused : .verifying }
 		if isImporting { return isPaused ? .paused : .importing }
 		if unpackageProgress >= 1.0 { return .completed }
 		if onlyArchiving || progress >= 1.0 { return .importing }
 		if isPaused { return .paused }
+        if isWaitingForSlot { return .queued }
 		return (isActive || progress > 0) ? .downloading : .queued
 	}
 
 	var phaseProgress: Double {
 		switch phase {
 		case .queued: return 0
-		case .downloading, .paused: return isImporting ? unpackageProgress : progress
+		case .downloading, .paused: return isVerifying ? 0 : (isImporting ? unpackageProgress : progress)
+		case .verifying: return 0
 		case .importing: return unpackageProgress
 		case .signing, .completed: return 1
 		}
@@ -68,9 +80,11 @@ class Download: Identifiable, @unchecked Sendable {
 		onlyArchiving: Bool = false,
 		appName: String? = nil,
 		appDescription: String? = nil,
-		integrity: DownloadIntegrity.Expectation? = nil
+		integrity: DownloadIntegrity.Expectation? = nil,
+        recoveryID: UUID = UUID()
 	) {
 		self.id = id
+        self.recoveryID = recoveryID
 		self.url = url
 		self.onlyArchiving = onlyArchiving
 		self.fileName = appName ?? url.lastPathComponent
@@ -103,18 +117,21 @@ struct DownloadProgressSummary: Equatable {
 	let downloadingCount: Int
 	let pausedCount: Int
 	let importingCount: Int
+    let verifyingCount: Int
 	let signingCount: Int
 
 	init(_ downloads: [Download]) {
 		let byPhase = Dictionary(grouping: downloads, by: \.phase)
-        let pausedImports = (byPhase[.paused] ?? []).filter { $0.isImporting }
-        let pending = (byPhase[.downloading] ?? []) + (byPhase[.queued] ?? []) + (byPhase[.paused] ?? []).filter { !$0.isImporting }
-		let importing = byPhase[.importing] ?? []
+        let pausedImports = (byPhase[.paused] ?? []).filter { $0.isImporting || $0.isVerifying }
+        let pending = (byPhase[.downloading] ?? []) + (byPhase[.queued] ?? []) + (byPhase[.paused] ?? []).filter { !$0.isImporting && !$0.isVerifying }
+		let verifying = byPhase[.verifying] ?? []
+        let importing = byPhase[.importing] ?? []
 		let signing = byPhase[.signing] ?? []
 
 		downloadingCount = byPhase[.downloading]?.count ?? 0
 		pausedCount = byPhase[.paused]?.count ?? 0
 		importingCount = importing.count
+        verifyingCount = verifying.count
 		signingCount = signing.count
 
 		if !pending.isEmpty {
@@ -126,9 +143,9 @@ struct DownloadProgressSummary: Equatable {
 			} else {
 				progress = Self.average(pending.map(\.phaseProgress))
 			}
-        } else if !importing.isEmpty || !signing.isEmpty || !pausedImports.isEmpty {
-            phase = !importing.isEmpty ? .importing : (!signing.isEmpty ? .signing : .paused)
-            progress = Self.average((importing + signing + pausedImports).map(\.phaseProgress))
+        } else if !verifying.isEmpty || !importing.isEmpty || !signing.isEmpty || !pausedImports.isEmpty {
+            phase = !verifying.isEmpty ? .verifying : (!importing.isEmpty ? .importing : (!signing.isEmpty ? .signing : .paused))
+            progress = Self.average((verifying + importing + signing + pausedImports).map(\.phaseProgress))
 		} else {
 			phase = downloads.isEmpty ? .queued : .completed
 			progress = downloads.isEmpty ? 0 : 1

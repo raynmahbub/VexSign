@@ -9,6 +9,13 @@ import Foundation
 
 // MARK: - Extension: Per-app resolution
 extension Options {
+	/// The identifier override used by both preflight and the signing pipeline.
+	/// Whitespace-only input means no override; surrounding whitespace is discarded.
+	var effectiveAppIdentifier: String? {
+		let trimmed = appIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+		return (trimmed?.isEmpty == false) ? trimmed : nil
+	}
+
 	/// Must run per app; sharing one result would sign every app with the same bundle identifier.
 	func resolved(for app: AppInfoPresentable) -> Options {
 		var options = self

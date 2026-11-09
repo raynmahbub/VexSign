@@ -28,6 +28,7 @@ struct LibraryView: View {
     @State private var _alertDownloadString: String = "" // for _isDownloadingPresenting
     @State private var _isExplorerPresenting = false
     @State private var _isDirectInstallPresenting = false
+    @State private var _isGitHubImportPresenting = false
     
     // MARK: Selection State
     @State private var _selectedAppUUIDs: Set<String> = []
@@ -39,6 +40,9 @@ struct LibraryView: View {
     @State private var _selectedScope: Scope = .all
     @AppStorage(LibraryDisplayPreferences.sortKey) private var _sortRaw: String = LibrarySort.manual.rawValue
     @AppStorage(LibraryDisplayPreferences.ascendingKey) private var _sortAscending: Bool = true
+
+    @State private var _sizeSnapshot: [String: Int64] = [:]
+    @State private var _sizeGeneration = UUID()
 
     @State private var scrollProxy: ScrollViewProxy?
     
@@ -108,13 +112,39 @@ struct LibraryView: View {
             }
         case .size:
             return apps.sorted { lhs, rhs in
-                let l = Storage.shared.getUuidDirectory(for: lhs).map { FileManager.default.allocatedSize(at: $0) } ?? 0
-                let r = Storage.shared.getUuidDirectory(for: rhs).map { FileManager.default.allocatedSize(at: $0) } ?? 0
+                let l = _sizeSnapshot[lhs.uuid ?? ""] ?? 0
+                let r = _sizeSnapshot[rhs.uuid ?? ""] ?? 0
+                if l == r { return (lhs.uuid ?? "") < (rhs.uuid ?? "") }
                 return _sortAscending ? l < r : l > r
             }
         }
     }
     
+    /// Date/identity changes invalidate measurements; search/layout changes do not rescan disk.
+    private var sizeMeasurementKey: String {
+        guard _sort == .size else { return "disabled" }
+        return _sizeGeneration.uuidString + (_signedApps.map { "s:\($0.uuid ?? ""):\($0.date?.timeIntervalSince1970 ?? 0)" }
+            + _importedApps.map { "i:\($0.uuid ?? ""):\($0.date?.timeIntervalSince1970 ?? 0)" }).joined(separator: "|")
+    }
+
+    @MainActor
+    private func measureLibrarySizes() async {
+        guard _sort == .size else { return }
+        let apps: [AppInfoPresentable] = Array(_signedApps).map { $0 as AppInfoPresentable }
+            + Array(_importedApps).map { $0 as AppInfoPresentable }
+        let entries = apps.compactMap { app -> LibrarySizeSnapshot.Entry? in
+            guard let id = app.uuid, let directory = Storage.shared.getUuidDirectory(for: app) else { return nil }
+            return LibrarySizeSnapshot.Entry(id: id, directory: directory)
+        }
+        do {
+            let measured = try await LibrarySizeSnapshot.measure(entries)
+            try Task.checkCancellation()
+            _sizeSnapshot = measured
+        } catch {
+            // A superseded view snapshot must not replace newer measurements.
+        }
+    }
+
     private var shouldShowSignedSection: Bool {
         workspaceSection?.includesApp(isSigned: true) != false && (_selectedScope == .all || _selectedScope == .attention || _selectedScope == .signed)
     }
@@ -142,6 +172,13 @@ struct LibraryView: View {
     var body: some View {
         NBNavigationView(.localized("Library"), ownsNavigationStack: ownsNavigationStack) {
             mainContent
+                .task(id: sizeMeasurementKey) { await measureLibrarySizes() }
+                .onReceive(NotificationCenter.default.publisher(for: LibrarySizeSnapshot.filesChanged)) { _ in
+                    _sizeGeneration = UUID()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSManagedObjectContext.didSaveObjectsNotification)) { _ in
+                    _sizeGeneration = UUID()
+                }
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         if _editMode.isEditing {
@@ -212,6 +249,9 @@ struct LibraryView: View {
                 }
                 .sheet(isPresented: $_isExplorerPresenting) {
                     IPAExplorerHomeView()
+                }
+                .sheet(isPresented: $_isGitHubImportPresenting) {
+                    GitHubIPAImportView()
                 }
                 .sheet(isPresented: $_isDirectInstallPresenting) {
                     DirectInstallSheet()
@@ -693,6 +733,9 @@ struct LibraryView: View {
         }
         Button(.localized("Import from URL"), systemImage: "globe") {
             Presentation.afterDismiss { _isDownloadingPresenting = true }
+        }
+        Button(.localized("Import from GitHub"), systemImage: "shippingbox") {
+            Presentation.afterDismiss { _isGitHubImportPresenting = true }
         }
         Button(.localized("Direct Install from URL"), systemImage: "arrow.down.app") {
             Presentation.afterDismiss { _isDirectInstallPresenting = true }

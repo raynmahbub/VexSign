@@ -17,6 +17,7 @@ struct TaskCenterView: View {
     /// False when embedded in a workspace or pushed from another navigation stack.
     var ownsNavigationStack: Bool = false
 	@ObservedObject private var center = UnifiedTaskCenter.shared
+    @ObservedObject private var recovery = DownloadManager.shared
 	@State private var filter: TaskFilter = .active
     @State private var confirmClear = false
     @State private var query = ""
@@ -73,6 +74,36 @@ struct TaskCenterView: View {
 	var body: some View {
 		NBNavigationView(.localized("Task Center"), displayMode: .inline, ownsNavigationStack: ownsNavigationStack) {
 			List {
+                if let warning = recovery.recoveryWarning {
+                    Section { Text(warning).font(.caption).foregroundStyle(.orange) }
+                }
+                if !recovery.interruptedDownloads.isEmpty {
+                    Section {
+                        ForEach(recovery.interruptedDownloads) { record in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(verbatim: record.name)
+                                Text(record.updatedAt, style: .date).font(.caption)
+                                if let journal = recovery.recoveryJournal,
+                                   let file = journal.stagedFile(for: record, in: FileManager.default.downloadStaging) {
+                                    if record.canReverify {
+                                        Button(.localized("Recheck and import retained IPA")) { recovery.reverifyRecovery(record) }
+                                    }
+                                    ShareLink(item: file) { Label(.localized("Review retained IPA"), systemImage: "square.and.arrow.up") }
+                                }
+                                if record.libraryUUID != nil {
+                                    Text(.localized("An import commit was recorded or attempted. Check Library before downloading again; this input is not replayed automatically."))
+                                        .font(.caption).foregroundStyle(.orange)
+                                }
+                                if record.sourceURL != nil {
+                                    Button(record.stage == .downloading ? String.localized("Resume or download again") : String.localized("Download again")) { recovery.retryRecoveryDownload(record) }
+                                }
+                                Button(.localized("Forget recovery record"), role: .destructive) { recovery.forgetRecovery(record) }
+                            }
+                        }
+                    } header: { Text(.localized("Interrupted downloads")) } footer: {
+                        Text(.localized("No import is replayed automatically. An interrupted import may already have saved a library copy: check Library before retrying. Resume or download again uses your existing auto-sign settings. A saved system resume blob is used only if its original URL matches; otherwise a fresh download is required. Forget removes only the checkpoint, not the retained IPA. Token-bearing URLs are not saved; reopen the original source when no retry is offered."))
+                    }
+                }
                 if let historyWarning {
                     Section {
                         Label(historyWarning, systemImage: "exclamationmark.triangle")
@@ -143,6 +174,7 @@ struct TaskCenterView: View {
 
 private struct TaskRow: View {
 	@ObservedObject private var center = UnifiedTaskCenter.shared
+    @ObservedObject private var recovery = DownloadManager.shared
 	let task: UnifiedTask
     @State private var expanded = false
 
