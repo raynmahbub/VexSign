@@ -20,7 +20,7 @@ struct AdvancedSigningSettingsView: View {
 			compatibilitySection
 			machoAndPackagingSection
 		}
-		.onChange(of: optionsManager.options) { _ in
+		.onChange(of: optionsManager.options) { _, _ in
 			optionsManager.saveOptions()
 		}
 	}

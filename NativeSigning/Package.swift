@@ -39,6 +39,7 @@ let package = Package(
                 "prepare_server_compatibility.py",
                 "prepare_combined_smoke.py",
                 "patches",
+                "Fixtures",
                 "PythonTests",
                 "Smoke",
                 "ServerCompatibility",

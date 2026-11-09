@@ -128,11 +128,16 @@ else
     | sed -E '1{/^##[[:space:]]*VexSign[[:space:]]+v?[0-9]+\.[0-9]+(\.[0-9]+)?/d;}' \
     | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
   version_description="$cleaned_body"
-  # First non-empty, non-markdown-heading line for the news caption, truncated.
+  # First line of prose for the news caption, truncated. Headings, quote/bullet
+  # markers and image-only lines are skipped: the release bodies open with the
+  # app icon, and `![alt](url)` used to land in the caption verbatim.
   news_caption="$(printf '%s' "$cleaned_body" \
     | grep -vE '^[[:space:]]*$' \
     | grep -vE '^[#>-]' \
+    | grep -vE '^[[:space:]]*!\[' \
     | head -n 1 \
+    | sed -E 's/!\[[^]]*\]\([^)]*\)//g' \
+    | sed -E 's/\[([^]]*)\]\([^)]*\)/\1/g' \
     | sed -E 's/[*_`]+//g' \
     | cut -c1-160)"
   [ -n "$news_caption" ] || news_caption="See release notes for what's new."

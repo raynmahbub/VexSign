@@ -210,10 +210,10 @@ struct DownloadOverlaySheetContent: View {
                 .receive(on: DispatchQueue.main)
                 .sink { currentSpeed = $0 }
         }
-        .onChange(of: activeDownloads.map { $0.id }) { _ in
+        .onChange(of: activeDownloads.map { $0.id }) { _, _ in
             model.bind(to: activeDownloads)
         }
-        .onChange(of: activeDownloads.count) { newCount in
+        .onChange(of: activeDownloads.count) { _, newCount in
             // Auto-dismiss once the last download is gone; re-check after the delay to avoid a dismiss race
             if newCount == 0 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

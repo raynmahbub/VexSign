@@ -126,6 +126,10 @@ verify: docs-check
 	@python3 tools/singleton-freeze.py
 	@echo "== concurrency discipline =="
 	@python3 tools/concurrency-discipline.py
+	@echo "== native signing capability =="
+	@python3 tools/check-native-handoff.py
+	@echo "== CMS fixture contract =="
+	@python3 NativeSigning/Fixtures/make_cms_fixture.py --check | tail -1
 	@echo "== workflow trigger policy =="
 	@python3 tools/test_workflow_policy.py
 	@python3 tools/test_workflow_trace_policy.py

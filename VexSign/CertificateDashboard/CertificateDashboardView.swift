@@ -34,7 +34,7 @@ struct CertificateDashboardView: View {
                 Button("Validate with System OCSP") { Task { await model.refresh(online: true) } }.disabled(model.busy)
                 Text("Private keys stay on this device. OCSP sends certificate identifiers to responders, never the P12 or its password. An unavailable response is Unknown, never Good.").font(.caption)
                 Toggle("Daily Health Monitoring", isOn: $monitoring)
-                    .onChange(of: monitoring) { enabled in
+                    .onChange(of: monitoring) { _, enabled in
                         if enabled { Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]); EcosystemMaintenance.schedule() } }
                     }
             }

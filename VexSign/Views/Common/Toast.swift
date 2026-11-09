@@ -211,7 +211,7 @@ struct ToastBanner: View {
 			GeometryReader { geo in
 				Color.clear
 					.onAppear { ToastManager.shared.bannerFrame = geo.frame(in: .global) }
-					.onChange(of: geo.frame(in: .global)) { ToastManager.shared.bannerFrame = $0 }
+					.onChange(of: geo.frame(in: .global)) { _, newFrame in ToastManager.shared.bannerFrame = newFrame }
 			}
 		)
 		.offset(_offset)

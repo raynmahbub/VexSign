@@ -28,7 +28,7 @@ struct DevicePickerView: View {
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .font(.system(.body, design: .monospaced))
-                            .onChange(of: manualUDID) { newValue in
+                            .onChange(of: manualUDID) { _, newValue in
                                 // Auto-format: remove non-hex characters
                                 let filtered = newValue.uppercased().filter { "0123456789ABCDEF-".contains($0) }
                                 if filtered != newValue { manualUDID = filtered }

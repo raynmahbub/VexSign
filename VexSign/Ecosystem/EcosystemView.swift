@@ -10,7 +10,7 @@ struct EcosystemView: View {
             }
             Section("Repository Sync") {
                 Toggle("Automatic Six-Hour Refresh", isOn: $autoRefresh)
-                    .onChange(of: autoRefresh) { _ in EcosystemMaintenance.schedule() }
+                    .onChange(of: autoRefresh) { _, _ in EcosystemMaintenance.schedule() }
                 Text("Refreshes at startup and during available background time. iOS controls the actual schedule. Game Mode pauses network work.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Signing Tools") {

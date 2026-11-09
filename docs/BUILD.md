@@ -9,7 +9,7 @@ Git are available; the app and simulator tests need macOS with Xcode.
 | --- | --- |
 | OS | macOS 15 or later for the current SDK |
 | Xcode | A current Xcode supported by the project. The app uses iOS 26 SDK APIs, so Xcode 16 cannot build the default branch. |
-| Deployment target | iOS 16.0 and later |
+| Deployment target | iOS 17.0 and later (the app and the widget extension share it) |
 | Tools | `git`, `make`, Python 3, and the Xcode command-line tools |
 | Optional | `swiftlint` for `make lint`; Docker for `make deploy-server` |
 

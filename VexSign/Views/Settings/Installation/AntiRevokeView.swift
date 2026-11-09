@@ -41,7 +41,7 @@ struct AntiRevokeView: View {
 				_endpoint = _currentRules.primaryEndpoint
 			}
 		}
-		.onChange(of: _useNovaDNSDynamic) { enabled in
+		.onChange(of: _useNovaDNSDynamic) { _, enabled in
 			// switching this on changes how the device resolves Apple's checks, so it is logged.
 			if enabled {
 				FileLogger.log("NovaDNS Dynamic enabled — endpoint \(NovaDNSDynamic.effectiveRulesURLString)", category: "antirevoke")

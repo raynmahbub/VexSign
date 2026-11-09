@@ -67,7 +67,7 @@ struct TweakInfoView: View {
 			}
 		}
 		.onAppear { _loader.load(fileURL: fileURL, type: type, appURL: appURL) }
-		.onChange(of: fileURL) { _ in _loader.load(fileURL: fileURL, type: type, appURL: appURL) }
+		.onChange(of: fileURL) { _, _ in _loader.load(fileURL: fileURL, type: type, appURL: appURL) }
 	}
 
 	// MARK: Sections

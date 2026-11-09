@@ -19,6 +19,71 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - Make deletion of custom entitlements files and individual entitlement keys
   easier to discover and confirm.
 
+### Fixed
+
+- TrollStore hand-off now uses the scheme TrollStore actually registers.
+  TrollStore 1.3+ replaces Apple's `apple-magnifier` scheme and parses only
+  `install` and `enable-jit` (`TSSceneDelegate.m`); VexSign previously opened
+  `trollstore://install?url=…`, which no release handles. The IPA URL is now
+  built with `URLComponents`, so an IPA URL with its own query is carried
+  intact, and the result is reported as a hand-off — iOS opening the URL is not
+  evidence that TrollStore installed anything.
+- "TrollStore detected" no longer comes from a scheme probe. Every iOS device
+  answers `canOpenURL("apple-magnifier://")` (it is Magnifier), so detection now
+  reads TrollStore's `_TrollStore`/`_TrollStoreLite` marker beside the app
+  bundle and is described as *this copy of VexSign was installed by TrollStore*.
+  A missing marker is no longer presented as proof that TrollStore is absent,
+  and **Share Signed IPA Instead** covers that case.
+- The "Refresh All (TrollStore)" sheet no longer claims to have triggered a
+  refresh. TrollStore accepts no refresh URL command; the sheet explains that and
+  offers to open TrollStore instead.
+### Documentation
+
+- Document the Free Apple ID handoff gap instead of leaving it to be
+  rediscovered: `docs/NATIVE_SIGNING_HANDOFF.md` names the three closed gates
+  (no production CMS verifier, no profile export, no identity export reachable
+  from the app), the six-stage design that closes them, and the order that keeps
+  each intermediate state honest. `docs/FREE_APPLE_ID_SETUP.md` now says at the
+  top that the flow cannot sign yet.
+- Add an independently generated CMS fixture for the Apple-profile parser.
+  Every existing case in `NativeAppleProfileCMSTests` builds its envelope with
+  the same DER helpers the parser was written against, so it could only prove
+  self-consistency. `NativeSigning/Fixtures/make_cms_fixture.py` now produces an
+  envelope with OpenSSL and asserts the exact subset
+  `NativeProfileCMSEnvelope.parse` accepts (v1, definite lengths, one SHA-256
+  digest algorithm, attached `id-data`, issuerAndSerialNumber, DER-sorted
+  signed attributes with a matching `messageDigest`, 256–512-byte RSA
+  signature). The bytes back three new cases: it parses, it still fails Apple
+  trust as a self-signed certificate, and tampering is rejected at the right
+  layer — a payload edit fails parse, a signature edit parses and fails
+  verification (`openssl cms -verify` agrees on both). The fixture is inlined
+  as base64 rather than a bundle resource, because the test file compiles in
+  two different package layouts; `--check` verifies the inline copy against the
+  committed DER so they cannot drift. It runs in `make verify` and in CI.
+- `tools/check-native-handoff.py` (wired into `make verify`) keeps the
+  `nativeAppleAccountSigning` capability tied to its wiring: flipping it to
+  `.implemented` without an export adapter and a package-side profile export
+  fails, as does deleting the "handoff is not enabled" copy while the flag still
+  says `.notIntegrated`.
+
+- `tools/update-repo.sh` no longer writes a markdown image into the source
+  "news" caption. Release bodies open with the app icon, and the raw markdown
+  image reference landed in `app-repo.json` verbatim for 1.1.0 and 1.2.0;
+  image-only lines and inline link syntax are now stripped to their text. The
+  v1.2.1 listing, which the release workflow skipped, is backfilled with the
+  script.
+- The app and its widget extension now declare the same minimum iOS, 17.0. The
+  widget sat at 26.0 while the app said 16.0 — an embedded extension may not
+  require a newer iOS than its host (ITMS-90362), and a signer that validates
+  nested bundles can reject that mismatch before installation. The app's 16.0
+  was a claim, not a floor: the widget uses `containerBackground`,
+  `AppIntentConfiguration` and `LiveActivityIntent` buttons with no availability
+  guards, and 24 app-side App Intent APIs are `@available(iOS 17.0, *)`.
+  Lowering the widget would have meant replacing the configurable Repository
+  Apps widget with SiriKit `IntentConfiguration`; raising the app keeps every
+  feature and is a one-line change if the floor should instead be restored.
+  `tools/check-pbxproj.py` now fails on this class of mismatch.
+
 ## [1.2.0] - 2026-11-07
 
 ### Fixed

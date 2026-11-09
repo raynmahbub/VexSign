@@ -74,7 +74,7 @@ extension View {
 			GeometryReader { proxy in
 				Color.clear
 					.onAppear { BottomBarMetrics.shared.height = proxy.size.height }
-					.onChange(of: proxy.size.height) { BottomBarMetrics.shared.height = $0 }
+					.onChange(of: proxy.size.height) { _, newHeight in BottomBarMetrics.shared.height = newHeight }
 					.onDisappear { BottomBarMetrics.shared.height = 0 }
 			}
 		)

@@ -48,7 +48,7 @@ struct ServerView: View {
             }
         }
         .onAppear { refresh() }
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             if phase == .active { refresh() }
         }
     }

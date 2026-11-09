@@ -63,7 +63,7 @@ struct ConditionalDownloadHeaderView: View {
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: viewState)
-            .onChange(of: viewState) { newValue in
+            .onChange(of: viewState) { _, newValue in
                 Self.sessionState = newValue
             }
         }
@@ -134,7 +134,7 @@ struct MinimizedConditionalHeader: View {
         .onAppear {
             model.bind(to: downloads)
         }
-        .onChange(of: downloads.map { $0.id }) { _ in
+        .onChange(of: downloads.map { $0.id }) { _, _ in
             model.bind(to: downloads)
         }
     }
@@ -238,7 +238,7 @@ struct CollapsedConditionalHeader: View {
         .onAppear {
             model.bind(to: downloads)
         }
-        .onChange(of: downloads.map { $0.id }) { _ in
+        .onChange(of: downloads.map { $0.id }) { _, _ in
             model.bind(to: downloads)
         }
     }
@@ -321,7 +321,7 @@ struct ExpandedConditionalHeader: View {
         .onAppear {
             model.bind(to: downloads)
         }
-        .onChange(of: downloads.map { $0.id }) { _ in
+        .onChange(of: downloads.map { $0.id }) { _, _ in
             model.bind(to: downloads)
         }
     }
