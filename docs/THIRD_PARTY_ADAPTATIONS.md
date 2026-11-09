@@ -70,3 +70,19 @@ revision. Their packaging/signing/pairing/OTA capabilities already have counterp
 in VexSign; they are not duplicated wholesale. In particular, upstream forced
 installer/identifier unwraps, progress-based assumptions and late/shadowed signing
 error checks are not imported. No third-party certificates or binaries were added.
+
+## GitHub release IPA chooser
+
+- **Feature reference:** [NuzProjects/Feather](https://github.com/NuzProjects/Feather).
+- **Reviewed revision:** `1436e8609053d836f7c69e771b56b06dca52dcda`.
+- **Sources:** `Feather/Core/ReleaseRules.swift` and `Feather/Features/Library/GitHubImportView.swift`.
+- **License:** GPL-3.0; see upstream notices and the repository [LICENSE](../LICENSE).
+- **VexSign locations:** `Utilities/GitHubIPAReleases.swift`, `Views/Library/GitHubIPAImportView.swift` and Library import menu.
+
+Adapted the repository-to-release-to-IPA selection workflow with VexSign-specific
+models, stricter URL boundaries, bounded streaming metadata retrieval, declared
+integrity handoff and existing download/import ownership. Upstream automatic
+tracking, notifications, source persistence and replacement identity logic are not
+included. No upstream binaries, credentials or additional dependencies are imported.
+Apple build/test and device acceptance remain pending; see the
+[integration assessment](research/public-signer-integration-assessment.md).

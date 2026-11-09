@@ -15,6 +15,7 @@ struct SigningCustomizationView: View {
 	@State private var _isImagePickerPresenting = false
 	@State private var _selectedPhoto: PhotosPickerItem?
 	@State private var _displayedDescription: String?
+	@State private var _originalInfoPlist: [String: Any] = [:]
 
 	let app: AppInfoPresentable
 	@Binding var options: Options
@@ -83,7 +84,7 @@ struct SigningCustomizationView: View {
 					bindingValue: $options.appName
 				)
 			}
-			_infoCell(.localized("Identifier"), desc: options.appIdentifier ?? app.identifier) {
+			_infoCell(.localized("Identifier"), desc: options.effectiveAppIdentifier ?? app.identifier) {
 				SigningPropertiesView(
 					title: .localized("Identifier"),
 					initialValue: options.appIdentifier ?? (app.identifier ?? ""),
@@ -98,6 +99,13 @@ struct SigningCustomizationView: View {
 					bindingValue: $options.appVersion
 				)
 			}
+			LabeledContent(.localized("Minimum OS Version")) {
+				Text(verbatim: (MergedInfoPlist(original: _originalInfoPlist, options: options)
+					.effective["MinimumOSVersion"] as? String) ?? String.localized("Not declared or unavailable"))
+			}
+			Text(.localized("This is the planned Info.plist value, not a compatibility check. Lowering or removing it does not make unsupported apps work."))
+				.font(.caption)
+				.foregroundStyle(.secondary)
 			NavigationLink {
 				SigningDescriptionView(
 					title: .localized("Description"),
@@ -114,6 +122,16 @@ struct SigningCustomizationView: View {
 				}
 			}
 			.copyableText(_displayedDescription ?? "")
+		}
+		.task {
+			guard let bundle = Storage.shared.getAppDirectory(for: app) else { return }
+			do {
+				let data = try Data(contentsOf: bundle.appendingPathComponent("Info.plist"))
+				_originalInfoPlist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] ?? [:]
+			} catch {
+				// Metadata is advisory; never invent a minimum version on a read failure.
+				_originalInfoPlist = [:]
+			}
 		}
 	}
 

@@ -91,6 +91,22 @@ struct BackupManifest: Codable {
 		return inferred
 	}
 
+    /// Reject unknown schemas/components rather than silently performing a partial migration.
+    /// Versions 1–2 infer their legacy settings/source/certificate selection; library needs v3.
+    func validateSupportedFormat() throws {
+        let supported = BackupComponents.ordered.reduce(0) { $0 | $1.rawValue }
+        guard (1...3).contains(version), storedContents.rawValue >= 0,
+              storedContents.rawValue & ~supported == 0,
+              counts?.values.allSatisfy({ $0 >= 0 }) ?? true,
+              Set(certificates.map(\.uuid)).count == certificates.count,
+              Set(sources.map(\.identifier)).count == sources.count else { throw BackupCrypto.Failure.badFormat }
+        if storedContents.contains(.library) {
+            guard version == 3, let apps, !apps.isEmpty,
+                  Set(apps.map(\.uuid)).count == apps.count else { throw BackupCrypto.Failure.badFormat }
+            for entry in apps { try LibraryBackupSupport.validate(entry) }
+        }
+    }
+
 	func count(of component: BackupComponents) -> Int? {
 		switch component {
 		case .certificates: certificates.count
@@ -396,7 +412,7 @@ final class BackupManager {
 			let manifestData = try Data(contentsOf: manifestURL)
 			let manifest = try JSONDecoder().decode(BackupManifest.self, from: manifestData)
 
-            guard (1...3).contains(manifest.version) else { throw BackupCrypto.Failure.badFormat }
+            try manifest.validateSupportedFormat()
             if manifest.storedContents.contains(.library) {
                 guard manifest.version >= 3, let apps = manifest.apps, !apps.isEmpty,
                       Set(apps.map(\.uuid)).count == apps.count else { throw BackupCrypto.Failure.badFormat }

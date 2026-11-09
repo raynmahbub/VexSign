@@ -14,6 +14,7 @@
   "VexSign/Backend/Observable/DownloadManager.swift": 1,
   "VexSign/Backend/Observable/DownloadPreferences.swift": 1,
   "VexSign/Backend/Observable/EntitlementsManager.swift": 1,
+  "VexSign/Backend/Observable/GitHubSubscriptionStore.swift": 1,
   "VexSign/Backend/Observable/InstallQueue.swift": 1,
   "VexSign/Backend/Observable/LibraryStatusStore.swift": 1,
   "VexSign/Backend/Observable/NamedSigningProfileStore.swift": 1,

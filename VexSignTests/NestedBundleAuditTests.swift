@@ -179,16 +179,19 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertThrowsError(try remaining.requireCompatibleProfile())
 	}
 
-	/// An extension is only reported when the comparison actually says no. Without a profile, or
-	/// without an identifier, nothing is known — and unknown must never be dressed up as a failure.
-	func testWithoutAProfileEverythingIsUnknownAndNeverReported() throws {
+	/// Unknown coverage is warned about, but is not treated as a proven mismatch.
+	func testWithoutAProfileCoverageIsUnknownAndReported() throws {
 		try makeBundle("PlugIns/Widget.appex", identifier: "com.example.widget")
 
 		let report = report(pattern: nil)
 
 		XCTAssertEqual(report.entries.first?.coverage, .unknown)
 		XCTAssertTrue(report.uncovered.isEmpty)
-		XCTAssertTrue(report.isClean)
+		XCTAssertFalse(report.isClean)
+		XCTAssertEqual(report.unknown.count, 1)
+		XCTAssertTrue(try XCTUnwrap(report.summary).contains("unknown"))
+		XCTAssertTrue(try XCTUnwrap(report.warnings.first).contains("Widget.appex"))
+		XCTAssertNoThrow(try report.requireCompatibleProfile())
 		XCTAssertEqual(report.profilePattern, nil)
 	}
 
@@ -200,6 +203,32 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertEqual(report.entries.count, 1)
 		XCTAssertEqual(report.entries.first?.bundle.identifier, nil)
 		XCTAssertEqual(report.entries.first?.coverage, .unknown)
+	}
+
+	func testCoveredAndUnknownBundlesWarnWithoutBlocking() throws {
+		try makeBundle("PlugIns/Covered.appex", identifier: "com.example.widget")
+		try makeBundle("PlugIns/Unknown.appex", identifier: nil)
+		let result = report(pattern: "TEAM.com.example.*")
+		XCTAssertFalse(result.isClean)
+		XCTAssertTrue(result.uncovered.isEmpty)
+		XCTAssertEqual(result.unknown.count, 1)
+		XCTAssertEqual(result.warnings.count, 1)
+		XCTAssertNoThrow(try result.requireCompatibleProfile())
+	}
+
+	func testMixedCoverageSummaryDoesNotCountUnknownAsCovered() throws {
+		try makeBundle("PlugIns/Covered.appex", identifier: "com.example.widget")
+		try makeBundle("PlugIns/Unknown.appex", identifier: nil)
+		try makeBundle("PlugIns/Uncovered.appex", identifier: "com.other.widget")
+
+		let result = report(pattern: "TEAM.com.example.*")
+		XCTAssertEqual(result.entries.count, 3)
+		XCTAssertEqual(result.uncovered.count, 1)
+		XCTAssertEqual(result.unknown.count, 1)
+		XCTAssertFalse(result.isClean)
+		XCTAssertTrue(try XCTUnwrap(result.summary).contains("unknown"))
+		XCTAssertEqual(result.warnings.count, 2)
+		XCTAssertThrowsError(try result.requireCompatibleProfile())
 	}
 
 	func testABlankPatternCountsAsNoProfile() throws {

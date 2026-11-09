@@ -16,8 +16,10 @@ extension Download {
 			$bytesDownloaded.map { _ in }.eraseToAnyPublisher(),
 			$totalBytes.map { _ in }.eraseToAnyPublisher(),
 			$isActive.map { _ in }.eraseToAnyPublisher(),
+            $isWaitingForSlot.map { _ in }.eraseToAnyPublisher(),
 			$isPaused.map { _ in }.eraseToAnyPublisher(),
 			$isImporting.map { _ in }.eraseToAnyPublisher(),
+            $isVerifying.map { _ in }.eraseToAnyPublisher(),
 			$isSigning.map { _ in }.eraseToAnyPublisher(),
 		]).eraseToAnyPublisher()
 	}

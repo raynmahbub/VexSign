@@ -64,7 +64,7 @@ final class ProtectedFileAttributesTests: XCTestCase {
 			calls.append(received)
 		}
 		XCTAssertEqual(calls.count, 1)
-		XCTAssertEqual(calls[0][.protectionKey] as? String, FileProtectionType.completeUntilFirstUserAuthentication.rawValue)
+		XCTAssertEqual(calls[0][.protectionKey] as? FileProtectionType, .completeUntilFirstUserAuthentication)
 		XCTAssertEqual(calls[0][.posixPermissions] as? Int, 0o600)
 	}
 
@@ -113,6 +113,61 @@ final class ProtectedFileAttributesTests: XCTestCase {
 			}
 		) { error in
 			XCTAssertEqual((error as NSError).code, Int(EACCES))
+		}
+	}
+
+	func testDeepTreeIsProtectedOncePerItem() throws {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+		var leaf = root
+		var expected = [root.path]
+		for index in 0..<8 {
+			leaf = leaf.appendingPathComponent("level\(index)", isDirectory: true)
+			expected.append(leaf.path)
+		}
+		try FileManager.default.createDirectory(at: leaf, withIntermediateDirectories: true)
+		let file = leaf.appendingPathComponent("identity.p12")
+		try Data("fixture".utf8).write(to: file)
+		expected.append(file.path)
+
+		var visits: [String] = []
+		try ProtectedCertificateFiles.protect(root) { _, path in visits.append(path) }
+		XCTAssertEqual(visits.count, expected.count)
+		XCTAssertEqual(Set(visits), Set(expected))
+	}
+
+	func testProtectRejectsNestedSymlinks() throws {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+		try FileManager.default.createSymbolicLink(atPath: root.appendingPathComponent("link").path, withDestinationPath: "/tmp")
+		XCTAssertThrowsError(try ProtectedCertificateFiles.protect(root) { _, _ in })
+	}
+
+	func testSingleFileIsProtectedWithoutEnumeration() throws {
+		let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? FileManager.default.removeItem(at: file) } // try? ok: test teardown only
+		try Data("fixture".utf8).write(to: file)
+		var visits = 0
+		try ProtectedCertificateFiles.protect(file) { attributes, target in
+			visits += 1
+			XCTAssertEqual(target, file.path)
+			XCTAssertEqual(attributes[.posixPermissions] as? Int, 0o600)
+		}
+		XCTAssertEqual(visits, 1)
+	}
+
+	func testTreeProtectionPropagatesAttributeFailure() throws {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+		let child = root.appendingPathComponent("identity.p12")
+		try Data("fixture".utf8).write(to: child)
+		let failure = NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))
+		XCTAssertThrowsError(try ProtectedCertificateFiles.protect(root) { _, path in
+			if path == child.path { throw failure }
+		}) { error in
+			XCTAssertEqual(error as NSError, failure)
 		}
 	}
 

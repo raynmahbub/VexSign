@@ -7,7 +7,7 @@ import SwiftUI
 import Combine
 import NimbleExtensions
 
-enum NameMatchingMode: String, CaseIterable, Identifiable {
+enum NameMatchingMode: String, CaseIterable, Identifiable, Sendable {
     case off = "Off"
     case exact = "Exact"
     case balanced = "Balanced"

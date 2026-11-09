@@ -12,6 +12,7 @@ import UIKit
 import NimbleExtensions
 
 enum DownloadPreferences {
+    static let pathChanged = Notification.Name("VexSign.downloadPathChanged")
 	static let wifiOnlyKey = "VexSign.downloads.wifiOnly"
 	static let chargeOnlyKey = "VexSign.downloads.chargeOnly"
 	static let maxParallelKey = "VexSign.downloads.maxParallel"
@@ -72,15 +73,25 @@ private final class PathMonitor {
 
 	private let monitor = NWPathMonitor()
 	private let queue = DispatchQueue(label: "vexsign.path")
-	private(set) var isExpensive = false
+    private let lock = NSLock()
+    private var expensive = true // Unknown connectivity must not bypass Wi-Fi-only admission.
+    var isExpensive: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return expensive
+    }
 
 	private init() {
-		monitor.pathUpdateHandler = { [weak self] path in
-			self?.isExpensive = path.isExpensive || path.isConstrained || path.status != .satisfied
-			if path.status == .satisfied {
-				self?.isExpensive = path.isExpensive || path.isConstrained || path.usesInterfaceType(.cellular)
-			}
-		}
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let blocked = path.status != .satisfied || path.isExpensive || path.isConstrained || path.usesInterfaceType(.cellular)
+            self.lock.lock()
+            self.expensive = blocked
+            self.lock.unlock()
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: DownloadPreferences.pathChanged, object: nil)
+            }
+        }
 		monitor.start(queue: queue)
 	}
 }

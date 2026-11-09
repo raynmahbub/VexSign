@@ -315,6 +315,7 @@ jobs:
           (
             cd "${STAGING}"
             ditto -c -k --keepParent Payload VexSign-unsigned.ipa
+            python3 "${GITHUB_WORKSPACE}/tools/release-build-version.py" --check-container VexSign-unsigned.ipa
             shasum -a 256 VexSign-unsigned.ipa BUILD.json > SHA256SUMS
           )
 

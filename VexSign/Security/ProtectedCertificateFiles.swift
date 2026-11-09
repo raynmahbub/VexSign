@@ -35,12 +35,8 @@ enum ProtectedCertificateFiles {
         if fm.fileExists(atPath: legacy.path) {
             for child in try fm.contentsOfDirectory(at: legacy, includingPropertiesForKeys: nil).sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
                 let target = destination.appendingPathComponent(child.lastPathComponent)
-                // A child of the certificates directory is a file (a .p12 or a
-                // UUID directory), never a tree to enumerate. `protect` walks a
-                // directory with FileManager.enumerator, which reports
-                // NSFileReadUnknownError against a plain file — that made every
-                // migration throw before moving anything, leaving identities in
-                // shared Documents. Protect the item itself instead.
+                // Children can be plain .p12 files or UUID directories. Protect
+                // either form before moving it into private storage.
                 try protectItem(child)
                 // Preserve any older conflicting copy, but never replace the
                 // currently registered identity with it.
@@ -93,59 +89,40 @@ enum ProtectedCertificateFiles {
         return false
     }
 
-    /// Applies private-storage protection to one item, recursing only when it is
-    /// a directory. Enumeration is what fails for regular files, so it is gated
-    /// on the item actually being a directory.
+    /// Protects an item and its descendants with a single directory walk.
     static func protectItem(_ url: URL) throws {
-        let fm = FileManager.default
-        let info = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-        guard info.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
-        // Route through applyProtectionAttributes for the same reason the
-        // directory root does: the simulator has no protection classes, and a
-        // refusal here would fail certificate import and migration alike.
-        try applyProtectionAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
-                                       .posixPermissions: info.isDirectory == true ? 0o700 : 0o600],
-                                      at: url.path)
-        guard info.isDirectory == true else { return }
-
-        var enumerationError: Error?
-        guard let children = fm.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
-                                           errorHandler: { _, error in
-                                               enumerationError = error
-                                               return false
-                                           }) else { throw CocoaError(.fileReadUnknown) }
-        while let child = children.nextObject() as? URL {
-            try protectItem(child)
-        }
-        if let enumerationError { throw enumerationError }
+        try protect(url)
     }
 
-    /// Protects a directory tree. Callers may also pass a single file — several
-    /// do — so the tree walk is skipped for non-directories instead of being
-    /// attempted and failing with NSFileReadUnknownError.
-    static func protect(_ root: URL) throws {
+    /// A file is protected directly; directories are enumerated exactly once.
+    /// The injectable setter is also used to verify traversal and error handling.
+    static func protect(
+        _ root: URL,
+        setAttributes: ([FileAttributeKey: Any], String) throws -> Void = {
+            try FileManager.default.setAttributes($0, ofItemAtPath: $1)
+        }
+    ) throws {
         let fm = FileManager.default
         let rootInfo = try root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         guard rootInfo.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
-        guard rootInfo.isDirectory == true else {
-            try protectItem(root)
-            return
-        }
-        var enumerationError: Error?
-        let children = fm.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
-                                     errorHandler: { _, error in
-                                         enumerationError = error
-                                         return false
-                                     })
-        if rootInfo.isDirectory == true && children == nil { throw CocoaError(.fileReadUnknown) }
         var urls = [root]
-        while let url = children?.nextObject() as? URL { urls.append(url) }
-        if let enumerationError { throw enumerationError }
+        if rootInfo.isDirectory == true {
+            var enumerationError: Error?
+            guard let children = fm.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                                               errorHandler: { _, error in
+                                                   enumerationError = error
+                                                   return false
+                                               }) else { throw CocoaError(.fileReadUnknown) }
+            while let url = children.nextObject() as? URL { urls.append(url) }
+            if let enumerationError { throw enumerationError }
+        }
         for url in urls {
             let info = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
             guard info.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
             try applyProtectionAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
-                                           .posixPermissions: info.isDirectory == true ? 0o700 : 0o600], at: url.path)
+                                           .posixPermissions: info.isDirectory == true ? 0o700 : 0o600],
+                                          at: url.path, setAttributes: setAttributes)
         }
     }
+
 }

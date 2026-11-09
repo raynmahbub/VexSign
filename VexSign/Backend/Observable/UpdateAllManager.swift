@@ -64,6 +64,9 @@ final class UpdateAllManager: ObservableObject {
 		let ignored = SkippedUpdatesManager.persisted
 		_ = signedApps; _ = importedApps
 
+        // A background pass must not choose arbitrarily between repositories for one app.
+        let grouped = Dictionary(grouping: AppUpdateChecker.shared.availableUpdates, by: { $0.installedAppUUID ?? "" })
+        let unambiguous = Set(grouped.filter { !$0.key.isEmpty && $0.value.count == 1 }.values.flatMap { $0 }.map(\.id))
 		var seen = Set<String>()
 		var updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool)] = []
 
@@ -72,7 +75,7 @@ final class UpdateAllManager: ObservableObject {
 				guard !ignored.contains(app.id ?? "") else { continue }
 				guard app.currentDownloadUrl != nil else { continue }
 				guard seen.insert(app.currentUniqueId).inserted else { continue }
-				let hasUpdate = AppUpdateChecker.shared.appsWithUpdates.contains(app.currentUniqueId)
+				let hasUpdate = unambiguous.contains(app.currentUniqueId)
 				updates.append((app, source.name ?? "", hasUpdate))
 			}
 		}

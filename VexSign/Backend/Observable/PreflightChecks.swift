@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import UIKit
 import SwiftUI
 import NimbleExtensions
 
@@ -56,6 +57,7 @@ enum PreflightChecks {
 		bundleIdentifier(app: app, into: &issues)
 		versions(app: app, options: options, into: &issues)
 		plistKeys(app: app, into: &issues)
+        executableAndStorage(app: app, options: options, into: &issues)
 		certificateExpiry(certificate: certificate, options: options, into: &issues)
 		profileCompatibility(app: app, options: options, certificate: certificate, into: &issues)
 		signerIdentity(app: app, options: options, certificate: certificate, into: &issues)
@@ -64,6 +66,48 @@ enum PreflightChecks {
 
 		return PreflightResult(issues: issues)
 	}
+
+    private static func executableAndStorage(app: AppInfoPresentable, options: Options, into issues: inout [PreflightIssue]) {
+        guard let bundle = Storage.shared.getAppDirectory(for: app),
+              let executable = SigningInputValidation.executable(in: bundle) else {
+            issues.append(PreflightIssue(.localized("Executable unavailable"), .localized("The library bundle has no readable executable inside its own directory."), severity: .blocking))
+            return
+        }
+        do {
+            let data = try Data(contentsOf: executable, options: .mappedIfSafe)
+            if let evidence = ExecutablePreflight.inspect(data) {
+                if !evidence.isArm64 || (evidence.platform != nil && evidence.platform != 2) {
+                    issues.append(PreflightIssue(.localized("Unsupported executable platform"), .localized("The selected executable slice is not an arm64 iOS-device binary."), severity: .blocking))
+                }
+                if evidence.encrypted {
+                    issues.append(PreflightIssue(.localized("Encrypted executable"), .localized("The selected executable slice declares encryption. Re-signing does not decrypt App Store executables."), severity: .blocking))
+                }
+                if evidence.platform == nil {
+                    issues.append(PreflightIssue(.localized("Executable platform unknown"), .localized("No supported platform load command was found. Compatibility has not been established.")))
+                }
+                if let minimum = evidence.minimumOS {
+                    if let current = ExecutablePreflight.packedVersion(UIDevice.current.systemVersion), minimum > current {
+                        issues.append(PreflightIssue(.localized("Executable requires newer iOS"), .localized("The executable deployment target exceeds this device's iOS version. Removing the plist minimum does not make newer APIs compatible."), severity: .blocking))
+                    }
+                    if !options.removeMinimumOSVersion {
+                        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: bundle.appendingPathComponent("Info.plist")), options: [], format: nil) as? [String: Any]
+                        if let declared = plist?["MinimumOSVersion"] as? String,
+                           let declaredVersion = ExecutablePreflight.packedVersion(declared), minimum > declaredVersion {
+                            issues.append(PreflightIssue(.localized("Deployment targets disagree"), .localized("The executable requires newer iOS than the bundle plist declares. Changing metadata cannot lower the binary deployment target.")))
+                        }
+                    }
+                }
+            } else {
+                issues.append(PreflightIssue(.localized("Executable inspection incomplete"), .localized("The selected Mach-O slice could not be inspected safely. This is not evidence of compatible architecture, platform, or encryption state.")))
+            }
+            let capacity = try bundle.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage
+            if let capacity, capacity < 128 * 1024 * 1024 {
+                issues.append(PreflightIssue(.localized("Low working disk space"), .localized("Less than 128 MiB is available for important usage. Signing copies and packaging need additional space; this is a warning threshold, not an exact space estimate.")))
+            }
+        } catch {
+            issues.append(PreflightIssue(.localized("Preflight input could not be read"), LogRedaction.redact(error.localizedDescription)))
+        }
+    }
 
 	// MARK: Bundle identifier
 

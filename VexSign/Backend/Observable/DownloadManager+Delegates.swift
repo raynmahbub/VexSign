@@ -16,6 +16,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
+        defer { networkTransferFinished(download, task: downloadTask) }
 		
 		if isAppInBackground {
 			let activeDownloads = downloads.filter { $0.progress > 0 && $0.progress < 1.0 && $0.id != download.id }
@@ -30,13 +31,13 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			try FileManager.default.createDirectoryIfNeeded(at: customTempDir)
 
 			let suggestedFileName = downloadTask.response?.suggestedFilename ?? download.fileName
-			let destinationURL = customTempDir.appendingPathComponent(suggestedFileName)
+			let destinationURL = DownloadStagingName.destination(in: customTempDir, suggestedFilename: suggestedFileName)
 
-			try FileManager.default.removeFileIfNeeded(at: destinationURL)
 			try FileManager.default.moveItem(at: location, to: destinationURL)
 
 			// ID-keyed so duplicates count correctly (drives the X/Y counter).
 			finishedDownloadingIDs.insert(download.id)
+            download.progress = 1.0
 
 			if downloadActivity != nil {
 				let activeDownloads = downloads.filter {
@@ -60,6 +61,11 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
 
+        let now = Date()
+        let completed = totalBytesExpectedToWrite > 0 && totalBytesWritten >= totalBytesExpectedToWrite
+        guard completed || now.timeIntervalSince(download.lastProgressPublication) >= 0.2 else { return }
+        download.lastProgressPublication = now
+
 		download.bytesDownloaded = totalBytesWritten
 
 		if totalBytesExpectedToWrite > 0 {
@@ -73,20 +79,11 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		let activeDownloads = self.downloads.filter { $0.progress > 0 && $0.progress < 1.0 && !$0.isPaused }
 		if !activeDownloads.isEmpty {
 			if self.isAppInBackground {
-				// Fresh runtime assertion per chunk keeps the download and Live Activity alive in the background.
-				let taskID = UIApplication.shared.beginBackgroundTask {}
-
-				if self.downloadActivity != nil {
-					self.updateLiveActivity(activeDownloads: activeDownloads)
-				} else {
-					self.startLiveActivityIfNeeded()
-				}
-
-				DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-					if taskID != .invalid {
-						UIApplication.shared.endBackgroundTask(taskID)
-					}
-				}
+				// The manager owns a single BackgroundTaskManager while work is unfinished.
+                if now.timeIntervalSince(self.lastUpdateTime) >= self.updateThrottle {
+                    if self.downloadActivity != nil { self.updateLiveActivity(activeDownloads: activeDownloads) }
+                    else { self.startLiveActivityIfNeeded() }
+                }
 			} else {
 				let now = Date()
 				if now.timeIntervalSince(self.lastUpdateTime) >= self.updateThrottle {
@@ -108,6 +105,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		else {
 			return
 		}
+
+        defer { networkTransferFinished(download, task: downloadTask) }
 
 		let nsError = error as NSError
 
@@ -135,7 +134,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 
 			sendSystemNotification(
 				title: "Download paused",
-				body: "\(download.fileName) - will resume when you reopen the app",
+				body: "\(download.fileName) - resume from Downloads when connectivity returns",
 				identifier: "pause_\(download.id)"
 			)
 

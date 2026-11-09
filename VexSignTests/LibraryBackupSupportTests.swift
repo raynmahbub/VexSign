@@ -52,6 +52,25 @@ final class LibraryBackupSupportTests: XCTestCase {
         XCTAssertFalse(decoded.storedContents.contains(.library))
     }
 
+    func testManifestRejectsFutureSchemaUnknownComponentsAndNegativeCounts() {
+        var manifest = BackupManifest(version: 3, createdAt: Date(), appVersion: "1", contents: [.settings],
+                                      includesTweaks: false, counts: nil, selectedCertUUID: nil, certificates: [], sources: [])
+        XCTAssertNoThrow(try manifest.validateSupportedFormat())
+        manifest.version = 4
+        XCTAssertThrowsError(try manifest.validateSupportedFormat())
+        manifest.version = 3
+        manifest.contents = BackupComponents(rawValue: 1 << 20)
+        XCTAssertThrowsError(try manifest.validateSupportedFormat())
+        manifest.contents = [.settings]
+        manifest.counts = ["4": -1]
+        XCTAssertThrowsError(try manifest.validateSupportedFormat())
+        manifest.counts = nil
+        manifest.contents = [.library]
+        manifest.version = 2
+        manifest.apps = [entry()]
+        XCTAssertThrowsError(try manifest.validateSupportedFormat())
+    }
+
     func testLibraryManifestRoundTripAndCounts() throws {
         var manifest = BackupManifest(version: 3, createdAt: Date(), appVersion: "1", contents: [.library],
             includesTweaks: false, counts: nil, selectedCertUUID: nil, certificates: [], sources: [])

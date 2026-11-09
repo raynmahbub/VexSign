@@ -51,6 +51,7 @@ device acceptance — the caveats in each section still apply.
 
 ### 📚 Sources, discovery & updates
 
+- **GitHub IPA import** — browse up to 20 public releases from a repository and choose an IPA; prereleases are opt-in and existing download/auto-sign settings apply.
 - **AltStore-compatible repositories** through AltSourceKit, including the existing encrypted ESign parsing support.
 - **Source management and preferences**, repository refresh and app update tracking.
 - **HTTPS-only repository transport**, with an explicit opt-in for local HTTP repositories.
