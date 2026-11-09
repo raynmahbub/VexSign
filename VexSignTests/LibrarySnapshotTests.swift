@@ -62,6 +62,47 @@ final class LibrarySnapshotTests: XCTestCase {
         XCTAssertEqual(match?.uuid, "newer")
     }
 
+    private func sourceRepository(sourceURL: URL) throws -> ASRepository {
+        let json = try JSONSerialization.data(withJSONObject: [
+            "name": "Fixture Repository",
+            "identifier": "fixture.repository",
+            "apps": [[
+                "bundleIdentifier": "com.example.app",
+                "name": "Example",
+                "version": "1.0",
+                "iconURL": "https://example.invalid/icon.png"
+            ]]
+        ])
+        var repository = try JSONDecoder().decode(ASRepository.self, from: json)
+        repository.sourceURL = sourceURL
+        return repository
+    }
+
+    func testVersionComparisonSupportsVPrefixAndSemVerPrereleases() {
+        let checker = AppUpdateChecker.shared
+        XCTAssertTrue(checker.hasUpdate(installedVersion: "1.9", sourceVersion: "v2.0"))
+        XCTAssertFalse(checker.hasUpdate(installedVersion: "2.1.1", sourceVersion: "2.1.1-beta.1"))
+        XCTAssertTrue(checker.hasUpdate(installedVersion: "2.1.0", sourceVersion: "2.1.1-beta.1"))
+        XCTAssertTrue(checker.hasUpdate(installedVersion: "2.1.0-beta.2", sourceVersion: "2.1.0-beta.10"))
+        XCTAssertFalse(checker.hasUpdate(installedVersion: "2.1.0+build.5", sourceVersion: "2.1.0+build.7"))
+        XCTAssertFalse(checker.hasUpdate(installedVersion: "unknown", sourceVersion: "v2.0"))
+    }
+
+    func testUpdateChecksExcludeCatalogsFromRemovedSources() throws {
+        let activeURL = try XCTUnwrap(URL(string: "https://active.example/source.json"))
+        let removedURL = try XCTUnwrap(URL(string: "https://removed.example/source.json"))
+        let active = try sourceRepository(sourceURL: activeURL)
+        let removed = try sourceRepository(sourceURL: removedURL)
+
+        let selected = AppUpdateChecker.configuredRepositories(
+            in: [removed, active],
+            sourceURLs: Set([activeURL])
+        )
+        XCTAssertEqual(selected.count, 1)
+        XCTAssertEqual(selected.first?.sourceURL, activeURL)
+        XCTAssertTrue(AppUpdateChecker.configuredRepositories(in: [removed], sourceURLs: []).isEmpty)
+    }
+
     func testDirectorySizesAreMeasuredAsAnIndependentValueSnapshot() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only

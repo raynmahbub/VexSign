@@ -168,7 +168,12 @@ struct UpdatesView: View {
 
 	@MainActor
 	private func _reload() async {
-		let sources = Array(SourcesViewModel.shared.sources.values)
+		let configuredSources = Storage.shared.getSources()
+		let configuredURLs = Set(configuredSources.compactMap(\.sourceURL))
+		let sources = AppUpdateChecker.configuredRepositories(
+			in: Array(SourcesViewModel.shared.sources.values),
+			sourceURLs: configuredURLs
+		)
 		await _updateChecker.precomputeAllUpdates(
 			sources: sources,
 			signedApps: _signedApps,
