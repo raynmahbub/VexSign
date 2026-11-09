@@ -193,9 +193,17 @@ struct InstallConfirmation: Equatable, Sendable {
             }
 
 		case .unknown:
-            if date.timeIntervalSince(verifyStart) >= min(limits.verify, limits.unavailableEvidence) {
-                return _finish(.timedOutVerifying)
-            }
+			// Two different kinds of "unknown". A placeholder is positive evidence
+			// that iOS registered the app and is still writing it, so it gets the
+			// full verification window. Only a probe that returned nothing at all
+			// hits the short deadline that stops the UI spinning forever.
+			let evidenceIsUnavailable = probe == nil
+			let deadline = evidenceIsUnavailable
+				? min(limits.verify, limits.unavailableEvidence)
+				: limits.verify
+			if date.timeIntervalSince(verifyStart) >= deadline {
+				return _finish(.timedOutVerifying)
+			}
 		}
 
 		if date.timeIntervalSince(verifyStart) >= limits.verify {
