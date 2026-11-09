@@ -382,8 +382,8 @@ final class AppUpdateChecker: ObservableObject {
         guard identities.count == 1, identities.first != "" else { return nil }
         let versioned = candidates.filter { $0.version != nil && !($0.uuid ?? "").isEmpty }
         let selected = versioned.sorted { lhs, rhs in
-            if isNewerVersion(lhs.version ?? "", than: rhs.version ?? "") { return true }
-            if isNewerVersion(rhs.version ?? "", than: lhs.version ?? "") { return false }
+            if Self.isNewerVersion(lhs.version ?? "", than: rhs.version ?? "") { return true }
+            if Self.isNewerVersion(rhs.version ?? "", than: lhs.version ?? "") { return false }
             return (lhs.uuid ?? "") < (rhs.uuid ?? "")
         }.first
         guard let selected, let uuid = selected.uuid else { return nil }
@@ -447,27 +447,104 @@ final class AppUpdateChecker: ObservableObject {
         guard let currentVersion = installedVersion,
               let newVersion = sourceVersion else { return false }
 
-        return isNewerVersion(newVersion, than: currentVersion)
+        return Self.isNewerVersion(newVersion, than: currentVersion)
     }
 
-    private func isNewerVersion(_ new: String, than old: String) -> Bool {
-        let newComponents = new.split(separator: ".").compactMap { Int($0) }
-        let oldComponents = old.split(separator: ".").compactMap { Int($0) }
+    /// Compares dotted numeric versions with optional `v` prefixes and SemVer
+    /// prerelease/build metadata. Invalid version strings fail closed instead of
+    /// silently dropping nonnumeric components and manufacturing an ordering.
+    private static func isNewerVersion(_ new: String, than old: String) -> Bool {
+        guard let newer = ParsedVersion(new), let older = ParsedVersion(old) else { return false }
+        return newer.isNewer(than: older)
+    }
 
-        let maxCount = max(newComponents.count, oldComponents.count)
+    private struct ParsedVersion {
+        let core: [String]
+        let prerelease: [String]?
 
-        for i in 0..<maxCount {
-            let newValue = i < newComponents.count ? newComponents[i] : 0
-            let oldValue = i < oldComponents.count ? oldComponents[i] : 0
+        init?(_ rawValue: String) {
+            var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if value.count > 1, let first = value.first, first == "v" || first == "V",
+               value.dropFirst().first?.isNumber == true {
+                value.removeFirst()
+            }
 
-            if newValue > oldValue {
-                return true
-            } else if newValue < oldValue {
+            // Build metadata does not affect SemVer precedence.
+            value = String(value.split(separator: "+", maxSplits: 1, omittingEmptySubsequences: false)[0])
+            let pieces = value.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+            guard let coreText = pieces.first, !coreText.isEmpty else { return nil }
+            let core = coreText.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+            guard !core.isEmpty, core.allSatisfy({ Self.isASCIIDigits($0) }) else { return nil }
+
+            if pieces.count == 2 {
+                let prereleaseText = String(pieces[1])
+                let identifiers = prereleaseText.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+                guard !identifiers.isEmpty, identifiers.allSatisfy({ identifier in
+                    !identifier.isEmpty && identifier.unicodeScalars.allSatisfy {
+                        (48...57).contains(Int($0.value)) || (65...90).contains(Int($0.value))
+                            || (97...122).contains(Int($0.value)) || $0 == "-"
+                    }
+                }) else { return nil }
+                self.prerelease = identifiers
+            } else {
+                self.prerelease = nil
+            }
+            self.core = core
+        }
+
+        func isNewer(than other: ParsedVersion) -> Bool {
+            for index in 0..<max(core.count, other.core.count) {
+                let left = index < core.count ? core[index] : "0"
+                let right = index < other.core.count ? other.core[index] : "0"
+                let order = Self.compareNumeric(left, right)
+                if order != .orderedSame { return order == .orderedDescending }
+            }
+
+            switch (prerelease, other.prerelease) {
+            case (nil, nil):
+                return false
+            case (nil, .some):
+                return true // A release outranks its prereleases.
+            case (.some, nil):
+                return false
+            case let (.some(left), .some(right)):
+                for index in 0..<max(left.count, right.count) {
+                    guard index < left.count else { return false }
+                    guard index < right.count else { return true }
+                    // SemVer prerelease identifiers are case-sensitive ASCII.
+                    let lhs = left[index]
+                    let rhs = right[index]
+                    let lhsNumeric = Self.isASCIIDigits(lhs)
+                    let rhsNumeric = Self.isASCIIDigits(rhs)
+                    let order: ComparisonResult
+                    if lhsNumeric && rhsNumeric {
+                        order = Self.compareNumeric(lhs, rhs)
+                    } else if lhsNumeric != rhsNumeric {
+                        order = lhsNumeric ? .orderedAscending : .orderedDescending
+                    } else {
+                        order = lhs == rhs ? .orderedSame : (lhs < rhs ? .orderedAscending : .orderedDescending)
+                    }
+                    if order != .orderedSame { return order == .orderedDescending }
+                }
                 return false
             }
         }
 
-        return false
+        private static func isASCIIDigits(_ value: String) -> Bool {
+            !value.isEmpty && value.unicodeScalars.allSatisfy { (48...57).contains(Int($0.value)) }
+        }
+
+        private static func compareNumeric(_ lhs: String, _ rhs: String) -> ComparisonResult {
+            let left = String(lhs.drop(while: { $0 == "0" }))
+            let right = String(rhs.drop(while: { $0 == "0" }))
+            let normalizedLeft = left.isEmpty ? "0" : left
+            let normalizedRight = right.isEmpty ? "0" : right
+            if normalizedLeft.count != normalizedRight.count {
+                return normalizedLeft.count < normalizedRight.count ? .orderedAscending : .orderedDescending
+            }
+            if normalizedLeft == normalizedRight { return .orderedSame }
+            return normalizedLeft < normalizedRight ? .orderedAscending : .orderedDescending
+        }
     }
 
     @MainActor
@@ -483,14 +560,26 @@ final class AppUpdateChecker: ObservableObject {
 
     /// `@MainActor` because the three `Storage` reads below are view-context
     /// fetches, and a nonisolated async function runs on the generic executor.
+    /// Cached catalogs are useful only while their source remains configured. The
+    /// view model can retain last-known-good data, so callers must scope it to the
+    /// persisted source list before calculating or offering updates.
+    static func configuredRepositories(in cached: [ASRepository], sourceURLs: Set<URL>) -> [ASRepository] {
+        cached.filter { repository in
+            guard let sourceURL = repository.sourceURL else { return false }
+            return sourceURLs.contains(sourceURL)
+        }
+    }
+
     @MainActor
     func checkNow() async {
         let sources = Storage.shared.getSources()
+        let sourceURLs = Set(sources.compactMap(\.sourceURL))
         await SourcesViewModel.shared.fetchSources(sources, refresh: true)
-        let repos = Array(SourcesViewModel.shared.sources.values)
+        let cached = Array(SourcesViewModel.shared.sources.values)
+        let repositories = Self.configuredRepositories(in: cached, sourceURLs: sourceURLs)
         let signed = Storage.shared.getSignedApps()
         let imported = Storage.shared.getImportedApps()
-        await precomputeAllUpdates(sources: repos, signedApps: signed, importedApps: imported)
+        await precomputeAllUpdates(sources: repositories, signedApps: signed, importedApps: imported)
     }
 
     @MainActor

@@ -170,6 +170,13 @@ final class SourcesViewModel: ObservableObject {
 			backgroundTaskManager = nil
 		}
 
+		// Reconcile the in-memory catalog with the persisted source set before any
+		// awaits. Empty and failed refreshes must not leave deleted repositories
+		// available to update matching or automatic maintenance.
+		evictDeletedSources(valid: sourcesArray)
+		let configuredIDs = Set(sourcesArray.map { Self._id(for: $0) })
+		staleSourceIDs.formIntersection(configuredIDs)
+
 		// Read CoreData (AltSource) fields on the main actor — it's not thread-safe.
 		struct FetchItem {
 			let source: AltSource
@@ -220,6 +227,9 @@ final class SourcesViewModel: ObservableObject {
 		// known-good snapshot immediately, so the store is browsable while the
 		// refresh runs (and entirely offline after a cold launch).
 		var working = self.sources.filter { sourcesArray.contains($0.key) }
+		// Publish even an empty catalog; retaining the previous dictionary here
+		// lets removed sources leak into callers that read cached values directly.
+		self.sources = working
 
 		// Reading and decoding those snapshots is file I/O plus JSON per source, so it happens off
 		// the main actor too — only the models come back here to be published.
@@ -245,9 +255,7 @@ final class SourcesViewModel: ObservableObject {
 				staleSourceIDs.insert(blocked.identifier)
 			}
 		}
-		if !working.isEmpty {
-			self.sources = working
-		}
+		self.sources = working
 
 		// A rate-limited source is skipped entirely this round: hammering it
 		// again only extends the window.

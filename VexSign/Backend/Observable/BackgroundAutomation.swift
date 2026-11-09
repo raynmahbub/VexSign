@@ -207,8 +207,13 @@ enum BackgroundAutomation {
 			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground)
 			return nil
 		}
-		// Do not reuse stale in-memory repositories when the configured source list is empty.
-		let repositories = sources.isEmpty ? [] : Array(SourcesViewModel.shared.sources.values)
+		// Last-known-good catalogs remain browseable, but only configured sources
+		// may participate in update matching or automated signing.
+		let configuredSourceURLs = Set(sources.compactMap(\.sourceURL))
+		let repositories = AppUpdateChecker.configuredRepositories(
+			in: Array(SourcesViewModel.shared.sources.values),
+			sourceURLs: configuredSourceURLs
+		)
 
 		// 2. Recompute the update set.
 		let signedApps = storage.getSignedApps()
