@@ -7,7 +7,7 @@ import SwiftUI
 import Combine
 import NimbleExtensions
 
-enum NameMatchingMode: String, CaseIterable, Identifiable {
+enum NameMatchingMode: String, CaseIterable, Identifiable, Sendable {
     case off = "Off"
     case exact = "Exact"
     case balanced = "Balanced"
@@ -65,6 +65,7 @@ final class UpdateMatchingPreferences: ObservableObject {
     private let keyAutoInstallAfterUpdate = "VexSign.updateMatching.autoInstallAfterUpdate"
     private let keyFavoriteApps = "VexSign.updateMatching.favoriteAppUUIDs"
     private let keyAutoUpdateApps = "VexSign.updateMatching.autoUpdateAppUUIDs"
+    private let keyAutoUpdateAllowlistActive = "VexSign.updateMatching.autoUpdateAllowlistActive"
 
     // MARK: - Published Properties: Update Matching
     @Published var nameMatchingMode: NameMatchingMode {
@@ -120,6 +121,12 @@ final class UpdateMatchingPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(Array(autoUpdateAppUUIDs), forKey: keyAutoUpdateApps) }
     }
 
+    /// When false, every eligible library app is allowed. When true, the UUID
+    /// set is an explicit allowlist (including the intentional empty set).
+    @Published var autoUpdateAllowlistActive: Bool {
+        didSet { UserDefaults.standard.set(autoUpdateAllowlistActive, forKey: keyAutoUpdateAllowlistActive) }
+    }
+
     private init() {
         let defaults = UserDefaults.standard
 
@@ -146,6 +153,7 @@ final class UpdateMatchingPreferences: ObservableObject {
 
         let autoArray = defaults.stringArray(forKey: keyAutoUpdateApps) ?? []
         self.autoUpdateAppUUIDs = Set(autoArray)
+        self.autoUpdateAllowlistActive = defaults.object(forKey: keyAutoUpdateAllowlistActive) as? Bool ?? !autoArray.isEmpty
     }
 
     func isFavorite(uuid: String) -> Bool {
@@ -161,19 +169,33 @@ final class UpdateMatchingPreferences: ObservableObject {
     }
 
     func isAutoUpdateAllowed(for uuid: String) -> Bool {
-        if matchingMode == .favoritesOnly {
-            return favoriteAppUUIDs.contains(uuid)
+        if matchingMode == .favoritesOnly, !favoriteAppUUIDs.contains(uuid) {
+            return false
         }
-        if autoUpdateAppUUIDs.isEmpty {
-            return true
-        }
-        return autoUpdateAppUUIDs.contains(uuid)
+        return !autoUpdateAllowlistActive || autoUpdateAppUUIDs.contains(uuid)
     }
 
+    /// Makes the first per-app opt-out meaningful even while the default is
+    /// "all eligible apps": materialize every other eligible library UUID as
+    /// the allowlist, then continue toggling explicit membership.
     func toggleAutoUpdate(for uuid: String) {
+        var allUUIDs = Set(Storage.shared.getSignedApps().compactMap(\.uuid))
+        allUUIDs.formUnion(Storage.shared.getImportedApps().compactMap(\.uuid))
+        allUUIDs.insert(uuid)
+        toggleAutoUpdate(for: uuid, allUUIDs: allUUIDs)
+    }
+
+    func toggleAutoUpdate(for uuid: String, allUUIDs: Set<String>) {
+        if !autoUpdateAllowlistActive {
+            autoUpdateAllowlistActive = true
+            autoUpdateAppUUIDs = Set(allUUIDs.filter { candidate in
+                candidate != uuid && (matchingMode != .favoritesOnly || favoriteAppUUIDs.contains(candidate))
+            })
+            return
+        }
         if autoUpdateAppUUIDs.contains(uuid) {
             autoUpdateAppUUIDs.remove(uuid)
-        } else {
+        } else if matchingMode != .favoritesOnly || favoriteAppUUIDs.contains(uuid) {
             autoUpdateAppUUIDs.insert(uuid)
         }
     }
@@ -186,6 +208,8 @@ final class UpdateMatchingPreferences: ObservableObject {
         includeNoDownload = false
         matchingMode = .updateMatching
         autoUpdateCertificate = "Global Default"
+        autoUpdateAppUUIDs = []
+        autoUpdateAllowlistActive = false
         objectWillChange.send()
     }
 }

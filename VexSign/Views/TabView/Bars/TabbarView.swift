@@ -2,8 +2,8 @@
 //  TabbarView.swift
 //  VexSign
 //
-//  Five native default tabs. Optional extra destinations use the custom shell
-//  to avoid losing tabs to UIKit's More controller.
+//  A native tab bar is used for labeled sets of up to five destinations.
+//  Larger or icon-only sets use the custom shell to keep every tab reachable.
 //
 
 import SwiftUI
@@ -38,7 +38,7 @@ struct TabbarView: View {
 
     var body: some View {
         Group {
-            if visibleTabs.count <= 5 {
+            if visibleTabs.count <= 5 && tabPrefs.showLabels {
                 // Native UITabBar supplies real Liquid Glass on iOS 26, and
                 // the correct system appearance on older supported versions.
                 if #available(iOS 26.0, *) {
@@ -47,15 +47,20 @@ struct TabbarView: View {
                     tabContent
                 }
             } else {
-                // Optional extra destinations must not disappear into More.
-                // Do not create a >5-item UITabBarController and hide it:
-                // its More UINavigationController can add a second back bar.
+                // Larger or icon-only sets use a custom bar rather than
+                // disappearing into UIKit's More controller, which can add
+                // a second back bar to the navigation stack.
                 extraTabContent
                     .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
             }
         }
         .onAppear { repairSelection() }
         .onChange(of: visibleTabs) { _, _ in repairSelection() }
+        .onChange(of: tabSelection.selectedTab) { _, selected in
+            if tabPrefs.isHidden(selected) {
+                tabPrefs.setHidden(selected, false)
+            }
+        }
     }
 
     @ViewBuilder
@@ -86,8 +91,8 @@ struct TabbarView: View {
 
     private var extraTabContent: some View {
         ZStack {
-            // Only create optional roots after visiting them, then retain their
-            // navigation/state. This avoids loading every file browser at launch.
+            // Only create roots after visiting them, then retain their
+            // navigation/state. This avoids loading every destination at launch.
             ForEach(visibleTabs.filter { visitedTabs.contains($0) || $0 == currentTab }, id: \.self) { tab in
                 TabEnum.view(for: tab)
                     .opacity(tab == currentTab ? 1 : 0)
@@ -128,14 +133,16 @@ struct TabbarView: View {
                                     .offset(x: 11, y: -7)
                             }
                         }
-                        Text(tab.title)
-                            .font(.caption2.weight(currentTab == tab ? .semibold : .regular))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
+                        if tabPrefs.showLabels {
+                            Text(tab.title)
+                                .font(.caption2.weight(currentTab == tab ? .semibold : .regular))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.72)
+                        }
                     }
                     .foregroundStyle(currentTab == tab ? Color.userTint : .secondary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
+                    .frame(height: tabPrefs.showLabels ? 48 : 38)
                     .contentShape(Rectangle())
                     .background {
                         if currentTab == tab {

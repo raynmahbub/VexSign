@@ -20,12 +20,15 @@ import NimbleExtensions
 enum SourceURLPolicy {
 	enum Failure: LocalizedError {
 		case notHTTPS
+		case invalidAuthority
 		case unsupportedScheme(String)
 
 		var errorDescription: String? {
 			switch self {
 			case .notHTTPS:
 				String.localized("Repositories must use HTTPS. Enable 'Allow Insecure HTTP Sources' in Settings → Security if you really need a local HTTP repository.")
+			case .invalidAuthority:
+				String.localized("Repository URLs must have a host and must not embed a username or password.")
 			case .unsupportedScheme(let scheme):
 				String.localized("Unsupported URL scheme '%@'. Repositories must use https.", arguments: scheme)
 			}
@@ -45,6 +48,9 @@ enum SourceURLPolicy {
 	static func validate(_ url: URL) throws {
 		guard let scheme = url.scheme?.lowercased() else {
 			throw Failure.notHTTPS
+		}
+		guard let host = url.host, !host.isEmpty, url.user == nil, url.password == nil else {
+			throw Failure.invalidAuthority
 		}
 		switch scheme {
 		case "https":

@@ -19,22 +19,28 @@ struct BackgroundAutomationTests {
         // Reset to defaults
         UserDefaults.standard.removeObject(forKey: "VexSign.automation.enabled")
         UserDefaults.standard.removeObject(forKey: "VexSign.automation.policy")
+        UserDefaults.standard.removeObject(forKey: BackgroundAutomationPreferences.intervalKey)
 
         #expect(BackgroundAutomationPreferences.isEnabled == false)
         #expect(BackgroundAutomationPreferences.policy == .notifyOnly)
+        #expect(BackgroundAutomationPreferences.interval == .everySixHours)
     }
 
     @Test("BackgroundAutomationPreferences can be set")
     func testSetPreferences() {
         BackgroundAutomationPreferences.isEnabled = true
         BackgroundAutomationPreferences.policy = .signAndQueue
+        BackgroundAutomationPreferences.interval = .hourly
 
         #expect(BackgroundAutomationPreferences.isEnabled == true)
         #expect(BackgroundAutomationPreferences.policy == .signAndQueue)
+        #expect(BackgroundAutomationPreferences.interval == .hourly)
+        #expect(BackgroundAutomationInterval.allCases.map(\.rawValue) == [3_600, 10_800, 21_600, 43_200, 86_400])
 
         // Reset
         BackgroundAutomationPreferences.isEnabled = false
         BackgroundAutomationPreferences.policy = .notifyOnly
+        BackgroundAutomationPreferences.interval = .everySixHours
     }
 
     @Test("BackgroundAutomationPolicy localized descriptions")
@@ -43,7 +49,63 @@ struct BackgroundAutomationTests {
         #expect(BackgroundAutomationPolicy.signAndQueue.localizedDescription == .localized("Sign & queue"))
 
         #expect(BackgroundAutomationPolicy.notifyOnly.localizedDetail.contains("Nothing is signed or downloaded"))
-        #expect(BackgroundAutomationPolicy.signAndQueue.localizedDetail.contains("queues the installs"))
+        #expect(BackgroundAutomationPolicy.signAndQueue.localizedDetail.contains("install queue"))
+    }
+
+    @Test("Per-app automatic updates can explicitly opt out from the all-apps default")
+    func testAutomaticUpdateAllowlist() {
+        let preferences = UpdateMatchingPreferences.shared
+        let oldActive = preferences.autoUpdateAllowlistActive
+        let oldApps = preferences.autoUpdateAppUUIDs
+        let oldMode = preferences.matchingMode
+        let oldFavorites = preferences.favoriteAppUUIDs
+        defer {
+            preferences.autoUpdateAppUUIDs = oldApps
+            preferences.autoUpdateAllowlistActive = oldActive
+            preferences.matchingMode = oldMode
+            preferences.favoriteAppUUIDs = oldFavorites
+        }
+
+        preferences.matchingMode = .allApps
+        preferences.autoUpdateAllowlistActive = false
+        preferences.autoUpdateAppUUIDs = []
+        #expect(preferences.isAutoUpdateAllowed(for: "app-a"))
+
+        preferences.toggleAutoUpdate(for: "app-a", allUUIDs: ["app-a", "app-b"])
+        #expect(preferences.autoUpdateAllowlistActive)
+        #expect(!preferences.isAutoUpdateAllowed(for: "app-a"))
+        #expect(preferences.isAutoUpdateAllowed(for: "app-b"))
+
+        preferences.toggleAutoUpdate(for: "app-b", allUUIDs: ["app-a", "app-b"])
+        #expect(!preferences.isAutoUpdateAllowed(for: "app-b"))
+        preferences.autoUpdateAppUUIDs = []
+        #expect(!preferences.isAutoUpdateAllowed(for: "app-a"))
+
+        preferences.autoUpdateAllowlistActive = false
+        preferences.matchingMode = .favoritesOnly
+        preferences.favoriteAppUUIDs = ["favorite-app"]
+        #expect(preferences.isAutoUpdateAllowed(for: "favorite-app"))
+        #expect(!preferences.isAutoUpdateAllowed(for: "other-app"))
+    }
+
+    @Test("Automatic update source pause persists and is removed with its source")
+    func testSourceAutomaticUpdatePreference() {
+        let sourceID = "test-auto-update-source-\(UUID().uuidString)"
+        let urlAlias = "https://example.invalid/\(UUID().uuidString).json"
+        defer {
+            SourcePreferences.setAutoUpdatesEnabled(true, for: sourceID)
+            SourcePreferences.setAutoUpdatesEnabled(true, for: urlAlias)
+        }
+
+        #expect(SourcePreferences.autoUpdatesEnabled(for: sourceID))
+        SourcePreferences.setAutoUpdatesEnabled(false, for: sourceID)
+        #expect(!SourcePreferences.autoUpdatesEnabled(for: sourceID))
+        SourcePreferences.setAutoUpdatesEnabled(true, for: sourceID)
+        #expect(SourcePreferences.autoUpdatesEnabled(for: sourceID))
+
+        SourcePreferences.setAutoUpdatesEnabled(false, for: urlAlias)
+        SourcePreferences.removeAllData(for: sourceID, automaticUpdateAlias: urlAlias)
+        #expect(SourcePreferences.autoUpdatesEnabled(for: urlAlias))
     }
 
     // MARK: - AutomationRunResult Tests

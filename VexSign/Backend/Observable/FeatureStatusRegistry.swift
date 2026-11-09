@@ -208,9 +208,9 @@ enum FeatureStatusRegistry {
 		),
 		FeatureStatusEntry(
 			id: "tab-structure",
-			name: "Six-tab navigation structure",
-			setting: "Settings → Tab Bar (launch tab only)",
-			persistedAs: "TabBarPreferences (primary tabs immutable)",
+			name: "Custom tab navigation and compact labels",
+			setting: "Settings → Tab Bar (launch tab, tab order/visibility, labels)",
+			persistedAs: "TabBarPreferences (ordered tabs, hidden tabs, required Home/Settings, showLabels)",
 			consumer: "TabbarView / every tab destination",
 			status: .implemented
 		),
@@ -293,6 +293,14 @@ enum FeatureStatusRegistry {
 			persistedAs: "VexSign.installationMethod · server certificate · pairing file",
 			consumer: "InstallPreflight → InstallationView rows",
 			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "scheduled-auto-updates",
+			name: "Scheduled automatic update signing",
+			setting: "Updates → Favorites & Auto Updates · Sources → Pause Automatic Updates · Automation → Check Frequency",
+			persistedAs: "UpdateMatchingPreferences + SourcePreferences + BackgroundAutomationPreferences",
+			consumer: "BackgroundAutomation → AppUpdateChecker → UpdateAllManager → InstallQueue",
+			status: .needsDevice
 		)
 	]
 

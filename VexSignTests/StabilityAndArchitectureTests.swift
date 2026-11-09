@@ -12,6 +12,7 @@
 //
 
 import XCTest
+import NimbleJSON
 @testable import VexSign
 
 final class StabilityAndArchitectureTests: XCTestCase {
@@ -96,6 +97,8 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		// Non-HTTP(S) schemes are never allowed.
 		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "file:///etc/passwd")!))
 		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "ftp://example.com/apps.json")!))
+		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "https://user:secret@example.com/apps.json")!))
+		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "https:apps.json")!))
 
 		// Explicit opt-in permits HTTP (e.g. LAN repositories).
 		UserDefaults.standard.set(true, forKey: key)
@@ -109,6 +112,63 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		XCTAssertEqual(url.host, "example.com")
 
 		XCTAssertThrowsError(try SourceURLPolicy.normalizeAndValidate("http://example.com/apps.json"))
+	}
+
+	func testPackageDownloadURLsAndRedirectsFailClosed() throws {
+		let key = SourceURLPolicy.allowInsecureHTTPKey
+		let original = UserDefaults.standard.object(forKey: key)
+		addTeardownBlock {
+			if let original {
+				UserDefaults.standard.set(original, forKey: key)
+			} else {
+				UserDefaults.standard.removeObject(forKey: key)
+			}
+		}
+
+		UserDefaults.standard.set(false, forKey: key)
+		try PackageDownloadURLPolicy.validateInitialURL(URL(string: "https://cdn.example.com/app.ipa")!)
+		XCTAssertThrowsError(try PackageDownloadURLPolicy.validateInitialURL(URL(string: "http://cdn.example.com/app.ipa")!))
+		XCTAssertThrowsError(try PackageDownloadURLPolicy.validateInitialURL(URL(string: "file:///tmp/app.ipa")!))
+		XCTAssertThrowsError(try PackageDownloadURLPolicy.validateInitialURL(URL(string: "https://user:secret@cdn.example.com/app.ipa")!))
+		XCTAssertFalse(PackageDownloadURLPolicy.permitsRedirect(
+			from: URL(string: "https://repo.example.com/app.ipa"),
+			to: URL(string: "http://cdn.example.com/app.ipa")!
+		))
+		XCTAssertFalse(PackageDownloadURLPolicy.permitsRedirect(
+			from: URL(string: "https://repo.example.com/app.ipa"),
+			to: URL(string: "file:///tmp/app.ipa")!
+		))
+		XCTAssertTrue(PackageDownloadURLPolicy.permitsRedirect(
+			from: URL(string: "https://repo.example.com/app.ipa"),
+			to: URL(string: "https://cdn.example.com/app.ipa")!
+		))
+		var credentialedRedirect = URLRequest(url: URL(string: "https://cdn.example.com/app.ipa")!)
+		credentialedRedirect.setValue("secret-key", forHTTPHeaderField: "X-API-Key")
+		credentialedRedirect.setValue("device-id", forHTTPHeaderField: "vexSignUUID")
+		let stripped = try XCTUnwrap(PackageDownloadURLPolicy.redirectRequest(
+			from: URL(string: "https://repo.example.com/app.ipa"), to: credentialedRedirect
+		))
+		XCTAssertNil(stripped.value(forHTTPHeaderField: "X-API-Key"))
+		XCTAssertNil(stripped.value(forHTTPHeaderField: "vexSignUUID"))
+		XCTAssertNil(NBFetchService.safeRedirectRequest(
+			from: URL(string: "https://repo.example.com/apps.json"),
+			to: URLRequest(url: URL(string: "http://cdn.example.com/apps.json")!)
+		), "The shared repository-feed transport must also reject an HTTPS downgrade")
+		let feedCredentials = NBFetchService.safeRedirectRequest(
+			from: URL(string: "https://repo.example.com/apps.json"), to: credentialedRedirect
+		)
+		XCTAssertNil(feedCredentials?.value(forHTTPHeaderField: "X-API-Key"), "Repository API keys must not cross origins")
+
+		UserDefaults.standard.set(true, forKey: key)
+		try PackageDownloadURLPolicy.validateInitialURL(URL(string: "http://192.168.1.10/app.ipa")!)
+		XCTAssertTrue(PackageDownloadURLPolicy.permitsRedirect(
+			from: URL(string: "http://192.168.1.10/app.ipa"),
+			to: URL(string: "http://192.168.1.10/releases/app.ipa")!
+		))
+		XCTAssertFalse(PackageDownloadURLPolicy.permitsRedirect(
+			from: URL(string: "https://repo.example.com/app.ipa"),
+			to: URL(string: "http://cdn.example.com/app.ipa")!
+		), "The explicit local HTTP opt-in must never permit TLS downgrade redirects")
 	}
 
 	// MARK: - Archive extraction sanitization

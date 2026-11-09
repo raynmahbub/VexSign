@@ -15,7 +15,7 @@
 import Foundation
 import Combine
 
-struct PerAppUpdateRule: Codable, Equatable {
+struct PerAppUpdateRule: Codable, Equatable, Sendable {
 	/// No update check, badge or Update All entry for this app.
 	var disableUpdates = false
 	/// Skip exactly this version (e.g. a broken release) but keep checking.

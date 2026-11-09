@@ -121,7 +121,7 @@ jobs:
       image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # ci-scope diffs the whole PR/push against its base
 
@@ -174,7 +174,7 @@ jobs:
 
       - name: Upload findings
         if: always()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: quick-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/quick-check.json
@@ -193,7 +193,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The `runner` context is not available in job-level env, so the scratch
       # paths are exported from a step instead.
       - name: Paths
@@ -214,7 +214,7 @@ jobs:
       # cache, avoiding competing post-job uploads when both runners finish.
       - name: Restore Swift packages
         id: packages
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -256,7 +256,7 @@ jobs:
 
       - name: Save Swift packages
         if: success() && steps.packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -320,7 +320,7 @@ jobs:
 
       - name: Upload unsigned test IPA
         id: test_ipa
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VexSign-unsigned-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -347,7 +347,7 @@ jobs:
       # .github/build-warnings-baseline.json (after fixing what is new).
       - name: Upload regenerated warnings baseline
         if: always() && steps.report.outputs.baseline_changed == 'true'
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-warnings-baseline-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/build-warnings-baseline.json
@@ -356,7 +356,7 @@ jobs:
 
       - name: Upload xcresult and log
         if: failure()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -378,7 +378,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Paths
         run: |
           {
@@ -395,7 +395,7 @@ jobs:
 
       # Read the same cache as the build job; the build job owns cache writes.
       - name: Restore Swift packages
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/DerivedData/SourcePackages
           key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
@@ -495,7 +495,7 @@ jobs:
 
       - name: Upload coverage report
         if: always() && steps.test.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/coverage.json
@@ -510,7 +510,7 @@ jobs:
 
       - name: Upload xcresult and log
         if: failure() && steps.test.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tests-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

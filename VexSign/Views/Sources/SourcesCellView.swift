@@ -133,6 +133,20 @@ extension SourcesCellView {
 		) {
 			SourcePreferences.setTrusted(_sourceIdentifier, trusted: !SourcePreferences.isTrusted(_sourceIdentifier))
 		}
+		let automaticUpdateID = source.sourceURL?.absoluteString ?? _sourceIdentifier
+		Button(
+			SourcePreferences.autoUpdatesEnabled(for: automaticUpdateID)
+				? .localized("Pause Automatic Updates")
+				: .localized("Allow Automatic Updates"),
+			systemImage: SourcePreferences.autoUpdatesEnabled(for: automaticUpdateID)
+				? "pause.circle"
+				: "play.circle"
+		) {
+			SourcePreferences.setAutoUpdatesEnabled(
+				!SourcePreferences.autoUpdatesEnabled(for: automaticUpdateID),
+				for: automaticUpdateID
+			)
+		}
 	}
 
 	@ViewBuilder

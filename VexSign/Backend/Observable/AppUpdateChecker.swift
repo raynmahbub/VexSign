@@ -11,6 +11,28 @@ import UIKit
 import CoreData
 import OSLog
 
+/// Immutable copy of the fields update matching reads from Core Data. Instances
+/// are created on the view-context executor and are safe to send to a detached task.
+struct InstalledAppSnapshot: Sendable {
+    let version: String?
+    let uuid: String?
+    let name: String?
+    let identifier: String?
+    let originalIdentifier: String?
+    let sourceURL: URL?
+}
+
+/// Preferences needed by the pure matcher, captured before work leaves the caller's actor.
+struct UpdateMatchingSnapshot: Sendable {
+    let nameMatchingMode: NameMatchingMode
+    let sameDeveloper: Bool
+    let samePlaceItCameFrom: Bool
+    let includeBetas: Bool
+    let includeNoDownload: Bool
+    let strictHiding: Bool
+    let hiddenAppUUIDs: Set<String>
+}
+
 // MARK: - Shared Update Checker
 final class AppUpdateChecker: ObservableObject {
     static let shared = AppUpdateChecker()
@@ -33,27 +55,60 @@ final class AppUpdateChecker: ObservableObject {
         return cacheQueue.sync(execute: { updateCache[cacheKey] }) ?? false
     }
 
+    @MainActor
     func precomputeAllUpdates(
         sources: [ASRepository],
         signedApps: FetchedResults<Signed>,
         importedApps: FetchedResults<Imported>
     ) async {
+        // FetchedResults and their NSManagedObjects are bound to the view
+        // context. Copy every field the matcher needs before leaving MainActor.
+        let strictHiding = UserDefaults.standard.bool(forKey: "VexSign.security.strictHiding")
+        let hiddenUUIDs = Set(UserDefaults.standard.stringArray(forKey: "VexSign.security.hiddenAppUUIDs") ?? [])
+        let installedApps = signedApps.map { app in
+            InstalledAppSnapshot(
+                version: app.version,
+                uuid: app.uuid,
+                name: app.name,
+                identifier: app.identifier,
+                originalIdentifier: app.originalIdentifier,
+                sourceURL: app.source
+            )
+        } + importedApps.map { app in
+            InstalledAppSnapshot(
+                version: app.version,
+                uuid: app.uuid,
+                name: app.name,
+                identifier: app.identifier,
+                originalIdentifier: app.originalIdentifier,
+                sourceURL: app.source
+            )
+        }
+        let matchingPreferences = UpdateMatchingSnapshot(
+            nameMatchingMode: UpdateMatchingPreferences.shared.nameMatchingMode,
+            sameDeveloper: UpdateMatchingPreferences.shared.sameDeveloper,
+            samePlaceItCameFrom: UpdateMatchingPreferences.shared.samePlaceItCameFrom,
+            includeBetas: UpdateMatchingPreferences.shared.includeBetas,
+            includeNoDownload: UpdateMatchingPreferences.shared.includeNoDownload,
+            strictHiding: strictHiding,
+            hiddenAppUUIDs: hiddenUUIDs
+        )
+        let ignored = SkippedUpdatesManager.persisted
+        let perAppRules = PerAppUpdateRulesStore.persisted
+
         await Task.detached(priority: .userInitiated) {
             var newCache: [String: Bool] = [:]
             var updatesSet = Set<String>()
             var uniqueApps = Set<String>()
             var sourcedList: [SourcedUpdate] = []
 
-            let ignored = SkippedUpdatesManager.persisted
-            let perAppRules = PerAppUpdateRulesStore.persisted
-
             for source in sources {
                 for app in source.apps {
-                    var hasUpdate = self.computeUpdate(
+                    var hasUpdate = Self.computeUpdate(
                         app: app,
                         source: source,
-                        signedApps: signedApps,
-                        importedApps: importedApps
+                        installedApps: installedApps,
+                        preferences: matchingPreferences
                     ) && !ignored.contains(app.id ?? "")
 
                     // Per-app update rules: disable updates, ignore a specific
@@ -78,11 +133,10 @@ final class AppUpdateChecker: ObservableObject {
 
                     if hasUpdate {
                         updatesSet.insert(app.currentUniqueId)
-                        if let installedApp = self.findInstalledApp(
+                        if let installedApp = Self.findInstalledApp(
                             for: app,
-                            source: source,
-                            signedApps: signedApps,
-                            importedApps: importedApps
+                            installedApps: installedApps,
+                            preferences: matchingPreferences
                         ) {
                             uniqueApps.insert(installedApp.uuid)
                             sourcedList.append(SourcedUpdate(
@@ -94,7 +148,8 @@ final class AppUpdateChecker: ObservableObject {
                                 installedAppUUID: installedApp.uuid,
                                 installedAppName: installedApp.name,
                                 installedAppIdentifier: installedApp.identifier,
-                                sourceURL: source.sourceURL
+                                sourceURL: source.sourceURL,
+                                sourceID: source.id ?? source.sourceURL?.absoluteString
                             ))
                         }
                     }
@@ -117,11 +172,8 @@ final class AppUpdateChecker: ObservableObject {
                 var dropIndices = Set<Int>()
                 for (_, indices) in byInstalledApp where indices.count > 1 {
                     guard let bundleID = sourcedList[indices[0]].installedAppIdentifier,
-                          let preferred = PerAppUpdateRulesStore.preferredSourceID(forBundleID: bundleID) else { continue }
-                    // The update entries don't carry source identifiers, only
-                    // names/URLs; match by name against the preferred source.
-                    let preferredName = sources.first { $0.id == preferred }?.name
-                    let keep = indices.first { sourcedList[$0].sourceName == (preferredName ?? "") } ?? indices[0]
+                          let preferred = perAppRules[bundleID]?.preferredSourceID else { continue }
+                    let keep = indices.first { sourcedList[$0].sourceID == preferred } ?? indices[0]
                     for index in indices where index != keep {
                         dropIndices.insert(index)
                     }
@@ -150,69 +202,122 @@ final class AppUpdateChecker: ObservableObject {
         }.value
     }
 
-    private func computeUpdate(
+    /// Pure update matching over value snapshots; safe to execute on a detached executor.
+    static func computeUpdate(
         app: ASRepository.App,
-        source: ASRepository? = nil,
-        signedApps: FetchedResults<Signed>,
-        importedApps: FetchedResults<Imported>
+        source: ASRepository,
+        installedApps: [InstalledAppSnapshot],
+        preferences: UpdateMatchingSnapshot
     ) -> Bool {
-        let prefs = UpdateMatchingPreferences.shared
+        if !preferences.includeNoDownload && app.currentDownloadUrl == nil { return false }
 
-        // 1. Download link requirement
-        if !prefs.includeNoDownload && app.currentDownloadUrl == nil {
-            return false
-        }
-
-        // 2. Beta release filter
-        if !prefs.includeBetas {
-            let ver = (app.currentVersion ?? "").lowercased()
+        if !preferences.includeBetas {
+            let version = (app.currentVersion ?? "").lowercased()
             let title = app.currentName.lowercased()
-            let isBeta = ver.contains("beta") || ver.contains("alpha") || ver.contains("rc") || ver.contains("nightly") || title.contains("beta")
-            if isBeta {
+            if version.contains("beta") || version.contains("alpha") || version.contains("rc")
+                || version.contains("nightly") || title.contains("beta") {
                 return false
             }
         }
 
         guard let installed = findInstalledApp(
             for: app,
-            source: source,
-            signedApps: signedApps,
-            importedApps: importedApps
-        ) else {
-            return false
-        }
+            installedApps: installedApps,
+            preferences: preferences
+        ) else { return false }
 
-        // 3. Narrow: Same place it came from
-        if prefs.samePlaceItCameFrom, let repoUrl = source?.sourceURL, let appSourceUrl = installed.sourceURL {
-            let repoHost = repoUrl.host?.lowercased() ?? repoUrl.absoluteString.lowercased()
-            let appHost = appSourceUrl.host?.lowercased() ?? appSourceUrl.absoluteString.lowercased()
-            if !repoHost.isEmpty && !appHost.isEmpty && repoHost != appHost {
+        if preferences.samePlaceItCameFrom,
+           let repositoryURL = source.sourceURL,
+           let installedSourceURL = installed.sourceURL {
+            let repositoryHost = repositoryURL.host?.lowercased() ?? repositoryURL.absoluteString.lowercased()
+            let installedHost = installedSourceURL.host?.lowercased() ?? installedSourceURL.absoluteString.lowercased()
+            if !repositoryHost.isEmpty && !installedHost.isEmpty && repositoryHost != installedHost {
                 return false
             }
         }
 
-        // 4. Narrow: Same developer
-        if prefs.sameDeveloper, let dev = app.developer, !dev.isEmpty {
-            let devLower = dev.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-            if let installedId = installed.identifier {
-                let parts = installedId.split(separator: ".")
-                if parts.count >= 2 {
-                    let devPart = String(parts[1]).lowercased()
-                    let devSanitized = devLower.replacingOccurrences(of: " ", with: "")
-                    if !devSanitized.contains(devPart) && !devPart.contains(devSanitized) && !devLower.contains(devPart) {
-                        // Not matching developer token
-                        return false
-                    }
+        if preferences.sameDeveloper, let developer = app.developer, !developer.isEmpty,
+           let installedIdentifier = installed.identifier {
+            let developerLower = developer.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            let parts = installedIdentifier.split(separator: ".")
+            if parts.count >= 2 {
+                let developerPart = String(parts[1]).lowercased()
+                let developerSanitized = developerLower.replacingOccurrences(of: " ", with: "")
+                if !developerSanitized.contains(developerPart)
+                    && !developerPart.contains(developerSanitized)
+                    && !developerLower.contains(developerPart) {
+                    return false
                 }
             }
         }
-        
-        return hasUpdate(
-            installedVersion: installed.version,
-            sourceVersion: app.currentVersion
-        )
+
+        guard let installedVersion = installed.version,
+              let sourceVersion = app.currentVersion else { return false }
+        return isNewerVersion(sourceVersion, than: installedVersion)
     }
-    
+
+    private static func findInstalledApp(
+        for app: ASRepository.App,
+        installedApps: [InstalledAppSnapshot],
+        preferences: UpdateMatchingSnapshot
+    ) -> (version: String?, uuid: String, name: String?, identifier: String?, sourceURL: URL?)? {
+        let appBundleID = app.id ?? ""
+        let appName = app.currentName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !appBundleID.isEmpty || !appName.isEmpty else { return nil }
+
+        func normalized(_ name: String) -> String {
+            var value = name.lowercased()
+            for suffix in ["++", "pro", "plus", "mod", "premium", "tweaked", "crack", "hack", "beta", "vip"] {
+                value = value.replacingOccurrences(of: suffix, with: "")
+            }
+            return String(value.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+        }
+
+        func namesMatch(_ storedName: String?) -> Bool {
+            guard let storedName, !storedName.isEmpty else { return false }
+            let stored = storedName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            switch preferences.nameMatchingMode {
+            case .off: return false
+            case .exact: return stored == appName
+            case .balanced:
+                return stored == appName || (!normalized(appName).isEmpty && normalized(appName) == normalized(stored))
+            case .loose:
+                let source = normalized(appName)
+                let target = normalized(stored)
+                return stored == appName || (!source.isEmpty && !target.isEmpty && (source.contains(target) || target.contains(source)))
+            }
+        }
+
+        var matchingVersions: [String] = []
+        var matchingUUID = ""
+        var matchingName: String?
+        var matchingIdentifier: String?
+        var matchingSourceURL: URL?
+
+        for installed in installedApps {
+            if preferences.strictHiding,
+               let uuid = installed.uuid,
+               preferences.hiddenAppUUIDs.contains(uuid) {
+                continue
+            }
+            let identifierMatch = !appBundleID.isEmpty
+                && (installed.originalIdentifier == appBundleID || installed.identifier == appBundleID)
+            guard identifierMatch || namesMatch(installed.name) else { continue }
+
+            if let version = installed.version { matchingVersions.append(version) }
+            if matchingUUID.isEmpty {
+                matchingUUID = installed.uuid ?? ""
+                matchingName = installed.name
+                matchingIdentifier = installed.identifier ?? installed.originalIdentifier
+                matchingSourceURL = installed.sourceURL
+            }
+        }
+
+        guard !matchingVersions.isEmpty else { return nil }
+        let highestVersion = matchingVersions.max { !isNewerVersion($0, than: $1) }
+        return (highestVersion, matchingUUID, matchingName, matchingIdentifier, matchingSourceURL)
+    }
+
     func clearCache() {
         cacheQueue.sync(flags: .barrier) {
             updateCache.removeAll()
@@ -317,15 +422,14 @@ final class AppUpdateChecker: ObservableObject {
         guard !allMatchingVersions.isEmpty else { return nil }
 
         let highestVersion = allMatchingVersions.max { v1, v2 in
-            return !isNewerVersion(v1, than: v2)
+            return !Self.isNewerVersion(v1, than: v2)
         }
         
         return (highestVersion, matchingUUID, matchingName, matchingIdentifier, matchingSourceURL)
     }
     
-    /// Strict hiding must also apply to background/update matching. This helper
-    /// intentionally reads the persisted privacy state directly because update
-    /// precomputation runs off the main actor.
+    /// Strict hiding for the Core Data-backed matcher path. The detached
+    /// precompute path uses the privacy values captured in UpdateMatchingSnapshot.
     private func isStrictlyHidden(_ uuid: String?) -> Bool {
         guard let uuid, !uuid.isEmpty,
               UserDefaults.standard.bool(forKey: "VexSign.security.strictHiding") else {
@@ -365,7 +469,8 @@ final class AppUpdateChecker: ObservableObject {
                     installedAppUUID: installed.uuid,
                     installedAppName: installed.name,
                     installedAppIdentifier: installed.identifier,
-                    sourceURL: source.sourceURL
+                    sourceURL: source.sourceURL,
+                    sourceID: source.id ?? source.sourceURL?.absoluteString
                 ))
             }
         }
@@ -399,10 +504,10 @@ final class AppUpdateChecker: ObservableObject {
         guard let currentVersion = installedVersion,
               let newVersion = sourceVersion else { return false }
         
-        return isNewerVersion(newVersion, than: currentVersion)
+        return Self.isNewerVersion(newVersion, than: currentVersion)
     }
     
-    private func isNewerVersion(_ new: String, than old: String) -> Bool {
+    private static func isNewerVersion(_ new: String, than old: String) -> Bool {
         let newComponents = new.split(separator: ".").compactMap { Int($0) }
         let oldComponents = old.split(separator: ".").compactMap { Int($0) }
         
@@ -481,7 +586,8 @@ final class AppUpdateChecker: ObservableObject {
                             installedAppUUID: installedApp.uuid,
                             installedAppName: installedApp.name,
                             installedAppIdentifier: installedApp.identifier,
-                            sourceURL: source.sourceURL
+                            sourceURL: source.sourceURL,
+                            sourceID: source.id ?? source.sourceURL?.absoluteString
                         ))
                     }
                 }
@@ -505,6 +611,7 @@ final class AppUpdateChecker: ObservableObject {
         var installedAppName: String?
         var installedAppIdentifier: String?
         var sourceURL: URL?
+        var sourceID: String?
 
         var displayName: String { app.currentName }
         var downloadURL: URL? { app.currentDownloadUrl }

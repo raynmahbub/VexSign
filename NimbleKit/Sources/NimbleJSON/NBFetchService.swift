@@ -12,6 +12,11 @@ import OSLog
 public class NBFetchService {
 
 	private static let log = Logger(subsystem: "com.vexsign.network", category: "NBFetchService")
+	private static let sharedSession = URLSession(
+		configuration: .default,
+		delegate: NBFetchRedirectDelegate(),
+		delegateQueue: nil
+	)
 
 	/// Dependency-free hook the host app registers once at startup to supply the
 	/// premium repository API key (e.g. `{ EsignSourceKey.customApiKey }`).
@@ -44,6 +49,54 @@ public class NBFetchService {
 	}
 
 	public init() {}
+
+	/// Reject insecure scheme downgrades on URLSession redirects and prevent
+	/// credentials from following a request to a different origin. The original
+	/// request is still governed by its caller's explicit URL policy (some users
+	/// opt into HTTP for a trusted local repository).
+	public static func safeRedirectRequest(from source: URL?, to request: URLRequest) -> URLRequest? {
+		guard let source,
+		      let destination = request.url,
+		      isHTTPURL(source), isHTTPURL(destination),
+		      destination.user == nil, destination.password == nil else { return nil }
+		let sourceScheme = source.scheme!.lowercased()
+		let destinationScheme = destination.scheme!.lowercased()
+		guard destinationScheme != "http" || sourceScheme == "http" else { return nil }
+
+		var safeRequest = request
+		if origin(source) != origin(destination) {
+			for header in ["Authorization", "Proxy-Authorization", "Cookie", "Cookie2", "X-API-Key", "vexSignUUID"] {
+				safeRequest.setValue(nil, forHTTPHeaderField: header)
+			}
+		}
+		return safeRequest
+	}
+
+	private static func isHTTPURL(_ url: URL) -> Bool {
+		guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+		      let host = url.host, !host.isEmpty,
+		      url.user == nil, url.password == nil else { return false }
+		return true
+	}
+
+	private static func origin(_ url: URL) -> String {
+		let scheme = url.scheme!.lowercased()
+		let host = url.host!.lowercased()
+		let port = url.port ?? (scheme == "https" ? 443 : 80)
+		return "\(scheme)://\(host):\(port)"
+	}
+}
+
+private final class NBFetchRedirectDelegate: NSObject, URLSessionTaskDelegate {
+	func urlSession(
+		_ session: URLSession,
+		task: URLSessionTask,
+		willPerformHTTPRedirection response: HTTPURLResponse,
+		newRequest request: URLRequest,
+		completionHandler: @escaping (URLRequest?) -> Void
+	) {
+		completionHandler(NBFetchService.safeRedirectRequest(from: response.url, to: request))
+	}
 }
 
 // MARK: - Class extension: fetch
@@ -123,7 +176,7 @@ extension NBFetchService {
 				request.setValue(key, forHTTPHeaderField: "X-API-Key")
 			}
 
-			let task = URLSession.shared.dataTask(with: request) { data, response, error in
+			let task = Self.sharedSession.dataTask(with: request) { data, response, error in
 				if let error = error {
 					Self.log.error("Request FAILED \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)")
 					box.handler(.failure(NBFetchServiceError.networkError(error)))

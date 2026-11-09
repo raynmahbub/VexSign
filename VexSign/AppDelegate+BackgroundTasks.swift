@@ -64,25 +64,31 @@ extension AppDelegate {
     }
 
     private func _handleMaintenance(task: BGProcessingTask) {
-        task.expirationHandler = {
-            task.setTaskCompleted(success: false)
-        }
-
-        Task { @MainActor in
+        let worker = Task { @MainActor in
             let result = await BackgroundAutomation.run(fromBackground: true)
             task.setTaskCompleted(success: result != nil)
+            self.scheduleAutomationMaintenance()
+        }
+
+        // Expiration requests cooperative cancellation. The worker owns the one
+        // completion call after the runner unwinds; completing here as well
+        // races the worker and lets its signing/download work continue untracked.
+        task.expirationHandler = {
+            worker.cancel()
         }
     }
 
     /// Schedules the next automated maintenance pass. Call after a run and on launch when enabled.
     func scheduleAutomationMaintenance() {
         guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
+        let identifier = "com.vexsign.background.maintenance"
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
         guard BackgroundAutomationPreferences.isEnabled else { return }
 
-        let request = BGProcessingTaskRequest(identifier: "com.vexsign.background.maintenance")
+        let request = BGProcessingTaskRequest(identifier: identifier)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60) // up to a half-hour out
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval(BackgroundAutomationPreferences.interval.rawValue))
 
         do {
             try BGTaskScheduler.shared.submit(request)

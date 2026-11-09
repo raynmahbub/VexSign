@@ -31,6 +31,8 @@ struct UpdateTask: Identifiable, Equatable {
 	let app: ASRepository.App
 	let sourceName: String
 	let url: URL
+	var installedAppUUID: String? = nil
+	var sourceID: String? = nil
 	var state: State = .queued
 
 	static func == (lhs: UpdateTask, rhs: UpdateTask) -> Bool {
@@ -92,10 +94,37 @@ final class UpdateAllManager: ObservableObject {
 		}
 	}
 
+	/// Builds tasks for the scheduled auto-update pipeline. Manual Update All
+	/// deliberately uses its separate overload and is not filtered by these preferences.
+	func makeTasks(from updates: [AppUpdateChecker.SourcedUpdate], automaticOnly: Bool) -> [UpdateTask] {
+		let preferences = UpdateMatchingPreferences.shared
+		guard !automaticOnly || preferences.isAutoUpdateEnabled else { return [] }
+
+		var seenInstalledApps = Set<String>()
+		return updates.compactMap { update in
+			guard let url = update.downloadURL else { return nil }
+			if automaticOnly {
+				guard let installedUUID = update.installedAppUUID,
+					  preferences.isAutoUpdateAllowed(for: installedUUID),
+					  let sourceID = update.sourceURL?.absoluteString ?? update.sourceID,
+					  SourcePreferences.autoUpdatesEnabled(for: sourceID),
+					  seenInstalledApps.insert(installedUUID).inserted else { return nil }
+			}
+			return UpdateTask(
+				id: update.id,
+				app: update.app,
+				sourceName: update.sourceName,
+				url: url,
+				installedAppUUID: update.installedAppUUID,
+				sourceID: update.sourceID
+			)
+		}
+	}
+
 	// MARK: Running
 
 	/// Runs a prepared queue. Returns when every item finished, failed or was skipped.
-	func run(tasks prepared: [UpdateTask]) async {
+	func run(tasks prepared: [UpdateTask], automatic: Bool = false) async {
 		guard !isRunning, !prepared.isEmpty else { return }
 
 		// Game Mode: updating apps means downloading them. Say so rather than silently
@@ -120,7 +149,7 @@ final class UpdateAllManager: ObservableObject {
 		defer { keepAlive.stop() }
 
 		for index in tasks.indices {
-			guard !_cancelled else {
+			guard !_cancelled, !Task.isCancelled else {
 				_markRemainingSkipped(from: index)
 				break
 			}
@@ -128,7 +157,7 @@ final class UpdateAllManager: ObservableObject {
 			// Skip apps that already no longer report an update (state changed mid-run).
 			guard tasks[index].state != .skipped else { continue }
 
-			switch await _update(at: index) {
+			switch await _update(at: index, automatic: automatic) {
 			case .success:
 				succeeded += 1
 			case .failure(let error):
@@ -153,14 +182,18 @@ final class UpdateAllManager: ObservableObject {
 
 	// MARK: One app
 
-	private func _update(at index: Int) async -> Result<Void, Error> {
+	private func _update(at index: Int, automatic: Bool) async -> Result<Void, Error> {
 		let task = tasks[index]
 		let url = task.url
 
 		tasks[index].state = .downloading
 		let ipaURL: URL
 		do {
-			ipaURL = try await _download(url)
+			ipaURL = try await _download(
+				url,
+				automatic: automatic,
+				expectation: task.app.downloadIntegrityExpectation
+			)
 		} catch {
 			return .failure(error)
 		}
@@ -176,30 +209,70 @@ final class UpdateAllManager: ObservableObject {
 		try? FileManager.default.removeItem(at: ipaURL)
 
 		tasks[index].state = .signing
-		let result = await _sign(imported)
+		let result = await _sign(imported, automatic: automatic)
 		if case .success = result {
 			tasks[index].state = .finished
 		}
 		return result
 	}
 
-	private func _download(_ url: URL) async throws -> URL {
+	private func _download(
+		_ url: URL,
+		automatic: Bool,
+		expectation: DownloadIntegrity.Expectation
+	) async throws -> URL {
+		try PackageDownloadURLPolicy.validateInitialURL(url)
+		guard !DownloadIntegrity.expectationExceedsPackageLimit(expectation) else {
+			throw PackageDownloadURLPolicy.Failure.packageTooLarge
+		}
 		var request = URLRequest(url: url)
 		request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 		VexSignAPI.applyAuthHeaders(to: &request)
 
-		let (tempURL, response) = try await URLSession.shared.download(for: request)
+		let wifiOnly = DownloadPreferences.wifiOnly
+			|| (automatic && UpdateMatchingPreferences.shared.autoUpdateWifiOnly)
+		if wifiOnly && DownloadPreferences.isOnExpensivePath {
+			throw Self.error(.localized("This update is waiting for Wi-Fi."))
+		}
+		let configuration = URLSessionConfiguration.ephemeral
+		configuration.allowsExpensiveNetworkAccess = !wifiOnly
+		configuration.allowsConstrainedNetworkAccess = !wifiOnly
+		let redirectDelegate = PackageDownloadRedirectDelegate(maximumBytes: DownloadIntegrity.maximumPackageBytes)
+		let session = URLSession(configuration: configuration, delegate: redirectDelegate, delegateQueue: nil)
+		defer { session.finishTasksAndInvalidate() }
+		let tempURL: URL
+		let response: URLResponse
+		do {
+			(tempURL, response) = try await session.download(for: request, delegate: redirectDelegate)
+		} catch {
+			if redirectDelegate.didExceedLimit { throw PackageDownloadURLPolicy.Failure.packageTooLarge }
+			throw error
+		}
 		let status = (response as? HTTPURLResponse)?.statusCode ?? 0
 		guard (200..<300).contains(status) else {
 			try? FileManager.default.removeItem(at: tempURL)
 			throw Self.error(String.localized("The update did not download (HTTP %lld).", arguments: status))
 		}
 
-		let dir = FileManager.default.uniqueTemporaryDirectory("UpdateAll")
-		let name = url.lastPathComponent.isEmpty ? "update.ipa" : url.lastPathComponent
-		let file = dir.appendingPathComponent(name)
-		try? FileManager.default.removeItem(at: file)
+		let dir = try DownloadStagingPath.createTemporaryDirectory(label: "UpdateAll")
+		let name = DownloadStagingPath.safeFilename(url.lastPathComponent.isEmpty ? "update.ipa" : url.lastPathComponent)
+		let file = DownloadStagingPath.destination(in: dir, suggestedFilename: name)
 		try FileManager.default.moveItem(at: tempURL, to: file)
+
+		// Update All imports directly instead of passing through DownloadManager's
+		// integrity gate. Check the repository's declared size/hash here before the
+		// importer sees the package; large hashes run away from the main actor.
+		let integrityFailure = await Task.detached(priority: .utility) {
+			DownloadIntegrity.automaticImportFailure(
+				fileAt: file,
+				expectation: expectation,
+				fileName: name
+			)
+		}.value
+		if let integrityFailure {
+			try? FileManager.default.removeItem(at: file) // try? ok: best-effort cleanup must not hide the integrity failure
+			throw Self.error(integrityFailure)
+		}
 		return file
 	}
 
@@ -211,10 +284,14 @@ final class UpdateAllManager: ObservableObject {
 		}
 	}
 
-	private func _sign(_ app: AppInfoPresentable) async -> Result<Void, Error> {
+	private func _sign(_ app: AppInfoPresentable, automatic: Bool) async -> Result<Void, Error> {
 		let profile = SigningProfileStore.shared.profile(forBundleID: app.identifier)
-		let options = (profile?.options ?? OptionsManager.shared.options).resolved(for: app)
-		let certificate = SigningProfileStore.shared.certificate(for: profile)
+		let rule = PerAppUpdateRulesStore.persisted[app.identifier ?? ""] ?? PerAppUpdateRule()
+		let baseOptions = rule.preserveSigningOptions
+			? (profile?.options ?? OptionsManager.shared.options)
+			: OptionsManager.shared.options
+		let options = baseOptions.resolved(for: app)
+		let certificate = _certificate(profile: profile, rule: rule, automatic: automatic)
 
 		guard options.signingOption != .default || certificate != nil else {
 			return .failure(Self.error(.localized("No certificate. Import one in Settings → Certificates, or set the default signing option.")))
@@ -237,11 +314,38 @@ final class UpdateAllManager: ObservableObject {
 				keepsSignedApp: true
 			)
 
-			InstallQueue.shared.enqueue(signed)
+			if !automatic || UpdateMatchingPreferences.shared.autoInstallAfterUpdate {
+				InstallQueue.shared.enqueue(signed)
+			}
 			return .success(())
 		case .failure(let error):
 			return .failure(error)
 		}
+	}
+
+	private func _certificate(
+		profile: SigningProfile?,
+		rule: PerAppUpdateRule,
+		automatic: Bool
+	) -> CertificatePair? {
+		let certificates = Storage.shared.getAllCertificates()
+		if let pinnedUUID = rule.pinnedCertificateUUID,
+		   let pinned = certificates.first(where: { $0.uuid == pinnedUUID }) {
+			return pinned
+		}
+
+		if automatic {
+			let requestedName = UpdateMatchingPreferences.shared.autoUpdateCertificate
+			if requestedName != "Global Default",
+			   let selected = certificates.first(where: { certificate in
+				   certificate.uuid == requestedName
+					   || certificate.nickname == requestedName
+					   || Storage.shared.getProvisionFileDecoded(for: certificate)?.Name == requestedName
+			   }) {
+				return selected
+			}
+		}
+		return SigningProfileStore.shared.certificate(for: profile)
 	}
 
 	private static func error(_ message: String) -> Error {

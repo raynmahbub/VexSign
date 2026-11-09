@@ -31,7 +31,28 @@ enum BackgroundAutomationPolicy: String, CaseIterable {
 		case .notifyOnly:
 			.localized("Checks for updates and tells you what is new. Nothing is signed or downloaded.")
 		case .signAndQueue:
-			.localized("Checks for updates, signs every app that has one and queues the installs. You still confirm each install.")
+			.localized("Checks for updates, then signs apps allowed by your auto-update settings. If automatic install queueing is enabled, it adds them to the install queue. iOS decides when the background task runs and may require installation confirmation.")
+		}
+	}
+}
+
+// MARK: - Schedule interval
+enum BackgroundAutomationInterval: Int, CaseIterable, Identifiable {
+	case hourly = 3_600
+	case everyThreeHours = 10_800
+	case everySixHours = 21_600
+	case everyTwelveHours = 43_200
+	case daily = 86_400
+
+	var id: Int { rawValue }
+
+	var title: String {
+		switch self {
+		case .hourly: .localized("Hourly")
+		case .everyThreeHours: .localized("Every 3 Hours")
+		case .everySixHours: .localized("Every 6 Hours")
+		case .everyTwelveHours: .localized("Every 12 Hours")
+		case .daily: .localized("Daily")
 		}
 	}
 }
@@ -40,6 +61,7 @@ enum BackgroundAutomationPolicy: String, CaseIterable {
 struct BackgroundAutomationPreferences {
 	static let enabledKey = "VexSign.automation.enabled"
 	static let policyKey = "VexSign.automation.policy"
+	static let intervalKey = "VexSign.automation.interval"
 
 	static var isEnabled: Bool {
 		get { UserDefaults.standard.bool(forKey: enabledKey) }
@@ -49,6 +71,14 @@ struct BackgroundAutomationPreferences {
 	static var policy: BackgroundAutomationPolicy {
 		get { BackgroundAutomationPolicy(rawValue: UserDefaults.standard.string(forKey: policyKey) ?? "") ?? .notifyOnly }
 		set { UserDefaults.standard.set(newValue.rawValue, forKey: policyKey) }
+	}
+
+	static var interval: BackgroundAutomationInterval {
+		get {
+			let rawValue = UserDefaults.standard.object(forKey: intervalKey) as? Int ?? BackgroundAutomationInterval.everySixHours.rawValue
+			return BackgroundAutomationInterval(rawValue: rawValue) ?? .everySixHours
+		}
+		set { UserDefaults.standard.set(newValue.rawValue, forKey: intervalKey) }
 	}
 }
 
@@ -154,6 +184,10 @@ enum BackgroundAutomation {
 		// The only chance a scheduled pass has to notice a new VexSign release. Checked before the
 		// source guard: self-updates do not depend on any repository being configured.
 		await SelfUpdateManager.shared.check()
+		guard !Task.isCancelled else {
+			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground)
+			return nil
+		}
 
 		let policy = BackgroundAutomationPreferences.policy
 		let storage = Storage.shared
@@ -165,6 +199,10 @@ enum BackgroundAutomation {
 
 		// 1. Refresh repositories.
 		await SourcesViewModel.shared.fetchSources(sources, refresh: true)
+		guard !Task.isCancelled else {
+			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground)
+			return nil
+		}
 		let repositories = Array(SourcesViewModel.shared.sources.values)
 
 		// 2. Recompute the update set.
@@ -175,6 +213,10 @@ enum BackgroundAutomation {
 			signedApps: signedApps,
 			importedApps: importedApps
 		)
+		guard !Task.isCancelled else {
+			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground)
+			return nil
+		}
 
 		var result = AutomationRunResult(
 			refreshedSources: repositories.count,
@@ -193,33 +235,49 @@ enum BackgroundAutomation {
                 AutomationHistoryStore.shared.record("busy", fromBackground: fromBackground)
                 return nil
             }
-			let prepared = UpdateAllManager.makeTasks(
-				from: repositories,
-				signedApps: signedApps,
-				importedApps: importedApps
-			)
-			let updates = prepared.filter { $0.hasUpdate }
-			let tasks = UpdateAllManager.shared.makeTasks(
-				from: updates.map { ($0.app, $0.sourceName, $0.hasUpdate) }
-			)
+
+            let updatePreferences = UpdateMatchingPreferences.shared
+            let pending = AppUpdateChecker.shared.availableUpdates
+            var tasks = UpdateAllManager.shared.makeTasks(from: pending, automaticOnly: true)
+            result.skipped += max(0, result.foundUpdates - tasks.count)
+
+            if updatePreferences.autoUpdateWifiOnly && DownloadPreferences.isOnExpensivePath {
+                result.skipped += tasks.count
+                tasks = []
+            }
+
+            if !updatePreferences.isAutoUpdateEnabled {
+                result.skipped += tasks.count
+                tasks = []
+            }
 
 			if !tasks.isEmpty {
-				await UpdateAllManager.shared.run(tasks: tasks)
+				await UpdateAllManager.shared.run(tasks: tasks, automatic: true)
 				result.failed = UpdateAllManager.shared.failed
 				result.signed = UpdateAllManager.shared.succeeded
-				result.queueAdded = UpdateAllManager.shared.tasks.filter { $0.state == .finished }.count
-				result.skipped = UpdateAllManager.shared.tasks.filter { $0.state == .skipped }.count
+				result.queueAdded = updatePreferences.autoInstallAfterUpdate
+					? UpdateAllManager.shared.tasks.filter { $0.state == .finished }.count
+					: 0
+				result.skipped += UpdateAllManager.shared.tasks.filter { $0.state == .skipped }.count
 			}
+		}
+		guard !Task.isCancelled else {
+			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
+			return nil
 		}
 
 		// 4. Free Apple ID profile renewal (if signed in)
 		await renewFreeAppleIDProfiles()
+		guard !Task.isCancelled else {
+			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
+			return nil
+		}
 
 		// 5. Run the Auto Cleanup sweep.
 		result.cleanup = CleanupManager.shared.cleanNow()
 
 		// 6. One summarizing notification.
-		if fromBackground {
+		if fromBackground && (policy != .signAndQueue || UpdateMatchingPreferences.shared.notifyOnAutoUpdate) {
 			postSummary(result)
 		}
 
@@ -248,7 +306,13 @@ enum BackgroundAutomation {
 			lines.append(.localized("No updates"))
 		}
 		if result.signed > 0 {
-			lines.append(String.localized("%lld signed and queued", arguments: result.signed))
+			if result.queueAdded == result.signed {
+				lines.append(String.localized("%lld signed and queued", arguments: result.signed))
+			} else if result.queueAdded > 0 {
+				lines.append(String.localized("%lld signed; %lld queued", arguments: result.signed, result.queueAdded))
+			} else {
+				lines.append(String.localized("%lld signed; automatic install queueing is off", arguments: result.signed))
+			}
 		}
         if result.failed > 0 {
             lines.append(String.localized("%lld failed", arguments: result.failed))

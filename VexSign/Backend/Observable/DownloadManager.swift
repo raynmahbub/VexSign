@@ -476,6 +476,17 @@ class DownloadManager: NSObject, ObservableObject {
 		appDescription: String? = nil,
 		integrity: DownloadIntegrity.Expectation? = nil
 	) -> Download {
+		if DownloadIntegrity.expectationExceedsPackageLimit(integrity) {
+			Task { @MainActor in Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? "", duration: .long) }
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+		}
+		do {
+			try PackageDownloadURLPolicy.validateInitialURL(url)
+		} catch {
+			Task { @MainActor in Toast.error(error.localizedDescription, duration: .long) }
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+		}
+
 		// Game Mode (Settings → Game Mode): the one place every download funnels through, so
 		// nothing reaches the network while it is on. Callers discard the return value, and
 		// an unstarted download is never appended to `downloads`, so the UI stays on "Get".
@@ -633,6 +644,24 @@ class DownloadManager: NSObject, ObservableObject {
 		// Game Mode pauses downloads on purpose; the automatic paths (becoming active again,
 		// a background task waking up) must not quietly undo that.
 		guard !GameMode.isEnabled else { return }
+
+		if DownloadIntegrity.expectationExceedsPackageLimit(download.integrity) {
+			download.isActive = false
+			download.isPaused = false
+			DispatchQueue.main.async {
+				Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? "", duration: .long)
+			}
+			return
+		}
+		let resumeURL = download.task?.originalRequest?.url ?? download.url
+		do {
+			try PackageDownloadURLPolicy.validateInitialURL(resumeURL)
+		} catch {
+			download.isActive = false
+			download.isPaused = false
+			DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .long) }
+			return
+		}
 
 		if download.resumeData == nil {
 			download.resumeData = loadResumeData(for: download)

@@ -52,6 +52,7 @@ device acceptance — the caveats in each section still apply.
 ### 📚 Sources, discovery & updates
 
 - **AltStore-compatible repositories** through AltSourceKit, including the existing encrypted ESign parsing support.
+- **GitHub release sources** — add a public GitHub repository with exactly one `.ipa` asset in its latest release. GitHub releases do not publish bundle IDs, so automatic update matching may be unavailable for these entries.
 - **Source management and preferences**, repository refresh and app update tracking.
 - **HTTPS-only repository transport**, with an explicit opt-in for local HTTP repositories.
 - **Source health dashboard** — last successful refresh, failure reasons, retry counts, rate-limit status, priority and duplicate-app resolution.
@@ -102,7 +103,7 @@ Available from **Settings → Ecosystem**.
 
 ### ⚡ Automation, cleanup & backup
 
-- **Scheduled automation** for updates, cleanup and summaries, subject to iOS background execution limits.
+- **Scheduled automation** with hourly-to-daily best-effort frequency, update-check/sign policy, per-app and per-source auto-update controls, Wi-Fi-only enforcement, certificate selection, optional install-queueing and completion summaries. iOS controls actual background execution times.
 - **Siri & Shortcuts**: App Intents for signing a chosen app, installation, repository refresh, certificate checks, URL downloads, section navigation, Game Mode, Update All, cleanup and signing the latest download; library-summary actions expose status to automations. See **Settings → Siri & Shortcuts**.
 - **Widgets**: certificate/update status **and a configurable Repository Apps widget** (pick a repository, sort by name or updates-first, tap a row to open that app), plus **Live Activities** for supported signing/download workflows.
 - **Automatic post-install cleanup**, delete-after-install/cache settings, cleanup history, storage breakdown and cleanup previews. Batch-install behaviour still needs device acceptance.
@@ -150,7 +151,7 @@ See [web tools](docs/WEBTOOLS.md) for endpoints and the privacy stance.
 - SwiftUI navigation, search, material surfaces and availability-gated Liquid Glass styling.
 - System, Midnight Violet, Graphite, Paper, OLED, Luna and Flare appearances, tint and app-icon settings.
 - Dynamic Type, VoiceOver and Reduce Motion support; setup health and searchable settings.
-- Configurable tab bar and library display preferences.
+- Configurable launch tab, tab visibility/order (Home and Settings remain available), and an icon-only tab bar option.
 - Ecosystem tools grouped in a dedicated settings entry point.
 
 <details>

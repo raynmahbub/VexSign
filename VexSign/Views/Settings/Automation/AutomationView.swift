@@ -15,6 +15,7 @@ import NimbleExtensions
 struct AutomationView: View {
 	@AppStorage(BackgroundAutomationPreferences.enabledKey) private var _isEnabled: Bool = false
 	@AppStorage(BackgroundAutomationPreferences.policyKey) private var _policyRaw: String = BackgroundAutomationPolicy.notifyOnly.rawValue
+	@AppStorage(BackgroundAutomationPreferences.intervalKey) private var _intervalRaw: Int = BackgroundAutomationInterval.everySixHours.rawValue
 
 	@ObservedObject private var _history = AutomationHistoryStore.shared
     @State private var _confirmClear = false
@@ -57,6 +58,7 @@ struct AutomationView: View {
             Button(.localized("Clear History"), role: .destructive) { _history.clear() }
             Button(.localized("Cancel"), role: .cancel) {}
         }
+        .onChange(of: _intervalRaw) { _, _ in _scheduleAutomation() }
     }
 
     @ViewBuilder
@@ -117,18 +119,16 @@ struct AutomationView: View {
 	private var _enabledSection: some View {
 		NBSection(.localized("Scheduled Updates")) {
 			Toggle(.localized("Automatic Update Checks"), isOn: $_isEnabled)
-				.nbOnChange(of: _isEnabled) { enabled in
-					if enabled {
-						// Wrap the AppDelegate call on the main actor.
-						DispatchQueue.main.async {
-							if let delegate = UIApplication.shared.delegate as? AppDelegate {
-								delegate.scheduleAutomationMaintenance()
-							}
-						}
-					}
+				.nbOnChange(of: _isEnabled) { _ in _scheduleAutomation() }
+
+			Picker(.localized("Check Frequency"), selection: $_intervalRaw) {
+				ForEach(BackgroundAutomationInterval.allCases) { interval in
+					Text(interval.title).tag(interval.rawValue)
 				}
+			}
+			.disabled(!_isEnabled)
 		} footer: {
-			Text(.localized("VexSign periodically checks your sources for updates while the app runs, so the Updates list is already ready when you open it."))
+			Text(.localized("VexSign asks iOS to run checks from hourly to daily. iOS decides the actual time; background checks are best-effort, not an exact schedule."))
 		}
 	}
 
@@ -205,7 +205,13 @@ struct AutomationView: View {
         ].joined(separator: "\n\n")
     }
 
-	private func _run() {
+    private func _scheduleAutomation() {
+        DispatchQueue.main.async {
+            (UIApplication.shared.delegate as? AppDelegate)?.scheduleAutomationMaintenance()
+        }
+    }
+
+    private func _run() {
         guard !_isRunning, _runBlocker == nil else { return }
         _lastResult = nil
 		_isRunning = true
