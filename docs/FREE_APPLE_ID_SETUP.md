@@ -300,13 +300,17 @@ You can also trigger renewal manually:
 
 ## Advanced: Custom Anisette Provider
 
-If you want to run your own Anisette provider with custom hardware IDs:
+Free Apple ID signing needs a **real** Anisette provider — a service that derives
+valid machine headers from a provisioned identity. The bundled
+[`AnisetteServer`](../AnisetteServer/README.md) is only a **protocol mock**: it
+returns fabricated header values so the wire format can be tested locally, and
+Apple will reject them. It cannot authenticate or provision.
 
-1. Modify `AnisetteServer/main.swift` to use your device's actual IDs
-2. Generate persistent IDs on first run and store them
-3. Deploy to a stable server with HTTPS
-
-See `AnisetteServer/README.md` for deployment details.
+To use your own provider, deploy a genuine Anisette implementation (for example an
+anisette-v3 compatible service) behind HTTPS and enter its endpoint in
+**Settings → Signing Methods → Free Apple ID → Anisette Provider**. See
+[`AnisetteServer/README.md`](../AnisetteServer/README.md) for the expected response
+shape and the mock's limits.
 
 ---
 

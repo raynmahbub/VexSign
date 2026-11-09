@@ -53,7 +53,7 @@ Keep deployment instructions beside the component they describe:
 
 - [Repository server and web tools](../server/README.md)
 - [Cloud signing service](../cloud-signing/README.md)
-- [Anisette service](../AnisetteServer/README.md)
+- [Anisette protocol mock](../AnisetteServer/README.md)
 - [Native signing package](../NativeSigning/README.md)
 - [Experimental embedded container](../EmbeddedContainer/README.md)
 - [Vendored dependencies and licenses](../Vendor/README.md)

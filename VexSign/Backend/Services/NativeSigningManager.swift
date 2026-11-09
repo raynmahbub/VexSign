@@ -464,14 +464,16 @@ enum NativeSigningError: LocalizedError {
 extension AnisetteProviderDescriptor {
     /// Creates a descriptor for the default HTTPS header-JSON provider.
     /// The endpoint must be configured by the user or app.
-    static func defaultHTTPS(endpoint: URL, identity: String, policyRevision: Int) -> AnisetteProviderDescriptor {
-        try! AnisetteProviderDescriptor(
+    ///
+    /// Throws `AnisetteConsentError.invalidProvider` when the endpoint or identity
+    /// fails the descriptor's validation (HTTPS-only, no embedded credentials,
+    /// non-empty bounded strings) instead of trapping the process.
+    static func defaultHTTPS(endpoint: URL, identity: String, policyRevision: Int) throws -> AnisetteProviderDescriptor {
+        try AnisetteProviderDescriptor(
             identifier: identity,
             displayName: "Custom Anisette Server",
             policyRevision: String(policyRevision),
             endpoint: endpoint
         )
     }
-}// CI trigger
-// CI trigger
-// CI trigger Wed Nov  4 17:16:38 UTC 2026
+}
