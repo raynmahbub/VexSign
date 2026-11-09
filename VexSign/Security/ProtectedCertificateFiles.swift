@@ -45,8 +45,46 @@ enum ProtectedCertificateFiles {
             }
             try fm.removeItem(at: legacy) // Empty only; failed moves throw above.
         }
-        try fm.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
-                              .posixPermissions: 0o700], ofItemAtPath: destination.path)
+        try applyProtectionAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
+                                       .posixPermissions: 0o700], at: destination.path)
+    }
+
+    /// Applies a protection class where the volume has one, and the permissions either way.
+    ///
+    /// Data protection is an iOS *device* filesystem feature. The simulator has no protection
+    /// classes, so `setAttributes` rejects `.protectionKey` there with ENOTSUP /
+    /// NSFeatureUnsupportedError. Treating that as a migration failure aborted the move before
+    /// any file was copied, which is why `VexSignTests` failed on the simulator while the same
+    /// code worked on a device (#136). Only that specific refusal is tolerated: a real
+    /// permission or I/O error still propagates, so a device never silently loses protection.
+    static func applyProtectionAttributes(
+        _ attributes: [FileAttributeKey: Any],
+        at path: String,
+        setAttributes: ([FileAttributeKey: Any], String) throws -> Void = {
+            try FileManager.default.setAttributes($0, ofItemAtPath: $1)
+        }
+    ) throws {
+        do {
+            try setAttributes(attributes, path)
+        } catch {
+            guard isDataProtectionUnsupported(error), attributes[.protectionKey] != nil else { throw error }
+            var withoutProtection = attributes
+            withoutProtection.removeValue(forKey: .protectionKey)
+            guard !withoutProtection.isEmpty else { return }
+            try setAttributes(withoutProtection, path)
+        }
+    }
+
+    /// True only for "this volume does not implement protection classes".
+    static func isDataProtectionUnsupported(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFeatureUnsupportedError { return true }
+        if nsError.domain == NSPOSIXErrorDomain,
+           nsError.code == Int(ENOTSUP) || nsError.code == Int(EOPNOTSUPP) { return true }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+            return isDataProtectionUnsupported(underlying)
+        }
+        return false
     }
 
     static func protect(_ root: URL) throws {
@@ -66,8 +104,8 @@ enum ProtectedCertificateFiles {
         for url in urls {
             let info = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
             guard info.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
-            try fm.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
-                                  .posixPermissions: info.isDirectory == true ? 0o700 : 0o600], ofItemAtPath: url.path)
+            try applyProtectionAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
+                                           .posixPermissions: info.isDirectory == true ? 0o700 : 0o600], at: url.path)
         }
     }
 }
