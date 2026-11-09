@@ -12,7 +12,8 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "NO"
-      shouldAutocreateTestPlan = "YES">
+      shouldAutocreateTestPlan = "YES"
+      codeCoverageEnabled = "YES">
       <CommandLineArguments>
          <CommandLineArgument
             argument = "-com.apple.CoreData.ConcurrencyDebug 1"
