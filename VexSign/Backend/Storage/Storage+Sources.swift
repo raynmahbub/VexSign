@@ -24,7 +24,7 @@ extension Storage {
 		iconURL: URL? = nil,
 		deferSave: Bool = false,
 		enforceTransportPolicy: Bool = true,
-		completion: @escaping (Error?) -> Void
+		completion: (Error?) -> Void
 	) {
 		StorageConcurrency.requireMainQueue()
 		if sourceExists(identifier) {
@@ -72,7 +72,7 @@ extension Storage {
 		id: String = "",
 		deferSave: Bool = false,
 		enforceTransportPolicy: Bool = true,
-		completion: @escaping (Error?) -> Void
+		completion: (Error?) -> Void
 	) {
 		addSource(
 			url,
