@@ -36,7 +36,7 @@ struct AppStoreView: View {
     @State private var catalogRevision = 0
     @State private var catalogBuildGeneration = 0
     @State private var catalogFilterGeneration = 0
-    @AppStorage("VexSign.repositorySort") private var _repositorySortRaw = RepositorySortOption.priority.rawValue
+    @AppStorage("VexSign.repositorySort") var _repositorySortRaw = RepositorySortOption.priority.rawValue
 
     private let appCategories = ["All", "Utilities", "Emulators", "Tweaked", "Games", "Jailbreak"]
 
