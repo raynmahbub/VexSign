@@ -95,5 +95,52 @@ class AcceptanceTests(unittest.TestCase):
         self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64))
 
 
+class PendingAcceptanceClaimsTests(unittest.TestCase):
+    """Keep published claims behind the device evidence that supports them.
+
+    Two combined-host paths (`native_owned_sign_install`,
+    `scoped_unattended_renewal`) cannot be exercised by hosted CI and are still
+    unobserved. While DEVICE_TESTING.md says so, the README must keep calling
+    native provisioning experimental. This is a consistency guard, not evidence:
+    completing the runs is a human step, and removing the caveat should require
+    updating the acceptance guide in the same change.
+    """
+
+    PENDING_CASES = ('native_owned_sign_install', 'scoped_unattended_renewal')
+
+    def setUp(self):
+        self.root = Path(__file__).resolve().parents[1]
+        self.guide = (self.root / 'docs/DEVICE_TESTING.md').read_text()
+        self.readme = (self.root / 'README.md').read_text()
+
+    def test_pending_paths_are_real_acceptance_cases(self):
+        for case in self.PENDING_CASES:
+            self.assertIn(case, module.CASES + module.NATIVE_PRIMARY_CASES)
+            self.assertIn(case, self.guide)
+
+    def test_guide_still_marks_the_final_paths_pending(self):
+        self.assertIn('The final two paths are still incomplete', self.guide)
+        self.assertIn('pending', self.guide)
+        self.assertIn('cannot perform these physical-device checks', self.guide)
+
+    def test_readme_keeps_the_experimental_caveat_while_paths_are_pending(self):
+        if 'The final two paths are still incomplete' not in self.guide:
+            self.skipTest('acceptance guide no longer marks the paths pending')
+        self.assertIn('Native Apple ID provisioning and guest-host', self.readme)
+        self.assertIn('experimental', self.readme)
+        self.assertIn('not a complete, device-validated Apple ID signer', self.readme)
+
+    def test_pending_observations_cannot_validate_as_acceptance(self):
+        report = dict(commit='a' * 40, ipa_sha256='b' * 64, tester='Tester',
+                      device_model='Test iPhone', os_version='26',
+                      tested_at_utc='2026-11-06T10:00:00Z', checks={
+                          case: dict(result='pass', notes='Observed on test device')
+                          for case in module.CASES + module.NATIVE_PRIMARY_CASES})
+        report['architecture'] = 'native-primary'
+        for case in self.PENDING_CASES:
+            report['checks'][case] = dict(result='pending', notes='Not yet exercised')
+        self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

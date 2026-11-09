@@ -140,12 +140,13 @@ that, so a claim can be traced to code instead of a promise:
 | AltStore-compatible sources and ESign parsing | `AltSourceKit/`, `VexSign/Utilities/SourceFeedLoader.swift` |
 | Repository sync, ETag revalidation and offline catalog | `VexSign/RepositorySync/RepositorySyncEngine.swift`, `VexSign/Views/Sources/SourcesViewModel.swift` |
 | Source health dashboard | `VexSign/Views/Sources/SourceHealthDashboardView.swift` |
-| Discover, ranking and bundle grouping | `VexSign/Views/TabView/AppStoreView.swift`, `AppStoreRepositoryRows.swift`, `VexSign/Views/Sources/Apps/` |
+| Discover, ranking and bundle grouping | `VexSign/Views/TabView/AppStoreView.swift` (state, catalog, body), `AppStoreView+Discover.swift`, `AppStoreView+Repositories.swift`, `AppStoreRepositoryRows.swift`, `VexSign/Views/Sources/Apps/` |
 | Per-app update rules and skipped updates | `VexSign/Backend/Observable/PerAppUpdateRules.swift`, `SkippedUpdatesManager.swift` |
 | Premium activation and catalog filters | `VexSign/Backend/Observable/PremiumManager.swift`, `VexSign/Views/Sources/PremiumSettingsView.swift`, `server/` |
 | Self-update checks, release notification and install methods | `VexSign/Backend/Observable/SelfUpdateManager.swift`, `SelfUpdateNotifier.swift`, `VexSign/Views/Updates/` |
-| Background downloads, conditions and Game Mode | `DownloadManager.swift`, `DownloadPreferences.swift`, `DownloadManager+LiveActivity.swift`, `GameMode.swift` |
+| Background downloads, conditions and Game Mode | `DownloadManager.swift`, `DownloadManager+Delegates.swift`, `DownloadManager+LiveActivity.swift`, `DownloadManager+PackageImport.swift`, `DownloadPreferences.swift`, `GameMode.swift` |
 | Web manager with HTTP/WebDAV | `VexSign/Views/Settings/Web Manager/WebManagerView.swift`, `server/web_tools.py` |
+| Storage report and cleanup | `VexSign/Backend/Observable/StorageManager.swift` (`LibrarySnapshot` decides what is an orphan; a failed certificate fetch protects everything) |
 | Download integrity and hashing | `VexSign/Utilities/DownloadIntegrity.swift`, `FileIntegrity.swift` |
 | Certificate monitoring, dashboard and OCSP | `CertificateStatusManager.swift`, `BatchCertChecker.swift`, `VexSign/CertificateDashboard/`, `VexSign/Utilities/OCSP/` |
 | Local trust setup with a device TLS identity | `VexSign/Backend/Server/LocalTLSIdentity.swift`, `LocalCAProfile.swift`, `VexSign/Utilities/IdentityVault.swift` |

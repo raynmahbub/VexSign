@@ -9,6 +9,95 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+### Fixed
+
+- An OTA install that iOS never reported on is no longer called **Failed**. On
+  modern iOS the private LaunchServices lookups are filtered, so `InstalledAppProbe`
+  returns nothing even when the app installed correctly. That hit the 30-second
+  no-evidence deadline and produced a receipt reading `Install · Failed`,
+  `installation-evidence-unavailable`, telling people to retry an app already on
+  their Home Screen. There is now a terminal **Not confirmed** task phase: not a
+  success claim, not a failure. The receipt says iOS did not expose the result, the
+  suggested next step is to check the device rather than re-run the installation
+  checklist, and retry is still available.
+- An app iOS is still writing is no longer cut off by that same deadline. A
+  placeholder probe is positive evidence of an in-progress install and now gets the
+  full verification window; only a probe that returns nothing at all uses the short
+  one.
+- Import failures say what actually went wrong. `ImportError` printed only
+  `Detail: <domain> (<code>)`, which is identical in shape for every archive-safety
+  rejection and names neither the entry nor the reason. It now includes the
+  underlying message (which names the offending path) and keeps the domain/code as
+  a separate `Source:` line.
+
+- Certificates sign app extensions again (#137). Three defects combined into
+  "extensions stopped being signed after the update":
+  - The preflight judged extensions by the bundle identifier they had *before*
+    the rename. Both `SigningHandler._modifyPluginIdentifiers` and the pinned
+    engine (`ZBundle::ModifyPluginsBundleId`) replace the old app identifier
+    inside every nested bundle, so a profile covering the new identifier covers
+    the renamed extensions too. Coverage is now evaluated on the identifier the
+    signer will actually produce, which is what the handler already used — the
+    two disagreed before.
+  - "Sign Anyway" was offered by the preflight sheet and honoured by the post-sign
+    verifier, but the nested-bundle audit threw regardless, so confirming the
+    override still aborted the run with no way through.
+  - The one-time options migration forced extension compatibility mode — which
+    *deletes* extensions — back on over a saved "off". A saved choice is now left
+    alone; blobs that predate the key still decode to the default.
+- The simulator test suite is green again (#136). `ProtectedCertificateFiles`
+  applied `.protectionKey` with `setAttributes`, which the simulator refuses
+  because it has no data-protection classes. That ran before the first move, so
+  certificate migration aborted with nothing copied and fell back to the legacy
+  directory. A volume that does not implement protection classes is no longer
+  treated as a migration failure; every other error still propagates, so a device
+  cannot silently lose protection.
+- Storage cleanup no longer deletes certificates when the library cannot be
+  read. `StorageManager` built its orphan list from `try? context.fetch(...)`:
+  a failed fetch produced an empty certificate set, which read as "none
+  installed", so *Clear leftovers* removed every certificate on disk. The
+  snapshot now records whether the list is complete and treats an incomplete one
+  as "protect everything", with a log line and regression tests.
+- Web tools no longer render untrusted text as markup. The Repository Decoder
+  and Creator (app names, versions, developers and issues from any remote feed),
+  the UDID Grabber (device-reported attributes), the Signer Console (certificate
+  name from the phone, chosen file names), Certificate Check (fields from an
+  uploaded provisioning profile) and the App Installer (content type and redirect
+  URLs from the probed host) all passed values into `innerHTML` unescaped, so a
+  malicious feed, profile or host could run script in the tool's origin and reach
+  the relay endpoints. A shared `esc()` helper now covers every such field, with
+  regression tests that execute the helper and the page helpers that use it.
+- Three silent failures now report themselves: an unreadable web-manager inbox
+  no longer looks like an empty one, a failed temporary-directory listing is
+  logged, and a web upload that cannot create its destination directory records
+  why before returning 500.
+- `AnisetteProviderDescriptor.defaultHTTPS` propagates a validation failure
+  instead of `try!`-trapping on an endpoint the descriptor refuses.
+- The bundled `AnisetteServer` is labelled and documented as the protocol mock it
+  is: its headers are fabricated and Apple rejects them. Its manifest declared a
+  non-existent SwiftPM Linux platform while importing Apple-only `Network`, so it
+  could not build as declared; it now targets macOS and drops the force-tries.
+
+### Changed
+
+- `make` builds through `VexSign.xcworkspace`, the same graph CI builds and tests.
+  The workspace and project `Package.resolved` files had drifted apart, so the
+  released IPA was compiled against pins CI never exercised. Both now hold one
+  identical set of 42 versioned pins, and `tools/check-package-graph.py` fails on
+  drift or an unsatisfied requirement.
+- Code coverage is enabled on the shared `VexSignTests` scheme; CI reports the
+  overall number and the least-covered first-party files (reporting only).
+- Weekly hygiene prunes localisation keys that are both stale and absent from the
+  source, and reports per-language coverage. Thirteen dead keys were removed;
+  in-use keys Xcode had merely marked stale keep their translations.
+- Error-discipline baseline lowered from 386 to 244 unjustified `try?` sites and
+  the singleton freeze from 62 to 61, with the reasoning recorded at each site.
+- The three largest files were split along existing seams, moving code verbatim
+  into extensions: `AppStoreView` 1487 → 765 lines (`+Discover`, `+Repositories`),
+  `DownloadManager` 1081 → 824 (`+PackageImport`), and `VexSignApp` 840 → 644
+  (`AppDelegate+BackgroundTasks`). Only the access levels Swift requires for a
+  cross-file extension changed.
+
 - Add an opt-in extension compatibility mode that preserves covered bundles and
   the main app while removing only known-uncovered nested extensions; the log
   identifies each removed path and bundle identifier.
