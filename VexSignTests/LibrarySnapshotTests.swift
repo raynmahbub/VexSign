@@ -4,9 +4,17 @@ import AltSourceKit
 @testable import VexSign
 
 final class LibrarySnapshotTests: XCTestCase {
+    /// Use the actual repository schema: iconURL is required even for offline matching tests.
+    private func sourceApp(identifier: String, version: String) throws -> ASRepository.App {
+        let json = try JSONSerialization.data(withJSONObject: [
+            "bundleIdentifier": identifier, "name": "Example", "version": version,
+            "iconURL": "https://example.invalid/icon.png"
+        ])
+        return try JSONDecoder().decode(ASRepository.App.self, from: json)
+    }
+
     func testUpdateMatchingCanRunWithValueSnapshotsOnWorker() async throws {
-        let app = try JSONDecoder().decode(ASRepository.App.self, from: Data(
-            #"{"bundleIdentifier":"com.vendor.app","name":"Example","version":"2.0"}"#.utf8))
+        let app = try sourceApp(identifier: "com.vendor.app", version: "2.0")
         let installed = AppUpdateChecker.InstalledSnapshot(
             version: "1.0", uuid: "fixture", name: "Renamed clone", identifier: "com.me.clone",
             originalIdentifier: "com.vendor.app", source: URL(string: "https://example.invalid/source.json"))
@@ -20,8 +28,7 @@ final class LibrarySnapshotTests: XCTestCase {
     }
 
     func testUpdateMatchingUsesCapturedNamePreference() throws {
-        let app = try JSONDecoder().decode(ASRepository.App.self, from: Data(
-            #"{"bundleIdentifier":"com.other.app","name":"Example","version":"2.0"}"#.utf8))
+        let app = try sourceApp(identifier: "com.other.app", version: "2.0")
         let installed = AppUpdateChecker.InstalledSnapshot(
             version: "1.0", uuid: "fixture", name: "Example", identifier: "com.me.app",
             originalIdentifier: nil, source: nil)
@@ -32,8 +39,7 @@ final class LibrarySnapshotTests: XCTestCase {
     }
 
     func testExactIdentityWinsAndAmbiguousNamesFailClosed() throws {
-        let app = try JSONDecoder().decode(ASRepository.App.self, from: Data(
-            #"{"bundleIdentifier":"com.vendor.app","name":"Example","version":"2.0"}"#.utf8))
+        let app = try sourceApp(identifier: "com.vendor.app", version: "2.0")
         let exact = AppUpdateChecker.InstalledSnapshot(version: "1.0", uuid: "exact", name: "Example",
                                                      identifier: "com.vendor.app", originalIdentifier: nil, source: nil)
         let other = AppUpdateChecker.InstalledSnapshot(version: "9.0", uuid: "other", name: "Example",
@@ -46,8 +52,7 @@ final class LibrarySnapshotTests: XCTestCase {
     }
 
     func testSelectedVersionAndUUIDComeFromSameRecord() throws {
-        let app = try JSONDecoder().decode(ASRepository.App.self, from: Data(
-            #"{"bundleIdentifier":"com.vendor.app","name":"Example","version":"3.0"}"#.utf8))
+        let app = try sourceApp(identifier: "com.vendor.app", version: "3.0")
         let old = AppUpdateChecker.InstalledSnapshot(version: "1.0", uuid: "old", name: "Old", identifier: "com.vendor.app", originalIdentifier: nil, source: nil)
         let newer = AppUpdateChecker.InstalledSnapshot(version: "2.0", uuid: "newer", name: "New", identifier: "com.vendor.app", originalIdentifier: nil, source: nil)
         let index = AppUpdateChecker.InstalledIndex(signed: [old], imported: [newer])

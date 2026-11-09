@@ -58,8 +58,8 @@ final class DownloadAdmissionTests: XCTestCase {
     }
 
     @MainActor
-    func testPolicyTransitionHoldsRunningTaskWithoutUndoingManualPause() throws {
-        try withManager { manager in
+    func testPolicyTransitionHoldsRunningTaskWithoutUndoingManualPause() {
+        withManager { manager in
             let running = manager.startDownload(from: url(90))
             let manual = manager.startDownload(from: url(91))
             manager.pauseDownload(manual)
