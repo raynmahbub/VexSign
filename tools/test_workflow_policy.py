@@ -6,6 +6,7 @@ or GitHub Actions as well for full workflow/schema/expression validation.
 """
 from pathlib import Path
 import fnmatch
+import os
 import re
 import runpy
 import subprocess
@@ -171,6 +172,24 @@ class WorkflowPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'network failure'):
                 prefetch['prefetch'](cache, [('https://github.com/example/archive.zip', '0' * 64)], download)
             self.assertEqual(list(cache.iterdir()), [])
+
+    def test_binary_prefetch_download_failure_is_annotated_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            curl = root / 'curl'
+            curl.write_text('#!/bin/sh\nprintf "HTTP failure 100%%\\nsecond line\\n" >&2\nexit 22\n')
+            curl.chmod(0o755)
+            env = dict(os.environ, PATH=str(root))
+            result = subprocess.run([
+                sys.executable, str(ROOT / '.github/scripts/prefetch_spm_artifacts.py'),
+                '--cache', str(root / 'cache'),
+            ], text=True, capture_output=True, env=env)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('::error title=Binary archive prefetch failed::', result.stdout)
+            self.assertIn('curl exit 22', result.stdout)
+            self.assertIn('HTTP failure 100%25%0Asecond line', result.stdout)
+            self.assertIn('OpenSSL.xcframework.zip', result.stdout)
+            self.assertEqual(list((root / 'cache').iterdir()), [])
 
     def test_package_resolution_annotations_include_the_root_cause(self):
         with tempfile.TemporaryDirectory() as folder:
