@@ -103590,6 +103590,28 @@
           }
         }
       }
+    },
+    "This file could not be backed up, so the change was not made." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be backed up, so the change was not made."
+          }
+        }
+      }
+    },
+    "Checking…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

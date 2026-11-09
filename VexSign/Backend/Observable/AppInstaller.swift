@@ -69,6 +69,8 @@ final class AppInstaller: ObservableObject {
 
 	private var _server: ServerInstaller?
 	private var _progressTask: Task<Void, Never>?
+    private var _verificationDeadlineTask: Task<Void, Never>?
+    private var _installBaselineTask: Task<Void, Never>?
     private var _runTask: Task<Void, Never>?
     private var _fallbackTask: Task<Void, Never>?
     private var _confirmationTask: Task<Void, Never>?
@@ -120,6 +122,8 @@ final class AppInstaller: ObservableObject {
         _runTask?.cancel()
         _fallbackTask?.cancel()
         _confirmationTask?.cancel()
+        _verificationDeadlineTask?.cancel()
+        _installBaselineTask?.cancel()
 		_progressTask?.cancel()
 		_declineCheck?.cancel()
 		if let _declineObserver { NotificationCenter.default.removeObserver(_declineObserver) }
@@ -136,8 +140,9 @@ final class AppInstaller: ObservableObject {
 			return
 		}
 
-        if !_isSharing, let identifier = app.identifier {
-            _installBaseline = .init(app: _probe.installedApp(for: identifier))
+        if !_isSharing, _installationMethod != 2,
+           let identifier = app.identifier, !identifier.isEmpty {
+            _captureInstallBaseline(identifier)
         }
 		_statusObserver = viewModel.$status
 			.receive(on: DispatchQueue.main)
@@ -145,6 +150,26 @@ final class AppInstaller: ObservableObject {
 
 		_runTask = Task { await _run() }
 	}
+
+    /// Capture the pre-install state away from the main actor. Until the read
+    /// finishes, an explicit unknown baseline prevents the watcher from taking
+    /// a second synchronous snapshot on its polling path. A late/unavailable
+    /// result can reduce confirmation evidence, but must never block the UI.
+    private func _captureInstallBaseline(_ identifier: String) {
+        _installBaseline = .init(app: nil)
+        _installBaselineTask?.cancel()
+        let probe = _probe
+        _installBaselineTask = Task.detached(priority: .utility) { [weak self] in
+            let baselineApp = await probe.installedAppWithTimeout(for: identifier)
+            let baseline = InstallWatcher.Baseline(app: baselineApp)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, !self._hasFinished else { return }
+                self._installBaseline = baseline
+                self._installBaselineTask = nil
+            }
+        }
+    }
 
 	/// Stops without reporting an outcome; the caller has already moved on.
     func stop() {
@@ -165,6 +190,10 @@ final class AppInstaller: ObservableObject {
         _fallbackTask = nil
         _confirmationTask?.cancel()
         _confirmationTask = nil
+        _verificationDeadlineTask?.cancel()
+        _verificationDeadlineTask = nil
+        _installBaselineTask?.cancel()
+        _installBaselineTask = nil
 		_completion = nil
 		_disarmDeclineWatch()
 		_statusObserver = nil
@@ -521,6 +550,10 @@ final class AppInstaller: ObservableObject {
         _progressTask = nil
         _confirmationTask?.cancel()
         _confirmationTask = nil
+        _verificationDeadlineTask?.cancel()
+        _verificationDeadlineTask = nil
+        _installBaselineTask?.cancel()
+        _installBaselineTask = nil
 		// Only an install the device proved may be counted.
 		if case .success(let outcome) = result, outcome.countsAsInstall {
             // Publish the terminal card state after _hasFinished is set. Any
@@ -588,6 +621,24 @@ final class AppInstaller: ObservableObject {
 		}
 	}
 
+    /// Independent UI deadline: the watcher normally applies this bound itself,
+    /// but a synchronous private-API probe can stall inside a call and prevent its
+    /// loop from checking elapsed time. This actor task still releases the card as
+    /// unconfirmed without treating a timeout as installation success.
+    private func _armVerificationDeadline() {
+        guard _verificationDeadlineTask == nil else { return }
+        _verificationDeadlineTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(InstallConfirmation.Limits.defaultVerifySeconds))
+            } catch {
+                return
+            }
+            guard let self, !self._hasFinished, self.installationPhase == .verifying else { return }
+            self.installationPhase = .finished(.timedOutVerifying)
+            self._finishConfirmed(.timedOutVerifying)
+        }
+    }
+
 	/// The ring, and the PPQ heartbeat while the payload is being written.
 	private func _handleProgress(raw: Double?, phase: InstallConfirmation.Phase, useNovaDNS: Bool) {
         guard !_hasFinished else { return }
@@ -596,7 +647,9 @@ final class AppInstaller: ObservableObject {
             switch phase {
             case .waitingForStart: onWorkflowStage?(_hasServedPayload ? .waitingForIOS : .installing)
             case .downloading: onWorkflowStage?(.installing)
-            case .verifying: onWorkflowStage?(.verifying)
+            case .verifying:
+                onWorkflowStage?(.verifying)
+                _armVerificationDeadline()
             case .finished: break
             }
             FileLogger.log("installation phase: \(phase)", category: "install")

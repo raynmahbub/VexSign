@@ -26,6 +26,26 @@ final class TweakInjectionDefaultsTests: XCTestCase {
 		)
 	}
 
+	func testBackupMergeDropsDuplicateTweakAndFolderIdentities() {
+		let sharedID = UUID()
+		let firstTweak = tweak("first")
+		var duplicateTweak = tweak("duplicate")
+		duplicateTweak.id = firstTweak.id
+		let existingTweak = tweak("already present")
+		let chosenTweaks = TweakManager.uniqueBackupItems(
+			[firstTweak, duplicateTweak], excluding: [existingTweak.id]
+		)
+		XCTAssertEqual(chosenTweaks.map(\.id), [firstTweak.id])
+
+		let firstFolder = TweakFolder(id: sharedID, name: "first")
+		let duplicateFolder = TweakFolder(id: sharedID, name: "duplicate")
+		let existingFolder = TweakFolder(name: "already present")
+		let chosenFolders = TweakManager.uniqueBackupItems(
+			[firstFolder, duplicateFolder], excluding: [existingFolder.id]
+		)
+		XCTAssertEqual(chosenFolders.map(\.id), [sharedID])
+	}
+
 	// MARK: - Matching
 
 	func testEmptyQueryMatchesEverything() {

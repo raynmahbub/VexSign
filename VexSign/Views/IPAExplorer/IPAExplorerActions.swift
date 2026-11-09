@@ -79,20 +79,29 @@ enum IPAExplorerActions {
 				guard overwrite else { continue }
 			}
 
+			var backupName: String?
 			do {
 				// First copy for an existing path is "modified" (original bytes matter); a new
 				// path is "added" (undo = remove).
-				let backupName = existedBefore ? workspace.backupForUndo(target) : nil
+				if existedBefore {
+					backupName = try workspace.backupForUndo(target)
+				} else {
+					backupName = nil
+				}
 
 				if existedBefore {
-					try _fileManager.removeItem(at: target)
+					try _replaceItem(at: target, with: url)
+				} else {
+					try _fileManager.copyItem(at: url, to: target)
 				}
-				try _fileManager.copyItem(at: url, to: target)
 				// A replaced executable has to stay runnable.
 				_applyExecutablePermissionsIfNeeded(target)
 				workspace.journalChange(kind: existedBefore ? .modified : .added, url: target, backupName: backupName)
 				added += 1
 			} catch {
+				if existedBefore {
+					workspace.discardUndoBackup(backupName)
+				}
 				Toast.error(error.localizedDescription, duration: .long)
 			}
 		}
@@ -104,6 +113,21 @@ enum IPAExplorerActions {
 			systemImage: "doc.badge.plus"
 		)
 		return added
+	}
+
+	/// Atomically saves editor content after a durable archive-workspace undo copy is ready.
+	static func save(data: Data, to url: URL, workspace: IPAWorkspace) throws {
+		let lease = try workspace.acquireEditingLease()
+		defer { withExtendedLifetime(lease) {} }
+		let backupName = try workspace.backupForUndo(url)
+		do {
+			try data.write(to: url, options: .atomic)
+		} catch {
+			workspace.discardUndoBackup(backupName)
+			throw error
+		}
+		workspace.journalChange(kind: .modified, url: url, backupName: backupName)
+		workspace.markDirty()
 	}
 
 	// MARK: Modify
@@ -125,7 +149,7 @@ enum IPAExplorerActions {
 			defer { withExtendedLifetime(lease) {} }
 			// A rename is recorded as two journal entries so undo is exact: "removed" restores
 			// the original name+bytes, "added" drops the moved-away file.
-			let backupName = workspace.backupForUndo(entry.url)
+			let backupName = try workspace.backupForUndo(entry.url)
 			try _fileManager.moveItem(at: entry.url, to: target)
 			workspace.journalChange(kind: .removed, url: entry.url, backupName: backupName)
 			workspace.journalChange(kind: .added, url: target, backupName: nil)
@@ -147,9 +171,13 @@ enum IPAExplorerActions {
 		do {
 			let lease = try workspace.acquireEditingLease()
 			defer { withExtendedLifetime(lease) {} }
-			let backupName = workspace.backupForUndo(entry.url)
-			try _fileManager.removeItem(at: entry.url)
-			try _fileManager.copyItem(at: url, to: entry.url)
+			let backupName = try workspace.backupForUndo(entry.url)
+			do {
+				try _replaceItem(at: entry.url, with: url)
+			} catch {
+				workspace.discardUndoBackup(backupName)
+				throw error
+			}
 			_applyExecutablePermissionsIfNeeded(entry.url)
 			workspace.journalChange(kind: .modified, url: entry.url, backupName: backupName)
 			workspace.markDirty()
@@ -165,7 +193,7 @@ enum IPAExplorerActions {
 		do {
 			let lease = try workspace.acquireEditingLease()
 			defer { withExtendedLifetime(lease) {} }
-			let backupName = workspace.backupForUndo(entry.url)
+			let backupName = try workspace.backupForUndo(entry.url)
 			try _fileManager.removeItem(at: entry.url)
 			workspace.journalChange(kind: .removed, url: entry.url, backupName: backupName)
 			workspace.markDirty()
@@ -203,6 +231,32 @@ enum IPAExplorerActions {
 	}
 
 	// MARK: Helpers
+
+	/// Copy first, then ask FileManager to replace the destination as one
+	/// filesystem operation. The staged source is a sibling, keeping it on the
+	/// same volume and leaving the original untouched if staging fails.
+	private static func _replaceItem(at target: URL, with source: URL) throws {
+		let parent = target.deletingLastPathComponent()
+		let replacement = parent.appendingPathComponent(".vexsign-replacement-\(UUID().uuidString)")
+		defer { _removeStagingItem(replacement) }
+
+		try _fileManager.copyItem(at: source, to: replacement)
+		_ = try _fileManager.replaceItemAt(
+			target,
+			withItemAt: replacement,
+			backupItemName: nil,
+			options: []
+		)
+	}
+
+	private static func _removeStagingItem(_ url: URL) {
+		guard _fileManager.fileExists(atPath: url.path) else { return }
+		do {
+			try _fileManager.removeItem(at: url)
+		} catch {
+			FileLogger.error("IPA Explorer staging cleanup failed at \(url.lastPathComponent): \(error.localizedDescription)", category: "ipa")
+		}
+	}
 
 	/// Mach-O files have to stay executable or iOS refuses to launch/load them.
 	private static func _applyExecutablePermissionsIfNeeded(_ url: URL) {

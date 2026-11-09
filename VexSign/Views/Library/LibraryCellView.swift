@@ -50,6 +50,7 @@ struct LibraryCellView: View {
 	var onSelectMore: (() -> Void)?
     var isIconTile = false
     @State private var confirmDelete = false
+    @State private var _isReSigning = false
 	
 	// MARK: Selections
 	private var _isSelected: Bool {
@@ -164,7 +165,7 @@ struct LibraryCellView: View {
 				}
 				if SigningProfileStore.shared.profile(forBundleID: app.identifier) != nil {
 					Button {
-						Task { _ = await AutoSignManager.shared.sign(app) }
+						_resignLastOrPresent()
 					} label: {
 						Label(.localized("Re-sign Last"), systemImage: "signature")
 					}
@@ -291,23 +292,23 @@ struct LibraryCellView: View {
 				.accessibilityHint(Text(.localized("Present in the embedded container. Signing and launch have not been verified; this is not a device installation.")))
 				.accessibilityIdentifier(A11y.Library.guestBadge)
 		}
-		if let badge = InstalledBadge(_status.status(for: app).installed) {
-			HStack(spacing: 3) {
-				Image(systemName: badge.systemImage)
-					.font(.system(size: 8, weight: .bold))
+		let status = _status.status(for: app)
+		let badge = InstalledBadge(status)
+		HStack(spacing: 3) {
+			Image(systemName: badge.systemImage)
+				.font(.system(size: 8, weight: .bold))
 
-				if let title = badge.title {
-					Text(title)
-						.font(.caption2.weight(.bold))
-				}
+			if let title = badge.title {
+				Text(title)
+					.font(.caption2.weight(.bold))
 			}
-			.padding(.horizontal, badge.title == nil ? 4 : 7)
-			.padding(.vertical, 3)
-			.background(_badgeTint(badge.tone).opacity(0.16), in: Capsule())
-			.foregroundStyle(_badgeTint(badge.tone))
-			.accessibilityLabel(Text(badge.accessibilityLabel))
-			.accessibilityIdentifier(A11y.Library.installedBadge)
 		}
+		.padding(.horizontal, badge.title == nil ? 4 : 7)
+		.padding(.vertical, 3)
+		.background(_badgeTint(badge.tone).opacity(0.16), in: Capsule())
+		.foregroundStyle(_badgeTint(badge.tone))
+		.accessibilityLabel(Text(badge.accessibilityLabel))
+		.accessibilityIdentifier(A11y.Library.installedBadge)
 	}
 
 	private func _badgeTint(_ tone: InstalledBadge.Tone) -> Color {
@@ -369,7 +370,7 @@ extension LibraryCellView {
     // KSign-style install/re-sign/sign-and-install actions, routed through
     // VexSign's checked signing and evidence-based installation pipeline.
     private func _performWorkflow(_ action: LibraryAppWorkflowAction) {
-        let perform = {
+        _withAppAccess {
             switch action {
             case .install: InstallQueue.shared.enqueue(app)
             case .resign:
@@ -378,11 +379,37 @@ extension LibraryCellView {
                 Presentation.afterDismiss { selectedSigningAppPresenting = AnyApp(base: app, installAfterSigning: true) }
             }
         }
-        if let uuid = app.uuid, lockManager.isAppLocked(uuid), !lockManager.isSessionUnlocked(uuid) {
-            lockManager.authenticateForApp(uuid: uuid, name: app.name ?? .localized("Application")) { success in
-                if success { perform() }
+    }
+
+    /// Keep every row-level action behind the same app-lock gate as opening its details.
+    private func _withAppAccess(_ action: @escaping () -> Void) {
+        guard let uuid = app.uuid, lockManager.isAppLocked(uuid), !lockManager.isSessionUnlocked(uuid) else {
+            action()
+            return
+        }
+        lockManager.authenticateForApp(uuid: uuid, name: app.name ?? .localized("Application")) { success in
+            if success { action() }
+        }
+    }
+
+    private func _resignLastOrPresent() {
+        _withAppAccess {
+            guard SigningProfileStore.shared.profile(forBundleID: app.identifier) != nil else {
+                Presentation.afterDismiss { selectedSigningAppPresenting = AnyApp(base: app) }
+                return
             }
-        } else { perform() }
+            guard !_isReSigning else { return }
+            _isReSigning = true
+            Task {
+                defer { _isReSigning = false }
+                switch await AutoSignManager.shared.sign(app) {
+                case .success:
+                    Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
+                case .failure(let error):
+                    Toast.error(LogRedaction.redact(error.localizedDescription), duration: .sticky)
+                }
+            }
+        }
     }
 
 	@ViewBuilder
@@ -532,11 +559,11 @@ extension LibraryCellView {
 
 	@ViewBuilder
 	private func _buttonActions(for app: AppInfoPresentable) -> some View {
-		Group {
-			if app.isSigned {
+		if app.isSigned {
+			HStack(spacing: 6) {
 				Button {
 					NBHaptic.tap()
-					InstallQueue.shared.enqueue(app)
+					_performWorkflow(.install)
 				} label: {
 					FRExpirationPillView(
 						title: .localized("Install"),
@@ -545,19 +572,49 @@ extension LibraryCellView {
 					)
 					.accessibilityIdentifier(A11y.Install.start)
 				}
-			} else {
-				Button {
+				.accessibilityLabel(Text(.localized("Install")))
+
+				_quickAction(.localized("Re-sign"), systemImage: "arrow.triangle.2.circlepath", identifier: A11y.Library.resign) {
 					NBHaptic.tap()
-					selectedSigningAppPresenting = AnyApp(base: app)
-				} label: {
-					FRExpirationPillView(
-						title: .localized("Sign"),
-						revoked: false,
-						expiration: nil
-					)
+					_resignLastOrPresent()
+				}
+				.disabled(_isReSigning)
+
+				_quickAction(.localized("Export"), systemImage: "square.and.arrow.up", identifier: A11y.Library.export) {
+					NBHaptic.tap()
+					_withAppAccess { InstallQueue.shared.enqueue(app, exporting: true) }
 				}
 			}
+		} else {
+			Button {
+				NBHaptic.tap()
+				_performWorkflow(.resign)
+			} label: {
+				FRExpirationPillView(
+					title: .localized("Sign"),
+					revoked: false,
+					expiration: nil
+				)
+			}
+			.accessibilityLabel(Text(.localized("Sign")))
 		}
 		.buttonStyle(.borderless)
+	}
+
+	private func _quickAction(
+		_ title: String,
+		systemImage: String,
+		identifier: String,
+		action: @escaping () -> Void
+	) -> some View {
+		Button(action: action) {
+			Image(systemName: systemImage)
+				.font(.system(size: 15, weight: .semibold))
+				.frame(width: 36, height: 36)
+		}
+		.buttonStyle(.bordered)
+		.tint(Color.accentColor)
+		.accessibilityLabel(Text(title))
+		.accessibilityIdentifier(identifier)
 	}
 }

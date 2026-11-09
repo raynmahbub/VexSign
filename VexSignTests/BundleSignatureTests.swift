@@ -438,7 +438,19 @@ final class BundleSignatureTests: XCTestCase {
 		XCTAssertEqual(rows[5].value, "Matches")
 	}
 
-	func testBadgesSayNothingWhenTheProbeCannot() {
+	func testBadgesShowCheckingAndUnknownWithoutGuessingInstallState() {
+		let checking = InstalledBadge(LibraryAppStatus())
+		XCTAssertEqual(checking.title, String.localized("Checking…"))
+		XCTAssertEqual(checking.tone, .neutral)
+
+		var unavailableStatus = LibraryAppStatus()
+		unavailableStatus.updatedAt = Date()
+		let unavailable = InstalledBadge(unavailableStatus)
+		XCTAssertEqual(unavailable.title, String.localized("Unknown"))
+		XCTAssertEqual(unavailable.tone, .neutral)
+	}
+
+	func testBadgesSayNothingWhenTheProbeCannotWithoutLifecycleContext() {
 		XCTAssertNil(InstalledBadge(.unknown))
 
 		let installed = InstalledBadge(.installed)

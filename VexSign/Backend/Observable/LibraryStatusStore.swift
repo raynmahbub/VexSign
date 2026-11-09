@@ -13,10 +13,10 @@
 //    * which certificate the stored bundle carries, and when it expires — from the bundle's own
 //      CMS signature, not from the `CertificatePair` row it happens to point at.
 //
-//  Both are relatively expensive (a private ObjC lookup per identifier, a mapped read of an
-//  executable per bundle), so reads are coalesced, throttled per app, and published through one
-//  observable dictionary the list can diff against. A read that cannot answer leaves `.unknown`
-//  and the UI says nothing: a probe that cannot see must not be allowed to claim.
+//  Both are relatively expensive (private LaunchServices lookups per identifier, a mapped read
+//  of an executable per bundle), so reads are coalesced, throttled per app, and published through
+//  one observable dictionary the list can diff against. A read that cannot answer leaves
+//  `.unknown`; the Library says "Unknown" rather than guessing installed or not installed.
 //
 
 import Foundation
@@ -71,8 +71,20 @@ struct InstalledBadge: Equatable {
 			systemImage = "iphone.slash"
 			tone = .neutral
 		case .unknown:
-			// The probe could not answer. Saying anything here would be the guess removes.
+			// Callers without a read lifecycle keep the old nil-on-unknown behavior.
 			return nil
+		}
+	}
+
+	/// Displays an explicit checking/unknown state in the Library without turning
+	/// an unavailable device probe into a false installed/not-installed claim.
+	init(_ status: LibraryAppStatus) {
+		if let known = InstalledBadge(status.installed) {
+			self = known
+		} else {
+			title = status.isKnown ? .localized("Unknown") : .localized("Checking…")
+			systemImage = status.isKnown ? "questionmark.circle" : "hourglass"
+			tone = .neutral
 		}
 	}
 
@@ -302,7 +314,14 @@ final class LibraryStatusStore: ObservableObject {
 			collected.reserveCapacity(batch.count)
 
 			for request in batch {
-				collected.append((request.uuid, Self.resolve(request, probe: probe, readSignature: read, readGuest: readGuest)))
+                let candidate: InstalledApp?
+                if let identifier = request.bundleIdentifier, !identifier.isEmpty {
+                    candidate = await probe.installedAppWithTimeout(for: identifier)
+                } else {
+                    candidate = nil
+                }
+				collected.append((request.uuid, Self.resolve(request, installedApp: candidate,
+                    readSignature: read, readGuest: readGuest)))
 			}
 			let results = collected
 
@@ -329,23 +348,37 @@ final class LibraryStatusStore: ObservableObject {
 		readSignature: @Sendable (URL) -> BundleSignature.State,
 		readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable }
 	) -> LibraryAppStatus {
-		var status = LibraryAppStatus()
-		status.bundleIdentifier = request.bundleIdentifier
+        let candidate: InstalledApp?
+        if let identifier = request.bundleIdentifier, !identifier.isEmpty {
+            candidate = probe.installedApp(for: identifier)
+        } else {
+            candidate = nil
+        }
+        return resolve(request, installedApp: candidate, readSignature: readSignature, readGuest: readGuest)
+    }
 
-		if let identifier = request.bundleIdentifier, !identifier.isEmpty {
-			status.guest = readGuest(identifier)
-			let candidate = probe.installedApp(for: identifier)
-			status.installed = InstalledState.derive(
-				from: candidate?.bundleIdentifier == identifier ? candidate : nil,
-				expecting: request.expectedVersion
-			)
-		}
+    nonisolated static func resolve(
+        _ request: Request,
+        installedApp candidate: InstalledApp?,
+        readSignature: @Sendable (URL) -> BundleSignature.State,
+        readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable }
+    ) -> LibraryAppStatus {
+        var status = LibraryAppStatus()
+        status.bundleIdentifier = request.bundleIdentifier
 
-		if request.isSigned, let url = request.bundleURL {
-			status.signature = readSignature(url)
-		}
+        if let identifier = request.bundleIdentifier, !identifier.isEmpty {
+            status.guest = readGuest(identifier)
+            status.installed = InstalledState.derive(
+                from: candidate?.bundleIdentifier == identifier ? candidate : nil,
+                expecting: request.expectedVersion
+            )
+        }
 
-		status.updatedAt = Date()
-		return status
-	}
+        if request.isSigned, let url = request.bundleURL {
+            status.signature = readSignature(url)
+        }
+
+        status.updatedAt = Date()
+        return status
+    }
 }

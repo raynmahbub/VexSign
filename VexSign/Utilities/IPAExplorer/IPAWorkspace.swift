@@ -19,6 +19,7 @@ enum IPAWorkspaceError: LocalizedError {
 	case rebuildFailed(String)
 	case empty
 	case noCertificate
+	case undoBackupFailed
 
 	var errorDescription: String? {
 		switch self {
@@ -28,6 +29,7 @@ enum IPAWorkspaceError: LocalizedError {
 		case .rebuildFailed(let reason):	.localized("The IPA could not be rebuilt: %@", arguments: reason)
 		case .empty:			.localized("Nothing to save yet.")
 		case .noCertificate:	.localized("Signing needs a certificate. Import one in Settings → Certificates, or sign with the default signing option.")
+		case .undoBackupFailed:	.localized("This file could not be backed up, so the change was not made.")
 		}
 	}
 }
@@ -248,9 +250,18 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 	// MARK: Undo journal
 
-	/// Backs up `url` for undo (only for archive workspaces) and returns the backup id.
-	func backupForUndo(_ url: URL) -> String? {
-		journal?.backup(at: url, container: containerURL)
+	/// Backs up `url` before a destructive edit. Library workspaces have no undo
+	/// journal; archive workspaces must have a durable backup or the edit is refused.
+	func backupForUndo(_ url: URL) throws -> String? {
+		guard let journal else { return nil }
+		guard let backupName = journal.backup(at: url, container: containerURL) else {
+			throw IPAWorkspaceError.undoBackupFailed
+		}
+		return backupName
+	}
+
+	func discardUndoBackup(_ backupName: String?) {
+		journal?.discardBackup(backupName)
 	}
 
 	/// Records a change so the "what changed" list and per-file undo know about it.

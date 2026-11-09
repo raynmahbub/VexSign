@@ -482,8 +482,8 @@ final class TweakManager: ObservableObject {
 		var added = 0
 		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("library.json")) { // try? ok: best-effort legacy library migration
 			let incoming = TweakManager.decodeLenientArray(ManagedTweak.self, from: data)
-			let existing = Set(tweaks.map { $0.id })
-			for tweak in incoming where !existing.contains(tweak.id) {
+			let newTweaks = TweakManager.uniqueBackupItems(incoming, excluding: Set(tweaks.map(\.id)))
+			for tweak in newTweaks {
 				let src = tweaksDir.appendingPathComponent(tweak.id.uuidString)
 				let dst = _fm.tweaksLibrary(tweak.id.uuidString)
 				if !_fm.fileExists(atPath: dst.path), _fm.fileExists(atPath: src.path) {
@@ -499,10 +499,7 @@ final class TweakManager: ObservableObject {
 
 		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("folders.json")) { // try? ok: best-effort legacy folders migration
 			let incoming = TweakManager.decodeLenientArray(TweakFolder.self, from: data)
-			let existing = Set(folders.map { $0.id })
-			for folder in incoming where !existing.contains(folder.id) {
-				folders.append(folder)
-			}
+			folders.append(contentsOf: TweakManager.uniqueBackupItems(incoming, excluding: Set(folders.map(\.id))))
 			_saveFolders()
 		}
 
@@ -737,6 +734,16 @@ private struct _FailableElement<T: Decodable>: Decodable {
 }
 
 extension TweakManager {
+	/// Keep the first occurrence of each identity when merging untrusted or legacy backup arrays.
+	/// The existing library is also authoritative, so incoming collisions are ignored.
+	static func uniqueBackupItems<Item: Identifiable>(
+		_ incoming: [Item],
+		excluding existingIDs: Set<Item.ID>
+	) -> [Item] where Item.ID: Hashable {
+		var seen = existingIDs
+		return incoming.filter { seen.insert($0.id).inserted }
+	}
+
 	/// Drops only the entries that fail to decode instead of losing the whole file.
 	static func decodeLenientArray<T: Decodable>(_ type: T.Type, from data: Data) -> [T] {
 		if let all = try? JSONDecoder().decode([T].self, from: data) { return all } // try? ok: lenient array decode; falls back to per-element decoding

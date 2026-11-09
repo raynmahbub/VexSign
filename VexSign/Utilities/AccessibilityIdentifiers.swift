@@ -44,6 +44,8 @@ enum A11y {
 		static let guestBadge = "vexsign.library.guest"
 		static let updateBadge = "vexsign.library.update"
 		static let lockBadge = "vexsign.library.locked"
+		static let resign = "vexsign.library.resign"
+		static let export = "vexsign.library.export"
 	}
 
 	/// Every identifier, for the test that keeps them unique and prefixed.
@@ -52,7 +54,8 @@ enum A11y {
 			Signing.start, Signing.stop, Signing.progress, Signing.console,
 			Install.start, Install.progress,
 			Home.search, Home.importPackages,
-			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge
+			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,
+			Library.resign, Library.export
 		]
 	}
 }

@@ -56,6 +56,23 @@ final class InstallConfirmationTests: XCTestCase {
 
 	// MARK: - Start
 
+    func testSynchronousProbeAdapterTimesOutWhileTheUnderlyingCallIsBlocked() async throws {
+        let probe = BlockingInstalledProbe(app())
+        defer { probe.release.signal() }
+
+        let resultTask = Task {
+            await probe.installedAppWithTimeout(for: bundleID, timeout: 0.05)
+        }
+        XCTAssertEqual(probe.entered.wait(timeout: .now() + 1), .success)
+        let result = await resultTask.value
+        XCTAssertNil(result)
+    }
+
+	func testDefaultVerificationDeadlineIsBoundedToTwoMinutes() {
+		XCTAssertEqual(InstallConfirmation.Limits().verify, 120)
+		XCTAssertEqual(InstallConfirmation.Limits().unavailableEvidence, 30)
+	}
+
 	func testNothingHappensUntilTheStartDeadline() {
 		var confirmation = confirmation()
 
@@ -120,7 +137,7 @@ final class InstallConfirmationTests: XCTestCase {
 
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(12)), .verifying)
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(31)), .verifying)
-        XCTAssertEqual(confirmation.record(probe: missing, at: at(610)), .finished(.notInstalled))
+        XCTAssertEqual(confirmation.record(probe: missing, at: at(121)), .finished(.notInstalled))
 	}
 
     func testDelayedInstalledEvidenceAfterSettleStillCompletes() {
@@ -135,7 +152,7 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 
 		XCTAssertEqual(confirmation.record(probe: nil, at: at(12)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: nil, at: at(610)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: nil, at: at(121)), .finished(.timedOutVerifying))
 		XCTAssertFalse(InstallConfirmation.Verdict.timedOutVerifying.provesInstalled)
 	}
 
@@ -144,7 +161,7 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 		let host = InstalledApp(bundleIdentifier: "different.host", isInstalled: true, version: "1.2.0")
 		XCTAssertEqual(confirmation.record(probe: host, at: at(31)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: host, at: at(610)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: host, at: at(121)), .finished(.timedOutVerifying))
 	}
 
 	func testAPlaceholderIsNotAnInstall() {
@@ -152,7 +169,7 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 
 		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(31)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(610)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(121)), .finished(.timedOutVerifying))
 	}
 
 	// MARK: - Cancellation
@@ -421,6 +438,39 @@ final class InstallConfirmationTests: XCTestCase {
             current: InstalledApp(bundleIdentifier: "other.app", isInstalled: true), expectation: expected))
     }
 
+    func testInstalledRegistryFallbackRequiresMatchingIdentityAndPreservesBuildMetadata() {
+        let listed = InstalledAppProbe.listedApplication(
+            bundleID,
+            returnedIdentifier: bundleID,
+            isPlaceholder: false,
+            version: "1.2.0",
+            build: "12"
+        )
+        XCTAssertEqual(InstalledState.derive(from: listed, expecting: "1.2.0"), .installed)
+        XCTAssertEqual(listed?.build, "12")
+
+        XCTAssertNil(InstalledAppProbe.listedApplication(
+            bundleID,
+            returnedIdentifier: "other.app",
+            isPlaceholder: false
+        ))
+        XCTAssertNil(InstalledAppProbe.listedApplication(
+            bundleID,
+            returnedIdentifier: bundleID,
+            isPlaceholder: nil
+        ))
+    }
+
+    func testInstalledRegistryPlaceholderRemainsUnknown() {
+        let placeholder = InstalledAppProbe.listedApplication(
+            bundleID,
+            returnedIdentifier: bundleID,
+            isPlaceholder: true,
+            version: "1.2.0"
+        )
+        XCTAssertEqual(InstalledState.derive(from: placeholder, expecting: "1.2.0"), .unknown)
+    }
+
     func testWorkspacePositiveRepairsStaleProxyWithoutLosingVersion() {
         let stale = InstalledApp(bundleIdentifier: bundleID, isInstalled: false, version: "1.2.0",
             build: "12", bundleURL: URL(fileURLWithPath: "/private/var/containers/Bundle/Application/example/Test.app"))
@@ -501,6 +551,20 @@ final class InstallConfirmationTests: XCTestCase {
 }
 
 // MARK: - Fakes
+
+private final class BlockingInstalledProbe: InstalledAppProbing, @unchecked Sendable {
+    let entered = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    private let result: InstalledApp
+
+    init(_ result: InstalledApp) { self.result = result }
+
+    func installedApp(for bundleIdentifier: String) -> InstalledApp? {
+        entered.signal()
+        release.wait()
+        return result
+    }
+}
 
 private struct FixedProbe: InstalledAppProbing {
 	let app: InstalledApp?

@@ -60,88 +60,93 @@ import UIKit
 import SwiftUI
 
 public class NBUIVariableBlurView: UIView {
-	// MARK: - Private Properties
-	private var filterClass: NSObjectProtocol {
-		let encodedString = "Q0FGaWx0ZXI="
-		let data = Data(base64Encoded: encodedString)!
-		let string = String(data: data, encoding: .utf8)!
-		
-		return NSClassFromString(string) as AnyObject as! NSObjectProtocol
-	}
-	
-	private var filterType: String {
-		let encodedString = "dmFyaWFibGVCbHVy"
-		let data = Data(base64Encoded: encodedString)!
-		
-		return String(data: data, encoding: .utf8)!
-	}
-	
-	private var filterWithTypeSelector: Selector {
-		let encodedString = "ZmlsdGVyV2l0aFR5cGU6"
-		let data = Data(base64Encoded: encodedString)!
-		let string = String(data: data, encoding: .utf8)!
-		
-		return Selector((string))
-	}
-	
-	private var variableBlur: AnyObject!
-	
-	// MARK: - Public Properties
+	private let effectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+	private var gradientMaskImageView: UIImageView?
+
+	/// Kept for source compatibility. UIKit exposes supported blur styles, not a
+	/// variable blur radius; this scales the standard effect's opacity instead.
 	public var blurRadius: CGFloat = 20 {
-		willSet {
-			variableBlur.setValue(newValue, forKey: "inputRadius")
-		}
+		didSet { updateEffectStrength() }
 	}
-	
-	public var gradientMask: UIImage? = nil {
-		willSet {
-			variableBlur.setValue(newValue?.cgImage, forKey: "inputMaskImage")
-		}
+
+	/// An alpha mask for the system material. A missing mask safely shows a
+	/// uniform material rather than preventing the containing screen from loading.
+	public var gradientMask: UIImage? {
+		didSet { updateGradientMask() }
 	}
-	
-	override public class var layerClass: AnyClass {
-		let encodedString = "Q0FCYWNrZHJvcExheWVy"
-		let data = Data(base64Encoded: encodedString)!
-		let string = String(data: data, encoding: .utf8)!
-		
-		return NSClassFromString(string)!
-	}
-	
-	// MARK: - init(frame:)
+
+	override public class var layerClass: AnyClass { CALayer.self }
+
 	override init(frame: CGRect) {
 		super.init(frame: frame)
-		setupVariableBlurFilter()
+		configureEffectView()
 	}
-	
-	// MARK: - init?(coder:)
+
 	required init?(coder: NSCoder) {
-		fatalError("init(coder:) has not been implemented")
+		super.init(coder: coder)
+		configureEffectView()
 	}
-	
-	// MARK: - Private Methods
-	private func setupVariableBlurFilter() {
-		variableBlur = filterClass.perform(filterWithTypeSelector, with: filterType).takeUnretainedValue()
-		variableBlur.setValue(blurRadius, forKey: "inputRadius")
-		variableBlur.setValue(true, forKey: "inputNormalizeEdges")
-		variableBlur.setValue(gradientMask?.cgImage, forKey: "inputMaskImage")
-		
-		layer.filters = [variableBlur as! NSObject]
+
+	override public func layoutSubviews() {
+		super.layoutSubviews()
+		effectView.frame = bounds
+		gradientMaskImageView?.frame = effectView.bounds
+	}
+
+	private func configureEffectView() {
+		addSubview(effectView)
+		effectView.translatesAutoresizingMaskIntoConstraints = false
+		NSLayoutConstraint.activate([
+			effectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+			effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+			effectView.topAnchor.constraint(equalTo: topAnchor),
+			effectView.bottomAnchor.constraint(equalTo: bottomAnchor)
+		])
+		updateEffectStrength()
+		updateGradientMask()
+	}
+
+	private func updateEffectStrength() {
+		// Preserve the old 0...20 intent using a supported blend-strength control.
+		effectView.alpha = min(max(blurRadius / 20, 0), 1)
+	}
+
+	private func updateGradientMask() {
+		guard let gradientMask else {
+			gradientMaskImageView = nil
+			effectView.mask = nil
+			return
+		}
+		let mask = UIImageView(image: gradientMask)
+		mask.contentMode = .scaleToFill
+		mask.frame = effectView.bounds
+		gradientMaskImageView = mask
+		effectView.mask = mask
+		setNeedsLayout()
 	}
 }
 
-/// A variable blur view.
+/// A variable blur view implemented with public UIKit visual-effect APIs.
 public struct NBVariableBlurView: UIViewRepresentable {
-	public init() {}
+	public var blurRadius: CGFloat
+	public var gradientMask: UIImage?
+
+	public init(blurRadius: CGFloat = 20, gradientMask: UIImage? = NBVariableBlurViewConstants.defaultGradientMask) {
+		self.blurRadius = blurRadius
+		self.gradientMask = gradientMask
+	}
+
 	public func makeUIView(context: Context) -> NBUIVariableBlurView {
-		var view = NBUIVariableBlurView()
-		
-		let gradientMask = NBVariableBlurViewConstants.defaultGradientMask
-		view = NBUIVariableBlurView(frame: .zero)
+		let view = NBUIVariableBlurView(frame: .zero)
+		view.blurRadius = blurRadius
 		view.gradientMask = gradientMask
 		return view
 	}
-	
-	public func updateUIView(_ uiView: NBUIVariableBlurView, context: Context) {}
+
+	public func updateUIView(_ uiView: NBUIVariableBlurView, context: Context) {
+		uiView.blurRadius = blurRadius
+		uiView.gradientMask = gradientMask
+	}
 }
 
 public enum NBVariableBlurViewConstants {
