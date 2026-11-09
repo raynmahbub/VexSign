@@ -62,6 +62,13 @@ evidence that the package compiles:
 | Does a structurally valid envelope still fail Apple trust? | Yes. The fixture is self-signed with an ephemeral RSA-2048 key and `verifyAppleProvisioningCMS` rejects it; structural parse is deliberately not trust. |
 | Does tampering get caught at the right layer? | Yes. A flipped payload bit breaks the `messageDigest` comparison (parse rejects); a flipped signature bit still parses (the signature is opaque to the envelope) and fails at `verifySignature` — confirmed with `openssl cms -verify`. |
 
+**Test-execution caveat.** These cases live in `NativeSigning/Tests/`, which runs
+in two places: the `link-smoke` job of `embedded-container.yml`, which is
+`workflow_dispatch`-only (`link_smoke: true`), and the flattened smoke package
+that the `build` job links. Neither is a default PR check, so a change can land
+without these cases ever executing. The Linux checks above are the part that
+runs on every PR.
+
 **What is still missing to promote the verifier:** an Apple-issued profile
 fixture or a device-captured CMS whose chain actually reaches one of the pinned
 roots, a real `SecKeyVerifySignature` pass against it, and native compilation.
