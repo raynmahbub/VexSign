@@ -51,7 +51,10 @@ final class GitHubReleaseSourceTests: XCTestCase {
         }
         XCTAssertEqual(repository.name, "example/reader")
         XCTAssertEqual(repository.apps.first?.currentVersion, "v2.4")
-        XCTAssertTrue(String(decoding: cachedPayload, as: UTF8.self).contains("github.com/example/reader"))
+        let cachedRepository = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: cachedPayload) as? [String: Any]
+        )
+        XCTAssertEqual(cachedRepository["identifier"] as? String, "github.com/example/reader")
     }
 
     func testRequiresAnIPAAsset() throws {

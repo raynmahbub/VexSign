@@ -137,7 +137,8 @@ final class InstallConfirmationTests: XCTestCase {
 
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(12)), .verifying)
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(31)), .verifying)
-        XCTAssertEqual(confirmation.record(probe: missing, at: at(121)), .finished(.notInstalled))
+		XCTAssertEqual(confirmation.record(probe: missing, at: at(129)), .verifying)
+		XCTAssertEqual(confirmation.record(probe: missing, at: at(130)), .finished(.notInstalled))
 	}
 
     func testDelayedInstalledEvidenceAfterSettleStillCompletes() {
@@ -161,7 +162,8 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 		let host = InstalledApp(bundleIdentifier: "different.host", isInstalled: true, version: "1.2.0")
 		XCTAssertEqual(confirmation.record(probe: host, at: at(31)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: host, at: at(121)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: host, at: at(129)), .verifying)
+		XCTAssertEqual(confirmation.record(probe: host, at: at(130)), .finished(.timedOutVerifying))
 	}
 
 	func testAPlaceholderIsNotAnInstall() {
@@ -169,7 +171,8 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 
 		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(31)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(121)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(129)), .verifying)
+		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(130)), .finished(.timedOutVerifying))
 	}
 
 	// MARK: - Cancellation
