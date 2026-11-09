@@ -13,25 +13,29 @@ import CryptoKit
 enum FileIntegrity {
 	/// Streaming SHA-256 — chunks the file so multi-GB IPAs never load into memory.
 	static func sha256(of url: URL) -> String? {
-		let handle: FileHandle
-		do {
-			handle = try FileHandle(forReadingFrom: url)
-		} catch {
-			return nil
-		}
-		defer { try? handle.close() }
+        do { return try sha256(of: url, cancellationCheck: {}) }
+        catch { return nil } // A non-cancellable caller represents unreadable input as nil.
+    }
 
-		var hasher = SHA256()
-		let chunkSize = 1 << 20 // 1 MiB
-
-		while true {
-			let chunk = handle.readData(ofLength: chunkSize)
-			if chunk.isEmpty { break }
-			chunk.withUnsafeBytes { hasher.update(bufferPointer: $0) }
-		}
-
-		return hasher.finalize().map { String(format: "%02x", $0) }.joined()
-	}
+    /// Cancellation checkpoints are outside I/O catch blocks and are never converted into a digest.
+    static func sha256(of url: URL, cancellationCheck: () throws -> Void) throws -> String? {
+        try cancellationCheck()
+        let handle: FileHandle
+        do { handle = try FileHandle(forReadingFrom: url) }
+        catch { return nil }
+        defer { try? handle.close() } // try? ok: read-only handle teardown
+        var hasher = SHA256()
+        while true {
+            try cancellationCheck()
+            let chunk: Data
+            do { chunk = try handle.read(upToCount: 1 << 20) ?? Data() }
+            catch { return nil }
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        try cancellationCheck()
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
 
 	/// True when the file's SHA-256 equals `expected` (case- and prefix-tolerant).
 	static func matches(_ url: URL, expected: String) -> Bool {

@@ -34,6 +34,8 @@ versioned with the code.
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [CI repair assistant](CI_REPAIR_ASSISTANT.md) | You are configuring or reviewing AI-proposed draft PRs for failed CI. |
 | [Upstream review](UPSTREAM_REVIEW.md) | You want the dated upstream feature snapshot and porting caveats—not a list of shipped VexSign features. |
+| [Performance and reliability comparison](research/performance-and-reliability-review.md) | You need the 17-project comparison, implemented fixes, remaining gaps, workflow review scope and device checklist. |
+| [Public signer integration assessment](research/public-signer-integration-assessment.md) | You need the 2026-11-08 pinned source inventory, feature dispositions, first integration batch and remaining gates. |
 | [Signing comparison notes](research/public-signer-comparison.md) | You need the concise public-source comparison, reviewed revisions and licensing context. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |
 | [Changelog](../CHANGELOG.md) | You need the user-visible history. |
@@ -70,3 +72,5 @@ Keep legal/security/community files at the root for GitHub discoverability.
 
 Run `make docs-check` for offline file-link validation. It does not check remote
 URLs, heading anchors or claims about feature behaviour.
+
+- [Remaining roadmap implementation and acceptance](research/remaining-roadmap-implementation.md) — recovery, preflight, release tracking and validation boundaries.

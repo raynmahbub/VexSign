@@ -384,6 +384,32 @@ class WorkflowPolicyTests(unittest.TestCase):
         diagnostics = text.split('retention-days: 14', 1)[1]
         self.assertIn('retention-days: 3', diagnostics)
 
+    def test_published_ipa_bytes_are_crc_checked_and_duplicates_rejected(self):
+        import plistlib
+        import warnings
+        import zipfile
+        module = runpy.run_path(str(ROOT / 'tools/release-build-version.py'))
+        check = module['check_container']
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'test.ipa'
+            with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_STORED) as archive:
+                archive.writestr('Payload/Test.app/Info.plist', plistlib.dumps({'CFBundleVersion': '1.0.1'}))
+                archive.writestr('Payload/Test.app/Test', b'unique-payload-fixture')
+            check(path)
+            path.write_bytes(path.read_bytes().replace(b'unique-payload-fixture', b'broken-payload-fixture', 1))
+            with self.assertRaises(ValueError):
+                check(path)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', UserWarning)
+                with zipfile.ZipFile(path, 'w') as archive:
+                    for _ in range(2):
+                        archive.writestr('Payload/Test.app/Info.plist', plistlib.dumps({}))
+            with self.assertRaisesRegex(ValueError, 'duplicate'):
+                check(path)
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        self.assertIn('--check-container VexSign-unsigned.ipa', ci)
+        self.assertLess(ci.index('--check-container VexSign-unsigned.ipa'), ci.index('      - name: Upload unsigned test IPA'))
+
     def test_every_release_runs_simulator_tests(self):
         text = (WORKFLOWS / 'release.yml').read_text()
         step = text.split('      - name: Release simulator tests\n', 1)[1].split('      - name:', 1)[0]
@@ -583,7 +609,7 @@ class WorkflowPolicyTests(unittest.TestCase):
             info = {'DTPlatformName': 'iphoneos', 'CFBundleExecutable': 'VexSign',
                     'CFBundleShortVersionString': '1.2.3', 'CFBundleVersion': '42'}
             env = {**os.environ, 'PATH': str(bin_path) + os.pathsep + os.environ['PATH'],
-                   'DERIVED_DATA': str(derived), 'RUNNER_TEMP': str(root),
+                   'DERIVED_DATA': str(derived), 'RUNNER_TEMP': str(root), 'GITHUB_WORKSPACE': str(ROOT),
                    'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '2'}
             def run():
                 (app / 'Info.plist').write_bytes(plistlib.dumps(info))

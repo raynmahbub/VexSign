@@ -245,7 +245,7 @@ class TweakHandler {
 			let info = NSDictionary(contentsOf: infoURL)?.mutableCopy() as? NSMutableDictionary
 		else { return }
 
-		let hostId = _options.appIdentifier
+		let hostId = _options.effectiveAppIdentifier
 			?? (NSDictionary(contentsOf: _app.appendingPathComponent("Info.plist"))?["CFBundleIdentifier"] as? String)
 		guard let hostId, !hostId.isEmpty else { return }
 

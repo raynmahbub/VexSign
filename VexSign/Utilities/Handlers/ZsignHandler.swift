@@ -91,6 +91,9 @@ final class ZsignHandler {
             guard SigningInputValidation.entitlementsAreUsable(at: request.entitlementsPath) else {
                 throw SigningFileHandlerError.entitlementsUnreadable
             }
+            // This worker-side check is shared by certificate, ad-hoc, batch and automation.
+            // It inspects the modified tree after extension removal, not an earlier source snapshot.
+            try BundleExecutableAudit.requireSignable(self._appUrl)
             StdoutCapture.shared.start { SigningLog.shared.info($0) }
             defer { StdoutCapture.shared.stop() }
             try self.run(request)

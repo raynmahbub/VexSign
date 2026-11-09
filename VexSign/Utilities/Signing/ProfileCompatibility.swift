@@ -71,8 +71,7 @@ enum ProfileCompatibility {
 			removableExtensionIdentifiers: Set<String>? = nil
 		) {
 			let requested = ProfileCompatibility.entitlements(at: options.appEntitlementsFile)
-			let override = options.appIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
-			let effectiveOverride = (override?.isEmpty == false) ? override : nil
+			let effectiveOverride = options.effectiveAppIdentifier
 
 			// The app identifier below is already the one the options will produce. The nested
 			// identifiers come off disk, so they still carry the *old* base; the signer rewrites

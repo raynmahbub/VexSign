@@ -136,7 +136,7 @@ struct BackupView: View {
 			arguments: archive.manifest.createdAt.formatted(date: .abbreviated, time: .shortened),
 			archive.manifest.appVersion
 		)
-		return created + "\n" + archive.integrity.summary
+		return created + "\n" + String.localized("VexSign backup schema %lld. Other signers’ backup formats are not supported. Restoring a library copy does not restore an installed app’s private data or prove installation.", arguments: archive.manifest.version) + "\n" + archive.integrity.summary
 	}
 
 	private func _archiveCounts(_ archive: BackupArchive) -> [BackupComponents: Int] {

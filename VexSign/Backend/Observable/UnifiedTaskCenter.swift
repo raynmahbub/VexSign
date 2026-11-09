@@ -482,7 +482,7 @@ final class UnifiedTaskCenter: ObservableObject {
 			case .queued: newPhase = .queued
 			case .downloading: newPhase = .downloading
 			case .paused: newPhase = .paused
-			case .importing: newPhase = .importing
+			case .verifying, .importing: newPhase = .importing
 			case .signing: newPhase = .signing
 			case .completed: newPhase = .completed
 			}

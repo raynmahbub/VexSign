@@ -108,7 +108,7 @@ final class SigningHandler: NSObject {
 		SigningLog.shared.info(.localized("Applying modifications"))
 
 		if
-			let identifier = _options.appIdentifier,
+			let identifier = _options.effectiveAppIdentifier,
 			let oldIdentifier = infoDictionary["CFBundleIdentifier"] as? String {
 			SigningLog.shared.info(.localized("Changing bundle identifier to %@", arguments: identifier))
 			try await _modifyPluginIdentifiers(old: oldIdentifier, new: identifier, for: movedAppPath)
@@ -232,7 +232,7 @@ final class SigningHandler: NSObject {
     /// unless the user signed through the blocking preflight issues that predict them.
 	private func _verifySignedBundle(at path: URL) throws {
 		var expectation = SignatureVerifier.Expectation.freshlySigned
-		expectation.declaredBundleIdentifier = _options.appIdentifier
+		expectation.declaredBundleIdentifier = _options.effectiveAppIdentifier
 		expectation.requiresEmbeddedProfile = !_options.removeProvisioning
 
 		let report = SignatureVerifier.verify(bundleAt: path, expectation: expectation)
@@ -276,6 +276,7 @@ final class SigningHandler: NSObject {
 		destinationURL = destinationURL.appendingPathComponent(movedAppPath.lastPathComponent)
 		
 		try _fileManager.moveItem(at: movedAppPath, to: destinationURL)
+        LibrarySizeSnapshot.invalidate()
 		Logger.misc.info("[\(self._uuid)] Moved App to: \(destinationURL.path)")
 		
 		try? _fileManager.removeItem(at: _uniqueWorkDir)
@@ -370,7 +371,7 @@ extension SigningHandler {
 
 	private func _isolateKeychainGroups(for app: URL) async throws {
 		guard
-			let bundleId = _options.appIdentifier ?? _app.identifier, !bundleId.isEmpty,
+			let bundleId = _options.effectiveAppIdentifier ?? _app.identifier, !bundleId.isEmpty,
 			let entitlements = _baseEntitlements(),
 			let teamId = _teamIdentifier(from: entitlements)
 		else {
@@ -633,7 +634,7 @@ extension SigningHandler {
 				SigningLog.shared.warn(summary)
 			}
         }
-		if !report.isClean, overridesBlockingPreflightIssues {
+		if !report.uncovered.isEmpty, overridesBlockingPreflightIssues {
 			SigningLog.shared.warn(.localized("Signing anyway: retained extensions the profile does not cover may not work after installation."))
 		}
 		try report.requireCompatibleProfile(overridingBlockingIssues: overridesBlockingPreflightIssues)

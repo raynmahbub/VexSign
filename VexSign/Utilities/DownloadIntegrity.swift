@@ -71,12 +71,27 @@ enum DownloadIntegrity {
 	// MARK: Verify
 
 	static func verify(fileAt url: URL, expectation: Expectation) -> Verdict {
+        evaluate(expectation: expectation, actualSize: byteCount(of: url),
+                 actualHash: expectation.sha256 == nil ? nil : FileIntegrity.sha256(of: url))
+    }
+
+    static func verify(fileAt url: URL, expectation: Expectation, cancellationCheck: () throws -> Void) throws -> Verdict {
+        try cancellationCheck()
+        let size = byteCount(of: url)
+        let hash: String?
+        if expectation.sha256 != nil { hash = try FileIntegrity.sha256(of: url, cancellationCheck: cancellationCheck) }
+        else { hash = nil }
+        try cancellationCheck()
+        return evaluate(expectation: expectation, actualSize: size, actualHash: hash)
+    }
+
+    private static func evaluate(expectation: Expectation, actualSize: Int64?, actualHash: String?) -> Verdict {
 		var failures: [Failure] = []
 		var checks = 0
 
 		if let expected = expectation.byteCount {
 			checks += 1
-			let actual = byteCount(of: url)
+			let actual = actualSize
 			if actual != expected {
 				failures.append(.size(expected: expected, actual: actual))
 			}
@@ -84,7 +99,7 @@ enum DownloadIntegrity {
 
 		if let expected = expectation.sha256 {
 			checks += 1
-			let actual = FileIntegrity.sha256(of: url)
+			let actual = actualHash
 			if actual != expected {
 				failures.append(.hash(expected: expected, actual: actual))
 			}

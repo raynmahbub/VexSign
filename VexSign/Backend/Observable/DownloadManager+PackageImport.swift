@@ -12,50 +12,92 @@ import UIKit
 import NimbleExtensions
 
 extension DownloadManager {
-	func handlePackageFile(url: URL, dl: Download) throws {
-		guard !dl.isImporting else { return }
+    func handlePackageFile(url: URL, dl: Download) throws {
+        guard Thread.isMainThread else {
+            try DispatchQueue.main.sync { try self.handlePackageFile(url: url, dl: dl) }
+            return
+        }
+        guard !dl.isImporting, !dl.isVerifying,
+              downloads.contains(where: { $0 === dl }),
+              dl.importControl.isControllable,
+              let token = dl.packageVerification.begin() else { return }
+        // Claim ownership synchronously, before lifecycle retries can schedule another worker.
+        dl.pendingFileURL = url
+        checkpointRecovery(dl, stage: .verifying, file: url)
+        dl.isVerifying = true
+        dl.progress = 1.0
+        let expectation = dl.integrity ?? DownloadIntegrity.Expectation()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let checkpoint = {
+                try dl.packageVerification.check(token)
+                try dl.importControl.checkpoint()
+                try dl.packageVerification.check(token)
+            }
+            do {
+                let verdict = try DownloadIntegrity.verify(fileAt: url, expectation: expectation, cancellationCheck: checkpoint)
+                let auditHash: String?
+                if expectation.sha256 == nil {
+                    auditHash = try FileIntegrity.sha256(of: url, cancellationCheck: checkpoint)
+                } else {
+                    switch verdict {
+                    case .verified: auditHash = expectation.sha256
+                    case .mismatch(let failures):
+                        auditHash = failures.compactMap { failure -> String? in
+                            if case let .hash(_, actual) = failure { return actual }
+                            return nil
+                        }.first
+                    case .unverified: auditHash = nil
+                    }
+                }
+                try checkpoint()
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    guard self.downloads.contains(where: { $0 === dl }), dl.importControl.isControllable else {
+                        self.finishCancelledVerification(url: url, dl: dl)
+                        return
+                    }
+                    let requiresDecision: Bool
+                    if case .mismatch = verdict { requiresDecision = true } else { requiresDecision = false }
+                    guard dl.packageVerification.finish(token, requiresDecision: requiresDecision) else {
+                        self.finishCancelledVerification(url: url, dl: dl)
+                        return
+                    }
+                    dl.isVerifying = false
+                    dl.verificationAuditHash = auditHash
+                    switch verdict {
+                    case .verified(let checks):
+                        SigningLog.shared.info(.localized("%@ matches all %lld check(s) the source published.", arguments: dl.fileName, checks), category: "download")
+                        self.beginPackageImport(url: url, dl: dl, verifiedHash: auditHash)
+                    case .unverified:
+                        self.beginPackageImport(url: url, dl: dl, verifiedHash: auditHash)
+                    case .mismatch(let failures):
+                        let message = DownloadIntegrity.describe(failures, fileName: dl.fileName)
+                        SigningLog.shared.error(message, category: "download")
+                        self.finishImport(of: dl, succeeded: false)
+                        self.presentIntegrityFailure(for: dl, failures: failures, message: message, fileURL: url)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { [weak self] in self?.finishCancelledVerification(url: url, dl: dl) }
+            }
+        }
+    }
 
-		let expectation = dl.integrity ?? DownloadIntegrity.Expectation()
-		guard !expectation.isEmpty else {
-			// Nothing was declared for this file: import it, and say what it was, exactly as before.
-			beginPackageImport(url: url, dl: dl)
-			return
-		}
-
-		// when the source declared a size (or a hash), check the file before anything is
-		// unpacked. A truncated IPA used to reach the importer and fail there, with a message that
-		// said nothing about the download. Reading and hashing a large file off the main thread
-		// keeps the row responsive; the import itself only starts once the verdict is in.
-		DispatchQueue.global(qos: .utility).async { [weak self] in
-			let verdict = DownloadIntegrity.verify(fileAt: url, expectation: expectation)
-
-			DispatchQueue.main.async {
-				guard let self else { return }
-
-				switch verdict {
-				case .verified(let checks):
-					SigningLog.shared.info(
-						.localized("%@ matches all %lld check(s) the source published.", arguments: dl.fileName, checks),
-						category: "download"
-					)
-					self.beginPackageImport(url: url, dl: dl)
-
-				case .unverified:
-					self.beginPackageImport(url: url, dl: dl)
-
-				case .mismatch(let failures):
-					let message = DownloadIntegrity.describe(failures, fileName: dl.fileName)
-					SigningLog.shared.error(message, category: "download")
-
-					// A failed check is a failed import: the row goes away, as it does for any other
-					// failure. The one deliberate override therefore has to be offered here, in the
-					// alert that reports the mismatch — see `presentIntegrityFailure`.
-					self.finishImport(of: dl, succeeded: false)
-					self.presentIntegrityFailure(for: dl, failures: failures, message: message, fileURL: url)
-				}
-			}
-		}
-	}
+    /// Only delete our own staged download, after its verifier has released its file handle.
+    func finishCancelledVerification(url: URL, dl: Download) {
+        dl.packageVerification.cancel()
+        dl.isVerifying = false
+        dl.isPaused = false
+        if url.deletingLastPathComponent().standardizedFileURL == FileManager.default.downloadStaging.standardizedFileURL {
+            do { try FileManager.default.removeItem(at: url) }
+            catch {
+                SigningLog.shared.warn(.localized("Could not remove a cancelled verification file: %@", arguments: error.localizedDescription), category: "download")
+            }
+        }
+        allActivityDownloads.removeValue(forKey: dl.id)
+        finishedDownloadingIDs.remove(dl.id)
+        finishImport(of: dl, succeeded: false)
+    }
 
 	/// Asks the user what to do with a file that did not match its source.
 	///
@@ -68,16 +110,19 @@ extension DownloadManager {
 		message: String,
 		fileURL: URL
 	) {
-		guard !isAppInBackground else {
+		guard !isAppInBackground, let errorDelegate else {
+            dl.packageVerification.cancel()
 			// Nobody to ask: discard it, and say so.
 			discardRejectedPackage(at: fileURL, fileName: dl.fileName)
 			sendCompletionNotification(for: dl, status: "❌ " + .localized("Download failed a check"))
 			return
 		}
 
+        checkpointRecovery(dl, stage: .awaitingDecision, file: fileURL)
 		dl.retainedPackageURL = fileURL
+        integrityDecisions[ObjectIdentifier(dl)] = dl
 
-		errorDelegate?.showUIErrorMessage(
+		errorDelegate.showUIErrorMessage(
 			title: .localized("Download failed a check"),
 			message: message,
 			actionTitle: .localized("Import Anyway"),
@@ -87,8 +132,11 @@ extension DownloadManager {
 			},
 			dismissTitle: .localized("Delete"),
 			onDismiss: { [weak self, weak dl] in
-				guard let self, let dl else { return }
+				guard let self, let dl, self.integrityDecisions[ObjectIdentifier(dl)] === dl else { return }
 				dl.retainedPackageURL = nil
+                dl.packageVerification.cancel()
+                self.integrityDecisions.removeValue(forKey: ObjectIdentifier(dl))
+                self.clearRecovery(dl)
 				self.discardRejectedPackage(at: fileURL, fileName: dl.fileName)
 			}
 		)
@@ -99,13 +147,20 @@ extension DownloadManager {
 	/// This is the only bypass, it is per-file, and the expectation is *not* cleared: downloading the
 	/// same app again is checked again from scratch.
 	func importAnyway(_ dl: Download, failures: [DownloadIntegrity.Failure]) {
-		guard let url = dl.retainedPackageURL ?? dl.pendingFileURL else {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.importAnyway(dl, failures: failures) }
+            return
+        }
+		guard let url = dl.retainedPackageURL else {
 			SigningLog.shared.error(
 				.localized("Nothing left to import for %@ — the rejected file is gone.", arguments: dl.fileName),
 				category: "download"
 			)
 			return
 		}
+
+        guard integrityDecisions[ObjectIdentifier(dl)] === dl, dl.importControl.isControllable,
+              dl.packageVerification.acceptOverride() else { return }
 
 		SigningLog.shared.warn(
 			.localized("Importing %@ anyway, at the user's request, despite: %@", arguments: dl.fileName, DownloadIntegrity.describe(failures, fileName: dl.fileName)),
@@ -115,12 +170,13 @@ extension DownloadManager {
 
 		// The row was removed when the check failed. Put it back: the import is about to happen, the
 		// user should see it, and `finishImport` needs something to finish.
-		if !downloads.contains(where: { $0.id == dl.id }) {
+		if !downloads.contains(where: { $0 === dl }) {
 			downloads.append(dl)
 			objectWillChange.send()
 		}
 
-		beginPackageImport(url: url, dl: dl)
+        integrityDecisions.removeValue(forKey: ObjectIdentifier(dl))
+		beginPackageImport(url: url, dl: dl, verifiedHash: dl.verificationAuditHash)
 	}
 
 	/// Deletes a file that failed its check. Unconditional, unlike `CleanupManager`: a file the user
@@ -141,23 +197,21 @@ extension DownloadManager {
 	}
 
 	/// The import path itself: hash for the Logs tab, then hand the file to the importer.
-	private func beginPackageImport(url: URL, dl: Download) {
-		// Integrity audit: record the SHA-256 of every downloaded package in the Logs
-		// tab, so it can be compared later against a hash the source published.
-		let label = dl.fileName
-		DispatchQueue.global(qos: .utility).async {
-			if let hash = FileIntegrity.sha256(of: url) {
-				SigningLog.shared.info(.localized("SHA-256 of %@: %@", arguments: label, hash), category: "download")
-			}
-		}
-
-		DispatchQueue.main.async {
-			self.objectWillChange.send()
-			dl.progress = 1.0
-			// Retry point if the import dies before it finishes.
-			dl.pendingFileURL = url
-			self.beginImport(for: dl)
-		}
+    private func beginPackageImport(url: URL, dl: Download, verifiedHash: String? = nil) {
+        guard downloads.contains(where: { $0 === dl }), dl.importControl.isControllable else {
+            finishCancelledVerification(url: url, dl: dl)
+            return
+        }
+        if let verifiedHash {
+            SigningLog.shared.info(.localized("SHA-256 of %@: %@", arguments: dl.fileName, verifiedHash), category: "download")
+        }
+        // Handoff on the same main-queue turn, not in a later callback that cancellation could overtake.
+        objectWillChange.send()
+        dl.isVerifying = false
+        dl.progress = 1.0
+        dl.pendingFileURL = url
+        checkpointRecovery(dl, stage: .importing, file: url)
+        beginImport(for: dl)
 
 		FR.handlePackageFile(url, download: dl) { result in
 			switch result {
@@ -232,7 +286,9 @@ extension DownloadManager {
 		// Captured before `endImport()` clears it — the staged IPA is deleted below.
 		let stagedURL = download.pendingFileURL
 
+        clearRecovery(download)
 		download.isActive = false
+        download.isVerifying = false
 		endImport(for: download)
 
 		if succeeded {
@@ -252,10 +308,10 @@ extension DownloadManager {
 		// Snapshot before removing this one.
 		let isLastDownload = !downloads.contains { other in
 			other.id != download.id &&
-			(other.isActive || other.isSigning || (other.progress > 0 && other.progress < 1.0) || (other.unpackageProgress > 0 && other.unpackageProgress < 1.0))
+			(other.isActive || other.isWaitingForSlot || other.isVerifying || other.isSigning || (other.progress > 0 && other.progress < 1.0) || (other.unpackageProgress > 0 && other.unpackageProgress < 1.0))
 		}
 
-		if let index = getDownloadIndex(by: download.id) {
+		if let index = downloads.firstIndex(where: { $0 === download }) {
 			downloads.remove(at: index)
 		}
 
