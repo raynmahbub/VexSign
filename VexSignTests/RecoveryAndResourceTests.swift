@@ -118,7 +118,10 @@ final class RecoveryAndResourceTests: XCTestCase {
         try Data("second-key".utf8).write(to: legacy.appendingPathComponent("b.p12"))
         XCTAssertThrowsError(try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination,
             beforeMove: { source, _ in if source.lastPathComponent == "b.p12" { throw CocoaError(.fileWriteOutOfSpace) } }))
-        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("a.p12")), Data("first-key".utf8))
+        // TEMPORARY DIAGNOSTIC: report what the failed migration actually left behind.
+        let destinationContents = (try? FileManager.default.contentsOfDirectory(atPath: destination.path)) ?? ["<unreadable>"]
+        let legacyContents = (try? FileManager.default.contentsOfDirectory(atPath: legacy.path)) ?? ["<unreadable>"]
+        XCTFail("DIAG destination=\(destinationContents) legacy=\(legacyContents)")
         XCTAssertEqual(try Data(contentsOf: legacy.appendingPathComponent("b.p12")), Data("second-key".utf8))
         try ProtectedCertificateFiles.migrate(legacy: legacy, destination: destination)
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("b.p12")), Data("second-key".utf8))
