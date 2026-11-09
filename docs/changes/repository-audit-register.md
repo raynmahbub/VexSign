@@ -1,0 +1,76 @@
+# VexSign repository audit register
+
+**Status: initial prioritized audit; not a production certification.** This register
+tracks verified findings and the evidence still needed. It is intentionally
+incremental: repository-wide findings are not treated as proven merely because
+they appear in an imported audit narrative. Updated 2026-11-09.
+
+## Executive status
+
+- **No complete repository-wide, line-by-line review has been completed.** The
+  current pass verified the blur implementation, IPA Explorer mutation and
+  journaling paths, repository snapshot keying, native-signing boundary, CI
+  triggers, and selected error/concurrency/networking baselines.
+- The existing update fixes are present in the base revision. This pass does not
+  revisit or claim production acceptance for those changes.
+- The Library row now shows Installed / Not installed / other-version status,
+  plus explicit Checking and Unknown states rather than silently omitting status
+  when the probe is pending or unavailable. Signed-app rows expose quick install,
+  re-sign and export actions; these primary actions share the per-app auth gate.
+- Installation verification now has a 120-second maximum evidence window (with
+  the shorter 30-second no-evidence cutoff). A timeout ends VexSign monitoring
+  as unconfirmed; it never claims success or cancels an iOS-owned install. The
+  OS-owned “Verifying installation” sheet is not emulated.
+- No source change in this pass enables native account signing, CMS trust, or
+  unattended renewal. Those are deliberately gated pending cryptographic and
+  device evidence.
+- Xcode, Swift, simulator, and device validation remain necessary. Portable
+  checks cannot establish UI behavior, Apple SDK compatibility, signing, or
+  installation outcomes.
+
+## Prioritized defect and evidence register
+
+| Priority | Finding / classification | Evidence and current disposition | Remaining acceptance |
+| --- | --- | --- | --- |
+| P0 / release gate | Native Apple-account identity/profile handoff is incomplete. This is a real capability gap, not a newly discovered regression. | `SigningMethodCapabilities.swift` reports `.notIntegrated`; `tools/check-native-handoff.py` checks that app adapter and package profile export are absent; `docs/NATIVE_SIGNING_HANDOFF.md` documents the closed gates. Keep the capability disabled. | Independently validate the production CMS verifier with genuine Apple-issued provisioning-profile evidence, implement reviewed identity/profile export and signer integration, then verify output and device installation. No synthetic fixture can substitute for this. |
+| P0 / acceptance gate | No current physical-device acceptance evidence is established by this audit. | Repository documentation (`docs/DEVICE_TESTING.md` and `docs/changes/feature-validation-status.md`) distinguishes simulator evidence from device evidence. This environment has no Xcode or device. | Run the documented install/signing, keychain, pairing, locked-device, cancellation and recovery cases on supported hardware; record exact build/source and artifact hashes. |
+| P1 / fixed in this branch | Cosmetic blur resolved private Core Animation classes, selectors, filters and KVC, with forced lookups that could fail during view creation. | Confirmed in `NimbleKit/Sources/NimbleViews/Views/NBVariableBlurView.swift`. Replaced with `UIVisualEffectView` using the public `.systemMaterial` style, an optional image mask and a non-fatal unmasked fallback. `blurRadius` remains source-compatible and scales effect opacity; UIKit does not expose a supported variable-radius control. | Compile on Apple SDKs and visually verify light/dark appearance, reduced transparency, different supported iOS versions, and mask layout/resizing. The portable regression guard checks only source policy, not rendering. |
+| P1 / fixed in this branch | IPA Explorer could destroy the original when an overwrite's source copy failed, and could make archive-workspace changes impossible to undo if the backup failed. Text/plist edits also bypassed the archive undo journal, and added-file journal entries placed a Swift Optional directly in a JSONSerialization dictionary, preventing persistence. | `VexSign/Views/IPAExplorer/IPAExplorerActions.swift:56–205`, `VexSign/Views/IPAExplorer/IPAFileViewerView.swift:356–389`, and `VexSign/Utilities/IPAExplorer/IPAWorkspace.swift:253–265`. Previously overwrite removed the target before copying its replacement, and callers proceeded when the optional undo backup was nil. A missing/vanished replacement source reproduces loss after the old implementation removed the original. Now archive edits require a backup; replacements are copied to a sibling staging item before `FileManager.replaceItemAt`, so a missing replacement source fails before the original is touched; text/plist saves share a backup-and-journal operation; nil backup names serialize as JSON null so added-file entries survive a workspace reopen. | Added XCTest cases for failed backup refusal, failed replacement preserving the original, added-entry persistence across reopen, and editor-save undo. Apple XCTest is unavailable locally; run the regular macOS test workflow and exercise replace/rename/delete/editor undo in an archive workspace. Journal-manifest write failures are now logged, but do not yet fail the edit or produce an explicit UI warning; durable-undo feedback remains an audit item. |
+| P1 / fixed in this branch | Repository snapshot filenames were made by lossy character replacement, so distinct source IDs could collide and overwrite each other's last-known-good catalog; reads did not check the envelope ID. | `VexSign/Utilities/Handlers/RepositorySnapshotCache.swift:42–65, 88–134`. IDs such as `source/a` and `source?a` both mapped to the same legacy filename. New snapshots use SHA-256-derived names, and reads/removals verify the envelope ID. The legacy path remains readable only for an exact matching ID. | Added XCTest coverage that stores and independently reloads two IDs with the same legacy sanitized filename. Run the simulator test target; no source-cache tests ran locally. |
+| P1 / submitted-audit correction | The claim that NativeSigning synthetic Swift tests run only manually is not accurate for NativeSigning changes on this repository revision. | `.github/workflows/embedded-container.yml` has a `pull_request` trigger for `NativeSigning/**`; its normal `build` job prepares the isolated graph and runs `swift test --package-path .build/native-signing-smoke`. Its separate `link-smoke` job is manual-only. | Confirm the relevant PR run actually executes and passes; this is not evidence of real Apple account operations, CMS trust, or device acceptance. Review SideSign-specific test coverage separately if its implementation changes. |
+| P1 / fixed in this branch | Backup restore reported certificates and repositories as added even when Storage callbacks returned errors; certificate files were copied before the database/Keychain insert and left behind on failure. It also removed an untracked destination directory before a certificate restore, risking loss of orphaned or interrupted-import files. | `VexSign/Backend/Observable/BackupManager.swift:465–520`; Storage callbacks in `Storage+Certificate.swift:addCertificate` and `Storage+Sources.swift:addSource` report Keychain/Core Data/transport errors through `Error?` (`nil` means success, with duplicate sources treated as a successful no-op). Restore now awaits/counts only nil-error callbacks as added, counts absent/failed items as skipped, cleans up newly copied certificate files after failed inserts, and preserves any pre-existing untracked certificate directory. Added `BackupRestoreTally` regression coverage in `VexSignTests/BackupStreamingTests.swift`. | Run the macOS XCTest suite and exercise restores with a locked/unavailable Keychain, induced Core Data save failure, source save failure, a missing certificate folder, and a pre-existing untracked certificate directory. Verify cleanup failure logging and that restore summaries match final storage state. |
+| P1 / fixed in this branch | Tweak backup merges could append duplicate tweak or folder IDs because the existing-ID set was never updated while processing incoming records. Repeated IDs can be present in a hand-crafted or legacy `library.json`/`folders.json`, even when the containing archive is authenticated; duplicate model identities can break SwiftUI diffing and associate ambiguous metadata with the shared files directory. | `VexSign/Backend/Observable/TweakManager.swift:481–510`. Merge previously filtered each incoming item only against the pre-merge set, so two incoming records with one UUID both passed. Added a first-occurrence-wins identity filter against both existing and same-backup IDs for tweaks and folders, plus regression coverage in `VexSignTests/TweakInjectionDefaultsTests.swift`. | Run the macOS XCTest suite and restore a crafted backup containing duplicate tweak and folder UUIDs; verify one item per identity, preserved existing entries, and valid library UI diffing. |
+| P1 / confirmed, open | Tweak restore can report additions even if writing the tweak manifest fails; the in-memory model changes remain visible until restart, but are not durable. | `TweakManager.mergeFromBackup` calls `_save()`, which logs and swallows write/encoding errors, then returns the incremented count; `BackupManager.restore` displays that count as restore success. The folder manifest follows the same log-only save contract. No failure-injection test currently exercises this path. | Add an injectable persistence boundary or focused file-system fixture; make the restore path surface durability failures and roll back or report any partial state without changing unrelated mutation call sites. |
+| P1 / fixed in this branch | Library installation state was omitted whenever the probe was pending or unavailable, making a row look like it had no install status. Verification could appear stuck for up to ten minutes on placeholder evidence, a synchronous private-API probe could block the watcher before it checked its own deadline, and `AppInstaller.start()` synchronously captured the pre-install baseline on the main actor. | `LibraryStatusStore.swift` and `LibraryCellView.swift`: the row now shows Checking before the first result and Unknown after a completed but inconclusive probe, while Installed, Not installed and version mismatch remain evidence-derived. Compared BatSign's current device-reading design (`8yy/BatSign`, `Feather/Utilities/BSDeviceApps.swift` and `BSInstallWatcher.swift`, revision `d60dbee57228e74d4502c24ff825f154fa33c45b`): VexSign now also uses `allInstalledApplications` as a positive-only fallback after per-bundle probes, while preserving unknown rather than inferring absence from an unreadable list. `AppInstaller` captures the baseline on a utility task and keeps an explicit unknown baseline until it completes, avoiding a main-actor wait; the task is cancelled on stop/finish. Probe calls now use a one-second asynchronous result bound, refuse synchronous LaunchServices access from the main thread, and share a nonblocking single-flight permit so one wedged system call cannot fan out into unbounded blocked workers. `InstallConfirmation.Limits.verify` is capped at 120 seconds, probes default to one-second intervals, and an independent deadline releases the UI once verification begins even if a synchronous probe stalls. Timeout reports unconfirmed, never success. Added tests for probe timeout/single-flight wiring, listed-record identity/placeholder handling, status badges, and bounded placeholder transitions. | Run XCTest and test slow/large app installs, rejected installs, filtered LaunchServices, and placeholder transitions on supported iOS devices. A private probe can still stall its detached worker; the independent timeout begins only after verification starts and cannot cancel an installation already accepted by iOS. |
+| P1 / audit queue | Existing `try?` sites and unchecked concurrency boundaries need contextual review, but aggregate counts are not individual defects. | `make verify` runs the error-discipline, singleton and concurrency baseline gates. The selected `TweakManager.swift` and `Storage.swift` uses include explicit rationale in comments; that does not establish correctness of every path. | Review destructive/persistent operations and shared mutable state by caller, including recovery and cancellation behavior; replace only proven unsafe cases and add focused tests. |
+| P2 / audit queue | Direct shared-session networking and oversized source files increase policy drift and review cost. | Static search found 28 `URLSession.shared` occurrences. Confirmed large files include `DownloadManager.swift` (956 lines), `LibraryView.swift` (891), `SigningHandler.swift` (809), `HomeView.swift` (802), `SelfUpdateManager.swift` (771), `AppStoreView.swift` (768), and `AltSourceKit/.../ASRepository.swift` (766). | Trace each network call's timeout, redirect, cancellation, retry and trust requirements before centralizing. Split files only along existing responsibilities with characterization tests; no broad rewrite is proposed. |
+
+## Work sequence and done criteria
+
+1. **Preserve the baseline.** Keep production capability claims aligned with
+   `tools/check-native-handoff.py`; use `make verify` and the regular PR workflows
+   as portable evidence, never as Apple/device acceptance.
+2. **Remediate independently verifiable crash/security defects.** The private
+   blur dependency is removed in this change. Its source-level regression test
+   is `tools/test_public_blur_policy.py`; Apple rendering checks remain open.
+3. **Review high-risk persistence and concurrency paths.** Build a call-site-level
+   list for archive writes, certificates, profiles, installation evidence,
+   cancellation, and recovery. Do not mass-rewrite `try?`, singletons, or
+   `@unchecked Sendable` declarations based on counts alone.
+4. **Close blocked native-signing gates only with external evidence.** Obtain
+   genuine Apple-issued profile/CMS test material through an approved process,
+   verify chain and signature handling on Apple tooling, then design the handoff
+   migration and explicit consent boundaries. Keep renewal authorization scoped,
+   expiring, revocable and cancellable.
+5. **Acceptance.** Require the matching-source Apple build and simulator suite,
+   followed by documented real-device cases for signing, installation,
+   keychain, pairing and recovery. Record exact source revision and artifact
+   SHA-256. Until then, production readiness remains unestablished.
+
+## Scope notes
+
+This is a working register, not a claim that every file in the roughly thousand-
+file repository has now been audited. User-provided inventory counts and risk
+labels have not been independently reproduced unless specifically recorded
+above. The implementation deliberately avoids enabling incomplete signing
+features, changing storage formats, or restructuring unrelated managers.

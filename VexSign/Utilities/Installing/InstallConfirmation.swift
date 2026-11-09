@@ -35,13 +35,18 @@ struct InstallConfirmation: Equatable, Sendable {
 
 	/// How long each phase may take before the install is called off.
 	struct Limits: Equatable, Sendable {
+		static let defaultVerifySeconds: Int64 = 120
+
 		/// How long the prompt may sit unanswered before nothing is going to happen.
 		var start: TimeInterval = 120
-		/// How long the device gets to finish writing the app after progress ends.
-		var verify: TimeInterval = 600
+		/// Maximum time to wait for installation evidence after progress ends. A
+		/// placeholder is useful activity, but it must not leave the queue spinning
+		/// indefinitely when iOS never publishes a completed app record.
+		var verify: TimeInterval = TimeInterval(Self.defaultVerifySeconds)
 		/// How long the device gets to show the app, or to report the new version.
 		var settle: TimeInterval = 20
-        /// Unreadable/filtered evidence must not leave the UI spinning for ten minutes.
+        /// Unreadable/filtered evidence should end promptly; this remains shorter than
+        /// the bounded window granted when iOS positively reports a placeholder.
         var unavailableEvidence: TimeInterval = 30
 	}
 
@@ -307,21 +312,21 @@ enum InstallWatcher {
 		probe: InstalledAppProbing,
         baseline: Baseline? = nil,
 		progress: @escaping @Sendable () async -> Double?,
-		interval: Duration = .milliseconds(250),
+		interval: Duration = .seconds(1),
         startTimeoutEnabled: @escaping @Sendable () async -> Bool = { true },
 		onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in }
 	) async -> InstallConfirmation.Verdict {
         var confirmation = initial
         var before: InstalledApp?
         if let baseline { before = baseline.app }
-        else { before = probe.installedApp(for: initial.expectation.bundleIdentifier) }
+        else { before = await probe.installedAppWithTimeout(for: initial.expectation.bundleIdentifier) }
 
         while !Task.isCancelled {
             let raw = await progress()
             // Positive independent evidence can finish a fast install or update
             // even if the progress counter is unavailable or remains nonzero.
             if confirmation.phase == .waitingForStart || confirmation.phase == .downloading {
-                let current = probe.installedApp(for: initial.expectation.bundleIdentifier)
+                let current = await probe.installedAppWithTimeout(for: initial.expectation.bundleIdentifier)
                 // A positively observed placeholder is fresh install activity,
                 // even when pre-prompt lookup was restricted. Do not promote a
                 // filtered negative/unknown lookup into an "absent" baseline.
@@ -361,12 +366,12 @@ enum InstallWatcher {
 	static func confirm(
 		_ confirmation: inout InstallConfirmation,
 		probe: InstalledAppProbing,
-		interval: Duration = .milliseconds(250),
+		interval: Duration = .seconds(1),
 		onPhase: @escaping @Sendable (InstallConfirmation.Phase) async -> Void = { _ in }
 	) async -> InstallConfirmation.Verdict {
 		while !Task.isCancelled {
 			let phase = confirmation.record(
-				probe: probe.installedApp(for: confirmation.expectation.bundleIdentifier),
+				probe: await probe.installedAppWithTimeout(for: confirmation.expectation.bundleIdentifier),
 				at: Date()
 			)
 			await onPhase(phase)

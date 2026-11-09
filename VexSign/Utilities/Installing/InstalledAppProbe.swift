@@ -8,13 +8,15 @@
 //  to zero. iOS rolls an install back when it rejects the signature or the provisioning
 //  profile, and the counter reaches zero either way — so the app celebrated failures.
 //
-//  This probe is the missing evidence: `LSApplicationProxy` tells us whether the bundle is on
-//  the device, in which version, and whether it is still a placeholder. Every lookup is guarded
-//  and every absent answer is `nil` — "cannot tell" — because a probe that guesses is worse than
-//  no probe at all.
+//  This probe is the missing evidence: LaunchServices records and proxies report whether the
+//  bundle is on the device, its version, and whether it is still a placeholder. A positive-only
+//  registry fallback handles filtered per-app lookups; missing or ambiguous answers remain `nil`
+//  ("cannot tell") rather than becoming a guess of installed or absent.
 //
 
 import Foundation
+import Dispatch
+import os
 import NimbleExtensions
 import ObjectiveC
 
@@ -89,12 +91,54 @@ protocol InstalledAppProbing: Sendable {
 	func installedApp(for bundleIdentifier: String) -> InstalledApp?
 }
 
-/// Reads `LSApplicationProxy`. The selector names are base64-encoded the same way as the other
-/// private lookups in this app (`UIApplication+open_private`), and every one is checked with
-/// `responds(to:)` before use.
+/// A synchronous private API cannot be cancelled once entered. Run it away from
+/// the caller and bound how long workflows wait for its result.
+private final class InstalledAppProbeContinuation: Sendable {
+    private let continuation = OSAllocatedUnfairLock<CheckedContinuation<InstalledApp?, Never>?>(initialState: nil)
+
+    func install(_ continuation: CheckedContinuation<InstalledApp?, Never>) {
+        self.continuation.withLock { $0 = continuation }
+    }
+
+    func resolve(_ result: InstalledApp?) {
+        let pending = continuation.withLock { slot -> CheckedContinuation<InstalledApp?, Never>? in
+            defer { slot = nil }
+            return slot
+        }
+        pending?.resume(returning: result)
+    }
+}
+
+extension InstalledAppProbing {
+    func installedAppWithTimeout(
+        for bundleIdentifier: String,
+        timeout: TimeInterval = 1
+    ) async -> InstalledApp? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<InstalledApp?, Never>) in
+            let once = InstalledAppProbeContinuation()
+            once.install(continuation)
+            DispatchQueue.global(qos: .utility).async {
+                once.resolve(self.installedApp(for: bundleIdentifier))
+            }
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + max(0, timeout)) {
+                once.resolve(nil)
+            }
+        }
+    }
+}
+
+/// Resolves installed-app evidence from LaunchServices bundle records, per-app proxies, and a
+/// positive-only installed-app registry fallback. Private selectors are dynamically checked
+/// before use; missing or filtered lookups remain unknown rather than proving absence.
 struct InstalledAppProbe: InstalledAppProbing {
+    /// Do not let simultaneous callers fan out into multiple uninterruptible
+    /// LaunchServices calls. If one call wedges, later requests fail closed.
+    private static let _probePermit = DispatchSemaphore(value: 1)
+
     func installedApp(for bundleIdentifier: String) -> InstalledApp? {
-        guard !bundleIdentifier.isEmpty else { return nil }
+        guard !bundleIdentifier.isEmpty, !Thread.isMainThread,
+              Self._probePermit.wait(timeout: .now()) == .success else { return nil }
+        defer { Self._probePermit.signal() }
         // Modern LaunchServices records remain usable on devices where the legacy
         // workspace/proxy APIs return filtered false values for installed apps.
         if let record = Self._applicationRecord(bundleIdentifier) {
@@ -106,10 +150,15 @@ struct InstalledAppProbe: InstalledAppProbing {
               class_getClassMethod(proxyClass, selector) != nil,
               let proxy = proxyClass.perform(selector, with: bundleIdentifier)?.takeUnretainedValue() as? NSObject else {
             return Self.resolve(bundleIdentifier, proxy: nil, workspaceInstalled: workspaceInstalled)
+                ?? Self._listedApplication(bundleIdentifier)
         }
         // Never substitute host/another app's proxy, including in a hooked runtime.
-        guard Self._string(proxy, "YnVuZGxlSWRlbnRpZmllcg==") == bundleIdentifier else { return nil }
-        guard let installed = Self._bool(proxy, "aXNJbnN0YWxsZWQ=") ?? workspaceInstalled else { return nil }
+        guard Self._string(proxy, "YnVuZGxlSWRlbnRpZmllcg==") == bundleIdentifier else {
+            return Self._listedApplication(bundleIdentifier)
+        }
+        guard let installed = Self._bool(proxy, "aXNJbnN0YWxsZWQ=") ?? workspaceInstalled else {
+            return Self._listedApplication(bundleIdentifier)
+        }
         let candidate = InstalledApp(bundleIdentifier: bundleIdentifier,
             isInstalled: installed,
             isPlaceholder: Self._bool(proxy, "aXNQbGFjZWhvbGRlcg==") ?? false,
@@ -117,6 +166,7 @@ struct InstalledAppProbe: InstalledAppProbing {
             build: Self._string(proxy, "YnVuZGxlVmVyc2lvbg=="),
             bundleURL: Self._url(proxy, "YnVuZGxlVVJM"))
         return Self.resolve(bundleIdentifier, proxy: candidate, workspaceInstalled: workspaceInstalled)
+            ?? Self._listedApplication(bundleIdentifier)
     }
 
     /// A workspace query is independent of the proxy's sometimes stale isInstalled
@@ -151,6 +201,51 @@ struct InstalledAppProbe: InstalledAppProbing {
               let bundleURL, bundleURL.isFileURL else { return nil }
         return InstalledApp(bundleIdentifier: identifier, isInstalled: true,
                             version: version, build: build, bundleURL: bundleURL)
+    }
+
+    /// Current LaunchServices builds may filter per-bundle lookups while still
+    /// returning the installed-app registry. Use that registry as a positive-only
+    /// fallback; an incomplete/filtered list must never establish absence.
+    private static func _listedApplication(_ identifier: String) -> InstalledApp? {
+        guard let workspaceClass = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+              class_getClassMethod(workspaceClass, NSSelectorFromString("defaultWorkspace")) != nil,
+              let workspace = workspaceClass.perform(NSSelectorFromString("defaultWorkspace"))?
+                .takeUnretainedValue() as? NSObject else { return nil }
+        let selector = NSSelectorFromString("allInstalledApplications")
+        guard workspace.responds(to: selector),
+              let applications = workspace.perform(selector)?.takeUnretainedValue() as? [NSObject],
+              let proxy = applications.first(where: { _string($0, "YnVuZGxlSWRlbnRpZmllcg==") == identifier }) else {
+            return nil
+        }
+        return listedApplication(
+            identifier,
+            returnedIdentifier: _string(proxy, "YnVuZGxlSWRlbnRpZmllcg=="),
+            isPlaceholder: _bool(proxy, "aXNQbGFjZWhvbGRlcg=="),
+            version: _string(proxy, "c2hvcnRWZXJzaW9uU3RyaW5n"),
+            build: _string(proxy, "YnVuZGxlVmVyc2lvbg=="),
+            bundleURL: _url(proxy, "YnVuZGxlVVJM")
+        )
+    }
+
+    /// Pure validation for the positive registry result, also covered by tests.
+    static func listedApplication(
+        _ identifier: String,
+        returnedIdentifier: String?,
+        isPlaceholder: Bool?,
+        version: String? = nil,
+        build: String? = nil,
+        bundleURL: URL? = nil
+    ) -> InstalledApp? {
+        guard !identifier.isEmpty, returnedIdentifier == identifier,
+              let isPlaceholder else { return nil }
+        return InstalledApp(
+            bundleIdentifier: identifier,
+            isInstalled: !isPlaceholder,
+            isPlaceholder: isPlaceholder,
+            version: version,
+            build: build,
+            bundleURL: bundleURL
+        )
     }
 
     private static func _applicationRecord(_ identifier: String) -> InstalledApp? {

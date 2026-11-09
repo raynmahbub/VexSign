@@ -13,6 +13,7 @@
 //
 
 import Foundation
+import CryptoKit
 import AltSourceKit
 import OSLog
 
@@ -38,8 +39,8 @@ enum RepositorySnapshotCache {
 		return dir
 	}
 
-	/// Filesystem-safe name for a source identifier.
-	private static func _fileName(for id: String) -> String {
+	/// Legacy lossy filename, retained only to read snapshots written by older versions.
+	private static func _legacyFileName(for id: String) -> String {
 		let allowed = id.unicodeScalars.map { scalar -> Character in
 			if CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_" {
 				return Character(scalar)
@@ -50,8 +51,17 @@ enum RepositorySnapshotCache {
 		return name.isEmpty ? "source" : String(name)
 	}
 
+	/// Stable, collision-resistant filename for an arbitrary source identifier.
+	private static func _fileName(for id: String) -> String {
+		SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined()
+	}
+
 	private static func _url(for id: String) -> URL {
-		cacheDirectory.appendingPathComponent(_fileName(for: id)).appendingPathExtension("snapshot.json")
+		cacheDirectory.appendingPathComponent("\(_fileName(for: id)).snapshot-v2.json")
+	}
+
+	private static func _legacyURL(for id: String) -> URL {
+		cacheDirectory.appendingPathComponent(_legacyFileName(for: id)).appendingPathExtension("snapshot.json")
 	}
 
 	// MARK: - API
@@ -76,35 +86,51 @@ enum RepositorySnapshotCache {
 	}
 
 	/// Loads the last stored snapshot for a source, if one exists.
-	/// Returns the decoded repository plus the date it was saved.
+	/// Legacy lossy paths are accepted only when their envelope names this exact identifier.
 	static func load(identifier: String) -> (repository: ASRepository, savedAt: Date)? {
-		let url = _url(for: identifier)
-		guard let data = try? Data(contentsOf: url), // try? ok: optional snapshot read; a miss falls back to the network
-		      let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else { // try? ok: optional snapshot decode; corrupt or missing is treated as a miss
-			return nil
+		for url in [_url(for: identifier), _legacyURL(for: identifier)] {
+			guard let data = try? Data(contentsOf: url), // try? ok: optional snapshot read; a miss falls back to the network
+			      let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else { // try? ok: optional snapshot decode; corrupt or missing is treated as a miss
+				continue
+			}
+			guard envelope.identifier == identifier else { continue }
+			do {
+				let repository = try JSONDecoder().decode(ASRepository.self, from: envelope.payload)
+				return (repository, envelope.savedAt)
+			} catch {
+				// Corrupt snapshot — remove it so it can't resurface.
+				try? FileManager.default.removeItem(at: url) // try? ok: best-effort removal of a corrupt snapshot
+			}
 		}
-		do {
-			let repository = try JSONDecoder().decode(ASRepository.self, from: envelope.payload)
-			return (repository, envelope.savedAt)
-		} catch {
-			// Corrupt snapshot — remove it so it can't resurface.
-			try? FileManager.default.removeItem(at: url) // try? ok: best-effort removal of a corrupt snapshot
-			return nil
-		}
+		return nil
 	}
 
 	/// The date of the stored snapshot, without decoding the payload.
 	static func snapshotDate(for identifier: String) -> Date? {
-		guard let data = try? Data(contentsOf: _url(for: identifier)), // try? ok: optional snapshot read for the saved date
-		      let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else { // try? ok: optional snapshot decode; corrupt or missing is treated as a miss
-			return nil
+		for url in [_url(for: identifier), _legacyURL(for: identifier)] {
+			guard let data = try? Data(contentsOf: url), // try? ok: optional snapshot read for the saved date
+			      let envelope = try? JSONDecoder().decode(Envelope.self, from: data), // try? ok: optional snapshot decode; corrupt or missing is treated as a miss
+			      envelope.identifier == identifier else {
+				continue
+			}
+			return envelope.savedAt
 		}
-		return envelope.savedAt
+		return nil
 	}
 
 	/// Removes the snapshot of a deleted source.
 	static func remove(identifier: String) {
-		try? FileManager.default.removeItem(at: _url(for: identifier)) // try? ok: best-effort removal of a deleted source's snapshot
+		let current = _url(for: identifier)
+		try? FileManager.default.removeItem(at: current) // try? ok: best-effort removal of a deleted source's snapshot
+
+		let legacy = _legacyURL(for: identifier)
+		guard legacy != current,
+		      let data = try? Data(contentsOf: legacy), // try? ok: optional lookup before removing a legacy cache file
+		      let envelope = try? JSONDecoder().decode(Envelope.self, from: data), // try? ok: optional lookup; never remove a collision owned by another source
+		      envelope.identifier == identifier else {
+			return
+		}
+		try? FileManager.default.removeItem(at: legacy) // try? ok: best-effort removal of this source's legacy snapshot
 	}
 
 	/// Drops snapshots for every source that is no longer installed.

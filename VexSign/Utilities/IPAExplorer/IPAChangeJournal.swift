@@ -83,7 +83,9 @@ final class IPAChangeJournal {
 			case .added = changes[existingIndex].kind,
 			change.kind != .added {
 			// An "added" file that is now edited/replaced: keep the added entry (undo = remove).
-			// The bytes are user-provided, so there is no original to restore.
+			// The bytes are user-provided, so there is no original to restore; discard
+			// the transient copy made before this later edit.
+			removeBackup(change.backupName)
 			return
 		}
 
@@ -136,9 +138,13 @@ final class IPAChangeJournal {
 		}
 	}
 
-	private func removeBackup(_ name: String?) {
+	func discardBackup(_ name: String?) {
 		guard let name else { return }
-		try? FileManager.default.removeItem(at: backupsDirectory.appendingPathComponent(name)) // try? ok: best-effort backup pruning
+		try? FileManager.default.removeItem(at: backupsDirectory.appendingPathComponent(name)) // try? ok: best-effort cleanup of an uncommitted undo backup
+	}
+
+	private func removeBackup(_ name: String?) {
+		discardBackup(name)
 	}
 
 	// MARK: Undo
@@ -207,21 +213,22 @@ final class IPAChangeJournal {
 
 	private func persist() {
 		let fileManager = FileManager.default
-		try? fileManager.createDirectoryIfNeeded(at: root) // try? ok: best-effort journal directory; in-memory changes remain authoritative
-
-		let payload = changes.map { change -> [String: Any] in
-			[
-				"id": change.id,
-				"relativePath": change.relativePath,
-				"kind": change.kind.rawValue,
-				"backupName": change.backupName as Any,
-				"date": change.date.timeIntervalSince1970
-			]
-		}
-
-		if let data = try? JSONSerialization.data(withJSONObject: payload, // try? ok: best-effort journal serialisation; in-memory changes remain authoritative
-			options: [.prettyPrinted]) {
-			try? data.write(to: manifestURL, options: .atomic) // try? ok: best-effort journal persistence; in-memory changes remain authoritative
+		do {
+			try fileManager.createDirectoryIfNeeded(at: root)
+			let payload = changes.map { change -> [String: Any] in
+				var item: [String: Any] = [
+					"id": change.id,
+					"relativePath": change.relativePath,
+					"kind": change.kind.rawValue,
+					"date": change.date.timeIntervalSince1970
+				]
+				item["backupName"] = change.backupName.map { $0 as Any } ?? NSNull()
+				return item
+			}
+			let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted])
+			try data.write(to: manifestURL, options: .atomic)
+		} catch {
+			FileLogger.error("IPA change journal persistence failed: \(error.localizedDescription)", category: "ipa")
 		}
 	}
 

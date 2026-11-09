@@ -5,6 +5,16 @@ import XCTest
 
 final class BackupStreamingTests: XCTestCase {
     private let password = "streaming backup test password"
+
+    func testRestoreTallyCountsOnlySuccessfulCallbacksAsAdded() {
+        var tally = BackupRestoreTally()
+        tally.recordAttempt(error: nil)
+        tally.recordAttempt(error: NSError(domain: "restore", code: 1))
+        tally.recordSkipped()
+
+        XCTAssertEqual(tally.added, 1)
+        XCTAssertEqual(tally.skipped, 2)
+    }
     private let headerCount = 7 + 1 + 16 + 60
 
     private func fixture(_ body: (URL) throws -> Void) throws {

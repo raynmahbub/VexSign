@@ -35,6 +35,28 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('SigningService', source)
         self.assertIn('self.current?.id == failedEntryID', source)
 
+    def test_install_baseline_probe_does_not_block_the_main_actor(self):
+        source = self.text('VexSign/Backend/Observable/AppInstaller.swift')
+        start = source.split('func start(completion:', 1)[1].split('/// Capture the pre-install state', 1)[0]
+        capture = source.split('private func _captureInstallBaseline(', 1)[1].split('/// Stops without reporting an outcome', 1)[0]
+        self.assertIn('_captureInstallBaseline(identifier)', start)
+        self.assertNotIn('_probe.installedApp(for: identifier)', start)
+        self.assertIn('Task.detached(priority: .utility)', capture)
+        self.assertIn('_installBaseline = .init(app: nil)', capture)
+        self.assertIn('guard !Task.isCancelled', capture)
+
+    def test_private_install_probes_are_bounded_off_main_and_single_flight(self):
+        probe = self.text('VexSign/Utilities/Installing/InstalledAppProbe.swift')
+        watcher = self.text('VexSign/Utilities/Installing/InstallConfirmation.swift')
+        library = self.text('VexSign/Backend/Observable/LibraryStatusStore.swift')
+        self.assertIn('installedAppWithTimeout(', probe)
+        self.assertIn('Thread.isMainThread', probe)
+        self.assertIn('DispatchSemaphore(value: 1)', probe)
+        self.assertIn('wait(timeout: .now())', probe)
+        self.assertNotIn('probe.installedApp(for:', watcher)
+        self.assertIn('await probe.installedAppWithTimeout', watcher)
+        self.assertIn('await probe.installedAppWithTimeout', library)
+
     def test_native_acknowledgement_does_not_wait_on_private_probe(self):
         source = self.text('VexSign/Backend/Observable/AppInstaller.swift')
         native = source.split('private func _confirmIdeviceInstall()', 1)[1].split('extension AppInstaller.Outcome', 1)[0]

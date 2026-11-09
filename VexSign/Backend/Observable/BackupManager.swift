@@ -161,6 +161,19 @@ final class BackupArchive: Identifiable {
 	var contents: BackupComponents { manifest.storedContents }
 }
 
+struct BackupRestoreTally {
+	private(set) var added = 0
+	private(set) var skipped = 0
+
+	mutating func recordAttempt(error: Error?) {
+		if error == nil { added += 1 } else { skipped += 1 }
+	}
+
+	mutating func recordSkipped() {
+		skipped += 1
+	}
+}
+
 struct BackupRestoreSummary {
 	private(set) var restored: BackupComponents = []
 	private var _added: [BackupComponents: Int] = [:]
@@ -452,30 +465,42 @@ final class BackupManager {
         if wanted.contains(.library) { try requireIdleLibrary() }
 
         if wanted.contains(.certificates) {
-			var added = 0
-			var skipped = 0
+			var tally = BackupRestoreTally()
 			let existing = Set(Storage.shared.getAllCertificates().compactMap { $0.uuid })
 			for cert in manifest.certificates {
-				if existing.contains(cert.uuid) { skipped += 1; continue }
+				if existing.contains(cert.uuid) { tally.recordSkipped(); continue }
 				let srcDir = root.appendingPathComponent("certs").appendingPathComponent(cert.uuid)
-				guard _fm.fileExists(atPath: srcDir.path) else { continue }
+				guard _fm.fileExists(atPath: srcDir.path) else { tally.recordSkipped(); continue }
 				let dstDir = _fm.certificates(cert.uuid)
+				// An untracked directory can be an interrupted prior import. Never
+				// replace it just because the matching Core Data row is absent.
+				guard !_fm.fileExists(atPath: dstDir.path) else { tally.recordSkipped(); continue }
 				do {
-					try _fm.removeFileIfNeeded(at: dstDir)
 					try _fm.copyItem(at: srcDir, to: dstDir)
 				} catch {
+					tally.recordSkipped()
 					continue
 				}
-				Storage.shared.addCertificate(
-					uuid: cert.uuid,
-					password: cert.password,
-					nickname: cert.nickname,
-					ppq: cert.ppq,
-					expiration: cert.expiration
-				) { _ in }
-				added += 1
+				let addError = await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
+					Storage.shared.addCertificate(
+						uuid: cert.uuid,
+						password: cert.password,
+						nickname: cert.nickname,
+						ppq: cert.ppq,
+						expiration: cert.expiration,
+						completion: { continuation.resume(returning: $0) }
+					)
+				}
+				tally.recordAttempt(error: addError)
+				if addError != nil {
+					do {
+						try _fm.removeItem(at: dstDir)
+					} catch {
+						FileLogger.log("Could not remove certificate files after a failed backup restore: \(error.localizedDescription)", category: "backup")
+					}
+				}
 			}
-			summary.record(.certificates, added: added, skipped: skipped)
+			summary.record(.certificates, added: tally.added, skipped: tally.skipped)
 
 			if
 				let uuid = manifest.selectedCertUUID,
@@ -484,25 +509,27 @@ final class BackupManager {
 			}
 		}
 
-		if wanted.contains(.sources) {
-			var added = 0
-			var skipped = 0
+        if wanted.contains(.sources) {
+			var tally = BackupRestoreTally()
 			for source in manifest.sources {
-				if Storage.shared.sourceExists(source.identifier) { skipped += 1; continue }
+				if Storage.shared.sourceExists(source.identifier) { tally.recordSkipped(); continue }
 				// Restoring the user's own configuration is not a new trust
 				// decision: the transport policy is bypassed so a previously
 				// saved (e.g. LAN HTTP) repository still restores. Refreshes
 				// still respect the SourceURLPolicy until the user opts in.
-				Storage.shared.addSource(
-					source.url,
-					name: source.name,
-					identifier: source.identifier,
-					iconURL: source.iconURL,
-					enforceTransportPolicy: false
-				) { _ in }
-				added += 1
+				let addError = await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
+					Storage.shared.addSource(
+						source.url,
+						name: source.name,
+						identifier: source.identifier,
+						iconURL: source.iconURL,
+						enforceTransportPolicy: false,
+						completion: { continuation.resume(returning: $0) }
+					)
+				}
+				tally.recordAttempt(error: addError)
 			}
-			summary.record(.sources, added: added, skipped: skipped)
+			summary.record(.sources, added: tally.added, skipped: tally.skipped)
 		}
 
 		if

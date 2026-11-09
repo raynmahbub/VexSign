@@ -8,9 +8,9 @@
 //    Verifying installation +4.0s → Failed +34.1s, evidence installation-evidence-unavailable
 //
 //  Both are the 30s `unavailableEvidence` deadline. On modern iOS the private LaunchServices
-//  lookups are filtered, so `InstalledAppProbe` returns nil for an app that installed correctly —
-//  and VexSign recorded that as a *failed* install, telling the user to retry an app already on
-//  their Home Screen. "No evidence" is now a terminal `unconfirmed` phase, not a failure.
+//  lookups are filtered, so `InstalledAppProbe` can return nil even when an app installed
+//  correctly. The timeout is deliberately unconfirmed, not proof of rejection; the UI still
+//  reports that it could not verify and tells the user to check before retrying.
 //
 //  Also covers the placeholder case: a placeholder is evidence iOS is still installing, so it
 //  must not be cut off by the short no-evidence deadline.
@@ -57,22 +57,25 @@ final class InstallEvidenceReportingTests: XCTestCase {
 
 	// MARK: - A placeholder is evidence, not silence
 
-	func testPlaceholderKeepsTheFullVerificationWindow() {
+	func testPlaceholderKeepsVerifyingButOnlyForTheBoundedWindow() {
 		var confirmation = engine()
 		_ = verifying(&confirmation)
 		let placeholder = InstalledApp(bundleIdentifier: "com.example.app", isInstalled: true, isPlaceholder: true)
 
-		// Past the 30s no-evidence deadline, well inside the 600s verify window.
+		// A placeholder is positive installation activity, so it gets the full
+		// two-minute window rather than the short no-evidence deadline.
 		XCTAssertEqual(confirmation.record(probe: placeholder, at: start.addingTimeInterval(45)).verdict, nil,
 					   "iOS is still writing the app; do not give up on it")
-		XCTAssertEqual(confirmation.record(probe: placeholder, at: start.addingTimeInterval(300)).verdict, nil)
+		XCTAssertEqual(confirmation.record(probe: placeholder, at: start.addingTimeInterval(119)).verdict, nil)
+		XCTAssertEqual(confirmation.record(probe: placeholder, at: start.addingTimeInterval(120)).verdict,
+					   .timedOutVerifying)
 	}
 
-	func testPlaceholderThatNeverFinishesStillEnds() {
+	func testPlaceholderThatNeverFinishesEndsAtTheBoundedDeadline() {
 		var confirmation = engine()
 		_ = verifying(&confirmation)
 		let placeholder = InstalledApp(bundleIdentifier: "com.example.app", isInstalled: true, isPlaceholder: true)
-		XCTAssertEqual(confirmation.record(probe: placeholder, at: start.addingTimeInterval(601)).verdict,
+		XCTAssertEqual(confirmation.record(probe: placeholder, at: start.addingTimeInterval(121)).verdict,
 					   .timedOutVerifying)
 	}
 

@@ -508,10 +508,14 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	@MainActor
 	private func installViaServer(release: SelfUpdateRelease, certificate: CertificatePair) async throws -> Bool {
 		phase = .signing
+		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
+        let probe = InstalledAppProbe()
+        let baselineTask = Task.detached(priority: .utility) {
+            await probe.installedAppWithTimeout(for: bundleId)
+        }
 		let installURL = try await requestServerSign(version: release.version, certificate: certificate)
 		phase = .installing
-		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
-		let baseline = InstallWatcher.Baseline(app: InstalledAppProbe().installedApp(for: bundleId))
+        let baseline = InstallWatcher.Baseline(app: await baselineTask.value)
 		guard await UIApplication.shared.open(installURL) else { return false }
 		return try await pollInstallProgress(expectedVersion: release.version, baseline: baseline)
 	}

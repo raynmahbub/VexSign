@@ -88,6 +88,29 @@ final class LibrarySnapshotTests: XCTestCase {
         XCTAssertFalse(checker.hasUpdate(installedVersion: "unknown", sourceVersion: "v2.0"))
     }
 
+    func testRepositorySnapshotsWithLossyFilenameCollisionStayDistinct() throws {
+        let firstID = "source/a"
+        let secondID = "source?a"
+        let firstPayload = try JSONSerialization.data(withJSONObject: [
+            "name": "First source",
+            "apps": [["bundleIdentifier": "com.example.first", "name": "First", "version": "1", "iconURL": "https://example.invalid/first.png"]]
+        ])
+        let secondPayload = try JSONSerialization.data(withJSONObject: [
+            "name": "Second source",
+            "apps": [["bundleIdentifier": "com.example.second", "name": "Second", "version": "1", "iconURL": "https://example.invalid/second.png"]]
+        ])
+        defer {
+            RepositorySnapshotCache.remove(identifier: firstID)
+            RepositorySnapshotCache.remove(identifier: secondID)
+        }
+
+        RepositorySnapshotCache.store(identifier: firstID, sourceURL: nil, payload: firstPayload)
+        RepositorySnapshotCache.store(identifier: secondID, sourceURL: nil, payload: secondPayload)
+
+        XCTAssertEqual(RepositorySnapshotCache.load(identifier: firstID)?.repository.name, "First source")
+        XCTAssertEqual(RepositorySnapshotCache.load(identifier: secondID)?.repository.name, "Second source")
+    }
+
     func testUpdateChecksExcludeCatalogsFromRemovedSources() throws {
         let activeURL = try XCTUnwrap(URL(string: "https://active.example/source.json"))
         let removedURL = try XCTUnwrap(URL(string: "https://removed.example/source.json"))
