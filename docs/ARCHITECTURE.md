@@ -69,14 +69,25 @@ DocumentPicker / repository URL
   sources (`Backend/Storage/VexSign.xcdatamodeld`).
 - **Files** under the app sandbox hold imported archives, signed outputs,
   exports and logs. `StorageManager` owns the layout and cleanup rules.
+- **A signing run has two library copies**, the one it was started from and the
+  one it produced, and `PostSignArtifacts` is the only rule for what happens to
+  them. The produced copy is never deleted when a sign finishes; the other goes
+  only when a flow or a setting asks, and only after the produced copy is
+  confirmed to be in the library. Every flow that signs a library app ends in
+  `CleanupManager.finishSign`; the self-update, which signs a scratch copy of
+  VexSign and removes it again, is the one exception.
+- **A copy's bundle is in the library before its row is.** Signing and importing
+  announce the copy to `AppOperationRegistry` (`claimProduction`,
+  `confirmProduction`) so that a cleanup pass in between does not take its
+  folder for a leftover.
 - **The temporary directory** is shared working space: signing work directories,
-  the archive an install hands to iOS, and tweak files staged for one sign. It is
-  emptied at every launch (download staging aside), and automatic cleanup may
-  empty it after a sign or an install — though not while `AppOperationRegistry`
-  holds any lease. Nothing that
-  has to outlive one operation may be saved as a path into it; saved signing
-  settings keep the *names* of one-time tweak files for that reason
-  (`OneShotTweakFiles`, `SigningProfile.replayable()`).
+  the archive an install hands to iOS, and tweak files staged for one sign. It
+  is emptied at every launch (download staging aside), and cleanup may empty it
+  after a sign or an install, or on Clean Now — though not while
+  `AppOperationRegistry` holds any lease (`CleanupPassPolicy`; leftovers wait
+  the same way). Nothing that has to outlive one operation may be saved as a
+  path into it; saved signing settings keep the *names* of one-time tweak files
+  for that reason (`OneShotTweakFiles`, `SigningProfile.replayable()`).
 - **Keychain** holds credentials and secrets; `CertificateSecrets` and the
   security utilities wrap access.
 - **UserDefaults** holds preferences and migration keys. Legacy Feather/Ryuk
@@ -163,7 +174,7 @@ that, so a claim can be traced to code instead of a promise:
 | Self-update checks, release notification and install methods | `VexSign/Backend/Observable/SelfUpdateManager.swift`, `SelfUpdateNotifier.swift`, `VexSign/Views/Updates/` |
 | Background downloads, conditions and Game Mode | `DownloadManager.swift`, `DownloadManager+Delegates.swift`, `DownloadManager+LiveActivity.swift`, `DownloadManager+PackageImport.swift`, `DownloadPreferences.swift`, `GameMode.swift` |
 | Web manager with HTTP/WebDAV | `VexSign/Views/Settings/Web Manager/WebManagerView.swift`, `server/web_tools.py` |
-| Storage report and cleanup | `VexSign/Backend/Observable/StorageManager.swift` (`LibrarySnapshot` decides what is an orphan; a failed certificate fetch protects everything) |
+| Storage report and cleanup | `VexSign/Backend/Observable/StorageManager.swift` (`LibrarySnapshot` decides what is an orphan; a failed certificate fetch protects everything, and a copy that is being signed or imported is never an orphan) |
 | Download integrity and hashing | `VexSign/Utilities/DownloadIntegrity.swift`, `FileIntegrity.swift` |
 | Certificate monitoring, dashboard and OCSP | `CertificateStatusManager.swift`, `BatchCertChecker.swift`, `VexSign/CertificateDashboard/`, `VexSign/Utilities/OCSP/` |
 | Local trust setup with a device TLS identity | `VexSign/Backend/Server/LocalTLSIdentity.swift`, `LocalCAProfile.swift`, `VexSign/Utilities/IdentityVault.swift` |
@@ -173,7 +184,7 @@ that, so a claim can be traced to code instead of a promise:
 | Signed source metadata | `VexSign/Utilities/SourceProvenance.swift`, `docs/SOURCE_SIGNING.md` |
 | Anti-revoke DNS profiles | `VexSign/Utilities/AntiRevoke/`, `VexSign/Views/Settings/Security/AntiRevokeSettingsView.swift` |
 | Background automation, App Intents and widgets | `VexSign/Backend/Observable/BackgroundAutomation.swift`, `VexSign/Backend/AppIntents/`, `VexSignWidgetExtension/` |
-| Cleanup, backup and analytics | `CleanupManager.swift` (automatic passes leave the temporary directory alone while a sign or install is running), `InstallCleanup.swift`, `BackupManager.swift`, `VexSign/Analytics/` |
+| Cleanup, backup and analytics | `CleanupManager.swift` (every pass, Clean Now included, leaves the temporary directory and leftovers alone while a sign or install is running), `VexSign/Backend/Services/PostSignArtifacts.swift` (which copies a finished sign leaves), `VexSign/Backend/Services/CleanupPolicy.swift` (what a pass defers; which duplicate signed copy is kept), `InstallCleanup.swift`, `BackupManager.swift`, `VexSign/Analytics/` |
 | Logs and diagnostic export | `VexSign/Utilities/FileLogger.swift`, `DiagnosticBundleExporter.swift`, `VexSign/Views/Logs/`, `VexSign/Views/Settings/About/DiagnosticsCenterView.swift` |
 | Companion apps | `VexSignTV/`, `VexSignVision/`, `VexSignWatch/`, `VexSignWatchWidgets/`, `docs/PLATFORMS.md` |
 | Web tools | `server/web_signer.py`, `server/repo_creator.py`, `server/repo_decoder.py`, `server/app_installer.py`, `server/cert_inspector.py`, `server/udid_grabber.py`, `VexSign/Ecosystem/WebToolsView.swift` |

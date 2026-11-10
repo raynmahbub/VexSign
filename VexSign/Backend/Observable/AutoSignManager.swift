@@ -75,17 +75,16 @@ final class AutoSignManager {
 
 		guard case .success(let signed) = result else { return result }
 
-		// The unsigned copy only existed to feed the signer. Deleted before the cleanup runs so
-		// nothing below reads an already deleted object.
-		Storage.shared.deleteApp(for: app)
-
-		// Auto cleanup: drops the signed copy when it isn't being installed and sweeps the
-		// storage toggles (caches, temporary files, leftovers, exported IPAs).
-		CleanupManager.shared.runAfterSign(
-			source: nil,
-			signed: signed,
-			keepsSignedApp: options.post_installAppAfterSigned
-		)
+		// The run succeeded, so `signed` stays in the library whatever the settings are. This
+		// used to delete `app` and then let Auto Cleanup delete `signed` whenever the saved
+		// settings did not install it: a successful re-sign with "Delete Signed App" on left no
+		// copy at all.
+		//
+		// Only `app` can go now, and only once `signed` is confirmed to be in the library. An
+		// import only existed to feed the signer and is removed as before. A signed copy stays
+		// unless "Delete Signed App" asks for it to be removed. The storage toggles (caches,
+		// temporary files, leftovers, exported IPAs) are swept in the same call.
+		CleanupManager.shared.finishSign(source: app, output: signed, origin: .savedSettings)
 
 		if options.post_installAppAfterSigned {
 			InstallQueue.shared.enqueue(signed)

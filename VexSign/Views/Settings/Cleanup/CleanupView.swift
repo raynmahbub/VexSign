@@ -111,7 +111,7 @@ extension CleanupView {
 			VStack(alignment: .leading, spacing: 6) {
 				Text(.localized("The unsigned app is the file you imported; it is only needed to produce the signed copy."))
 
-				Text(.localized("Delete Signed App only applies when the app is not being installed or exported right after signing, and removes the signed copy from your library."))
+				Text(.localized("Delete Signed App applies when you sign an app that is already signed: the copy you started from is removed once the new signed copy is in your library. The new copy is not deleted after signing."))
 			}
 		}
 	}
@@ -191,7 +191,7 @@ extension CleanupView {
 				}
 			}
 		} footer: {
-			Text(.localized("When an app has several signed copies, the automatic sweep keeps the highest version and removes the rest. Certificates and pairing files are never auto-deleted. The warning is a toast on launch, not a deletion."))
+			Text(.localized("When an app has several signed copies, the automatic sweep keeps the highest version and removes the rest. Among copies of the same version it keeps the one added last. Certificates and pairing files are never auto-deleted. The warning is a toast on launch, not a deletion."))
 		}
 	}
 
@@ -238,7 +238,12 @@ extension CleanupView {
 
 		let summary = _manager.cleanNow()
 
-		if summary.isIdle {
+		if let notice = summary.deferralNotice {
+			// Temporary files and leftovers are left alone while something is signing or
+			// installing. Said whether or not anything else was cleaned: the button promises the
+			// storage options above, and "Nothing to clean up" would not be true.
+			Toast.info(notice, systemImage: "hourglass", duration: .long)
+		} else if summary.isIdle {
 			Toast.info(.localized("Nothing to clean up"), systemImage: "checkmark.circle")
 		}
 

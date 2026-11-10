@@ -15,6 +15,10 @@ final class SigningHandler: NSObject {
 	private let _fileManager = FileManager.default
     private let executionGate: SigningExecutionGate
 	private let _uuid = UUID().uuidString
+	/// Says, for as long as this run lives, that the copy `_uuid` names is being produced. Its
+	/// bundle is in the library before its row is, and without this a cleanup pass in between
+	/// takes the folder for a leftover and deletes it.
+	private let _outputClaim: AppOperationRegistry.Lease
 	private var _movedAppPath: URL?
 	// using uuid string is the best way to find the
 	// app we want to sign, it does not matter what
@@ -60,6 +64,7 @@ final class SigningHandler: NSObject {
 		self._appDescription = app.appDescription
 		self._uniqueWorkDir = _fileManager.temporaryDirectory
 			.appendingPathComponent("VexSigning_\(_uuid)", isDirectory: true)
+		self._outputClaim = AppOperationRegistry.shared.claimProduction(of: _uuid)
 		super.init()
 	}
 	
@@ -341,6 +346,9 @@ final class SigningHandler: NSObject {
         // The row is already committed. Preserve its bundle even if resolving it fails,
         // rather than leaving a saved row pointing at a deleted directory.
         _didAddToDatabase = true
+        // The same goes for cleanup: a pass that read the library before this commit does not
+        // know the row, and the claim ends with this run.
+        AppOperationRegistry.shared.confirmProduction(of: _uuid)
         guard let registered: Signed = Storage.shared.object(objectID) else {
             throw SigningFileHandlerError.appNotFound
         }

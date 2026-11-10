@@ -191,7 +191,7 @@ final class StorageManager: ObservableObject {
 		}
 
 		return LibrarySnapshot(apps: apps, certificates: Set(certificates), protected: protected,
-							   certificatesKnown: certificatesKnown)
+							   certificatesKnown: certificatesKnown, productions: .shared)
 	}
 }
 
@@ -312,9 +312,18 @@ struct LibrarySnapshot {
 	/// "unknown", not "none": treating it as none would make every installed
 	/// certificate look like an orphan and `clear(.leftovers)` would delete it.
 	var certificatesKnown: Bool = true
+	/// Where copies that are being produced announce themselves.
+	///
+	/// `apps` is read once, and the folders are judged afterwards: seconds later for a large
+	/// library, and off the main thread when the user clears storage by hand. A copy that is
+	/// signed or imported in between has a folder and no row in `apps`, which is what a
+	/// leftover looks like, and `clear(.leftovers)` deleted the bundle of an app that had just
+	/// been registered. So this is asked when a folder is judged, not when the snapshot is taken.
+	var productions: AppOperationRegistry?
 
 	func owns(_ uuid: String, signed: Bool) -> Bool {
-		apps[uuid]?.isSigned == signed
+		if apps[uuid]?.isSigned == signed { return true }
+		return productions?.knowsProduction(of: uuid) == true
 	}
 
 	/// Fail closed: with no certificate list, nothing is an orphan.

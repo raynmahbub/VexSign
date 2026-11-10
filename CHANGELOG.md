@@ -11,6 +11,23 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
+- **Delete Signed App** (Settings → Auto Cleanup → After Signing) now removes the
+  signed copy a re-sign was *started from*, once the new copy is in the library.
+  In the signing sheet and when signing with saved settings it used to delete
+  the *new* copy whenever the run was not set to install it, so that signing
+  produced nothing. The copy a successful run produced is no longer deleted
+  when the sign finishes, whatever the settings are.
+- **Re-sign with Last Settings** keeps the signed copy it was started from. In
+  Library rows, in Library details and in the Shortcuts action Sign App it used
+  to replace that copy on every run. It now removes it only when Auto Cleanup
+  and Delete Signed App are both on, and the review in Library details says
+  which of the two will happen. With the default settings a re-sign therefore
+  adds a signed copy instead of replacing one. Batch jobs follow the same
+  switch for the signed copies they re-sign; they never removed one before.
+- **Clean Now** leaves temporary files and leftovers alone while a sign or an
+  install is running, as the automatic passes do, and says what it left: in a
+  message when the button is used, and in the answer of the Shortcuts action.
+  They are cleared by the next pass that finds nothing running.
 - `make` builds through `VexSign.xcworkspace`, the same graph CI builds and tests.
   The workspace and project `Package.resolved` files had drifted apart, so the
   released IPA was compiled against pins CI never exercised. Both now hold one
@@ -74,7 +91,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   signing or installation is running. One operation finishing could delete the
   work directory of a sign still in flight, or the archive an install was handing
   to iOS. The directory is cleared by the next pass that finds nothing running,
-  and at the next launch. **Clean Now** is unchanged.
+  and at the next launch. **Clean Now** follows the same rule; see Changed.
 - An install can no longer stay on **Verifying installation** with nothing left
   to end it.
   - Once the payload has been handed to iOS the whole attempt is bounded from
@@ -101,6 +118,36 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
   None of the entries above has been exercised on a device yet; see
   [the follow-up record](docs/changes/signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification)
+  for what was and was not validated.
+- A sign that succeeds can no longer leave no copy in the library. With Auto
+  Cleanup's **Delete Signed App** on and settings that do not install after
+  signing, **Re-sign with Last Settings** deleted the copy it was started from
+  and Auto Cleanup then deleted the new one; the signing sheet deleted the copy
+  it had just produced the same way. Every flow that signs a library app now
+  settles its copies through one rule: the new copy always stays, and the copy
+  the run was started from is removed only when a flow or a setting asks for
+  it, only after the new copy is confirmed to be in the library with its bundle
+  on disk, and never when the two are the same copy. If the removal is refused
+  because the copy is in use, both copies stay.
+- **Remove Leftovers** can no longer delete a copy that is being signed or
+  imported. A copy's bundle is in the library before its entry is, and a
+  cleanup pass in between could take the folder for a leftover, leaving an
+  entry without files. Signing and importing now announce the copy before its
+  folder exists, every check for leftovers asks about it at the moment a folder
+  is judged, and leftovers wait while any operation is running.
+- **Keep only the newest signed copy** keeps the newest. A re-signed copy has
+  the version of the copy it was started from, and the rule compared versions
+  only, so which of the two it deleted depended on the order they were read in.
+  Among copies of one version the one added last is now kept, versions are
+  compared number by number (1.2 and 1.2.0 are the same version), and a copy
+  that is in use no longer stops the other duplicates from being removed.
+- Cleanup no longer reports an app as removed when the removal was refused. The
+  message and the cleanup history could name apps that were still in the
+  library, because a copy in use by another operation is not deleted.
+
+  These four entries, and the three at the top of Changed that go with them,
+  have not been exercised on a device or compiled against the iOS SDK yet; see
+  [the second follow-up](docs/changes/signing-and-installation-lifecycle.md#follow-up-2--what-a-successful-sign-leaves-in-the-library)
   for what was and was not validated.
 - An OTA install that iOS never reported on is no longer called **Failed**. On
   modern iOS the private LaunchServices lookups are filtered, so `InstalledAppProbe`

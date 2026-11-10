@@ -301,7 +301,10 @@ extension LibraryInfoView {
         lines.append(contentsOf: checks.issues.map { LogRedaction.redact($0.title + ": " + $0.detail) })
         lines.append(contentsOf: OneShotTweakFiles.replayNotices(for: profile?.oneShotFileNames ?? []))
         lines.append(.localized("Saved settings are reused, but source contents are not fingerprinted. Review options if the app has changed."))
-        lines.append(.localized("On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings."))
+        // Built from the rule the run follows, so the review cannot promise one thing while the
+        // run does another. It used to say the copy is replaced; whether it is now depends on
+        // Auto Cleanup's "Delete Signed App".
+        lines.append(PostSignArtifacts.repeatSigningNotice(settings: .stored()))
         // "Sign Anyway" is only offered when the review above listed blocking issues, and
         // choosing it is the user accepting them. The run has to be told: without this it stayed
         // in strict mode and stopped on the issue that had just been confirmed.

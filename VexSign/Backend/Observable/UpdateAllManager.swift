@@ -315,14 +315,10 @@ final class UpdateAllManager: ObservableObject {
 
 		switch result {
 		case .success(let signed):
-			// The unsigned copy only existed to feed the signer.
-			Storage.shared.deleteApp(for: app)
-
-			CleanupManager.shared.runAfterSign(
-				source: nil,
-				signed: signed,
-				keepsSignedApp: true
-			)
+			// The copy that was imported for this update only existed to feed the signer. It is
+			// removed once the signed copy is confirmed to be in the library; the signed copy
+			// stays whatever the settings are.
+			CleanupManager.shared.finishSign(source: app, output: signed, origin: .update)
 
 			if !automatic || UpdateMatchingPreferences.shared.autoInstallAfterUpdate {
 				InstallQueue.shared.enqueue(signed)

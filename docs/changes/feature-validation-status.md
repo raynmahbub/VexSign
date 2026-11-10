@@ -83,7 +83,8 @@ acceptance by completing this documentation step. The five checkpoints added
   reporting/privacy boundaries and scenario instructions, not current verdicts.
 - [Signing and installation lifecycle](signing-and-installation-lifecycle.md):
   later changes to signing-task state, install confirmation, re-signing with
-  saved settings and install verification. **Not evaluated in the table above.**
+  saved settings, install verification, and which library copies a sign and a
+  cleanup pass leave. **Not evaluated in the table above.**
   Its own sections say what was run, what was not, and which device scenarios
   are outstanding; they are implementation notes, not acceptance.
 - [Device testing](../DEVICE_TESTING.md), [build guide](../BUILD.md),

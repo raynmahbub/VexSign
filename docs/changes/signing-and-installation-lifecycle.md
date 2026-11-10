@@ -22,9 +22,15 @@ tests that compile the Apple-account sources this change touched (area 10).
 
 Three later symptoms in the same subsystems — a re-sign with saved settings that stops in Customize,
 a valid signed copy whose details read "Failed", and an install card that stays on "Verifying
-installation" — are recorded at the end of this document, under
+installation" — are recorded further down, under
 [Follow-up](#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification).
 Where that follow-up supersedes a statement below, the statement says so.
+
+A second follow-up closes a limitation the first one recorded — a sign that succeeds and leaves no
+copy in the library — and two cleanup paths found beside it. It changes what Auto Cleanup's "Delete
+Signed App" does, and what a re-sign does with the copy it was started from. It is recorded last,
+under [Follow-up 2](#follow-up-2--what-a-successful-sign-leaves-in-the-library), and the statements
+of the first follow-up that it supersedes say so.
 
 ## Issue 1 — the Signing workflow reads "Not run" after signing ran
 
@@ -672,6 +678,8 @@ files disappear:
   an automatic pass leaves `.temporary` alone while any operation holds a lease. Leases are released
   before the after-sign and after-install passes run, so a lone sign or install still clears the
   directory as before. **Clean Now** is a deliberate user action and is not guarded.
+  *Superseded by [Follow-up 2](#follow-up-2--what-a-successful-sign-leaves-in-the-library): the rule
+  is `CleanupPassPolicy.plan` now, it defers leftovers as well, and **Clean Now** follows it.*
 - The Library row's context-menu **Re-sign with Last Settings** now calls the same
   `_resignLastOrPresent()` as the swipe action. It used to discard the result, so a failure from
   that menu said nothing; it now passes the app-lock check and reports success or failure.
@@ -846,7 +854,7 @@ Production (28 files; the four marked *new* use no UIKit, which is what lets the
 | `VexSign/Backend/Observable/UpdateAllManager.swift` | replay notices when options are preserved |
 | `VexSign/Views/Signing/SigningView.swift` | discards staged files after a successful run |
 | `VexSign/Backend/Services/AppOperationRegistry.swift` | `hasActiveOperations` |
-| `VexSign/Backend/Observable/CleanupManager.swift` | `automaticCategories(_:operationsActive:)` |
+| `VexSign/Backend/Observable/CleanupManager.swift` | `automaticCategories(_:operationsActive:)` — replaced by `CleanupPassPolicy.plan` in Follow-up 2 |
 | `VexSign/Backend/Services/SigningRecordIdentity.swift` | *new* — which runs describe a copy |
 | `VexSign/Backend/Observable/UnifiedTaskCenter.swift` | `signingRecords(forCopy:)` |
 | `VexSign/Views/Library/Info/LibraryInfoView.swift` | per-copy record rows; forwards "Sign Anyway"; replay notice in the review |
@@ -870,12 +878,12 @@ Tests (9 files):
 | `VexSignTests/OneShotTweakFilesTests.swift` | new — 12 tests |
 | `VexSignTests/SigningProfileReplayTests.swift` | new — 9 tests |
 | `VexSignTests/SigningRecordIdentityTests.swift` | new — 11 tests |
-| `VexSignTests/CleanupOperationGuardTests.swift` | new — 7 tests |
+| `VexSignTests/CleanupOperationGuardTests.swift` | new — 7 tests (15 since Follow-up 2) |
 | `VexSignTests/TaskReceiptOutcomeTests.swift` | new — 13 tests |
 | `VexSignTests/InstallVerificationTests.swift` | new — 22 tests |
 | `VexSignTests/InstallDeadlineBudgetTests.swift` | new — 14 tests |
 | `VexSignTests/AccessibilityIdentifiersTests.swift` | expected-identifier list gained the new ID |
-| `tools/test_workflow_trace_policy.py` | 6 new source pins (16 in the file) |
+| `tools/test_workflow_trace_policy.py` | 6 new source pins (16 in the file; 25 since Follow-up 2) |
 
 `InstalledAppProbe.swift`, `LibraryStatusStore.swift` and `SelfUpdateManager.swift` are unchanged.
 No `.xcodeproj` edit is needed, for the reason given under [Files modified](#files-modified).
@@ -909,7 +917,8 @@ did not complete cannot claim a copy · the newest producing record wins · no r
 acquired and active until the last lease is released · an operation without a stored copy still
 counts · a refused acquire leaves nothing behind · an automatic pass leaves the temporary directory
 alone while an operation runs, clears everything enabled once nothing runs, and never adds a
-category the user did not enable.
+category the user did not enable. Follow-up 2 moved that rule to `CleanupPassPolicy` and rewrote
+these last three tests for it; the file has 15 tests now.
 
 **Receipts — `TaskReceiptOutcomeTests` (13)** · A failed signing attempt is not reported with the
 general sentence, and a cancelled one says the same · an interrupted one keeps the interruption
@@ -953,6 +962,11 @@ describe the copy, not the last run started from it · a declined install closes
 deadlines, both deadlines cancel the watcher).
 
 ### Validation (follow-up)
+
+These are the results as they were recorded when this follow-up was written. Follow-up 2 has since
+changed some of the files named here, `CleanupManager` and `CleanupOperationGuardTests` among them,
+and removed `automaticCategories`; the counts that moved and the current results are under
+[Validation (follow-up 2)](#validation-follow-up-2).
 
 **Run in this workspace and passing:**
 
@@ -1075,17 +1089,20 @@ xcodebuild test \
    **updated** app is a new bundle and does not have them. The run says so in its log and the review
    alert lists the names, but the tweak is not there unless it is added again — or installed as a
    managed tweak, which is kept.
-3. **A successful re-sign can leave no copy at all.** `AutoSignManager` deletes the source copy when
-   the run succeeds, signed or not, and then applies Auto Cleanup. With Auto Cleanup's "Delete
-   Signed App" on and saved settings that do not install afterwards, the new copy is removed as
-   well. This is unchanged and is disclosed — the review alert says repeat signing replaces the
-   source copy and applies the cleanup settings — but the Library row actions show no review, and
-   re-signs that used to fail on a missing tweak file now succeed and so reach it. Passing
-   `keepsSignedApp: true` when the source was itself a signed copy would close it; that is a
-   behaviour change to a documented setting and was left for a decision.
+3. **Closed by [Follow-up 2](#follow-up-2--what-a-successful-sign-leaves-in-the-library).** As it
+   was recorded here: a successful re-sign can leave no copy at all. `AutoSignManager` deleted the
+   source copy when the run succeeded, signed or not, and then applied Auto Cleanup; with "Delete
+   Signed App" on and saved settings that do not install afterwards, the new copy was removed as
+   well. The Library row actions show no review, and re-signs that used to fail on a missing tweak
+   file now succeed and so reached it. The change suggested here — `keepsSignedApp: true` for a
+   signed source — is not the one that was made: no flow and no setting can delete the copy a run
+   produced any more, and the copy a re-sign was started from stays unless "Delete Signed App"
+   asks for it to go.
 4. **Files staged in an open signing sheet are not protected from cleanup that runs while nothing is
    in flight.** An automatic pass after an unrelated operation, or **Clean Now**, can still remove
    them. The result is now a named preflight issue instead of a failure halfway through the run.
+   Since Follow-up 2, **Clean Now** leaves the temporary directory alone while an operation is
+   running, as an automatic pass does; with nothing running it clears it as before.
    Staged files are also left in the temporary directory when the sheet is cancelled, until the
    next launch clears it.
 5. **`InstallQueue._reset()` drops an open task record without closing it.** Every caller today
@@ -1118,9 +1135,9 @@ These continue the list above. None of them has been performed.
     the signed copy three ways: **Re-sign with last settings** in Library details, **Re-sign Last**
     in the row's swipe actions, and **Re-sign with Last Settings** in the row's context menu. Each
     must succeed, and the signing log must carry a warning naming the file that was not injected
-    again. This is the case that used to stop in Customize. Each run replaces the copy it started
-    from, so continue with the new copy, and keep Auto Cleanup's "Delete Signed App" off
-    (limitation 3 above).
+    again. This is the case that used to stop in Customize. Since Follow-up 2 a run keeps the copy
+    it was started from unless Auto Cleanup's "Delete Signed App" is on, so with that switch off
+    all three can be started from the same copy, and each adds a signed copy to the library.
 22. Repeat 21 after force-quitting and relaunching VexSign between the first sign and the re-sign.
 23. Upgrade over a build that already saved settings with a one-time tweak file, without signing
     again first, and re-sign. It must succeed: the stored profile is cleaned when it is read.
@@ -1151,8 +1168,10 @@ These continue the list above. None of them has been performed.
     below it "Latest re-sign attempt from this copy: Failed" with the reason, "That attempt did not
     change this copy." and the steps of the failed attempt. Export the failed task's receipt: it
     must say the attempt did not produce a signed copy.
-32. Re-sign it successfully. The source copy is replaced; the new copy's details must show its own
-    completed result and no attempt row.
+32. Re-sign it successfully. The new copy's details must show its own completed result and no
+    attempt row. Since Follow-up 2 the source copy stays unless "Delete Signed App" is on; its
+    details must then show the result of the run that produced it and no attempt row either,
+    because a completed re-sign belongs to the copy it produced.
 
 **Install verification**
 
@@ -1172,3 +1191,532 @@ These continue the list above. None of them has been performed.
     receipt must carry `Installation checks:` with the number of checks made.
 39. Install the largest app available and confirm the card never outlives the bounds in the table
     above, and that a completed install is never reported as unconfirmed by the 390-second bound.
+
+---
+
+## Follow-up 2 — what a successful sign leaves in the library
+
+Three defects in what happens to library copies when a sign finishes and when cleanup runs. This
+follow-up was made on top of the first one; both start from `67fd3f3`.
+
+| # | Defect | Where it came from |
+|---|---|---|
+| 7 | A sign succeeds and the library holds neither the copy it was started from nor the copy it produced | A re-sign with saved settings deleted its source as soon as the run succeeded, and Auto Cleanup's "Delete Signed App" then deleted the output; the signing sheet deleted its own output under the same setting |
+| 8 | A copy that was just signed or imported is in the library without its bundle | A leftovers pass could judge the copy's folder between the moment the bundle was moved into the library and the moment its row was committed |
+| 9 | "Keep only the newest signed copy" removes the copy that was just signed | The rule compared versions only, and a re-signed copy has the version of the copy it was started from |
+
+Issue 7 is limitation 3 of the first follow-up. Issues 8 and 9 were found while following every
+path that can delete a signed copy. **Neither 8 nor 9 has been reported or reproduced**: they are
+what the code allowed.
+
+**Read this first.** Every root cause below was established by reading the code. Nothing in this
+follow-up was run on a device, and nothing was compiled against the iOS SDK; what was and was not
+executed is listed under [Validation (follow-up 2)](#validation-follow-up-2).
+
+### What changes for the user
+
+This follow-up changes what a documented setting does. That is the decision limitation 3 left
+open, so it is stated here before the code.
+
+1. **The copy a successful run produced stays in the library.** Nothing that runs when a sign
+   finishes can delete it, whatever the settings are. (VexSign updating itself is the one flow
+   that still removes what it signed, on purpose: see the end of the changes for Issue 7.)
+2. **"Delete Signed App"** (Settings → Auto Cleanup → After Signing) **removes the signed copy a
+   re-sign was started from**, once the new copy is in the library. It used to delete the *new*
+   copy whenever the run was not set to install it.
+3. **A re-sign with saved settings keeps the copy it was started from**, unless Auto Cleanup and
+   "Delete Signed App" are both on. It used to replace that copy on every run. With the defaults
+   (Auto Cleanup on, both After Signing switches off) the library therefore gains a signed copy per
+   re-sign where it used to keep one.
+4. **A batch job honours "Delete Signed App"** for the signed copies it re-signs. It never removed
+   a signed source before.
+5. **Clean Now leaves temporary files and leftovers alone while a sign or an install is running**,
+   and says that it did. It used to clear both.
+6. **"Keep only the newest signed copy" keeps the newest of two copies with the same version.**
+   Which of the two it kept used to depend on the order the rows were read in.
+
+What each flow does with the copy it was started from. "Removed" always means: after the new copy
+is confirmed to be in the library, and only when the deletion is not refused.
+
+| Flow | Source is an import | Source is a signed copy |
+|---|---|---|
+| Saved settings, no sheet: **Re-sign with last settings** in Library details and in a Library row, the Shortcuts actions, auto sign after import, the web API | removed — unchanged | kept; removed with Auto Cleanup + Delete Signed App — **was: always removed** |
+| Signing sheet | kept; removed with the sheet's "Delete After Signing", or with Auto Cleanup + Delete Unsigned App — unchanged | kept; removed with Auto Cleanup + Delete Signed App — **was: kept, and under that setting the *new* copy was deleted** |
+| Batch job | as the sheet — unchanged | kept; removed with Auto Cleanup + Delete Signed App — **was: always kept** |
+| Update All | removed — unchanged | does not occur: the source is the copy imported for the update |
+| IPA Explorer, "Sign & Install" | removed — unchanged | removed — unchanged: the copy was edited in place and no longer matches its signature |
+
+A signed source reaches the first row only from the Library row and Library details actions and
+from the Shortcuts action "Sign App". Auto sign after import, "Sign Latest Download" and the web
+API always start from an import, so for them nothing changes except that the copy they produce can
+no longer be deleted by "Delete Signed App".
+
+### Issue 7 — a successful sign can leave no copy in the library
+
+#### Root cause
+
+Each flow settled the two copies of a run itself: five call sites, each with its own rule, and no
+place where the two deletions could be seen together.
+
+1. **A re-sign with saved settings deleted its source unconditionally.**
+   `AutoSignManager._perform` — behind "Re-sign with last settings" in Library details and in a
+   Library row, both Shortcuts signing actions, auto sign after import and the web API's sign
+   endpoint — called `Storage.shared.deleteApp(for: app)` as soon as the run succeeded, whether
+   `app` was an import or a signed copy.
+2. **Auto Cleanup then deleted the output.** The same function went on to call
+   `CleanupManager.runAfterSign(source: nil, signed: signed, keepsSignedApp:
+   options.post_installAppAfterSigned)`, and `runAfterSign` deleted `signed` when Auto Cleanup and
+   "Delete Signed App" were on and `keepsSignedApp` was false. Each step was the documented
+   behaviour of its own switch — the setting's footer said it "removes the signed copy from your
+   library" when the app "is not being installed or exported right after signing". Together, for a
+   re-sign whose saved settings do not install: the source is deleted, the output is deleted, and
+   the run is reported as a success.
+3. **The signing sheet deleted its own output the same way.** `SigningView` took `keepsSignedApp`
+   from `SigningCompletionAction.keepsSignedApp(automaticInstall:)`, which answers false for `.done`
+   without an automatic install — and the sheet closes itself with `.done` when a sign succeeds. So
+   with the same switches and "Install After Signing" off, every sign from the sheet deleted the
+   copy it had just produced. The source stayed in this case; the run still had no result.
+4. **Callers went on to use a copy that could already be gone.** `AutoSignManager.sign` returns the
+   signed copy to its caller. Under the settings in 2 that copy had been deleted before the
+   function returned; the web API's sign endpoint, for one, goes on to package it.
+5. **Nothing tied the deletion of a source to the existence of the output.** Every flow deleted on
+   the strength of the pipeline's `.success`, without asking whether the output had a row and a
+   bundle at the moment of the deletion.
+6. **A deletion that was refused was reported as done.** `CleanupManager.delete` built its summary
+   and then ignored the result of `Storage.deleteApps`, which refuses the whole request when a copy
+   in it is in use by another operation. The toast and the cleanup history then named an app that
+   was still in the library. `pruneDuplicateSignedApps` did the same.
+
+#### Changes
+
+- **`PostSignArtifacts`** (new; no UIKit and no storage layer) holds the rule for every flow.
+  `requestedRemoval(_:settings:)` says whether a rule asks for the source to go and which one:
+  `.consumedByFlow` (an import that only existed to be signed, or the explorer's edited copy),
+  `.runOption` (the run's own "Delete After Signing") or `.cleanupSetting` (an Auto Cleanup
+  switch, and only while the master switch is on). `decision(for:settings:outputIsInLibrary:)`
+  then keeps the source when nothing asked (`.notRequested`), when it has no identifier
+  (`.sourceUnidentified`), when source and output are the same copy (`.sameCopy`), and when the
+  output has no identifier or is not in the library (`.outputNotConfirmed`).
+- **The output cannot be named.** `Decision` has two cases, `keepSource` and `removeSource`.
+  `finish(_:settings:outputIsInLibrary:removeSource:)` deletes only through a closure that takes
+  no identifier and that the caller binds to the source. No setting and no caller can make this
+  code delete the output, because there is no parameter that carries it to a deletion.
+- **The output is confirmed at the moment of the decision**, not when the run reported success:
+  `outputIsInLibrary` is asked only when a rule wants the source removed, and
+  `CleanupManager._holdsSignedCopy` answers true only for a signed row with that identifier whose
+  bundle directory is on disk.
+- **`CleanupManager.finishSign(source:output:origin:runDeletesSource:sweepsStorage:)`** replaces
+  `runAfterSign` and carries the rule out. `runAfterSign`, `deletesSourceAfterSign` and
+  `SigningCompletionAction.keepsSignedApp` are removed, so no entry point is left that accepts a
+  signed copy to delete. A failed or cancelled run never reaches `finishSign`: every caller is
+  inside its `.success` branch.
+- **A refused deletion leaves both copies and reports nothing.** `CleanupManager.delete` returns
+  an empty summary unless `Storage.deleteApps` returned true, and `Outcome.sourceRemoved` is true
+  only then. This also applies to the pass after an install. `Storage.deleteApps` still shows its
+  own "in use" message.
+- **What is reported as a cleanup.** Only a removal an Auto Cleanup switch asked for goes into the
+  toast and the cleanup history, as before. A flow using up its own import and a run's own option
+  stay as quiet as they were. A batch settles each app without a toast and its removals are
+  written to the history — they used to be recorded nowhere.
+- **The five flows call the one function**, each with its own origin:
+
+  | Caller | Call |
+  |---|---|
+  | `AutoSignManager._perform` | `finishSign(source: app, output: signed, origin: .savedSettings)` |
+  | `SigningView` | `finishSign(source: app, output: signed, origin: .sheet, runDeletesSource: _temporaryOptions.post_deleteAppAfterSigned)` |
+  | `BatchJobRunner` | `finishSign(source: app, output: signed, origin: .batch, runDeletesSource: options.post_deleteAppAfterSigned, sweepsStorage: false)` per app, then one `sweepAfterSigning()` after the loop |
+  | `UpdateAllManager` | `finishSign(source: app, output: signed, origin: .update)` |
+  | `IPAWorkspace` | `finishSign(source: target, output: signed, origin: .explorer, sweepsStorage: false)` — the explorer never swept storage |
+
+- **One caller of the signer is not among them, and was not changed.**
+  `SelfUpdateManager.installViaIDevice` imports VexSign's own update, signs it, packages the signed
+  bundle and then deletes both entries: they are scratch entries that were never meant to appear
+  in the library, and the package is what gets installed. It never called cleanup. A source pin
+  now lists every file that calls the signer, so a seventh flow cannot be added without deciding
+  how it settles its copies.
+
+- **The wording follows the rule.** The "Review repeat signing" alert in Library details said
+  "repeat signing replaces this source copy". Its line is now built by
+  `PostSignArtifacts.repeatSigningNotice(settings:)` from the same `requestedRemoval` the run will
+  follow, so it says either that the copy stays, and which switch would remove it, or that it is
+  removed because "Delete Signed App" is on. The footer under After Signing in Settings → Auto
+  Cleanup describes the setting as it now behaves.
+
+### Issue 8 — a leftovers pass can delete a copy that is being produced
+
+#### Root cause
+
+A copy enters the library in two steps: its bundle is moved into the library's `Signed` or
+`Unsigned` directory under the copy's identifier, and then its row is committed. A leftover is a
+folder in one of those directories that no row accounts for — which is what a copy is between the
+two steps.
+
+1. **The rows are read once and the folders are judged later.** `LibrarySnapshot` is built from
+   one fetch. `StorageScanner.leftovers` then walks the directories and measures every folder
+   before it asks whether the folder is known, and `StorageManager.purge` does that walk twice. For
+   a large library the judgement of a folder can come seconds after the rows were read; when the
+   Storage screen clears a category it also runs on a detached task.
+2. **So there are two windows, not one.** The bundle is in place and the row is not committed when
+   the rows are read; or the rows are read first and the copy is moved in — or moved in *and*
+   registered — before its folder is reached. In both the folder is judged a leftover and deleted,
+   and the library is left with a row whose bundle is gone.
+3. **A pass can run while a copy is being produced.** An automatic pass runs when *any* operation
+   finishes, so the sign or install that finished is not the one in the window: an install
+   finishing while a sign runs, or one sign finishing while the next download is being imported.
+   Clean Now is called by the button, by Shortcuts, by the web API, by the companion and by
+   background automation, at moments nobody chose. The first follow-up guarded the temporary
+   directory on automatic passes only; leftovers and Clean Now were not guarded.
+
+Removing leftovers after a sign or an install needs "Remove Leftovers" to be on. Clean Now removes
+them when that switch is on and also when no storage switch is on at all.
+
+#### Changes
+
+- **`AppOperationRegistry` knows which copies are being produced.** `claimProduction(of:)` returns
+  a claim that lasts as long as it is held; `confirmProduction(of:)` records that the copy's row is
+  committed and keeps the copy known until the app quits; `knowsProduction(of:)` answers for both.
+  A claim is not an operation on a stored copy: it makes nothing busy and does not count in
+  `hasActiveOperations`. A claim given up without a confirmation — a run that failed or was
+  cancelled — ends the protection, so what that run left behind is a leftover again.
+- **Why a confirmed copy is remembered.** It has a row by then, but a pass that read the rows
+  before the commit does not have it, and the claim ends with the run. The memory is what still
+  says the folder is wanted when such a pass reaches it.
+- **`SigningHandler` and `AppFileHandler` take the claim in `init`**, before any folder with that
+  identifier exists, and confirm it on the line after the row is committed. Imports are claimed as
+  well because an import holds no lease: the sweep after one sign can run while another download
+  is between its two steps.
+- **`LibrarySnapshot.productions`** carries the registry, and `owns(_:signed:)` asks it when a
+  folder is judged, not when the snapshot is taken. This covers every user of the snapshot,
+  including the Storage screen. Certificate folders are not affected.
+- **`CleanupPassPolicy.plan(_:operationsActive:)`** (new, in `CleanupPolicy.swift`) replaces
+  `CleanupManager.automaticCategories`. While any operation holds a lease it defers `.temporary`
+  **and `.leftovers`**, and it never adds a category that was not asked for. Every pass that goes
+  through `CleanupManager` uses it — after a sign, after an install, the batch's sweep, and
+  **Clean Now**.
+- **Clean Now says what it left.** `CleanupSummary.deferred` lists the deferred areas and
+  `deferralNotice` puts them in one sentence: "Not cleaned while an operation is running: Temp
+  Files and Leftovers". The button shows it as a toast, after the usual "Cleanup freed …" when
+  something else was cleaned, and instead of "Nothing to clean up". The Shortcuts action appends it
+  to its answer. What was deferred is cleared by the next pass that finds nothing running, and the
+  temporary directory at the next launch.
+
+### Issue 9 — "Keep only the newest signed copy" could keep the older copy
+
+#### Root cause
+
+1. `StorageRules.pruneDuplicateSignedApps` — run by Clean Now when the rule is on — sorted an app's
+   signed copies by version alone and kept the first. A re-signed copy has the version of the copy
+   it was started from, so the two tied and the order the rows were fetched in decided which one
+   was deleted. With issue 7 fixed, two signed copies of one version is what a re-sign leaves by
+   default, so this rule would have been the remaining way to lose the copy that was just signed.
+2. Versions were compared as strings of zero-padded components. "1.2" and "1.2.0" compared as
+   different versions, and a component of more than six digits broke the padding.
+3. One copy in use made `Storage.deleteApps` refuse the whole set, and the names and sizes of all
+   of them were returned as removed (cause 6 of issue 7).
+
+#### Changes
+
+- **`SignedCopyRetention.surplus(among:)`** (new, in `CleanupPolicy.swift`) is the rule: for every
+  app with several signed copies, all but one. The copy kept has the highest version, compared
+  number by number with trailing zeros dropped; among copies of one version it is the one added
+  last; copies that tie on both are settled by identifier, so the same library always gives the
+  same answer. A copy without a readable version ranks below the others and one without a date is
+  treated as the oldest.
+- **`pruneDuplicateSignedApps` uses it**, leaves out copies that are in use so that one busy copy
+  does not keep every other duplicate, and returns nothing unless `Storage.deleteApps` returned
+  true.
+- The footer under Rules in Settings → Auto Cleanup says which copy is kept among equal versions.
+
+### Files modified (follow-up 2)
+
+Production (18 files; the two marked *new* use neither UIKit nor the storage layer, which is what
+lets them be unit-tested):
+
+| File | Change |
+|---|---|
+| `VexSign/Backend/Services/PostSignArtifacts.swift` | *new* — the rule for the two copies of a run; the review wording |
+| `VexSign/Backend/Services/CleanupPolicy.swift` | *new* — `CleanupPassPolicy`, `SignedCopyRetention` |
+| `VexSign/Backend/Services/AppOperationRegistry.swift` | `claimProduction`, `confirmProduction`, `knowsProduction` |
+| `VexSign/Backend/Services/SigningCompletionAction.swift` | `keepsSignedApp` removed |
+| `VexSign/Backend/Observable/CleanupManager.swift` | `finishSign`, `sweepAfterSigning`; `delete` reports only what was deleted; every pass defers through `CleanupPassPolicy`; `CleanupSummary.deferred` and `deferralNotice`; `PostSignArtifacts.Settings.stored(in:)`. `runAfterSign`, `deletesSourceAfterSign` and `automaticCategories` removed |
+| `VexSign/Backend/Observable/CleanupHistory.swift` | `pruneDuplicateSignedApps` on `SignedCopyRetention`; busy copies left out; a refused deletion is not reported |
+| `VexSign/Backend/Observable/StorageManager.swift` | `LibrarySnapshot.productions`; `owns` asks it |
+| `VexSign/Backend/Observable/AutoSignManager.swift` | `finishSign`, origin `.savedSettings` |
+| `VexSign/Backend/Observable/UpdateAllManager.swift` | `finishSign`, origin `.update` |
+| `VexSign/Backend/Observable/BatchJobRunner.swift` | `finishSign`, origin `.batch`; one `sweepAfterSigning()` |
+| `VexSign/Utilities/IPAExplorer/IPAWorkspace.swift` | `finishSign`, origin `.explorer` |
+| `VexSign/Views/Signing/SigningView.swift` | `finishSign`, origin `.sheet` |
+| `VexSign/Utilities/Handlers/SigningHandler.swift` | claims its output in `init`, confirms it after the row is committed |
+| `VexSign/Utilities/Handlers/AppFileHandler.swift` | the same for an import |
+| `VexSign/Views/Settings/Cleanup/CleanupView.swift` | After Signing and Rules footers; Clean Now shows the deferral |
+| `VexSign/Backend/AppIntents/VexSignIntents.swift` | the Clean Now action reports the deferral |
+| `VexSign/Views/Library/Info/LibraryInfoView.swift` | the review line comes from the rule |
+| `VexSign/Resources/Localizable.xcstrings` | 5 new keys, appended by `tools/sync-strings.py --write` as `extractionState: manual` — English values, no machine translation. The 3 keys of the sentences they replace are removed: they were `manual` entries with an English value only, no source names them any more, and the weekly maintenance job prunes only keys Xcode has marked stale. They were removed with the tool's own writer, so the rest of the file is unchanged |
+
+Tests (6 files):
+
+| File | Change |
+|---|---|
+| `VexSignTests/PostSignArtifactsTests.swift` | new — 18 tests |
+| `VexSignTests/SignedCopyRetentionTests.swift` | new — 12 tests |
+| `VexSignTests/CleanupOperationGuardTests.swift` | 7 → 15 tests: production claims; the pass rule moved to `CleanupPassPolicy` |
+| `VexSignTests/StorageLibrarySnapshotTests.swift` | 8 → 14 tests: copies being produced |
+| `VexSignTests/DesignSystemTests.swift` | one test rewritten: `keepsSignedApp` no longer exists |
+| `tools/test_workflow_trace_policy.py` | 9 new source pins (25 in the file) |
+
+`InstalledAppProbe.swift`, `LibraryStatusStore.swift` and `SelfUpdateManager.swift` are unchanged.
+No `.xcodeproj` edit is needed, for the reason given under [Files modified](#files-modified).
+
+### Regression tests added (follow-up 2)
+
+44 more XCTest methods than before, 4 existing ones rewritten — three for the pass rule's new
+home, one because `keepsSignedApp` no longer exists — and 9 source pins.
+
+**The two copies of a run — `PostSignArtifactsTests` (18)** · Every flow has a table of all sixteen
+combinations of Delete Signed App, Auto Cleanup, install after signing and a signed or unsigned
+source · in all eighty rows the signed copy stays and the source is settled as the table lists · a
+re-sign that does not install no longer leaves no copy · no other setting removes the signed copy
+either · a run that failed or was cancelled deletes nothing · an output without a row blocks the
+deletion of the source · so does an output whose bundle is missing · the output is confirmed
+before the source is deleted · an output without an identifier is never confirmed · the library
+is not asked when nothing wants the source removed · a source that is also the output is never
+deleted · a source without an identifier is left alone · a source that is in use stays and is not
+reported as removed · the master switch turns both cleanup switches off · each cleanup switch only
+reaches its own kind of source · the run's own option removes an unsigned source only in the sheet
+and in a batch · the cause says who asked for the source to go · the review says what the run will
+do with the copy it starts from, compared with the catalogue keys.
+
+**Which duplicate is kept — `SignedCopyRetentionTests` (12)** · A re-signed copy outlives the copy
+it was started from · every re-sign of one version leaves only the latest · the highest version is
+kept even when an older one was added later · versions are compared as numbers · trailing zeros
+are not a higher version · a copy without a readable version ranks below the rest · a copy without
+a date is the oldest · copies that tie on everything are settled the same way every time · copies
+of different apps are not duplicates · a single copy is never removed · a copy listed twice is not
+its own duplicate · every app keeps exactly one copy whatever the order of the rows.
+
+**Claims and the pass rule — `CleanupOperationGuardTests` (15; 8 more, 3 rewritten)** · A copy is
+known from the moment it is announced · a claim given up without a row ends with the run · a
+registered copy stays known after its run is over · two claims on one copy need both given up · a
+claim is not an operation on a stored copy, and an operation is not a claim · a pass leaves the
+temporary directory and leftovers alone while an operation runs, clears everything enabled once
+nothing runs, and never adds a category the user did not enable · nothing that was asked for is
+lost between the two lists · only those two areas are ever deferred.
+
+**Leftovers — `StorageLibrarySnapshotTests` (14; 6 more)** · A copy being produced is not a
+leftover · a copy produced and registered since the snapshot is not a leftover · what a failed run
+left behind is a leftover again · a folder nothing accounts for is still a leftover · copies being
+produced do not make a certificate folder owned · a snapshot with nothing to ask judges by its rows
+alone.
+
+**`DesignSystemTests` (1 rewritten)** · Completion actions install only when asked to.
+
+**Source pins — `tools/test_workflow_trace_policy.py` (9 new)** · These cover the wiring in files
+that cannot be unit-tested without the iOS SDK, and run in `make verify` and CI's quick job: every
+signing flow settles its copies through the one rule, compared argument for argument, with one sweep
+after a batch's loop, and no file outside the known flows calls the signer · no flow can ask for the
+signed copy to be dropped (the three removed entry points stay removed, and `finishSign` deletes
+nothing but its source) · the cleanup switches reach the rule as stored · reporting and the sweep
+follow the caller · a removal that was refused is not reported · a copy being produced is announced
+before its folder exists and confirmed after its row · every cleanup pass defers what a running
+operation uses · duplicate pruning uses the retention rule, on signed copies only, and leaves busy
+ones out · the repeat-signing review is worded by the rule the run follows.
+
+### Validation (follow-up 2)
+
+**Run in this workspace and passing:**
+
+| Gate | Result |
+|---|---|
+| `make verify` | exit 0 |
+| `.github/scripts/quick_check.py --no-swiftc` | ✅ 0 errors, 0 warnings, including `duplicate-types` and `duplicate-filenames` |
+| `make verify` gate self-tests | ✅ 280 Python tests, all OK (271 before the nine new pins) |
+| `make docs-check` | ✅ file links OK; 3 documentation tests OK. It does not check heading anchors; the anchored links in the changed documents were resolved with a separate script, none broken |
+| `tools/test_workflow_trace_policy.py` | 25 tests OK. Run against the tree as it stood before this follow-up, the 9 new pins do not pass (7 fail; 2 stop on a function that is not there) and the other 16 pass |
+| `tools/sync-strings.py --check` | ✅ 474 Swift files · 3287 distinct literals · 3567 catalogue keys — every literal has a key (3565 keys before: 5 added, 3 removed) |
+| `tools/concurrency-discipline.py` | ✅ 6 escapes across 5 files — at baseline, none added |
+| `tools/singleton-freeze.py` | ✅ 62 singletons across 61 files — at baseline, none added |
+| `tools/error-discipline.py` | ✅ 239 unjustified `try?` across 95 files — unchanged |
+| Syntax | all 22 changed or new Swift files parse with a Swift 6.4 frontend in Swift 5 language mode |
+
+**Executed, but not on the iOS toolchain.** As in the first follow-up, the code that needs no UIKit
+was compiled and run with a Swift-to-WebAssembly toolchain kept outside the repository, with
+`import` lines for unavailable modules removed and `.localized` replaced by the identity. Because
+of that replacement, a wrong sentence is noticed there and a missing `import NimbleExtensions` is
+not; the imports were checked by reading.
+
+| Suite | Result |
+|---|---|
+| `PostSignArtifactsTests`, `SignedCopyRetentionTests`, `CleanupOperationGuardTests`, `StorageLibrarySnapshotTests` | 59 pass (18 + 12 + 15 + 14), no warnings — against the real `PostSignArtifacts`, `CleanupPolicy` and `AppOperationRegistry`, with `LibrarySnapshot` and `StorageCategory` copied out of `StorageManager.swift` by script |
+| The rewritten `DesignSystemTests` method | passes, copied out by script: the rest of that file needs SwiftUI |
+| From the first follow-up, run again: `OneShotTweakFilesTests`, `SigningProfileReplayTests`, `SigningRecordIdentityTests`, `TaskReceiptOutcomeTests` | 45 pass (32 + 13) |
+
+`CleanupManager.swift` and `CleanupHistory.swift` type-check there without a warning, together with
+the three files above, against stand-ins for `Storage`, `StorageManager`, `Toast`, the options and
+the app model — and for Foundation's `ListFormatter`, which that toolchain does not have and which
+the deferral sentence is the first code in the app to use. That is a check of those two files
+against the *shape* of what they call, not against the real declarations.
+
+**A harness that is not in the repository.** The rule is tested by the suites above; what
+`CleanupManager` does with it is not something XCTest can reach without the real database and
+file system. To check that wiring, the real `CleanupManager.swift` and `CleanupHistory.swift` were
+compiled against recording stand-ins and driven by 21 tests kept outside the repository: all the
+setting combinations through `finishSign` for every origin, a refused deletion, an output without
+a row or without a bundle, what is reported and what is swept for each caller, the deferral in
+every pass and the prune. All 21 pass. They are evidence about that file's logic; they are not
+part of the repository's tests and will not run in CI.
+
+**Each rule was also checked by taking it away**, one change at a time in a copy of the source
+outside the repository, confirming that the tests notice:
+
+| Changes made to the copy | Noticed by |
+|---|---|
+| 10 to the rule in `PostSignArtifacts`: confirmation skipped, the same-copy check skipped, saved settings replacing again, either switch ignoring the master switch, the switches crossed, the run's option reaching signed sources, a missing output identifier accepted, the result of the deletion ignored, the review wording inverted | `PostSignArtifactsTests` — all 10 |
+| 5 to `SignedCopyRetention`: a tie keeping the oldest, the date ignored, versions compared as strings, the lowest version kept, trailing zeros counted | `SignedCopyRetentionTests` — all 5 |
+| 4 to the pass rule and the snapshot: nothing deferred, leftovers not deferred, the temporary directory not deferred, the snapshot ignoring productions | `CleanupOperationGuardTests`, `StorageLibrarySnapshotTests` — all 4 |
+| 5 to the registry: confirmation doing nothing, a claim not counted, never released, one release ending every claim, a claim making its copy busy | `CleanupOperationGuardTests`, `StorageLibrarySnapshotTests` — all 5 |
+| 21 to `CleanupManager` and `CleanupHistory`: the output deleted, the output always confirmed, a refused removal reported, every cause reported, a sweep where none belongs, the pass after Clean Now or after a batch unguarded, the stored switches swapped, the prune attempting busy or unsigned copies, and the like | the harness outside the repository — all 21. **The repository's XCTest files do not notice these**; in the repository that wiring is held by the source pins |
+| 69 to the wiring, in a scratch copy of the tree: a flow deleting its source itself, the wrong origin, the copies swapped, a flow's own option dropped, a batch sweeping per app or never, a claim not taken or confirmed before the row, the review with fixed wording, the old entry points back, a new flow that signs and deletes its own output | `tools/test_workflow_trace_policy.py` — all 69 |
+
+Two of the 45 were not noticed at first — a missing output identifier, and the two review
+sentences swapped — and seven of the 69. The tests were extended until they were: a test for an
+output without an identifier, the review compared with the catalogue keys rather than with itself,
+a pin that compares each flow's whole call, and the list of every file that calls the signer.
+
+This is evidence about the logic, **not** about the iOS build. The app target is compiled by a
+different compiler version against a different SDK; a clean run here does not show that it compiles
+there, and it says nothing about the warnings gate.
+
+**Not run, and not claimed as run:**
+
+- Any compile against the iOS SDK. `AutoSignManager`, `UpdateAllManager`, `BatchJobRunner`,
+  `SigningHandler`, `AppFileHandler`, `IPAWorkspace`, `SigningView`, `CleanupView`,
+  `LibraryInfoView`, `VexSignIntents` and `StorageManager` outside `LibrarySnapshot` were parsed and
+  hand-checked against the declarations in this repository, and nothing more.
+- `make test` — XCTest results for the new tests and for the existing suite on the simulator are
+  unknown.
+- CI's `build` job and its warnings gate, `make strict-concurrency`, `make lint`, the IPA build.
+- `InstallVerificationTests`, `InstallDeadlineBudgetTests` and the 51 existing engine tests listed
+  in the first follow-up were not run again. None of the files they compile was changed here.
+- `make test-server` and `make test-cloud`: those components were not changed and were not re-run.
+- Anything on a physical device. **No on-device verification was performed**, so none of the three
+  defects has been reproduced, and none of the fixes has been observed to remove one.
+
+No CI run of this follow-up is recorded here; the base commit's run is the one named under
+[Validation (follow-up)](#validation-follow-up). For a first signal on the simulator, use the
+command given there with these suites:
+
+```bash
+  -only-testing:VexSignTests/PostSignArtifactsTests \
+  -only-testing:VexSignTests/SignedCopyRetentionTests \
+  -only-testing:VexSignTests/CleanupOperationGuardTests \
+  -only-testing:VexSignTests/StorageLibrarySnapshotTests \
+  -only-testing:VexSignTests/DesignSystemTests \
+```
+
+### Remaining limitations (follow-up 2)
+
+1. **A re-sign leaves two signed copies unless a setting says otherwise.** That is the change, and
+   it is the safe direction, but someone who relied on a re-sign replacing its copy now collects
+   copies until they turn on "Delete Signed App" or "Keep only the newest signed copy". If
+   replacing should stay the default for the flows without a sheet, it is one line: the
+   `(.savedSettings, true)` case in `PostSignArtifacts.requestedRemoval`. The source would still go
+   only after the output is confirmed.
+2. **"Delete Signed App" no longer discards a signed copy that was not installed.** Nothing takes
+   that over. Removing a signed copy after it has been *installed* is "Delete Installed App", which
+   is unchanged — and with it on and "Delete Signed App" off, a re-sign that installs leaves the
+   older signed copy in the library, where the old code left none.
+3. **"Keep only the newest signed copy" can still remove a copy a run produced**, later and by its
+   own rule: it keeps the highest version, so re-signing an older version while a higher one of the
+   same app is in the library makes the new copy the surplus one at the next Clean Now. Unchanged;
+   it is now the only path that does this, and it does not run when a sign finishes.
+4. **A source that is in use when its run finishes stays, and nothing removes it later.** A run
+   holds the copy it was started from until the moment it reports its result, so this needs
+   another operation to take that copy in the instant before the run is settled. When it happens,
+   `Storage.deleteApps` shows its "in use" message, cleanup reports nothing, and both copies remain
+   until the user removes one or "Keep only the newest signed copy" does.
+5. **Only signing and importing claim what they produce.** A clone is covered by the deferral while
+   its source's lease is held, which protects it from every pass except the Storage screen's Clear.
+   A library restored from a backup, a certificate being imported and a file arriving in the web
+   manager's inbox have no claim, and a leftovers pass at the wrong moment can still take what they
+   are writing. Unchanged.
+6. **The Storage screen's Clear is not deferred.** It is an explicit action on a named category. It
+   judges leftovers through the same snapshot, so a copy being signed or imported is safe, but it
+   will empty the temporary directory under a running operation. Unchanged.
+7. **Only the button and the Shortcuts action say what Clean Now left.** The web API's
+   `/api/cleanup`, the companion and background automation report what was freed and nothing about
+   what was deferred. Their next call with nothing running clears it.
+8. **A produced copy is remembered until the app quits.** If its row were deleted and its folder
+   somehow stayed — `Storage.deleteApps` moves the folder away first, so this is not expected — the
+   folder would not count as a leftover until the next launch.
+9. **What is stored per copy stays with that copy.** The favourite mark and the auto-update switch
+   are kept by copy identifier, and the signing record belongs to the copy a run produced. A new
+   copy starts without them, as before; with the source kept, they now remain on the older copy
+   instead of being lost with it. Library details that are open on a copy when it is removed keep
+   showing it, as before.
+10. **The strings are English only.** The five new sentences have no translations yet. The three
+    they replace had none either, and their keys are removed.
+
+### Required on-device acceptance (follow-up 2)
+
+These continue the list above. None of them has been performed.
+
+**What a sign leaves in the library**
+
+40. With the defaults (Auto Cleanup on, "Delete Unsigned App" and "Delete Signed App" off), open a
+    signed copy's details and choose **Re-sign with last settings**. The review must say that this
+    copy stays and that "Delete Signed App" would remove it. After the run, Library → Signed must
+    hold both copies.
+41. Turn on Auto Cleanup's "Delete Signed App" and turn "Install After Signing" off in the signing
+    options, then repeat 40. The review must say that this copy is removed because "Delete Signed
+    App" is on. After the run there must be exactly one signed copy of the app, the new one — its
+    details show "Signing result for this copy: Completed" for the run just made — and a cleanup
+    message naming the app that was removed. **This is the case that used to leave no copy.**
+42. Repeat 41 from **Re-sign Last** in the row's swipe actions, from **Re-sign with Last Settings**
+    in the row's context menu, and from the Shortcuts action **Sign App**.
+43. With the settings of 41, open the signing sheet on an **imported** app and sign. When the sheet
+    closes, the signed copy must be in Library → Signed. It used to be deleted at that moment. The
+    import stays, because "Delete Unsigned App" is off.
+44. With the settings of 41, open the signing sheet on a **signed** copy and sign. Afterwards the new
+    copy is in the library and the copy the sheet was opened on is gone.
+45. Turn "Delete Signed App" on and then turn the Auto Cleanup master switch off. Repeat 40: the
+    review must say the copy stays, and both copies must remain.
+46. Run a batch job over two signed copies with "Delete Signed App" on. Both new copies must be in
+    the library and both sources gone. No message appears per app; the two removed apps are listed
+    under History in Settings → Auto Cleanup, and at most one cleanup message follows the batch,
+    for the storage that was swept. With "Delete Signed App" off, all four copies remain.
+47. Use IPA Explorer's **Sign & Install** on a library app. The signed copy must be in the library
+    and queued for install, and the copy that was edited must be gone, as before.
+48. Not expected to be reachable by hand: a run holds the copy it was started from until the moment
+    it reports its result, so another operation can take that copy only in the instant before the
+    run is settled; an install of that copy that starts while the run is still going fails with "in
+    use" instead. If it is ever seen with "Delete Signed App" on — an install of the source copy
+    starting at exactly that moment — both copies must remain, VexSign must say the app is in use,
+    and no cleanup message may name it. Until then the case rests on
+    `testASourceThatIsInUseStaysAndIsNotReportedAsRemoved` and on the harness described under
+    [Validation (follow-up 2)](#validation-follow-up-2).
+
+**Leftovers and Clean Now**
+
+49. Turn on "Clear Temporary Files" and "Remove Leftovers". Start **Re-sign Last** on a large app
+    from its Library row, go to Settings → Auto Cleanup and tap **Clean Now** while it is still
+    signing. A message must say "Not cleaned while an operation is running: Temp Files and
+    Leftovers". The sign must finish, and the new copy must open in details, list its files under
+    **Browse Files** and install.
+50. Tap **Clean Now** again once nothing is running. It must not show that message: it reports what
+    it freed, or "Nothing to clean up".
+51. Run the Shortcuts action **Clean Now** while a sign or an install is running. Its answer must
+    include the same sentence.
+52. With "Remove Leftovers" on and auto sign after import on, download or import several large apps
+    one after another. Every imported and every signed copy must open its details and list its
+    files; none may be an entry without a bundle.
+53. While a large app is being imported or signed, open Settings → Storage and clear **Leftovers**.
+    The copy that was being produced must be complete afterwards. This path is not deferred, so it
+    exercises the claim alone.
+
+**Keep only the newest signed copy**
+
+54. Turn on "Keep only the newest signed copy" with "Delete Signed App" off. Re-sign a signed copy,
+    so that two copies of one version exist, and tap **Clean Now**. The copy that remains must be
+    the one just signed.
+55. With signed copies of two versions of one app whose order differs as text and as numbers — 1.9
+    and 1.10 — **Clean Now** must keep 1.10.

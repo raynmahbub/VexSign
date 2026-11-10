@@ -115,26 +115,35 @@ enum StorageRules {
 		)
 	}
 
-	/// Prunes duplicate signed copies of the same bundle id, keeping the highest version.
-	/// Returns the app names that were removed and how much they freed.
+	/// Prunes duplicate signed copies of the same app and keeps one of each: the highest version,
+	/// and among copies of the same version the one that was added last.
+	///
+	/// A re-sign produces a copy with the version of the copy it was started from. The rule used
+	/// to compare versions only, so those two tied and the order the rows were fetched in decided
+	/// which one went: it could delete the copy that had just been signed. `SignedCopyRetention`
+	/// holds the order now.
+	///
+	/// Returns the names of the apps that were removed and how much they freed. Only what was
+	/// deleted is returned: a copy another operation is using is left for a later pass.
 	@discardableResult
 	static func pruneDuplicateSignedApps() -> (removed: [String], freed: Int64) {
 		guard keepOnlyLatestSigned else { return ([], 0) }
 
-		let signed = Storage.shared.getAllApps().filter(\.isSigned)
-		var byIdentifier: [String: [AppInfoPresentable]] = [:]
+		var rows: [String: AppInfoPresentable] = [:]
+		var copies: [SignedCopyRetention.Copy] = []
 
-		for app in signed {
-			guard let id = app.identifier ?? app.name else { continue }
-			byIdentifier[id, default: []].append(app)
+		for app in Storage.shared.getAllApps() where app.isSigned {
+			guard let uuid = app.uuid, let id = app.identifier ?? app.name else { continue }
+			rows[uuid] = app
+			copies.append(SignedCopyRetention.Copy(uuid: uuid, app: id, version: app.version, date: app.date))
 		}
 
-		var targets: [AppInfoPresentable] = []
-		for (_, group) in byIdentifier where group.count > 1 {
-			// Keep the highest version; delete the rest.
-			let ordered = group.sorted { version($0) > version($1) }
-			targets.append(contentsOf: ordered.dropFirst())
-		}
+		// The deletion below is one transaction, and it is refused as a whole when any copy in it
+		// is being signed from, installed or exported. Those are left out, so one busy copy does
+		// not keep every other duplicate.
+		let targets = SignedCopyRetention.surplus(among: copies)
+			.compactMap { rows[$0.uuid] }
+			.filter { !AppOperationRegistry.shared.isBusy(AppOperationRegistry.key($0)) }
 
 		guard !targets.isEmpty else { return ([], 0) }
 
@@ -143,14 +152,9 @@ enum StorageRules {
 			return total + FileManager.default.allocatedSize(at: dir)
 		}
 		let names = targets.compactMap { $0.name }
-		Storage.shared.deleteApps(targets)
+
+		// Refused or failed: every row is still there, so nothing was removed and nothing is said.
+		guard Storage.shared.deleteApps(targets) else { return ([], 0) }
 		return (names, freed)
-	}
-
-	private static func version(_ app: AppInfoPresentable) -> String {
-		guard let v = app.version else { return "" }
-
-		let parts = v.split(separator: ".").compactMap { Int($0) }
-		return parts.map { String(format: "%06d", $0) }.joined()
 	}
 }

@@ -13,6 +13,10 @@ import OSLog
 final class AppFileHandler: NSObject, @unchecked Sendable {
 	private let _fileManager = FileManager.default
 	private let _uuid = UUID().uuidString
+	/// Says, for as long as this import lives, that the copy `_uuid` names is being produced. Its
+	/// payload is in the library before its row is, and without this a cleanup pass in between
+	/// takes the folder for a leftover and deletes it.
+	private let _importClaim: AppOperationRegistry.Lease
 	private let _uniqueWorkDir: URL
 	var uniqueWorkDirPayload: URL?
 
@@ -36,6 +40,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		self._appDescription = download?.appDescription
 		self._uniqueWorkDir = _fileManager.temporaryDirectory
 			.appendingPathComponent("VexSignImport_\(_uuid)", isDirectory: true)
+		self._importClaim = AppOperationRegistry.shared.claimProduction(of: _uuid)
 
 		super.init()
 		Logger.misc.debug("Import initiated for: \(self._ipa.lastPathComponent) with ID: \(self._uuid)")
@@ -199,6 +204,9 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		}
 
 		_didAddToDatabase = true
+		// A cleanup pass that read the library before this commit does not know the row, and
+		// the claim ends with this import.
+		AppOperationRegistry.shared.confirmProduction(of: _uuid)
         if let download = _download {
             // The callback swallows post-commit persistence failure, keeping the UUID checkpoint.
             try await MainActor.run { try download.importCommitCheckpoint?(self._uuid, true) }

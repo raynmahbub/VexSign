@@ -413,6 +413,13 @@ held. See Issue 4 in the
 [follow-up](signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification);
 `CleanupOperationGuardTests` covers the rule.
 
+A second gap of the same kind was found later: nothing protected a copy between the moment its
+bundle is moved into the library and the moment its row is committed, so a leftovers pass in that
+window could delete it. Signing and importing now announce the copy they are producing to the same
+registry, leftovers wait like the temporary directory while any lease is held, and Clean Now
+follows both rules. See Issue 8 in
+[Follow-up 2](signing-and-installation-lifecycle.md#follow-up-2--what-a-successful-sign-leaves-in-the-library).
+
 ---
 
 ## Area 6 — cancellation, stale callbacks and background recovery

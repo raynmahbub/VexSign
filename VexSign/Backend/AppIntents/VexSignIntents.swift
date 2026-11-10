@@ -47,10 +47,19 @@ struct CleanNowIntent: AppIntent {
 			CleanupManager.shared.cleanNow()
 		}
 
-		if summary.isIdle {
-			return .result(dialog: IntentDialog(stringLiteral: .localized("Nothing to clean up.")))
+		var parts: [String] = []
+		if !summary.isIdle {
+			parts.append(String.localized("Freed %@.", arguments: summary.freedBytes.formattedFileSize))
 		}
-		return .result(dialog: IntentDialog(stringLiteral: String.localized("Freed %@.", arguments: summary.freedBytes.formattedFileSize)))
+		// Temporary files and leftovers wait while something is signing or installing. Say so,
+		// instead of "Nothing to clean up." for a run that left them on purpose.
+		if let notice = summary.deferralNotice {
+			parts.append(notice)
+		}
+		if parts.isEmpty {
+			parts.append(.localized("Nothing to clean up."))
+		}
+		return .result(dialog: IntentDialog(stringLiteral: parts.joined(separator: " ")))
 	}
 }
 

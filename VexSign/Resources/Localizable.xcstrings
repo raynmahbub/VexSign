@@ -1398,17 +1398,6 @@
         }
       }
     },
-    "When an app has several signed copies, the automatic sweep keeps the highest version and removes the rest. Certificates and pairing files are never auto-deleted. The warning is a toast on launch, not a deletion." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When an app has several signed copies, the automatic sweep keeps the highest version and removes the rest. Certificates and pairing files are never auto-deleted. The warning is a toast on launch, not a deletion."
-          }
-        }
-      }
-    },
     "Signing Profiles" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4309,17 +4298,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The unsigned app is the file you imported; it is only needed to produce the signed copy."
-          }
-        }
-      }
-    },
-    "Delete Signed App only applies when the app is not being installed or exported right after signing, and removes the signed copy from your library." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Signed App only applies when the app is not being installed or exported right after signing, and removes the signed copy from your library."
           }
         }
       }
@@ -94714,17 +94692,6 @@
         }
       }
     },
-    "On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings."
-          }
-        }
-      }
-    },
     "Original identifier: %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -103829,6 +103796,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Verifying installation (check %lld)"
+          }
+        }
+      }
+    },
+    "Delete Signed App applies when you sign an app that is already signed: the copy you started from is removed once the new signed copy is in your library. The new copy is not deleted after signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Signed App applies when you sign an app that is already signed: the copy you started from is removed once the new signed copy is in your library. The new copy is not deleted after signing."
+          }
+        }
+      }
+    },
+    "Not cleaned while an operation is running: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not cleaned while an operation is running: %@"
+          }
+        }
+      }
+    },
+    "On success, the new signed copy is added to your library and this copy is removed, because Delete Signed App is on in Settings → Auto Cleanup. Your installation settings apply to the new copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On success, the new signed copy is added to your library and this copy is removed, because Delete Signed App is on in Settings → Auto Cleanup. Your installation settings apply to the new copy."
+          }
+        }
+      }
+    },
+    "On success, the new signed copy is added to your library and this copy stays. To have this copy removed instead, turn on Delete Signed App in Settings → Auto Cleanup. Your installation settings apply to the new copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On success, the new signed copy is added to your library and this copy stays. To have this copy removed instead, turn on Delete Signed App in Settings → Auto Cleanup. Your installation settings apply to the new copy."
+          }
+        }
+      }
+    },
+    "When an app has several signed copies, the automatic sweep keeps the highest version and removes the rest. Among copies of the same version it keeps the one added last. Certificates and pairing files are never auto-deleted. The warning is a toast on launch, not a deletion." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When an app has several signed copies, the automatic sweep keeps the highest version and removes the rest. Among copies of the same version it keeps the one added last. Certificates and pairing files are never auto-deleted. The warning is a toast on launch, not a deletion."
           }
         }
       }
