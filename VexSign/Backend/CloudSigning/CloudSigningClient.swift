@@ -8,20 +8,27 @@
 
 import Foundation
 import UIKit
+import OSLog
 import NimbleExtensions
 
 // MARK: - Models
 
-enum CloudArtifactKind: String, Codable, Sendable {
+enum CloudArtifactKind: String, Codable, Equatable, Sendable {
 	case ipa
 	case p12
 	case provision
 }
 
+/// The `201` body of `POST /api/upload`, as documented in `cloud-signing/openapi.json`.
+///
+/// It used to be `{id,key,size}` here, which the service has never returned: a successful upload
+/// would have failed to decode. `sha256` is the service's own digest of what it stored and is the
+/// only thing the app can use to check that the archive arrived intact.
 struct CloudUploadResponse: Codable, Sendable {
 	let id: String
-	let key: String
-	let size: Int
+	let kind: CloudArtifactKind
+	let bytes: Int
+	let sha256: String
 }
 
 struct CloudSignRequest: Codable, Sendable {
@@ -78,8 +85,15 @@ final class CloudSigningClient: ObservableObject {
 	@Published var serverURLString: String {
 		didSet { UserDefaults.standard.set(serverURLString, forKey: "VexSign.cloudSigningServerURL") }
 	}
+	/// A bearer token is a credential, so it is Keychain-only.
+	///
+	/// It used to live in `UserDefaults`, where it was readable in every backup and preferences
+	/// dump alongside non-secret settings. `SecureSecretStore` stores it with
+	/// `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, and the earlier plaintext value is
+	/// migrated once and then removed — the removal only happens after the Keychain write
+	/// succeeded, so an upgrade that fails leaves the old copy usable rather than losing the token.
 	@Published var apiKey: String {
-		didSet { UserDefaults.standard.set(apiKey, forKey: "VexSign.cloudSigningKey") }
+		didSet { Self.storeAPIKey(apiKey) }
 	}
 	@Published var isTesting = false
 	@Published var lastTestResult: String?
@@ -88,7 +102,37 @@ final class CloudSigningClient: ObservableObject {
 	init() {
 		self.isEnabled = UserDefaults.standard.bool(forKey: "VexSign.cloudSigningEnabled")
 		self.serverURLString = UserDefaults.standard.string(forKey: "VexSign.cloudSigningServerURL") ?? "https://cloud.vexsign.app"
-		self.apiKey = UserDefaults.standard.string(forKey: "VexSign.cloudSigningKey") ?? ""
+		self.apiKey = Self.loadAPIKey()
+	}
+
+	// MARK: - Credential storage
+
+	/// The Keychain account the token lives under, and the preferences key earlier builds wrote.
+	private static let _apiKeyAccount = "cloudSigning.apiKey"
+	private static let _legacyAPIKeyDefaultsKey = "VexSign.cloudSigningKey"
+
+	private static func loadAPIKey() -> String {
+		do {
+			return try SecureSecretStore.migrateDefaults(_legacyAPIKeyDefaultsKey, account: _apiKeyAccount)
+		} catch {
+			// A locked Keychain must not look like an empty token: the plaintext copy is still
+			// there, and the next launch will migrate it.
+			Logger.misc.error("Cloud signing token is unavailable until the Keychain is unlocked.")
+			return UserDefaults.standard.string(forKey: _legacyAPIKeyDefaultsKey) ?? ""
+		}
+	}
+
+	private static func storeAPIKey(_ value: String) {
+		do {
+			if value.isEmpty {
+				try SecureSecretStore.delete(_apiKeyAccount)
+			} else {
+				try SecureSecretStore.write(Data(value.utf8), account: _apiKeyAccount)
+			}
+		} catch {
+			// Reported rather than silently dropped: the token in memory still works for this run.
+			Logger.misc.error("Cloud signing token could not be stored in the Keychain.")
+		}
 	}
 
 	private var baseURL: URL? {
@@ -121,37 +165,25 @@ final class CloudSigningClient: ObservableObject {
 	// MARK: - Artifact Upload
 
 	func upload(fileURL: URL, kind: CloudArtifactKind) async throws -> CloudUploadResponse {
-		// Checked before anything else so no request object is ever built for it.
+		// Checked before anything else so no request body is ever built for it.
 		guard kind != .p12 else { throw CloudSigningError.privateKeyUploadDisabled }
 		guard let base = baseURL else { throw URLError(.badURL) }
-		let url = base.appendingPathComponent("api/upload")
 
-		let boundary = "Boundary-\(UUID().uuidString)"
-		var request = URLRequest(url: url)
-		request.httpMethod = "POST"
-		request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-		if !apiKey.isEmpty {
-			request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-			request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-		}
+		let boundary = CloudUploadBody.makeBoundary()
+		let request = try CloudUploadBody.request(base: base, kind: kind, apiKey: apiKey, boundary: boundary)
 
-		let fileData = try Data(contentsOf: fileURL)
+		let bodyURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("vexsign-cloud-upload-\(UUID().uuidString).multipart")
+		defer { try? FileManager.default.removeItem(at: bodyURL) } // try? ok: a leftover body file is reaped by cleanup
+
+		// The archive is up to 2 GiB; building the body is a bulk disk copy, so it runs off the
+		// main actor and never holds more than one chunk in memory.
 		let filename = fileURL.lastPathComponent
+		try await Task.detached(priority: .utility) {
+			_ = try CloudUploadBody.write(file: fileURL, filename: filename, boundary: boundary, to: bodyURL)
+		}.value
 
-		var body = Data()
-		// kind field
-		body.append("--\(boundary)\r\n".data(using: .utf8)!)
-		body.append("Content-Disposition: form-data; name=\"kind\"\r\n\r\n".data(using: .utf8)!)
-		body.append("\(kind.rawValue)\r\n".data(using: .utf8)!)
-
-		// file field
-		body.append("--\(boundary)\r\n".data(using: .utf8)!)
-		body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
-		body.append("Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!)
-		body.append(fileData)
-		body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-
-		let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+		let (data, response) = try await URLSession.shared.upload(for: request, fromFile: bodyURL)
 		guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
 			let errText = String(data: data, encoding: .utf8) ?? "Upload failed"
 			throw NSError(domain: "CloudSigningClient", code: (response as? HTTPURLResponse)?.statusCode ?? -1, userInfo: [NSLocalizedDescriptionKey: errText])

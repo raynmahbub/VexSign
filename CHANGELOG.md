@@ -58,6 +58,22 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- The in-app cloud-signing client now speaks the contract its service documents.
+  `POST /api/upload` takes `kind` as a **query** parameter and exactly one multipart
+  file, and answers `{id,kind,bytes,sha256}`; the app sent `kind` as a form field and
+  decoded `{id,key,size}`, so an upload against a reachable cluster answered 400 and a
+  success could not have been read even then. The request is built by
+  `CloudUploadBody`, which the tests check against the documented shape.
+- Cloud uploads no longer load the archive into memory twice. The body used to be
+  `Data(contentsOf:)` plus a concatenated `Data` copy — up to 4 GiB for the 2 GiB IPA
+  the service accepts. It is now written to a temporary file one 1 MiB chunk at a
+  time, off the main actor, and streamed with `URLSession.upload(for:fromFile:)`;
+  the temporary copy is removed when the request ends.
+- The cloud-signing bearer token is stored in the Keychain instead of
+  `UserDefaults`. The token was kept in plaintext preferences, where it appeared in
+  backups and preference dumps. It is migrated once on first launch and the plaintext
+  copy is removed only after the Keychain write succeeds; a locked Keychain leaves the
+  old value in place and reports why.
 - The install card's status line is resolved from the installation lifecycle as well
   as the transport. It used to start with `guard case .installing = viewModel.status`,
   so every other transport status discarded the lifecycle: an OTA install read
