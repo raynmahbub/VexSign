@@ -178,15 +178,23 @@ extension WebManagerServer {
 				)
 			}
 			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
+            let workLease: AppOperationRegistry.Lease
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            catch { return Self.text("Cleanup is in progress. Retry the download.", .serviceUnavailable) }
+            defer { withExtendedLifetime(workLease) {} }
 			let zipURL: URL? = await MainActor.run {
 				guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == uuid }) else { return nil }
 				return CertificateExporter.makeZip(for: cert)
 			}
 			guard let zipURL else { return Response(status: .notFound) }
-			return try await Self.download(req, file: zipURL, as: zipURL.lastPathComponent)
+			return try await Self.downloadTemporary(req, file: zipURL, as: zipURL.lastPathComponent, lease: workLease)
 		}
 
 		app.on(.POST, "api", "certs") { req async -> Response in
+            let workLease: AppOperationRegistry.Lease
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            catch { return Self.text("Cleanup is in progress. Retry the upload.", .serviceUnavailable) }
+            defer { withExtendedLifetime(workLease) {} }
 			let upload: CertUpload
 			do { upload = try req.content.decode(CertUpload.self) } catch { return Self.text("Invalid upload.", .badRequest) }
 
@@ -261,14 +269,21 @@ extension WebManagerServer {
 
 		app.get("api", "apps", ":uuid", "download") { req async throws -> Response in
 			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
-			let info: (dir: URL, name: String, version: String)? = await MainActor.run {
-				guard
-					let target = Storage.shared.app(withUuid: uuid),
-					let dir = Storage.shared.getAppDirectory(for: target)
-				else { return nil }
-				return (dir, target.name ?? "App", target.version ?? "")
-			}
+            let workLease: AppOperationRegistry.Lease
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            catch { return Self.text("Cleanup is in progress. Retry the download.", .serviceUnavailable) }
+            defer { withExtendedLifetime(workLease) {} }
+            let info: (dir: URL, name: String, version: String, lease: AppOperationRegistry.Lease)?
+            do {
+                info = try await MainActor.run {
+                    guard let target = Storage.shared.app(withUuid: uuid),
+                          let dir = Storage.shared.getAppDirectory(for: target) else { return nil }
+                    let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(target))
+                    return (dir, target.name ?? "App", target.version ?? "", lease)
+                }
+            } catch { return Self.text("The app is in use. Retry the download.", .conflict) }
 			guard let info else { return Response(status: .notFound) }
+            defer { withExtendedLifetime(info.lease) {} }
 
 			let level = (try? req.query.get(Int.self, at: "compression")) ?? ArchiveHandler.getCompressionLevel() // try? ok: an absent or non-integer query parameter falls back to the user's compression preference
 			let compression = ZipCompression.allCases[safe: level] ?? .DefaultCompression
@@ -283,9 +298,11 @@ extension WebManagerServer {
 					try AppArchiver.archive(appDir: info.dir, to: ipaURL, compression: compression)
 				}.value
 			} catch {
+                do { try FileManager.default.removeItem(at: ipaURL.deletingLastPathComponent()) }
+                catch { Logger.misc.error("Web export cleanup failed: \(error.localizedDescription)") }
 				return Self.text("Could not package the app.", .internalServerError)
 			}
-			return try await Self.download(req, file: ipaURL, as: filename)
+			return try await Self.downloadTemporary(req, file: ipaURL, as: filename, lease: workLease)
 		}
 
 		app.on(.DELETE, "api", "apps", ":uuid") { req async -> Response in
@@ -342,6 +359,26 @@ extension WebManagerServer {
 		response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
 		return response
 	}
+
+    /// The lease survives response construction and ends only when Vapor finishes
+    /// sending the file; only these server-created scratch directories are removed.
+    private static func downloadTemporary(_ req: Request, file: URL, as filename: String,
+                                          lease: AppOperationRegistry.Lease) async throws -> Response {
+        let directory = file.deletingLastPathComponent()
+        do {
+            let response = try await req.fileio.asyncStreamFile(at: file.path) { _ in
+                defer { withExtendedLifetime(lease) {} }
+                do { try FileManager.default.removeItem(at: directory) }
+                catch { Logger.misc.error("Web export cleanup failed: \(error.localizedDescription)") }
+            }
+            response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
+            return response
+        } catch {
+            do { try FileManager.default.removeItem(at: directory) }
+            catch { Logger.misc.error("Web export cleanup failed: \(error.localizedDescription)") }
+            throw error
+        }
+    }
 
 	private static func dateString(_ date: Date?) -> String {
 		guard let date else { return "—" }

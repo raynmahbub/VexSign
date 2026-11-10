@@ -103854,6 +103854,171 @@
           }
         }
       }
+    },
+    "Please confirm the installation request displayed by iOS." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please confirm the installation request displayed by iOS."
+          }
+        }
+      }
+    },
+    "The installation request was not confirmed. iOS does not report whether the prompt was accepted or declined. Check the Home Screen before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The installation request was not confirmed. iOS does not report whether the prompt was accepted or declined. Check the Home Screen before retrying."
+          }
+        }
+      }
+    },
+    "Waiting for iOS confirmation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for iOS confirmation"
+          }
+        }
+      }
+    },
+    "Cancel preparation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel preparation"
+          }
+        }
+      }
+    },
+    "Stops preparation before the installation request is handed off." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops preparation before the installation request is handed off."
+          }
+        }
+      }
+    },
+    "VexSign could not confirm the installation. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign could not confirm the installation. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying."
+          }
+        }
+      }
+    },
+    "%lld succeeded, %lld failed, %lld not confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld succeeded, %lld failed, %lld not confirmed"
+          }
+        }
+      }
+    },
+    "Installation not confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation not confirmed"
+          }
+        }
+      }
+    },
+    "Installation error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation error"
+          }
+        }
+      }
+    },
+    "Installation failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation failed"
+          }
+        }
+      }
+    },
+    "Sending installation manifest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending installation manifest"
+          }
+        }
+      }
+    },
+    "Some areas were not cleaned while an operation is running." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some areas were not cleaned while an operation is running."
+          }
+        }
+      }
+    },
+    "Tweak restore failed: %@. Some earlier backup components or folders may already have been restored." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tweak restore failed: %@. Some earlier backup components or folders may already have been restored."
+          }
+        }
+      }
+    },
+    "Wait for active operations to finish before cleaning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wait for active operations to finish before cleaning."
+          }
+        }
+      }
+    },
+    "Some items are protected or an operation is running." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some items are protected or an operation is running."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

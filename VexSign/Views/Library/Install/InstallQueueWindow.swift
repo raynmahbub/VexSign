@@ -102,7 +102,7 @@ private struct InstallQueueSheet: View {
 	var body: some View {
 		_surfaceView(surface)
 			.animation(.easeInOut(duration: 0.22), value: queue.index)
-			.presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(200)])
+			.presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(250), .medium])
 			.presentationDragIndicator(.visible)
 			.onAppear { queue.activate() }
 	}
@@ -126,6 +126,7 @@ private struct InstallQueueSheet: View {
 			if let installer = queue.installer, let current = queue.current, current.id == entryID {
 				InstallCardView(
 					installer: installer,
+                    taskID: queue.currentTaskID,
 					upcoming: queue.upcoming,
 					onCancel: { queue.skip(forEntryID: current.id) },
 					onPause: {

@@ -16,30 +16,40 @@ enum CertificateExporter {
 			let provision = Storage.shared.getFile(.provision, from: cert)
 		else { return nil }
 
-		let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
-		let safe = (name as NSString).lastPathComponent.replacingOccurrences(of: "/", with: "_")
-		let fm = FileManager.default
-		let dir = fm.uniqueTemporaryDirectory("CertExport")
-		let zipURL = dir.appendingPathComponent("\(safe).zip")
+        let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
+        return package(p12: p12, provision: provision, password: cert.requireSigningPassword(), name: name,
+                       directory: FileManager.default.uniqueTemporaryDirectory("CertExport"))
+    }
 
-		do {
-			try fm.createDirectoryIfNeeded(at: dir)
-			try fm.copyItem(at: p12, to: dir.appendingPathComponent("\(safe).p12"))
-			try fm.copyItem(at: provision, to: dir.appendingPathComponent("\(safe).mobileprovision"))
-			try Data(cert.requireSigningPassword().utf8).write(to: dir.appendingPathComponent("password.txt"))
-			try Zip.zipFiles(
-				paths: [
-					dir.appendingPathComponent("\(safe).p12"),
-					dir.appendingPathComponent("\(safe).mobileprovision"),
-					dir.appendingPathComponent("password.txt")
-				],
-				zipFilePath: zipURL,
-				password: nil,
-				progress: nil
-			)
-			return zipURL
-		} catch {
-			return nil
-		}
-	}
+    /// `directory` must be a new scratch directory. A failed export removes only
+    /// the directory it created, never an existing destination.
+    static func package(p12: URL, provision: URL, password: String, name: String, directory dir: URL,
+                        zip: ([URL], URL) throws -> Void = {
+                            try Zip.zipFiles(paths: $0, zipFilePath: $1, password: nil, progress: nil)
+                        }) -> URL? {
+        let safe = (name as NSString).lastPathComponent.replacingOccurrences(of: "/", with: "_")
+        let fm = FileManager.default
+        let zipURL = dir.appendingPathComponent("\(safe).zip")
+        var created = false
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: false)
+            created = true
+            let inputs = [dir.appendingPathComponent("\(safe).p12"),
+                          dir.appendingPathComponent("\(safe).mobileprovision"),
+                          dir.appendingPathComponent("password.txt")]
+            try fm.copyItem(at: p12, to: inputs[0])
+            try fm.copyItem(at: provision, to: inputs[1])
+            try Data(password.utf8).write(to: inputs[2])
+            try zip(inputs, zipURL)
+            // Do not leave unpacked private key or password beside the archive.
+            for input in inputs { try fm.removeItem(at: input) }
+            return zipURL
+        } catch {
+            if created {
+                do { try fm.removeItem(at: dir) }
+                catch { FileLogger.error("Could not remove failed certificate export: \(error.localizedDescription)", category: "certificates") }
+            }
+            return nil
+        }
+    }
 }

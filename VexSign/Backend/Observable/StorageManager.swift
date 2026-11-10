@@ -10,6 +10,27 @@ import OSLog
 import Nuke
 import NimbleExtensions
 
+/// Temporary directories whose consumers may outlive the call that created them.
+/// Keep these during a running process; their owners discard them, and launch recovery
+/// removes abandoned copies. Matching is at the temporary root, never a substring.
+enum TemporaryCleanupPolicy {
+    private static let retainedPrefixes = [
+        "VexBackupOut_", "VexSignTweak_", "VexSignTweakExtract_",
+        "VexSignZipExtract_", "VexSignSharedTweak_", "TweakAnalyze_"
+    ]
+
+    static func isRetained(_ url: URL, temporaryRoot: URL, downloadStaging: URL) -> Bool {
+        let root = temporaryRoot.resolvingSymlinksInPath().standardizedFileURL.path
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        let staging = downloadStaging.resolvingSymlinksInPath().standardizedFileURL.path
+        if path == staging || path.hasPrefix(staging + "/") { return true }
+        guard path.hasPrefix(root + "/") else { return false }
+        let relative = String(path.dropFirst(root.count + 1))
+        guard let first = relative.split(separator: "/").first else { return false }
+        return retainedPrefixes.contains { first.hasPrefix($0) }
+    }
+}
+
 // MARK: - Category
 enum StorageCategory: String, CaseIterable, Identifiable {
 	case signed
@@ -128,9 +149,24 @@ final class StorageManager: ObservableObject {
 		}.value
 	}
 
-	func delete(_ items: [StorageEntry]) {
-		let deletable = items.filter { !$0.isProtected }
-		guard !deletable.isEmpty else { return }
+	@discardableResult
+	func delete(_ items: [StorageEntry], category: StorageCategory) -> Bool {
+        let guarded = category == .temporary || category == .leftovers
+        let lease = guarded ? AppOperationRegistry.shared.acquireCleanup() : nil
+        if guarded && lease == nil { return false }
+        defer { withExtendedLifetime(lease) {} }
+        // Entries can outlive the scan that produced them. Re-evaluate leftovers while
+        // holding the cleanup lease instead of trusting the old isProtected flag.
+        let currentLeftovers = category == .leftovers ? StorageScanner.leftovers(_librarySnapshot()) : []
+        let deletable = items.filter { item in
+            let retained = category == .temporary && TemporaryCleanupPolicy.isRetained(
+                item.url, temporaryRoot: FileManager.default.temporaryDirectory,
+                downloadStaging: FileManager.default.downloadStaging)
+            let stillLeftover = category != .leftovers || Self.isWithinCurrentLeftovers(item.url, currentLeftovers)
+            return !item.isProtected && stillLeftover && !retained
+        }
+        guard deletable.count == items.count else { return false }
+		guard !deletable.isEmpty else { return true }
 
 		let uuids = Set(deletable.compactMap(\.appUuid))
 		if !uuids.isEmpty {
@@ -144,16 +180,32 @@ final class StorageManager: ObservableObject {
 		let removed = Set(deletable.map(\.id))
 		entries = entries.mapValues { $0.filter { !removed.contains($0.id) } }
 		refresh()
+        return true
 	}
 
-	func clear(_ categories: [StorageCategory]) async {
+    static func isWithinCurrentLeftovers(_ item: URL, _ leftovers: [URL]) -> Bool {
+        let path = item.standardizedFileURL.path
+        return leftovers.contains {
+            let root = $0.standardizedFileURL.path
+            return path == root || path.hasPrefix(root + "/")
+        }
+    }
+
+	@discardableResult
+	func clear(_ categories: [StorageCategory]) async -> [StorageCategory] {
+        let guarded = categories.filter { $0 == .temporary || $0 == .leftovers }
+        let lease = guarded.isEmpty ? nil : AppOperationRegistry.shared.acquireCleanup()
+        let deferred = lease == nil ? guarded : []
+        let allowed = categories.filter { !deferred.contains($0) }
 		let library = _librarySnapshot()
 		await Task.detached(priority: .utility) {
-			for category in categories { StorageScanner.clear(category, library) }
+            defer { withExtendedLifetime(lease) {} }
+			for category in allowed { StorageScanner.clear(category, library) }
 		}.value
 
 		entries.removeAll()
 		refresh()
+        return deferred
 	}
 
 	private func _librarySnapshot() -> LibrarySnapshot {
@@ -208,10 +260,14 @@ extension StorageManager {
 	}
 
 	nonisolated static func purgeTemporary() {
-		StorageScanner.purge(contentsOf: FileManager.default.temporaryDirectory)
+        guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
+        defer { withExtendedLifetime(lease) {} }
+        StorageScanner.purgeTemporary()
 	}
 
 	nonisolated static func purgeStaleTemporary() {
+        guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
+        defer { withExtendedLifetime(lease) {} }
 		let fm = FileManager.default
 		let items: [URL]
 		do {
@@ -265,7 +321,11 @@ extension StorageManager {
 	/// Nothing here can touch app bundles, certificates or the database — only the caches,
 	/// temporary work files, leftovers and exported IPAs the user asked to be rid of.
 	@discardableResult
-	func purge(_ category: StorageCategory, preservingDownloads: Bool = true) -> Int64 {
+	func purge(_ category: StorageCategory, cleanupLease: AppOperationRegistry.Lease? = nil) -> Int64 {
+        let guarded = category == .temporary || category == .leftovers
+        let lease = cleanupLease ?? (guarded ? AppOperationRegistry.shared.acquireCleanup() : nil)
+        if guarded && lease == nil { return 0 }
+        defer { withExtendedLifetime(lease) {} }
 		let library = _librarySnapshot()
 		let before = StorageScanner.reclaimableBytes(category, library)
 		guard before > 0 else { return 0 }
@@ -276,7 +336,7 @@ extension StorageManager {
 		case .logs:
 			FileLogger.clear()
 		case .temporary:
-			StorageScanner.purgeTemporary(preservingDownloads: preservingDownloads)
+			StorageScanner.purgeTemporary()
 		case .leftovers:
 			for url in StorageScanner.leftovers(library) { try? FileManager.default.removeItem(at: url) } // try? ok: explicit user cleanup; a file that refuses to delete is reported again by the next scan
 		case .archives:
@@ -398,7 +458,7 @@ private enum StorageScanner {
 		case .logs:
 			FileLogger.clear()
 		case .temporary:
-			purge(contentsOf: fm.temporaryDirectory)
+            purgeTemporary()
 		case .leftovers:
 			for url in leftovers(library) { try? fm.removeItem(at: url) } // try? ok: explicit user cleanup; a file that refuses to delete is reported again by the next scan
 		case .archives:
@@ -416,7 +476,7 @@ private enum StorageScanner {
 		case .logs:
 			return fm.allocatedSize(at: fm.logs)
 		case .temporary:
-			return temporarySize(preservingDownloads: true)
+			return temporarySize()
 		case .leftovers:
 			return leftovers(library).reduce(0) { $0 + fm.allocatedSize(at: $1) }
 		case .archives:
@@ -427,19 +487,17 @@ private enum StorageScanner {
 	}
 
 	/// Clears the temporary directory. Ran while a background download is still staged would kill
-	/// it, so the download staging folder is kept unless the user cleared temp files by hand.
-	static func purgeTemporary(preservingDownloads: Bool) {
-		let staging = fm.downloadStaging.lastPathComponent
+	/// it, so the download staging folder is always kept, including for manual cleanup.
+	static func purgeTemporary() {
 		for url in contents(of: fm.temporaryDirectory) {
-			if preservingDownloads, url.lastPathComponent == staging { continue }
-			try? fm.removeItem(at: url) // try? ok: best-effort temporary cleanup, honouring the preserve-downloads flag above
+            if TemporaryCleanupPolicy.isRetained(url, temporaryRoot: fm.temporaryDirectory, downloadStaging: fm.downloadStaging) { continue }
+			try? fm.removeItem(at: url) // try? ok: best-effort temporary cleanup, honouring the retention policy above
 		}
 	}
 
-	private static func temporarySize(preservingDownloads: Bool) -> Int64 {
-		let staging = fm.downloadStaging.lastPathComponent
+	private static func temporarySize() -> Int64 {
 		return contents(of: fm.temporaryDirectory).reduce(0) { total, url in
-			if preservingDownloads, url.lastPathComponent == staging { return total }
+            if TemporaryCleanupPolicy.isRetained(url, temporaryRoot: fm.temporaryDirectory, downloadStaging: fm.downloadStaging) { return total }
 			return total + fm.allocatedSize(at: url)
 		}
 	}
@@ -531,7 +589,9 @@ private enum StorageScanner {
 		partition(fm.signed) { library.owns($0, signed: true) }.orphans
 		+ partition(fm.unsigned) { library.owns($0, signed: false) }.orphans
 		+ partition(fm.certificates) { library.ownsCertificate($0) }.orphans
-		+ contents(of: fm.webManagerInbox)
+        // Web Manager inbox files are user-owned transfers, not orphans. They
+        // include partial uploads, pending routes and files intentionally retained.
+        // Manage them explicitly in Web Manager, never via automatic cleanup.
 	}
 
 	// MARK: Measuring

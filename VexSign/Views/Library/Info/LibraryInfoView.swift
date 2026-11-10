@@ -100,7 +100,7 @@ extension LibraryInfoView {
         Section {
             Label(.localized("Stored in Library"), systemImage: "archivebox")
             LabeledContent(.localized("Library copy"), value: app.isSigned ? String.localized("Signed copy") : String.localized("Imported copy"))
-            LabeledContent(.localized("Device installation"), value: status.installed.title)
+            LabeledContent(.localized("Device installation"), value: status.installationTitle)
             if status.guest != .unavailable {
                 LabeledContent(.localized("Embedded container"), value: status.guest.title)
                 Text(.localized("A container import does not prove signing or a successful guest launch, and is not an iOS device installation."))

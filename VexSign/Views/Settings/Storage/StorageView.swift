@@ -172,9 +172,13 @@ private extension StorageView {
 	func _clear() {
 		_isClearing = true
 		Task {
-			await _manager.clear(StorageCategory.safeToClear)
+            let deferred = await _manager.clear(StorageCategory.safeToClear)
 			_isClearing = false
-			Toast.success(.localized("Space freed"))
+            if deferred.isEmpty {
+                Toast.success(.localized("Space freed"))
+            } else {
+                Toast.info(.localized("Some areas were not cleaned while an operation is running."))
+            }
 		}
 	}
 }

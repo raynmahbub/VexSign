@@ -150,18 +150,33 @@ extension WebManagerServer {
 				return req.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
 			}
 
+            let workLease: AppOperationRegistry.Lease
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            catch {
+                return req.eventLoop.makeSucceededFuture(Response(status: .serviceUnavailable,
+                    body: .init(string: "Cleanup is in progress. Retry the upload.")))
+            }
 			let staging = FileManager.default.uniqueTemporaryDirectory("APISign")
 			let ipaURL = staging.appendingPathComponent("upload.ipa")
 			let promise = req.eventLoop.makePromise(of: Response.self)
 
 			let streamed = self.streamToFile(req, destination: ipaURL, route: false, report: false, successStatus: .ok)
-			streamed.whenSuccess { _ in
+			streamed.whenSuccess { response in
+                guard response.status == .ok else {
+                    if FileManager.default.fileExists(atPath: staging.path) {
+                        do { try FileManager.default.removeItem(at: staging) }
+                        catch { Logger.misc.error("API upload cleanup failed: \(error.localizedDescription)") }
+                    }
+                    promise.succeed(response)
+                    return
+                }
 				Task { @MainActor in
-					let response = await self._signAndPackage(request: req, ipaURL: ipaURL, staging: staging)
+					let response = await self._signAndPackage(request: req, ipaURL: ipaURL, staging: staging, workLease: workLease)
 					promise.succeed(response)
 				}
 			}
 			streamed.whenFailure { error in
+                defer { withExtendedLifetime(workLease) {} }
 				try? FileManager.default.removeItem(at: staging) // try? ok: the stream failed and promise.fail reports it; this only removes the partial staging directory
 				promise.fail(error)
 			}
@@ -175,7 +190,9 @@ extension WebManagerServer {
 	/// Imports the upload, signs it with the default certificate and packages the
 	/// result as an IPA. Main actor because the library lives in CoreData.
 	@MainActor
-	private func _signAndPackage(request: Request, ipaURL: URL, staging: URL) async -> Response {
+	private func _signAndPackage(request: Request, ipaURL: URL, staging: URL,
+                                 workLease: AppOperationRegistry.Lease) async -> Response {
+        defer { withExtendedLifetime(workLease) {} }
 		guard AutoSignManager.canSign else {
 			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it
 			return Response(
@@ -228,6 +245,7 @@ extension WebManagerServer {
 		let response: Response
 		do {
 			response = try await request.fileio.asyncStreamFile(at: output.path) { _ in
+                defer { withExtendedLifetime(workLease) {} }
 				try? FileManager.default.removeItem(at: staging) // try? ok: the completion handler runs after the response is sent; a leftover temp directory is CleanupManager's job
 			}
 		} catch {

@@ -220,3 +220,119 @@ final class BackupStreamingTests: XCTestCase {
     }
 
 }
+
+final class TweakBackupDurabilityTests: XCTestCase {
+    private func fixture(_ body: (URL, URL, ManagedTweak, TweakFolder) throws -> Void) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = root.appendingPathComponent("source")
+        let destination = root.appendingPathComponent("destination")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folder = TweakFolder(name: "Folder")
+        let tweak = ManagedTweak(name: "Tweak", folderId: folder.id)
+        try JSONEncoder().encode([folder]).write(to: source.appendingPathComponent("folders.json"))
+        try JSONEncoder().encode([tweak]).write(to: source.appendingPathComponent("library.json"))
+        let files = source.appendingPathComponent(tweak.id.uuidString)
+        try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
+        try Data([42]).write(to: files.appendingPathComponent("file"))
+        try body(source, destination, tweak, folder)
+    }
+
+    func testLibraryFailureKeepsCommittedFoldersAndRollsBackOnlyNewFiles() throws {
+        try fixture { source, destination, tweak, folder in
+            var tweaks: [ManagedTweak] = []
+            var folders: [TweakFolder] = []
+            let existing = destination.appendingPathComponent("unrelated")
+            try Data([7]).write(to: existing)
+            XCTAssertThrowsError(try TweakBackupMerge.run(source: source, destination: destination,
+                currentTweaks: tweaks, currentFolders: folders,
+                write: { data, url in
+                    if url.lastPathComponent == "library.json" { throw CocoaError(.fileWriteNoPermission) }
+                    try data.write(to: url, options: .atomic)
+                }, onFoldersCommitted: { folders = $0 }, onTweaksCommitted: { tweaks = $0 }))
+            XCTAssertEqual(folders, [folder])
+            XCTAssertTrue(tweaks.isEmpty)
+            XCTAssertEqual(try JSONDecoder().decode([TweakFolder].self, from: Data(contentsOf: destination.appendingPathComponent("folders.json"))), [folder])
+            XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent(tweak.id.uuidString).path))
+            XCTAssertEqual(try Data(contentsOf: existing), Data([7]))
+        }
+    }
+
+    func testFolderWriteFailureDoesNotPublishOrCopy() throws {
+        try fixture { source, destination, tweak, _ in
+            var folders: [TweakFolder] = []
+            XCTAssertThrowsError(try TweakBackupMerge.run(source: source, destination: destination,
+                currentTweaks: [], currentFolders: [], write: { _, _ in throw CocoaError(.fileWriteNoPermission) },
+                onFoldersCommitted: { folders = $0 }, onTweaksCommitted: { _ in XCTFail("must not publish") }))
+            XCTAssertTrue(folders.isEmpty)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent(tweak.id.uuidString).path))
+        }
+    }
+
+    func testExistingOrphanIsNotAdoptedOrDeleted() throws {
+        try fixture { source, destination, tweak, _ in
+            let orphan = destination.appendingPathComponent(tweak.id.uuidString)
+            try FileManager.default.createDirectory(at: orphan, withIntermediateDirectories: true)
+            try Data([9]).write(to: orphan.appendingPathComponent("unrelated"))
+            XCTAssertThrowsError(try TweakBackupMerge.run(source: source, destination: destination,
+                currentTweaks: [], currentFolders: [], onFoldersCommitted: { _ in }, onTweaksCommitted: { _ in XCTFail("must not publish") }))
+            XCTAssertEqual(try Data(contentsOf: orphan.appendingPathComponent("unrelated")), Data([9]))
+        }
+    }
+
+    func testSuccessfulRestorePersistsAndPublishes() throws {
+        try fixture { source, destination, tweak, folder in
+            var tweaks: [ManagedTweak] = []
+            var folders: [TweakFolder] = []
+            let count = try TweakBackupMerge.run(source: source, destination: destination,
+                currentTweaks: [], currentFolders: [], onFoldersCommitted: { folders = $0 }, onTweaksCommitted: { tweaks = $0 })
+            XCTAssertEqual(count, 1)
+            XCTAssertEqual(tweaks, [tweak])
+            XCTAssertEqual(folders, [folder])
+            XCTAssertEqual(try JSONDecoder().decode([ManagedTweak].self, from: Data(contentsOf: destination.appendingPathComponent("library.json"))), [tweak])
+        }
+    }
+}
+
+final class CertificateExportScratchTests: XCTestCase {
+    func testSuccessfulExportRemovesUnpackedSecrets() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let p12 = root.appendingPathComponent("source.p12")
+        let profile = root.appendingPathComponent("source.mobileprovision")
+        try Data([1]).write(to: p12)
+        try Data([2]).write(to: profile)
+        let scratch = root.appendingPathComponent("export")
+        let result = CertificateExporter.package(p12: p12, provision: profile, password: "secret", name: "Example", directory: scratch) { inputs, output in
+            XCTAssertEqual(inputs.count, 3)
+            XCTAssertEqual(try String(contentsOf: inputs[2], encoding: .utf8), "secret")
+            try Data([3]).write(to: output)
+        }
+        XCTAssertNotNil(result)
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: scratch.path), ["Example.zip"])
+        XCTAssertTrue(fm.fileExists(atPath: p12.path))
+    }
+
+    func testFailedExportRemovesCreatedScratchButNeverExistingDestination() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let p12 = root.appendingPathComponent("source.p12"), profile = root.appendingPathComponent("source.mobileprovision")
+        try Data([1]).write(to: p12)
+        try Data([2]).write(to: profile)
+        let scratch = root.appendingPathComponent("export")
+        XCTAssertNil(CertificateExporter.package(p12: p12, provision: profile, password: "secret", name: "Example", directory: scratch) { _, _ in
+            throw CocoaError(.fileWriteNoPermission)
+        })
+        XCTAssertFalse(fm.fileExists(atPath: scratch.path))
+        try fm.createDirectory(at: scratch, withIntermediateDirectories: true)
+        let unrelated = scratch.appendingPathComponent("unrelated")
+        try Data([9]).write(to: unrelated)
+        XCTAssertNil(CertificateExporter.package(p12: p12, provision: profile, password: "secret", name: "Example", directory: scratch))
+        XCTAssertEqual(try Data(contentsOf: unrelated), Data([9]))
+    }
+}

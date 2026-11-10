@@ -37,6 +37,10 @@ final class AppInstaller: ObservableObject {
     /// visibly still working, and kept in the task report.
     @Published private(set) var verificationAttempt = 0
     private var _hasServedPayload = false
+    @Published private(set) var hasOpenedInstallHandoff = false
+    @Published private(set) var hasStartedPairedInstall = false
+    var hasHandedOffInstall: Bool { hasOpenedInstallHandoff || hasStartedPairedInstall }
+    var isExport: Bool { _isSharing }
 
 
 	private let _isSharing: Bool
@@ -86,8 +90,6 @@ final class AppInstaller: ObservableObject {
 	private var _completion: ((Result<Outcome, Error>) -> Void)?
 	private var _hasFinished = false
     private var _sourceLease: AppOperationRegistry.Lease?
-	private var _declineObserver: NSObjectProtocol?
-	private var _declineCheck: DispatchWorkItem?
 	/// One idevice retry per install, so a genuinely broken pair doesn't loop.
 	private var _didAttemptIdeviceFallback = false
 	/// The device-side evidence that turns "progress ended" into an answer.
@@ -109,7 +111,7 @@ final class AppInstaller: ObservableObject {
 		app: AppInfoPresentable,
 		isSharing: Bool = false,
 		useLocalhost: Bool = false,
-		probe: InstalledAppProbing = InstalledAppProbe()
+		probe: InstalledAppProbing = UnavailableInstallationProbe()
 	) {
 		self._probe = probe
 		self._serverMethod = useLocalhost ? 1 : UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
@@ -135,8 +137,6 @@ final class AppInstaller: ObservableObject {
         _installBaselineTask?.cancel()
         _promptDeadlineTask?.cancel()
 		_progressTask?.cancel()
-		_declineCheck?.cancel()
-		if let _declineObserver { NotificationCenter.default.removeObserver(_declineObserver) }
 	}
 
 	func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
@@ -184,7 +184,7 @@ final class AppInstaller: ObservableObject {
     }
 
 	/// Stops without reporting an outcome; the caller has already moved on.
-    func stop() {
+    func stop(preserveHandoff: Bool = false) {
         _hasFinished = true
         _sourceLease = nil
         onPackaged = nil
@@ -195,10 +195,21 @@ final class AppInstaller: ObservableObject {
         _packageArchive = nil
         let server = _server
         _server = nil
-        if let server { Task { await server.stop() } }
-        _runTask?.cancel()
+        if let server {
+            if preserveHandoff && hasOpenedInstallHandoff && !_didAttemptIdeviceFallback {
+                // Stopping observation cannot withdraw an OTA request. Keep its server and
+                // archive alive for a bounded handoff window, including an in-flight transfer.
+                Task {
+                    _ = await InstallDeadlineBudget.wait(seconds: InstallConfirmation.Limits().monitoringBackstop)
+                    await server.stop()
+                }
+            } else {
+                Task { await server.stop() }
+            }
+        }
+        if !(preserveHandoff && hasStartedPairedInstall) { _runTask?.cancel() }
         _runTask = nil
-        _fallbackTask?.cancel()
+        if !(preserveHandoff && hasStartedPairedInstall) { _fallbackTask?.cancel() }
         _fallbackTask = nil
         _confirmationTask?.cancel()
         _confirmationTask = nil
@@ -211,7 +222,6 @@ final class AppInstaller: ObservableObject {
         _promptDeadlineTask?.cancel()
         _promptDeadlineTask = nil
 		_completion = nil
-		_disarmDeclineWatch()
 		_statusObserver = nil
 		_progressTask?.cancel()
 		_progressTask = nil
@@ -267,6 +277,8 @@ final class AppInstaller: ObservableObject {
 
 			switch _installationMethod {
 			case 1:
+                hasStartedPairedInstall = true
+                onWorkflowStage?(.installing)
 				try await InstallationProxy(viewModel: viewModel)
 					.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
 			case 2:
@@ -388,6 +400,8 @@ final class AppInstaller: ObservableObject {
 			FileLogger.log("Server setup failed (\(failure.localizedDescription)), falling back to idevice installation", category: "install")
 			SigningLog.shared.info(.localized("Server failed, falling back to idevice installation…"), category: "install")
             let archive = _packageArchive
+            hasStartedPairedInstall = true
+            onWorkflowStage?(.installing)
             _fallbackTask = Task {
                 defer { withExtendedLifetime(archive) {} }
                 do {
@@ -409,23 +423,31 @@ final class AppInstaller: ObservableObject {
 	private func _handle(_ status: InstallerStatusViewModel.InstallerStatus) {
         guard !_hasFinished else { return }
 		switch status {
-		case .ready where _installationMethod == 0:
-            onWorkflowStage?(.waitingForIOS)
+		case .ready where _installationMethod == 0 && !hasOpenedInstallHandoff:
 			_openInstall(_serverMethod == 0 ? _server?.iTunesLink : _server?.iTunesLinkExternal)
 		case .sendingManifest:
-            onWorkflowStage?(.waitingForIOS)
-			_armDeclineWatch()
+            // Manifest preparation can precede opening the system URL.
+            if hasOpenedInstallHandoff { onWorkflowStage?(.waitingForIOS) }
 		case .sendingPayload:
+            // Once streaming starts, the prompt timeout must not terminate a slow transfer.
+            _promptDeadlineTask?.cancel()
+            _promptDeadlineTask = nil
+            _armMonitoringBackstop()
             onWorkflowStage?(.installing)
 			isPresentingFallbackPage = false
-			_disarmDeclineWatch()
             // Begin observing before the transfer completes; small installs can
             // finish before its HTTP completion callback reaches the main actor.
             if _installationMethod == 0, !_didAttemptIdeviceFallback { _startProgressPolling() }
 		case .installing where _installationMethod == 0 && !_didAttemptIdeviceFallback:
             _hasServedPayload = true
+            if _probe is UnavailableInstallationProbe {
+                // Delivery is not installation. There is no supported general app inventory
+                // on iOS, so stop rather than manufacture progress or a success verdict.
+                _finishConfirmed(.timedOutVerifying, reason: "supported-installation-inventory-unavailable")
+                return
+            }
             _armMonitoringBackstop()
-            onWorkflowStage?(installationPhase == .waitingForStart ? .waitingForIOS : (installationPhase == .verifying ? .verifying : .installing))
+            onWorkflowStage?(installationPhase == .verifying ? .verifying : .installing)
 			_startProgressPolling()
         case .installing:
             onWorkflowStage?(installationPhase == .verifying ? .verifying : .installing)
@@ -443,7 +465,12 @@ final class AppInstaller: ObservableObject {
                 _confirmationTask = Task { await _confirmIdeviceInstall() }
 				return
 			}
-			_finish(result.map { .installed })
+            // An OTA transport callback is not a native installation acknowledgement.
+            if _installationMethod == 0 && !_didAttemptIdeviceFallback, case .success = result {
+                _finishConfirmed(.timedOutVerifying, reason: "ota-completion-not-authoritative")
+            } else {
+                _finish(result.map { .installed })
+            }
 		case .broken(let error):
 			_progressTask?.cancel()
 			_progressTask = nil
@@ -477,6 +504,8 @@ final class AppInstaller: ObservableObject {
 			}
 		}
 
+        hasOpenedInstallHandoff = true
+        onWorkflowStage?(.waitingForIOS)
 		// Bound the window this opens. iOS shows its own alert and never reports the answer
 		// back, so nothing downstream is counting until the payload is actually served.
 		_armPromptDeadline()
@@ -484,9 +513,10 @@ final class AppInstaller: ObservableObject {
 		UIApplication.shared.open(url) { [weak self] opened in
 			FileLogger.log("itms-services accepted by iOS: \(opened)", category: "install")
 
+            guard let self, !self._hasFinished else { return }
 			if !opened {
 				FileLogger.error("iOS refused the scheme, falling back to the redirect page", category: "install")
-				self?.isPresentingFallbackPage = true
+				self.isPresentingFallbackPage = true
 			}
 		}
 	}
@@ -500,19 +530,14 @@ final class AppInstaller: ObservableObject {
 	/// `_hasServedPayload`). A dismissed prompt, or iOS failing to reach the local server,
 	/// therefore used to leave the sheet showing "Installing" with no way out but Skip.
 	///
-	/// The outcome is `.timedOutWaiting` — "the install never started", with recovery actions. It
-	/// is not a success, and it does not claim iOS rejected anything: the device was never heard
-	/// from. `Limits.start` is reused rather than a new constant because it is already the tested
+	/// The outcome is `.timedOutWaiting`: no start was observed. It is not proof of
+    /// success, rejection, or the user's decision. `Limits.start` is reused rather than a new constant because it is already the tested
 	/// bound for how long a prompt may sit unanswered.
 	private func _armPromptDeadline() {
 		guard _promptDeadlineTask == nil, !_hasFinished else { return }
 		let seconds = InstallConfirmation.Limits().start
 		_promptDeadlineTask = Task { [weak self] in
-			do {
-				try await Task.sleep(nanoseconds: UInt64(max(0, seconds) * 1_000_000_000))
-			} catch {
-				return
-			}
+            guard await InstallDeadlineBudget.wait(seconds: seconds) else { return }
 			// Serving the payload hands the bound to the confirmation watcher, which applies its
 			// own start and verify limits from there.
 			guard let self, !self._hasFinished, !self._hasServedPayload else { return }
@@ -537,6 +562,8 @@ final class AppInstaller: ObservableObject {
 		viewModel.status = .installing
 
         let archive = _packageArchive
+        hasStartedPairedInstall = true
+        onWorkflowStage?(.installing)
         _fallbackTask = Task {
             defer { withExtendedLifetime(archive) {} }
             do {
@@ -552,46 +579,6 @@ final class AppInstaller: ObservableObject {
 		return true
 	}
 
-	/// Declining iOS's prompt never reports back, so focus returning with no payload request means cancelled.
-	private func _armDeclineWatch() {
-		guard _declineObserver == nil else { return }
-
-		_declineObserver = NotificationCenter.default.addObserver(
-			forName: UIApplication.didBecomeActiveNotification,
-			object: nil,
-			queue: .main
-		) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?._scheduleDeclineCheck(after: 2)
-            }
-		}
-
-		_scheduleDeclineCheck(after: 60)
-	}
-
-	private func _scheduleDeclineCheck(after delay: TimeInterval) {
-		_declineCheck?.cancel()
-
-		let work = DispatchWorkItem { [weak self] in
-			Task { @MainActor [weak self] in
-				guard let self, case .sendingManifest = self.viewModel.status else { return }
-				self._finish(.success(.cancelled))
-			}
-		}
-
-		_declineCheck = work
-		DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
-	}
-
-	private func _disarmDeclineWatch() {
-		_declineCheck?.cancel()
-		_declineCheck = nil
-
-		if let _declineObserver {
-			NotificationCenter.default.removeObserver(_declineObserver)
-		}
-		_declineObserver = nil
-	}
 
 	private func _finish(_ result: Result<Outcome, Error>) {
 		guard !_hasFinished else { return }
@@ -622,7 +609,6 @@ final class AppInstaller: ObservableObject {
             }
 			Task { await AnalyticsStore.shared.record(.appsInstalled) }
 		}
-        _disarmDeclineWatch()
 		_statusObserver = nil
 
 		let completion = _completion
@@ -642,7 +628,7 @@ final class AppInstaller: ObservableObject {
 	// is about. The loop still drives the ring and the PPQ heartbeat, but the verdict now
 	/// comes from `InstallConfirmation` and `InstalledAppProbe`.
 	private func _startProgressPolling() {
-        guard _progressTask == nil else { return }
+        guard _progressTask == nil, !(_probe is UnavailableInstallationProbe) else { return }
         guard let bundleID = app.identifier, !bundleID.isEmpty else {
             _finish(.failure(Self.error(.localized("The device installation cannot be verified because the bundle identifier is missing."))))
             return
@@ -651,7 +637,9 @@ final class AppInstaller: ObservableObject {
 		let probe = _probe
 		let useNovaDNS = _useNovaDNSDynamic
         let baseline = _installBaseline
-		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version)
+        let build = Storage.shared.getAppDirectory(for: app)
+            .flatMap { NSDictionary(contentsOf: $0.appendingPathComponent("Info.plist"))?["CFBundleVersion"] as? String }
+		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version, build: build)
 
 		// Utility, not background: this loop is what applies every deadline of the install and
 		// what moves the card on, and the system may hold background-priority work back for as
@@ -746,7 +734,7 @@ final class AppInstaller: ObservableObject {
         if installationPhase != phase {
             installationPhase = phase
             switch phase {
-            case .waitingForStart: onWorkflowStage?(_hasServedPayload ? .waitingForIOS : .installing)
+            case .waitingForStart: onWorkflowStage?(.installing)
             case .downloading: onWorkflowStage?(.installing)
             case .verifying:
                 onWorkflowStage?(.verifying)
@@ -784,20 +772,18 @@ final class AppInstaller: ObservableObject {
         guard !_hasFinished, !Task.isCancelled else { return }
 		_progressTask = nil
         onConfirmationReason?(reason ?? verdict.diagnosticCode)
-
+        // The view and task record must see the confirmation verdict, not infer it from
+        // the transport's completed callback (which can precede verification).
+        installationPhase = .finished(verdict)
 
 		switch verdict {
 		case .installed:
 			viewModel.installProgress = 1
 			_finish(.success(.installed))
 
-		case .installedOtherVersion(let version):
-			viewModel.installProgress = 1
-			SigningLog.shared.info(
-				.localized("Installed, but the device reports version %@.", arguments: version ?? .localized("unknown")),
-				category: "install"
-			)
-			_finish(.success(.installedOtherVersion(version)))
+        case .installedOtherVersion:
+            // Presence of another version does not prove this artifact was installed.
+            _finish(.failure(InstallConfirmation.Failure(verdict: .timedOutVerifying)))
 
 		case .cancelled:
 			_finish(.success(.cancelled))
@@ -810,6 +796,12 @@ final class AppInstaller: ObservableObject {
             _finish(.failure(error))
 		}
 	}
+
+    /// Resume observation without interpreting activation as a dialog response.
+    func reconcileOnForeground() {
+        guard !_hasFinished, hasOpenedInstallHandoff else { return }
+        if _hasServedPayload { _startProgressPolling() }
+    }
 
     /// The paired device's acknowledged install command is final evidence.
     /// Unlike OTA progress, it need not be re-proven through filtered local APIs.

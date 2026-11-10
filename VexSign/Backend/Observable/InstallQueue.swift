@@ -54,8 +54,8 @@ final class InstallQueue: ObservableObject {
         static func resolve(error: Error, needsTrust: Bool) -> FailureKind {
             if needsTrust { return .needsTrust }
             switch (error as? InstallConfirmation.Failure)?.verdict {
-            case .some(.timedOutVerifying): return .unconfirmed
-            case .some(.timedOutWaiting): return .neverStarted
+            case .some(.timedOutVerifying), .some(.notInstalled): return .unconfirmed
+            case .some(.timedOutWaiting): return .unconfirmed
             default: return .failed
             }
         }
@@ -104,6 +104,8 @@ final class InstallQueue: ObservableObject {
 	/// The unified-task record for the current queue run (nil when idle).
     private var preparedNext: (id: String, installer: AppInstaller)?
 	private var unifiedTask: UnifiedTask?
+    private var preserveDeliveryOnTeardown = false
+    var currentTaskID: String? { unifiedTask?.id }
 	/// The installation attempt registered with `LibraryStatusStore` for the installer in flight,
 	/// so the library can publish `Installing` for exactly as long as the attempt is monitored.
 	/// Carries its own attempt ID: a completion from an abandoned installer must not end it.
@@ -120,6 +122,7 @@ final class InstallQueue: ObservableObject {
 		case pending
 		case succeeded
 		case guestPrepared
+        case unconfirmed
 		case failed(String)
 		case skipped
 
@@ -225,6 +228,8 @@ final class InstallQueue: ObservableObject {
         if let task = unifiedTask {
             var trace = TaskContext()
             trace.appVersion = TaskContext.versionToken(current.base.version)
+            trace.expectedBundleIdentifier = current.base.identifier
+            trace.monitoringActive = true
             trace.artifactID = current.base.uuid
             if let directory = Storage.shared.getAppDirectory(for: current.base),
                let info = NSDictionary(contentsOf: directory.appendingPathComponent("Info.plist")) {
@@ -239,7 +244,14 @@ final class InstallQueue: ObservableObject {
             installer.onWorkflowStage = { [weak self, weak installer] phase in
                 guard let self, let installer, self.installer === installer else { return }
                 task.context?.installationMethod = installer.installationMethodCode
+                if installer.hasHandedOffInstall && task.context?.handoffAt == nil {
+                    task.context?.handoffAt = Date()
+                }
                 UnifiedTaskCenter.shared.transition(task, to: phase)
+                if let active = self.activeInstallation {
+                    LibraryStatusStore.shared.updateInstallationPhase(
+                        identifier: active.identifier, attemptID: active.attemptID, phase: task.phase)
+                }
             }
             installer.onConfirmationReason = { reason in task.context?.confirmationReason = reason }
         }
@@ -258,6 +270,15 @@ final class InstallQueue: ObservableObject {
             self._handle(result, attemptID: attemptID)
         }
 	}
+
+    /// Activation is a request to check, never a statement about the iOS dialog.
+    func reconcileOnForeground() {
+        guard let installer, let task = unifiedTask, !task.phase.isTerminal,
+              installer.hasOpenedInstallHandoff else { return }
+        task.context?.lastReconciliationAt = Date()
+        UnifiedTaskCenter.shared.transition(task, to: task.phase)
+        installer.reconcileOnForeground()
+    }
 
 	// MARK: Installation lifecycle
 
@@ -364,10 +385,13 @@ final class InstallQueue: ObservableObject {
 		advanceScheduler.cancel()
 		failurePresentation = nil
 		outcomes[current.id] = .skipped
+        preserveDeliveryOnTeardown = installer?.hasHandedOffInstall == true
         if let task = unifiedTask {
-            task.context?.confirmationReason = "monitoring-stopped-install-may-continue"
+            task.context?.confirmationReason = preserveDeliveryOnTeardown
+                ? "monitoring-stopped-install-may-continue" : "preparation-cancelled"
             _recordVerificationAttempts(on: task)
-            UnifiedTaskCenter.shared.transition(task, to: .cancelled)
+            task.context?.monitoringActive = false
+            UnifiedTaskCenter.shared.transition(task, to: Self.phaseAfterStoppingMonitoring(hasHandedOff: preserveDeliveryOnTeardown))
             latestReportTask = task
             unifiedTask = nil
         }
@@ -379,6 +403,11 @@ final class InstallQueue: ObservableObject {
 		isPaused = false
 		_abandon()
 	}
+
+    /// Cancelling preparation is different from stopping observation of a handed-off install.
+    static func phaseAfterStoppingMonitoring(hasHandedOff: Bool) -> UnifiedTaskPhase {
+        hasHandedOff ? .unconfirmed : .cancelled
+    }
 
 	static func canSkip(outcome: InstallOutcome?, hasFailure: Bool) -> Bool {
 		hasFailure || outcome == .pending
@@ -405,7 +434,8 @@ final class InstallQueue: ObservableObject {
 	private func _teardownInstaller() {
 		let retiringInstaller = installer
 		installer = nil
-		retiringInstaller?.stop()
+        retiringInstaller?.stop(preserveHandoff: preserveDeliveryOnTeardown)
+        preserveDeliveryOnTeardown = false
 		// `stop()` reports no outcome, so every path that retires an installer — Skip, Retry,
 		// Stop, advance, reset — has to end the monitored attempt itself. Without this a skipped
 		// install left its library row saying "Installing" until the backstop expired.
@@ -422,6 +452,8 @@ final class InstallQueue: ObservableObject {
         if let task = unifiedTask {
             latestReportTask = task
             task.context?.installationMethod = installer?.installationMethodCode
+            task.context?.monitoringActive = false
+            task.context?.lastReconciliationAt = Date()
             _recordVerificationAttempts(on: task)
             if task.context?.confirmationReason == nil {
                 switch result {
@@ -527,7 +559,7 @@ final class InstallQueue: ObservableObject {
 			_discardPreparation()
 			NBHaptic.notify(kind == .unconfirmed ? .warning : .error)
 			if let current {
-				outcomes[current.id] = .failed(String(describing: error))
+                outcomes[current.id] = kind == .unconfirmed ? .unconfirmed : .failed(String(describing: error))
 			}
 			if let task = unifiedTask {
 				UnifiedTaskCenter.shared.transition(task, to: kind.taskPhase,

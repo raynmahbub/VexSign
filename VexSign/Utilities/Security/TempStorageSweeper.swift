@@ -10,8 +10,8 @@
 //  should not sit in temporary storage longer than necessary.
 //
 //  The sweep only touches well-known prefixes inside the system temporary
-//  directory, and only entries older than `maxAge` (default 24h), so an
-//  in-flight operation is never disturbed.
+//  directory, and only entries older than `maxAge` (default 24h). Age alone
+//  does not prove a worker is idle: the cleanup lease and retention policy apply too.
 //
 
 import Foundation
@@ -30,19 +30,25 @@ enum TempStorageSweeper {
 	/// Sweeps stale VexSign temp directories. Returns the number of removed
 	/// entries (0 when nothing qualified). Safe to call on any queue.
 	@discardableResult
-	static func sweep(maxAge: TimeInterval = TempStorageSweeper.defaultMaxAge) -> Int {
+	static func sweep(maxAge: TimeInterval = TempStorageSweeper.defaultMaxAge,
+                      temporaryRoot: URL = FileManager.default.temporaryDirectory,
+                      registry: AppOperationRegistry = .shared, now: Date = Date()) -> Int {
+        guard let lease = registry.acquireCleanup() else { return 0 }
+        defer { withExtendedLifetime(lease) {} }
 		let fm = FileManager.default
-		let temp = fm.temporaryDirectory
+		let temp = temporaryRoot
 		guard let contents = try? fm.contentsOfDirectory(
 			at: temp,
 			includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey]
 		) else { return 0 }
 
-		let cutoff = Date().addingTimeInterval(-maxAge)
+		let cutoff = now.addingTimeInterval(-maxAge)
 		var removed = 0
 
 		for url in contents {
 			guard ownedPrefixes.contains(where: { url.lastPathComponent.hasPrefix($0) }) else { continue }
+            if TemporaryCleanupPolicy.isRetained(url, temporaryRoot: temp,
+                downloadStaging: temp.appendingPathComponent(FileManager.default.downloadStaging.lastPathComponent)) { continue }
 			let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
 			guard modified < cutoff else { continue }
 

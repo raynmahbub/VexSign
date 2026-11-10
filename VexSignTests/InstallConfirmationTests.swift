@@ -231,12 +231,22 @@ final class InstallConfirmationTests: XCTestCase {
 		let verdict = await InstallWatcher.watch(
 			confirmation(),
 			probe: FixedProbe(app()),
+            baseline: .init(app: missing),
 			progress: ProgressScript([0.2, 0.6, 0]).closure,
 			interval: .zero
 		)
 
 		XCTAssertEqual(verdict, .installed)
 	}
+
+    func testPreexistingAppIsNotProofOfReinstallation() async {
+        let existing = app()
+        let verdict = await InstallWatcher.watch(
+            confirmation(limits: .init(start: 120, verify: 0, settle: 0)),
+            probe: FixedProbe(existing), baseline: .init(app: existing),
+            progress: ProgressScript([0.4, 0]).closure, interval: .zero)
+        XCTAssertFalse(verdict.provesInstalled)
+    }
 
     func testWatcherAcceptsNewAppearanceWithoutProgressCounter() async {
         let verdict = await InstallWatcher.watch(
@@ -442,6 +452,22 @@ final class InstallConfirmationTests: XCTestCase {
             current: app(version: "9.0"), expectation: expected))
         XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: missing,
             current: InstalledApp(bundleIdentifier: "other.app", isInstalled: true), expectation: expected))
+    }
+
+    func testBuildAndVersionMustMatchTheExpectedArtifact() {
+        let expected = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: "1.2.0", build: "42")
+        let missingBefore = InstalledApp(bundleIdentifier: bundleID, isInstalled: false)
+        let wrongBuild = InstalledApp(bundleIdentifier: bundleID, isInstalled: true, version: "1.2.0", build: "41")
+        let noVersion = InstalledApp(bundleIdentifier: bundleID, isInstalled: true, build: "42")
+        let matching = InstalledApp(bundleIdentifier: bundleID, isInstalled: true, version: "1.2.0", build: "42")
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: missingBefore, current: wrongBuild, expectation: expected))
+        XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: missingBefore, current: noVersion, expectation: expected))
+        XCTAssertTrue(InstallWatcher.hasNewInstalledEvidence(baseline: missingBefore, current: matching, expectation: expected))
+        var confirmation = InstallConfirmation(expectation: expected)
+        _ = confirmation.beginVerifying(at: at(0))
+        XCTAssertNil(confirmation.record(probe: wrongBuild, at: at(1)).verdict)
+        XCTAssertNil(confirmation.record(probe: noVersion, at: at(2)).verdict)
+        XCTAssertEqual(confirmation.record(probe: matching, at: at(3)).verdict, .installed)
     }
 
     func testInstalledRegistryFallbackRequiresMatchingIdentityAndPreservesBuildMetadata() {

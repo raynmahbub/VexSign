@@ -182,6 +182,8 @@ final class TweakManager: ObservableObject {
 	/// place entries under `tweaks`, `packages`, or `items`.
 	@MainActor
 	func addRepository(_ url: URL) async throws -> Int {
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
+        defer { withExtendedLifetime(workLease) {} }
 		guard !_isImportingRepository else { throw RepositoryError.invalid("Another tweak repository import is already running.") }
 		_isImportingRepository = true
 		defer { _isImportingRepository = false }
@@ -476,34 +478,13 @@ final class TweakManager: ObservableObject {
 		_save()
 	}
 
-	/// Adds only tweaks/folders whose id isn't already present; existing ones are untouched.
+	/// Each manifest commits separately. A failure may leave earlier folders restored.
 	@discardableResult
-	func mergeFromBackup(tweaksDir: URL) -> Int {
-		var added = 0
-		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("library.json")) { // try? ok: best-effort legacy library migration
-			let incoming = TweakManager.decodeLenientArray(ManagedTweak.self, from: data)
-			let newTweaks = TweakManager.uniqueBackupItems(incoming, excluding: Set(tweaks.map(\.id)))
-			for tweak in newTweaks {
-				let src = tweaksDir.appendingPathComponent(tweak.id.uuidString)
-				let dst = _fm.tweaksLibrary(tweak.id.uuidString)
-				if !_fm.fileExists(atPath: dst.path), _fm.fileExists(atPath: src.path) {
-					try? _fm.createDirectoryIfNeeded(at: _fm.tweaksLibrary) // try? ok: best-effort legacy library migration
-					try? _fm.copyItem(at: src, to: dst) // try? ok: best-effort legacy library migration
-				}
-				guard _fm.fileExists(atPath: dst.path) else { continue }
-				tweaks.append(tweak)
-				added += 1
-			}
-			_save()
-		}
-
-		if let data = try? Data(contentsOf: tweaksDir.appendingPathComponent("folders.json")) { // try? ok: best-effort legacy folders migration
-			let incoming = TweakManager.decodeLenientArray(TweakFolder.self, from: data)
-			folders.append(contentsOf: TweakManager.uniqueBackupItems(incoming, excluding: Set(folders.map(\.id))))
-			_saveFolders()
-		}
-
-		return added
+	func mergeFromBackup(tweaksDir: URL) throws -> Int {
+		try TweakBackupMerge.run(source: tweaksDir, destination: _fm.tweaksLibrary,
+			currentTweaks: tweaks, currentFolders: folders,
+			onFoldersCommitted: { self.folders = $0 },
+			onTweaksCommitted: { self.tweaks = $0 })
 	}
 
 	/// Wipes the entire tweak library — all tweaks, folders, and files on disk.
@@ -750,4 +731,73 @@ extension TweakManager {
 		guard let elements = try? JSONDecoder().decode([_FailableElement<T>].self, from: data) else { return [] } // try? ok: lenient array decode; an unreadable file yields an empty array
 		return elements.compactMap { $0.value }
 	}
+}
+
+/// A restore commits folders first and the tweak library second. Never publishes an
+/// in-memory change before its atomic manifest write, and never adopts an orphan.
+enum TweakBackupMerge {
+    struct Conflict: LocalizedError {
+        let path: String
+        var errorDescription: String? { "Tweak restore could not safely copy \(path)." }
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, data: Data) throws -> [T] {
+        guard try JSONSerialization.jsonObject(with: data) is [Any] else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return TweakManager.decodeLenientArray(type, from: data)
+    }
+
+    static func run(
+        source: URL, destination: URL, currentTweaks: [ManagedTweak], currentFolders: [TweakFolder],
+        write: (Data, URL) throws -> Void = { try $0.write(to: $1, options: .atomic) },
+        onFoldersCommitted: ([TweakFolder]) -> Void, onTweaksCommitted: ([ManagedTweak]) -> Void
+    ) throws -> Int {
+        let fm = FileManager.default
+        let foldersSource = source.appendingPathComponent("folders.json")
+        let librarySource = source.appendingPathComponent("library.json")
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        if fm.fileExists(atPath: foldersSource.path) {
+            let data = try Data(contentsOf: foldersSource)
+            let incoming = try decode(TweakFolder.self, data: data)
+            let additions = TweakManager.uniqueBackupItems(incoming, excluding: Set(currentFolders.map(\.id)))
+            if !additions.isEmpty {
+                let merged = currentFolders + additions
+                try write(JSONEncoder().encode(merged), destination.appendingPathComponent("folders.json"))
+                onFoldersCommitted(merged)
+            }
+        }
+        guard fm.fileExists(atPath: librarySource.path) else { return 0 }
+        let data = try Data(contentsOf: librarySource)
+        let incoming = try decode(ManagedTweak.self, data: data)
+        let additions = TweakManager.uniqueBackupItems(incoming, excluding: Set(currentTweaks.map(\.id)))
+        guard !additions.isEmpty else { return 0 }
+        var copied: [URL] = []
+        var staging: URL?
+        do {
+            for tweak in additions {
+                let src = source.appendingPathComponent(tweak.id.uuidString)
+                let dst = destination.appendingPathComponent(tweak.id.uuidString)
+                guard fm.fileExists(atPath: src.path), !fm.fileExists(atPath: dst.path) else {
+                    throw Conflict(path: tweak.id.uuidString)
+                }
+                let temp = destination.appendingPathComponent(".restore-\(UUID().uuidString)")
+                staging = temp
+                try fm.copyItem(at: src, to: temp)
+                try fm.moveItem(at: temp, to: dst)
+                staging = nil
+                copied.append(dst)
+            }
+            let merged = currentTweaks + additions
+            try write(JSONEncoder().encode(merged), destination.appendingPathComponent("library.json"))
+            onTweaksCommitted(merged)
+            return additions.count
+        } catch {
+            for url in copied + (staging.map { [$0] } ?? []) where fm.fileExists(atPath: url.path) {
+                do { try fm.removeItem(at: url) }
+                catch { Logger.misc.error("Tweak restore rollback failed for \(url.lastPathComponent): \(error.localizedDescription)") }
+            }
+            throw error
+        }
+    }
 }

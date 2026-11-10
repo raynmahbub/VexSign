@@ -30,6 +30,8 @@ struct LibraryAppStatus: Equatable, Sendable {
 	/// The identifier the probe answered for — what invalidation matches on.
 	var bundleIdentifier: String?
 	var installed: InstalledState = .unknown
+    /// A projection of the currently registered task, not an inventory verdict.
+    var installationTaskPhase: UnifiedTaskPhase?
 	/// Independent host inventory, never substituted for the device probe.
 	var guest: ContainerGuestState = .unavailable
 	/// nil until the stored bundle's signature has been read; not needed for unsigned apps.
@@ -40,6 +42,16 @@ struct LibraryAppStatus: Equatable, Sendable {
 	var expiresAt: Date? { signature?.expiresAt }
 
 	var isKnown: Bool { updatedAt != .distantPast }
+
+    var installationTitle: String {
+        guard installed == .installing else { return installed.title }
+        switch installationTaskPhase {
+        case .preparingInstallation: return .localized("Preparing installation")
+        case .waitingForIOS: return .localized("Waiting for iOS confirmation")
+        case .verifying: return .localized("Verifying installation")
+        default: return installed.title
+        }
+    }
 }
 
 // MARK: - Installation lifecycle
@@ -61,6 +73,7 @@ struct InstallationAttempt: Equatable, Sendable {
 	/// The unified-task record monitoring this attempt, when the queue created one.
 	let taskID: String?
 	let startedAt: Date
+    var taskPhase: UnifiedTaskPhase?
 }
 
 // MARK: - Badge
@@ -108,6 +121,16 @@ struct InstalledBadge: Equatable {
 	/// Displays an explicit checking/unknown state in the Library without turning
 	/// an unavailable device probe into a false installed/not-installed claim.
 	init(_ status: LibraryAppStatus) {
+        if status.installed == .installing, status.installationTaskPhase != nil {
+            title = status.installationTitle
+            switch status.installationTaskPhase {
+            case .waitingForIOS: systemImage = "clock"
+            case .verifying: systemImage = "magnifyingglass"
+            default: systemImage = "arrow.triangle.2.circlepath"
+            }
+            tone = .active
+            return
+        }
 		if let known = InstalledBadge(status.installed) {
 			self = known
 		} else {
@@ -131,7 +154,7 @@ extension LibraryAppStatus {
 	/// Pure, so the wording can be tested without a device: this is where "unknown" has to stay
 	/// `Unknown` instead of quietly becoming "not installed".
 	func signatureRows(certificateRow: String? = nil) -> [(title: String, value: String)] {
-		var rows: [(title: String, value: String)] = [(.localized("On this device"), installed.title)]
+		var rows: [(title: String, value: String)] = [(.localized("On this device"), installationTitle)]
 
 		switch signature {
 		case .none:
@@ -337,11 +360,13 @@ final class LibraryStatusStore: ObservableObject {
         identifier: String,
         attemptID: String,
         taskID: String? = nil,
+        initialPhase: UnifiedTaskPhase? = nil,
         now: Date = Date()
     ) -> InstallationAttempt? {
         guard !identifier.isEmpty, !attemptID.isEmpty else { return nil }
         let attempt = InstallationAttempt(
-            identifier: identifier, attemptID: attemptID, taskID: taskID, startedAt: now
+            identifier: identifier, attemptID: attemptID, taskID: taskID, startedAt: now,
+            taskPhase: initialPhase
         )
         attempts[identifier] = attempt
         for request in Array(knownRequests.values) where request.bundleIdentifier == identifier {
@@ -349,6 +374,17 @@ final class LibraryStatusStore: ObservableObject {
             statuses[request.uuid] = applyingActiveInstallation(to: status, request: request, now: now)
         }
         return attempt
+    }
+
+    /// Publish the current task projection only to the attempt that owns this identifier.
+    func updateInstallationPhase(identifier: String, attemptID: String, phase: UnifiedTaskPhase) {
+        guard var attempt = attempts[identifier], attempt.attemptID == attemptID else { return }
+        attempt.taskPhase = phase
+        attempts[identifier] = attempt
+        for request in Array(knownRequests.values) where request.bundleIdentifier == identifier {
+            let status = statuses[request.uuid] ?? LibraryAppStatus()
+            statuses[request.uuid] = applyingActiveInstallation(to: status, request: request)
+        }
     }
 
     /// Ends an attempt and lets the real evidence decide what the row shows next.
@@ -366,6 +402,7 @@ final class LibraryStatusStore: ObservableObject {
             // becomes the answer if the device proved the install; otherwise the row goes back
             // to being read, and reads `Unknown` rather than a guessed negative until it is.
             if status.installed.isTransient { status.installed = .unknown }
+            status.installationTaskPhase = nil
             status = applyingConfirmation(to: status, request: request, now: now)
             statuses[request.uuid] = status
             self.request(request, force: true)
@@ -410,11 +447,13 @@ final class LibraryStatusStore: ObservableObject {
             guard status.installed.isTransient else { return status }
             var cleared = status
             cleared.installed = .unknown
+            cleared.installationTaskPhase = nil
             return cleared
         }
         var updated = status
         updated.bundleIdentifier = identifier
         updated.installed = .installing
+        updated.installationTaskPhase = attempt.taskPhase
         // Keep `isKnown` honest without claiming a device read happened.
         updated.updatedAt = max(updated.updatedAt, attempt.startedAt)
         return updated

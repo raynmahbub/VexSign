@@ -279,6 +279,8 @@ extension NexCerts {
 // MARK: - Import
 extension NexCerts {
 	static func importCertificate(_ certificate: CatalogItem) async throws {
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
+        defer { withExtendedLifetime(workLease) {} }
 		let fileManager = FileManager.default
 		let temporaryDirectory = fileManager.temporaryDirectory.appendingPathComponent("NexCerts_\(UUID().uuidString)", isDirectory: true)
 
