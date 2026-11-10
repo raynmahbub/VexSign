@@ -17,6 +17,10 @@ struct InstallProgressView: View {
 
 	var app: AppInfoPresentable
 	@ObservedObject var viewModel: InstallerStatusViewModel
+	/// What the card is claiming, so VoiceOver hears the same state the screen shows. It used to
+	/// say "Installing" from the moment the card appeared — including while packaging, while
+	/// iOS's prompt was unanswered and while verification was failing.
+	var statusLabel: String
 
 	var body: some View {
 		VStack(spacing: 12) {
@@ -31,7 +35,7 @@ struct InstallProgressView: View {
 				}
 		}
 		.accessibilityElement(children: .combine)
-		.accessibilityLabel(.localized("Installing"))
+		.accessibilityLabel(Text(verbatim: statusLabel))
 		.accessibilityIdentifier(A11y.Install.progress)
 	}
 	

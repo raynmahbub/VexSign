@@ -63,6 +63,29 @@ DocumentPicker / repository URL
   → Library entry + task history
 ```
 
+## What the install card may claim
+
+An installation is described by two independent clocks, and the screen has to
+combine them rather than pick one:
+
+- the **transport** — `InstallerStatusViewModel.InstallerStatus`: packaging,
+  manifest, payload transfer, `installd`'s counter. It describes what VexSign's
+  own server and connection are doing.
+- the **lifecycle** — `InstallConfirmation.Phase`: waiting for iOS's prompt,
+  downloading, verifying against device evidence, then a verdict.
+
+They disagree for a real stretch of every OTA install. The server reports
+`ready` the moment it can serve, iOS then shows its own confirmation prompt, and
+the transport has nothing more to say until the user answers. `InstallStatusPresentation`
+is the single pure resolver for that pair: a terminal transport answer wins, the
+lifecycle outranks a transport status that has not caught up, and the transport
+is the fallback only for the stretches the lifecycle cannot describe (packaging
+and payload transfer, before any progress exists). The card's line, its icon,
+its percentage and the progress ring's VoiceOver label all come from that one
+resolution, so they cannot drift apart. A completion published through
+`publishConfirmedCompletion` means the device proved the install; nothing else
+does.
+
 ## State and storage
 
 - **Core Data** stores certificate pairs, imported/signed apps and repository

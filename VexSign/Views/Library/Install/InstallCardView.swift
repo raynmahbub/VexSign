@@ -20,7 +20,7 @@ struct InstallCardView: View {
 
 	var body: some View {
 		ZStack {
-			InstallProgressView(app: installer.app, viewModel: installer.viewModel)
+			InstallProgressView(app: installer.app, viewModel: installer.viewModel, statusLabel: installer.statusLabel)
 			InstallStatusView(
 				app: installer.app,
 				viewModel: installer.viewModel,
@@ -110,24 +110,21 @@ private struct InstallStatusView: View {
 		.animation(.easeInOut(duration: 0.25), value: isPaused)
 	}
 
-    private var _statusLabel: String {
-        guard case .installing = viewModel.status else { return viewModel.statusLabel }
-        switch installationPhase {
-        case .waitingForStart: return .localized("Waiting for iOS installation")
-        // Counted from the second check, so a verification that is still waiting visibly moves.
-        case .verifying: return InstallVerificationPolicy.statusLabel(attempt: verificationAttempt)
-        default: return viewModel.statusLabel
-        }
+    /// One resolution for the line, the icon and the number, so the three can never disagree.
+    ///
+    /// This used to start with `guard case .installing = viewModel.status`, which dropped the
+    /// lifecycle for every other transport status: an OTA install sat on "Ready" while iOS showed
+    /// its confirmation prompt, and verification was only shown on the one status the OTA path
+    /// happens to pass through. See `InstallStatusPresentation` for the precedence rule.
+    private var _presentation: InstallStatusPresentation {
+        InstallStatusPresentation.resolve(
+            transport: viewModel.status,
+            phase: installationPhase,
+            verificationAttempt: verificationAttempt,
+            overallProgress: viewModel.overallProgress,
+            isCompleted: viewModel.isCompleted
+        )
     }
-
-	/// A number only when it comes from a real counter — never a manufactured percentage.
-	private var _percentage: Int? {
-		InstallerStatusViewModel.displayedPercentage(
-			phase: installationPhase,
-			overall: viewModel.overallProgress,
-			isCompleted: viewModel.isCompleted
-		)
-	}
 
 	@ViewBuilder
 	private func _status() -> some View {
@@ -140,19 +137,21 @@ private struct InstallStatusView: View {
 				.lineLimit(1)
 				.accessibilityIdentifier(A11y.Install.appName)
 			HStack(spacing: 6) {
-				Label(_statusLabel, systemImage: viewModel.statusImage)
+				Label(_presentation.label, systemImage: _presentation.systemImage)
 					.labelStyle(.titleAndIcon)
-				if let percentage = _percentage {
+				if let percentage = _presentation.percentage {
 					Text(verbatim: "\(percentage)%")
 						.font(.footnote.monospacedDigit())
 						.foregroundStyle(.secondary)
 				}
 			}
 			.font(.footnote)
+			.accessibilityElement(children: .combine)
+			.accessibilityIdentifier(A11y.Install.status)
 		}
 		.padding()
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-		.animation(.smooth, value: viewModel.statusImage)
+		.animation(.smooth, value: _presentation.systemImage)
 	}
 
 	@ViewBuilder

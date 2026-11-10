@@ -58,6 +58,17 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- The install card's status line is resolved from the installation lifecycle as well
+  as the transport. It used to start with `guard case .installing = viewModel.status`,
+  so every other transport status discarded the lifecycle: an OTA install read
+  **Ready** while iOS was showing its own confirmation prompt, and verification was only
+  shown on the one status the OTA path happens to pass through. A single
+  `InstallStatusPresentation` now decides the line, the icon and the number together —
+  a terminal transport answer wins, the lifecycle outranks a transport status that has
+  not caught up, and a timeout reads **Not confirmed** or **Not started** instead of
+  **Ready**. The batch queue line uses the same resolution, a device-proved completion
+  says **Installed** rather than **Completed**, and the progress ring's VoiceOver label
+  follows the same state instead of always saying "Installing".
 - **Re-sign with Last Settings** and **Update All** no longer stop in the
   Customize step after a sign that used one-time tweak files. Files added "just
   for this sign" are staged in the temporary directory, and their paths were

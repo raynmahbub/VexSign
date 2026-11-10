@@ -38,6 +38,9 @@ enum A11y {
 		/// The name of the app the sheet is actually installing, so a test can prove the
 		/// card is showing the right entry rather than a stale one.
 		static let appName = "vexsign.install.appname"
+		/// The lifecycle-aware status line, so a test can read what the card claims without
+		/// guessing which label it drew it from.
+		static let status = "vexsign.install.status"
 	}
 
 	/// The Home tab: the search field and the round import button that opens the file picker.
@@ -61,7 +64,7 @@ enum A11y {
 		[
 			Signing.start, Signing.stop, Signing.progress, Signing.console, Signing.workflow,
 			Signing.attemptWorkflow,
-			Install.start, Install.progress, Install.appName,
+			Install.start, Install.progress, Install.appName, Install.status,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,
 			Library.resign, Library.export

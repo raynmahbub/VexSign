@@ -103854,6 +103854,17 @@
           }
         }
       }
+    },
+    "Not started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not started"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

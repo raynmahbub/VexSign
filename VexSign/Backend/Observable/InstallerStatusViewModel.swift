@@ -44,25 +44,46 @@ extension InstallerStatusViewModel {
         self.status = status
     }
 
-	var statusImage: String {
+	var statusImage: String { Self.image(for: status) }
+	
+	var statusLabel: String { Self.label(for: status) }
+
+	/// The transport's own wording, without needing a model instance.
+	///
+	/// The install card combines this with `InstallConfirmation.Phase` through
+	/// `InstallStatusPresentation`, which has to weigh a transport status against the
+	/// lifecycle without owning an `InstallerStatusViewModel`.
+	static func image(for status: InstallerStatus) -> String {
 		switch status {
 		case .none: "archivebox.fill"
 		case .ready: "app.gift"
 		case .sendingManifest, .sendingPayload: "paperplane.fill"
 		case .installing: "square.and.arrow.down"
-		case .completed: "app.badge.checkmark"
+		// A failure carried inside a completion is still a failure.
+		case .completed(let result):
+			switch result {
+			case .success: "app.badge.checkmark"
+			case .failure: "exclamationmark.triangle.fill"
+			}
 		case .broken: "exclamationmark.triangle.fill"
 		}
 	}
-	
-	var statusLabel: String {
+
+	static func label(for status: InstallerStatus) -> String {
 		switch status {
 		case .none: .localized("Packaging")
 		case .ready: .localized("Ready")
 		case .sendingManifest: .localized("Sending Manifest")
 		case .sendingPayload: .localized("Sending Payload")
 		case .installing: .localized("Installing")
-		case .completed: .localized("Completed")
+		// `.completed(.success)` is published only by `publishConfirmedCompletion`, which runs
+		// for an outcome the device proved. "Completed" made the card read as a transfer that
+		// finished. A completion carrying a failure says so.
+		case .completed(let result):
+			switch result {
+			case .success: .localized("Installed")
+			case .failure: .localized("Error")
+			}
 		case .broken: .localized("Error")
 		}
 	}

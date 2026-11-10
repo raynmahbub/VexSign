@@ -233,12 +233,27 @@ private struct BatchInstallStatusView: View {
 		self.viewModel = installer.viewModel
 	}
 
+	private var _presentation: InstallStatusPresentation {
+		InstallStatusPresentation.resolve(
+			transport: viewModel.status,
+			phase: installer.installationPhase,
+			verificationAttempt: installer.verificationAttempt,
+			overallProgress: viewModel.overallProgress,
+			isCompleted: viewModel.isCompleted
+		)
+	}
+
+	private var _statusImage: String { _presentation.systemImage }
+
 	var body: some View {
 		VStack(alignment: .leading, spacing: 6) {
 			ProgressView(value: viewModel.overallProgress)
 				.animation(.smooth, value: viewModel.overallProgress)
 
-			Label(viewModel.statusLabel, systemImage: viewModel.statusImage)
+			// Same precedence as the single-install card: the lifecycle outranks a transport
+			// status that has not caught up, so this line cannot sit on "Ready" while iOS is
+			// showing its confirmation prompt.
+			Label(installer.statusLabel, systemImage: _statusImage)
 				.font(.subheadline)
 				.foregroundStyle(.secondary)
 				.labelStyle(.titleAndIcon)

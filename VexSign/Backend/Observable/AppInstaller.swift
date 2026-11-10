@@ -105,6 +105,20 @@ final class AppInstaller: ObservableObject {
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
 
+	/// The lifecycle-aware status line, for views that only observe the installer.
+	///
+	/// The card resolves its own line through the same function; this exists so the progress
+	/// ring's accessibility label and any other surface cannot drift from it.
+	var statusLabel: String {
+		InstallStatusPresentation.resolve(
+			transport: viewModel.status,
+			phase: installationPhase,
+			verificationAttempt: verificationAttempt,
+			overallProgress: viewModel.overallProgress,
+			isCompleted: viewModel.isCompleted
+		).label
+	}
+
 	init(
 		app: AppInfoPresentable,
 		isSharing: Bool = false,
