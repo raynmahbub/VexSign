@@ -23,6 +23,12 @@ versioned with the code.
 | [Signing and import reliability](changes/native-signing-and-import.md) | You need native execution ownership, input validation, extraction guarantees and their acceptance tests. |
 | [Web tools](WEBTOOLS.md) | You are integrating with the browser manager, API or WebDAV. |
 | [Source signing](SOURCE_SIGNING.md) | You publish a repository and want signed source metadata. |
+| [Distribution architecture and audit](distribution/architecture.md) | You need the iOS bootstrap/signing feasibility matrix and phased repository map. |
+| [iPhone-only bootstrap](distribution/bootstrap.md) | You need to understand which initial installation routes are actually available. |
+| [TestFlight / OTA / signing](distribution/testflight.md) · [OTA](distribution/ota.md) · [on-device signing](distribution/on-device-signing.md) | You are implementing or validating a specific Apple distribution/signing route. |
+| [Apple account limitations](distribution/apple-account-limitations.md) · [security](distribution/security.md) | You need Personal Team limits, trust boundaries and security requirements. |
+| [GitHub Actions / releases / device acceptance](distribution/github-actions.md) · [release process](distribution/release-process.md) · [device testing](distribution/device-testing.md) | You are configuring CI, cutting a release or planning physical-device validation. |
+| [Distribution troubleshooting](distribution/troubleshooting.md) | You need help diagnosing download, profile, signing or installation failures. |
 
 ## Operate and ship
 

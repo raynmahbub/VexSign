@@ -222,6 +222,9 @@ jobs:
             spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-
             spm-${{ runner.os }}-
 
+      - name: Release manifest signer tests
+        run: node --test tools/test-release-manifest.mjs
+
       # Unsigned generic iOS build: no certificates exist on the runner and
       # none are needed to prove the code compiles. libunicorn.a's deployment-
       # version noise (AnisetteKit's prebuilt binary) is filtered from the live

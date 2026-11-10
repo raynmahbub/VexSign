@@ -8,7 +8,9 @@
 | **Nightly** | Daily schedule at **03:00 UTC**, or a manual dispatch with channel `nightly` | `v1.2.1-nightly.<date>.<run>.<attempt>` | Pre-release | Never updated |
 
 Both channels build the same unsigned IPA, verify the built `CFBundleShortVersionString`
-against the tag, and attach `SHA256SUMS` plus a generated changelog. The IPA filename
+against the tag, and attach `SHA256SUMS` plus a generated changelog. Before publication,
+the IPA validator also checks the root bundle ID, expected marketing version, iOS 17.0
+minimum, nested app/extension build numbers, and bundle-ID namespace. The IPA filename
 includes its app version (`VexSign-<version>.ipa`; nightly suffixes remain in the release
 metadata/tag). The IPA still requires a signing identity to install.
 
