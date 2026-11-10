@@ -58,6 +58,17 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Version precedence is decided in one place, `VersionOrder`. Three comparators
+  answered "is this newer?" before, and they disagreed: `AppUpdateChecker` was
+  SemVer-aware, while `DownloadButtonView` had two copies that compared dotted
+  integers and dropped every other component. `"1.1-beta"` therefore compared as
+  `[1]` and lost to `"1.0"`'s `[1, 0]`, so the App Store detail screen showed no
+  update for a beta of a newer version while the Updates list offered that same
+  version as one. The firmware browser's own compare delegates to the same rule.
+- Choosing which installed copy represents a source app now prefers a copy whose
+  version can actually be ordered, instead of letting a later copy with a missing
+  or unparseable version displace one that has it. Equal versions keep the first
+  candidate, which is the signed copy before the imported one.
 - The in-app cloud-signing client now speaks the contract its service documents.
   `POST /api/upload` takes `kind` as a **query** parameter and exactly one multipart
   file, and answers `{id,kind,bytes,sha256}`; the app sent `kind` as a form field and
