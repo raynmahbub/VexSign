@@ -32,6 +32,10 @@ final class AppInstaller: ObservableObject {
 	/// redirect page fallback.
 	@Published var isPresentingFallbackPage = false
     @Published private(set) var installationPhase: InstallConfirmation.Phase = .waitingForStart
+    /// How many times the device has been asked whether this install landed; zero until
+    /// verification starts. Shown on the card, so a verification that is still waiting is
+    /// visibly still working, and kept in the task report.
+    @Published private(set) var verificationAttempt = 0
     private var _hasServedPayload = false
 
 
@@ -70,6 +74,8 @@ final class AppInstaller: ObservableObject {
 	private var _server: ServerInstaller?
 	private var _progressTask: Task<Void, Never>?
     private var _verificationDeadlineTask: Task<Void, Never>?
+    /// Bounds everything after the payload has been handed to iOS; see `_armMonitoringBackstop`.
+    private var _monitoringBackstopTask: Task<Void, Never>?
     private var _installBaselineTask: Task<Void, Never>?
     private var _runTask: Task<Void, Never>?
     private var _fallbackTask: Task<Void, Never>?
@@ -125,6 +131,7 @@ final class AppInstaller: ObservableObject {
         _fallbackTask?.cancel()
         _confirmationTask?.cancel()
         _verificationDeadlineTask?.cancel()
+        _monitoringBackstopTask?.cancel()
         _installBaselineTask?.cancel()
         _promptDeadlineTask?.cancel()
 		_progressTask?.cancel()
@@ -197,6 +204,8 @@ final class AppInstaller: ObservableObject {
         _confirmationTask = nil
         _verificationDeadlineTask?.cancel()
         _verificationDeadlineTask = nil
+        _monitoringBackstopTask?.cancel()
+        _monitoringBackstopTask = nil
         _installBaselineTask?.cancel()
         _installBaselineTask = nil
         _promptDeadlineTask?.cancel()
@@ -415,6 +424,7 @@ final class AppInstaller: ObservableObject {
             if _installationMethod == 0, !_didAttemptIdeviceFallback { _startProgressPolling() }
 		case .installing where _installationMethod == 0 && !_didAttemptIdeviceFallback:
             _hasServedPayload = true
+            _armMonitoringBackstop()
             onWorkflowStage?(installationPhase == .waitingForStart ? .waitingForIOS : (installationPhase == .verifying ? .verifying : .installing))
 			_startProgressPolling()
         case .installing:
@@ -593,6 +603,8 @@ final class AppInstaller: ObservableObject {
         _confirmationTask = nil
         _verificationDeadlineTask?.cancel()
         _verificationDeadlineTask = nil
+        _monitoringBackstopTask?.cancel()
+        _monitoringBackstopTask = nil
         _installBaselineTask?.cancel()
         _installBaselineTask = nil
         _promptDeadlineTask?.cancel()
@@ -641,7 +653,10 @@ final class AppInstaller: ObservableObject {
         let baseline = _installBaseline
 		let expectation = InstallConfirmation.Expectation(bundleIdentifier: bundleID, version: app.version)
 
-		_progressTask = Task.detached(priority: .background) { [weak self] in
+		// Utility, not background: this loop is what applies every deadline of the install and
+		// what moves the card on, and the system may hold background-priority work back for as
+		// long as it likes.
+		_progressTask = Task.detached(priority: .utility) { [weak self] in
 			let installer = self
 			let verdict = await InstallWatcher.watch(
 				InstallConfirmation(expectation: expectation),
@@ -652,6 +667,11 @@ final class AppInstaller: ObservableObject {
 				onUpdate: { raw, phase in
 					await MainActor.run {
 						installer?._handleProgress(raw: raw, phase: phase, useNovaDNS: useNovaDNS)
+					}
+				},
+				onVerificationAttempt: { attempt in
+					await MainActor.run {
+						installer?._handleVerificationAttempt(attempt)
 					}
 				}
 			)
@@ -668,18 +688,56 @@ final class AppInstaller: ObservableObject {
     /// but a synchronous private-API probe can stall inside a call and prevent its
     /// loop from checking elapsed time. This actor task still releases the card as
     /// unconfirmed without treating a timeout as installation success.
+    ///
+    /// The time is counted while the app is running (`InstallDeadlineBudget`). As one sleep it
+    /// also ran out while iOS had the app suspended, and then closed the card the moment the
+    /// app came back, ahead of the watcher's next check: an install that had finished in the
+    /// meantime was reported as unconfirmed with the proof one lookup away.
     private func _armVerificationDeadline() {
         guard _verificationDeadlineTask == nil else { return }
+        let seconds = TimeInterval(InstallConfirmation.Limits.defaultVerifySeconds)
         _verificationDeadlineTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: .seconds(InstallConfirmation.Limits.defaultVerifySeconds))
-            } catch {
-                return
-            }
+            guard await InstallDeadlineBudget.wait(seconds: seconds) else { return }
             guard let self, !self._hasFinished, self.installationPhase == .verifying else { return }
             self.installationPhase = .finished(.timedOutVerifying)
+            // The watcher did not answer in time, so it is no longer the one deciding: stop it
+            // rather than leave it asking the device about an install nobody is waiting on.
+            self._progressTask?.cancel()
             self._finishConfirmed(.timedOutVerifying)
         }
+    }
+
+    /// The bound on everything that follows handing the payload to iOS.
+    ///
+    /// Each phase after that has its own limit, but the watcher's loop is what applies them: a
+    /// loop that is not being run, or is held inside a device read, applies none.
+    /// `_armVerificationDeadline` covers that for verification, once verification has been
+    /// reported. Nothing covered waiting for iOS to start, or the counter running, so a card
+    /// in either state could stay up with nothing left that would ever take it down.
+    ///
+    /// The bound is longer than every phase at its own limit, and it is counted while the app
+    /// is running, so a watcher that is working always answers first - also when the app comes
+    /// back from being suspended with every limit long past. Reaching it is reported as
+    /// unconfirmed: the device was not heard from, which is neither a success nor a rejection.
+    private func _armMonitoringBackstop() {
+        guard _monitoringBackstopTask == nil, !_hasFinished else { return }
+        let seconds = InstallConfirmation.Limits().monitoringBackstop
+        _monitoringBackstopTask = Task { [weak self] in
+            guard await InstallDeadlineBudget.wait(seconds: seconds) else { return }
+            guard let self, !self._hasFinished else { return }
+            self._monitoringBackstopTask = nil
+            self.installationPhase = .finished(.timedOutVerifying)
+            self._progressTask?.cancel()
+            self._finishConfirmed(.timedOutVerifying, reason: "installation-monitoring-deadline")
+        }
+    }
+
+    /// One device check is starting. Checks are spaced further apart as they go, so the count
+    /// is also what says how long verification has been asking.
+    private func _handleVerificationAttempt(_ attempt: Int) {
+        guard !_hasFinished, attempt > verificationAttempt else { return }
+        verificationAttempt = attempt
+        FileLogger.log("installation check \(attempt)", category: "install")
     }
 
 	/// The ring, and the PPQ heartbeat while the payload is being written.
@@ -746,7 +804,7 @@ final class AppInstaller: ObservableObject {
 
 		case .notInstalled, .timedOutWaiting, .timedOutVerifying:
 			let error = InstallConfirmation.Failure(verdict: verdict)
-			FileLogger.error("install not confirmed: \(verdict)", category: "install")
+			FileLogger.error("install not confirmed: \(verdict) after \(verificationAttempt) device checks", category: "install")
             // Lack of evidence is not proof of rejection. Do not silently
             // reinstall through pairing just because a private lookup is filtered.
             _finish(.failure(error))

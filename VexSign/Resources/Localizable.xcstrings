@@ -103722,6 +103722,116 @@
           }
         }
       }
+    },
+    "%@ can no longer be read, so it cannot be injected. Remove it under Tweaks and add it again before signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ can no longer be read, so it cannot be injected. Remove it under Tweaks and add it again before signing."
+          }
+        }
+      }
+    },
+    "Latest re-sign attempt from this copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest re-sign attempt from this copy"
+          }
+        }
+      }
+    },
+    "Signing result for this copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing result for this copy"
+          }
+        }
+      }
+    },
+    "Steps of that attempt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps of that attempt"
+          }
+        }
+      }
+    },
+    "That attempt did not change this copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That attempt did not change this copy."
+          }
+        }
+      }
+    },
+    "The saved settings were captured from a sign that injected one-time tweak files (%@). Those files are not kept, so this run does not inject them. A copy that was signed with them still contains them; a new or updated copy does not." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved settings were captured from a sign that injected one-time tweak files (%@). Those files are not kept, so this run does not inject them. A copy that was signed with them still contains them; a new or updated copy does not."
+          }
+        }
+      }
+    },
+    "These tweak files are no longer available: %@. Remove them under Tweaks, add them again, then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These tweak files are no longer available: %@. Remove them under Tweaks, add them again, then retry."
+          }
+        }
+      }
+    },
+    "This signing attempt did not produce a signed copy. The library copy it started from was not changed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This signing attempt did not produce a signed copy. The library copy it started from was not changed."
+          }
+        }
+      }
+    },
+    "Tweak file unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tweak file unavailable"
+          }
+        }
+      }
+    },
+    "Verifying installation (check %lld)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifying installation (check %lld)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -186,19 +186,28 @@ final class SigningHandler: NSObject {
 			try _applyJITEntitlements()
 		}
 
+		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate, executionGate: executionGate)
+		try await handler.disinject()
+
+		// Customization ends here. What follows decides whether the selected certificate and
+		// profile can sign this bundle at all, so that is where a refusal has to be reported.
+		// The stage used to be announced only once zsign started, which put a profile that does
+		// not cover a retained extension, or a missing certificate, on the Customize step: the
+		// workflow read "Customize: Failed, Sign: Not run" for a bundle whose customization had
+		// in fact finished. Modify-only runs never sign, so they still never report this stage.
+		if _options.signingOption == .default {
+			onStage?(.signing)
+		}
+
 		// Before the long sign: which extensions the selected profile can actually cover. The
 		// engine signs every nested bundle with the outer asset, so an extension the profile does
 		// not cover cannot come out correctly — better said now than after the install.
 		try _auditNestedBundles(at: movedAppPath, certificate: appCertificate)
 
-		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate, executionGate: executionGate)
-		try await handler.disinject()
-		
 		if
 			_options.signingOption == .default,
 			let cert = appCertificate {
 			let certName = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? .localized("certificate")
-			onStage?(.signing)
 			SigningLog.shared.info(.localized("Signing with %@", arguments: certName))
 			try await handler.sign()
 		} else if _options.signingOption == .onlyModify {

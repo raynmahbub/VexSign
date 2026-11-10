@@ -480,6 +480,11 @@ extension SigningView {
 					for: app
 				)
 
+				// The run injected its own copies, so the files staged for this sheet are still
+				// on disk. The sheet closes now and nothing else will read them. They are kept
+				// after a failure on purpose: that is what lets the next attempt start.
+				TweakImportSupport.discard(_temporaryOptions.injectionFiles)
+
                 let automaticInstall = _temporaryOptions.post_installAppAfterSigned
                 let finish: (SigningCompletionAction) -> Void = { intent in
 					let deletesSource = _temporaryOptions.post_deleteAppAfterSigned && !app.isSigned

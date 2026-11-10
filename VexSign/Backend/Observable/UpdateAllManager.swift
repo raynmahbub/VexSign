@@ -300,8 +300,15 @@ final class UpdateAllManager: ObservableObject {
 			return .failure(Self.error(.localized("No certificate. Import one in Settings → Certificates, or set the default signing option.")))
 		}
 
+		// An updated copy is a new bundle: a tweak file that was added for one earlier sign is
+		// not in it and is not kept anywhere to add again. The saved settings no longer point at
+		// such files, so the run says which ones it left out instead of leaving them out silently.
+		let notices = rule.preserveSigningOptions
+			? OneShotTweakFiles.replayNotices(for: profile?.oneShotFileNames ?? [])
+			: []
+
 		let result: Result<Signed, Error> = await withCheckedContinuation { continuation in
-			FR.signPackageFile(app, using: options, icon: nil, certificate: certificate) { result in
+			FR.signPackageFile(app, using: options, icon: nil, certificate: certificate, notices: notices) { result in
 				continuation.resume(returning: result)
 			}
 		}

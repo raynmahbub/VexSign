@@ -109,18 +109,61 @@ extension LibraryInfoView {
             if let expiry = status.expiresAt {
                 LabeledContent(.localized("Bundle signature expiry")) { Text(expiry, style: .date) }
             }
-            if let task = _tasks.latestSigningTask(subjectID: app.uuid) {
-                LabeledContent(.localized("Last recorded signing result"), value: task.phase.title)
-                Text(task.updatedAt, style: .date).font(.caption).foregroundStyle(.secondary)
+            _signingRecordRows()
+        } header: { Text(.localized("Workspace status")) } footer: {
+            Text(.localized("A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state."))
+        }
+    }
+
+    /// What signing has on record for this copy.
+    ///
+    /// A run is recorded against the copy it was started from, and the copy it produced is a
+    /// different record. This screen used to show the newest run started from the copy under
+    /// "Last recorded signing result", so a signed copy said nothing about how it was signed -
+    /// and after a re-sign that failed it said "Failed", although a failed run never changes the
+    /// copy it started from. The two facts are shown apart, each under what it is.
+    @ViewBuilder
+    private func _signingRecordRows() -> some View {
+        let records = _tasks.signingRecords(forCopy: app.uuid)
+        if app.isSigned {
+            if let produced = records.produced {
+                LabeledContent(.localized("Signing result for this copy"), value: produced.displayPhaseTitle)
+                Text(produced.updatedAt, style: .date).font(.caption).foregroundStyle(.secondary)
                 // The signing sheet is dismissed as soon as a run succeeds, so this is where the
                 // execution trace stays readable: which steps the engine actually reported, and
                 // whether it verified the signature it produced.
-                if let trace = _tasks.signingTrace(subjectID: app.uuid) {
+                if let trace = produced.context?.signingTrace, !trace.isEmpty {
                     SigningWorkflowView(snapshot: SigningWorkflowSnapshot(trace: trace))
                 }
             }
-        } header: { Text(.localized("Workspace status")) } footer: {
-            Text(.localized("A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state."))
+            if let attempt = records.unfinishedAttempt {
+                LabeledContent(.localized("Latest re-sign attempt from this copy"), value: attempt.phase.title)
+                Text(attempt.updatedAt, style: .date).font(.caption).foregroundStyle(.secondary)
+                if let reason = attempt.errorText, !reason.isEmpty {
+                    Text(LogRedaction.redact(reason))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                if attempt.phase.isTerminal {
+                    Text(.localized("That attempt did not change this copy."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if let trace = attempt.context?.signingTrace, !trace.isEmpty {
+                    SigningWorkflowView(
+                        snapshot: SigningWorkflowSnapshot(trace: trace, running: !attempt.phase.isTerminal),
+                        title: .localized("Steps of that attempt"),
+                        identifier: A11y.Signing.attemptWorkflow
+                    )
+                }
+            }
+        } else if let task = records.latestStarted {
+            // An imported copy is only ever a source, so the newest run started from it is the
+            // whole story. Its wording is unchanged.
+            LabeledContent(.localized("Last recorded signing result"), value: task.phase.title)
+            Text(task.updatedAt, style: .date).font(.caption).foregroundStyle(.secondary)
+            if let trace = task.context?.signingTrace, !trace.isEmpty {
+                SigningWorkflowView(snapshot: SigningWorkflowSnapshot(trace: trace))
+            }
         }
     }
 
@@ -256,8 +299,13 @@ extension LibraryInfoView {
             lines.append(.localized("The saved certificate is unavailable. The current selection would be used instead."))
         }
         lines.append(contentsOf: checks.issues.map { LogRedaction.redact($0.title + ": " + $0.detail) })
+        lines.append(contentsOf: OneShotTweakFiles.replayNotices(for: profile?.oneShotFileNames ?? []))
         lines.append(.localized("Saved settings are reused, but source contents are not fingerprinted. Review options if the app has changed."))
         lines.append(.localized("On success, repeat signing replaces this source copy and applies your existing cleanup and installation settings."))
+        // "Sign Anyway" is only offered when the review above listed blocking issues, and
+        // choosing it is the user accepting them. The run has to be told: without this it stayed
+        // in strict mode and stopped on the issue that had just been confirmed.
+        let overridesBlockingIssues = checks.hasBlocking
         UIAlertController.showAlertWithOptions(
             title: .localized("Review repeat signing"), message: lines.joined(separator: "\n"),
             actions: [
@@ -267,7 +315,7 @@ extension LibraryInfoView {
                     _isResigning = true
                     Task {
                         defer { _isResigning = false }
-                        switch await AutoSignManager.shared.sign(app) {
+                        switch await AutoSignManager.shared.sign(app, overridingBlockingIssues: overridesBlockingIssues) {
                         case .success: Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
                         case .failure(let error): Toast.error(LogRedaction.redact(error.localizedDescription), duration: .sticky)
                         }

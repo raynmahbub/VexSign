@@ -272,8 +272,25 @@ final class CleanupManager: ObservableObject {
 		return summary
 	}
 
+	/// The categories an automatic pass may clear right now.
+	///
+	/// The temporary directory holds the work directory of every sign in flight and the archive
+	/// a running install is handing to iOS. Clearing it because one operation finished took
+	/// those files away from every other operation still running, which then stopped part-way
+	/// with a "no such file" error. While anything is running the directory is left alone; the
+	/// next pass that finds nothing running clears it, and so does the next launch.
+	nonisolated static func automaticCategories(
+		_ enabled: [StorageCategory],
+		operationsActive: Bool
+	) -> [StorageCategory] {
+		operationsActive ? enabled.filter { $0 != .temporary } : enabled
+	}
+
 	private func purgeEnabledCategories() -> CleanupSummary {
-		purge(enabledCategories)
+		purge(Self.automaticCategories(
+			enabledCategories,
+			operationsActive: AppOperationRegistry.shared.hasActiveOperations
+		))
 	}
 
 	private func purge(_ categories: [StorageCategory]) -> CleanupSummary {

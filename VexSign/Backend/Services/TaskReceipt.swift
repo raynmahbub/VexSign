@@ -26,8 +26,13 @@ enum TaskReceipt {
         }
         let reasons = ["import-registered", "signature-verified-and-artifact-registered", "native-installation-completed", "device-confirmed-installed",
                        "device-reports-other-version", "device-did-not-report-installed-app", "install-start-not-observed",
-                       "installation-evidence-unavailable", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue"]
+                       "installation-evidence-unavailable", "installation-monitoring-deadline", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue"]
         if let reason = context?.confirmationReason, reasons.contains(reason) { lines.append("Result evidence: " + reason) }
+        // How many times the device was asked, so a receipt for an install that waited on
+        // verification shows it was being checked rather than merely left open.
+        if task.kind == .install, let checks = context?.verificationAttempts, (1...100_000).contains(checks) {
+            lines.append("Installation checks: \(checks)")
+        }
         // The signing engine's own trace, so a receipt can say which steps actually ran and
         // whether the signature was verified — not merely that the task reached a phase.
         if task.kind == .sign, let trace = context?.signingTrace, !trace.stages.isEmpty {
@@ -67,6 +72,12 @@ enum TaskReceipt {
         }
         if task.phase == .interrupted {
             return .localized("VexSign was interrupted. No signing or installation was restarted automatically. Check Signed Apps and the device before starting another attempt.")
+        }
+        if task.kind == .sign && (task.phase == .failed || task.phase == .cancelled) {
+            // A run signs a working copy and registers a new one only when it succeeds. Without
+            // this, the receipt of a re-sign that failed read as a verdict on the copy it was
+            // started from, which is still exactly as it was.
+            return .localized("This signing attempt did not produce a signed copy. The library copy it started from was not changed.")
         }
         if task.kind == .sign && task.phase == .completed {
             return .localized("Signing completed. This receipt does not confirm that the signed copy is still retained or installed on the device.")

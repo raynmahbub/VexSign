@@ -152,10 +152,35 @@ class TweakHandler {
 			guard _hasAnyInjection || filePickerFix != nil else { return }
 		}
 
+		// A one-shot file that is gone cannot be injected. Stop before anything in the bundle is
+		// changed, and name the file: this used to surface halfway through the job as a Cocoa
+		// "no such file", which told the user nothing about which input to add again.
+		let oneShotFiles = _options.injectionFiles
+		let unavailable = OneShotTweakFiles.unavailable(oneShotFiles, fileManager: _fileManager)
+		guard unavailable.isEmpty else {
+			throw OneShotTweakFiles.Unavailable(names: OneShotTweakFiles.names(unavailable))
+		}
+
 		try await _checkEllekit()
 
 		let baseTmpDir = _fileManager.uniqueTemporaryDirectory("VexSignTweak")
 		try _fileManager.createDirectoryIfNeeded(at: baseTmpDir)
+		// Everything this run needs has been moved or copied into the bundle by the time it
+		// returns, on success and on failure alike, so the staging directory goes with it.
+		defer {
+			do {
+				try _fileManager.removeFileIfNeeded(at: baseTmpDir)
+			} catch {
+				Logger.misc.warning("Could not remove the tweak staging directory: \(error.localizedDescription)")
+			}
+		}
+
+		// The job below moves what it is handed into the bundle. Handing it the files the user
+		// staged consumed them: the next attempt in the same sheet, and every later run that
+		// reused the saved settings, then failed here. It works on its own copies instead, so the
+		// staged files stay valid until the sheet that owns them discards them.
+		let oneShotCopies = try OneShotTweakFiles.stage(oneShotFiles, into: baseTmpDir, fileManager: _fileManager)
+		_urls = _urls.filter { !oneShotFiles.contains($0) } + oneShotCopies
 
 		if let filePickerFix {
 			let staged = baseTmpDir.appendingPathComponent(filePickerFix.lastPathComponent)

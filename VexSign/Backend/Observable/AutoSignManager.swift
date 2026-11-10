@@ -29,20 +29,25 @@ final class AutoSignManager {
 	}
 
 	/// One app at a time. Signing is memory heavy and `SigningLog` is a single shared console.
-	func sign(_ app: AppInfoPresentable) async -> Result<Signed, Error> {
+	///
+	/// `overridingBlockingIssues` is the user's explicit "Sign Anyway" on a review that listed
+	/// blocking preflight issues. Library details shows that review and then called this without
+	/// saying so, which left the engine in its strict mode: the run the user had just confirmed
+	/// stopped on the very issue they accepted. Every caller that shows no review leaves it false.
+	func sign(_ app: AppInfoPresentable, overridingBlockingIssues: Bool = false) async -> Result<Signed, Error> {
 		let previous = _tail
         // Keep Core Data results on the main actor; Task.value carries only Void.
         var result: Result<Signed, Error>?
         let job = Task { @MainActor in
             await previous.value
-            result = await Self._perform(app)
+            result = await Self._perform(app, overridingBlockingIssues: overridingBlockingIssues)
         }
         _tail = job
         await job.value
         return result ?? .failure(CancellationError())
 	}
 
-	private static func _perform(_ app: AppInfoPresentable) async -> Result<Signed, Error> {
+	private static func _perform(_ app: AppInfoPresentable, overridingBlockingIssues: Bool) async -> Result<Signed, Error> {
 		let stored = SigningProfileStore.shared.profile(forBundleID: app.identifier)
 		let options = (stored?.options ?? Options.batchBase).resolved(for: app)
 		let certificate = SigningProfileStore.shared.certificate(for: stored) ?? _certificate()
@@ -51,8 +56,19 @@ final class AutoSignManager {
 			return .failure(AutoSignError.noCertificate)
 		}
 
+		// Saved settings never carry the files that were staged for one sign. Say so in the
+		// run's own log instead of dropping them silently.
+		let notices = OneShotTweakFiles.replayNotices(for: stored?.oneShotFileNames ?? [])
+
 		let result = await withCheckedContinuation { continuation in
-			FR.signPackageFile(app, using: options, icon: nil, certificate: certificate) {
+			FR.signPackageFile(
+				app,
+				using: options,
+				icon: nil,
+				certificate: certificate,
+				overridesBlockingPreflightIssues: overridingBlockingIssues,
+				notices: notices
+			) {
 				continuation.resume(returning: $0)
 			}
 		}

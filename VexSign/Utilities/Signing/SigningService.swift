@@ -119,6 +119,12 @@ struct SigningRequest: Identifiable {
 	/// shows the preflight sheet — batch, Update All, automation, self-update — leaves this
 	/// false and keeps the strict behaviour.
 	let overridesBlockingPreflightIssues: Bool
+	/// Lines the caller needs in this run's log, written as warnings once the run has started.
+	///
+	/// The pipeline clears the signing console when it begins, so anything a caller logs before
+	/// starting is gone before the user can read it. A run that reuses saved settings uses this
+	/// to say what it could not reuse.
+	let notices: [String]
 
 	init(
 		id: String = UUID().uuidString,
@@ -126,7 +132,8 @@ struct SigningRequest: Identifiable {
 		options: Options,
 		icon: UIImage?,
 		certificate: CertificatePair?,
-		overridesBlockingPreflightIssues: Bool = false
+		overridesBlockingPreflightIssues: Bool = false,
+		notices: [String] = []
 	) {
 		self.id = id
 		self.app = app
@@ -134,6 +141,7 @@ struct SigningRequest: Identifiable {
 		self.icon = icon
 		self.certificate = certificate
 		self.overridesBlockingPreflightIssues = overridesBlockingPreflightIssues
+		self.notices = notices
 	}
 
 	var name: String {
@@ -164,6 +172,9 @@ struct SigningPipeline: SigningWork {
 		let log = SigningLog.shared
 		log.reset()
 		log.info(.localized("Preparing to sign %@", arguments: request.name))
+		for notice in request.notices {
+			log.warn(notice)
+		}
 
 		let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
 		handler.appCertificate = request.certificate

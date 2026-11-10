@@ -26,6 +26,9 @@ enum A11y {
 		static let console = "vexsign.signing.console"
 		/// The Prepare/Customize/Sign/Verify/Install trace.
 		static let workflow = "vexsign.signing.workflow"
+		/// The same trace for a later attempt that did not replace the copy on screen. Library
+		/// details can show both, and two views must not share an identifier.
+		static let attemptWorkflow = "vexsign.signing.attemptworkflow"
 	}
 
 	/// The queue that installs a signed bundle.
@@ -57,6 +60,7 @@ enum A11y {
 	static var all: [String] {
 		[
 			Signing.start, Signing.stop, Signing.progress, Signing.console, Signing.workflow,
+			Signing.attemptWorkflow,
 			Install.start, Install.progress, Install.appName,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,

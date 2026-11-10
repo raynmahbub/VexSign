@@ -177,9 +177,18 @@ struct SigningWorkflowSnapshot: Equatable {
 
 struct SigningWorkflowView: View {
     let snapshot: SigningWorkflowSnapshot
+    /// A screen that shows more than one run has to say which run each trace belongs to.
+    let title: String
+    let identifier: String
 
-    init(snapshot: SigningWorkflowSnapshot) {
+    init(
+        snapshot: SigningWorkflowSnapshot,
+        title: String = .localized("Signing workflow"),
+        identifier: String = A11y.Signing.workflow
+    ) {
         self.snapshot = snapshot
+        self.title = title
+        self.identifier = identifier
     }
 
     private func statusColor(_ status: SigningWorkspaceStep.Status) -> Color {
@@ -192,7 +201,7 @@ struct SigningWorkflowView: View {
     }
 
     var body: some View {
-        DisclosureGroup(.localized("Signing workflow")) {
+        DisclosureGroup(title) {
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                 ForEach(SigningWorkspaceStep.allCases) { step in
                     let status = step.status(snapshot)
@@ -212,6 +221,6 @@ struct SigningWorkflowView: View {
             }
             .padding(.vertical, Theme.Spacing.small)
         }
-        .accessibilityIdentifier(A11y.Signing.workflow)
+        .accessibilityIdentifier(identifier)
     }
 }

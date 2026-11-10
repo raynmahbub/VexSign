@@ -83,6 +83,7 @@ enum FR {
 		icon: UIImage?,
 		certificate: CertificatePair?,
         overridesBlockingPreflightIssues: Bool = false,
+        notices: [String] = [],
         requestID: String = UUID().uuidString,
         onStage: ((SigningStage) -> Void)? = nil,
         onVerified: (() -> Void)? = nil,
@@ -95,7 +96,8 @@ enum FR {
 			options: options,
 			icon: icon,
 			certificate: certificate,
-			overridesBlockingPreflightIssues: overridesBlockingPreflightIssues
+			overridesBlockingPreflightIssues: overridesBlockingPreflightIssues,
+			notices: notices
 		)
 
         Task { @MainActor in

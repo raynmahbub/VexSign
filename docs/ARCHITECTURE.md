@@ -43,6 +43,14 @@ installation flows call `begin`/`transition` at their natural boundaries. The
 Home dashboard, Task Center, Downloads tab, widgets and Dynamic Island all read
 that state instead of maintaining separate progress values.
 
+A signing task names two library copies, and they are different records: its
+`subjectID` is the copy the run was **started from**, and `context.artifactID`
+is the copy it **produced**, set only when it completes. A screen that describes
+a copy asks `UnifiedTaskCenter.signingRecords(forCopy:)`, which keeps the two
+apart (`SigningRecordIdentity`); `latestSigningTask(subjectID:)` answers only
+"what was last started from this copy". A failed run never changes the copy it
+started from, so its record must not be shown as that copy's result.
+
 A signing request roughly follows:
 
 ```text
@@ -61,6 +69,14 @@ DocumentPicker / repository URL
   sources (`Backend/Storage/VexSign.xcdatamodeld`).
 - **Files** under the app sandbox hold imported archives, signed outputs,
   exports and logs. `StorageManager` owns the layout and cleanup rules.
+- **The temporary directory** is shared working space: signing work directories,
+  the archive an install hands to iOS, and tweak files staged for one sign. It is
+  emptied at every launch (download staging aside), and automatic cleanup may
+  empty it after a sign or an install — though not while `AppOperationRegistry`
+  holds any lease. Nothing that
+  has to outlive one operation may be saved as a path into it; saved signing
+  settings keep the *names* of one-time tweak files for that reason
+  (`OneShotTweakFiles`, `SigningProfile.replayable()`).
 - **Keychain** holds credentials and secrets; `CertificateSecrets` and the
   security utilities wrap access.
 - **UserDefaults** holds preferences and migration keys. Legacy Feather/Ryuk
@@ -132,7 +148,7 @@ that, so a claim can be traced to code instead of a promise:
 | Local HTTPS and AFC/`installd` installation | `VexSign/Backend/Server/LocalTLSIdentity.swift`, `Vendor/IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift`, `VexSign/Utilities/Installing/` |
 | Signing Live Activities | `VexSign/Backend/Observable/SigningLiveActivityManager.swift`, `VexSignWidgetExtension/SigningLiveActivity.swift` |
 | Auto-sign and Update All | `VexSign/Backend/Observable/AutoSignManager.swift`, `AppUpdateChecker.swift` |
-| Tweak injection and ElleKit | `VexSign/Views/Tweaks/TweakInjectConfigView.swift`, `TweakRepositoryView.swift`, `Vendor/` ElleKit resources |
+| Tweak injection and ElleKit | `VexSign/Views/Tweaks/TweakInjectConfigView.swift`, `TweakRepositoryView.swift`, `VexSign/Utilities/Handlers/TweakHandler.swift`, `OneShotTweakFiles.swift` (files added for one sign are copied per run and never saved by path), `Vendor/` ElleKit resources |
 | Mach-O thinning | `VexSign/Utilities/Handlers/SigningHandler.swift` (`.thinning` stage), `VexSign/Utilities/Signing/SigningService.swift` |
 | IPA Explorer | `VexSign/Views/IPAExplorer/`, `VexSign/Utilities/IPAExplorer/` |
 | Clone Wizard and icon badges | `VexSign/Utilities/Handlers/AppCloner.swift` (badge is drawn onto a writable PNG icon), `VexSign/CloneWizard/CloneWizardView.swift` |
@@ -157,7 +173,7 @@ that, so a claim can be traced to code instead of a promise:
 | Signed source metadata | `VexSign/Utilities/SourceProvenance.swift`, `docs/SOURCE_SIGNING.md` |
 | Anti-revoke DNS profiles | `VexSign/Utilities/AntiRevoke/`, `VexSign/Views/Settings/Security/AntiRevokeSettingsView.swift` |
 | Background automation, App Intents and widgets | `VexSign/Backend/Observable/BackgroundAutomation.swift`, `VexSign/Backend/AppIntents/`, `VexSignWidgetExtension/` |
-| Cleanup, backup and analytics | `CleanupManager.swift`, `InstallCleanup.swift`, `BackupManager.swift`, `VexSign/Analytics/` |
+| Cleanup, backup and analytics | `CleanupManager.swift` (automatic passes leave the temporary directory alone while a sign or install is running), `InstallCleanup.swift`, `BackupManager.swift`, `VexSign/Analytics/` |
 | Logs and diagnostic export | `VexSign/Utilities/FileLogger.swift`, `DiagnosticBundleExporter.swift`, `VexSign/Views/Logs/`, `VexSign/Views/Settings/About/DiagnosticsCenterView.swift` |
 | Companion apps | `VexSignTV/`, `VexSignVision/`, `VexSignWatch/`, `VexSignWatchWidgets/`, `docs/PLATFORMS.md` |
 | Web tools | `server/web_signer.py`, `server/repo_creator.py`, `server/repo_decoder.py`, `server/app_installer.py`, `server/cert_inspector.py`, `server/udid_grabber.py`, `VexSign/Ecosystem/WebToolsView.swift` |

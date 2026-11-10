@@ -51,6 +51,15 @@ If a scenario cannot be exercised, leave it pending; it is not a pass. Renewal,
 locked storage and update tests may require instrumented builds or multiple
 artifacts—describe those explicitly in notes and retain private evidence.
 
+Changes to signing-task state, install confirmation, re-signing with saved
+settings and install verification come with their own numbered scenarios:
+[steps 1–20](changes/signing-and-installation-lifecycle.md#required-on-device-acceptance)
+and [steps 21–39](changes/signing-and-installation-lifecycle.md#required-on-device-acceptance-follow-up).
+They are not report checks — `tools/device-acceptance.py` neither lists nor
+validates them — so keep what you observe with the report, for example in the
+notes of the closest check above (`import_sign_verify`, `installed_version`,
+`cancel_and_timeout`). This repository records no result for any of them.
+
 ## 4. Record acceptance
 
 From the exact, clean candidate checkout (Python 3.11+):

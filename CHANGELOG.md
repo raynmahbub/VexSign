@@ -41,6 +41,67 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- **Re-sign with Last Settings** and **Update All** no longer stop in the
+  Customize step after a sign that used one-time tweak files. Files added "just
+  for this sign" are staged in the temporary directory, and their paths were
+  saved with the app's signing settings and with named presets. The engine moves
+  what it injects, and the temporary directory is emptied at launch and by Auto
+  Cleanup, so every later run that reused those settings stopped on a file that
+  no longer existed, with a bare "no such file". A run now injects its own copies
+  (a second attempt in the same sheet still has its inputs), saved settings keep
+  the file *names* and never the paths, settings and presets already on disk are
+  cleaned when they are read, and a run that reuses them logs which files it left
+  out. A file that is missing is reported by name in the preflight, and again
+  before anything is injected.
+- **Sign Anyway** in Library details is honoured. The repeat-signing review listed
+  the blocking preflight issues and offered the override, then started the run
+  without it, so the run stopped on the issue that had just been accepted.
+- A certificate or profile refusal is shown on the **Sign** step. Everything
+  before the engine started signing was reported as Customize, so a profile that
+  does not cover a retained extension read "Customize: Failed, Sign: Not run" for
+  a bundle whose customization had finished.
+- Library details no longer shows **Failed** for a valid signed copy after a
+  re-sign that failed. A run is recorded against the copy it started from; the
+  screen showed the newest such run as the copy's "last recorded signing result".
+  It now shows the run that *produced* the copy as "Signing result for this copy",
+  and a later attempt separately as "Latest re-sign attempt from this copy" with
+  its redacted reason, its own steps and the statement that it did not change the
+  copy. The receipt of a failed or cancelled signing attempt says the same.
+- **Re-sign with Last Settings** in a Library row's context menu reports its
+  result. It discarded the outcome, so a failure said nothing; it now takes the
+  same path as the swipe action (app-lock check, success and failure messages).
+- Automatic cleanup no longer empties the temporary directory while another
+  signing or installation is running. One operation finishing could delete the
+  work directory of a sign still in flight, or the archive an install was handing
+  to iOS. The directory is cleared by the next pass that finds nothing running,
+  and at the next launch. **Clean Now** is unchanged.
+- An install can no longer stay on **Verifying installation** with nothing left
+  to end it.
+  - Once the payload has been handed to iOS the whole attempt is bounded from
+    outside the polling loop (390 s of running time), not only the verifying
+    phase. Reaching that bound is reported as **Not confirmed**, never as a
+    success or a failure.
+  - The polling loop no longer runs at background priority, which the system may
+    hold back indefinitely.
+  - Device checks are spaced out (0.5 s growing to 3 s) with a lookup timeout
+    that grows from 1 s to 4 s, instead of one check a second with one second to
+    answer. The card shows "Verifying installation (check N)" from the second
+    check, and the count is written to the log and the task receipt.
+  - One unanswered check no longer ends verification for an app iOS was
+    reporting a moment earlier; the short no-evidence deadline applies only when
+    the device has given no answer for 10 s.
+  - Deadlines kept beside the polling loop count time while VexSign is running.
+    Timed as one sleep they also ran out while the app was suspended and closed
+    the card as "Not confirmed" on return, ahead of the check that could have
+    confirmed it.
+  - An install treated as declined (VexSign regains focus and iOS never asks
+    for the payload) closes that app's task record as Cancelled. The record was
+    left open: for the last app in a queue it was then marked Completed, and
+    otherwise the next app ran on the declined app's record.
+
+  None of the entries above has been exercised on a device yet; see
+  [the follow-up record](docs/changes/signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification)
+  for what was and was not validated.
 - An OTA install that iOS never reported on is no longer called **Failed**. On
   modern iOS the private LaunchServices lookups are filtered, so `InstalledAppProbe`
   returns nothing even when the app installed correctly. That hit the 30-second

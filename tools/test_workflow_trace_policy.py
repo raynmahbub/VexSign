@@ -77,6 +77,59 @@ class WorkflowTracePolicyTests(unittest.TestCase):
                      'VexSign/Backend/Storage/Storage+Shared.swift']:
             self.assertIn('AppOperationRegistry', self.text(path))
 
+    def test_signing_stage_is_reported_before_identity_and_profile_checks(self):
+        source = self.text('VexSign/Utilities/Handlers/SigningHandler.swift')
+        modify = source.split('func modify() async throws {', 1)[1].split('func move() async throws {', 1)[0]
+        self.assertEqual(modify.count('onStage?(.signing)'), 1)
+        # Customization ends with the disinjection; a refusal after it belongs to Sign.
+        self.assertLess(modify.index('try await handler.disinject()'), modify.index('onStage?(.signing)'))
+        self.assertLess(modify.index('onStage?(.signing)'), modify.index('try _auditNestedBundles('))
+        self.assertLess(modify.index('onStage?(.signing)'), modify.index('throw SigningFileHandlerError.missingCertifcate'))
+
+    def test_one_shot_tweak_files_are_copied_for_a_run_and_never_replayed(self):
+        handler = self.text('VexSign/Utilities/Handlers/TweakHandler.swift')
+        self.assertIn('OneShotTweakFiles.stage(oneShotFiles, into: baseTmpDir', handler)
+        store = self.text('VexSign/Backend/Observable/SigningProfileStore.swift')
+        self.assertIn('all[bundleID]?.replayable()', store)
+        self.assertIn('store[profile.bundleID] = profile.replayable()', store)
+        presets = self.text('VexSign/Backend/Observable/NamedSigningProfileStore.swift')
+        self.assertGreaterEqual(presets.count('withoutOneShotFiles()'), 4)
+
+    def test_reviewed_repeat_signing_forwards_the_accepted_override(self):
+        manager = self.text('VexSign/Backend/Observable/AutoSignManager.swift')
+        self.assertIn('overridesBlockingPreflightIssues: overridingBlockingIssues', manager)
+        details = self.text('VexSign/Views/Library/Info/LibraryInfoView.swift')
+        self.assertIn('let overridesBlockingIssues = checks.hasBlocking', details)
+        self.assertIn('AutoSignManager.shared.sign(app, overridingBlockingIssues: overridesBlockingIssues)', details)
+
+    def test_library_details_describe_the_copy_not_the_last_run_started_from_it(self):
+        details = self.text('VexSign/Views/Library/Info/LibraryInfoView.swift')
+        self.assertIn('signingRecords(forCopy: app.uuid)', details)
+        self.assertNotIn('latestSigningTask(subjectID:', details)
+        self.assertNotIn('signingTrace(subjectID:', details)
+
+    def test_declined_install_closes_its_own_task_record(self):
+        source = self.text('VexSign/Backend/Observable/InstallQueue.swift')
+        declined = source.split('\t\tcase .success(.cancelled):\n', 1)[1].split('case .success(.guestImportPrepared):', 1)[0]
+        self.assertIn('_finishUnifiedTask(cancelled: true)', declined)
+        self.assertLess(declined.index('_finishUnifiedTask(cancelled: true)'), declined.index('_abandon()'))
+
+    def test_install_monitoring_is_bounded_outside_the_watcher(self):
+        source = self.text('VexSign/Backend/Observable/AppInstaller.swift')
+        self.assertNotIn('Task.detached(priority: .background)', source)
+        polling = source.split('private func _startProgressPolling()', 1)[1].split('private func _armVerificationDeadline()', 1)[0]
+        self.assertIn('_progressTask = Task.detached(priority: .utility)', polling)
+        self.assertIn('onVerificationAttempt:', polling)
+        served = source.split('_hasServedPayload = true', 1)[1]
+        self.assertIn('_armMonitoringBackstop()', served)
+        self.assertLess(served.index('_armMonitoringBackstop()'), served.index('_startProgressPolling()'))
+        deadlines = source.split('private func _armVerificationDeadline()', 1)[1].split('private func _handleVerificationAttempt(', 1)[0]
+        self.assertEqual(deadlines.count('await InstallDeadlineBudget.wait(seconds: seconds)'), 2)
+        self.assertEqual(deadlines.count('self._progressTask?.cancel()'), 2)
+        self.assertNotIn('Task.sleep', deadlines)
+        self.assertIn('"installation-monitoring-deadline"', deadlines)
+        self.assertIn('"installation-monitoring-deadline"', self.text('VexSign/Backend/Services/TaskReceipt.swift'))
+
     def test_source_journal_and_build_sidecars_are_wired(self):
         center = self.text('VexSign/Backend/Observable/UnifiedTaskCenter.swift')
         self.assertIn('(tasks + history).map', center)

@@ -366,6 +366,7 @@ final class InstallQueue: ObservableObject {
 		outcomes[current.id] = .skipped
         if let task = unifiedTask {
             task.context?.confirmationReason = "monitoring-stopped-install-may-continue"
+            _recordVerificationAttempts(on: task)
             UnifiedTaskCenter.shared.transition(task, to: .cancelled)
             latestReportTask = task
             unifiedTask = nil
@@ -421,6 +422,7 @@ final class InstallQueue: ObservableObject {
         if let task = unifiedTask {
             latestReportTask = task
             task.context?.installationMethod = installer?.installationMethodCode
+            _recordVerificationAttempts(on: task)
             if task.context?.confirmationReason == nil {
                 switch result {
                 case .success(.installed): task.context?.confirmationReason = "native-installation-completed"
@@ -436,6 +438,12 @@ final class InstallQueue: ObservableObject {
 		case .success(.cancelled):
 			if let current { outcomes[current.id] = .skipped }
 			_syncUnifiedTaskProgress()
+			// Close this attempt's record here, as cancelled. Left open, it was closed as
+			// Completed when this was the last app - and when it was not, the next app ran on
+			// it: a record still titled with the declined app went through the next app's
+			// stages, "Verifying installation" included, and the app really being installed
+			// had no record of its own.
+			_finishUnifiedTask(cancelled: true)
 			_abandon()
 		case .success(.guestImportPrepared):
             _discardPreparation()
@@ -647,6 +655,13 @@ final class InstallQueue: ObservableObject {
 		isFinished = true
 		_finishUnifiedTask(cancelled: true)
 		isSheetPresented = false
+	}
+
+	/// Keeps the number of device checks the installer made on the task record, so the report of
+	/// an install that waited on verification says how many times the device was asked.
+	private func _recordVerificationAttempts(on task: UnifiedTask) {
+		guard let checks = installer?.verificationAttempt, checks > 0 else { return }
+		task.context?.verificationAttempts = checks
 	}
 
 	/// Closes the current attempt without rewriting earlier queue outcomes.

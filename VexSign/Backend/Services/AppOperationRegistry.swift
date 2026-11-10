@@ -22,6 +22,15 @@ final class AppOperationRegistry: @unchecked Sendable {
         return owners[key] != nil
     }
 
+    /// True while any stored copy is owned by a running operation.
+    ///
+    /// Signing and installation keep their work files in the temporary directory, so this is
+    /// what automatic cleanup asks before it clears that directory.
+    var hasActiveOperations: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !owners.isEmpty
+    }
+
     func acquire(_ key: String?) throws -> Lease {
         let key = key ?? "anonymous:\(UUID().uuidString)"
         lock.lock(); defer { lock.unlock() }
