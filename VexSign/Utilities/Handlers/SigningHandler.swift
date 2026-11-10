@@ -47,6 +47,11 @@ final class SigningHandler: NSObject {
 	var onStage: ((SigningStage) -> Void)?
 	/// Reports the exact extension bundles removed by compatibility mode.
 	var onCompatibilityRemoved: (([String]) -> Void)?
+	/// Reports that the engine's own signature verification accepted the bundle.
+	///
+	/// Separate from `onStage`: reaching `.verifying` only says the check started, and a
+	/// "modify without signing" run reaches `.registering` without verifying anything.
+	var onSignatureVerified: (() -> Void)?
 	
 	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options, executionGate: SigningExecutionGate) {
         self.executionGate = executionGate
@@ -210,6 +215,10 @@ final class SigningHandler: NSObject {
 		if _options.signingOption == .default {
 			onStage?(.verifying)
 			try _verifySignedBundle(at: movedAppPath)
+			// `_verifySignedBundle` throws when the report is unacceptable, so returning from
+			// it is the engine's own evidence that verification passed. Reported here and only
+			// here: a "modify without signing" run never reaches this line.
+			onSignatureVerified?()
 		}
 
 		// Past this point the run is either registered or cleaned up by `clean()`; a cancel here

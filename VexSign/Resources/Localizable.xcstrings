@@ -103612,6 +103612,116 @@
           }
         }
       }
+    },
+    "Not reported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not reported"
+          }
+        }
+      }
+    },
+    "Passed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passed"
+          }
+        }
+      }
+    },
+    "Signature verification" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature verification"
+          }
+        }
+      }
+    },
+    "Signing stages" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing stages"
+          }
+        }
+      }
+    },
+    "Install Never Started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install Never Started"
+          }
+        }
+      }
+    },
+    "Installation failed. Review the details below, then retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation failed. Review the details below, then retry."
+          }
+        }
+      }
+    },
+    "The installation never started, so nothing was sent to iOS. Keep VexSign in the foreground and retry; if iOS never showed its prompt, review the installation method in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The installation never started, so nothing was sent to iOS. Keep VexSign in the foreground and retry; if iOS never showed its prompt, review the installation method in Settings."
+          }
+        }
+      }
+    },
+    "The archive contains conflicting entries for the same path: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive contains conflicting entries for the same path: %@"
+          }
+        }
+      }
+    },
+    "There is no bundle identifier to open." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is no bundle identifier to open."
+          }
+        }
+      }
+    },
+    "This iOS version does not let VexSign open apps. Open it from the Home Screen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iOS version does not let VexSign open apps. Open it from the Home Screen."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -85,6 +85,7 @@ enum FR {
         overridesBlockingPreflightIssues: Bool = false,
         requestID: String = UUID().uuidString,
         onStage: ((SigningStage) -> Void)? = nil,
+        onVerified: (() -> Void)? = nil,
         onCompatibilityRemoved: (([String]) -> Void)? = nil,
 		completion: @escaping (Result<Signed, Error>) -> Void
 	) {
@@ -156,8 +157,16 @@ enum FR {
 				switch event {
 				case .stage(let stage):
                     onStage?(stage)
+                    // The task record is the durable copy of the execution trace. The signing
+                    // sheet is dismissed as soon as a run succeeds, and other flows sign without
+                    // a sheet at all, so what actually ran has to be recorded here.
+                    task.context?.recordSigningStage(stage)
 					SigningLiveActivityManager.shared.update(progress: stage.progress, status: stage.title)
 					UnifiedTaskCenter.shared.transition(task, to: .signing, progress: stage.progress)
+
+                case .signatureVerified:
+                    onVerified?()
+                    task.context?.recordSigningVerification()
 
                 case .compatibilityRemoved(let components):
                     onCompatibilityRemoved?(components)
@@ -168,6 +177,9 @@ enum FR {
 					SigningLiveActivityManager.shared.complete(appName: request.name)
                     task.context?.artifactID = signed.uuid
                     task.context?.confirmationReason = "signature-verified-and-artifact-registered"
+                    // Signing completed. This is the artifact being registered — never evidence
+                    // that anything was installed.
+                    task.context?.recordSigningOutcome(.completed)
                     UnifiedTaskCenter.shared.transition(task, to: .signed, progress: 1)
 					UnifiedTaskCenter.shared.transition(task, to: .completed, progress: 1)
 					completion(.success(signed))
@@ -176,11 +188,13 @@ enum FR {
 					keepAlive.stop()
 					log.warn(.localized("Signing cancelled"))
 					SigningLiveActivityManager.shared.cancel()
+                    task.context?.recordSigningOutcome(.cancelled)
 					UnifiedTaskCenter.shared.transition(task, to: .cancelled)
 					completion(.failure(CancellationError()))
 
 				case .failed(let error):
                     task.context?.recordFailure(error)
+                    task.context?.recordSigningOutcome(.failed)
 					keepAlive.stop()
 					log.error(error.localizedDescription)
 					SigningLiveActivityManager.shared.cancel()
@@ -449,7 +463,9 @@ enum FR {
 		_ repository: ASRepository,
 		sourceURL: URL,
 		showAlerts: Bool,
-		completion: (Result<String, Error>) -> Void
+		// Escaping: `Storage.addSource`'s completion is `@escaping`, and this closure is captured
+		// by it. The caller `_handleGitHubSource` already takes its own completion as escaping.
+		completion: @escaping (Result<String, Error>) -> Void
 	) {
 		let id = repository.id ?? sourceURL.absoluteString
 		guard !Storage.shared.sourceExists(id) else {

@@ -58,6 +58,21 @@ enum InstalledState: Equatable, Sendable {
 	case notInstalled
 	/// No usable evidence: the probe is unavailable, or the app is still a placeholder.
 	case unknown
+	/// An installation attempt for this identifier is in flight right now.
+	///
+	/// A lifecycle state, not a device reading: `derive` never returns it, because a probe
+	/// answers "what is on the device", and mid-install the honest answer is that the question
+	/// is still open. It exists because without it the library published a negative — a stale
+	/// "Not installed", or the "Unknown" a filtered lookup returns — for the whole window iOS
+	/// was actually installing, which reads as a failed install to the user.
+	///
+	/// It is a request being monitored, not proof of installation: it becomes `installed` only
+	/// on the confirmation engine's evidence, and `unknown`/`notInstalled` when the attempt ends
+	/// without any.
+	case installing
+
+	/// Whether this state is a transient installation lifecycle state rather than a device answer.
+	var isTransient: Bool { self == .installing }
 
 	static func derive(from probe: InstalledApp?, expecting version: String?) -> InstalledState {
 		guard let probe else { return .unknown }
@@ -80,6 +95,8 @@ enum InstalledState: Equatable, Sendable {
 			.localized("Not installed")
 		case .unknown:
 			.localized("Unknown")
+		case .installing:
+			.localized("Installing")
 		}
 	}
 }

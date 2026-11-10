@@ -209,6 +209,12 @@ struct InstallConfirmation: Equatable, Sendable {
 			if date.timeIntervalSince(verifyStart) >= deadline {
 				return _finish(.timedOutVerifying)
 			}
+
+		case .installing:
+			// Unreachable from `derive`, which only ever answers from device evidence: the
+			// transient lifecycle state is the library's, and the confirmation engine is what
+			// decides when it ends. Handled so the switch stays exhaustive and honest.
+			break
 		}
 
 		if date.timeIntervalSince(verifyStart) >= limits.verify {

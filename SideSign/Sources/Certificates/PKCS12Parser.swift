@@ -16,7 +16,19 @@ public enum PKCS12Parser {
             guard let certDER = parser.leafCertificate?.rawDER else {
                 throw CertificateError.pkcs12ImportFailed(cause: "No X.509 certificate in PKCS#12 archive")
             }
-            return (certDER, parser.privateKeyDER ?? Data())
+            // A PKCS#12 that carries a certificate but no usable private key is not an identity.
+            // Returning `Data()` here used to produce a KeyStore with an empty key, which then
+            // reached the signer and failed — or silently produced an unsigned bundle — far from
+            // the import that caused it. Reject it at the seam that read the archive, where the
+            // reason is still known.
+            guard let keyDER = parser.privateKeyDER, !keyDER.isEmpty else {
+                throw CertificateError.pkcs12ImportFailed(
+                    cause: "PKCS#12 archive contains a certificate but no private key"
+                )
+            }
+            return (certDER, keyDER)
+        } catch let error as CertificateError {
+            throw error
         } catch {
             throw CertificateError.pkcs12ImportFailed(cause: error.localizedDescription)
         }

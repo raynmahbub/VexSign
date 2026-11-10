@@ -316,6 +316,7 @@ struct LibraryCellView: View {
 		case .positive: .green
 		case .warning: .orange
 		case .neutral: .secondary
+		case .active: Color.userTint
 		}
 	}
 
@@ -495,10 +496,12 @@ extension LibraryCellView {
 
 		if app.isSigned {
 			// "Open" on an app the device says is gone is a dead button; on an app it cannot
-			// speak for, it is still the only way in.
-			if let id = app.identifier, _status.status(for: app).installed != .notInstalled {
+			// speak for, it is still the only way in. While an install is being monitored it can
+			// only fail, so it waits for the attempt to end.
+			let deviceState = _status.status(for: app).installed
+			if let id = app.identifier, deviceState != .notInstalled, !deviceState.isTransient {
 				Button(.localized("Open"), systemImage: "app.badge.checkmark") {
-					UIApplication.openApp(with: id)
+					AppLauncher.open(id)
 				}
 			}
 			Button(.localized("Install"), systemImage: "square.and.arrow.down") {
@@ -559,44 +562,47 @@ extension LibraryCellView {
 
 	@ViewBuilder
 	private func _buttonActions(for app: AppInfoPresentable) -> some View {
-		if app.isSigned {
-			HStack(spacing: 6) {
+		// Wrapped in a Group so the trailing modifier applies to both branches.
+		Group {
+			if app.isSigned {
+				HStack(spacing: 6) {
+					Button {
+						NBHaptic.tap()
+						_performWorkflow(.install)
+					} label: {
+						FRExpirationPillView(
+							title: .localized("Install"),
+							revoked: certRevoked,
+							expiration: certInfo
+						)
+						.accessibilityIdentifier(A11y.Install.start)
+					}
+					.accessibilityLabel(Text(.localized("Install")))
+
+					_quickAction(.localized("Re-sign"), systemImage: "arrow.triangle.2.circlepath", identifier: A11y.Library.resign) {
+						NBHaptic.tap()
+						_resignLastOrPresent()
+					}
+					.disabled(_isReSigning)
+
+					_quickAction(.localized("Export"), systemImage: "square.and.arrow.up", identifier: A11y.Library.export) {
+						NBHaptic.tap()
+						_withAppAccess { InstallQueue.shared.enqueue(app, exporting: true) }
+					}
+				}
+			} else {
 				Button {
 					NBHaptic.tap()
-					_performWorkflow(.install)
+					_performWorkflow(.resign)
 				} label: {
 					FRExpirationPillView(
-						title: .localized("Install"),
-						revoked: certRevoked,
-						expiration: certInfo
+						title: .localized("Sign"),
+						revoked: false,
+						expiration: nil
 					)
-					.accessibilityIdentifier(A11y.Install.start)
 				}
-				.accessibilityLabel(Text(.localized("Install")))
-
-				_quickAction(.localized("Re-sign"), systemImage: "arrow.triangle.2.circlepath", identifier: A11y.Library.resign) {
-					NBHaptic.tap()
-					_resignLastOrPresent()
-				}
-				.disabled(_isReSigning)
-
-				_quickAction(.localized("Export"), systemImage: "square.and.arrow.up", identifier: A11y.Library.export) {
-					NBHaptic.tap()
-					_withAppAccess { InstallQueue.shared.enqueue(app, exporting: true) }
-				}
+				.accessibilityLabel(Text(.localized("Sign")))
 			}
-		} else {
-			Button {
-				NBHaptic.tap()
-				_performWorkflow(.resign)
-			} label: {
-				FRExpirationPillView(
-					title: .localized("Sign"),
-					revoked: false,
-					expiration: nil
-				)
-			}
-			.accessibilityLabel(Text(.localized("Sign")))
 		}
 		.buttonStyle(.borderless)
 	}

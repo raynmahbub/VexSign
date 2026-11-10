@@ -60,6 +60,50 @@ final class SignatureVerifierTests: XCTestCase {
         XCTAssertThrowsError(try report.requireAcceptable())
     }
 
+    func testRetainedWatchCompanionIsNotInvisibleToVerification() throws {
+        // `_removeWatchIfNeeded` keeps every watch app that has an Info.plist, and the pinned
+        // engine signs by path suffix rather than folder name, so a retained `Watch/*.app` is real
+        // signed content. The verifier used to scan only Frameworks/PlugIns/Extensions, so an
+        // uncovered watch companion verified clean and then failed on the device with nothing in
+        // the report to explain why — while `NestedBundleAudit` had been checking the same bundle
+        // before the sign all along.
+        let url = try _makeBundle()
+        let watch = url.appendingPathComponent("Watch/ExampleWatch.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: watch, withIntermediateDirectories: true)
+        try _plist(["CFBundleIdentifier": "com.example.watch",
+                    "CFBundleExecutable": "ExampleWatch",
+                    "CFBundlePackageType": "APPL"])
+            .write(to: watch.appendingPathComponent("Info.plist"))
+        let report = SignatureVerifier.verify(bundleAt: url)
+        XCTAssertTrue(report.failures.contains { $0.code == .nestedIdentifierUncovered }, _describe(report))
+        // No executable was written, so the same bundle must also be reported as unsigned.
+        XCTAssertTrue(report.warnings.contains {
+            $0.code == .unsignedNestedBundle && $0.subject == "ExampleWatch.app"
+        }, _describe(report))
+        XCTAssertThrowsError(try report.requireAcceptable())
+    }
+
+    func testCoveredAndSignedWatchCompanionIsNotReported() throws {
+        // The positive control for the case above: scanning `Watch` must surface problems, not
+        // invent them. A watch companion the profile covers and whose executable really carries a
+        // code signature has to verify clean.
+        // A team wildcard is the profile that really covers a watch companion: an exact App ID
+        // matches only that one identifier.
+        let url = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.*"])
+        let watch = url.appendingPathComponent("Watch/ExampleWatch.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: watch, withIntermediateDirectories: true)
+        try _plist(["CFBundleIdentifier": "com.example.app.watchkitapp",
+                    "CFBundleExecutable": "ExampleWatch",
+                    "CFBundlePackageType": "APPL"])
+            .write(to: watch.appendingPathComponent("Info.plist"))
+        // Non-nil entitlements are what make the fixture executable carry `LC_CODE_SIGNATURE`.
+        try _machO(entitlements: ["application-identifier": "TEAM12345.com.example.app.watchkitapp"])
+            .write(to: watch.appendingPathComponent("ExampleWatch"))
+        let report = SignatureVerifier.verify(bundleAt: url)
+        XCTAssertFalse(report.issues.contains { $0.subject == "ExampleWatch.app" }, _describe(report))
+        XCTAssertFalse(report.failures.contains { $0.code == .nestedIdentifierUncovered }, _describe(report))
+    }
+
     func testInvalidExecutablePathIsRejected() throws {
         let url = try _makeBundle()
         var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url))

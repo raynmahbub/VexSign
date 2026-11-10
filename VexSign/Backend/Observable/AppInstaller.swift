@@ -74,6 +74,8 @@ final class AppInstaller: ObservableObject {
     private var _runTask: Task<Void, Never>?
     private var _fallbackTask: Task<Void, Never>?
     private var _confirmationTask: Task<Void, Never>?
+    /// Bounds the window between opening iOS's install prompt and the payload being served.
+    private var _promptDeadlineTask: Task<Void, Never>?
 	private var _statusObserver: AnyCancellable?
 	private var _completion: ((Result<Outcome, Error>) -> Void)?
 	private var _hasFinished = false
@@ -124,6 +126,7 @@ final class AppInstaller: ObservableObject {
         _confirmationTask?.cancel()
         _verificationDeadlineTask?.cancel()
         _installBaselineTask?.cancel()
+        _promptDeadlineTask?.cancel()
 		_progressTask?.cancel()
 		_declineCheck?.cancel()
 		if let _declineObserver { NotificationCenter.default.removeObserver(_declineObserver) }
@@ -163,7 +166,9 @@ final class AppInstaller: ObservableObject {
             let baselineApp = await probe.installedAppWithTimeout(for: identifier)
             let baseline = InstallWatcher.Baseline(app: baselineApp)
             guard !Task.isCancelled else { return }
-            await MainActor.run {
+            // Re-capture explicitly: the outer `[weak self]` binding is a `var`, and referring to
+            // it from this concurrently-executing closure is an error in the Swift 6 language mode.
+            await MainActor.run { [weak self] in
                 guard let self, !self._hasFinished else { return }
                 self._installBaseline = baseline
                 self._installBaselineTask = nil
@@ -194,6 +199,8 @@ final class AppInstaller: ObservableObject {
         _verificationDeadlineTask = nil
         _installBaselineTask?.cancel()
         _installBaselineTask = nil
+        _promptDeadlineTask?.cancel()
+        _promptDeadlineTask = nil
 		_completion = nil
 		_disarmDeclineWatch()
 		_statusObserver = nil
@@ -460,6 +467,10 @@ final class AppInstaller: ObservableObject {
 			}
 		}
 
+		// Bound the window this opens. iOS shows its own alert and never reports the answer
+		// back, so nothing downstream is counting until the payload is actually served.
+		_armPromptDeadline()
+
 		UIApplication.shared.open(url) { [weak self] opened in
 			FileLogger.log("itms-services accepted by iOS: \(opened)", category: "install")
 
@@ -467,6 +478,36 @@ final class AppInstaller: ObservableObject {
 				FileLogger.error("iOS refused the scheme, falling back to the redirect page", category: "install")
 				self?.isPresentingFallbackPage = true
 			}
+		}
+	}
+
+	/// The bound on the OTA prompt window, and the reason an install card can no longer spin
+	/// forever.
+	///
+	/// Between opening iOS's install prompt and the payload being served, nothing in this
+	/// pipeline is counting: the confirmation watcher has not started, and its own start timeout
+	/// is deliberately suppressed while the transfer has not begun (`startTimeoutEnabled` reports
+	/// `_hasServedPayload`). A dismissed prompt, or iOS failing to reach the local server,
+	/// therefore used to leave the sheet showing "Installing" with no way out but Skip.
+	///
+	/// The outcome is `.timedOutWaiting` — "the install never started", with recovery actions. It
+	/// is not a success, and it does not claim iOS rejected anything: the device was never heard
+	/// from. `Limits.start` is reused rather than a new constant because it is already the tested
+	/// bound for how long a prompt may sit unanswered.
+	private func _armPromptDeadline() {
+		guard _promptDeadlineTask == nil, !_hasFinished else { return }
+		let seconds = InstallConfirmation.Limits().start
+		_promptDeadlineTask = Task { [weak self] in
+			do {
+				try await Task.sleep(nanoseconds: UInt64(max(0, seconds) * 1_000_000_000))
+			} catch {
+				return
+			}
+			// Serving the payload hands the bound to the confirmation watcher, which applies its
+			// own start and verify limits from there.
+			guard let self, !self._hasFinished, !self._hasServedPayload else { return }
+			self._promptDeadlineTask = nil
+			self._finishConfirmed(.timedOutWaiting)
 		}
 	}
 
@@ -554,6 +595,8 @@ final class AppInstaller: ObservableObject {
         _verificationDeadlineTask = nil
         _installBaselineTask?.cancel()
         _installBaselineTask = nil
+        _promptDeadlineTask?.cancel()
+        _promptDeadlineTask = nil
 		// Only an install the device proved may be counted.
 		if case .success(let outcome) = result, outcome.countsAsInstall {
             // Publish the terminal card state after _hasFinished is set. Any

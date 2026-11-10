@@ -60,8 +60,14 @@ final class InstallConfirmationTests: XCTestCase {
         let probe = BlockingInstalledProbe(app())
         defer { probe.release.signal() }
 
-        let resultTask = Task {
-            await probe.installedAppWithTimeout(for: bundleID, timeout: 0.05)
+        // Detached on purpose. An unstructured `Task` inherits this test body's actor, and the
+        // line below blocks that actor on a semaphore until the probe is entered - so the task
+        // that would enter it can never be scheduled, and `entered.wait` times out instead of
+        // observing the blocked call it exists to guarantee. The identifier is hoisted into a
+        // local so the `@Sendable` closure does not capture the test case itself.
+        let identifier = bundleID
+        let resultTask = Task.detached {
+            await probe.installedAppWithTimeout(for: identifier, timeout: 0.05)
         }
         XCTAssertEqual(probe.entered.wait(timeout: .now() + 1), .success)
         let result = await resultTask.value
@@ -137,7 +143,7 @@ final class InstallConfirmationTests: XCTestCase {
 
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(12)), .verifying)
 		XCTAssertEqual(confirmation.record(probe: missing, at: at(31)), .verifying)
-        XCTAssertEqual(confirmation.record(probe: missing, at: at(121)), .finished(.notInstalled))
+        XCTAssertEqual(confirmation.record(probe: missing, at: at(131)), .finished(.notInstalled))
 	}
 
     func testDelayedInstalledEvidenceAfterSettleStillCompletes() {
@@ -161,7 +167,7 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 		let host = InstalledApp(bundleIdentifier: "different.host", isInstalled: true, version: "1.2.0")
 		XCTAssertEqual(confirmation.record(probe: host, at: at(31)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: host, at: at(121)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: host, at: at(131)), .finished(.timedOutVerifying))
 	}
 
 	func testAPlaceholderIsNotAnInstall() {
@@ -169,7 +175,7 @@ final class InstallConfirmationTests: XCTestCase {
 		verifying(&confirmation)
 
 		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(31)), .verifying)
-		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(121)), .finished(.timedOutVerifying))
+		XCTAssertEqual(confirmation.record(probe: app(placeholder: true), at: at(131)), .finished(.timedOutVerifying))
 	}
 
 	// MARK: - Cancellation

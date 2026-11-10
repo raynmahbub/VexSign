@@ -180,7 +180,18 @@ enum SignatureVerifier {
 		)
 	}
 
-	private static let nestedBundleFolders = ["Frameworks", "PlugIns", "Extensions"]
+	/// Every folder the signed tree can hold nested code in.
+	///
+	/// `Watch` belongs here because the pinned engine signs by *path suffix*, not by folder name:
+	/// `ZBundle::GetObjectsToSign` recurses the whole tree into any `.app`/`.appex`/`.framework`/
+	/// `.xctest` it finds (`Vendor/Zsign/src/bundle.cpp:81-100`), so a retained `Watch/*.app` is
+	/// signed exactly like a PlugIn — and `_removeWatchIfNeeded` keeps every watch app that has an
+	/// Info.plist. `NestedBundleAudit` already scans `Watch` for profile coverage ("Watch apps ...
+	/// remain in the target and must still be covered"). Without it here, the post-sign report was
+	/// blind to the one nested bundle that both of those steps treat as load-bearing: an uncovered
+	/// or unsigned watch companion verified clean, then failed on the device with nothing in the
+	/// log to explain why.
+	private static let nestedBundleFolders = ["Frameworks", "PlugIns", "Extensions", "Watch"]
 	private static let nestedBundleExtensions: Set<String> = ["framework", "appex", "app", "bundle"]
 
 	// MARK: Verify

@@ -28,6 +28,15 @@ enum TaskReceipt {
                        "device-reports-other-version", "device-did-not-report-installed-app", "install-start-not-observed",
                        "installation-evidence-unavailable", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue"]
         if let reason = context?.confirmationReason, reasons.contains(reason) { lines.append("Result evidence: " + reason) }
+        // The signing engine's own trace, so a receipt can say which steps actually ran and
+        // whether the signature was verified — not merely that the task reached a phase.
+        if task.kind == .sign, let trace = context?.signingTrace, !trace.stages.isEmpty {
+            lines.append(.localized("Signing stages") + ": " + trace.stages.map(\.title).joined(separator: " → "))
+            if let verified = trace.verified {
+                lines.append(.localized("Signature verification") + ": "
+                    + (verified ? .localized("Passed") : .localized("Not reported")))
+            }
+        }
         if task.phase == .failed, let category = context?.errorCategory,
            ["network", "filesystem", "security", "operation"].contains(category), let code = context?.errorCode {
             lines.append("Error category/code: \(category) (\(code))")
