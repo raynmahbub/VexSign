@@ -374,7 +374,11 @@ jobs:
           fi
           # Check the actual IPA, including nested apps/extensions, not just staging.
           for ipa in upload/*.ipa; do
-            python3 tools/release-build-version.py --verify-ipa "$ipa"
+            python3 tools/release-build-version.py \
+              --verify-ipa "$ipa" \
+              --expected-marketing-version "$VERSION" \
+              --expected-bundle-identifier com.vexsign.app \
+              --minimum-ios-version 17.0
           done
 
           echo "Built VexSign ${VERSION} (build ${BUILD:-?}) from ${GITHUB_SHA}"

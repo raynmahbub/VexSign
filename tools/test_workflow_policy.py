@@ -389,10 +389,20 @@ class WorkflowPolicyTests(unittest.TestCase):
                                            ('deadbeef', '1.0.1', False),
                                            ('1.0.1', '2', False)]:
                 with zipfile.ZipFile(path, 'w') as archive:
-                    archive.writestr('Payload/Test.app/Info.plist', plistlib.dumps({'CFBundleVersion': root}))
-                    archive.writestr('Payload/Test.app/PlugIns/Test.appex/Info.plist', plistlib.dumps({'CFBundleVersion': extension}))
+                    root_info = {
+                        'CFBundleVersion': root,
+                        'CFBundleShortVersionString': '1.2.1',
+                        'CFBundleIdentifier': 'com.vexsign.app',
+                        'MinimumOSVersion': '17.0',
+                    }
+                    extension_info = {
+                        'CFBundleVersion': extension,
+                        'CFBundleIdentifier': 'com.vexsign.app.test',
+                    }
+                    archive.writestr('Payload/Test.app/Info.plist', plistlib.dumps(root_info))
+                    archive.writestr('Payload/Test.app/PlugIns/Test.appex/Info.plist', plistlib.dumps(extension_info))
                 if valid:
-                    module['verify_ipa'](path, '1.0.1')
+                    module['verify_ipa'](path, '1.0.1', expected_marketing_version='1.2.1')
                 else:
                     with self.assertRaises(ValueError):
                         module['verify_ipa'](path, '1.0.1')
@@ -409,6 +419,41 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('retention-days: 14', upload)
         diagnostics = text.split('retention-days: 14', 1)[1]
         self.assertIn('retention-days: 3', diagnostics)
+
+    def test_release_ipa_checks_bundle_ids_marketing_version_and_minimum_os(self):
+        import plistlib
+        import tempfile
+        import zipfile
+        module = runpy.run_path(str(ROOT / 'tools/release-build-version.py'))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'test.ipa'
+            def write_ipa(root_identifier='com.vexsign.app', extension_identifier='com.vexsign.app.test',
+                          version='1.2.1', minimum_os='17.0'):
+                with zipfile.ZipFile(path, 'w') as archive:
+                    root = {
+                        'CFBundleVersion': '1.0.1',
+                        'CFBundleShortVersionString': version,
+                        'CFBundleIdentifier': root_identifier,
+                        'MinimumOSVersion': minimum_os,
+                    }
+                    extension = {
+                        'CFBundleVersion': '1.0.1',
+                        'CFBundleIdentifier': extension_identifier,
+                    }
+                    archive.writestr('Payload/VexSign.app/Info.plist', plistlib.dumps(root))
+                    archive.writestr('Payload/VexSign.app/PlugIns/Test.appex/Info.plist', plistlib.dumps(extension))
+
+            write_ipa()
+            module['verify_ipa'](path, '1.0.1', expected_marketing_version='1.2.1')
+            for overrides in (
+                {'root_identifier': 'com.example.other'},
+                {'extension_identifier': 'com.other.extension'},
+                {'version': '1.2.0'},
+                {'minimum_os': '16.0'},
+            ):
+                write_ipa(**overrides)
+                with self.assertRaises(ValueError):
+                    module['verify_ipa'](path, '1.0.1', expected_marketing_version='1.2.1')
 
     def test_published_ipa_bytes_are_crc_checked_and_duplicates_rejected(self):
         import plistlib
