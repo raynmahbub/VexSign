@@ -46,6 +46,70 @@ final class ImportAndInstallationTests: XCTestCase {
         }
     }
 
+    // MARK: - Duplicate output paths
+
+    /// Two entries resolving to one output path. `IPAExtractor` rejects these while writing, but
+    /// `TweakExtractor` and `IPAWorkspace` hand the same validated archive to
+    /// `Zip.unzipFile(overwrite: true)`, which lets the last entry win — so the rule has to live
+    /// in the validator every backend shares, not in one backend.
+    func testArchiveRejectsTwoEntriesClaimingTheSameOutputPath() {
+        var claimed = Set<String>()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/Info.plist", in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/Info.plist", in: &claimed)) { error in
+            guard case ArchiveSafetyValidator.ValidationError.duplicateEntry = error else {
+                return XCTFail("Expected duplicateEntry, got \(error)")
+            }
+        }
+        XCTAssertEqual(claimed.count, 1)
+    }
+
+    func testArchiveRejectsDuplicatesThatDifferOnlyInCase() {
+        // APFS on iOS is case-insensitive, so these are one file on the destination even though
+        // they are two entries in the archive.
+        var claimed = Set<String>()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/Info.plist", in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/info.plist", in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("payload/test.app/INFO.PLIST", in: &claimed))
+    }
+
+    func testADirectoryEntryAndAFileEntrySharingAPathConflict() {
+        // The trailing separator is not part of an entry's identity: a bundle cannot be both a
+        // directory and a file at the same path.
+        var claimed = Set<String>()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/", in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app", in: &claimed))
+    }
+
+    func testDistinctPathsSiblingsAndNestedDirectoriesAreNotDuplicates() {
+        var claimed = Set<String>()
+        // A real IPA's explicit directory entries plus its files, in archive order.
+        for path in ["Payload/", "Payload/Test.app/", "Payload/Test.app/Info.plist",
+                     "Payload/Test.app/Test", "Payload/Test.app/Frameworks/",
+                     "Payload/Test.app/Frameworks/Lib.framework/",
+                     "Payload/Test.app/Frameworks/Lib.framework/Lib"] {
+            XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate(path, in: &claimed), path)
+        }
+        XCTAssertEqual(claimed.count, 7)
+        // A sibling that shares a prefix is a different path, not a duplicate.
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/Info.plist.bak", in: &claimed))
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test2.app/Info.plist", in: &claimed))
+    }
+
+    func testAnEmptyOutputPathIsRejectedRatherThanClaimed() {
+        var claimed = Set<String>()
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("", in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("/", in: &claimed))
+        XCTAssertTrue(claimed.isEmpty, "A rejected entry must not consume an output path")
+    }
+
+    func testDuplicateEntryErrorSaysWhichPathConflicted() throws {
+        let error = ArchiveSafetyValidator.ValidationError.duplicateEntry("Payload/Test.app/Info.plist")
+        let message = try XCTUnwrap(error.errorDescription)
+        XCTAssertTrue(message.contains("Payload/Test.app/Info.plist"),
+                      "The report has to name the conflicting path: \(message)")
+        XCTAssertFalse(message.isEmpty)
+    }
+
     func testArchiveDestinationAcceptsSymlinkedTemporaryRoot() throws {
         let manager = FileManager.default
         let workspace = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -116,13 +116,39 @@ private struct InstallStatusView: View {
         }
     }
 
+	/// A number only when it comes from a real counter — never a manufactured percentage.
+	private var _percentage: Int? {
+		InstallerStatusViewModel.displayedPercentage(
+			phase: installationPhase,
+			overall: viewModel.overallProgress,
+			isCompleted: viewModel.isCompleted
+		)
+	}
+
 	@ViewBuilder
 	private func _status() -> some View {
-		Label(_statusLabel, systemImage: viewModel.statusImage)
-			.padding()
-			.labelStyle(.titleAndIcon)
-			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-			.animation(.smooth, value: viewModel.statusImage)
+		VStack(alignment: .leading, spacing: 2) {
+			// Which app this sheet is installing. The card showed an icon and a status but never
+			// a name, so a queued batch gave the user no way to tell whose turn it was — or to
+			// notice that a stale completion had left the previous app on screen.
+			Text(app.name ?? .localized("Application"))
+				.font(.subheadline.weight(.semibold))
+				.lineLimit(1)
+				.accessibilityIdentifier(A11y.Install.appName)
+			HStack(spacing: 6) {
+				Label(_statusLabel, systemImage: viewModel.statusImage)
+					.labelStyle(.titleAndIcon)
+				if let percentage = _percentage {
+					Text(verbatim: "\(percentage)%")
+						.font(.footnote.monospacedDigit())
+						.foregroundStyle(.secondary)
+				}
+			}
+			.font(.footnote)
+		}
+		.padding()
+		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+		.animation(.smooth, value: viewModel.statusImage)
 	}
 
 	@ViewBuilder
@@ -131,7 +157,7 @@ private struct InstallStatusView: View {
 			if case .completed(.success) = viewModel.status,
 			   let identifier = app.identifier, !identifier.isEmpty {
 				Button {
-					UIApplication.openApp(with: identifier)
+					AppLauncher.open(identifier)
 				} label: {
 					NBButton(.localized("Open"), systemImage: "", style: .text)
 				}

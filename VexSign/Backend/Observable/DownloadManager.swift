@@ -514,7 +514,7 @@ class DownloadManager: NSObject, ObservableObject {
             }
         }
 		if DownloadIntegrity.expectationExceedsPackageLimit(integrity) {
-			Task { @MainActor in Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? "", duration: .long) }
+			Task { @MainActor in Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription, duration: .long) }
 			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
 		}
 		do {
@@ -675,7 +675,7 @@ class DownloadManager: NSObject, ObservableObject {
             download.isActive = false
             download.isPaused = false
             DispatchQueue.main.async {
-                Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? "", duration: .long)
+                Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription, duration: .long)
             }
             return
         }

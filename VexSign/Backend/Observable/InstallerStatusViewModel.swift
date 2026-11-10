@@ -11,6 +11,25 @@ import IDeviceSwift
 import NimbleExtensions
 
 extension InstallerStatusViewModel {
+    /// The percentage the install card may print, or nil when there is nothing honest to print.
+    ///
+    /// `waitingForStart` has no counter yet, and `verifying` deliberately holds the ring below
+    /// 1.0 until the device answers — printing either as a number would manufacture progress iOS
+    /// never reported. The ring keeps animating; only the text is withheld. A confirmed
+    /// completion is the one state that is genuinely 100%.
+    ///
+    /// Pure, so the "never invent a percentage" rule is testable without an installer.
+    static func displayedPercentage(
+        phase: InstallConfirmation.Phase,
+        overall: Double,
+        isCompleted: Bool
+    ) -> Int? {
+        if isCompleted { return 100 }
+        guard case .downloading = phase else { return nil }
+        guard overall.isFinite, overall > 0, overall < 1 else { return nil }
+        return Int((overall * 100).rounded())
+    }
+
     @MainActor
     func beginDeviceVerification() {
         installProgress = min(installProgress, 0.99)

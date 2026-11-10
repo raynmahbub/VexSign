@@ -25,6 +25,11 @@ struct SigningView: View {
     @State private var _signingRequestID: String?
     @State private var _currentStage: SigningStage?
     @State private var _reachedStages: Set<SigningStage> = []
+    /// The run finished successfully. Distinct from `_postSignAction`, which only exists to hand
+    /// off when the log sheet was open, and from verification, which the engine reports itself.
+    @State private var _signingSucceeded = false
+    /// Set only by the engine's own signature verification.
+    @State private var _signatureVerified = false
     @State private var _signingError: String?
     @State private var _compatibilityRemovedComponents: [String] = []
 	@State private var _preflightResult: PreflightResult?
@@ -38,6 +43,9 @@ struct SigningView: View {
 	@State private var _postSignAction: (() -> Void)?
 	@State var appIcon: UIImage?
 	@AppStorage("VexSign.autoShowSigningLogs") private var _autoShowLogs: Bool = false
+	/// The authoritative record of signing runs. Observed so the workflow shows the persisted
+	/// execution trace for this app when nothing is running in this sheet.
+	@ObservedObject private var _tasks = UnifiedTaskCenter.shared
 
 	// MARK: Fetch
 	@FetchRequest(
@@ -92,17 +100,37 @@ struct SigningView: View {
 		)
 	}
 
+	/// What the Signing workflow panel shows.
+	///
+	/// A live run wins: its stages are being reported right now. With nothing live, the panel is
+	/// rebuilt from the persisted execution trace of this app's newest signing task instead of
+	/// starting from an empty set — which is why an app that was signed by "Sign & Install",
+	/// Update All or a batch job no longer reports every step as "Not run".
+	private var _workflowSnapshot: SigningWorkflowSnapshot {
+		let hasLiveRun = _isSigning || !_reachedStages.isEmpty || _signingSucceeded
+			|| _signatureVerified || _signingError != nil || _wasCancelled
+		if hasLiveRun {
+			return SigningWorkflowSnapshot(
+				reached: _reachedStages,
+				current: _currentStage,
+				running: _isSigning,
+				succeeded: _signingSucceeded,
+				verified: _signatureVerified,
+				failed: _signingError != nil,
+				cancelled: _wasCancelled
+			)
+		}
+		guard let trace = _tasks.signingTrace(subjectID: app.uuid) else { return SigningWorkflowSnapshot() }
+		return SigningWorkflowSnapshot(trace: trace)
+	}
+
 	// MARK: Body
     var body: some View {
 		NBNavigationView(.localized("Signing"), displayMode: .inline) {
 			ScrollViewReader { proxy in
                 Form {
                     Section {
-                        SigningWorkflowView(
-                            reached: _reachedStages, current: _currentStage,
-                            running: _isSigning, succeeded: _postSignAction != nil,
-                            failed: _signingError != nil, cancelled: _wasCancelled
-                        )
+                        SigningWorkflowView(snapshot: _workflowSnapshot)
                     }
                     if let error = _signingError {
                         Section {
@@ -371,6 +399,8 @@ extension SigningView {
         _signingError = nil
         _compatibilityRemovedComponents = []
         _wasCancelled = false
+        _signingSucceeded = false
+        _signatureVerified = false
         _currentStage = nil
         _reachedStages = []
         let requestID = UUID().uuidString
@@ -402,6 +432,11 @@ extension SigningView {
                     UIAccessibility.post(notification: .announcement, argument: announcement)
                 }
             },
+            onVerified: {
+                // The engine's own verification accepted the bundle. This is what marks Verify
+                // complete — not the run finishing, which can happen without verifying at all.
+                _signatureVerified = true
+            },
             onCompatibilityRemoved: { components in
                 _compatibilityRemovedComponents.append(contentsOf: components)
             }
@@ -425,6 +460,7 @@ extension SigningView {
 				}
 			case .success(let signed):
 				_isSigning = false
+                _signingSucceeded = true
                 if _compatibilityRemovedComponents.isEmpty {
                     Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
                 } else {

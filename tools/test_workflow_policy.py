@@ -33,13 +33,39 @@ def block(text, key, indent):
     return '\n'.join(result)
 
 
+def trigger_paths(name, trigger):
+    section = block((WORKFLOWS / name).read_text(), trigger, 2)
+    return re.findall(r"^      - '([^']+)'$", section, re.MULTILINE)
+
+
 def push_paths(name):
-    push = block((WORKFLOWS / name).read_text(), 'push', 2)
-    return re.findall(r"^      - '([^']+)'$", push, re.MULTILINE)
+    return trigger_paths(name, 'push')
 
 
 def covers(name, path):
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in push_paths(name))
+
+
+def covers_trigger(name, trigger, path):
+    return any(fnmatch.fnmatchcase(path, pattern) for pattern in trigger_paths(name, trigger))
+
+
+def native_smoke_app_sources():
+    """The app files `prepare_smoke.py` compiles byte-for-byte into the native smoke package.
+
+    Read from the preparation script rather than restated here: the smoke package builds the
+    app's real lifecycle implementation, so whatever it copies is native-test input and has to
+    trigger the workflow that runs those tests. Deriving the list is what keeps this check from
+    becoming the third copy of a file list that can drift.
+    """
+    text = (ROOT / 'NativeSigning/prepare_smoke.py').read_text()
+    sources = []
+    for names, directory in re.findall(
+        r"for name in \[([^\]]+)\]:\s*\n\s*source = ROOT / '([^']*)'", text
+    ):
+        for name in re.findall(r"'([A-Za-z0-9_]+)'", names):
+            sources.append(f'{directory}/{name}.swift')
+    return sources
 
 
 class WorkflowPolicyTests(unittest.TestCase):
@@ -565,6 +591,41 @@ class WorkflowPolicyTests(unittest.TestCase):
         for suffix in ('.ipa', '.integration-sources.tar.gz', '.build.json', '.checksums.txt'):
             self.assertIn('packages/VexSign+LiveContainer+SideStore' + suffix, text)
         self.assertRegex(text, r'(?s)name: Upload build logs.*?retention-days: 3')
+
+    def test_native_unit_regressions_trigger_for_every_app_source_they_compile(self):
+        """A change to app code the native smoke package compiles must run the native tests.
+
+        `NativeSigning/prepare_smoke.py` copies the app's real Apple-account lifecycle and
+        storage sources into the smoke package byte-for-byte, and `swift test` on that package is
+        the only place those files are exercised as native-signing input. Three of them live in
+        `VexSign/Backend/Services/`, which the trigger filters did not list — so a change to
+        `AppleAccountSessionCoordinator.swift` ran the app's simulator tests and silently skipped
+        the native regressions that compile the same file. The gap is asserted from the
+        preparation script, not from a restated file list, so it cannot reopen quietly.
+        """
+        sources = native_smoke_app_sources()
+        self.assertTrue(sources, 'expected prepare_smoke.py to compile app sources into the smoke package')
+        for source in sources:
+            self.assertTrue((ROOT / source).is_file(), f'{source} is compiled by prepare_smoke.py but missing')
+            for trigger in ('push', 'pull_request'):
+                with self.subTest(source=source, trigger=trigger):
+                    self.assertTrue(
+                        covers_trigger('embedded-container.yml', trigger, source),
+                        f'{source} is native-test input but no {trigger} filter matches it'
+                    )
+
+    def test_native_test_files_are_all_included_in_the_smoke_manifest(self):
+        """Every native test on disk must be one the smoke package actually builds."""
+        text = (ROOT / 'NativeSigning/prepare_smoke.py').read_text()
+        mapped = set(re.findall(r"'Tests/([A-Za-z0-9_]+\.swift)'", text))
+        on_disk = {path.name for path in (ROOT / 'NativeSigning/Tests').glob('*.swift')}
+        self.assertTrue(on_disk, 'expected native tests on disk')
+        # A test that is on disk but not in the manifest is compiled by nothing: it would sit in
+        # the repository looking like coverage while never running in any workflow.
+        self.assertEqual(sorted(on_disk - mapped), [],
+                         'native tests not copied into the smoke package')
+        self.assertEqual(sorted(mapped - on_disk), [],
+                         'smoke manifest names native tests that do not exist')
 
     def test_ci_ipa_packaging_layout_metadata_and_rejections(self):
         """Exercise the actual workflow shell with a ditto stand-in, not a native build."""

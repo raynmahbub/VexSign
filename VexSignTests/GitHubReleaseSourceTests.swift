@@ -51,7 +51,18 @@ final class GitHubReleaseSourceTests: XCTestCase {
         }
         XCTAssertEqual(repository.name, "example/reader")
         XCTAssertEqual(repository.apps.first?.currentVersion, "v2.4")
-        XCTAssertTrue(String(decoding: cachedPayload, as: UTF8.self).contains("github.com/example/reader"))
+        // What gets cached is the adapted AltStore feed, not GitHub's raw release response.
+        // Assert on the decoded payload rather than on a substring of its bytes:
+        // JSONSerialization escapes forward slashes by default, so the raw bytes read
+        // "github.com\/example\/reader" and a plain substring check fails on a payload that is
+        // in fact correct - which is exactly what this test did before.
+        let cached = try JSONSerialization.jsonObject(with: cachedPayload) as? [String: Any]
+        XCTAssertEqual(cached?["identifier"] as? String, "github.com/example/reader")
+        XCTAssertEqual(cached?["website"] as? String, "https://github.com/example/reader")
+        XCTAssertEqual((cached?["apps"] as? [[String: Any]])?.first?["downloadURL"] as? String,
+                       "https://github.com/example/reader/releases/download/v2.4/Reader.ipa")
+        XCTAssertNil(cached?["tag_name"],
+                     "the cache must hold the adapted feed, not GitHub's raw release response")
     }
 
     func testRequiresAnIPAAsset() throws {

@@ -144,7 +144,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			let limitError = NSError(
 				domain: "VexSign.Download",
 				code: 1,
-				userInfo: [NSLocalizedDescriptionKey: PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription ?? ""]
+				userInfo: [NSLocalizedDescriptionKey: PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription]
 			)
 			if isAppInBackground {
 				sendCompletionNotification(for: download, status: "❌ " + .localized("Package exceeds the 8 GiB safety limit"))

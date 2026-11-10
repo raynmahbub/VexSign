@@ -10,12 +10,27 @@ import ObjectiveC
 
 extension UIApplication {
 	/// Opens an app with an identifier
+	///
+	/// This depends on LaunchServices private API, which Apple can filter or remove in any iOS
+	/// release. Both selectors are therefore checked before being sent: `perform(_:)` on a method
+	/// that does not exist raises `doesNotRecognizeSelector:` and terminates the app, so the old
+	/// unguarded path turned "this iOS build lacks a private API" into a crash on Open.
+	///
 	/// - Parameter identifier: Application identifier
-	static public func openApp(with identifier: String) {
+	/// - Returns: `true` only when the launch request was handed to a workspace that actually
+	///   implements it. `false` means the private API is unavailable on this iOS version or the
+	///   identifier was empty, so callers must not present the action as if it had worked. iOS
+	///   does not confirm that the target app reached the foreground: `true` means *dispatched*,
+	///   never *launched*. There is no public API that can launch another app by bundle
+	///   identifier, so there is no fallback to degrade to — the honest answer is failure.
+	@discardableResult
+	static public func openApp(with identifier: String) -> Bool {
 		let classNameBase64 = "TFNBcHBsaWNhdGlvbldvcmtzcGFjZQ==" 			// LSApplicationWorkspace
 		let defaultSelectorBase64 = "ZGVmYXVsdFdvcmtzcGFjZQ=="     			// defaultWorkspace
 		let openSelectorBase64 = "b3BlbkFwcGxpY2F0aW9uV2l0aEJ1bmRsZUlEOg==" // openApplicationWithBundleID:
-		
+
+		guard !identifier.isEmpty else { return false }
+
 		guard
 			let classNameData = Data(base64Encoded: classNameBase64),
 			let defaultSelectorData = Data(base64Encoded: defaultSelectorBase64),
@@ -24,17 +39,30 @@ extension UIApplication {
 			let defaultSelector = String(data: defaultSelectorData, encoding: .utf8),
 			let openSelector = String(data: openSelectorData, encoding: .utf8)
 		else {
-			return
+			return false
 		}
-		
+
 		guard
 			let workspaceClass = NSClassFromString(className) as? NSObject.Type,
-			let workspace = workspaceClass.perform(NSSelectorFromString(defaultSelector))?.takeUnretainedValue()
+			class_getClassMethod(workspaceClass, NSSelectorFromString(defaultSelector)) != nil,
+			let workspace = workspaceClass.perform(NSSelectorFromString(defaultSelector))?
+				.takeUnretainedValue() as? NSObject
 		else {
-			return
+			return false
 		}
-		
-		_ = workspace.perform(NSSelectorFromString(openSelector), with: identifier)
+
+		let selector = NSSelectorFromString(openSelector)
+		guard workspace.responds(to: selector),
+		      let implementation = workspace.method(for: selector) else {
+			return false
+		}
+
+		// The Objective-C method returns a primitive BOOL, not an object, so it is dispatched
+		// through its real calling convention instead of `perform(_:with:)`, which would
+		// reinterpret that BOOL as a pointer.
+		typealias Open = @convention(c) (AnyObject, Selector, NSString) -> Void
+		unsafeBitCast(implementation, to: Open.self)(workspace, selector, identifier as NSString)
+		return true
 	}
 
 	/// Returns install progress for a bundle identifier (0.0 – 1.0)

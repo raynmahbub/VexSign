@@ -18,6 +18,7 @@ struct ArchiveSafetyValidator {
         case absolutePath(String)
         case traversalPath(String)
         case symbolicLink(String)
+        case duplicateEntry(String)
         case tooManyEntries
         case tooLarge
 
@@ -25,6 +26,8 @@ struct ArchiveSafetyValidator {
             switch self {
             case .unreadable:
                 return .localized("This archive could not be inspected safely.")
+            case .duplicateEntry(let path):
+                return .localized("The archive contains conflicting entries for the same path: %@", arguments: path)
             case .absolutePath(let path):
                 return .localized("The archive contains an unsafe absolute path: %@", arguments: path)
             case .traversalPath(let path):
@@ -55,6 +58,9 @@ struct ArchiveSafetyValidator {
         let root = destination ?? archiveURL.deletingLastPathComponent()
         var entryCount = 0
         var uncompressedBytes: UInt64 = 0
+        // Every output path claimed so far, so two entries resolving to one file are rejected
+        // here rather than being resolved silently by whichever backend does the writing.
+        var claimed = Set<String>()
 
         for entry in archive {
             entryCount += 1
@@ -82,13 +88,39 @@ struct ArchiveSafetyValidator {
             }
             uncompressedBytes += entry.uncompressedSize
 
-            try validateDestination(relativePath: components.map(String.init).joined(separator: "/"), root: root)
+            let relativePath = components.map(String.init).joined(separator: "/")
+            try validateDuplicate(relativePath, in: &claimed)
+            try validateDestination(relativePath: relativePath, root: root)
 
         }
         if destination != nil {
             try StoragePreflight.check(bytes: Int64(uncompressedBytes), copies: 1, at: root.deletingLastPathComponent())
         }
     }
+
+    /// Rejects two entries that resolve to one output path.
+    ///
+    /// `IPAExtractor` already refuses these while writing, but it is not the only backend:
+    /// `TweakExtractor` and `IPAWorkspace` hand the same validated archive to
+    /// `Zip.unzipFile(overwrite: true)`, which resolves a conflict by letting the *last* entry
+    /// win. A crafted archive could then present one file to everything that inspects the
+    /// bundle and write a different one over it during extraction. Deciding here puts the rule
+    /// ahead of every backend instead of inside one of them.
+    ///
+    /// The comparison is case-insensitive because the destination filesystem is: APFS on iOS
+    /// treats `Info.plist` and `info.plist` as the same file, so entries differing only in case
+    /// collide exactly like identical ones. A directory entry and a file entry sharing a path
+    /// collide too — the trailing separator is not part of the identity.
+    static func validateDuplicate(_ relativePath: String, in claimed: inout Set<String>) throws {
+        let normalized = relativePath.hasSuffix("/")
+            ? String(relativePath.dropLast()).lowercased()
+            : relativePath.lowercased()
+        guard !normalized.isEmpty else { throw ValidationError.traversalPath(relativePath) }
+        guard claimed.insert(normalized).inserted else {
+            throw ValidationError.duplicateEntry(relativePath)
+        }
+    }
+
     /// Normalize the base before appending, so Foundation cannot resolve an
     /// alias such as /var -> /private/var on only one side of the comparison.
     /// Compare path components, not string prefixes ("work-other" is not "work").

@@ -42,6 +42,27 @@ struct LibraryAppStatus: Equatable, Sendable {
 	var isKnown: Bool { updatedAt != .distantPast }
 }
 
+// MARK: - Installation lifecycle
+
+/// One installation attempt that is currently being monitored.
+///
+/// Registered by `InstallQueue` when it actually starts an installer — not when an install is
+/// requested, and not by a signing success — and cleared when that attempt reaches a terminal
+/// outcome. While it is registered, every library record carrying the identifier publishes
+/// `.installing`, and no device reading may replace that.
+///
+/// Keyed by identifier *and* attempt, so a completion belonging to an abandoned attempt can
+/// neither clear nor rewrite the state of the attempt now in flight.
+struct InstallationAttempt: Equatable, Sendable {
+	/// The exact bundle identifier being installed.
+	let identifier: String
+	/// Unique per start. The queue builds it from its run generation and task record.
+	let attemptID: String
+	/// The unified-task record monitoring this attempt, when the queue created one.
+	let taskID: String?
+	let startedAt: Date
+}
+
 // MARK: - Badge
 
 /// The row badge for an install state. `nil` when there is nothing worth saying.
@@ -50,6 +71,8 @@ struct InstalledBadge: Equatable {
 		case positive
 		case warning
 		case neutral
+		/// Work in flight. Not a verdict, so it is neither green nor a caution.
+		case active
 	}
 
 	let title: String?
@@ -70,6 +93,12 @@ struct InstalledBadge: Equatable {
 			title = .localized("Not installed")
 			systemImage = "iphone.slash"
 			tone = .neutral
+		case .installing:
+			// An attempt is being monitored. Says so instead of the negative a mid-install
+			// probe reading produces, and instead of claiming it worked.
+			title = .localized("Installing")
+			systemImage = "arrow.triangle.2.circlepath"
+			tone = .active
 		case .unknown:
 			// Callers without a read lifecycle keep the old nil-on-unknown behavior.
 			return nil
@@ -167,12 +196,24 @@ final class LibraryStatusStore: ObservableObject {
 	/// Bumped by every new read, so a read already running when the device's answer
 	/// changed cannot publish the answer it was about to.
 	private var epoch: [String: Int] = [:]
+	/// Installation attempts being monitored, by bundle identifier. One attempt per identifier:
+	/// the queue runs one installer at a time, and a second start for the same bundle replaces
+	/// the first rather than racing it.
+	private var attempts: [String: InstallationAttempt] = [:]
 
 	/// How long a read is trusted before the same app is read again.
 	/// How long a cached answer stays good. `nonisolated` because it is a constant:
 	/// two methods that read it carry it as a default argument, which is evaluated
 	/// outside the actor.
 	nonisolated static let defaultMaxAge: TimeInterval = 30
+
+	/// How long an installation attempt is believed before it is treated as abandoned.
+	///
+	/// Every real path ends the attempt explicitly — success, failure, cancellation, skip, queue
+	/// reset — and `InstallConfirmation` bounds the monitoring itself to a couple of minutes.
+	/// This backstop only stops a registration whose owner died from pinning a row on
+	/// "Installing" forever, so it is deliberately far longer than any real attempt.
+	nonisolated static let attemptTimeout: TimeInterval = 900
 
 	init(
 		probe: InstalledAppProbing = InstalledAppProbe(),
@@ -202,8 +243,21 @@ final class LibraryStatusStore: ObservableObject {
 	func request(_ request: Request, maxAge: TimeInterval = defaultMaxAge, force: Bool = false) {
 		let changed = knownRequests[request.uuid] != request
 		knownRequests[request.uuid] = request
-        let seeded = applyingConfirmation(to: statuses[request.uuid] ?? LibraryAppStatus(), request: request)
-        if seeded.installed != .unknown { statuses[request.uuid] = seeded }
+        var seeded = applyingConfirmation(to: statuses[request.uuid] ?? LibraryAppStatus(), request: request)
+        let stored = statuses[request.uuid]
+        seeded = applyingActiveInstallation(to: seeded, request: request)
+        if seeded.installed != .unknown {
+            statuses[request.uuid] = seeded
+        } else if stored?.installed.isTransient == true {
+            // An attempt that expired with nobody left to end it: drop the transient state it
+            // published rather than leave a row claiming "Installing" forever.
+            statuses[request.uuid] = seeded
+        }
+		// An attempt in flight is the authoritative answer for this identifier, and a forced
+		// refresh — including the one that runs when the user returns from iOS's install prompt —
+		// must not replace it with a device reading taken mid-install. The read this skips is
+		// requested again by `endInstallation`, so nothing is left unread.
+		guard !isInstalling(request.bundleIdentifier) else { return }
 		guard force || changed || _needsRead(request.uuid, maxAge: maxAge) else { return }
 
 		// A forced refresh may supersede an in-flight read. Only the newest read owns
@@ -244,7 +298,12 @@ final class LibraryStatusStore: ObservableObject {
             status.bundleIdentifier = bundleIdentifier
             status.installed = .unknown
             status = applyingConfirmation(to: status, request: request, now: now)
-            statuses[request.uuid] = status
+            // The receipt is stored either way, but publishing it is the attempt's call. A
+            // confirmation is normally recorded microseconds before the queue ends the attempt it
+            // belongs to, so this only changes what a *stale* installer can do: one that finishes
+            // late cannot rewrite the row of the attempt now in flight. `endInstallation` applies
+            // the receipt the moment monitoring stops, so nothing is delayed for the user.
+            statuses[request.uuid] = applyingActiveInstallation(to: status, request: request, now: now)
             self.request(request, force: true)
         }
     }
@@ -266,9 +325,107 @@ final class LibraryStatusStore: ObservableObject {
         for request in Array(knownRequests.values) { self.request(request, force: true) }
     }
 
+    // MARK: Installation lifecycle
+
+    /// Registers an in-flight installation and publishes `Installing` to every library record
+    /// carrying this identifier, including several rows that share one bundle identifier.
+    ///
+    /// Called by `InstallQueue` when it starts an installer. Registering an attempt says an
+    /// install is being monitored — it never says the app is installed.
+    @discardableResult
+    func beginInstallation(
+        identifier: String,
+        attemptID: String,
+        taskID: String? = nil,
+        now: Date = Date()
+    ) -> InstallationAttempt? {
+        guard !identifier.isEmpty, !attemptID.isEmpty else { return nil }
+        let attempt = InstallationAttempt(
+            identifier: identifier, attemptID: attemptID, taskID: taskID, startedAt: now
+        )
+        attempts[identifier] = attempt
+        for request in Array(knownRequests.values) where request.bundleIdentifier == identifier {
+            let status = statuses[request.uuid] ?? LibraryAppStatus()
+            statuses[request.uuid] = applyingActiveInstallation(to: status, request: request, now: now)
+        }
+        return attempt
+    }
+
+    /// Ends an attempt and lets the real evidence decide what the row shows next.
+    ///
+    /// A completion whose attempt ID is no longer the registered one is ignored, so an abandoned
+    /// attempt cannot clear — or rewrite the state of — the attempt now in flight. Returns false
+    /// for that stale call.
+    @discardableResult
+    func endInstallation(identifier: String, attemptID: String, now: Date = Date()) -> Bool {
+        guard let active = attempts[identifier], active.attemptID == attemptID else { return false }
+        attempts.removeValue(forKey: identifier)
+        for request in Array(knownRequests.values) where request.bundleIdentifier == identifier {
+            var status = statuses[request.uuid] ?? LibraryAppStatus()
+            // Drop the transient state only. A confirmation receipt recorded by the installer
+            // becomes the answer if the device proved the install; otherwise the row goes back
+            // to being read, and reads `Unknown` rather than a guessed negative until it is.
+            if status.installed.isTransient { status.installed = .unknown }
+            status = applyingConfirmation(to: status, request: request, now: now)
+            statuses[request.uuid] = status
+            self.request(request, force: true)
+        }
+        return true
+    }
+
+    /// Forgets every registered attempt — a queue reset, or a full store reset.
+    func resetInstallations() {
+        attempts.removeAll()
+    }
+
+    /// The attempt being monitored for this identifier, pruning one that outlived its bound.
+    func activeInstallation(identifier: String, now: Date = Date()) -> InstallationAttempt? {
+        guard let attempt = attempts[identifier] else { return nil }
+        guard now.timeIntervalSince(attempt.startedAt) <= Self.attemptTimeout else {
+            attempts.removeValue(forKey: identifier)
+            return nil
+        }
+        return attempt
+    }
+
+    /// Whether an installation attempt is in flight for this identifier.
+    ///
+    /// Also what gates actions that make no sense mid-install, and what keeps a forced refresh
+    /// from publishing a device reading taken while iOS is still writing the bundle.
+    func isInstalling(_ identifier: String?) -> Bool {
+        guard let identifier, !identifier.isEmpty else { return false }
+        return activeInstallation(identifier: identifier) != nil
+    }
+
+    /// Overlays the transient state onto a status. The last word before publishing, so a probe
+    /// result that arrives mid-install cannot replace `Installing` with a negative — and so a
+    /// transient state whose attempt has expired does not outlive it.
+    private func applyingActiveInstallation(
+        to status: LibraryAppStatus,
+        request: Request,
+        now: Date = Date()
+    ) -> LibraryAppStatus {
+        guard let identifier = request.bundleIdentifier else { return status }
+        guard let attempt = activeInstallation(identifier: identifier, now: now) else {
+            guard status.installed.isTransient else { return status }
+            var cleared = status
+            cleared.installed = .unknown
+            return cleared
+        }
+        var updated = status
+        updated.bundleIdentifier = identifier
+        updated.installed = .installing
+        // Keep `isKnown` honest without claiming a device read happened.
+        updated.updatedAt = max(updated.updatedAt, attempt.startedAt)
+        return updated
+    }
+
 	func invalidateAll() {
 		// Prevent a pre-reset read from repopulating the store or clearing a newer read.
 		generation += 1
+        // Forgetting everything the library knows includes the transient installation state;
+        // a queue reset ends its attempts through `resetInstallations()` as well.
+        attempts.removeAll()
         confirmations.removeAll()
 		lastAttempt.removeAll()
 		statuses.removeAll()
@@ -333,7 +490,13 @@ final class LibraryStatusStore: ObservableObject {
 					guard (store.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0) else { continue }
 					store.inflight.remove(uuid)
                     guard let request = store.knownRequests[uuid] else { continue }
-					store.statuses[uuid] = store.applyingConfirmation(to: status, request: request)
+					// Last writer wins, and the last writer is the installation lifecycle: an
+					// install can have started while this read was in flight, and its answer is
+					// the one that must not be overwritten by a mid-install device reading.
+					store.statuses[uuid] = store.applyingActiveInstallation(
+						to: store.applyingConfirmation(to: status, request: request),
+						request: request
+					)
 				}
 			}
 		}
