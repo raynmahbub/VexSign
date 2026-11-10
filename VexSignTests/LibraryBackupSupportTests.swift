@@ -87,8 +87,10 @@ final class LibraryBackupSupportTests: XCTestCase {
         // will never write. Distinctness was the only check before.
         var manifest = blankManifest([.certificates])
         let identifier = UUID().uuidString
-        manifest.certificates = [cert(identifier), cert(identifier.uppercased())]
-        XCTAssertNoThrow(try manifest.validateSupportedFormat(), "real identifiers stay valid, either case")
+        for spelling in [identifier.lowercased(), identifier.uppercased()] {
+            manifest.certificates = [cert(spelling)]
+            XCTAssertNoThrow(try manifest.validateSupportedFormat(), "real identifiers stay valid in either case")
+        }
 
         for path in ["../../../../Library/Preferences/escape", "certs/../../escape", "", ".", "..",
                      identifier + "/../escape", "x", "not-a-uuid"] {
