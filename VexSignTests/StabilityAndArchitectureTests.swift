@@ -106,6 +106,26 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "file:///etc/passwd")!), "Opt-in only opens HTTP, not arbitrary schemes")
 	}
 
+	func testRestorableRepositoryKeepsALANRepositoryWithoutTheHTTPOptIn() throws {
+		// A restore reinstates a repository the user already saved, so it does not consult the
+		// opt-in — but it is still not a reason to accept another scheme or embedded credentials.
+		let key = SourceURLPolicy.allowInsecureHTTPKey
+		let previous = UserDefaults.standard.object(forKey: key)
+		defer {
+			if let previous { UserDefaults.standard.set(previous, forKey: key) }
+			else { UserDefaults.standard.removeObject(forKey: key) }
+		}
+		UserDefaults.standard.set(false, forKey: key)
+
+		let lan = URL(string: "http://192.168.1.10/repo.json")!
+		try SourceURLPolicy.validateRestorable(lan)
+		XCTAssertThrowsError(try SourceURLPolicy.validate(lan), "the opt-in still governs adding a new one")
+		XCTAssertThrowsError(try SourceURLPolicy.validateRestorable(URL(string: "file:///etc/passwd")!))
+		XCTAssertThrowsError(try SourceURLPolicy.validateRestorable(URL(string: "ftp://example.com/a.json")!))
+		XCTAssertThrowsError(try SourceURLPolicy.validateRestorable(URL(string: "https://user:secret@example.com/a.json")!))
+		try SourceURLPolicy.validateRestorable(URL(string: "https://example.com/apps.json")!)
+	}
+
 	func testSourceURLPolicyNormalizesInput() throws {
 		let url = try SourceURLPolicy.normalizeAndValidate("example.com/apps.json")
 		XCTAssertEqual(url.scheme, "https")

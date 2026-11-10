@@ -61,6 +61,18 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- A backup archive is treated as untrusted input when it is opened. Its
+  certificate identifiers are used as directory names on both sides of a restore
+  (`certs/<uuid>` inside the archive, `Certificates/<uuid>` in the app
+  container) and were checked only for being distinct, so a crafted archive
+  could name a path such as `../../..` and have a restore copy into — or, on
+  rollback, delete — a directory outside the certificate folder. They must now
+  be real UUIDs, which every identifier this app writes already is. The
+  repository URLs a restore reinstates are held to the shape half of
+  `SourceURLPolicy`: `http` or `https`, a host, and no credentials embedded in
+  the URL. The documented exemption that lets a saved LAN repository restore
+  without the HTTP opt-in still works, while `file:`, `javascript:` and other
+  schemes are rejected, and a source's icon URL is held to the same rule.
 - The multi-source property on a discovery group is computed from its sources.
   It was `versions.count > 1`, so one repository listing 1.0 and 2.0 of the
   same app reported itself as available from several sources. Nothing rendered
@@ -80,10 +92,10 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   it, and a directory that exists with no record pointing at it is never
   replaced either. Restoring the same archive twice therefore adds nothing the
   second time. Those rules were inline branches in `BackupManager.restore`,
-  which had no test of any kind. A library entry missing from a damaged container
-  used to throw after creating and then removing its destination folder, so one
-  damaged app stopped the rest of the library from being restored; certificate
-  and library restores now apply the same order.
+  which had no test of any kind, and certificate and library restores now apply
+  the same order. The library loop's missing-payload branch could only be
+  reached through a container damaged *after* `open` checked every bundle was
+  present, so this consolidates the rule rather than fixing a defect there.
 - A backup no longer carries credentials. The settings filter accepted everything
   under `VexSign.` and `vexsign.`, so `IdentityVault`'s `VexSign.vault.*` values —
   cloud-signing API key, premium activation, device UUID — and any key named

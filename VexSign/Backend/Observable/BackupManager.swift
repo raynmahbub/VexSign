@@ -112,6 +112,20 @@ struct BackupManifest: Codable {
                   Set(apps.map(\.uuid)).count == apps.count else { throw BackupCrypto.Failure.badFormat }
             for entry in apps { try LibraryBackupSupport.validate(entry) }
         }
+        // An archive is a file the user may have been given, not one this app wrote for
+        // itself. Its certificate identifiers become directory names under the app's own
+        // container (`certs/<uuid>` and the destination `Certificates/<uuid>`), so a manifest
+        // may name only identifiers — never a path. `Set(\.uuid).count` above only requires
+        // them to be distinct.
+        guard certificates.allSatisfy({ UUID(uuidString: $0.uuid) != nil }) else {
+            throw BackupCrypto.Failure.badFormat
+        }
+        // Restore passes `enforceTransportPolicy: false` so a saved LAN repository keeps
+        // working; that exemption is about HTTPS, not about what a URL is.
+        for source in sources {
+            try SourceURLPolicy.validateRestorable(source.url)
+            if let iconURL = source.iconURL { try SourceURLPolicy.validateRestorable(iconURL) }
+        }
     }
 
 	func count(of component: BackupComponents) -> Int? {
