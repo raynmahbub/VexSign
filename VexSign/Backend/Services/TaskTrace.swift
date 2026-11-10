@@ -60,6 +60,9 @@ struct TaskContext: Codable, Equatable {
     var signingTaskID: String?
     var importTaskID: String?
     var confirmationReason: String?
+    /// How many times the device was asked whether an install landed. A count only. Optional
+    /// for the same reason as the trace below: history written before it existed must load.
+    var verificationAttempts: Int?
     var errorCategory: String?
     var errorCode: Int?
     /// Optional, not defaulted: the synthesized `Decodable` only tolerates a missing key for an

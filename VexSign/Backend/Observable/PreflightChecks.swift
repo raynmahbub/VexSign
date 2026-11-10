@@ -337,6 +337,20 @@ enum PreflightChecks {
 	private static func dylibInjections(app: AppInfoPresentable, options: Options, into issues: inout [PreflightIssue]) {
 		var names: [String: Int] = [:]
 
+		// A file staged for one sign can be gone by the time the run starts. The engine stops on
+		// that, so say it here, by name, before the long copy rather than after it.
+		let unavailable = OneShotTweakFiles.unavailable(options.injectionFiles)
+		if !unavailable.isEmpty {
+			issues.append(PreflightIssue(
+				.localized("Tweak file unavailable"),
+				String.localized(
+					"%@ can no longer be read, so it cannot be injected. Remove it under Tweaks and add it again before signing.",
+					arguments: OneShotTweakFiles.names(unavailable).joined(separator: ", ")
+				),
+				severity: .blocking
+			))
+		}
+
 		for file in options.injectionFiles {
 			_register(file.lastPathComponent, in: &names)
 			_architectureCheck(file, app: app, into: &issues)

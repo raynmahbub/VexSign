@@ -512,7 +512,9 @@ extension LibraryCellView {
 			}
 			if SigningProfileStore.shared.profile(forBundleID: app.identifier) != nil {
 				Button(.localized("Re-sign with Last Settings"), systemImage: "clock.arrow.circlepath") {
-					Task { _ = await AutoSignManager.shared.sign(app) }
+					// The same path as the swipe action. This used to discard the result, so a
+					// re-sign that failed from this menu said nothing at all.
+					_resignLastOrPresent()
 				}
 			}
 			Button(.localized("Export"), systemImage: "square.and.arrow.up") {

@@ -20,6 +20,36 @@ struct SigningProfile: Codable, Equatable {
 	let certificateUUID: String?
 	/// When it was last used, for display in the picker.
 	let savedAt: Date
+	/// Names, never paths, of the one-time tweak files the captured sign injected.
+	///
+	/// Those files are staged for one sign and are not kept, so the saved options must not point
+	/// at them: replaying a dead staging URL is what made "Re-sign with last settings" and Update
+	/// All stop in the Customize step. The names are kept so a replay can say what it left out.
+	/// Optional, so a profile saved before this field existed still decodes.
+	var oneShotFileNames: [String]? = nil
+}
+
+extension SigningProfile {
+	/// The profile as a later sign may reuse it: no one-shot file URLs, and their names kept.
+	///
+	/// Applied on every read as well as on capture, because profiles written by earlier versions
+	/// are already on disk with URLs into a temporary directory that no longer holds the files.
+	func replayable() -> SigningProfile {
+		guard !options.injectionFiles.isEmpty else { return self }
+
+		var reusable = options
+		reusable.injectionFiles = []
+		return SigningProfile(
+			bundleID: bundleID,
+			options: reusable,
+			certificateUUID: certificateUUID,
+			savedAt: savedAt,
+			oneShotFileNames: OneShotTweakFiles.merged(
+				oneShotFileNames,
+				OneShotTweakFiles.names(options.injectionFiles)
+			)
+		)
+	}
 }
 
 // MARK: - Store
@@ -54,13 +84,13 @@ final class SigningProfileStore {
 
 	func profile(forBundleID bundleID: String?) -> SigningProfile? {
 		guard let bundleID, !bundleID.isEmpty else { return nil }
-		return all[bundleID]
+		return all[bundleID]?.replayable()
 	}
 
 	func save(_ profile: SigningProfile) {
 		guard !profile.bundleID.isEmpty else { return }
 		var store = all
-		store[profile.bundleID] = profile
+		store[profile.bundleID] = profile.replayable()
 		all = store
 	}
 
@@ -90,6 +120,8 @@ final class SigningProfileStore {
 		snapshot.appIdentifier = nil
 		snapshot.appEntitlementsFile = nil
 
+		// One-shot tweak files are not persisted either: `save` keeps their names and drops the
+		// staging URLs (see `SigningProfile.replayable()`).
 		save(SigningProfile(
 			bundleID: bundleID,
 			options: snapshot,

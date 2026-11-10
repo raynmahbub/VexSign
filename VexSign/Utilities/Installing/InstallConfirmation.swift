@@ -48,6 +48,16 @@ struct InstallConfirmation: Equatable, Sendable {
         /// Unreadable/filtered evidence should end promptly; this remains shorter than
         /// the bounded window granted when iOS positively reports a placeholder.
         var unavailableEvidence: TimeInterval = 30
+		/// How long after the device last answered a check may go unanswered before the evidence
+		/// counts as unavailable. One lookup that is refused or times out is a missed check; it
+		/// does not turn a device that was reporting the app a moment ago into one that hides it.
+		var evidenceGrace: TimeInterval = 10
+
+		/// The longest one install may be monitored once its payload has been handed to iOS:
+		/// every phase at its own limit, plus room for the samples and the last check that sit
+		/// between them. A caller that cannot rely on its polling loop making progress bounds
+		/// the whole attempt with this.
+		var monitoringBackstop: TimeInterval { start + verify * 2 + 30 }
 	}
 
 	enum Phase: Equatable, Sendable {
@@ -96,6 +106,8 @@ struct InstallConfirmation: Equatable, Sendable {
     private var _observedIncompleteProgress = false
 	private var _waitingSince: Date?
 	private var _verifyingAt: Date?
+	/// When the device last answered a verification check with a record of any kind.
+	private var _lastReadingAt: Date?
 
 	init(expectation: Expectation, limits: Limits = Limits()) {
 		self.expectation = expectation
@@ -179,6 +191,11 @@ struct InstallConfirmation: Equatable, Sendable {
 		let verifyStart = _verifyingAt ?? date
 		let settled = date.timeIntervalSince(verifyStart) >= limits.settle
 
+		// Judged before this reading is recorded: whether the device was still answering when
+		// this check went out.
+		let answeredRecently = _lastReadingAt.map { date.timeIntervalSince($0) < limits.evidenceGrace } ?? false
+		if probe != nil { _lastReadingAt = date }
+
 		let matchingProbe = probe?.bundleIdentifier == expectation.bundleIdentifier ? probe : nil
 		switch InstalledState.derive(from: matchingProbe, expecting: expectation.version) {
 		case .installed:
@@ -202,7 +219,12 @@ struct InstallConfirmation: Equatable, Sendable {
 			// that iOS registered the app and is still writing it, so it gets the
 			// full verification window. Only a probe that returned nothing at all
 			// hits the short deadline that stops the UI spinning forever.
-			let evidenceIsUnavailable = probe == nil
+			//
+			// "Nothing at all" has to last, though. The lookup is refused while another one
+			// is in flight and abandoned when it is slow, so a single empty reading between
+			// two placeholder readings is routine. Ending on it reported an install that was
+			// still being written as unconfirmed, the moment the short deadline had passed.
+			let evidenceIsUnavailable = probe == nil && !answeredRecently
 			let deadline = evidenceIsUnavailable
 				? min(limits.verify, limits.unavailableEvidence)
 				: limits.verify
@@ -222,6 +244,26 @@ struct InstallConfirmation: Equatable, Sendable {
 		}
 
 		return phase
+	}
+
+	/// Seconds from `date` until the next moment the verdict can change through time alone, or
+	/// nil when not verifying or when every deadline has passed.
+	///
+	/// The watcher spaces its checks out; this is what lets it still land one on each deadline
+	/// instead of up to a whole pause after it.
+	func secondsUntilNextDeadline(at date: Date) -> TimeInterval? {
+		guard phase == .verifying, let start = _verifyingAt else { return nil }
+		let elapsed = date.timeIntervalSince(start)
+		let marks = [limits.settle, min(limits.verify, limits.unavailableEvidence), limits.verify]
+		return marks.filter { $0 > elapsed }.min().map { $0 - elapsed }
+	}
+
+	/// Ends verification without an answer because the caller has no checks left.
+	///
+	/// The same verdict as running out of time: not a rejection, and never a success.
+	mutating func endVerificationUnconfirmed() -> Phase {
+		guard phase == .verifying else { return phase }
+		return _finish(.timedOutVerifying)
 	}
 
 	// MARK: Cancellation
@@ -313,6 +355,14 @@ enum InstallWatcher {
         // LaunchServices can expose the same container through either alias.
         return path.hasPrefix("/private/var/") ? String(path.dropFirst(8)) : path
     }
+	/// `interval` paces the progress counter. Verification follows `verification`; left nil it
+	/// is the standard schedule, or back-to-back checks when `interval` is zero, which is how a
+	/// test replays scripted readings without waiting on a clock.
+	///
+	/// `onVerificationAttempt` is told the number of each device check as it starts, so a
+	/// caller can show that verification is still doing something. `now` is the clock every
+	/// sample and reading is dated with; it is a parameter so the whole loop can be replayed
+	/// against scripted time.
 	static func watch(
 		_ initial: InstallConfirmation,
 		probe: InstalledAppProbing,
@@ -320,7 +370,10 @@ enum InstallWatcher {
 		progress: @escaping @Sendable () async -> Double?,
 		interval: Duration = .seconds(1),
         startTimeoutEnabled: @escaping @Sendable () async -> Bool = { true },
-		onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in }
+		onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in },
+		verification: InstallVerificationPolicy? = nil,
+		onVerificationAttempt: @escaping @Sendable (Int) async -> Void = { _ in },
+		now: @escaping @Sendable () -> Date = { Date() }
 	) async -> InstallConfirmation.Verdict {
         var confirmation = initial
         var before: InstalledApp?
@@ -341,21 +394,27 @@ enum InstallWatcher {
                     before = current
                 }
                 if hasNewInstalledEvidence(baseline: before, current: current, expectation: initial.expectation) {
-                    _ = confirmation.beginVerifying(at: Date())
-                    let phase = confirmation.record(probe: current, at: Date())
+                    _ = confirmation.beginVerifying(at: now())
+                    let phase = confirmation.record(probe: current, at: now())
                     await onUpdate(raw, phase)
                     if let verdict = phase.verdict { return verdict }
                 }
             }
-			let phase = confirmation.record(progress: raw, at: Date(),
+			let phase = confirmation.record(progress: raw, at: now(),
                 allowStartTimeout: await startTimeoutEnabled())
 			await onUpdate(raw, phase)
 
 			if phase == .verifying {
 				// installd has stopped: from here the device's own answer decides.
-				return await confirm(&confirmation, probe: probe, interval: interval) { phase in
-					await onUpdate(raw, phase)
-				}
+				return await confirm(
+					&confirmation,
+					probe: probe,
+					interval: interval,
+					policy: verification,
+					onAttempt: onVerificationAttempt,
+					onPhase: { phase in await onUpdate(raw, phase) },
+					now: now
+				)
 			}
 
 			if let verdict = phase.verdict {
@@ -369,24 +428,52 @@ enum InstallWatcher {
 	}
 
 	/// Waits for the device to prove the install, once `confirmation` is verifying.
+	///
+	/// Every run of checks is bounded three ways. The engine's deadlines end it by time. The
+	/// pause between checks grows, so a device that is slow to publish the app is not asked
+	/// every second for two minutes. And the number of checks is capped, so the loop still ends
+	/// when time cannot be trusted: the engine measures against the device clock, and a clock
+	/// set back mid-install would otherwise keep every deadline out of reach.
 	static func confirm(
 		_ confirmation: inout InstallConfirmation,
 		probe: InstalledAppProbing,
 		interval: Duration = .seconds(1),
-		onPhase: @escaping @Sendable (InstallConfirmation.Phase) async -> Void = { _ in }
+		policy: InstallVerificationPolicy? = nil,
+		onAttempt: @escaping @Sendable (Int) async -> Void = { _ in },
+		onPhase: @escaping @Sendable (InstallConfirmation.Phase) async -> Void = { _ in },
+		now: @escaping @Sendable () -> Date = { Date() }
 	) async -> InstallConfirmation.Verdict {
+		let policy = policy ?? (interval > .zero ? InstallVerificationPolicy.standard : InstallVerificationPolicy.immediate)
+		let identifier = confirmation.expectation.bundleIdentifier
+		let maximumAttempts = policy.maximumAttempts(within: confirmation.limits.verify)
+		var attempt = 0
+
 		while !Task.isCancelled {
-			let phase = confirmation.record(
-				probe: await probe.installedAppWithTimeout(for: confirmation.expectation.bundleIdentifier),
-				at: Date()
+			attempt += 1
+			await onAttempt(attempt)
+
+			// A slow lookup is given longer on later checks, but never so long that the answer
+			// to a deadline is held back behind it.
+			let timeout = policy.probeTimeout(
+				forAttempt: attempt,
+				untilDeadline: confirmation.secondsUntilNextDeadline(at: now())
 			)
+			let reading = await probe.installedAppWithTimeout(for: identifier, timeout: timeout)
+			var phase = confirmation.record(probe: reading, at: now())
+			if phase == .verifying, let maximumAttempts, attempt >= maximumAttempts {
+				phase = confirmation.endVerificationUnconfirmed()
+			}
 			await onPhase(phase)
 
 			if let verdict = phase.verdict {
 				return verdict
 			}
 
-			await pause(interval)
+			let delay = policy.delay(
+				afterAttempt: attempt,
+				untilDeadline: confirmation.secondsUntilNextDeadline(at: now())
+			)
+			await pause(.seconds(delay))
 		}
 
 		return confirmation.cancel().verdict ?? .cancelled

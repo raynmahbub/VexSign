@@ -40,17 +40,14 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertFalse(TaskReceipt.outcome(for: task).isEmpty)
     }
 
-    func testCompletionActionsProtectBundlesNeededByConsumers() {
-        XCTAssertFalse(SigningCompletionAction.done.keepsSignedApp(automaticInstall: false))
+    /// Whether the signed copy is kept is no longer a question a completion action answers: it
+    /// always is (`PostSignArtifactsTests`). What is left here is which actions install.
+    func testCompletionActionsInstallOnlyWhenAskedTo() {
         XCTAssertFalse(SigningCompletionAction.done.shouldInstall(automaticInstall: false))
-        for action in [SigningCompletionAction.install, .share, .library] {
-            XCTAssertTrue(action.keepsSignedApp(automaticInstall: false))
-        }
         XCTAssertTrue(SigningCompletionAction.install.shouldInstall(automaticInstall: false))
         XCTAssertFalse(SigningCompletionAction.share.shouldInstall(automaticInstall: false))
         XCTAssertFalse(SigningCompletionAction.library.shouldInstall(automaticInstall: false))
         for action in [SigningCompletionAction.done, .install, .share, .library] {
-            XCTAssertTrue(action.keepsSignedApp(automaticInstall: true))
             XCTAssertTrue(action.shouldInstall(automaticInstall: true))
         }
     }

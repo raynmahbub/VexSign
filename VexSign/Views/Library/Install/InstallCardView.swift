@@ -25,6 +25,7 @@ struct InstallCardView: View {
 				app: installer.app,
 				viewModel: installer.viewModel,
                 installationPhase: installer.installationPhase,
+                verificationAttempt: installer.verificationAttempt,
 				upcoming: upcoming,
 				onCancel: onCancel,
 				onPause: onPause,
@@ -46,6 +47,8 @@ private struct InstallStatusView: View {
 	var app: AppInfoPresentable
 	@ObservedObject var viewModel: InstallerStatusViewModel
     var installationPhase: InstallConfirmation.Phase
+    /// The number of the device check in flight, zero before verification starts.
+    var verificationAttempt: Int
 	var upcoming: [AnyApp]
 	var onCancel: () -> Void
 	var onPause: (() -> Void)?
@@ -111,7 +114,8 @@ private struct InstallStatusView: View {
         guard case .installing = viewModel.status else { return viewModel.statusLabel }
         switch installationPhase {
         case .waitingForStart: return .localized("Waiting for iOS installation")
-        case .verifying: return .localized("Verifying installation")
+        // Counted from the second check, so a verification that is still waiting visibly moves.
+        case .verifying: return InstallVerificationPolicy.statusLabel(attempt: verificationAttempt)
         default: return viewModel.statusLabel
         }
     }

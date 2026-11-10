@@ -404,6 +404,22 @@ polarity is translated exactly once (`Request.engineEmbedProvision == !removePro
   while a synchronous native operation is busy. `SigningExecutionGateTests.swift` already covers
   the queueing.
 
+**Later finding — the classification above was too narrow.** The leases protect each *stored copy*.
+Nothing protected the *temporary directory* every sign works in and every install packages its
+archive in: with Auto Cleanup's "Clear Temporary Files" on, one operation finishing cleared that
+directory under any other operation still running. Automatic cleanup now asks
+`AppOperationRegistry.hasActiveOperations` first and leaves the directory alone while any lease is
+held. See Issue 4 in the
+[follow-up](signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification);
+`CleanupOperationGuardTests` covers the rule.
+
+A second gap of the same kind was found later: nothing protected a copy between the moment its
+bundle is moved into the library and the moment its row is committed, so a leftovers pass in that
+window could delete it. Signing and importing now announce the copy they are producing to the same
+registry, leftovers wait like the temporary directory while any lease is held, and Clean Now
+follows both rules. See Issue 8 in
+[Follow-up 2](signing-and-installation-lifecycle.md#follow-up-2--what-a-successful-sign-leaves-in-the-library).
+
 ---
 
 ## Area 6 — cancellation, stale callbacks and background recovery
@@ -423,6 +439,18 @@ polarity is translated exactly once (`Request.engineEmbedProvision == !removePro
   publication sites so a late installer cannot overwrite a live attempt.
 * `SigningHandler` checks `Task.checkCancellation()` after verification and before `move()`, so a
   cancelled run does not register an artifact.
+
+**Later findings — two gaps this review did not reach.** Both are install-side, and both are
+recorded under Issue 6 in the
+[follow-up](signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification):
+
+* An install treated as declined (`.success(.cancelled)`) left its task record open. The last app
+  in a queue was then recorded as Completed; otherwise the next app ran on the declined app's
+  record. `InstallQueue` now closes that record as Cancelled before moving on.
+* The deadlines `AppInstaller` keeps beside its watcher were single sleeps, so they also ran out
+  while iOS had the app suspended and then acted ahead of the watcher's next device check. They now
+  count running time (`InstallDeadlineBudget`). This one is reasoned from the code; it has not been
+  observed on a device.
 
 ---
 

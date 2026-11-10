@@ -480,21 +480,26 @@ extension SigningView {
 					for: app
 				)
 
+				// The run injected its own copies, so the files staged for this sheet are still
+				// on disk. The sheet closes now and nothing else will read them. They are kept
+				// after a failure on purpose: that is what lets the next attempt start.
+				TweakImportSupport.discard(_temporaryOptions.injectionFiles)
+
                 let automaticInstall = _temporaryOptions.post_installAppAfterSigned
                 let finish: (SigningCompletionAction) -> Void = { intent in
-					let deletesSource = _temporaryOptions.post_deleteAppAfterSigned && !app.isSigned
-
-					if deletesSource {
-						Storage.shared.deleteApp(for: app)
-					}
-
-					// Auto cleanup: honours Delete Unsigned / Signed App and the storage toggles.
-					// Runs after the deletion above so it never reads a removed object.
-					let remainingSource: AppInfoPresentable? = deletesSource ? nil : app
-					CleanupManager.shared.runAfterSign(
-						source: remainingSource,
-						signed: signed,
-						keepsSignedApp: intent.keepsSignedApp(automaticInstall: automaticInstall)
+					// The signed copy stays, whatever the settings are: it is what the sheet was
+					// opened to make. "Delete Signed App" used to delete it right here whenever
+					// the run was not set to install it.
+					//
+					// Only the copy the sheet was opened on can go: the sheet's own "Delete After
+					// Signing" and Auto Cleanup's Delete Unsigned / Signed App decide, and
+					// only once the signed copy is confirmed to be in the library. The storage
+					// toggles are swept in the same call.
+					CleanupManager.shared.finishSign(
+						source: app,
+						output: signed,
+						origin: .sheet,
+						runDeletesSource: _temporaryOptions.post_deleteAppAfterSigned
 					)
 
                     if intent.shouldInstall(automaticInstall: automaticInstall) {

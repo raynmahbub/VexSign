@@ -202,10 +202,16 @@ final class BatchJobRunner: ObservableObject {
 					category: "batch"
 				)
 
-				// Per-app option first, then the global Auto Cleanup toggle.
-				if !app.isSigned, options.post_deleteAppAfterSigned || CleanupManager.shared.deletesSourceAfterSign {
-					Storage.shared.deleteApp(for: app)
-				}
+				// The signed copy stays. The copy it was made from goes when the per-app option or
+				// an Auto Cleanup switch asks for that, and only once the signed copy is confirmed
+				// to be in the library. Storage is swept once for the whole batch, below.
+				CleanupManager.shared.finishSign(
+					source: app,
+					output: signed,
+					origin: .batch,
+					runDeletesSource: options.post_deleteAppAfterSigned,
+					sweepsStorage: false
+				)
 			case .failure(let error) where error is CancellationError:
 				// Stopping mid-item is not a failure of that item: it was never signed, and the
 				// pipeline removed its work directory on the way out.
@@ -231,7 +237,7 @@ final class BatchJobRunner: ObservableObject {
 
 		// One shared sweep for the whole batch: the apps were handled above, so this only
 		// clears whichever storage toggles are on.
-		CleanupManager.shared.runAfterSign(source: nil, signed: nil, keepsSignedApp: mode.installs)
+		CleanupManager.shared.sweepAfterSigning()
 	}
 
 	private func _installAll() async {

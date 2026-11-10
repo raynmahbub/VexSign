@@ -409,8 +409,9 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 		}
 
 		// The copy that was signed is done either way: a re-sign replaces the old entry, an
-		// import only existed to be signed.
-		Storage.shared.deleteApp(for: target)
+		// import only existed to be signed. It is removed once the signed copy is confirmed to be
+		// in the library; if that cannot be confirmed, or the copy is in use, it stays.
+		CleanupManager.shared.finishSign(source: target, output: signed, origin: .explorer, sweepsStorage: false)
 
 		InstallQueue.shared.enqueue(signed)
 		return signed
