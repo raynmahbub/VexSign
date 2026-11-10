@@ -10,6 +10,13 @@ import CryptoKit
 import Zip
 import NimbleExtensions
 
+/// What a backup archive may contain.
+///
+/// There is deliberately no task-history component. The Activity log is a JSON journal that marks
+/// itself `isExcludedFromBackup`, so the app already treats it as data that must not travel, and it
+/// records what *this* install did on *this* device — restoring it elsewhere would report work that
+/// install never performed. A backup therefore carries what a user configured and produced
+/// (certificates, sources, settings, tweaks, signed and imported apps), not what they did.
 struct BackupComponents: OptionSet, Hashable, Codable {
 	let rawValue: Int
 
@@ -210,7 +217,8 @@ final class BackupManager {
 		}
 	}
 
-	/// Backs up any key in the app's namespaces; only device/install-specific keys are excluded.
+	/// Backs up any key in the app's namespaces; device/install-specific and credential keys are
+	/// excluded.
 	private static let _settingPrefixes = ["VexSign.", "vexsign.", "VexSign.", "signing_options"]
 	private static let _settingDenylist: Set<String> = [
 		"vexsign.selectedCert",              // restored by uuid remap, not by raw index
@@ -218,13 +226,35 @@ final class BackupManager {
 		"VexSign.defaultImportFolderName",
 		"VexSign.defaultImportFolderBookmark", // security-scoped, dead on another install
 		"VexSign.downloadBubblePositionX",
-		"VexSign.downloadBubblePositionY"
+		"VexSign.downloadBubblePositionY",
+		// Written by builds that kept the cloud-signing bearer token in preferences. It lives in
+		// the Keychain now, but an older backup may still carry the plaintext copy. Both spellings
+		// are listed because both prefixes are accepted and the deny list is exact.
+		"VexSign.cloudSigningKey",
+		"vexsign.cloudSigningKey"
 	]
+
+	/// Namespaces that hold secrets, never settings a backup should carry.
+	private static let _credentialPrefixes = ["VexSign.vault.", "vexsign.vault."]
+	/// Credential-shaped names inside an otherwise ordinary namespace.
+	private static let _credentialSuffixes = [".apikey", ".token", ".secret", ".password", ".passphrase"]
+
+	/// Whether a preferences key is a credential.
+	///
+	/// A backup carries its settings in a password-protected container, but a restore also writes
+	/// them straight into `UserDefaults` — and a container is only as private as where the user
+	/// puts it. Secrets belong to the Keychain, per install, and are never restored from a file.
+	static func isCredentialSettingKey(_ key: String) -> Bool {
+		let lowered = key.lowercased()
+		if _credentialPrefixes.contains(where: { lowered.hasPrefix($0.lowercased()) }) { return true }
+		return _credentialSuffixes.contains(where: { lowered.hasSuffix($0) })
+	}
 
 	static func isBackupableSettingKey(_ key: String) -> Bool {
 		guard _settingPrefixes.contains(where: { key.hasPrefix($0) }) else { return false }
 		if _settingDenylist.contains(key) { return false }
 		if key.hasPrefix("VexSign.certHash.") { return false }
+		if isCredentialSettingKey(key) { return false }
 		return true
 	}
 
@@ -468,13 +498,16 @@ final class BackupManager {
 			var tally = BackupRestoreTally()
 			let existing = Set(Storage.shared.getAllCertificates().compactMap { $0.uuid })
 			for cert in manifest.certificates {
-				if existing.contains(cert.uuid) { tally.recordSkipped(); continue }
 				let srcDir = root.appendingPathComponent("certs").appendingPathComponent(cert.uuid)
-				guard _fm.fileExists(atPath: srcDir.path) else { tally.recordSkipped(); continue }
 				let dstDir = _fm.certificates(cert.uuid)
 				// An untracked directory can be an interrupted prior import. Never
 				// replace it just because the matching Core Data row is absent.
-				guard !_fm.fileExists(atPath: dstDir.path) else { tally.recordSkipped(); continue }
+				let plan = BackupRestorePlan.decision(
+					alreadyTracked: existing.contains(cert.uuid),
+					payloadPresent: _fm.fileExists(atPath: srcDir.path),
+					destinationOccupied: _fm.fileExists(atPath: dstDir.path)
+				)
+				guard plan.shouldRestore else { tally.recordSkipped(); continue }
 				do {
 					try _fm.copyItem(at: srcDir, to: dstDir)
 				} catch {
@@ -537,11 +570,16 @@ final class BackupManager {
 			let data = try? Data(contentsOf: root.appendingPathComponent("settings.plist")),
 			let dict = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] {
 			var added = 0
-			for (key, value) in dict where Self.isBackupableSettingKey(key) {
+			var skipped = 0
+			for (key, value) in dict {
+				// An archive written by an older build can still hold keys this build no longer
+				// considers safe to restore — credentials, or device-specific paths. Report them
+				// instead of leaving the count looking complete.
+				guard Self.isBackupableSettingKey(key) else { skipped += 1; continue }
 				UserDefaults.standard.set(value, forKey: key)
 				added += 1
 			}
-			summary.record(.settings, added: added, skipped: 0)
+			summary.record(.settings, added: added, skipped: skipped)
 		}
 
 		let tweaksDir = root.appendingPathComponent("tweaks")
@@ -557,11 +595,17 @@ final class BackupManager {
             for entry in manifest.apps ?? [] {
                 try requireIdleLibrary()
                 try LibraryBackupSupport.validate(entry)
-                if existing.contains(entry.uuid) { skipped += 1; continue }
                 let source = root.appendingPathComponent("library").appendingPathComponent(entry.uuid).appendingPathComponent(entry.bundleName)
                 let destination = entry.signed ? _fm.signed(entry.uuid) : _fm.unsigned(entry.uuid)
-                // Never overwrite an untracked directory either.
-                if _fm.fileExists(atPath: destination.path) { skipped += 1; continue }
+                // The same three rules the certificates loop applies, so a damaged entry is
+                // skipped here too instead of aborting every entry after it. `open` already
+                // checked the bundle exists; this covers a container damaged in between.
+                let plan = BackupRestorePlan.decision(
+                    alreadyTracked: existing.contains(entry.uuid),
+                    payloadPresent: _fm.fileExists(atPath: source.path),
+                    destinationOccupied: _fm.fileExists(atPath: destination.path)
+                )
+                guard plan.shouldRestore else { skipped += 1; continue }
                 var copied = false
                 do {
                     try await Task.detached(priority: .utility) {

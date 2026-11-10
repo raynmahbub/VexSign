@@ -28,6 +28,9 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   install is running, as the automatic passes do, and says what it left: in a
   message when the button is used, and in the answer of the Shortcuts action.
   They are cleared by the next pass that finds nothing running.
+- The contents of a backup are now stated where the component list is defined: no
+  task-history component, because the Activity log marks itself
+  `isExcludedFromBackup` and describes what one install did on one device.
 - `make` builds through `VexSign.xcworkspace`, the same graph CI builds and tests.
   The workspace and project `Package.resolved` files had drifted apart, so the
   released IPA was compiled against pins CI never exercised. Both now hold one
@@ -58,6 +61,24 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- A restore decides what it may write in one place, `BackupRestorePlan`: an item
+  the store already tracks is never replaced, an entry whose files are missing
+  from the container is skipped and counted instead of aborting the entries after
+  it, and a directory that exists with no record pointing at it is never
+  replaced either. Restoring the same archive twice therefore adds nothing the
+  second time. Those rules were inline branches in `BackupManager.restore`,
+  which had no test of any kind. A library entry missing from a damaged container
+  used to throw after creating and then removing its destination folder, so one
+  damaged app stopped the rest of the library from being restored; certificate
+  and library restores now apply the same order.
+- A backup no longer carries credentials. The settings filter accepted everything
+  under `VexSign.` and `vexsign.`, so `IdentityVault`'s `VexSign.vault.*` values —
+  cloud-signing API key, premium activation, device UUID — and any key named
+  `…apiKey`, `…token`, `…secret`, `…password` or `…passphrase` were written into
+  the archive and written back into `UserDefaults` by a restore on another
+  install. The plaintext `VexSign.cloudSigningKey` that earlier builds kept in
+  preferences is denied under both spellings, for installs whose Keychain
+  migration did not complete.
 - Version precedence is decided in one place, `VersionOrder`. Three comparators
   answered "is this newer?" before, and they disagreed: `AppUpdateChecker` was
   SemVer-aware, while `DownloadButtonView` had two copies that compared dotted
