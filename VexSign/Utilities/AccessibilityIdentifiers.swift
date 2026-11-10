@@ -24,12 +24,17 @@ enum A11y {
 		static let stop = "vexsign.signing.stop"
 		static let progress = "vexsign.signing.progress"
 		static let console = "vexsign.signing.console"
+		/// The Prepare/Customize/Sign/Verify/Install trace.
+		static let workflow = "vexsign.signing.workflow"
 	}
 
 	/// The queue that installs a signed bundle.
 	enum Install {
 		static let start = "vexsign.install.start"
 		static let progress = "vexsign.install.progress"
+		/// The name of the app the sheet is actually installing, so a test can prove the
+		/// card is showing the right entry rather than a stale one.
+		static let appName = "vexsign.install.appname"
 	}
 
 	/// The Home tab: the search field and the round import button that opens the file picker.
@@ -51,8 +56,8 @@ enum A11y {
 	/// Every identifier, for the test that keeps them unique and prefixed.
 	static var all: [String] {
 		[
-			Signing.start, Signing.stop, Signing.progress, Signing.console,
-			Install.start, Install.progress,
+			Signing.start, Signing.stop, Signing.progress, Signing.console, Signing.workflow,
+			Install.start, Install.progress, Install.appName,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,
 			Library.resign, Library.export

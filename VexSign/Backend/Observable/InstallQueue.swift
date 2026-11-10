@@ -35,6 +35,67 @@ final class InstallQueue: ObservableObject {
         let waitingCount: Int
     }
 
+    /// Which of four different situations an installer failure actually is.
+    ///
+    /// They used to collapse into two, which produced two wrong reports: a genuine failure (no
+    /// pairing file, a broken server) told the user the app "may already be installed", and an
+    /// install that never started was titled "Installation Not Confirmed" as though iOS had been
+    /// asked and stayed silent. Separating them is what makes the recovery text actionable.
+    enum FailureKind: Equatable {
+        /// Local HTTPS could not be verified; the fix is trusting the certificate, not retrying.
+        case needsTrust
+        /// iOS was asked and nothing was ever served. No bytes reached the device.
+        case neverStarted
+        /// VexSign finished, but iOS never exposed enough evidence to say either way.
+        case unconfirmed
+        /// The installer reported a real failure.
+        case failed
+
+        static func resolve(error: Error, needsTrust: Bool) -> FailureKind {
+            if needsTrust { return .needsTrust }
+            switch (error as? InstallConfirmation.Failure)?.verdict {
+            case .some(.timedOutVerifying): return .unconfirmed
+            case .some(.timedOutWaiting): return .neverStarted
+            default: return .failed
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .needsTrust: return .localized("HTTPS Setup Required")
+            case .neverStarted: return .localized("Install Never Started")
+            case .unconfirmed: return .localized("Installation Not Confirmed")
+            case .failed: return .localized("Install Failed")
+            }
+        }
+
+        /// What the user can do next. Never a diagnosis of what iOS decided.
+        var summary: String {
+            switch self {
+            case .needsTrust:
+                return .localized("Local HTTPS verification failed. Check the identity in Settings → Installation → Server & SSL, export and install its Root CA profile, then enable Full Trust in iOS Certificate Trust Settings.")
+            case .neverStarted:
+                return .localized("The installation never started, so nothing was sent to iOS. Keep VexSign in the foreground and retry; if iOS never showed its prompt, review the installation method in Settings.")
+            case .unconfirmed:
+                return .localized("VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying.")
+            case .failed:
+                return .localized("Installation failed. Review the details below, then retry.")
+            }
+        }
+
+        /// Whether this is recorded on the task as a failure. An unconfirmed install is not one:
+        /// the device was never heard from either way, and recording a failure it did not report
+        /// is what told users to reinstall an app that was already on their Home Screen.
+        var recordsFailure: Bool { self != .unconfirmed }
+
+        /// How the unified task record ends.
+        var taskPhase: UnifiedTaskPhase { self == .unconfirmed ? .unconfirmed : .failed }
+
+        /// Whether the sheet is released rather than held. Only an unconfirmed outcome does that:
+        /// every other kind has a recovery action the user needs to see.
+        var releasesSheet: Bool { self == .unconfirmed }
+    }
+
     var hasFailure: Bool { failurePresentation != nil }
 
 	/// Per-entry outcome, keyed by the entry's id, so the queue list view can show what happened.
@@ -43,6 +104,14 @@ final class InstallQueue: ObservableObject {
 	/// The unified-task record for the current queue run (nil when idle).
     private var preparedNext: (id: String, installer: AppInstaller)?
 	private var unifiedTask: UnifiedTask?
+	/// The installation attempt registered with `LibraryStatusStore` for the installer in flight,
+	/// so the library can publish `Installing` for exactly as long as the attempt is monitored.
+	/// Carries its own attempt ID: a completion from an abandoned installer must not end it.
+	private var activeInstallation: (identifier: String, attemptID: String)?
+	/// Bumped whenever the queue starts over. Scheduled work captures the generation it was
+	/// created under, so a completion from an abandoned run cannot advance, dismiss or rewrite a
+	/// newer one.
+	private(set) var runGeneration = 0
 	/// Success stays on screen briefly for feedback, but a later Skip/Retry must cancel that
 	/// pending transition so it cannot advance a different app after the queue has moved on.
 	private let advanceScheduler = InstallQueueAdvanceScheduler()
@@ -179,10 +248,92 @@ final class InstallQueue: ObservableObject {
             self._prepareNext()
         }
 		self.installer = installer
+		// Register the attempt at the moment the installer really starts, never when an install
+		// was merely requested: from here until a terminal outcome, the library says "Installing"
+		// instead of publishing whatever a mid-install device probe happens to answer.
+		_beginInstallationAttempt(for: current, taskID: unifiedTask?.id)
+		let attemptID = activeInstallation?.attemptID
 		installer.start { [weak self, weak installer] result in
             guard let self, let installer, self.installer === installer else { return }
-            self._handle(result)
+            self._handle(result, attemptID: attemptID)
         }
+	}
+
+	// MARK: Installation lifecycle
+
+	/// Registers this entry's installation with the library status store.
+	///
+	/// Only an operation that can actually install is registered. An export never touches iOS's
+	/// installed-app registry, and a guest import stages an IPA in the container inbox — claiming
+	/// "Installing" for either would be the same kind of unsupported claim this prevents.
+	private func _beginInstallationAttempt(for entry: AnyApp, taskID: String?) {
+		_endInstallationAttempt()
+		guard !entry.archive,
+			  UserDefaults.standard.integer(forKey: "VexSign.installationMethod") != 2,
+			  let identifier = entry.base.identifier, !identifier.isEmpty else { return }
+		let attemptID = Self.attemptID(runGeneration: runGeneration, taskID: taskID, entryID: entry.id)
+		activeInstallation = (identifier, attemptID)
+		LibraryStatusStore.shared.beginInstallation(
+			identifier: identifier, attemptID: attemptID, taskID: taskID
+		)
+	}
+
+	/// Ends the registered attempt. `attemptID` is the one captured when the installer started:
+	/// a stale completion carries its own and is ignored rather than ending a newer attempt.
+	private func _endInstallationAttempt(expecting attemptID: String? = nil) {
+		guard let active = activeInstallation,
+			  Self.mayEndAttempt(registered: active.attemptID, reportedByCompletion: attemptID) else { return }
+		activeInstallation = nil
+		LibraryStatusStore.shared.endInstallation(
+			identifier: active.identifier, attemptID: active.attemptID
+		)
+	}
+
+	// MARK: Race rules
+
+	/// The attempt ID registered with the library for one start.
+	///
+	/// Unique per start, and carrying the run generation plus the task record so a completion from
+	/// an abandoned run can never be mistaken for the current one's.
+	static func attemptID(runGeneration: Int, taskID: String?, entryID: String) -> String {
+		"install-\(runGeneration)-\(taskID ?? "untracked")-\(entryID)"
+	}
+
+	/// Whether a completion may end the attempt now registered.
+	///
+	/// `nil` means the queue itself is retiring its installer — Skip, Retry, Stop, advance or
+	/// reset — where there is no completion to compare against and the registered attempt is by
+	/// definition the one being retired.
+	static func mayEndAttempt(registered: String?, reportedByCompletion: String?) -> Bool {
+		guard let registered, !registered.isEmpty else { return false }
+		guard let reportedByCompletion else { return true }
+		return reportedByCompletion == registered
+	}
+
+	/// Whether work a finished attempt scheduled may still act on the queue.
+	///
+	/// Both guards matter: the entry check rejects a queue that moved on to another app, and the
+	/// generation check rejects a run that was reset and restarted underneath the scheduled work.
+	static func mayRunScheduledWork(
+		scheduledGeneration: Int,
+		currentGeneration: Int,
+		scheduledEntryID: String,
+		currentEntryID: String?
+	) -> Bool {
+		scheduledGeneration == currentGeneration && currentEntryID == scheduledEntryID
+	}
+
+	/// Whether a finished run's deferred teardown may still clear the queue.
+	///
+	/// A queue started inside the dismissal window has a newer generation and is not finished, so
+	/// an old completion cannot tear down the installation that replaced it.
+	static func mayDismissFinishedRun(
+		scheduledGeneration: Int,
+		currentGeneration: Int,
+		isFinished: Bool,
+		isSheetPresented: Bool
+	) -> Bool {
+		scheduledGeneration == currentGeneration && isFinished && !isSheetPresented
 	}
 
 	/// Pauses between apps: the current install finishes, the next holds.
@@ -254,11 +405,19 @@ final class InstallQueue: ObservableObject {
 		let retiringInstaller = installer
 		installer = nil
 		retiringInstaller?.stop()
+		// `stop()` reports no outcome, so every path that retires an installer — Skip, Retry,
+		// Stop, advance, reset — has to end the monitored attempt itself. Without this a skipped
+		// install left its library row saying "Installing" until the backstop expired.
+		_endInstallationAttempt()
 	}
 
     var latestReportTask: UnifiedTask?
 
-	private func _handle(_ result: Result<AppInstaller.Outcome, Error>) {
+	private func _handle(_ result: Result<AppInstaller.Outcome, Error>, attemptID: String? = nil) {
+		// An installer completion is always terminal, so the monitored attempt ends here — before
+		// any branch presents, advances or resets. A confirmed install was already recorded by the
+		// installer, and ending the attempt is what lets that evidence become the published state.
+		_endInstallationAttempt(expecting: attemptID)
         if let task = unifiedTask {
             latestReportTask = task
             task.context?.installationMethod = installer?.installationMethodCode
@@ -343,21 +502,28 @@ final class InstallQueue: ObservableObject {
 			// invalidated if the user skips/retries or the queue is otherwise reset first.
 			_scheduleAdvance(after: 0.25, for: current?.id)
 		case .failure(let error):
-			// iOS filtering its own install status is not a failed install. Keep the
-			// report and the recovery actions, but do not record a failure the device
-			// never reported.
-			let unconfirmed = (error as? InstallConfirmation.Failure)?.verdict == .timedOutVerifying
-			if !unconfirmed {
+            let localTrustFailure: Error?
+            if let localError = error as? ServerInstaller.LocalInstallError,
+               case .unavailable(let underlying) = localError {
+                localTrustFailure = underlying
+            } else {
+                localTrustFailure = nil
+            }
+            // Three different situations that used to share one message and one title. iOS
+            // filtering its own install status is not a failed install; an install that never
+            // started put nothing on the device either, and must not imply it might have.
+            let kind = FailureKind.resolve(error: error, needsTrust: localTrustFailure != nil)
+			if kind.recordsFailure {
 				unifiedTask?.context?.recordFailure(error)
 			}
 			_discardPreparation()
-			NBHaptic.notify(unconfirmed ? .warning : .error)
+			NBHaptic.notify(kind == .unconfirmed ? .warning : .error)
 			if let current {
 				outcomes[current.id] = .failed(String(describing: error))
 			}
 			if let task = unifiedTask {
-				UnifiedTaskCenter.shared.transition(task, to: unconfirmed ? .unconfirmed : .failed,
-													error: unconfirmed ? nil : error.localizedDescription)
+				UnifiedTaskCenter.shared.transition(task, to: kind.taskPhase,
+													error: kind.taskPhase == .unconfirmed ? nil : error.localizedDescription)
 				// Keep this failed attempt; a retry starts a separate record.
                 let failedEntryID = current?.id
                 UnifiedTaskCenter.shared.registerRetry(task) { [weak self] in
@@ -369,26 +535,15 @@ final class InstallQueue: ObservableObject {
                 }
 				unifiedTask = nil
 			}
-            let localTrustFailure: Error?
-            if let localError = error as? ServerInstaller.LocalInstallError,
-               case .unavailable(let underlying) = localError {
-                localTrustFailure = underlying
-            } else {
-                localTrustFailure = nil
-            }
-            let needsTrust = localTrustFailure != nil
-            let summary = needsTrust
-                ? String.localized("Local HTTPS verification failed. Check the identity in Settings → Installation → Server & SSL, export and install its Root CA profile, then enable Full Trust in iOS Certificate Trust Settings.")
-                : String.localized("VexSign could not confirm installation. If the app is already on your Home Screen, it may already be installed. Review the details below before retrying.")
             failurePresentation = FailurePresentation(
-                title: needsTrust ? .localized("HTTPS Setup Required") : (error is InstallConfirmation.Failure ? .localized("Installation Not Confirmed") : .localized("Install Failed")),
-                message: summary,
+                title: kind.title,
+                message: kind.summary,
                 details: LogRedaction.redact(localTrustFailure?.localizedDescription ?? error.localizedDescription),
-                needsTrust: needsTrust,
+                needsTrust: kind == .needsTrust,
                 canRetryLocally: installer?.canRetryUsingLocalhost == true,
                 waitingCount: upcoming.count
             )
-            if let confirmation = error as? InstallConfirmation.Failure, confirmation.verdict == .timedOutVerifying {
+            if kind.releasesSheet {
                 // Keep the report and recovery actions in Activity/the queue pill,
                 // but do not hold the whole app behind an unobservable spinner.
                 isSheetPresented = false
@@ -399,8 +554,16 @@ final class InstallQueue: ObservableObject {
 
     private func _scheduleAdvance(after delay: TimeInterval, for entryID: String?) {
         guard let entryID else { return }
+        let generation = runGeneration
         advanceScheduler.schedule(after: delay) { [weak self] in
-            guard let self, self.current?.id == entryID else { return }
+            // Both guards matter: the entry check rejects a queue that moved on, and the
+            // generation check rejects a completion from a run that was reset and restarted.
+            guard let self, Self.mayRunScheduledWork(
+                scheduledGeneration: generation,
+                currentGeneration: self.runGeneration,
+                scheduledEntryID: entryID,
+                currentEntryID: self.current?.id
+            ) else { return }
             self._advance()
         }
     }
@@ -438,8 +601,16 @@ final class InstallQueue: ObservableObject {
         let wasPresented = isSheetPresented
         isSheetPresented = false
         guard wasPresented else { clear(); return }
+        let generation = runGeneration
         advanceScheduler.schedule(after: 0.6) { [weak self] in
-            guard let self, self.isFinished, !self.isSheetPresented else { return }
+            // A queue started inside this window has a newer generation, so a finished run's
+            // timer cannot tear down the installation that replaced it.
+            guard let self, Self.mayDismissFinishedRun(
+                scheduledGeneration: generation,
+                currentGeneration: self.runGeneration,
+                isFinished: self.isFinished,
+                isSheetPresented: self.isSheetPresented
+            ) else { return }
             self.clear()
         }
     }
@@ -490,6 +661,9 @@ final class InstallQueue: ObservableObject {
 	}
 
 	private func _reset() {
+		// Bump first: everything scheduled by the run being abandoned captured the old
+		// generation and is now inert, including a pending success advance or dismissal.
+		runGeneration += 1
         _discardPreparation()
         advanceScheduler.cancel()
         failurePresentation = nil
@@ -500,6 +674,9 @@ final class InstallQueue: ObservableObject {
 		isPaused = false
 		outcomes.removeAll()
 		unifiedTask = nil
+		// A reset ends every monitored attempt, so no library row can be left claiming
+		// "Installing" for a queue that no longer exists.
+		LibraryStatusStore.shared.resetInstallations()
 
 		InstallCleanup.flush()
 	}
@@ -530,4 +707,64 @@ final class InstallQueueAdvanceScheduler {
         pendingTask?.cancel()
         pendingTask = nil
     }
+}
+
+// MARK: - Sheet surface
+
+/// What the installation sheet shows, as a pure function of the queue's published state.
+///
+/// This used to be an `if` chain inside the sheet's body, which is exactly why the presentation
+/// races users reported could not be pinned down: a completion arriving just after Skip, a reset
+/// landing under a scheduled dismissal, a sheet left spinning with nothing monitoring it. Same
+/// chain, one place, assertable without a device:
+///
+///   * an installation genuinely in flight stays on screen;
+///   * a terminal outcome always produces a surface the user can act on or leave;
+///   * an idle queue presents nothing.
+enum InstallQueueSurface: Equatable {
+	/// Not presented: the queue is idle, or a terminal outcome dismissed the sheet.
+	case hidden
+	/// The run reached its end and is showing the summary.
+	case finished(succeeded: Int, failed: Int)
+	/// A failure — or an installation iOS never confirmed — with its recovery actions.
+	case report(title: String, entryID: String?)
+	/// A genuine installation in flight for this queue entry.
+	case installing(entryID: String)
+	/// Held between apps: the current install finished, the next is waiting for Resume.
+	case paused(entryID: String)
+	/// Presented and working, with no installer to draw a card for yet (packaging).
+	case preparing
+
+	static func resolve(
+		isPresented: Bool,
+		isFinished: Bool,
+		failureTitle: String?,
+		hasInstaller: Bool,
+		isPaused: Bool,
+		currentEntryID: String?,
+		succeeded: Int = 0,
+		failed: Int = 0
+	) -> InstallQueueSurface {
+		guard isPresented else { return .hidden }
+		if isFinished { return .finished(succeeded: succeeded, failed: failed) }
+		if let failureTitle { return .report(title: failureTitle, entryID: currentEntryID) }
+		if hasInstaller, let currentEntryID { return .installing(entryID: currentEntryID) }
+		if isPaused, let currentEntryID { return .paused(entryID: currentEntryID) }
+		return .preparing
+	}
+
+	/// Whether an installation is still being monitored behind this surface.
+	///
+	/// The rule that was broken in both directions: the sheet must not vanish while iOS is
+	/// genuinely installing, and must not spin on once monitoring has ended.
+	var isMonitoring: Bool {
+		switch self {
+		case .installing, .paused, .preparing: return true
+		case .hidden, .finished, .report: return false
+		}
+	}
+
+	/// Whether the user is offered a way out. `.preparing` is the one surface that is not, and it
+	/// is only ever transient: packaging ends in an installer or in a report.
+	var isActionable: Bool { self != .preparing }
 }

@@ -118,10 +118,20 @@ final class PackageDownloadRedirectDelegate: NSObject, URLSessionDownloadDelegat
 
     func urlSession(
         _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
+        // The async download API returns and owns this location, not this delegate. Required by
+        // URLSessionDownloadDelegate, which this class conforms to so that the size limit in
+        // `didWriteData` is actually delivered for a download task.
+    }
+
+    func urlSession(
+        _ session: URLSession,
         task: URLSessionTask,
         willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest,
-        completionHandler: @escaping (URLRequest?) -> Void
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
     ) {
         guard let safeRequest = PackageDownloadURLPolicy.redirectRequest(from: response.url, to: request) else {
             completionHandler(nil)

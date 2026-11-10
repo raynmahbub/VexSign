@@ -21,7 +21,11 @@ import UIKit
 // MARK: - Stage
 
 /// The real stages of a signing run, in the order they happen.
-enum SigningStage: String, CaseIterable {
+///
+/// `Codable` because the execution trace is persisted in `TaskContext`: the signing sheet is
+/// dismissed the moment a run succeeds, so the evidence of what actually ran has to outlive it.
+/// The raw values are the on-disk form and must stay stable.
+enum SigningStage: String, CaseIterable, Codable {
 	case copying
 	case modifying
 	case thinning
@@ -76,6 +80,13 @@ enum SigningStage: String, CaseIterable {
 /// What a run reports. The last event of every run is terminal.
 enum SigningEvent {
 	case stage(SigningStage)
+	/// The engine's own post-sign verification accepted the bundle.
+	///
+	/// This is the only evidence that may mark the Verify step complete. Reaching the
+	/// `.verifying` stage says the check started, and overall success says the artifact was
+	/// registered — neither one says the signature itself was verified, and "modify without
+	/// signing" runs reach `.registering` without verifying anything at all.
+	case signatureVerified
 	/// Compatibility mode removed these profile-incompatible app extensions before signing.
 	case compatibilityRemoved([String])
 	case finished(Signed)
@@ -84,7 +95,7 @@ enum SigningEvent {
 
 	var isTerminal: Bool {
 		switch self {
-		case .stage, .compatibilityRemoved:
+		case .stage, .signatureVerified, .compatibilityRemoved:
 			false
 		case .finished, .cancelled, .failed:
 			true
@@ -139,7 +150,8 @@ protocol SigningWork {
 	///
 	/// Contract: honour `Task.isCancelled` between stages, remove anything written for this
 	/// request, and return `.failure(CancellationError())` when cancelled. A cancelled run must
-	/// leave no bundle behind.
+	/// leave no bundle behind. Report `.signatureVerified` only when the engine's own
+	/// verification accepted the bundle — never as a side effect of finishing.
 	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error>
 }
 
@@ -157,6 +169,7 @@ struct SigningPipeline: SigningWork {
 		handler.appCertificate = request.certificate
 		handler.appIcon = request.icon
 		handler.onStage = { reporting(.stage($0)) }
+		handler.onSignatureVerified = { reporting(.signatureVerified) }
 		handler.onCompatibilityRemoved = { reporting(.compatibilityRemoved($0)) }
 		handler.overridesBlockingPreflightIssues = request.overridesBlockingPreflightIssues
 

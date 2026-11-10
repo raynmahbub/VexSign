@@ -617,4 +617,23 @@ final class UnifiedTaskCenter: ObservableObject {
 	var hasActivity: Bool {
 		!activeTasks.isEmpty
 	}
+
+	/// The newest signing record for one library app, in flight or long finished.
+	///
+	/// One lookup for every screen that reports signing state, so the signing sheet, the app's
+	/// details and the receipt cannot disagree about which run they are describing. `subjectID`
+	/// is the app the run was started for; `context.artifactID` is the bundle it produced, which
+	/// is a different record when an unsigned import was signed.
+	func latestSigningTask(subjectID: String?) -> UnifiedTask? {
+		guard let subjectID, !subjectID.isEmpty else { return nil }
+		return (tasks + history)
+			.filter { $0.kind == .sign && $0.subjectID == subjectID }
+			.max { $0.updatedAt < $1.updatedAt }
+	}
+
+	/// The persisted execution trace of that run, or nil when nothing was recorded.
+	func signingTrace(subjectID: String?) -> TaskSigningTrace? {
+		guard let trace = latestSigningTask(subjectID: subjectID)?.context?.signingTrace else { return nil }
+		return trace.isEmpty ? nil : trace
+	}
 }

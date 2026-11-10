@@ -84,40 +84,46 @@ private struct InstallQueueHostView: View {
 private struct InstallQueueSheet: View {
 	@ObservedObject var queue: InstallQueue
 
+	/// The same state the pill and the library badge read, resolved once so the sheet cannot
+	/// disagree with the queue about whether an installation is still in flight.
+	private var surface: InstallQueueSurface {
+		InstallQueueSurface.resolve(
+			isPresented: true,
+			isFinished: queue.isFinished,
+			failureTitle: queue.failurePresentation?.title,
+			hasInstaller: queue.installer != nil,
+			isPaused: queue.isPaused,
+			currentEntryID: queue.current?.id,
+			succeeded: queue.succeededCount,
+			failed: queue.failedCount
+		)
+	}
+
 	var body: some View {
-		Group {
-			if queue.isFinished {
-				VStack(spacing: 12) {
-					Text(.localized("Queue Finished"))
-						.font(.headline)
-					Text(verbatim: .localized("%lld succeeded · %lld failed", arguments: queue.succeededCount, queue.failedCount))
-						.font(.subheadline)
-						.foregroundStyle(.secondary)
-					HStack(spacing: 12) {
-						Button(.localized("Done")) { queue.clear() }
-							.buttonStyle(.bordered)
-						if queue.installedApps.count == 1, let installed = queue.installedApps.first {
-							Button(.localized("Open")) {
-								UIApplication.openApp(with: installed.base.identifier ?? "")
-							}
-							.buttonStyle(.borderedProminent)
-						} else if !queue.installedApps.isEmpty {
-							Menu(.localized("Open")) {
-								ForEach(queue.installedApps) { installed in
-									Button(installed.base.name ?? installed.base.identifier ?? .localized("App")) {
-										UIApplication.openApp(with: installed.base.identifier ?? "")
-									}
-								}
-							}
-							.buttonStyle(.borderedProminent)
-						}
-					}
-				}
-				.frame(maxWidth: .infinity, maxHeight: .infinity)
-				.background(Color(UIColor.secondarySystemBackground))
-            } else if let failure = queue.failurePresentation {
-                InstallQueueFailureView(queue: queue, failure: failure, entryID: queue.current?.id)
-            } else if let installer = queue.installer, let current = queue.current {
+		_surfaceView(surface)
+			.animation(.easeInOut(duration: 0.22), value: queue.index)
+			.presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(200)])
+			.presentationDragIndicator(.visible)
+			.onAppear { queue.activate() }
+	}
+
+	@ViewBuilder
+	private func _surfaceView(_ surface: InstallQueueSurface) -> some View {
+		switch surface {
+		case .hidden, .preparing:
+			Color(UIColor.secondarySystemBackground)
+		case .finished(let succeeded, let failed):
+			_summary(succeeded: succeeded, failed: failed)
+		case .report:
+			if let failure = queue.failurePresentation {
+				InstallQueueFailureView(queue: queue, failure: failure, entryID: queue.current?.id)
+			} else {
+				Color(UIColor.secondarySystemBackground)
+			}
+		case .installing(let entryID):
+			// The entry the queue says is current is the entry drawn: a completion from an
+			// abandoned run cannot put a stale card back on screen.
+			if let installer = queue.installer, let current = queue.current, current.id == entryID {
 				InstallCardView(
 					installer: installer,
 					upcoming: queue.upcoming,
@@ -129,22 +135,56 @@ private struct InstallQueueSheet: View {
 				)
 				.id(current.id)
 				.transition(.opacity)
-            } else if queue.isPaused, let current = queue.current {
-                InstallQueuePausedView(
-                    app: current,
-                    onResume: queue.resume,
-                    onSkip: { queue.skip(forEntryID: current.id) }
-                )
-                    .id(current.id)
-                    .transition(.opacity)
+			} else {
+				Color(UIColor.secondarySystemBackground)
+			}
+		case .paused(let entryID):
+			if let current = queue.current, current.id == entryID {
+				InstallQueuePausedView(
+					app: current,
+					onResume: queue.resume,
+					onSkip: { queue.skip(forEntryID: current.id) }
+				)
+					.id(current.id)
+					.transition(.opacity)
 			} else {
 				Color(UIColor.secondarySystemBackground)
 			}
 		}
-		.animation(.easeInOut(duration: 0.22), value: queue.index)
-        .presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(200)])
-		.presentationDragIndicator(.visible)
-		.onAppear { queue.activate() }
+	}
+
+	/// The terminal summary. Reached only once the queue really finished, so it is what proves
+	/// the sheet left a completed run rather than an abandoned one.
+	@ViewBuilder
+	private func _summary(succeeded: Int, failed: Int) -> some View {
+		VStack(spacing: 12) {
+			Text(.localized("Queue Finished"))
+				.font(.headline)
+			Text(verbatim: .localized("%lld succeeded · %lld failed", arguments: succeeded, failed))
+				.font(.subheadline)
+				.foregroundStyle(.secondary)
+			HStack(spacing: 12) {
+				Button(.localized("Done")) { queue.clear() }
+					.buttonStyle(.bordered)
+				if queue.installedApps.count == 1, let installed = queue.installedApps.first {
+					Button(.localized("Open")) {
+						AppLauncher.open(installed.base.identifier ?? "")
+					}
+					.buttonStyle(.borderedProminent)
+				} else if !queue.installedApps.isEmpty {
+					Menu(.localized("Open")) {
+						ForEach(queue.installedApps) { installed in
+							Button(installed.base.name ?? installed.base.identifier ?? .localized("App")) {
+								AppLauncher.open(installed.base.identifier ?? "")
+							}
+						}
+					}
+					.buttonStyle(.borderedProminent)
+				}
+			}
+		}
+		.frame(maxWidth: .infinity, maxHeight: .infinity)
+		.background(Color(UIColor.secondarySystemBackground))
 	}
 }
 

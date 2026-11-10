@@ -109,9 +109,15 @@ extension LibraryInfoView {
             if let expiry = status.expiresAt {
                 LabeledContent(.localized("Bundle signature expiry")) { Text(expiry, style: .date) }
             }
-            if let task = (_tasks.tasks + _tasks.history).filter({ app.uuid != nil && $0.kind == .sign && $0.subjectID == app.uuid }).max(by: { $0.updatedAt < $1.updatedAt }) {
+            if let task = _tasks.latestSigningTask(subjectID: app.uuid) {
                 LabeledContent(.localized("Last recorded signing result"), value: task.phase.title)
                 Text(task.updatedAt, style: .date).font(.caption).foregroundStyle(.secondary)
+                // The signing sheet is dismissed as soon as a run succeeds, so this is where the
+                // execution trace stays readable: which steps the engine actually reported, and
+                // whether it verified the signature it produced.
+                if let trace = _tasks.signingTrace(subjectID: app.uuid) {
+                    SigningWorkflowView(snapshot: SigningWorkflowSnapshot(trace: trace))
+                }
             }
         } header: { Text(.localized("Workspace status")) } footer: {
             Text(.localized("A stored or signed copy does not prove installation. Unknown means VexSign could not verify the current device state."))
