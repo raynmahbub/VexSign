@@ -81,7 +81,7 @@ struct InstallConfirmation: Equatable, Sendable {
 		case installedOtherVersion(String?)
         /// No installed app was reported by the deadline; not a rejection diagnosis.
 		case notInstalled
-		/// The prompt was never answered. Nothing was installed.
+		/// No start was observed before the deadline; the dialog decision is unknown.
 		case timedOutWaiting
 		/// Progress ended, and the device never showed the app in time.
 		case timedOutVerifying
@@ -196,7 +196,14 @@ struct InstallConfirmation: Equatable, Sendable {
 		let answeredRecently = _lastReadingAt.map { date.timeIntervalSince($0) < limits.evidenceGrace } ?? false
 		if probe != nil { _lastReadingAt = date }
 
-		let matchingProbe = probe?.bundleIdentifier == expectation.bundleIdentifier ? probe : nil
+        var matchingProbe = probe?.bundleIdentifier == expectation.bundleIdentifier ? probe : nil
+        // Missing or mismatched build metadata cannot establish the requested artifact.
+        if let expectedBuild = expectation.build, matchingProbe?.build != expectedBuild {
+            matchingProbe = nil
+        }
+        if expectation.version != nil && matchingProbe?.version == nil && matchingProbe?.isInstalled == true {
+            matchingProbe = nil
+        }
 		switch InstalledState.derive(from: matchingProbe, expecting: expectation.version) {
 		case .installed:
 			return _finish(.installed)
@@ -313,9 +320,9 @@ extension InstallConfirmation.Verdict {
 		case .notInstalled:
 			.localized("The installation could not be confirmed: iOS did not report the expected app after the install attempt. A rejected signing certificate, incompatible profile or bundle, or an unavailable installation-status check can cause this. Review the task report and device installation logs before signing again.")
 		case .timedOutWaiting:
-			.localized("The install never started. iOS may not have shown its prompt — retry and keep VexSign in the foreground.")
+			.localized("The installation request was not confirmed. iOS does not report whether the prompt was accepted or declined. Check the Home Screen before retrying.")
 		case .timedOutVerifying:
-			.localized("VexSign could not confirm the installation before the deadline. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying.")
+			.localized("VexSign could not confirm the installation. If the app is on your Home Screen, open it there. Otherwise check installation details before retrying.")
 		}
 	}
 }
@@ -336,6 +343,8 @@ enum InstallWatcher {
         guard let baseline, baseline.bundleIdentifier == expectation.bundleIdentifier,
               let current, current.bundleIdentifier == expectation.bundleIdentifier,
               InstalledState.derive(from: current, expecting: expectation.version) == .installed else { return false }
+        if let version = expectation.version, current.version != version { return false }
+        if let build = expectation.build, current.build != build { return false }
         if !baseline.isInstalled || baseline.isPlaceholder { return true }
         if let expected = expectation.version, let previous = baseline.version,
            !expected.isEmpty, !previous.isEmpty, previous != expected, current.version == expected { return true }
@@ -409,6 +418,7 @@ enum InstallWatcher {
 				return await confirm(
 					&confirmation,
 					probe: probe,
+                    baseline: .init(app: before),
 					interval: interval,
 					policy: verification,
 					onAttempt: onVerificationAttempt,
@@ -437,6 +447,7 @@ enum InstallWatcher {
 	static func confirm(
 		_ confirmation: inout InstallConfirmation,
 		probe: InstalledAppProbing,
+        baseline: Baseline? = nil,
 		interval: Duration = .seconds(1),
 		policy: InstallVerificationPolicy? = nil,
 		onAttempt: @escaping @Sendable (Int) async -> Void = { _ in },
@@ -447,6 +458,7 @@ enum InstallWatcher {
 		let identifier = confirmation.expectation.bundleIdentifier
 		let maximumAttempts = policy.maximumAttempts(within: confirmation.limits.verify)
 		var attempt = 0
+        var before = baseline?.app
 
 		while !Task.isCancelled {
 			attempt += 1
@@ -459,7 +471,16 @@ enum InstallWatcher {
 				untilDeadline: confirmation.secondsUntilNextDeadline(at: now())
 			)
 			let reading = await probe.installedAppWithTimeout(for: identifier, timeout: timeout)
-			var phase = confirmation.record(probe: reading, at: now())
+            if let reading, reading.bundleIdentifier == identifier, reading.isPlaceholder {
+                before = reading
+            }
+            var usable = reading
+            if baseline != nil, let reading, reading.isInstalled, !reading.isPlaceholder,
+               !hasNewInstalledEvidence(baseline: before, current: reading, expectation: confirmation.expectation) {
+                // A pre-existing app, even at the same version, does not prove this attempt.
+                usable = nil
+            }
+			var phase = confirmation.record(probe: usable, at: now())
 			if phase == .verifying, let maximumAttempts, attempt >= maximumAttempts {
 				phase = confirmation.endVerificationUnconfirmed()
 			}

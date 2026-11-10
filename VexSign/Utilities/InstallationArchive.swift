@@ -4,8 +4,13 @@ import Foundation
 /// response bodies. Never owns an original library bundle or an exported IPA.
 final class InstallationArchive: Sendable {
     let directory: URL
+    private let cleanupLease: AppOperationRegistry.Lease
 
-    init(temporaryRoot: URL = FileManager.default.temporaryDirectory) throws {
+    init(temporaryRoot: URL = FileManager.default.temporaryDirectory,
+         registry: AppOperationRegistry = .shared) throws {
+        // The archive can outlive the installer (including a stopped monitor and
+        // in-flight response). Its own lifetime, not the source app lease, protects it.
+        cleanupLease = try registry.acquireTemporaryWork()
         directory = temporaryRoot.appendingPathComponent("VexSignInstall_\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }

@@ -13,6 +13,8 @@ import NimbleExtensions
 // MARK: - View: Card
 struct InstallCardView: View {
 	@ObservedObject var installer: AppInstaller
+    @ObservedObject var taskCenter = UnifiedTaskCenter.shared
+    var taskID: String?
 	var upcoming: [AnyApp] = []
 	var onCancel: () -> Void
 	var onPause: (() -> Void)?
@@ -20,11 +22,19 @@ struct InstallCardView: View {
 
 	var body: some View {
 		ZStack {
-			InstallProgressView(app: installer.app, viewModel: installer.viewModel)
+            InstallProgressView(
+                app: installer.app, viewModel: installer.viewModel,
+                installationPhase: installer.installationPhase,
+                taskPhase: taskCenter.tasks.first(where: { $0.id == taskID })?.phase,
+                isExport: installer.isExport
+            )
 			InstallStatusView(
 				app: installer.app,
 				viewModel: installer.viewModel,
                 installationPhase: installer.installationPhase,
+                taskPhase: taskCenter.tasks.first(where: { $0.id == taskID })?.phase,
+                hasHandedOff: installer.hasHandedOffInstall,
+                isExport: installer.isExport,
                 verificationAttempt: installer.verificationAttempt,
 				upcoming: upcoming,
 				onCancel: onCancel,
@@ -47,6 +57,9 @@ private struct InstallStatusView: View {
 	var app: AppInfoPresentable
 	@ObservedObject var viewModel: InstallerStatusViewModel
     var installationPhase: InstallConfirmation.Phase
+    var taskPhase: UnifiedTaskPhase?
+    var hasHandedOff: Bool
+    var isExport: Bool
     /// The number of the device check in flight, zero before verification starts.
     var verificationAttempt: Int
 	var upcoming: [AnyApp]
@@ -74,7 +87,7 @@ private struct InstallStatusView: View {
 		// it would be a no-op during the current install), and every control says
 		// what it does.
 		HStack(spacing: 8) {
-			if !viewModel.isCompleted {
+			if !_presentation.isTerminal {
 				if !upcoming.isEmpty, let onPause {
 					Button {
 						onPause()
@@ -93,14 +106,16 @@ private struct InstallStatusView: View {
 				}
 
 				Button(action: onCancel) {
-					Label(String.localized("Stop Monitoring"), systemImage: "xmark")
+					Label(hasHandedOff ? String.localized("Stop Monitoring") : String.localized("Cancel preparation"), systemImage: "xmark")
 						.font(.footnote.weight(.semibold))
 						.labelStyle(.titleAndIcon)
 						.foregroundStyle(.secondary)
 				}
 				.buttonStyle(.bordered)
 				.controlSize(.small)
-				.accessibilityHint(Text(verbatim: String.localized("Stops VexSign monitoring and moves to the next app. An installation already accepted by iOS may continue.")))
+				.accessibilityHint(Text(verbatim: hasHandedOff
+                    ? String.localized("Stops VexSign monitoring and moves to the next app. An installation already accepted by iOS may continue.")
+                    : String.localized("Stops preparation before the installation request is handed off.")))
 				.compatTransition()
 			}
 		}
@@ -110,14 +125,13 @@ private struct InstallStatusView: View {
 		.animation(.easeInOut(duration: 0.25), value: isPaused)
 	}
 
+    private var _presentation: InstallPresentation {
+        InstallPresentation.resolve(status: viewModel.status, phase: installationPhase,
+                                    taskPhase: taskPhase, isExport: isExport)
+    }
+
     private var _statusLabel: String {
-        guard case .installing = viewModel.status else { return viewModel.statusLabel }
-        switch installationPhase {
-        case .waitingForStart: return .localized("Waiting for iOS installation")
-        // Counted from the second check, so a verification that is still waiting visibly moves.
-        case .verifying: return InstallVerificationPolicy.statusLabel(attempt: verificationAttempt)
-        default: return viewModel.statusLabel
-        }
+        _presentation.label(verificationAttempt: verificationAttempt)
     }
 
 	/// A number only when it comes from a real counter — never a manufactured percentage.
@@ -125,7 +139,7 @@ private struct InstallStatusView: View {
 		InstallerStatusViewModel.displayedPercentage(
 			phase: installationPhase,
 			overall: viewModel.overallProgress,
-			isCompleted: viewModel.isCompleted
+			isCompleted: _presentation == .installed || _presentation == .operationCompleted
 		)
 	}
 
@@ -140,7 +154,7 @@ private struct InstallStatusView: View {
 				.lineLimit(1)
 				.accessibilityIdentifier(A11y.Install.appName)
 			HStack(spacing: 6) {
-				Label(_statusLabel, systemImage: viewModel.statusImage)
+				Label(_statusLabel, systemImage: _presentation.symbol)
 					.labelStyle(.titleAndIcon)
 				if let percentage = _percentage {
 					Text(verbatim: "\(percentage)%")
@@ -149,16 +163,22 @@ private struct InstallStatusView: View {
 				}
 			}
 			.font(.footnote)
+            if _presentation == .awaitingConfirmation {
+                Text(verbatim: String.localized("Please confirm the installation request displayed by iOS."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 		}
 		.padding()
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-		.animation(.smooth, value: viewModel.statusImage)
+		.animation(.smooth, value: _presentation.symbol)
 	}
 
 	@ViewBuilder
 	private func _button() -> some View {
 		ZStack {
-			if case .completed(.success) = viewModel.status,
+			if _presentation == .installed, !isExport,
 			   let identifier = app.identifier, !identifier.isEmpty {
 				Button {
 					AppLauncher.open(identifier)

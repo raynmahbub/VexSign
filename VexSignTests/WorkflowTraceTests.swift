@@ -77,6 +77,7 @@ final class WorkflowTraceTests: XCTestCase {
         task.context?.installationMethod = "OTA"
         task.context?.artifactID = "private-artifact"
         task.context?.confirmationReason = "device-confirmed-installed"
+        task.move(to: .installing)
         task.move(to: .verifying)
         task.move(to: .completed)
         task.errorText = "password=secret /private/var/key.p12"

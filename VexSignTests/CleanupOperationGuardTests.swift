@@ -60,6 +60,42 @@ final class CleanupOperationGuardTests: XCTestCase {
 		XCTAssertFalse(registry.hasActiveOperations, "A refused request must not look like a running operation")
 	}
 
+    @MainActor
+    func testStaleLeftoverSelectionMustStillBelongToAnOrphan() {
+        let old = URL(fileURLWithPath: "/tmp/library/old")
+        let sibling = URL(fileURLWithPath: "/tmp/library/old-other")
+        XCTAssertTrue(StorageManager.isWithinCurrentLeftovers(old.appendingPathComponent("child"), [old]))
+        XCTAssertFalse(StorageManager.isWithinCurrentLeftovers(sibling, [old]))
+        XCTAssertFalse(StorageManager.isWithinCurrentLeftovers(old, []))
+    }
+
+    func testTemporaryWorkerBlocksCleanupAndCannotStartDuringCleanup() throws {
+        let registry = AppOperationRegistry()
+        var worker: AppOperationRegistry.Lease? = try registry.acquireTemporaryWork()
+        XCTAssertNil(registry.acquireCleanup())
+        XCTAssertNotNil(worker)
+        worker = nil
+        var cleanup = registry.acquireCleanup()
+        XCTAssertNotNil(cleanup)
+        XCTAssertThrowsError(try registry.acquireTemporaryWork())
+        cleanup = nil
+        XCTAssertNoThrow(try registry.acquireTemporaryWork())
+    }
+
+    func testCleanupAndOperationsExcludeEachOtherUntilTheirLeasesEnd() throws {
+        let registry = AppOperationRegistry()
+        var operation: AppOperationRegistry.Lease? = try registry.acquire("one")
+        XCTAssertNil(registry.acquireCleanup())
+        XCTAssertNotNil(operation)
+        operation = nil
+        var cleanup: AppOperationRegistry.Lease? = registry.acquireCleanup()
+        XCTAssertNotNil(cleanup)
+        XCTAssertNil(registry.acquireCleanup())
+        XCTAssertThrowsError(try registry.acquire("two"))
+        cleanup = nil
+        XCTAssertNoThrow(try registry.acquire("two"))
+    }
+
 	// MARK: - What is being produced?
 
 	func testACopyIsKnownFromTheMomentItIsAnnounced() {
@@ -179,4 +215,44 @@ final class CleanupOperationGuardTests: XCTestCase {
 	func testOnlyTheTwoAreasARunningOperationUsesAreDeferred() {
 		XCTAssertEqual(Set(CleanupPassPolicy.deferredWhileOperating), [.temporary, .leftovers])
 	}
+}
+
+final class TemporaryCleanupPolicyTests: XCTestCase {
+    func testRetentionAppliesToRootItemAndDescendantsButNotLookalikes() {
+        let root = URL(fileURLWithPath: "/tmp/vex-policy-test", isDirectory: true)
+        let staging = root.appendingPathComponent("VexSignDownloads", isDirectory: true)
+        let retained = ["VexSignTweak_123", "VexSignTweakExtract_123", "VexSignZipExtract_123",
+                        "VexSignSharedTweak_123", "TweakAnalyze_123", "VexBackupOut_123", "VexSignDownloads"]
+        for name in retained {
+            let folder = root.appendingPathComponent(name)
+            XCTAssertTrue(TemporaryCleanupPolicy.isRetained(folder, temporaryRoot: root, downloadStaging: staging), name)
+            XCTAssertTrue(TemporaryCleanupPolicy.isRetained(folder.appendingPathComponent("child"), temporaryRoot: root, downloadStaging: staging), name)
+        }
+        for name in ["VexSignTweaker_123", "VexBackupOutside_123", "VexSignDownloads-other", "ordinary"] {
+            XCTAssertFalse(TemporaryCleanupPolicy.isRetained(root.appendingPathComponent(name), temporaryRoot: root, downloadStaging: staging), name)
+        }
+        XCTAssertFalse(TemporaryCleanupPolicy.isRetained(root.deletingLastPathComponent().appendingPathComponent("VexSignTweak_123"), temporaryRoot: root, downloadStaging: staging))
+    }
+
+    func testStaleSweepDoesNotUseAgeAsProofOfIdleOrDeleteRetainedOutput() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let old = root.appendingPathComponent("VexSigning_old")
+        let export = root.appendingPathComponent("VexBackupOut_old")
+        for item in [old, export] {
+            try fm.createDirectory(at: item, withIntermediateDirectories: true)
+            try fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: 1)], ofItemAtPath: item.path)
+        }
+        let registry = AppOperationRegistry()
+        var worker: AppOperationRegistry.Lease? = try registry.acquireTemporaryWork()
+        XCTAssertEqual(TempStorageSweeper.sweep(maxAge: 1, temporaryRoot: root, registry: registry), 0)
+        XCTAssertTrue(fm.fileExists(atPath: old.path))
+        XCTAssertNotNil(worker)
+        worker = nil
+        XCTAssertEqual(TempStorageSweeper.sweep(maxAge: 1, temporaryRoot: root, registry: registry), 1)
+        XCTAssertFalse(fm.fileExists(atPath: old.path))
+        XCTAssertTrue(fm.fileExists(atPath: export.path))
+    }
 }

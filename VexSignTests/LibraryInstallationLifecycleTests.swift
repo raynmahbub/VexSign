@@ -70,6 +70,26 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 		XCTAssertTrue(store.isInstalling(identifier))
 	}
 
+    @MainActor
+    func testLibraryBadgeProjectsOnlyTheOwningTaskPhase() {
+        let store = _store(answers: [:])
+        store.request(_request("row"))
+        store.beginInstallation(identifier: identifier, attemptID: "one", taskID: "task",
+                                initialPhase: .preparingInstallation)
+        XCTAssertEqual(store.statuses["row"]?.installationTitle, String.localized("Preparing installation"))
+        store.updateInstallationPhase(identifier: identifier, attemptID: "one", phase: .waitingForIOS)
+        let status = store.statuses["row"]!
+        XCTAssertEqual(status.installed, .installing)
+        XCTAssertEqual(status.installationTitle, String.localized("Waiting for iOS confirmation"))
+        XCTAssertEqual(InstalledBadge(status).title, String.localized("Waiting for iOS confirmation"))
+        store.updateInstallationPhase(identifier: identifier, attemptID: "old", phase: .verifying)
+        XCTAssertEqual(store.statuses["row"]?.installationTaskPhase, .waitingForIOS)
+        store.updateInstallationPhase(identifier: identifier, attemptID: "one", phase: .verifying)
+        XCTAssertEqual(store.statuses["row"]?.installationTitle, String.localized("Verifying installation"))
+        store.endInstallation(identifier: identifier, attemptID: "one")
+        XCTAssertNil(store.statuses["row"]?.installationTaskPhase)
+    }
+
 	func testInstallingIsItsOwnStateAndNotAVerdictEitherWay() {
 		XCTAssertEqual(InstalledState.installing.title, String.localized("Installing"))
 		XCTAssertNotEqual(InstalledState.installing, .installed)

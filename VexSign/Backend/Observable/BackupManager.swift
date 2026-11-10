@@ -146,11 +146,13 @@ final class BackupArchive: Identifiable {
 	let integrity: BackupIntegrity
 	fileprivate let root: URL
 	private let _work: URL
+    private let _workLease: AppOperationRegistry.Lease
 
-	fileprivate init(manifest: BackupManifest, root: URL, work: URL, integrity: BackupIntegrity) {
+	fileprivate init(manifest: BackupManifest, root: URL, work: URL, integrity: BackupIntegrity, workLease: AppOperationRegistry.Lease) {
 		self.manifest = manifest
 		self.root = root
 		self._work = work
+        self._workLease = workLease
 		self.integrity = integrity
 	}
 
@@ -242,6 +244,8 @@ final class BackupManager {
 	}
 
 	func makeBackup(password: String, components: BackupComponents) async throws -> URL {
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
+        defer { withExtendedLifetime(workLease) {} }
 		// A backup with certificates carries private keys and their passwords, so
 		// it never leaves this app without a password of the user's choosing.
 		let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -399,6 +403,7 @@ final class BackupManager {
 	}
 
 	func open(_ url: URL, password: String) async throws -> BackupArchive {
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
 		let work = _fm.uniqueTemporaryDirectory("VexRestore")
 		try _fm.createDirectory(at: work, withIntermediateDirectories: true)
 
@@ -450,7 +455,7 @@ final class BackupManager {
 				certificateEntries: manifest.certificates.count,
 				certificateDirectories: present
 			)
-			return BackupArchive(manifest: manifest, root: root, work: work, integrity: integrity)
+			return BackupArchive(manifest: manifest, root: root, work: work, integrity: integrity, workLease: workLease)
 		} catch {
 			try? _fm.removeItem(at: work)
 			throw error
@@ -546,8 +551,14 @@ final class BackupManager {
 
 		let tweaksDir = root.appendingPathComponent("tweaks")
 		if wanted.contains(.tweaks), _fm.fileExists(atPath: tweaksDir.path) {
-			let added = TweakManager.shared.mergeFromBackup(tweaksDir: tweaksDir)
-			summary.record(.tweaks, added: added, skipped: (manifest.count(of: .tweaks) ?? added) - added)
+			let added: Int
+            do {
+                added = try TweakManager.shared.mergeFromBackup(tweaksDir: tweaksDir)
+            } catch {
+                // Earlier backup components and the folders manifest may already be committed.
+                throw TweakRestorePartialFailure(underlying: error)
+            }
+			summary.record(.tweaks, added: added, skipped: max(0, (manifest.count(of: .tweaks) ?? added) - added))
 		}
 
         if wanted.contains(.library) {
@@ -622,4 +633,11 @@ final class BackupManager {
 		formatter.dateFormat = "yyyyMMdd-HHmm"
 		return formatter.string(from: Date())
 	}
+}
+
+private struct TweakRestorePartialFailure: LocalizedError {
+    let underlying: Error
+    var errorDescription: String? {
+        String.localized("Tweak restore failed: %@. Some earlier backup components or folders may already have been restored.", arguments: underlying.localizedDescription)
+    }
 }

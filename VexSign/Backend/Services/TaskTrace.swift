@@ -54,6 +54,10 @@ struct TaskContext: Codable, Equatable {
     var appVersion: String?
     var appBuild: String?
     var installationMethod: String?
+    var expectedBundleIdentifier: String?
+    var handoffAt: Date?
+    var lastReconciliationAt: Date?
+    var monitoringActive: Bool?
     var certificateReference: String?
     var optionsFingerprint: String?
     var artifactID: String?

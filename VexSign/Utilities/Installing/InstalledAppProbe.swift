@@ -108,6 +108,12 @@ protocol InstalledAppProbing: Sendable {
 	func installedApp(for bundleIdentifier: String) -> InstalledApp?
 }
 
+/// Sandboxed iOS has no supported general-purpose app inventory. OTA verification
+/// must fail closed rather than treating private LaunchServices as authoritative.
+struct UnavailableInstallationProbe: InstalledAppProbing {
+    func installedApp(for bundleIdentifier: String) -> InstalledApp? { nil }
+}
+
 /// A synchronous private API cannot be cancelled once entered. Run it away from
 /// the caller and bound how long workflows wait for its result.
 private final class InstalledAppProbeContinuation: Sendable {

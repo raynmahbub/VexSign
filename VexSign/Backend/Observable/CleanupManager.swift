@@ -335,25 +335,20 @@ final class CleanupManager: ObservableObject {
 	/// Clears `categories`, except the areas a running operation still needs: see
 	/// `CleanupPassPolicy`. What is left alone is recorded in the summary's `deferred`.
 	private func purgeWhatMayBeCleared(of categories: [StorageCategory]) -> CleanupSummary {
-		let plan = CleanupPassPolicy.plan(
-			categories,
-			operationsActive: AppOperationRegistry.shared.hasActiveOperations
-		)
-		var summary = purge(plan.clear)
-		summary.deferred = plan.deferred
-		return summary
-	}
-
-	private func purge(_ categories: [StorageCategory]) -> CleanupSummary {
-		var summary = CleanupSummary()
-		for category in categories {
-			let freed = StorageManager.shared.purge(category)
-			guard freed > 0 else { continue }
-			summary.freedBytes += freed
-			summary.categories.append(category)
-		}
-		return summary
-	}
+        let guarded = categories.filter { $0 == .temporary || $0 == .leftovers }
+        let lease = guarded.isEmpty ? nil : AppOperationRegistry.shared.acquireCleanup()
+        defer { withExtendedLifetime(lease) {} }
+        let plan = CleanupPassPolicy.plan(categories, operationsActive: lease == nil)
+        var summary = CleanupSummary()
+        summary.deferred = plan.deferred
+        for category in plan.clear {
+            let freed = StorageManager.shared.purge(category, cleanupLease: lease)
+            guard freed > 0 else { continue }
+            summary.freedBytes += freed
+            summary.categories.append(category)
+        }
+        return summary
+    }
 
 	private func report(
 		_ summary: CleanupSummary,

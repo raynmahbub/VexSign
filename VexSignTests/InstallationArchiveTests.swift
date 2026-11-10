@@ -51,6 +51,32 @@ final class InstallationArchiveTests: XCTestCase {
         }
     }
 
+    func testArchiveBlocksCleanupUntilTheLastStreamReleasesIt() throws {
+        try fixture { root in
+            let registry = AppOperationRegistry()
+            var archive: InstallationArchive? = try InstallationArchive(temporaryRoot: root, registry: registry)
+            let directory = try XCTUnwrap(archive?.directory)
+            var stream: (() -> Void)? = retainedCompletion(for: try XCTUnwrap(archive))
+            archive = nil
+            XCTAssertNil(registry.acquireCleanup(), "A stopped installer must not expose its still-served IPA to cleanup")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path))
+            XCTAssertNotNil(stream)
+            stream = nil
+            XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
+            XCTAssertNotNil(registry.acquireCleanup())
+        }
+    }
+
+    func testArchiveDoesNotStartWhileCleanupOwnsTheBoundary() throws {
+        try fixture { root in
+            let registry = AppOperationRegistry()
+            let cleanup = try XCTUnwrap(registry.acquireCleanup())
+            XCTAssertThrowsError(try InstallationArchive(temporaryRoot: root, registry: registry))
+            XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
+            withExtendedLifetime(cleanup) {}
+        }
+    }
+
     func testFailedWorkerCleansPartialArchive() throws {
         enum Failure: Error { case cancelled }
         try fixture { root in
