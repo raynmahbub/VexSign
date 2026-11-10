@@ -512,6 +512,39 @@ final class InstallConfirmationTests: XCTestCase {
         }
     }
 
+    func testNoShippingProbeAnswerCanReachNotInstalled() throws {
+        // The probe's three pure entry points are the only way production builds an answer, and
+        // all three either report the app or report nothing. A private API's "no" is also what a
+        // filtered or refused lookup returns, so absence is not a thing this app can know.
+        var answers: [InstalledApp?] = []
+        for proxy in [nil, missing, app(), app(version: "1.1.0"), app(placeholder: true)] as [InstalledApp?] {
+            for workspace in [nil, true, false] as [Bool?] {
+                answers.append(InstalledAppProbe.resolve(bundleID, proxy: proxy, workspaceInstalled: workspace))
+            }
+        }
+        for placeholder in [true, false] {
+            answers.append(InstalledAppProbe.listedApplication(
+                bundleID, returnedIdentifier: bundleID, isPlaceholder: placeholder, version: "1.2.0"))
+        }
+        answers.append(InstalledAppProbe.installedRecord(
+            bundleID, recordIdentifier: bundleID, isApplication: true, isPlaceholder: false,
+            isSystemPlaceholder: false, version: "1.2.0", build: "12",
+            bundleURL: URL(fileURLWithPath: "/private/var/containers/Bundle/Application/example/Test.app")))
+
+        for answer in answers {
+            XCTAssertNotEqual(
+                InstalledState.derive(from: answer, expecting: "1.2.0"), .notInstalled,
+                "the shipping probe cannot establish absence, so it must never derive one: \(String(describing: answer))"
+            )
+        }
+
+        // What the engine does report for an app the device never shows: not confirmed, not a
+        // rejection diagnosis, and not the `notInstalled` verdict no probe can justify.
+        var confirmation = self.confirmation(limits: .init(start: 0, verify: 0, settle: 0))
+        _ = confirmation.beginVerifying(at: at(10))
+        XCTAssertEqual(confirmation.record(probe: nil, at: at(11)), .finished(.timedOutVerifying))
+    }
+
     func testCanonicalApplicationRecordOverridesLegacyFalseWithoutLosingVersion() {
         let record = app(version: "1.2.0")
         let result = InstalledAppProbe.resolve(bundleID, proxy: missing, workspaceInstalled: false, applicationRecord: record)

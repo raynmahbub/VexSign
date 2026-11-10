@@ -25,7 +25,12 @@ struct CanonicalAppGroup: Identifiable, Hashable, Sendable {
     let bundleIdentifier: String
     let primaryApp: DiscoveryApp
     let versions: [DiscoveryApp]
-    var hasMultipleSources: Bool { versions.count > 1 }
+    /// Whether more than one repository publishes this bundle ID.
+    ///
+    /// Publisher breadth, so it is derived from the sources and not from the number of
+    /// versions: one repo listing 1.0 and 2.0 of the same app is still one publisher, and a
+    /// caller asking about sources was being answered with a version count.
+    var hasMultipleSources: Bool { sourceCount > 1 }
     var sourceCount: Int { Set(versions.map(\.source)).count }
 }
 

@@ -55,6 +55,12 @@ enum InstalledState: Equatable, Sendable {
 	case installed
 	/// On the device, but reporting a different version than expected.
 	case installedOtherVersion(String?)
+	/// The device positively reports that the app is not there.
+	///
+	/// Nothing in the shipping probe answers that: a refused or filtered lookup and a deleted app
+	/// look the same through a private API, so `derive` returns `.unknown` for both and this case
+	/// is only reachable from evidence a caller can vouch for. See
+	/// `testNoShippingProbeAnswerCanReachNotInstalled`.
 	case notInstalled
 	/// No usable evidence: the probe is unavailable, or the app is still a placeholder.
 	case unknown

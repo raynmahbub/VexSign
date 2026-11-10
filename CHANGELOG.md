@@ -61,6 +61,19 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- The multi-source property on a discovery group is computed from its sources.
+  It was `versions.count > 1`, so one repository listing 1.0 and 2.0 of the
+  same app reported itself as available from several sources. Nothing rendered
+  it yet; the next caller would have inherited the wrong answer.
+- `InstallConfirmation.Verdict.notInstalled` and `InstalledState.notInstalled`
+  are now documented as what they are: not reachable from the shipping probe,
+  which reports an app or reports nothing, because a refused or filtered private
+  lookup and a deleted app look identical. The engine reports such an install as
+  `timedOutVerifying` ("Not confirmed") and never as not installed, which is
+  pinned by a test that drives every answer the three probe entry points can
+  return. The boundaries of `LibraryStatusStore.attemptTimeout` are covered too:
+  an attempt started exactly the bound ago is still active, one second later it
+  is abandoned.
 - A restore decides what it may write in one place, `BackupRestorePlan`: an item
   the store already tracks is never replaced, an entry whose files are missing
   from the container is skipped and counted instead of aborting the entries after
