@@ -707,34 +707,20 @@ container) and guessing at it would be worse than leaving it visible.
 
 # Environment note: the Linux job's Python
 
-Not a code defect, recorded because it blocked verification of this branch.
+`quick` began failing in its *toolchain* step, not its checks: `python3` was
+absent from the job's container, and `apt-get install python3` reported
+`E: Unable to locate package python3` even after `apt-get update` exited 0.
 
-`quick` began failing in its *toolchain* step, not its checks: `python3` is
-absent from the job container. The step's fallback was
-`python3 --version || (apt-get update -qq && apt-get install -y -qq python3)`,
-which surfaced only as an opaque `exit code 100` — apt-get's generic code — and
-`-qq` threw away the one line that explained it.
+Everything pointed the same way. `/usr/bin` held no interpreter at all, so the
+container was not the documented `swift:6.4-noble` (which installs
+`libpython3-dev` and ships `python3.12`); `/var/lib/apt/lists` was empty, which
+its **slim** variant produces by ending the build with `rm -r /var/lib/apt/lists/*`;
+and `QUICK_CHECK_SWIFT_IMAGE` was unset, so nothing in the repository explained
+the difference. Rerunning `main`'s own `a989867` — which passed `quick` at 05:52
+UTC — failed the same step with no workflow change in between.
 
-Diagnosis, with each step's actual output:
-
-| Probe | Result | What it rules out |
-|---|---|---|
-| `QUICK_CHECK_SWIFT_IMAGE` | empty | a repository variable overriding the pin |
-| `ls /usr/bin \| grep python` | nothing | an interpreter merely missing from `PATH` |
-| `apt-get update` | exit 0 | a runner that cannot reach its mirrors |
-| `apt-get install python3` | `E: Unable to locate package python3` | a missing-but-fetchable package |
-
-The upstream `swift:6.4-noble` image installs `libpython3-dev`, which pulls in
-`python3-minimal`, so it has `/usr/bin/python3.12`. Its **slim** variant installs
-only `libcurl4`, `libxml2` and `tzdata`, and ends its build with
-`rm -r /var/lib/apt/lists/*`. The observed container matches slim on both counts:
-no interpreter, and an empty package index that makes every name unlocatable even
-though `update` reports success.
-
-Confirmed not caused by this branch: rerunning `main`'s own commit `a989867`,
-which passed `quick` at 05:52 UTC, fails the same step, with no workflow change
-in between.
-
-The step now aliases a versioned interpreter when one exists, and otherwise
-clears the pruned index before fetching. It also stopped passing `-qq`, because
-the diagnostic was being discarded exactly when it was needed.
+The fix is not to repair that container but to stop needing one. `ubuntu-24.04`
+provides Swift 6.4.2 and Python 3.12.3 directly, which is all this job uses, so
+the container dependency and the `QUICK_CHECK_SWIFT_IMAGE` knob are both gone.
+The step now asserts that both tools exist and names whichever is missing,
+instead of invoking `apt-get` and reporting its generic exit code.
