@@ -2,7 +2,7 @@ name: CI
 
 # Answers "is this commit good?" for every relevant push and PR.
 #
-#   quick   ~1 min · Linux container: Swift syntax, resources, project
+#   quick   ~1 min · Linux: Swift syntax, resources, project
 #           structure and the repo gates in tools/. `tools/ci-scope.py` then
 #           decides whether the macOS jobs are needed (portable-only diffs,
 #           e.g. docs or tools/*.py, skip them). Docs-only changes never
@@ -22,7 +22,6 @@ name: CI
 #                             the runner; the code needs the iOS 26 SDK.
 #   BUILD_WARNINGS_AS_ERRORS  "true" (default, baseline tolerated) · "strict"
 #                             (every warning fails) · "false" (report only).
-#   QUICK_CHECK_SWIFT_IMAGE   Swift container tag for the quick job.
 
 on:
   push:
@@ -116,12 +115,11 @@ jobs:
     name: quick · syntax, resources, gates
     outputs:
       native: ${{ steps.scope.outputs.native }}
-    # Pinned, not `ubuntu-latest`: the Swift container below is built for 24.04.
-    # Bump both together when the image tag changes.
+    # Pinned, not `ubuntu-latest`. The image ships both tools this job needs
+    # (Swift 6.4.2 and Python 3.12.3), so no container is required -- see the
+    # toolchain step for why relying on one proved fragile.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    container:
-      image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -133,35 +131,18 @@ jobs:
         run: |
           set -u
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          swiftc --version
 
-          # The swift image prunes /var/lib/apt/lists at build time, so the package index
-          # is empty and `apt-get install` reports "Unable to locate package" even after a
-          # successful update against a stale mirror. Clear and refresh before installing.
-          if ! python3 --version; then
-            for candidate in python3.13 python3.12 python3.11; do
-              if command -v "$candidate" >/dev/null 2>&1; then
-                echo "python3 absent; aliasing $candidate (already in the image)."
-                mkdir -p "$RUNNER_TEMP/bin"
-                ln -sf "$(command -v "$candidate")" "$RUNNER_TEMP/bin/python3"
-                echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-                export PATH="$RUNNER_TEMP/bin:$PATH"
-                break
-              fi
-            done
-          fi
-
-          if ! python3 --version; then
-            echo "No interpreter in the image; installing python3."
-            rm -rf /var/lib/apt/lists/*
-            apt-get update 2>&1 | tail -n 20
-            echo "--- sources ---"; cat /etc/apt/sources.list 2>/dev/null | grep -v '^#' | grep . | head -10
-            find /etc/apt/sources.list.d -type f 2>/dev/null | head -5 | xargs -r grep -h . 2>/dev/null | head -12
-            echo "--- candidates ---"; apt-cache policy python3 2>&1 | head -8
-            echo "--- packages.d? ---"; ls /var/lib/apt/lists/ 2>&1 | head -8
-            apt-get install -y python3 2>&1 | tail -n 20 || true
-            python3 --version || { echo "::error::python3 is unavailable in this container and cannot be installed from its configured sources."; exit 1; }
-          fi
+          # Both are provided by the runner image and asserted, not assumed: the previous
+          # revision ran this job in a swift container that does not ship python3, and
+          # discovering that cost a pipeline cycle every time.
+          swiftc --version || {
+            echo "::error::swiftc is missing from the runner image; the ubuntu-24.04 image is expected to provide Swift 6.4.x."
+            exit 1
+          }
+          python3 --version || {
+            echo "::error::python3 is missing from the runner image; the ubuntu-24.04 image is expected to provide Python 3.12."
+            exit 1
+          }
 
           python3 tools/ci-scope.py
 
