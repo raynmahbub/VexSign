@@ -104448,6 +104448,17 @@
           }
         }
       }
+    },
+    "The archive uses the same path as both a file and a folder: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive uses the same path as both a file and a folder: %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

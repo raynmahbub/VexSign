@@ -65,7 +65,47 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - Make deletion of custom entitlements files and individual entitlement keys
   easier to discover and confirm.
 
+### Security
+
+- The Apple TV and Vision Pro companions store the Web Manager password and API
+  token in the Keychain instead of `UserDefaults`. Both keys were written on every
+  edit, so a reusable password and a token with the same reach sat in every
+  preferences dump, backup and diagnostics bundle. Existing values migrate on
+  first launch, and the plaintext copy is removed only after the Keychain write
+  succeeds — a locked Keychain therefore keeps a working credential instead of
+  losing it, and the connect screen says so. A failed write is reported in place;
+  no credential value is logged.
+- The companion client defaults to HTTPS. An address typed without a scheme used
+  to become `http://`, which sent Basic credentials and the token in cleartext.
+  Plain HTTP now requires an explicit **Allow HTTP on this network** switch *and* a
+  local-network host (private IPv4, IPv6 link-local/unique-local, `*.local` or
+  loopback); a public address is refused and an `https://` address is never
+  downgraded after a failed connection. Redirects are refused rather than followed,
+  so `URLSession` cannot forward `Authorization` and `X-VexSign-Token` to another
+  host.
+- The app no longer writes SwiftUI's undocumented
+  `com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck` preference to force the Liquid
+  Glass redesign. The stale value is cleared once from the container, and
+  `tools/test_private_defaults_policy.py` now fails on any first-party write to a
+  `com.apple.*` default.
+- The archive validator folds Unicode normalization into an entry's identity, so
+  the same file shipped once precomposed and once decomposed (`Café.app` as NFC
+  and NFD) is a duplicate rather than two paths that collide on APFS. It also
+  rejects an archive that uses one path as both a file and a folder, whichever of
+  the two entries comes first; previously the extractor decided that by order.
+  `tools/test_archive_extraction_policy.py` keeps every extraction route behind
+  `ArchiveSafetyValidator.validate(_:destination:)`.
+
 ### Fixed
+
+- `make verify` no longer fails on a source archive. `tools/device-acceptance.py`
+  called `git rev-parse HEAD` unconditionally, so running the suite from an
+  unpacked zip (no `.git`) ended in `fatal: not a git repository` and failed the
+  native acceptance test for a reason unrelated to acceptance. The commit now
+  comes from `--commit`, then `VEXSIGN_SOURCE_COMMIT`/`GITHUB_SHA`, then git, and
+  a run with none of them exits with a one-line diagnostic instead of a traceback
+  and without writing a report. The commit binding itself is unchanged, and the
+  new tests cover the archive case, the CI case and a mismatched report.
 
 - Home no longer describes an empty update list as proof repositories are up to
   date, or claims a URL download started when the manager rejected it. It keeps

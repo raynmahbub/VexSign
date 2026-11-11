@@ -193,11 +193,11 @@ struct VisionConnectView: View {
 			Label("Connect to VexSign", systemImage: "wifi")
 				.font(.title3.bold())
 
-			Text("Start the Web Manager on your iPhone (Settings → Web Manager → Allow This Network) and enter the address it prints, plus its password or API token.")
+			Text("Start the Web Manager on your iPhone (Settings → Web Manager → Allow This Network) and enter the address it prints, plus its password or API token. Both are stored in the Keychain on this device.")
 				.font(.callout)
 				.foregroundStyle(.secondary)
 
-			TextField("http://192.168.1.20:8080", text: $store.address)
+			TextField("https://192.168.1.20:8080", text: $store.address)
 				.textFieldStyle(.roundedBorder)
 
 			TextField("Web Manager username (if a password is set)", text: $store.username)
@@ -208,6 +208,15 @@ struct VisionConnectView: View {
 
 			TextField("API token (alternative to username and password)", text: $store.apiToken)
 				.textFieldStyle(.roundedBorder)
+
+			// Plaintext HTTP is opt-in and local-network-only: credentials travel in headers.
+			Toggle("Allow HTTP on this network", isOn: $store.allowInsecureHTTP)
+
+			if store.allowInsecureHTTP {
+				Text("Only for an iPhone on the same network. The password and token are sent unencrypted.")
+					.font(.caption2)
+					.foregroundStyle(.orange)
+			}
 
 			HStack {
 				Button("Connect") {
@@ -225,6 +234,18 @@ struct VisionConnectView: View {
 				Text(error)
 					.font(.footnote)
 					.foregroundStyle(.red)
+			}
+
+			if let issue = store.credentialIssue {
+				Text(issue)
+					.font(.footnote)
+					.foregroundStyle(.orange)
+			}
+
+			if store.hasUnmigratedCredential {
+				Text("A password or token saved by an earlier version is still stored insecurely. Re-enter it above.")
+					.font(.caption2)
+					.foregroundStyle(.orange)
 			}
 
 			Text(store.addressHint)

@@ -180,6 +180,8 @@ jobs:
           python3 tools/test_docs.py
           python3 tools/test_ci_repair_agent.py
           python3 tools/test_device_acceptance.py
+          python3 tools/test_private_defaults_policy.py
+          python3 tools/test_archive_extraction_policy.py
           python3 tools/test_release_assets.py
           python3 tools/test_autopilot.py
           python3 tools/test_workflow_policy.py

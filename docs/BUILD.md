@@ -63,7 +63,16 @@ make test        # simulator tests
 
 `make verify` is the same quick gate CI runs: project structure, localisation,
 error discipline, singleton and concurrency policy, workflow policy,
-embedded-container tests and native-signing preparation tests.
+embedded-container tests and native-signing preparation tests. It also runs the
+source-policy gates that need no compiler: no writes to undocumented
+`com.apple.*` preferences (`tools/test_private_defaults_policy.py`) and no
+archive extraction that skips `ArchiveSafetyValidator`
+(`tools/test_archive_extraction_policy.py`).
+
+`make verify` never needs `.git`. The device-acceptance checks bind their report
+to a source commit, and the tool takes that from `--commit`, then
+`VEXSIGN_SOURCE_COMMIT`/`GITHUB_SHA`, then `git rev-parse HEAD`, so a source
+archive runs the same checks a checkout does.
 
 `make test` auto-selects an available iPhone simulator. To pin one:
 

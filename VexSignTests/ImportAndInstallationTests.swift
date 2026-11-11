@@ -80,6 +80,108 @@ final class ImportAndInstallationTests: XCTestCase {
         XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app", in: &claimed))
     }
 
+    // MARK: - Unicode normalization
+
+    /// APFS stores names normalized and compares them that way, so one archive can carry
+    /// `Café.app` twice — precomposed (NFC) and decomposed (NFD) — and both land on one file.
+    /// Comparing the raw strings sees two distinct paths; the filesystem sees one.
+    func testArchiveRejectsDuplicatesThatDifferOnlyInUnicodeNormalization() {
+        let precomposed = "Payload/Caf\u{00E9}.app/Info.plist"       // é as one scalar
+        let decomposed = "Payload/Cafe\u{0301}.app/Info.plist"       // e + combining acute
+        XCTAssertNotEqual(precomposed, decomposed, "the fixture has to be two distinct Swift strings")
+
+        var claimed = Set<String>()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate(precomposed, in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate(decomposed, in: &claimed)) { error in
+            guard case ArchiveSafetyValidator.ValidationError.duplicateEntry = error else {
+                return XCTFail("Expected duplicateEntry, got \(error)")
+            }
+        }
+        XCTAssertEqual(claimed.count, 1)
+    }
+
+    func testNormalizationAndCaseFoldingCombineIntoOneIdentity() {
+        // Neither difference alone is enough to collide, and both together must.
+        var claimed = Set<String>()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Caf\u{00E9}.app", in: &claimed))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDuplicate("payload/CAFE\u{0301}.APP", in: &claimed))
+    }
+
+    func testIdentityKeyIsStableAcrossEquivalentSpellings() throws {
+        let a = try XCTUnwrap(ArchiveSafetyValidator.identityKey("Payload/Caf\u{00E9}.app/"))
+        let b = try XCTUnwrap(ArchiveSafetyValidator.identityKey("payload/cafe\u{0301}.app"))
+        XCTAssertEqual(a, b)
+        XCTAssertEqual(a, "payload/caf\u{00E9}.app")
+        XCTAssertNil(ArchiveSafetyValidator.identityKey(""))
+        XCTAssertNil(ArchiveSafetyValidator.identityKey("/"))
+    }
+
+    func testDistinctUnicodeNamesAreStillDistinctPaths() {
+        // Normalization must not over-merge: different letters stay different files.
+        var claimed = Set<String>()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Caf\u{00E9}.app", in: &claimed))
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Cafe.app", in: &claimed))
+        XCTAssertEqual(claimed.count, 2)
+    }
+
+    // MARK: - File/directory conflicts
+
+    /// `Payload/App.app/Info.plist` makes `Payload/App.app` a directory. A second entry that
+    /// declares the same path a *file* cannot be honoured on a real filesystem, and which one
+    /// wins depends on the extractor. It is rejected rather than resolved by extraction order.
+    func testAFileEntryThatClaimsAnImpliedDirectoryConflicts() {
+        var implied = ArchiveSafetyValidator.ImpliedDirectories()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateImpliedDirectories(
+            relativePath: "Payload/App.app/Info.plist", isDirectory: false, in: &implied))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateImpliedDirectories(
+            relativePath: "Payload/App.app", isDirectory: false, in: &implied)) { error in
+            guard case ArchiveSafetyValidator.ValidationError.pathTypeConflict = error else {
+                return XCTFail("Expected pathTypeConflict, got \(error)")
+            }
+        }
+    }
+
+    func testTheConflictIsCaughtWhicheverEntryComesFirst() {
+        var implied = ArchiveSafetyValidator.ImpliedDirectories()
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateImpliedDirectories(
+            relativePath: "Payload/App.app", isDirectory: false, in: &implied))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateImpliedDirectories(
+            relativePath: "Payload/App.app/Info.plist", isDirectory: false, in: &implied))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateImpliedDirectories(
+            relativePath: "Payload/App.app/", isDirectory: true, in: &implied))
+    }
+
+    func testAnOrdinaryIpaDirectoryLayoutHasNoTypeConflict() {
+        var implied = ArchiveSafetyValidator.ImpliedDirectories()
+        for (path, isDirectory) in [
+            ("Payload/", true),
+            ("Payload/Test.app/", true),
+            ("Payload/Test.app/Info.plist", false),
+            ("Payload/Test.app/Frameworks/", true),
+            ("Payload/Test.app/Frameworks/Lib.framework/Lib", false)
+        ] {
+            XCTAssertNoThrow(try ArchiveSafetyValidator.validateImpliedDirectories(
+                relativePath: path, isDirectory: isDirectory, in: &implied), path)
+        }
+    }
+
+    func testADeeplyNestedPathIsAcceptedAndStillContained() throws {
+        let root = try FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let deep = (0..<40).map { "d\($0)" }.joined(separator: "/") + "/file.txt"
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(relativePath: deep, root: root))
+        // Deep nesting must not become an escape: a traversal anywhere in the path is refused,
+        // however many legitimate components precede it.
+        let prefix = (0..<40).map { "d\($0)" }.joined(separator: "/")
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(
+            relativePath: prefix + "/../../escape", root: root))
+        XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(
+            relativePath: prefix + "/./file.txt", root: root))
+    }
+
     func testDistinctPathsSiblingsAndNestedDirectoriesAreNotDuplicates() {
         var claimed = Set<String>()
         // A real IPA's explicit directory entries plus its files, in archive order.

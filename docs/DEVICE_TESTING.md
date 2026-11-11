@@ -109,6 +109,13 @@ python3 tools/device-acceptance.py init --ipa /path/to/tested.ipa --report devic
 python3 tools/device-acceptance.py check --ipa /path/to/tested.ipa --report device-acceptance.local.json
 ```
 
+The report is bound to a source commit. The commit comes from `--commit <sha>`, then
+`VEXSIGN_SOURCE_COMMIT` (or `GITHUB_SHA` in CI), then `git rev-parse HEAD`. A checkout is the
+normal case; an unpacked source archive has no `.git`, so pass `--commit` or set
+`VEXSIGN_SOURCE_COMMIT` there. With none of the three, the tool exits with a one-line diagnostic
+instead of failing on git, and no report is written — the commit binding is the point of the
+tool, not a step to skip.
+
 Reports start pending and cannot overwrite an existing file. Validation rejects
 missing checks, missing observations, non-pass results and mismatched commit/IPA.
 This is human attestation, not hardware-backed proof. Keep the report and evidence
