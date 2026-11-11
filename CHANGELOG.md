@@ -67,6 +67,23 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Security
 
+- Signing now refuses an identity that cannot produce an installable app, on
+  every path rather than only in the Signing screen. Certificate expiry used to
+  be checked by the preflight sheet alone, so **batch**, **Update All**,
+  **Shortcuts** and **self-update** handed an expired or revoked certificate to
+  zsign: the run reported success and the app was rejected at install with an
+  error that names the signature, not the cause. `SigningPipeline` now asks
+  `SigningIdentityPolicy` before it copies anything, and the run's log says
+  which identity problem stopped it. Modify-only runs are unaffected, because
+  they never use a certificate. The **Sign Anyway** override does not excuse
+  this: an expired certificate cannot install, unlike the profile and
+  entitlement problems that override exists for.
+- After signing, the verifier reads the certificate that actually signed the
+  bundle out of the produced signature and fails the run if it has expired.
+  This catches a certificate that lapsed since it was imported, or a stored row
+  with no date — the row is a cache, the signature is the evidence. Bundles
+  signed elsewhere are unaffected: installing without signing still accepts an
+  app whose signing certificate has since expired, which iOS allows.
 - The Apple TV and Vision Pro companions store the Web Manager password and API
   token in the Keychain instead of `UserDefaults`. Both keys were written on every
   edit, so a reusable password and a token with the same reach sat in every
