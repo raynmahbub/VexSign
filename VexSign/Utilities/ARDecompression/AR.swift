@@ -27,8 +27,12 @@ class AR: NSObject {
 		
 		var offset = 0
 		var files: [ARFileModel] = []
+		var names = Set<String>()
 		while offset + 60 <= data.count {
 			let fileInfo = try _getFileInfo(data, offset)
+			guard names.insert(fileInfo.name.lowercased()).inserted else {
+				throw ARError.badArchive("Duplicate member name")
+			}
 			files.append(fileInfo)
 			offset += fileInfo.size + 60
 			offset += offset % 2
@@ -46,14 +50,20 @@ class AR: NSObject {
 			throw ARError.badArchive("Invalid size")
 		}
 
-		guard offset + 60 + size <= data.count else {
+		guard size <= data.count - (offset + 60) else {
 			throw ARError.badArchive("File data truncated")
 		}
 		
 		let rawName = String(data: data.subdata(in: offset..<offset+16), encoding: .ascii) ?? ""
-		let name = _removePadding(rawName)
-		guard !name.isEmpty else {
-			throw ARError.badArchive("Invalid name")
+		var name = _removePadding(rawName)
+		// Some ar writers terminate a short filename with a slash. The deb
+		// consumers write each member directly into a staging directory, so only
+		// a single ordinary filename is allowed after removing that terminator.
+		if name.hasSuffix("/") { name.removeLast() }
+		guard !name.isEmpty, name != ".", name != "..",
+			!name.contains("/"), !name.contains("\\"),
+			name.rangeOfCharacter(from: .controlCharacters) == nil else {
+			throw ARError.badArchive("Invalid member name")
 		}
 
 		let modDateStr = String(data: data.subdata(in: offset+16..<offset+28), encoding: .ascii) ?? "0"

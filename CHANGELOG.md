@@ -61,6 +61,9 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Debian tweak archive members must now be single safe filenames and cannot
+  repeat (including case-only variants) before either analyzer or injector
+  writes them. Conventional trailing slashes on short ar names are accepted.
 - Web Manager and WebDAV deletion report a conflict when removal fails, and
   not found for a missing item, instead of always reporting success. WebDAV
   also recognizes normalized aliases of the inbox root before deleting.
