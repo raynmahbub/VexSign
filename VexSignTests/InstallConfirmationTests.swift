@@ -69,7 +69,9 @@ final class InstallConfirmationTests: XCTestCase {
         let resultTask = Task.detached {
             await probe.installedAppWithTimeout(for: identifier, timeout: 0.05)
         }
-        XCTAssertEqual(probe.entered.wait(timeout: .now() + 1), .success)
+        // Parallel simulator workers can delay a utility-queue block beyond one
+        // second. This allowance covers scheduling only; the adapter stays at 50 ms.
+        XCTAssertEqual(probe.entered.wait(timeout: .now() + 5), .success)
         let result = await resultTask.value
         XCTAssertNil(result)
     }
