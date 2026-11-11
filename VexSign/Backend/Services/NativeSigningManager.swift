@@ -1,20 +1,57 @@
-// MARK: - NativeSigningManager
 /// Bridges the NativeSigning module's NativeAccountBackend with VexSign's
 /// main app workflows (UnifiedTaskCenter, OptionsManager, SigningProfileStore, etc.).
 ///
-/// Experimental authentication, owner-bound local inventory and profile-only
-/// provisioning UI adapter. Mutations require separate explicit approvals; the
-/// default CMS gate is closed. Native-owned signing, installation and scoped
-/// unattended renewal are not connected to the existing signing pipeline yet.
+/// Experimental authentication, owner-bound inventory and receipt-bound
+/// certificate-store handoff. Mutations/key export require separate explicit
+/// approvals; the default CMS gate is closed. Signing/install remain ordinary
+/// user actions. Scoped unattended renewal is not connected.
 
 import Foundation
 import Combine
 import OSLog
+import Security
 import NativeSigning
 // `TwoFactorResponse` is SideSign's; NativeSigning's backend takes it as an argument, so this
 // file has to name a type from that module rather than only passing values through.
 import SideSign
 import NimbleExtensions
+
+/// App-side preflight after the package has authenticated the CMS. This catches
+/// accidental target drift before the single-use private-key grant is consumed;
+/// it is not a replacement for the package's Apple trust verification.
+struct NativeSigningHandoffPreflight {
+    static func validate(
+        _ profile: Certificate,
+        profileUUID: UUID,
+        expiresAt: Date,
+        teamIdentifier: String,
+        identity: NativeSigningManager.SigningIdentity,
+        bundleIdentifier: String,
+        deviceIdentifier: String,
+        now: Date = Date()
+    ) throws {
+        let appIdentifier = teamIdentifier + "." + bundleIdentifier
+        let entitlements = profile.Entitlements
+        let groups = entitlements?["keychain-access-groups"]?.value as? [String]
+        guard profile.Version == 1, profile.Platform == ["iOS"],
+              UUID(uuidString: profile.UUID) == profileUUID,
+              profile.CreationDate <= now, profile.ExpirationDate == expiresAt, expiresAt > now,
+              profile.TeamIdentifier == [teamIdentifier], profile.ApplicationIdentifierPrefix == [teamIdentifier],
+              identity.teamIdentifier == teamIdentifier, identity.phase == .certificateRecorded,
+              profile.ProvisionsAllDevices != true,
+              profile.ProvisionedDevices?.contains(where: { $0.uppercased() == deviceIdentifier.uppercased() }) == true,
+              profile.DeveloperCertificates?.isEmpty == false,
+              entitlements?["application-identifier"]?.value as? String == appIdentifier,
+              entitlements?["com.apple.developer.team-identifier"]?.value as? String == teamIdentifier,
+              entitlements?["get-task-allow"]?.value as? Bool == true,
+              let groups, !groups.isEmpty,
+              groups.allSatisfy({ $0 == appIdentifier || $0 == teamIdentifier + ".*" }) else {
+            throw NativeSigningError.provisioningFailed(.localized("The authenticated profile does not match the selected team, identity, app, device, or expiry. Nothing was imported."))
+        }
+    }
+}
+
+// MARK: - NativeSigningManager
 
 @MainActor
 final class NativeSigningManager: ObservableObject {
@@ -351,6 +388,108 @@ final class NativeSigningManager: ObservableObject {
         let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.createAccountProvisioningProfile(contextID: contextID, target: target, approval: approval, consent: consent)
+    }
+
+    // MARK: - Certificate Store Handoff
+
+    /// Mints a separate, short-lived, single-use grant for private-key export.
+    /// Provisioning approval and anisette consent do not authorize this step.
+    func recordKeyExportConsent(contextID: UUID, identityID: UUID) async throws -> NativeKeyExportConsent {
+        let backend = try configuredBackend()
+        return try await backend.recordExplicitKeyExportConsent(contextID: contextID, identityID: identityID)
+    }
+
+    /// Exports an authenticated native identity/profile pair into the ordinary
+    /// certificate store. Signing and installation remain separate user actions
+    /// in the existing pipeline; this method never starts either one.
+    func exportToCertificateStore(
+        contextID: UUID,
+        profile: NativeAccountProfileResult,
+        identityID: UUID,
+        bundleIdentifier: String,
+        deviceIdentifier: String,
+        consent: NativeKeyExportConsent
+    ) async throws {
+        let backend = try configuredBackend()
+        guard case .signedIn(let context) = snapshot?.phase, context.id == contextID,
+              context.team.membership == .free,
+              let identity = await getIdentityDetails(identityID: identityID) else {
+            throw NativeSigningError.provisioningFailed(.localized("The Apple account or signing identity changed. Review the current account and try again."))
+        }
+        let task = UnifiedTaskCenter.shared.begin(kind: .export,
+            title: .localized("Import Apple ID Certificate"), subtitle: bundleIdentifier,
+            phase: .queued, subjectID: profile.profileUUID.uuidString)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("native-signing-handoff-" + UUID().uuidString, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700, .protectionKey: FileProtectionType.complete])
+            defer { try? FileManager.default.removeItem(at: directory) } // try? ok: import result is already known; scratch cleanup is best-effort
+
+            UnifiedTaskCenter.shared.transition(task, to: .downloading, progress: 0.15)
+            let anisetteConsent = try await backend.recordExplicitAnisetteConsent()
+            let profileData = try await backend.exportProvisioningProfile(contextID: contextID,
+                profileUUID: profile.profileUUID, identityID: identityID,
+                bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier,
+                consent: anisetteConsent)
+            guard self.backend === backend else { throw CancellationError() }
+            let provisionURL = directory.appendingPathComponent("native.mobileprovision")
+            try Self.writeHandoff(profileData, to: provisionURL)
+            guard let decoded = CertificateReader(provisionURL).decoded else {
+                throw NativeSigningError.provisioningFailed(.localized("The authenticated provisioning profile could not be read. Nothing was imported."))
+            }
+            UnifiedTaskCenter.shared.transition(task, to: .extracting, progress: 0.4)
+            try NativeSigningHandoffPreflight.validate(decoded, profileUUID: profile.profileUUID,
+                expiresAt: profile.expiresAt, teamIdentifier: context.team.identifier,
+                identity: identity, bundleIdentifier: bundleIdentifier,
+                deviceIdentifier: deviceIdentifier)
+
+            UnifiedTaskCenter.shared.transition(task, to: .importing, progress: 0.65)
+            let password = try Self.handoffPassword()
+            let p12Data = try await backend.exportSigningIdentity(contextID: contextID,
+                identityID: identityID, password: password, consent: consent)
+            guard self.backend === backend else { throw CancellationError() }
+            let p12URL = directory.appendingPathComponent("native.p12")
+            try Self.writeHandoff(p12Data, to: p12URL)
+            try Task.checkCancellation()
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                FR.handleCertificateFiles(p12URL: p12URL, provisionURL: provisionURL,
+                    p12Password: password, certificateName: "Apple ID " + String(identityID.uuidString.prefix(8))) { error in
+                    if let error { continuation.resume(throwing: error) }
+                    else { continuation.resume() }
+                }
+            }
+            UnifiedTaskCenter.shared.transition(task, to: .completed, progress: 1)
+            lastError = nil
+        } catch {
+            if error is CancellationError || Task.isCancelled {
+                UnifiedTaskCenter.shared.transition(task, to: .cancelled)
+            } else {
+                let message = error.localizedDescription
+                lastError = message
+                UnifiedTaskCenter.shared.transition(task, to: .failed, error: message)
+            }
+            throw error
+        }
+    }
+
+    private static func writeHandoff(_ data: Data, to url: URL) throws {
+        guard !data.isEmpty, data.count <= 2 * 1024 * 1024 else {
+            throw NativeSigningError.signingFailed(.localized("The native certificate export was empty or too large. Nothing was imported."))
+        }
+        try data.write(to: url, options: [.atomic, .completeFileProtection])
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    private static func handoffPassword() throws -> String {
+        var bytes = Data(count: 32)
+        let status = bytes.withUnsafeMutableBytes {
+            SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress)
+        }
+        guard status == errSecSuccess else {
+            throw NativeSigningError.signingFailed(.localized("A secure password for the certificate export could not be generated. Nothing was imported."))
+        }
+        return bytes.base64EncodedString()
     }
 
     // MARK: - Certificate Status

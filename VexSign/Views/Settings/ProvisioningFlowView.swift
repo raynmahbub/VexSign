@@ -1,6 +1,7 @@
 // MARK: - ProvisioningFlowView
-/// Experimental profile-only provisioning. Requires explicit mutation approvals
-/// and a configured CMS verifier; does not claim signing or installation.
+/// Experimental provisioning and certificate-store handoff. Requires separate
+/// mutation/key-export approvals and a configured CMS verifier; does not start
+/// signing/installation or claim native account signing is integrated.
 
 import SwiftUI
 import NimbleViews
@@ -24,9 +25,12 @@ struct ProvisioningFlowView: View {
     @State private var showAppPicker = false
     @State private var showDevicePicker = false
     @State private var createdProfile: NativeAccountProfileResult?
+    @State private var createdIdentityID: UUID?
+    @State private var certificateImported = false
     @State private var approveCertificate = false
     @State private var approveRegistration = false
     @State private var approveProfile = false
+    @State private var approveKeyExport = false
 
     // Context from signed-in state
     private var contextID: UUID? {
@@ -306,20 +310,68 @@ struct ProvisioningFlowView: View {
 
     private var completeStep: some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: certificateImported ? "checkmark.seal.fill" : "checkmark.circle.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(.green)
 
-            Text(.localized("Profile Recorded"))
+            Text(certificateImported ? .localized("Certificate Imported") : .localized("Profile Recorded"))
                 .font(.title.bold())
 
-            Text(.localized("Only the provisioning profile was recorded. No app has been signed or installed. Native signing handoff is not enabled in this build."))
+            Text(certificateImported
+                ? .localized("The Apple ID identity and profile are now available in Certificates. Select them in the existing signing flow; this step did not sign or install an app.")
+                : .localized("Only the provisioning profile was recorded. No app has been signed or installed. Native signing handoff is not enabled in this build."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
+            if !certificateImported {
+                Toggle(.localized("I consent to exporting this device-only private key once into VexSign's certificate store."), isOn: $approveKeyExport)
+                    .disabled(isProvisioning)
+                Button {
+                    guard provisioningTask == nil else { return }
+                    provisioningTask = Task {
+                        await importCreatedCertificate()
+                        provisioningTask = nil
+                    }
+                } label: {
+                    if isProvisioning {
+                        HStack { ProgressView(); Text(.localized("Validating & Importing…")) }
+                    } else {
+                        Label(.localized("Import Certificate & Profile"), systemImage: "square.and.arrow.down")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isProvisioning || !approveKeyExport)
+
+                Text(.localized("Experimental: production CMS verification and physical-device acceptance are still required before native Apple-account signing is considered integrated."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
             Button(.localized("Done")) { dismiss() }
                 .buttonStyle(.borderedProminent)
+                .disabled(isProvisioning)
+        }
+    }
+
+    @MainActor
+    private func importCreatedCertificate() async {
+        guard let contextID, let app = selectedApp, let bundleID = app.identifier,
+              let profile = createdProfile, let identityID = createdIdentityID,
+              approveKeyExport, !certificateImported else { return }
+        isProvisioning = true
+        errorMessage = nil
+        defer { isProvisioning = false }
+        do {
+            let consent = try await manager.recordKeyExportConsent(contextID: contextID, identityID: identityID)
+            try await manager.exportToCertificateStore(contextID: contextID, profile: profile,
+                identityID: identityID, bundleIdentifier: bundleID,
+                deviceIdentifier: deviceIdentifier.uppercased(), consent: consent)
+            certificateImported = true
+            approveKeyExport = false
+        } catch {
+            if !(error is CancellationError) { errorMessage = error.localizedDescription }
         }
     }
 
@@ -398,6 +450,7 @@ struct ProvisioningFlowView: View {
                 provisioningProgress = 1.0
                 provisioningStage = .localized("Provisioning complete!")
                 createdProfile = profileResult
+                createdIdentityID = identityTicket.id
             }
         } catch {
             await MainActor.run {
