@@ -63,6 +63,29 @@ DocumentPicker / repository URL
   → Library entry + task history
 ```
 
+## What the install card may claim
+
+An installation is described by two independent clocks, and the screen has to
+combine them rather than pick one:
+
+- the **transport** — `InstallerStatusViewModel.InstallerStatus`: packaging,
+  manifest, payload transfer, `installd`'s counter. It describes what VexSign's
+  own server and connection are doing.
+- the **lifecycle** — `InstallConfirmation.Phase`: waiting for iOS's prompt,
+  downloading, verifying against device evidence, then a verdict.
+
+They disagree for a real stretch of every OTA install. The server reports
+`ready` the moment it can serve, iOS then shows its own confirmation prompt, and
+the transport has nothing more to say until the user answers. `InstallStatusPresentation`
+is the single pure resolver for that pair: a terminal transport answer wins, the
+lifecycle outranks a transport status that has not caught up, and the transport
+is the fallback only for the stretches the lifecycle cannot describe (packaging
+and payload transfer, before any progress exists). The card's line, its icon,
+its percentage and the progress ring's VoiceOver label all come from that one
+resolution, so they cannot drift apart. A completion published through
+`publishConfirmedCompletion` means the device proved the install; nothing else
+does.
+
 ## State and storage
 
 - **Core Data** stores certificate pairs, imported/signed apps and repository
@@ -184,7 +207,7 @@ that, so a claim can be traced to code instead of a promise:
 | Signed source metadata | `VexSign/Utilities/SourceProvenance.swift`, `docs/SOURCE_SIGNING.md` |
 | Anti-revoke DNS profiles | `VexSign/Utilities/AntiRevoke/`, `VexSign/Views/Settings/Security/AntiRevokeSettingsView.swift` |
 | Background automation, App Intents and widgets | `VexSign/Backend/Observable/BackgroundAutomation.swift`, `VexSign/Backend/AppIntents/`, `VexSignWidgetExtension/` |
-| Cleanup, backup and analytics | `CleanupManager.swift` (every pass, Clean Now included, leaves the temporary directory and leftovers alone while a sign or install is running), `VexSign/Backend/Services/PostSignArtifacts.swift` (which copies a finished sign leaves), `VexSign/Backend/Services/CleanupPolicy.swift` (what a pass defers; which duplicate signed copy is kept), `InstallCleanup.swift`, `BackupManager.swift`, `VexSign/Analytics/` |
+| Cleanup, backup and analytics | `CleanupManager.swift` (every pass, Clean Now included, leaves the temporary directory and leftovers alone while a sign or install is running), `VexSign/Backend/Services/PostSignArtifacts.swift` (which copies a finished sign leaves), `VexSign/Backend/Services/CleanupPolicy.swift` (what a pass defers; which duplicate signed copy is kept), `InstallCleanup.swift`, `BackupManager.swift` (archive creation, validation and restore orchestration), `BackupRestorePlan.swift` (restore admission), `LibraryBackupSupport.swift` (library entry and tree validation), `BackupCrypto.swift` (backup encryption), `VexSign/Analytics/` |
 | Logs and diagnostic export | `VexSign/Utilities/FileLogger.swift`, `DiagnosticBundleExporter.swift`, `VexSign/Views/Logs/`, `VexSign/Views/Settings/About/DiagnosticsCenterView.swift` |
 | Companion apps | `VexSignTV/`, `VexSignVision/`, `VexSignWatch/`, `VexSignWatchWidgets/`, `docs/PLATFORMS.md` |
 | Web tools | `server/web_signer.py`, `server/repo_creator.py`, `server/repo_decoder.py`, `server/app_installer.py`, `server/cert_inspector.py`, `server/udid_grabber.py`, `VexSign/Ecosystem/WebToolsView.swift` |

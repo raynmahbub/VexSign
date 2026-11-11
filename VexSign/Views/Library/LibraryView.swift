@@ -586,7 +586,8 @@ struct LibraryView: View {
                     selectedAppUUIDs: $_selectedAppUUIDs,
                     isHighlighted: app.uuid == tabSelection.highlightedAppUUID,
                     onSelectMore: { _beginSelection(with: app) },
-                    isIconTile: libraryLayout == "icons" && !_editMode.isEditing
+                    isIconTile: libraryLayout == "icons" && !_editMode.isEditing,
+                    isGridLayout: libraryLayout != "list" && !_editMode.isEditing
                 )
                 .compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
                 .id(app.uuid)
@@ -619,7 +620,8 @@ struct LibraryView: View {
                     selectedAppUUIDs: $_selectedAppUUIDs,
                     isHighlighted: app.uuid == tabSelection.highlightedAppUUID,
                     onSelectMore: { _beginSelection(with: app) },
-                    isIconTile: libraryLayout == "icons" && !_editMode.isEditing
+                    isIconTile: libraryLayout == "icons" && !_editMode.isEditing,
+                    isGridLayout: libraryLayout != "list" && !_editMode.isEditing
                 )
                 .compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
                 .id(app.uuid)

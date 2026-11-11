@@ -564,7 +564,6 @@ private struct TrollStoreInstallView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var downloadManager = DownloadManager.shared
     @State private var selectedDownload: Download?
-    @State private var showDownloadPicker = false
     @State private var installError: String?
     @State private var isInstalling = false
 

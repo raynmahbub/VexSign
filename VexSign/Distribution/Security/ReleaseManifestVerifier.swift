@@ -20,7 +20,7 @@ struct ReleaseManifestVerifier: Sendable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard envelopeData.count <= 196_608,
-              let envelope = try? decoder.decode(SignedReleaseManifest.self, from: envelopeData)
+              let envelope = try? decoder.decode(SignedReleaseManifest.self, from: envelopeData) // try? ok: malformed envelopes map to a public validation failure
         else { throw ReleaseManifestFailure.malformedEnvelope }
         guard envelope.schemaVersion == 1 else { throw ReleaseManifestFailure.unsupportedSchema }
         guard envelope.algorithm == "Ed25519" else { throw ReleaseManifestFailure.unsupportedSignatureAlgorithm }
@@ -30,12 +30,12 @@ struct ReleaseManifestVerifier: Sendable {
         guard let keyData = trustedPublicKeys[envelope.keyID] else { throw ReleaseManifestFailure.unknownSigningKey }
         guard let payload = Data(base64Encoded: envelope.payloadBase64), payload.count <= 131_072,
               let signature = Data(base64Encoded: envelope.signatureBase64), signature.count == 64,
-              let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData)
+              let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) // try? ok: invalid key bytes map to malformed envelope
         else { throw ReleaseManifestFailure.malformedEnvelope }
         guard publicKey.isValidSignature(signature, for: payload) else {
             throw ReleaseManifestFailure.invalidSignature
         }
-        guard let manifest = try? decoder.decode(ReleaseManifest.self, from: payload) else {
+        guard let manifest = try? decoder.decode(ReleaseManifest.self, from: payload) else { // try? ok: decoding errors map to invalid payload
             throw ReleaseManifestFailure.invalidPayload
         }
         try validate(manifest, supportedOSVersion: supportedOSVersion, now: now)
@@ -183,7 +183,7 @@ enum ArtifactHashVerifier {
         let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         guard values.isRegularFile == true, values.isSymbolicLink != true else { throw Failure.notRegularFile }
         let handle = try FileHandle(forReadingFrom: fileURL)
-        defer { try? handle.close() }
+        defer { try? handle.close() } // try? ok: a read-only handle is closed best-effort after hashing
         let boundedChunkSize = min(max(chunkSize, 1), 4_194_304)
         var hasher = SHA256()
         while let chunk = try handle.read(upToCount: boundedChunkSize), !chunk.isEmpty {

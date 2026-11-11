@@ -347,6 +347,22 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 			"A transient state must not outlive the attempt that published it")
 	}
 
+	@MainActor
+	func testAnAttemptIsBelievedForExactlyItsBound() {
+		let store = _store(answers: [:])
+		let start = Date(timeIntervalSince1970: 2_000_000)
+		store.beginInstallation(identifier: identifier, attemptID: "attempt-1", now: start)
+
+		// Inclusive: an attempt that started exactly `attemptTimeout` ago is still the row's
+		// authoritative answer, so the backstop cannot expire a live attempt early.
+		XCTAssertNotNil(store.activeInstallation(identifier: identifier, now: start.addingTimeInterval(LibraryStatusStore.attemptTimeout)))
+		XCTAssertTrue(store.isInstalling(identifier))
+
+		// One tick past it, the owner is presumed dead and the row stops claiming "Installing".
+		XCTAssertNil(store.activeInstallation(identifier: identifier, now: start.addingTimeInterval(LibraryStatusStore.attemptTimeout + 1)))
+		XCTAssertFalse(store.isInstalling(identifier))
+	}
+
 	// MARK: - Helpers
 
 	private func _request(_ uuid: String, expectedVersion: String? = "0.9", isSigned: Bool = true) -> LibraryStatusStore.Request {

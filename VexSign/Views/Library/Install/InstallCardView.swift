@@ -163,6 +163,8 @@ private struct InstallStatusView: View {
 				}
 			}
 			.font(.footnote)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(A11y.Install.status)
             if _presentation == .awaitingConfirmation {
                 Text(verbatim: String.localized("Please confirm the installation request displayed by iOS."))
                     .font(.caption)

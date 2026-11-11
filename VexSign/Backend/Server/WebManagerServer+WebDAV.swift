@@ -74,10 +74,13 @@ extension WebManagerServer {
 		}
 
 		app.on(.DELETE, catchall) { [weak self] req -> Response in
-			guard let self, let url = self.resolve(req.url.path), url.path != self.inbox.path else { return Response(status: .forbidden) }
-			guard FileManager.default.fileExists(atPath: url.path) else { return Response(status: .notFound) }
-			try? FileManager.default.removeItem(at: url)
-			return Response(status: .noContent)
+			guard let self, let url = self.resolve(req.url.path),
+				!WebManagerDeletion.isInboxRoot(url, inbox: self.inbox) else { return Response(status: .forbidden) }
+			switch WebManagerDeletion.delete(url) {
+			case .removed: return Response(status: .noContent)
+			case .missing: return Response(status: .notFound)
+			case .failed: return Response(status: .conflict)
+			}
 		}
 
 		app.on(.init(rawValue: "MOVE"), catchall) { [weak self] req -> Response in
@@ -140,9 +143,11 @@ extension WebManagerServer {
 
 		let fm = FileManager.default
 		guard fm.fileExists(atPath: source.path) else { return Response(status: .notFound) }
+		guard WebDAVTransferPolicy.permits(source: source, destination: destination, inbox: inbox) else {
+			return Response(status: .forbidden)
+		}
 
 		let existed = fm.fileExists(atPath: destination.path)
-
 		do {
             try WebManagerFileTransaction.transfer(source, to: destination, move: move)
 			// Debounced + dedup'd with any earlier PUT to the same destination.

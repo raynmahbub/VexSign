@@ -71,6 +71,71 @@ final class LibraryBackupSupportTests: XCTestCase {
         XCTAssertThrowsError(try manifest.validateSupportedFormat())
     }
 
+    private func cert(_ uuid: String) -> BackupManifest.Cert {
+        BackupManifest.Cert(uuid: uuid, nickname: "Test", password: nil, expiration: Date(), ppq: false)
+    }
+
+    private func blankManifest(_ contents: BackupComponents) -> BackupManifest {
+        BackupManifest(version: 3, createdAt: Date(), appVersion: "1", contents: contents,
+            includesTweaks: false, counts: nil, selectedCertUUID: nil, certificates: [], sources: [])
+    }
+
+    func testManifestRejectsCertificateIdentifiersThatArePaths() {
+        // A certificate's uuid is used as a directory name on both sides of a restore —
+        // `certs/<uuid>` in the archive and `Certificates/<uuid>` in the app container — so a
+        // manifest that names a path instead of an identifier is describing something this app
+        // will never write. Distinctness was the only check before.
+        var manifest = blankManifest([.certificates])
+        let identifier = UUID().uuidString
+        for spelling in [identifier.lowercased(), identifier.uppercased()] {
+            manifest.certificates = [cert(spelling)]
+            XCTAssertNoThrow(try manifest.validateSupportedFormat(), "real identifiers stay valid in either case")
+        }
+
+        for path in ["../../../../Library/Preferences/escape", "certs/../../escape", "", ".", "..",
+                     identifier + "/../escape", "x", "not-a-uuid"] {
+            manifest.certificates = [cert(path)]
+            XCTAssertThrowsError(try manifest.validateSupportedFormat(), path)
+        }
+    }
+
+    func testManifestRejectsSourcesThisBuildWillNotFetch() {
+        // Restore bypasses the HTTPS requirement on purpose (a saved LAN repository has to keep
+        // working), so the manifest has to be held to the rest of the policy instead: a scheme
+        // and a host, no embedded credentials.
+        var manifest = blankManifest([.sources])
+        let rejected = ["file:///etc/passwd", "javascript:alert(1)", "https://user:secret@example.com/apps.json",
+                        "https:apps.json", "ftp://example.com/apps.json"]
+            .compactMap(URL.init(string:))
+        XCTAssertGreaterThanOrEqual(rejected.count, 4, "the URLs under test must be representable")
+        for url in rejected {
+            manifest.sources = [.init(identifier: url.absoluteString, name: nil, url: url, iconURL: nil)]
+            XCTAssertThrowsError(try manifest.validateSupportedFormat(), url.absoluteString)
+        }
+
+        let accepted = ["https://repo.example/apps.json", "http://192.168.1.10/repo.json", "HTTP://192.168.1.10/r.json"]
+            .compactMap(URL.init(string:))
+        XCTAssertEqual(accepted.count, 3)
+        for url in accepted {
+            manifest.sources = [.init(identifier: url.absoluteString, name: nil, url: url, iconURL: nil)]
+            XCTAssertNoThrow(try manifest.validateSupportedFormat(), url.absoluteString)
+        }
+
+        // The icon URL is fetched by the same code, so it is held to the same rule.
+        let good = URL(string: "https://repo.example/apps.json")!
+        manifest.sources = [.init(identifier: "x", name: nil, url: good,
+            iconURL: URL(string: "file:///etc/passwd"))]
+        XCTAssertThrowsError(try manifest.validateSupportedFormat())
+    }
+
+    func testManifestWithNeitherCertificatesNorSourcesStillValidates() {
+        // The two new checks must not make an ordinary settings backup unreadable.
+        XCTAssertNoThrow(try blankManifest([.settings]).validateSupportedFormat())
+        var library = blankManifest([.library])
+        library.apps = [entry()]
+        XCTAssertNoThrow(try library.validateSupportedFormat())
+    }
+
     func testLibraryManifestRoundTripAndCounts() throws {
         var manifest = BackupManifest(version: 3, createdAt: Date(), appVersion: "1", contents: [.library],
             includesTweaks: false, counts: nil, selectedCertUUID: nil, certificates: [], sources: [])

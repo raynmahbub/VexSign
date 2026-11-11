@@ -11,6 +11,12 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
+- The launch screen uses a rounded version of the existing VexSign mark. Home
+  actions stack at accessibility text sizes, and the app-icon picker reuses its
+  preview images instead of decoding them each time the view is constructed.
+- Library grid swipe actions respect Reduce Motion and button-animation settings,
+  with selection haptics and an optional, off-by-default interface sound. The
+  sound setting is in Appearance and currently applies to revealing that action.
 - **Delete Signed App** (Settings → Auto Cleanup → After Signing) now removes the
   signed copy a re-sign was *started from*, once the new copy is in the library.
   In the signing sheet and when signing with saved settings it used to delete
@@ -28,6 +34,9 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   install is running, as the automatic passes do, and says what it left: in a
   message when the button is used, and in the answer of the Shortcuts action.
   They are cleared by the next pass that finds nothing running.
+- The contents of a backup are now stated where the component list is defined: no
+  task-history component, because the Activity log marks itself
+  `isExcludedFromBackup` and describes what one install did on one device.
 - `make` builds through `VexSign.xcworkspace`, the same graph CI builds and tests.
   The workspace and project `Package.resolved` files had drifted apart, so the
   released IPA was compiled against pins CI never exercised. Both now hold one
@@ -58,6 +67,107 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Home no longer describes an empty update list as proof repositories are up to
+  date, or claims a URL download started when the manager rejected it. It keeps
+  rejected input and points tracked downloads to their status. Source setup is
+  described as optional; Home also improves large-text and URL-field access.
+- Library cards and icon tiles now reveal a Delete action on a left swipe, like
+  the existing compact-list action. Delete still asks for confirmation and only
+  removes the stored library copy; swipe right to close the action.
+- Debian tweak archive members must now be single safe filenames and cannot
+  repeat (including case-only variants) before either analyzer or injector
+  writes them. Conventional trailing slashes on short ar names are accepted.
+- Web Manager and WebDAV deletion report a conflict when removal fails, and
+  not found for a missing item, instead of always reporting success. WebDAV
+  also recognizes normalized aliases of the inbox root before deleting.
+- Web Manager upload, download and inbox deletion reject filenames that resolve
+  to `.` or `..`, or contain control characters, rather than treating them as
+  file names. Download response filenames are escaped as quoted HTTP parameters.
+- WebDAV MOVE and COPY reject transfers involving the inbox root or overlapping
+  source and destination paths before deleting an existing destination. This
+  prevents a same-path or parent-directory overwrite from deleting the source.
+  A failed destination removal now returns a conflict instead of being ignored.
+- A backup archive is treated as untrusted input when it is opened. Its
+  certificate identifiers are used as directory names on both sides of a restore
+  (`certs/<uuid>` inside the archive, `Certificates/<uuid>` in the app
+  container) and were checked only for being distinct, so a crafted archive
+  could name a path such as `../../..` and have a restore copy into — or, on
+  rollback, delete — a directory outside the certificate folder. They must now
+  be real UUIDs, which every identifier this app writes already is. The
+  repository URLs a restore reinstates are held to the shape half of
+  `SourceURLPolicy`: `http` or `https`, a host, and no credentials embedded in
+  the URL. The documented exemption that lets a saved LAN repository restore
+  without the HTTP opt-in still works, while `file:`, `javascript:` and other
+  schemes are rejected, and a source's icon URL is held to the same rule.
+- The multi-source property on a discovery group is computed from its sources.
+  It was `versions.count > 1`, so one repository listing 1.0 and 2.0 of the
+  same app reported itself as available from several sources. Nothing rendered
+  it yet; the next caller would have inherited the wrong answer.
+- `InstallConfirmation.Verdict.notInstalled` and `InstalledState.notInstalled`
+  are now documented as what they are: not reachable from the shipping probe,
+  which reports an app or reports nothing, because a refused or filtered private
+  lookup and a deleted app look identical. The engine reports such an install as
+  `timedOutVerifying` ("Not confirmed") and never as not installed, which is
+  pinned by a test that drives every answer the three probe entry points can
+  return. The boundaries of `LibraryStatusStore.attemptTimeout` are covered too:
+  an attempt started exactly the bound ago is still active, one second later it
+  is abandoned.
+- A restore decides what it may write in one place, `BackupRestorePlan`: an item
+  the store already tracks is never replaced, an entry whose files are missing
+  from the container is skipped and counted instead of aborting the entries after
+  it, and a directory that exists with no record pointing at it is never
+  replaced either. Restoring the same archive twice therefore adds nothing the
+  second time. Those rules were inline branches in `BackupManager.restore`,
+  which had no test of any kind, and certificate and library restores now apply
+  the same order. The library loop's missing-payload branch could only be
+  reached through a container damaged *after* `open` checked every bundle was
+  present, so this consolidates the rule rather than fixing a defect there.
+- A backup no longer carries credentials. The settings filter accepted everything
+  under `VexSign.` and `vexsign.`, so `IdentityVault`'s `VexSign.vault.*` values —
+  cloud-signing API key, premium activation, device UUID — and any key named
+  `…apiKey`, `…token`, `…secret`, `…password` or `…passphrase` were written into
+  the archive and written back into `UserDefaults` by a restore on another
+  install. The plaintext `VexSign.cloudSigningKey` that earlier builds kept in
+  preferences is denied under both spellings, for installs whose Keychain
+  migration did not complete.
+- Version precedence is decided in one place, `VersionOrder`. Three comparators
+  answered "is this newer?" before, and they disagreed: `AppUpdateChecker` was
+  SemVer-aware, while `DownloadButtonView` had two copies that compared dotted
+  integers and dropped every other component. `"1.1-beta"` therefore compared as
+  `[1]` and lost to `"1.0"`'s `[1, 0]`, so the App Store detail screen showed no
+  update for a beta of a newer version while the Updates list offered that same
+  version as one. The firmware browser's own compare delegates to the same rule.
+- Choosing which installed copy represents a source app now prefers a copy whose
+  version can actually be ordered, instead of letting a later copy with a missing
+  or unparseable version displace one that has it. Equal versions keep the first
+  candidate, which is the signed copy before the imported one.
+- The in-app cloud-signing client now speaks the contract its service documents.
+  `POST /api/upload` takes `kind` as a **query** parameter and exactly one multipart
+  file, and answers `{id,kind,bytes,sha256}`; the app sent `kind` as a form field and
+  decoded `{id,key,size}`, so an upload against a reachable cluster answered 400 and a
+  success could not have been read even then. The request is built by
+  `CloudUploadBody`, which the tests check against the documented shape.
+- Cloud uploads no longer load the archive into memory twice. The body used to be
+  `Data(contentsOf:)` plus a concatenated `Data` copy — up to 4 GiB for the 2 GiB IPA
+  the service accepts. It is now written to a temporary file one 1 MiB chunk at a
+  time, off the main actor, and streamed with `URLSession.upload(for:fromFile:)`;
+  the temporary copy is removed when the request ends.
+- The cloud-signing bearer token is stored in the Keychain instead of
+  `UserDefaults`. The token was kept in plaintext preferences, where it appeared in
+  backups and preference dumps. It is migrated once on first launch and the plaintext
+  copy is removed only after the Keychain write succeeds; a locked Keychain leaves the
+  old value in place and reports why.
+- The install card's status line is resolved from the installation lifecycle as well
+  as the transport. It used to start with `guard case .installing = viewModel.status`,
+  so every other transport status discarded the lifecycle: an OTA install read
+  **Ready** while iOS was showing its own confirmation prompt, and verification was only
+  shown on the one status the OTA path happens to pass through. A single
+  `InstallStatusPresentation` now decides the line, the icon and the number together —
+  a terminal transport answer wins, the lifecycle outranks a transport status that has
+  not caught up, and a timeout reads **Not confirmed** or **Not started** instead of
+  **Ready**. The batch queue line uses the same resolution, a device-proved completion
+  says **Installed** rather than **Completed**, and the progress ring's VoiceOver label
+  follows the same state instead of always saying "Installing".
 - **Re-sign with Last Settings** and **Update All** no longer stop in the
   Customize step after a sign that used one-time tweak files. Files added "just
   for this sign" are staged in the temporary directory, and their paths were

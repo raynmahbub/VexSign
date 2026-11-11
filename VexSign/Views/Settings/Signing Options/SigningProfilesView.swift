@@ -12,7 +12,6 @@ struct SigningProfilesView: View {
 	@ObservedObject private var store = NamedSigningProfileStore.shared
 	@State private var _newName = ""
 	@State private var _isNaming = false
-	@State private var _importer = false
 
 	var body: some View {
 		NBList(.localized("Signing Profiles")) {

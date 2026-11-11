@@ -24,7 +24,6 @@ struct AntiRevokeView: View {
 	@State private var _rulesEndpointInput = ""
 
 	private var _hasProfile: Bool { AntiRevokeManager.shared.profileURL != nil }
-	private var _defaultEndpoint: String { _currentRules.primaryEndpoint }
 
 	// MARK: Body
 	var body: some View {

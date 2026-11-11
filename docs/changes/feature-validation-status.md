@@ -75,8 +75,7 @@ acceptance by completing this documentation step. The five checkpoints added
 
 ## Implementation references (not parallel status records)
 
-- [Historical integration notes](feature-integration-history.md): previous feature
-  scope, caveats and maintenance design details, explicitly archived.
+- [Historical integration notes at `e122b18`](https://github.com/raynmahbub/VexSign/blob/e122b18/docs/changes/feature-integration-history.md): previous feature scope and maintenance design details, retained in Git history.
 - [Recovery and verification design](recovery-and-verification.md): ownership,
   disk estimates, restart recovery and install evidence semantics.
 - [Workflow design and device procedure](workflow-reliability-acceptance.md):

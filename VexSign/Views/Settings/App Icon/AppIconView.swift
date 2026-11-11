@@ -37,8 +37,9 @@ extension AppIconView {
 struct AppIconView: View {
 	@Binding var currentIcon: String?
 
-	// dont translate
-	var sections: [String: [AltIcon]] = [
+	// These names are not translated. Decode icon previews once instead of every
+	// time SwiftUI reconstructs the settings view.
+	private static let sections: [String: [AltIcon]] = [
 		"Main": [
 			AltIcon(displayName: "Liquid Glass", author: "VexSign", key: nil),
 			AltIcon(displayName: "VexSign (macOS)", author: "claration", key: "V2Mac"),
@@ -55,8 +56,8 @@ struct AppIconView: View {
 	// MARK: Body
 	var body: some View {
 		NBList(.localized("App Icon")) {
-			ForEach(sections.keys.sorted(), id: \.self) { section in
-				if let icons = sections[section] {
+			ForEach(Self.sections.keys.sorted(), id: \.self) { section in
+				if let icons = Self.sections[section] {
 					NBSection(section) {
 						ForEach(icons) { icon in
 							_icon(icon: icon)

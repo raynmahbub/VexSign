@@ -15,7 +15,6 @@ struct ConfigurationDictAddView: View {
 	
 	@State private var _newKey = ""
 	@State private var _newValue = ""
-	@State private var _showOverrideAlert = false
 	@State private var _isLibraryPickerPresenting = false
 
 	var saveButtonDisabled: Bool {

@@ -17,7 +17,6 @@ struct SourceAppsDetailView: View {
 	@ObservedObject var downloadManager = DownloadManager.shared
 	@ObservedObject private var appNavigationManager = AppNavigationManager.shared
     @Environment(\.dismiss) private var dismiss
-	@State private var _downloadProgress: Double = 0
 	@State var cancellable: AnyCancellable? // Combine
 	@State private var _isScreenshotPreviewPresented: Bool = false
 	@State private var _selectedScreenshotIndex: Int = 0

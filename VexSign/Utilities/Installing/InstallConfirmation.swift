@@ -80,6 +80,13 @@ struct InstallConfirmation: Equatable, Sendable {
 		/// The device reports the app, at another version. Proven installed, not proven current.
 		case installedOtherVersion(String?)
         /// No installed app was reported by the deadline; not a rejection diagnosis.
+        ///
+        /// The shipping probe cannot produce this verdict. It answers `nil` when it cannot
+        /// tell, and a private API's negative is exactly that — `InstalledAppProbe` never
+        /// reports absence, so the engine reaches `timedOutVerifying` instead. The case is kept
+        /// because the engine's contract allows a probe that *can* assert absence, and because
+        /// deleting it would invite someone to produce it from a filtered negative. Do not do
+        /// that: see `testNoShippingProbeAnswerCanReachNotInstalled`.
 		case notInstalled
 		/// No start was observed before the deadline; the dialog decision is unknown.
 		case timedOutWaiting

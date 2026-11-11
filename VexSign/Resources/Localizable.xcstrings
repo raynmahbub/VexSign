@@ -103855,13 +103855,189 @@
         }
       }
     },
-    "Please confirm the installation request displayed by iOS." : {
+    "Not started" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Please confirm the installation request displayed by iOS."
+            "value" : "Not started"
+          }
+        }
+      }
+    },
+    "Expiration unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiration unknown"
+          }
+        }
+      }
+    },
+    "Interaction Feedback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interaction Feedback"
+          }
+        }
+      }
+    },
+    "Interface sounds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface sounds"
+          }
+        }
+      }
+    },
+    "Off by default. Plays a short cue when a Library card's swipe action is revealed. System sound settings still apply." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. Plays a short cue when a Library card's swipe action is revealed. System sound settings still apply."
+          }
+        }
+      }
+    },
+    "The default style shows the subtitle." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The default style shows the subtitle."
+          }
+        }
+      }
+    },
+    "Your tint is used for navigation, buttons, and highlights throughout the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tint is used for navigation, buttons, and highlights throughout the app."
+          }
+        }
+      }
+    },
+    "Add an optional app source" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an optional app source"
+          }
+        }
+      }
+    },
+    "Browse repositories; local IPA imports do not need a source." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse repositories; local IPA imports do not need a source."
+          }
+        }
+      }
+    },
+    "Certificate selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate selected"
+          }
+        }
+      }
+    },
+    "Check Downloads for status." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Downloads for status."
+          }
+        }
+      }
+    },
+    "Import an IPA, sign it with your certificate, and choose an installation method." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import an IPA, sign it with your certificate, and choose an installation method."
+          }
+        }
+      }
+    },
+    "Matches from your sources" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matches from your sources"
+          }
+        }
+      }
+    },
+    "No updates shown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No updates shown"
+          }
+        }
+      }
+    },
+    "Open Updates to review available matches" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Updates to review available matches"
+          }
+        }
+      }
+    },
+    "Opens the Library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the Library."
+          }
+        }
+      }
+    },
+    "Set up certificates, apps, and optional sources." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up certificates, apps, and optional sources."
           }
         }
       }
@@ -103877,6 +104053,17 @@
         }
       }
     },
+    "Stops preparation before the installation request is handed off." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops preparation before the installation request is handed off."
+          }
+        }
+      }
+    },
     "Waiting for iOS confirmation" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -103884,6 +104071,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for iOS confirmation"
+          }
+        }
+      }
+    },
+    "Please confirm the installation request displayed by iOS." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please confirm the installation request displayed by iOS."
           }
         }
       }
@@ -103899,13 +104097,13 @@
         }
       }
     },
-    "Stops preparation before the installation request is handed off." : {
+    "Installation error" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stops preparation before the installation request is handed off."
+            "value" : "Installation error"
           }
         }
       }
@@ -103921,35 +104119,13 @@
         }
       }
     },
-    "%lld succeeded, %lld failed, %lld not confirmed" : {
+    "Some items are protected or an operation is running." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld succeeded, %lld failed, %lld not confirmed"
-          }
-        }
-      }
-    },
-    "Installation not confirmed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Installation not confirmed"
-          }
-        }
-      }
-    },
-    "Installation error" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Installation error"
+            "value" : "Some items are protected or an operation is running."
           }
         }
       }
@@ -103965,17 +104141,6 @@
         }
       }
     },
-    "Sending installation manifest" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sending installation manifest"
-          }
-        }
-      }
-    },
     "Some areas were not cleaned while an operation is running." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -103987,13 +104152,24 @@
         }
       }
     },
-    "Tweak restore failed: %@. Some earlier backup components or folders may already have been restored." : {
+    "Sending installation manifest" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tweak restore failed: %@. Some earlier backup components or folders may already have been restored."
+            "value" : "Sending installation manifest"
+          }
+        }
+      }
+    },
+    "%lld succeeded, %lld failed, %lld not confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld succeeded, %lld failed, %lld not confirmed"
           }
         }
       }
@@ -104009,13 +104185,24 @@
         }
       }
     },
-    "Some items are protected or an operation is running." : {
+    "Tweak restore failed: %@. Some earlier backup components or folders may already have been restored." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Some items are protected or an operation is running."
+            "value" : "Tweak restore failed: %@. Some earlier backup components or folders may already have been restored."
+          }
+        }
+      }
+    },
+    "Installation not confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation not confirmed"
           }
         }
       }

@@ -105,38 +105,21 @@ struct DownloadButtonView: View {
 			case imported
 		}
 
+		/// Both answers come from the same rule the Updates list uses, so the two screens cannot
+		/// disagree about the same pair of versions. The local copy compared dotted integers and
+		/// dropped anything else, which made `1.1-beta` (parsed as `[1]`) older than `1.0`.
 		var hasUpdate: Bool {
 			guard let currentVersion = version else { return false }
 			guard let sourceVersion = sourceApp.currentVersion else { return false }
 
-			return isNewerVersion(sourceVersion, than: currentVersion)
+			return VersionOrder.isNewer(sourceVersion, than: currentVersion)
 		}
 
 		var isDowngrade: Bool {
 			guard let currentVersion = version else { return false }
 			guard let sourceVersion = sourceApp.currentVersion else { return false }
 
-			return isNewerVersion(currentVersion, than: sourceVersion)
-		}
-
-		private func isNewerVersion(_ new: String, than old: String) -> Bool {
-			let newComponents = new.split(separator: ".").compactMap { Int($0) }
-			let oldComponents = old.split(separator: ".").compactMap { Int($0) }
-
-			let maxCount = max(newComponents.count, oldComponents.count)
-
-			for i in 0..<maxCount {
-				let newValue = i < newComponents.count ? newComponents[i] : 0
-				let oldValue = i < oldComponents.count ? oldComponents[i] : 0
-
-				if newValue > oldValue {
-					return true
-				} else if newValue < oldValue {
-					return false
-				}
-			}
-
-			return false
+			return VersionOrder.isNewer(currentVersion, than: sourceVersion)
 		}
 	}
 
@@ -343,18 +326,6 @@ struct DownloadButtonView: View {
         let appBundleId = app.id ?? ""
         let appNameLower = app.currentName.lowercased()
 
-        func compareVersions(_ lhs: String?, _ rhs: String?) -> Bool {
-            guard let l = lhs, let r = rhs else { return false }
-            let lParts = l.split(separator: ".").compactMap { Int($0) }
-            let rParts = r.split(separator: ".").compactMap { Int($0) }
-            for i in 0..<max(lParts.count, rParts.count) {
-                let lv = i < lParts.count ? lParts[i] : 0
-                let rv = i < rParts.count ? rParts[i] : 0
-                if lv != rv { return lv > rv }
-            }
-            return false
-        }
-
         func identifiersMatch(_ sourceId: String, _ storedId: String?, _ originalId: String?) -> Bool {
             if let originalId = originalId, sourceId == originalId { return true }
             if let storedId = storedId, sourceId == storedId { return true }
@@ -385,7 +356,9 @@ struct DownloadButtonView: View {
             }
         }
 
-        if let best = candidates.max(by: { !compareVersions($0.version, $1.version) }) {
+        // The copy with the highest version that can be ordered wins; a copy with no usable
+        // version never displaces one that has it.
+        if let best = candidates.max(by: { VersionOrder.isOrderedBefore($0.version, $1.version) }) {
             installedApp = InstalledAppInfo(
                 uuid: best.uuid,
                 name: best.name,

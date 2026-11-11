@@ -156,17 +156,11 @@ enum IPSWBrowser {
 	}
 
 	/// Numeric-ish version compare so "18.1" sorts above "17.5.2".
+	///
+	/// Kept as the firmware browser's own name for it, but the ordering itself is `VersionOrder`'s:
+	/// a fourth copy of the same compare is a fourth chance to disagree.
 	static func _versionCompare(_ lhs: String, _ rhs: String) -> Bool {
-		let left = lhs.split(separator: ".").compactMap { Int($0) }
-		let right = rhs.split(separator: ".").compactMap { Int($0) }
-		let count = max(left.count, right.count)
-
-		for index in 0..<count {
-			let l = index < left.count ? left[index] : 0
-			let r = index < right.count ? right[index] : 0
-			if l != r { return l > r }
-		}
-		return false
+		VersionOrder.isNewer(lhs, than: rhs)
 	}
 
 	/// `utsname.machine` is the same identifier the catalog uses ("iPhone15,2").

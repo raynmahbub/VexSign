@@ -49,6 +49,7 @@ struct LibraryCellView: View {
 	var isHighlighted: Bool = false
 	var onSelectMore: (() -> Void)?
     var isIconTile = false
+    var isGridLayout = false
     @State private var confirmDelete = false
     @State private var _isReSigning = false
 	
@@ -147,8 +148,12 @@ struct LibraryCellView: View {
 				selectedInfoAppPresenting = AnyApp(base: app)
 			}
 		}
+		.modifier(LibraryGridSwipeDelete(enabled: isGridLayout && !isEditing) {
+			confirmDelete = true
+		})
 		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			if !isEditing {
+				_actions(for: app)
 				if let update = updateChecker.hasUpdate(for: app), let url = update.downloadURL {
 					Button {
 						_ = DownloadManager.shared.startDownload(
@@ -171,7 +176,6 @@ struct LibraryCellView: View {
 					}
 					.tint(.accentColor)
 				}
-				_actions(for: app)
 			}
 		}
         .swipeActions(edge: .leading, allowsFullSwipe: false) {

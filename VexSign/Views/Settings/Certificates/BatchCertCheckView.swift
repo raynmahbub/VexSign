@@ -13,7 +13,6 @@ import NimbleExtensions
 
 struct BatchCertCheckView: View {
 	@ObservedObject private var _checker = BatchCertChecker.shared
-	@Environment(\.dismiss) private var _dismiss
 
 	@State private var _checkOnline = false
 

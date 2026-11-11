@@ -100,14 +100,14 @@ and work on iOS 17 and later.
 ## Home hierarchy
 
 1. **Greeting and Task Center** — orientation and a way back to work.
-2. **Hero** — certificate readiness and the two primary actions.
-3. **Metrics** — Library, Certificates, Repositories.
-4. **Get started** — only while fewer than three setup steps are complete.
-5. **Quick actions** — Import, Quick Sign, Library, Discover.
-6. **In your workspace** — only when there is an active task, attention item or
-   update.
-7. **Recently added** — real app icons, no placeholder art.
-8. **Workspace tools** — certificates, repositories, companion apps, URL import.
+2. **Updates summary** — currently shown matches, not a guarantee that every source is current.
+3. **Import and URL** — local package import or direct download.
+4. **Hero** — selected certificate information and primary actions.
+5. **Recently added** — real app icons; tapping a card opens the Library.
+6. **In your workspace** — shown for an active task or attention item.
+7. **Metrics** — Library, Certificates, Repositories.
+8. **Get started** — a checklist including optional repository setup.
+9. **Workspace tools** — certificates, repositories and companion apps.
 
 Sections that have nothing to say disappear. An empty dashboard should feel
 short, not broken.
@@ -139,8 +139,7 @@ is layered on top. Semantic state colours stay constant across themes.
 - Cards that act as one control are a single button, not a pile of labels.
 - Progress is announced through the task's title and phase, not colour alone.
 - Text supports Dynamic Type; test at AX3 and with Bold Text.
-- VoiceOver order follows the visual order: header, hero, metrics, actions,
-  status, recents, tools.
+- VoiceOver order follows the visual order described in Home hierarchy.
 - The dashboard remains usable with Reduce Transparency and Increase Contrast.
 
 ## Copy

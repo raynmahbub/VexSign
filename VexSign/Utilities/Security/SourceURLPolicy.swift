@@ -46,6 +46,20 @@ enum SourceURLPolicy {
 	/// Validates a repository URL. Throws `Failure` when the URL is not an
 	/// acceptable source transport.
 	static func validate(_ url: URL) throws {
+		try validateRestorable(url)
+		// The one part of the policy that is about trust rather than shape: plain HTTP is
+		// only acceptable after the user opts in.
+		if url.scheme?.lowercased() == "http", !allowInsecureHTTP { throw Failure.notHTTPS }
+	}
+
+	/// The part of the policy that holds whatever transport the user accepts.
+	///
+	/// Used when reading a repository URL out of a backup archive. A restore is not a new
+	/// trust decision — the user is reinstating a repository they already saved, which is why
+	/// it does not need HTTPS on a LAN — but it is also not a reason to install a `file:` or
+	/// `javascript:` URL as a source, or one with credentials embedded in it. Backups are
+	/// files: they are handed around, copied, and downloaded, so what they name is untrusted.
+	static func validateRestorable(_ url: URL) throws {
 		guard let scheme = url.scheme?.lowercased() else {
 			throw Failure.notHTTPS
 		}
@@ -53,11 +67,8 @@ enum SourceURLPolicy {
 			throw Failure.invalidAuthority
 		}
 		switch scheme {
-		case "https":
+		case "https", "http":
 			return
-		case "http":
-			if allowInsecureHTTP { return }
-			throw Failure.notHTTPS
 		default:
 			throw Failure.unsupportedScheme(scheme)
 		}

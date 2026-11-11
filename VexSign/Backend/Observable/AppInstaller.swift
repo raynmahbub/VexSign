@@ -107,6 +107,7 @@ final class AppInstaller: ObservableObject {
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
 
+
 	init(
 		app: AppInfoPresentable,
 		isSharing: Bool = false,

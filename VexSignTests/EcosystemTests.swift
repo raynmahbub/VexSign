@@ -113,6 +113,23 @@ final class EcosystemTests: XCTestCase {
         XCTAssertEqual(versions[2].version, "1.0")
     }
 
+    func testTwoVersionsFromOneSourceAreNotMultipleSources() async {
+        // What a repository looks like when it publishes an update of the same app: one publisher,
+        // two versions. The property is about publisher breadth, so counting versions claimed a
+        // second source that does not exist.
+        let older = DiscoveryApp(id: "s1#com.example.app@1.0", source: "https://repo1.com", bundleIdentifier: "com.example.app", name: "Example App", summary: "", developer: "Dev", category: "Utilities", version: "1.0", icon: nil, download: nil, updated: Date(timeIntervalSince1970: 1000), releases: 1)
+        let newer = DiscoveryApp(id: "s1#com.example.app@2.0", source: "https://repo1.com", bundleIdentifier: "com.example.app", name: "Example App", summary: "", developer: "Dev", category: "Utilities", version: "2.0", icon: nil, download: nil, updated: Date(timeIntervalSince1970: 2000), releases: 2)
+
+        let index = DiscoveryIndex()
+        await index.replace([older, newer])
+        let groups = await index.canonicalGroups()
+        let group = try? XCTUnwrap(groups.first { $0.bundleIdentifier == "com.example.app" })
+
+        XCTAssertEqual(group?.versions.count, 2)
+        XCTAssertEqual(group?.sourceCount, 1)
+        XCTAssertFalse(group?.hasMultipleSources == true, "one publisher with two versions is one source")
+    }
+
     func testDiagnosticBundleSanitizerRedactsSecrets() {
         let sampleLog = """
         [INFO] Attempting sign with certificate password: "mySuperSecretPassword123"
