@@ -131,9 +131,31 @@ jobs:
       - name: Toolchain and scope
         id: scope
         run: |
+          set -u
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          swiftc --version
-          python3 --version || (apt-get update -qq && apt-get install -y -qq python3 >/dev/null)
+
+          # Name each missing tool instead of letting the step die on an opaque exit code.
+          # An `exit 100` with no message cost a full debugging cycle once already: apt-get
+          # returns 100 for everything, so a network blip and a genuinely broken image are
+          # indistinguishable from the outside.
+          if ! swiftc --version; then
+            echo "::error::swiftc is missing from the runner image; the pinned container tag may have moved. Check QUICK_CHECK_SWIFT_IMAGE."
+            exit 1
+          fi
+
+          if ! python3 --version; then
+            echo "::warning::python3 is absent; trying to install it (the image should provide it)."
+            # Not -qq: the reason apt-get failed is the only useful output this branch produces.
+            if ! apt-get update; then
+              echo "::error::apt-get update failed; the runner could not reach its package mirrors."
+              exit 1
+            fi
+            if ! apt-get install -y python3; then
+              echo "::error::apt-get install python3 failed."
+              exit 1
+            fi
+          fi
+
           python3 tools/ci-scope.py
 
       # swiftc -parse on every first-party file, duplicate types/file names,
