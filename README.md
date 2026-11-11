@@ -176,7 +176,7 @@ For detailed feature boundaries, security caveats and remaining device/release t
 </details>
 
 For upstream changes and porting considerations, see the
-[dated upstream feature review](docs/UPSTREAM_REVIEW.md).
+[upstream integration assessment](docs/research/public-signer-integration-assessment.md).
 
 ## Download
 

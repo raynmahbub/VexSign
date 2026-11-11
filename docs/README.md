@@ -28,12 +28,14 @@ versioned with the code.
 
 | Guide | Use it when |
 | --- | --- |
-| [Current validation status](changes/feature-validation-status.md) | You need the authoritative source-pinned implementation, portable, Apple and device acceptance record. |
+| [Validation status](changes/feature-validation-status.md) | You need the source-pinned implementation and acceptance record for the changes it covers. |
+| [Streaming backup format](changes/backup-streaming-format.md) | You need backup container framing, compatibility and limits. |
+| [Signing code audit](changes/signing-code-audit.md) | You need the signing review's scope and device handoff. |
 | [Device acceptance](DEVICE_TESTING.md) | You are validating installation on a physical iPhone/iPad. |
 | [Releasing](RELEASING.md) | You are cutting a stable tag, using the nightly pre-release or running a build-only dispatch. |
 | [Maintenance](MAINTENANCE.md) | You are reviewing dependency updates, automated issues or repository hygiene. |
 | [CI repair assistant](CI_REPAIR_ASSISTANT.md) | You are configuring or reviewing AI-proposed draft PRs for failed CI. |
-| [Upstream review](UPSTREAM_REVIEW.md) | You want the dated upstream feature snapshot and porting caveats—not a list of shipped VexSign features. |
+| [Signer file audit](research/signer-file-audit-2026-11.md) | You need the current in-progress source inventory and file-level review. |
 | [Performance and reliability comparison](research/performance-and-reliability-review.md) | You need the 17-project comparison, implemented fixes, remaining gaps, workflow review scope and device checklist. |
 | [Public signer integration assessment](research/public-signer-integration-assessment.md) | You need the 2026-11-08 pinned source inventory, feature dispositions, first integration batch and remaining gates. |
 | [Signing comparison notes](research/public-signer-comparison.md) | You need the concise public-source comparison, reviewed revisions and licensing context. |
@@ -69,6 +71,10 @@ release and security details have different audiences and need precise caveats;
 collapsing them would hide important limits. Use this index instead of duplicating
 instructions. Update the existing authoritative guide before adding a new one.
 Keep legal/security/community files at the root for GitHub discoverability.
+
+Older integration and upstream snapshots removed from the working tree remain
+available in [Git history at `e122b18`](https://github.com/raynmahbub/VexSign/tree/e122b187e30da2b508fff5588f0919a5f9cfaedf/docs).
+Their historical validation results do not establish acceptance of later builds.
 
 Run `make docs-check` for offline file-link validation. It does not check remote
 URLs, heading anchors or claims about feature behaviour.

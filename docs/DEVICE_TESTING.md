@@ -62,6 +62,21 @@ validates them — so keep what you observe with the report, for example in the
 notes of the closest check above (`import_sign_verify`, `installed_version`,
 `cancel_and_timeout`). This repository records no result for any of them.
 
+### Signing, installation and branding regression checks (pending)
+
+- Test sign-only, modify-only and sign-and-install with valid, missing, expired
+  and incompatible identities. Verify what was actually registered or installed.
+- Stop during preparation, native signing and verification; check retry,
+  same-app duplicate requests, unrelated concurrent work and cleanup. Native
+  signing cancellation is cooperative, not a forced interruption.
+- Exercise export, batch, background/foreground, low storage, first install,
+  update, rejected install, cancellation and Skip/Retry races. Do not treat an
+  unconfirmed install as success.
+- Change the app icon and check the Home Screen and in-app branding after relaunch.
+  The static launch artwork cannot follow a runtime icon preference.
+
+No result has been recorded for these checks.
+
 ### Library swipe-to-delete (pending)
 
 On a test device, try left and right swipes on signed and imported apps in compact
