@@ -154,10 +154,13 @@ jobs:
           if ! python3 --version; then
             echo "No interpreter in the image; installing python3."
             rm -rf /var/lib/apt/lists/*
-            if ! apt-get update || ! apt-get install -y python3; then
-              echo "::error::Could not install python3. If apt-get update succeeded but the package is unlocatable, the container's apt index does not match its base; re-pin the swift image."
-              exit 1
-            fi
+            apt-get update 2>&1 | tail -n 20
+            echo "--- sources ---"; cat /etc/apt/sources.list 2>/dev/null | grep -v '^#' | grep . | head -10
+            find /etc/apt/sources.list.d -type f 2>/dev/null | head -5 | xargs -r grep -h . 2>/dev/null | head -12
+            echo "--- candidates ---"; apt-cache policy python3 2>&1 | head -8
+            echo "--- packages.d? ---"; ls /var/lib/apt/lists/ 2>&1 | head -8
+            apt-get install -y python3 2>&1 | tail -n 20 || true
+            python3 --version || { echo "::error::python3 is unavailable in this container and cannot be installed from its configured sources."; exit 1; }
           fi
 
           python3 tools/ci-scope.py
