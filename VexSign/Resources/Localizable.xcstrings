@@ -95616,17 +95616,6 @@
         }
       }
     },
-    "3 apps / 7 days · Weekly refresh" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3 apps / 7 days · Weekly refresh"
-          }
-        }
-      }
-    },
     "3. Review" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -104511,6 +104500,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The signing identity cannot be used."
+          }
+        }
+      }
+    },
+    "3 apps / 7 days · Renew by hand each week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 apps / 7 days · Renew by hand each week"
           }
         }
       }

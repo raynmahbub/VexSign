@@ -11,6 +11,21 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
+- Free Apple ID and paid-certificate signing no longer share wording that implies
+  the wrong one runs. `SigningMethod.shortDescription` said **Weekly refresh**
+  for Free Apple ID, and the method picker renders that string: it promised an
+  automatic renewal that does not exist in this build. It now says **Renew by
+  hand each week**. The unused `supportsAutoRefresh` property is gone — it
+  answered `true` for Free Apple ID with nothing behind it.
+- Two internal names described work the app does not do. `NativeSigningManager`
+  exposed `renewExpiringProfiles()` and `BackgroundAutomation` a scheduled
+  `renewFreeAppleIDProfiles()` step; both only refetched the list of profiles
+  close to expiry, and the scheduled step's doc comment claimed it "renews them".
+  They are now `refreshRenewalCandidates()` and
+  `trackExpiringFreeAppleIDProfiles()`, and the comments say renewal is manual
+  and needs an explicit grant this build does not have. No behaviour changed.
+  `tools/check-native-handoff.py` fails if either name, or the "Weekly refresh"
+  copy, comes back.
 - `DownloadManager` is split along a boundary it already had. Network policy and
   the transfer lifecycle — pausing, cancelling, resuming, and finishing a
   download when its task ends — moved to `DownloadManager+TransferControl.swift`,

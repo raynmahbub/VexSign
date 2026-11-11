@@ -97,7 +97,52 @@ if not native_integrated and not says_not_enabled:
         "capability is still .notIntegrated; update both in the same change"
     )
 
-# 5. The design note is the reason the gate is closed; it must not go stale.
+# 5. Nothing may claim that renewal happens. The identity split is only honest if
+#    the free-Apple-ID side stops at "here is what is expiring".
+#
+#    `NativeSigningManager` used to expose `renewExpiringProfiles()` and
+#    `BackgroundAutomation` a `renewFreeAppleIDProfiles()` step. Both only refreshed
+#    a candidate list. The names are the hazard: a maintainer reads a scheduled
+#    "renew" step, assumes renewal ships, and later reports it as working.
+RENEWAL_CLAIMS = {
+    "VexSign/Backend/Services/NativeSigningManager.swift": MANAGER,
+    "VexSign/Backend/Observable/BackgroundAutomation.swift":
+        ROOT / "VexSign" / "Backend" / "Observable" / "BackgroundAutomation.swift",
+    "VexSign/Backend/Services/SigningMethod.swift":
+        ROOT / "VexSign" / "Backend" / "Services" / "SigningMethod.swift",
+}
+#    Only real code counts. The explanations of *why* the claims were removed name the
+#    old spellings on purpose, so full-line comments are stripped before matching.
+def code_only(text: str) -> str:
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith(("//", "///"))
+    )
+
+
+for label, path in RENEWAL_CLAIMS.items():
+    text = read(path)
+    if not text:
+        continue
+    body = code_only(text)
+    for bad in ("func renewExpiringProfiles", "func renewFreeAppleIDProfiles"):
+        if bad in body:
+            problems.append(
+                f"{label}: `{bad}` is back; it only refreshes a candidate list, so the "
+                "name overstates what runs. Keep the refresh verb."
+            )
+    if "supportsAutoRefresh" in body:
+        problems.append(
+            f"{label}: `supportsAutoRefresh` is back; nothing in this build refreshes a "
+            "free-Apple-ID profile automatically, so the property is an unbacked claim."
+        )
+    if "Weekly refresh" in body:
+        problems.append(
+            f"{label}: the Free Apple ID copy advertises \"Weekly refresh\", but renewal "
+            "is manual in this build; the method picker would promise an automatic "
+            "capability that does not exist."
+        )
+
+# 6. The design note is the reason the gate is closed; it must not go stale.
 if doc and "Status: not implemented" in doc and native_integrated:
     problems.append("docs/NATIVE_SIGNING_HANDOFF.md says not implemented while the capability claims .implemented")
 
