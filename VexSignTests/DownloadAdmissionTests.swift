@@ -74,6 +74,35 @@ final class DownloadAdmissionTests: XCTestCase {
         }
     }
 
+    /// Characterization for the split of `DownloadManager.swift`.
+    ///
+    /// The transfer-control members now live in `DownloadManager+TransferControl.swift`.
+    /// A split is only safe if the behaviour is unchanged, and the tests above already
+    /// exercise `reconcileNetworkPolicy`, `pauseDownload` and `drainNetworkQueue` through
+    /// the real type — so they cover the moved bodies without knowing where they live.
+    /// What they cannot see is a member quietly going missing, so that is what is pinned.
+    @MainActor
+    func testTransferControlMembersAreStillReachable() {
+        let manager = DownloadManager(configureServices: false)
+        let download = Download(id: "split-check", url: url(1))
+        manager.downloads.append(download)
+
+        // Every member the split moved, called once so a missing one fails to compile.
+        XCTAssertEqual(manager.getDownload(by: "split-check")?.id, "split-check")
+        XCTAssertEqual(manager.getDownloadIndex(by: "split-check"), 0)
+        XCTAssertNil(manager.getDownload(by: "absent"))
+        // `isManualDownload` is a substring test, not a lookup: a manual download is
+        // identified by its id carrying this marker.
+        XCTAssertFalse(manager.isManualDownload("split-check"))
+        XCTAssertTrue(manager.isManualDownload("VexSignManualDownload-1"))
+        XCTAssertEqual(manager.nonManualDownloads.count, manager.downloads.count)
+        manager.reconcileNetworkPolicy(allowed: false)
+        manager.drainNetworkQueue()
+        manager.pauseDownload(download)
+        manager.cancelDownload(download)
+        manager.cancelAllDownloads()
+    }
+
     private func url(_ index: Int) -> URL { URL(string: "https://example.invalid/\(index).ipa")! }
 
     @MainActor
