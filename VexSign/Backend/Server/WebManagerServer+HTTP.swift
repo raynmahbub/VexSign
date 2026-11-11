@@ -71,7 +71,9 @@ extension WebManagerServer {
 			guard let self else {
 				return req.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
 			}
-			let name = self.sanitizedFilename(req.parameters.get("name") ?? "upload.bin")
+			guard let name = self.sanitizedFilename(req.parameters.get("name") ?? "upload.bin") else {
+				return req.eventLoop.makeSucceededFuture(Response(status: .badRequest))
+			}
 			let destination = self.inbox.appendingPathComponent(name)
 			return self.streamToFile(req, destination: destination, route: true, successStatus: .ok)
 		}
@@ -82,18 +84,23 @@ extension WebManagerServer {
 		}
 
 		app.get("download", ":name") { [weak self] req async throws -> Response in
-			guard let self, let raw = req.parameters.get("name") else { return Response(status: .badRequest) }
-			let url = self.inbox.appendingPathComponent(self.sanitizedFilename(raw))
+			guard let self, let raw = req.parameters.get("name"),
+				let name = self.sanitizedFilename(raw) else { return Response(status: .badRequest) }
+			let url = self.inbox.appendingPathComponent(name)
 			guard FileManager.default.fileExists(atPath: url.path) else { return Response(status: .notFound) }
 			let response = try await req.fileio.asyncStreamFile(at: url.path)
-			response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(url.lastPathComponent)\"")
+			response.headers.replaceOrAdd(name: .contentDisposition, value: WebManagerFilenamePolicy.contentDisposition(filename: name))
 			return response
 		}
 
 		app.on(.DELETE, "api", "files", ":name") { [weak self] req -> Response in
-			guard let self, let raw = req.parameters.get("name") else { return Response(status: .badRequest) }
-			try? FileManager.default.removeItem(at: self.inbox.appendingPathComponent(self.sanitizedFilename(raw))) // try? ok: best-effort removal of a partial upload; the upload failure is what the client is told
-			return Response(status: .noContent)
+			guard let self, let raw = req.parameters.get("name"),
+				let name = self.sanitizedFilename(raw) else { return Response(status: .badRequest) }
+			switch WebManagerDeletion.delete(self.inbox.appendingPathComponent(name)) {
+			case .removed: return Response(status: .noContent)
+			case .missing: return Response(status: .notFound)
+			case .failed: return Response(status: .conflict)
+			}
 		}
 
 		_configureCertificates(app)

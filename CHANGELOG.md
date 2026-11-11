@@ -61,6 +61,16 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Web Manager and WebDAV deletion report a conflict when removal fails, and
+  not found for a missing item, instead of always reporting success. WebDAV
+  also recognizes normalized aliases of the inbox root before deleting.
+- Web Manager upload, download and inbox deletion reject filenames that resolve
+  to `.` or `..`, or contain control characters, rather than treating them as
+  file names. Download response filenames are escaped as quoted HTTP parameters.
+- WebDAV MOVE and COPY reject transfers involving the inbox root or overlapping
+  source and destination paths before deleting an existing destination. This
+  prevents a same-path or parent-directory overwrite from deleting the source.
+  A failed destination removal now returns a conflict instead of being ignored.
 - A backup archive is treated as untrusted input when it is opened. Its
   certificate identifiers are used as directory names on both sides of a restore
   (`certs/<uuid>` inside the archive, `Certificates/<uuid>` in the app

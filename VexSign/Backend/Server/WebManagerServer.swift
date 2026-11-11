@@ -356,11 +356,8 @@ final class WebManagerServer {
 		return url
 	}
 
-	func sanitizedFilename(_ name: String) -> String {
-		let decoded = name.removingPercentEncoding ?? name
-		let last = (decoded as NSString).lastPathComponent
-		let cleaned = last.replacingOccurrences(of: "/", with: "_")
-		return cleaned.isEmpty ? "upload-\(UUID().uuidString).bin" : cleaned
+	func sanitizedFilename(_ name: String) -> String? {
+		WebManagerFilenamePolicy.filename(name)
 	}
 
 	/// Streams a request body to a file, then optionally routes + reports it.
