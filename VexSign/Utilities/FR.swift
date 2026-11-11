@@ -26,6 +26,19 @@ enum FR {
                 guard download == nil else { return nil }
                 return UnifiedTaskCenter.shared.begin(kind: .importIPA, title: .localized("Import IPA"), phase: .importing)
             }
+            let workLease: AppOperationRegistry.Lease
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            catch {
+                await MainActor.run {
+                    if let importRecord {
+                        importRecord.context?.recordFailure(error)
+                        UnifiedTaskCenter.shared.transition(importRecord, to: .failed, error: error.localizedDescription)
+                    }
+                    completion(.failure(error))
+                }
+                return
+            }
+            defer { withExtendedLifetime(workLease) {} }
             let scoped = ipa.startAccessingSecurityScopedResource()
             defer { if scoped { ipa.stopAccessingSecurityScopedResource() } }
             let handler = AppFileHandler(file: ipa, download: download)

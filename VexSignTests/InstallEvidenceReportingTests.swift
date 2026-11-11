@@ -17,6 +17,8 @@
 //
 
 import Foundation
+import IDeviceSwift
+import NimbleExtensions
 import XCTest
 @testable import VexSign
 
@@ -118,7 +120,7 @@ final class InstallEvidenceReportingTests: XCTestCase {
 	}
 
 	func testUnconfirmedDoesNotRecordAFailureStage() {
-		let task = UnifiedTask(kind: .install, title: "Fixture")
+		let task = UnifiedTask(kind: .install, title: "Fixture", phase: .installing)
 		_ = task.move(to: .verifying, at: start)
 		_ = task.move(to: .unconfirmed, at: start.addingTimeInterval(35))
 		XCTAssertNil(task.failureStage, "nothing failed; the stage is not a failure stage")
@@ -126,9 +128,138 @@ final class InstallEvidenceReportingTests: XCTestCase {
 	}
 
 	func testAFailedInstallStillRecordsItsStage() {
-		let task = UnifiedTask(kind: .install, title: "Fixture")
+		let task = UnifiedTask(kind: .install, title: "Fixture", phase: .installing)
 		_ = task.move(to: .verifying, at: start)
 		_ = task.move(to: .failed, at: start.addingTimeInterval(35))
 		XCTAssertEqual(task.failureStage, .verifying)
 	}
+}
+
+extension InstallEvidenceReportingTests {
+    func testSupportedInventoryUnavailableNeverClaimsPresence() {
+        XCTAssertNil(UnavailableInstallationProbe().installedApp(for: "com.example.app"))
+    }
+
+    func testPersistedHandoffRecoversAsUnconfirmed() throws {
+        let task = UnifiedTask(kind: .install, title: "Example", phase: .waitingForIOS)
+        task.context?.expectedBundleIdentifier = "com.example.app"
+        task.context?.artifactID = "signed-artifact"
+        task.context?.handoffAt = Date(timeIntervalSince1970: 100)
+        task.context?.monitoringActive = true
+        let data = try JSONEncoder().encode(task.snapshot)
+        let snapshot = try JSONDecoder().decode(UnifiedTask.Snapshot.self, from: data)
+        let recovered = UnifiedTask.from(snapshot)
+        recovered.recoverAfterRestart(at: Date(timeIntervalSince1970: 200))
+        XCTAssertEqual(recovered.phase, .unconfirmed)
+        XCTAssertEqual(recovered.context?.expectedBundleIdentifier, "com.example.app")
+        XCTAssertEqual(recovered.context?.artifactID, "signed-artifact")
+        XCTAssertEqual(recovered.context?.monitoringActive, false)
+        XCTAssertEqual(recovered.context?.confirmationReason, "process-exit-installation-unconfirmed")
+    }
+
+    func testInstallationTransitionsDoNotMoveBackwards() {
+        XCTAssertTrue(UnifiedTaskPhase.queued.canTransition(to: .preparingInstallation, kind: .install))
+        XCTAssertTrue(UnifiedTaskPhase.preparingInstallation.canTransition(to: .waitingForIOS, kind: .install))
+        XCTAssertTrue(UnifiedTaskPhase.waitingForIOS.canTransition(to: .installing, kind: .install))
+        XCTAssertFalse(UnifiedTaskPhase.installing.canTransition(to: .waitingForIOS, kind: .install))
+        XCTAssertFalse(UnifiedTaskPhase.queued.canTransition(to: .completed, kind: .install))
+        XCTAssertFalse(UnifiedTaskPhase.verifying.canTransition(to: .installing, kind: .install))
+    }
+
+    func testUnconfirmedCannotBecomeSuccessFromLateCallback() {
+        let task = UnifiedTask(kind: .install, title: "Example", phase: .waitingForIOS)
+        XCTAssertTrue(task.move(to: .unconfirmed))
+        XCTAssertFalse(task.move(to: .completed))
+        XCTAssertEqual(task.phase, .unconfirmed)
+    }
+
+    @MainActor
+    func testHandoffTimeoutIsNeitherCancellationNorFailure() {
+        XCTAssertEqual(InstallQueue.FailureKind.resolve(
+            error: InstallConfirmation.Failure(verdict: .timedOutWaiting), needsTrust: false), .unconfirmed)
+        XCTAssertFalse(InstallConfirmation.Verdict.timedOutWaiting.provesInstalled)
+    }
+}
+
+
+extension InstallEvidenceReportingTests {
+    private func presentation(
+        _ status: InstallerStatusViewModel.InstallerStatus,
+        _ phase: InstallConfirmation.Phase = .waitingForStart,
+        taskPhase: UnifiedTaskPhase? = nil,
+        isExport: Bool = false
+    ) -> InstallPresentation {
+        InstallPresentation.resolve(status: status, phase: phase, taskPhase: taskPhase, isExport: isExport)
+    }
+
+    func testReadyAndWaitingShowConfirmationWithoutSuccessIcon() {
+        let state = presentation(.ready)
+        XCTAssertEqual(state, .awaitingConfirmation)
+        XCTAssertEqual(state.label(), String.localized("Waiting for iOS confirmation"))
+        XCTAssertEqual(state.accessibilityLabel, String.localized("Waiting for iOS confirmation"))
+        XCTAssertNotEqual(state.symbol, InstallPresentation.installed.symbol)
+        XCTAssertFalse(state.isTerminal)
+    }
+
+    func testManifestAndWaitingTaskShowActualHandoff() {
+        XCTAssertEqual(presentation(.none), .preparing)
+        XCTAssertEqual(presentation(.sendingManifest), .sendingManifest)
+        XCTAssertEqual(presentation(.sendingManifest, taskPhase: .waitingForIOS), .awaitingConfirmation)
+        XCTAssertEqual(presentation(.sendingPayload, taskPhase: .waitingForIOS), .installing)
+        XCTAssertEqual(presentation(.sendingPayload, .downloading), .installing)
+    }
+
+    func testVerificationHasSeparateTextIconAndAccessibility() {
+        let state = presentation(.installing, .verifying)
+        XCTAssertEqual(state, .verifying)
+        XCTAssertEqual(state.label(), String.localized("Verifying installation"))
+        XCTAssertEqual(state.accessibilityLabel, String.localized("Verifying installation"))
+        XCTAssertNotEqual(state.symbol, InstallPresentation.installed.symbol)
+        XCTAssertEqual(state.label(verificationAttempt: 2), InstallVerificationPolicy.statusLabel(attempt: 2))
+    }
+
+    func testTransportSuccessAloneNeverMeansInstalled() {
+        XCTAssertEqual(presentation(.completed(.success(()))), .verifying)
+        XCTAssertEqual(presentation(.completed(.success(())), .verifying), .verifying)
+        let verified = presentation(.completed(.success(())), .finished(.installed))
+        XCTAssertEqual(verified, .installed)
+        XCTAssertEqual(verified.label(), String.localized("Installed"))
+        XCTAssertEqual(verified.accessibilityLabel, String.localized("Installation completed"))
+        XCTAssertEqual(presentation(.completed(.success(())), isExport: true), .operationCompleted)
+    }
+
+    func testTaskTitleOnlyClaimsInstalledWithConfirmationEvidence() {
+        let task = UnifiedTask(kind: .install, title: "App", phase: .completed)
+        XCTAssertEqual(task.displayPhaseTitle, UnifiedTaskPhase.completed.title)
+        task.context?.confirmationReason = "native-installation-completed"
+        XCTAssertEqual(task.displayPhaseTitle, String.localized("Installed"))
+    }
+
+    func testTimeoutFailureAndAccessibilityNeverInventSuccess() {
+        let notConfirmed = presentation(.ready, .finished(.timedOutWaiting))
+        XCTAssertEqual(notConfirmed, .unconfirmed)
+        XCTAssertEqual(notConfirmed.accessibilityLabel, String.localized("Installation not confirmed"))
+        XCTAssertFalse(InstallConfirmation.Verdict.timedOutWaiting.provesInstalled)
+        let failure = presentation(.broken(NSError(domain: "test", code: 1)), .verifying)
+        XCTAssertEqual(failure, .failed)
+        XCTAssertEqual(failure.accessibilityLabel, String.localized("Installation failed"))
+        XCTAssertEqual(presentation(.installing, taskPhase: .unconfirmed), .unconfirmed)
+        XCTAssertEqual(presentation(.completed(.success(())), .finished(.installed), taskPhase: .unconfirmed), .unconfirmed)
+    }
+
+    @MainActor
+    func testLateTransportCannotReplaceConfirmedCompletionPresentation() {
+        let model = InstallerStatusViewModel(status: .installing)
+        AppInstaller.Outcome.installed.publishConfirmedCompletion(to: model)
+        model.updateTransportStatus(.sendingPayload)
+        XCTAssertEqual(presentation(model.status, .finished(.installed)), .installed)
+        XCTAssertTrue(model.isCompleted)
+    }
+
+    @MainActor
+    func testStoppingMonitoringAfterHandoffDoesNotImplyCancellation() {
+        XCTAssertEqual(InstallQueue.phaseAfterStoppingMonitoring(hasHandedOff: true), .unconfirmed)
+        XCTAssertEqual(InstallQueue.phaseAfterStoppingMonitoring(hasHandedOff: false), .cancelled)
+        XCTAssertEqual(presentation(.ready, taskPhase: .unconfirmed), .unconfirmed)
+    }
 }

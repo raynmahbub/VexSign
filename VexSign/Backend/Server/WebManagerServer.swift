@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Darwin
 import Vapor
 import OSLog
 
@@ -119,64 +120,161 @@ enum WebManagerRouter {
 		}
 	}
 
-	static func route(_ url: URL) {
-		let dest = destination(for: url)
-		Task { @MainActor in
-			switch dest {
-			case .library:
-				FR.handlePackageFile(url) { result in
-					if case .failure(let error) = result {
-						Logger.misc.error("Transfer import failed: \(error.localizedDescription)")
-					}
-					try? FileManager.default.removeItem(at: url) // try? ok: cleanup after a reported import failure
-				}
-			case .tweaks:
-				if url.pathExtension.lowercased() == "zip" {
-					_routeZip(url)
-				} else {
-					_ = TweakManager.shared.addTweak(
-						name: url.deletingPathExtension().lastPathComponent,
-						from: url
-					)
-					try? FileManager.default.removeItem(at: url) // try? ok: cleanup after a reported import failure
-				}
-			case .inbox:
-				break
-			}
-		}
-	}
+    /// `lease` spans staging and the asynchronous importer. WebDAV copies own
+    /// only their scratch directory; an inbox transfer is removed only on success.
+    static func route(_ url: URL, lease: AppOperationRegistry.Lease, stagedDirectory: URL? = nil) {
+        let dest = destination(for: url)
+        Task { @MainActor in
+            switch dest {
+            case .library:
+                FR.handlePackageFile(url) { result in
+                    defer { withExtendedLifetime(lease) {} }
+                    switch result {
+                    case .success:
+                        finish(url, stagedDirectory: stagedDirectory)
+                    case .failure(let error):
+                        Logger.misc.error("Transfer import failed; original retained: \(error.localizedDescription)")
+                        finish(url, stagedDirectory: stagedDirectory)
+                    }
+                }
+            case .tweaks:
+                if url.pathExtension.lowercased() == "zip" {
+                    routeZip(url, lease: lease, stagedDirectory: stagedDirectory)
+                } else {
+                    defer { withExtendedLifetime(lease) {} }
+                    let imported = TweakManager.shared.addTweak(
+                        name: url.deletingPathExtension().lastPathComponent, from: url) != nil
+                    if !imported { Logger.misc.error("Tweak transfer import failed; original retained.") }
+                    finish(url, stagedDirectory: stagedDirectory)
+                }
+            case .inbox:
+                withExtendedLifetime(lease) {}
+            }
+        }
+    }
 
-	/// Imports injectables from a .zip; leaves it in the inbox if none found.
-	@MainActor
-	private static func _routeZip(_ url: URL) {
-		Task {
-			do {
-				let result = try await TweakExtractor.extract(fromZip: url)
-				// Skip artifacts inside a packaged app, else a zipped .app dumps its own frameworks in.
-				let injectables = result.candidates.filter { !$0.url.path.contains(".app/") }
-				await MainActor.run {
-					var added = 0
-					for candidate in injectables {
-						if TweakManager.shared.addTweak(
-							name: candidate.url.deletingPathExtension().lastPathComponent,
-							from: candidate.url
-						) != nil {
-							added += 1
-						}
-					}
-					try? FileManager.default.removeItem(at: result.workDir) // try? ok: the work directory is scratch space; CleanupManager sweeps whatever survives
-					if added > 0 {
-						try? FileManager.default.removeItem(at: url) // try? ok: cleanup after a reported import failure
-						Logger.misc.info("Imported \(added) tweak(s) from \(url.lastPathComponent)")
-					} else {
-						Logger.misc.info("No tweaks found in \(url.lastPathComponent); left in inbox")
-					}
-				}
-			} catch {
-				Logger.misc.error("Zip tweak import failed: \(error.localizedDescription)")
-			}
-		}
-	}
+    static func finish(_ url: URL, stagedDirectory: URL?) {
+        // The inbox is user-owned; even a successful import is not permission
+        // to delete a possibly replaced original. Only discard our staged copy.
+        guard let target = stagedDirectory,
+              url.deletingLastPathComponent().standardizedFileURL == target.standardizedFileURL else { return }
+        do { try FileManager.default.removeItem(at: target) }
+        catch { Logger.misc.error("Transfer cleanup failed: \(error.localizedDescription)") }
+    }
+
+    @MainActor
+    private static func routeZip(_ url: URL, lease: AppOperationRegistry.Lease, stagedDirectory: URL?) {
+        Task {
+            defer { withExtendedLifetime(lease) {} }
+            do {
+                let result = try await TweakExtractor.extract(fromZip: url)
+                let injectables = result.candidates.filter { !$0.url.path.contains(".app/") }
+                var added = 0
+                for candidate in injectables {
+                    if TweakManager.shared.addTweak(
+                        name: candidate.url.deletingPathExtension().lastPathComponent,
+                        from: candidate.url) != nil { added += 1 }
+                }
+                do { try FileManager.default.removeItem(at: result.workDir) }
+                catch { Logger.misc.error("Tweak extraction cleanup failed: \(error.localizedDescription)") }
+                finish(url, stagedDirectory: stagedDirectory)
+                if added > 0 {
+                    Logger.misc.info("Imported \(added) tweak(s) from \(url.lastPathComponent)")
+                } else {
+                    Logger.misc.info("No tweaks found in \(url.lastPathComponent); original retained")
+                }
+            } catch {
+                finish(url, stagedDirectory: stagedDirectory)
+                Logger.misc.error("Zip tweak import failed; original retained: \(error.localizedDescription)")
+            }
+        }
+    }
+
+}
+
+enum WebManagerFileTransaction {
+    static func rename(_ source: URL, _ destination: URL) throws {
+        let result = source.path.withCString { old in
+            destination.path.withCString { new in Darwin.rename(old, new) }
+        }
+        if result != 0 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
+    }
+
+    /// Copies into a private sibling directory before atomic publication. A move
+    /// renames directly. Unsupported replacement (e.g. a nonempty directory)
+    /// fails without removing either side.
+    static func transfer(_ source: URL, to destination: URL, move: Bool,
+                         copy: (URL, URL) throws -> Void = { try FileManager.default.copyItem(at: $0, to: $1) },
+                         publish: (URL, URL) throws -> Void = WebManagerFileTransaction.rename) throws {
+        let from = source.standardizedFileURL.path
+        let to = destination.standardizedFileURL.path
+        guard from != to, !to.hasPrefix(from + "/") else { throw CocoaError(.fileWriteInvalidFileName) }
+        if move {
+            try publish(source, destination)
+            return
+        }
+        let fm = FileManager.default
+        let staging = destination.deletingLastPathComponent().appendingPathComponent(".vexcopy-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: staging, withIntermediateDirectories: false)
+        defer {
+            do { try fm.removeItem(at: staging) }
+            catch { Logger.misc.error("WebDAV copy cleanup failed: \(error.localizedDescription)") }
+        }
+        let prepared = staging.appendingPathComponent("item")
+        try copy(source, prepared)
+        try publish(prepared, destination)
+    }
+}
+
+/// A streamed upload is written beside its destination and atomically renamed
+/// only after all bytes have been written and closed. Abort never touches the
+/// existing destination. The drain callback serializes access on its event loop.
+final class WebManagerUploadFile {
+    private let destination: URL
+    private let temporary: URL
+    private var handle: FileHandle?
+    private var committed = false
+    private var ownsTemporary = false
+    private let replace: (URL, URL) throws -> Void
+
+    init(destination: URL, replace: @escaping (URL, URL) throws -> Void = WebManagerFileTransaction.rename) throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        self.destination = destination
+        self.temporary = destination.deletingLastPathComponent().appendingPathComponent(".vexupload-\(UUID().uuidString).partial")
+        self.replace = replace
+        let descriptor = temporary.path.withCString { Darwin.open($0, O_CREAT | O_EXCL | O_WRONLY, mode_t(0o600)) }
+        guard descriptor >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
+        self.handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        self.ownsTemporary = true
+    }
+
+    func write(_ data: Data) throws {
+        guard let handle, !committed else { throw CocoaError(.fileWriteUnknown) }
+        try handle.write(contentsOf: data)
+    }
+
+    func commit() throws {
+        guard let handle, !committed else { throw CocoaError(.fileWriteUnknown) }
+        try handle.synchronize()
+        try handle.close()
+        self.handle = nil
+        try replace(temporary, destination)
+        committed = true
+    }
+
+    func abort() {
+        if let handle {
+            do { try handle.close() }
+            catch { Logger.misc.error("Web upload close failed: \(error.localizedDescription)") }
+            self.handle = nil
+        }
+        guard ownsTemporary, !committed, FileManager.default.fileExists(atPath: temporary.path) else { return }
+        do { try FileManager.default.removeItem(at: temporary) }
+        catch { Logger.misc.error("Web upload staging cleanup failed: \(error.localizedDescription)") }
+    }
+
+    deinit { abort() }
 }
 
 // MARK: - Server
@@ -270,9 +368,18 @@ final class WebManagerServer {
 				let size = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?.int64Value ?? 0 // try? ok: display-only file size in the file listing
 				guard size > 0 else { return }
 
-				if WebManagerRouter.destination(for: url) != .inbox {
-					WebManagerRouter.route(Self.stagedCopy(of: url) ?? url)
-				}
+                if WebManagerRouter.destination(for: url) != .inbox {
+                    do {
+                        let lease = try AppOperationRegistry.shared.acquireTemporaryWork()
+                        if let staged = Self.stagedCopy(of: url) {
+                            WebManagerRouter.route(staged, lease: lease, stagedDirectory: staged.deletingLastPathComponent())
+                        } else {
+                            Logger.misc.error("Could not stage WebDAV import; original retained in inbox.")
+                        }
+                    } catch {
+                        Logger.misc.error("Could not start WebDAV import; original retained: \(error.localizedDescription)")
+                    }
+                }
 				self.reportReceived(url.lastPathComponent)
 			}
 
@@ -286,11 +393,17 @@ final class WebManagerServer {
 		let fm = FileManager.default
 		let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 		let dest = dir.appendingPathComponent(url.lastPathComponent)
+        var created = false
 		do {
-			try fm.createDirectoryIfNeeded(at: dir)
+            try fm.createDirectory(at: dir, withIntermediateDirectories: false)
+            created = true
 			try fm.copyItem(at: url, to: dest)
 			return dest
 		} catch {
+            if created {
+                do { try fm.removeItem(at: dir) }
+                catch { Logger.misc.error("WebDAV staging cleanup failed: \(error.localizedDescription)") }
+            }
 			return nil
 		}
 	}
@@ -365,63 +478,60 @@ final class WebManagerServer {
 		_ request: Request,
 		destination: URL,
 		route: Bool,
-		keepOriginal: Bool = false,
 		report: Bool = true,
 		successStatus: HTTPResponseStatus
 	) -> EventLoopFuture<Response> {
-		let fm = FileManager.default
-		do {
-			try fm.createDirectoryIfNeeded(at: destination.deletingLastPathComponent())
-		} catch {
-			// Not fatal by itself — the directory may already exist. `createFile`
-			// below decides, and this is the only record of why it then failed.
-			Logger.misc.error("Web upload: could not create the destination directory: \(error.localizedDescription)")
-		}
-		try? fm.removeItem(at: destination) // try? ok: the destination usually does not exist yet; createFile below is the arbiter and reports a real failure
+        let workLease: AppOperationRegistry.Lease
+        do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+        catch {
+            return request.eventLoop.makeSucceededFuture(Response(status: .serviceUnavailable,
+                body: .init(string: "Cleanup is in progress. Retry the upload.")))
+        }
+        let upload: WebManagerUploadFile
+        do { upload = try WebManagerUploadFile(destination: destination) }
+        catch {
+            Logger.misc.error("Web upload could not start: \(error.localizedDescription)")
+            return request.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
+        }
+        let promise = request.eventLoop.makePromise(of: Response.self)
+        var finished = false
 
-		guard fm.createFile(atPath: destination.path, contents: nil) else {
-			return request.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
-		}
-
-		let handle: FileHandle
-		do {
-			handle = try FileHandle(forWritingTo: destination)
-		} catch {
-			return request.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
-		}
-
-		let promise = request.eventLoop.makePromise(of: Response.self)
-
-		request.body.drain { part in
-			switch part {
-			case .buffer(let buffer):
-				do {
-					try handle.write(contentsOf: Data(buffer.readableBytesView))
-				} catch {
-					try? handle.close() // try? ok: closing a handle whose write already failed; the write error is what the promise reports
-					promise.fail(error)
-				}
-				return request.eventLoop.makeSucceededFuture(())
-			case .error(let error):
-				try? handle.close() // try? ok: closing a handle after the body drain failed; the drain error is what the promise reports
-				try? fm.removeItem(at: destination) // try? ok: removing the partial upload; the drain error is what the promise reports
-				promise.fail(error)
-				return request.eventLoop.makeSucceededFuture(())
-			case .end:
-				try? handle.close() // try? ok: closing the handle at end of body; the bytes are already flushed and reported
-				if report { self._onReceive(destination.lastPathComponent) }
-				if route {
-					if keepOriginal {
-						// WebDAV: import a copy so the file stays visible on the mounted drive.
-						WebManagerRouter.route(Self.stagedCopy(of: destination) ?? destination)
-					} else {
-						WebManagerRouter.route(destination)
-					}
-				}
-				promise.succeed(Response(status: successStatus))
-				return request.eventLoop.makeSucceededFuture(())
-			}
-		}
+        request.body.drain { part in
+            defer { withExtendedLifetime(workLease) {} }
+            guard !finished else { return request.eventLoop.makeSucceededFuture(()) }
+            switch part {
+            case .buffer(let buffer):
+                do { try upload.write(Data(buffer.readableBytesView)) }
+                catch {
+                    finished = true
+                    upload.abort()
+                    promise.fail(error)
+                }
+            case .error(let error):
+                finished = true
+                upload.abort()
+                promise.fail(error)
+            case .end:
+                finished = true
+                do {
+                    try upload.commit()
+                } catch {
+                    upload.abort()
+                    promise.fail(error)
+                    return request.eventLoop.makeSucceededFuture(())
+                }
+                if report { self._onReceive(destination.lastPathComponent) }
+                if route, WebManagerRouter.destination(for: destination) != .inbox {
+                    if let staged = Self.stagedCopy(of: destination) {
+                        WebManagerRouter.route(staged, lease: workLease, stagedDirectory: staged.deletingLastPathComponent())
+                    } else {
+                        Logger.misc.error("Could not stage transfer; original retained in inbox.")
+                    }
+                }
+                promise.succeed(Response(status: successStatus))
+            }
+            return request.eventLoop.makeSucceededFuture(())
+        }
 
 		return promise.futureResult
 	}

@@ -281,14 +281,46 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         manager = self.text('VexSign/Backend/Observable/CleanupManager.swift')
         clean_now = manager.split('func cleanNow() -> CleanupSummary {', 1)[1].split('// MARK: - Internals', 1)[0]
         self.assertIn('purgeWhatMayBeCleared(of: categories)', clean_now)
-        guarded = manager.split('private func purgeWhatMayBeCleared(of', 1)[1].split('private func purge(_', 1)[0]
-        self.assertIn('CleanupPassPolicy.plan(', guarded)
-        self.assertIn('operationsActive: AppOperationRegistry.shared.hasActiveOperations', guarded)
+        guarded = manager.split('private func purgeWhatMayBeCleared(of', 1)[1].split('private func report(', 1)[0]
+        self.assertIn('AppOperationRegistry.shared.acquireCleanup()', guarded)
+        self.assertIn('withExtendedLifetime(lease)', guarded)
+        self.assertIn('CleanupPassPolicy.plan(categories, operationsActive: lease == nil)', guarded)
         self.assertIn('summary.deferred = plan.deferred', guarded)
+        self.assertIn('for category in plan.clear', guarded)
+        self.assertIn('cleanupLease: lease', guarded)
         self.assertIn('purgeWhatMayBeCleared(of: enabledCategories)', manager)
-        # Nothing reaches the unguarded purge except the guard itself.
-        self.assertEqual(re.findall(r'(?<![A-Za-z_.])purge\(([^)]*)\)', manager),
-                         ['plan.clear', '_ categories: [StorageCategory]'])
+
+    def test_temporary_cleanup_guards_handed_off_server_files(self):
+        api = self.text('VexSign/Backend/Server/WebManagerServer+API.swift')
+        route = api.split('app.on(.POST, "api", "sign", body: .stream)', 1)[1].split('// MARK: Signing', 1)[0]
+        self.assertLess(route.index('acquireTemporaryWork()'), route.index('streamToFile('))
+        self.assertIn('staging: staging, workLease: workLease', route)
+        package = api.split('private func _signAndPackage(', 1)[1].split('// MARK: Helpers', 1)[0]
+        self.assertIn('asyncStreamFile(at: output.path)', package)
+        self.assertIn('withExtendedLifetime(workLease)', package.split('asyncStreamFile(at: output.path)', 1)[1])
+        http = self.text('VexSign/Backend/Server/WebManagerServer+HTTP.swift')
+        self.assertIn('downloadTemporary(req, file: zipURL', http)
+        self.assertIn('downloadTemporary(req, file: ipaURL', http)
+        stream = http.split('private static func downloadTemporary(', 1)[1].split('private static func dateString(', 1)[0]
+        self.assertIn('asyncStreamFile(at: file.path)', stream)
+        self.assertIn('withExtendedLifetime(lease)', stream.split('asyncStreamFile(at: file.path)', 1)[1])
+        sweeper = self.text('VexSign/Utilities/Security/TempStorageSweeper.swift')
+        self.assertIn('registry.acquireCleanup()', sweeper)
+        self.assertIn('TemporaryCleanupPolicy.isRetained(', sweeper)
+
+    def test_install_archive_and_web_inbox_are_not_cleanup_scratch(self):
+        archive = self.text('VexSign/Utilities/InstallationArchive.swift')
+        self.assertIn('cleanupLease = try registry.acquireTemporaryWork()', archive)
+        storage = self.text('VexSign/Backend/Observable/StorageManager.swift')
+        leftovers = storage.split('static func leftovers(_ library:', 1)[1].split('// MARK: Measuring', 1)[0]
+        self.assertNotIn('contents(of: fm.webManagerInbox)', leftovers)
+        server = self.text('VexSign/Backend/Server/WebManagerServer.swift')
+        self.assertNotIn('Self.stagedCopy(of: url) ?? url', server)
+        self.assertIn('WebManagerUploadFile(destination: destination)', server)
+        self.assertIn('try upload.commit()', server)
+        self.assertIn('WebManagerRouter.route(staged, lease:', server)
+        dav = self.text('VexSign/Backend/Server/WebManagerServer+WebDAV.swift')
+        self.assertIn('if response.status == .created', dav)
 
     def test_repeat_signing_review_is_worded_by_the_rule_the_run_follows(self):
         details = self.text('VexSign/Views/Library/Info/LibraryInfoView.swift')

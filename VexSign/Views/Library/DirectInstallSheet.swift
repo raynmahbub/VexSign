@@ -114,6 +114,13 @@ struct DirectInstallSheet: View {
 	private func _downloadAndInstall(from targetURL: URL) async {
 		defer { isProcessing = false }
 
+        let workLease: AppOperationRegistry.Lease
+        do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+        catch {
+            Toast.error(error.localizedDescription, duration: .sticky)
+            return
+        }
+        defer { withExtendedLifetime(workLease) {} }
 		let downloaded: URL
 		do {
 			let (tempURL, _) = try await URLSession.shared.download(from: targetURL)

@@ -243,11 +243,31 @@ extension CertificatesView {
 			Presentation.afterDismiss { _isRenamingPresenting = true }
 		}
 		Button(.localized("Export Certificate"), systemImage: "square.and.arrow.up") {
-			if let zip = CertificateExporter.makeZip(for: cert) {
-				UIActivityViewController.show(activityItems: [zip])
-			} else {
-				Toast.error(.localized("Couldn't export certificate"))
-			}
+            let workLease: AppOperationRegistry.Lease
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            catch { Toast.error(error.localizedDescription); return }
+            guard let zip = CertificateExporter.makeZip(for: cert) else {
+                Toast.error(.localized("Couldn't export certificate"))
+                return
+            }
+            guard let presenter = UIApplication.topViewController() else {
+                do { try FileManager.default.removeItem(at: zip.deletingLastPathComponent()) }
+                catch { FileLogger.error("Could not remove certificate export: \(error.localizedDescription)", category: "certificates") }
+                Toast.error(.localized("Couldn't export certificate"))
+                return
+            }
+            let controller = UIActivityViewController(activityItems: [zip], applicationActivities: nil)
+            controller.completionWithItemsHandler = { _, _, _, _ in
+                defer { withExtendedLifetime(workLease) {} }
+                do { try FileManager.default.removeItem(at: zip.deletingLastPathComponent()) }
+                catch { FileLogger.error("Could not remove certificate export: \(error.localizedDescription)", category: "certificates") }
+            }
+            if let popover = controller.popoverPresentationController {
+                popover.sourceView = presenter.view
+                popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            presenter.present(controller, animated: true)
 		}
 		Divider()
 		Button(.localized("Check Revocation (OCSP)"), systemImage: "checkmark.shield") {

@@ -7,6 +7,8 @@ final class AppOperationRegistry: @unchecked Sendable {
     static let shared = AppOperationRegistry()
     private let lock = NSLock()
     private var owners: [String: UUID] = [:]
+    private var cleanupOwner: UUID?
+    private var temporaryWorkers: Set<UUID> = []
     /// Library copies that are being produced, by identifier, with the number of claims on each.
     private var producing: [String: Int] = [:]
     /// Library copies that were produced and registered since launch, by identifier.
@@ -38,10 +40,38 @@ final class AppOperationRegistry: @unchecked Sendable {
     func acquire(_ key: String?) throws -> Lease {
         let key = key ?? "anonymous:\(UUID().uuidString)"
         lock.lock(); defer { lock.unlock() }
-        guard owners[key] == nil else { throw Busy() }
+        guard cleanupOwner == nil, owners[key] == nil else { throw Busy() }
         let owner = UUID()
         owners[key] = owner
         return Lease { [weak self] in self?.release(key, owner: owner) }
+    }
+
+    /// Atomically excludes new registered operations until destructive cleanup finishes.
+    func acquireCleanup() -> Lease? {
+        lock.lock(); defer { lock.unlock() }
+        guard owners.isEmpty, producing.isEmpty, temporaryWorkers.isEmpty, cleanupOwner == nil else { return nil }
+        let owner = UUID()
+        cleanupOwner = owner
+        return Lease { [weak self] in self?.releaseCleanup(owner) }
+    }
+
+    /// Non-library work that uses shared temporary files (imports and backup staging).
+    func acquireTemporaryWork() throws -> Lease {
+        lock.lock(); defer { lock.unlock() }
+        guard cleanupOwner == nil else { throw Busy() }
+        let owner = UUID()
+        temporaryWorkers.insert(owner)
+        return Lease { [weak self] in self?.releaseTemporaryWork(owner) }
+    }
+
+    private func releaseTemporaryWork(_ owner: UUID) {
+        lock.lock(); defer { lock.unlock() }
+        temporaryWorkers.remove(owner)
+    }
+
+    private func releaseCleanup(_ owner: UUID) {
+        lock.lock(); defer { lock.unlock() }
+        if cleanupOwner == owner { cleanupOwner = nil }
     }
 
     private func release(_ key: String, owner: UUID) {

@@ -181,6 +181,7 @@ struct VexSignApp: App {
                     Task { @MainActor in
                         SourcesViewModel.shared.resetLoadingState()
                         LibraryStatusStore.shared.refreshKnown()
+                        InstallQueue.shared.reconcileOnForeground()
                     }
                     appLock.authenticateIfNeeded()
                 }
@@ -380,6 +381,12 @@ struct VexSignApp: App {
 		} else {
 			let ext = url.pathExtension.lowercased()
 			if ext == "ipa" || ext == "tipa" {
+                let workLease: AppOperationRegistry.Lease
+                do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+                catch {
+                    Toast.error(error.localizedDescription, duration: .long)
+                    return
+                }
 				// Handle file import using NSFileCoordinator for proper access control
 				let tempDir = FileManager.default.uniqueTemporaryDirectory("VexSignShared")
 				let destinationURL = tempDir.appendingPathComponent(url.lastPathComponent)
@@ -431,6 +438,7 @@ struct VexSignApp: App {
 				// Manual download to show progress in the header; completion reports the real outcome.
 				let id = "VexSignManualDownload_\(UUID().uuidString)"
 				_ = DownloadManager.shared.startArchive(from: destinationURL, id: id) { error in
+                    defer { withExtendedLifetime(workLease) {} }
 					if error is CancellationError { return }
                     if let error = error {
 						UIAlertController.showErrorWithCopy(

@@ -55,9 +55,12 @@ extension WebManagerServer {
 				route: false,
 				report: false,
 				successStatus: .created
-			).always { _ in
-				self.scheduleDebouncedRoute(forPath: path, url: url)
-			}
+            ).map { response in
+                if response.status == .created {
+                    self.scheduleDebouncedRoute(forPath: path, url: url)
+                }
+                return response
+            }
 		}
 
 		app.on(.init(rawValue: "MKCOL"), catchall) { [weak self] req -> Response in
@@ -146,12 +149,7 @@ extension WebManagerServer {
 
 		let existed = fm.fileExists(atPath: destination.path)
 		do {
-			if existed { try fm.removeItem(at: destination) }
-			if move {
-				try fm.moveItem(at: source, to: destination)
-			} else {
-				try fm.copyItem(at: source, to: destination)
-			}
+            try WebManagerFileTransaction.transfer(source, to: destination, move: move)
 			// Debounced + dedup'd with any earlier PUT to the same destination.
 			if WebManagerRouter.destination(for: destination) != .inbox {
 				scheduleDebouncedRoute(forPath: destination.path, url: destination)

@@ -130,8 +130,8 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 			error: InstallConfirmation.Failure(verdict: .timedOutVerifying), needsTrust: true)
 
 		XCTAssertEqual(unconfirmed, .unconfirmed)
-		XCTAssertEqual(neverStarted, .neverStarted)
-		XCTAssertEqual(notInstalled, .failed)
+		XCTAssertEqual(neverStarted, .unconfirmed)
+		XCTAssertEqual(notInstalled, .unconfirmed)
 		XCTAssertEqual(plain, .failed)
 		XCTAssertEqual(trust, .needsTrust, "A trust problem outranks the verdict: retrying cannot fix it")
 	}

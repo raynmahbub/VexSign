@@ -203,3 +203,127 @@ final class WebManagerAccessTests: XCTestCase {
 		XCTAssertFalse(defaults.bool(forKey: WebManagerSettingsMigration.Key.auth))
 	}
 }
+
+final class WebManagerUploadDurabilityTests: XCTestCase {
+    private func fixture(_ body: (URL) throws -> Void) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try body(root)
+    }
+
+    func testInterruptedUploadPreservesExistingFileAndRemovesPartial() throws {
+        try fixture { root in
+            let destination = root.appendingPathComponent("existing.ipa")
+            try Data([1, 2, 3]).write(to: destination)
+            let upload = try WebManagerUploadFile(destination: destination)
+            try upload.write(Data([4, 5]))
+            upload.abort()
+            upload.abort() // Duplicate drain callbacks must not delete the destination.
+            XCTAssertEqual(try Data(contentsOf: destination), Data([1, 2, 3]))
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["existing.ipa"])
+        }
+    }
+
+    func testFailedCommitKeepsOriginalAndRemovesPartial() throws {
+        try fixture { root in
+            let destination = root.appendingPathComponent("existing.ipa")
+            try Data([1]).write(to: destination)
+            let upload = try WebManagerUploadFile(destination: destination, replace: { _, _ in
+                throw CocoaError(.fileWriteNoPermission)
+            })
+            try upload.write(Data([2]))
+            XCTAssertThrowsError(try upload.commit())
+            upload.abort()
+            XCTAssertEqual(try Data(contentsOf: destination), Data([1]))
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["existing.ipa"])
+        }
+    }
+
+    func testSuccessfulCommitReplacesOriginalOnlyAfterWritingCompletes() throws {
+        try fixture { root in
+            let destination = root.appendingPathComponent("existing.ipa")
+            try Data([1]).write(to: destination)
+            let upload = try WebManagerUploadFile(destination: destination)
+            try upload.write(Data([2, 3]))
+            XCTAssertEqual(try Data(contentsOf: destination), Data([1]))
+            try upload.commit()
+            upload.abort()
+            XCTAssertEqual(try Data(contentsOf: destination), Data([2, 3]))
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["existing.ipa"])
+        }
+    }
+
+    func testRoutingNeverDeletesInboxOriginalOrUnrelatedDirectory() throws {
+        try fixture { root in
+            let original = root.appendingPathComponent("uploaded.ipa")
+            try Data([7]).write(to: original)
+            WebManagerRouter.finish(original, stagedDirectory: nil)
+            WebManagerRouter.finish(original, stagedDirectory: root.appendingPathComponent("unrelated"))
+            XCTAssertEqual(try Data(contentsOf: original), Data([7]))
+            let staged = root.appendingPathComponent("staged", isDirectory: true)
+            try FileManager.default.createDirectory(at: staged, withIntermediateDirectories: true)
+            let copy = staged.appendingPathComponent("uploaded.ipa")
+            try Data([7]).write(to: copy)
+            WebManagerRouter.finish(copy, stagedDirectory: staged)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
+            XCTAssertEqual(try Data(contentsOf: original), Data([7]))
+        }
+    }
+}
+
+final class WebDAVFileTransactionTests: XCTestCase {
+    private func fixture(_ body: (URL) throws -> Void) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try body(root)
+    }
+
+    func testFailedCopyOrPublishPreservesSourceAndDestination() throws {
+        try fixture { root in
+            let source = root.appendingPathComponent("source"), destination = root.appendingPathComponent("destination")
+            try Data([1]).write(to: source)
+            try Data([2]).write(to: destination)
+            XCTAssertThrowsError(try WebManagerFileTransaction.transfer(source, to: destination, move: false, copy: { _, temporary in
+                try Data([9]).write(to: temporary)
+                throw CocoaError(.fileReadUnknown)
+            }))
+            XCTAssertThrowsError(try WebManagerFileTransaction.transfer(source, to: destination, move: false, publish: { _, _ in
+                throw CocoaError(.fileWriteNoPermission)
+            }))
+            XCTAssertEqual(try Data(contentsOf: source), Data([1]))
+            XCTAssertEqual(try Data(contentsOf: destination), Data([2]))
+            XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: root.path)), Set(["source", "destination"]))
+        }
+    }
+
+    func testMoveAndCopyReplaceFileOnlyOnSuccess() throws {
+        try fixture { root in
+            let source = root.appendingPathComponent("source"), destination = root.appendingPathComponent("destination")
+            try Data([1]).write(to: source)
+            try Data([2]).write(to: destination)
+            try WebManagerFileTransaction.transfer(source, to: destination, move: false)
+            XCTAssertEqual(try Data(contentsOf: source), Data([1]))
+            XCTAssertEqual(try Data(contentsOf: destination), Data([1]))
+            try Data([3]).write(to: source)
+            try WebManagerFileTransaction.transfer(source, to: destination, move: true)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+            XCTAssertEqual(try Data(contentsOf: destination), Data([3]))
+        }
+    }
+
+    func testSamePathAndNonemptyDirectoryReplacementFailWithoutDeletion() throws {
+        try fixture { root in
+            let source = root.appendingPathComponent("source", isDirectory: true)
+            let destination = root.appendingPathComponent("destination", isDirectory: true)
+            for url in [source, destination] { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true) }
+            try Data([1]).write(to: source.appendingPathComponent("file"))
+            try Data([2]).write(to: destination.appendingPathComponent("file"))
+            XCTAssertThrowsError(try WebManagerFileTransaction.transfer(source, to: source, move: true))
+            XCTAssertThrowsError(try WebManagerFileTransaction.transfer(source, to: destination, move: true))
+            XCTAssertEqual(try Data(contentsOf: source.appendingPathComponent("file")), Data([1]))
+            XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("file")), Data([2]))
+        }
+    }
+}

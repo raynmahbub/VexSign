@@ -17,10 +17,14 @@ struct InstallProgressView: View {
 
 	var app: AppInfoPresentable
 	@ObservedObject var viewModel: InstallerStatusViewModel
-	/// What the card is claiming, so VoiceOver hears the same state the screen shows. It used to
-	/// say "Installing" from the moment the card appeared — including while packaging, while
-	/// iOS's prompt was unanswered and while verification was failing.
-	var statusLabel: String
+    var installationPhase: InstallConfirmation.Phase
+    var taskPhase: UnifiedTaskPhase?
+    var isExport: Bool
+
+    private var presentation: InstallPresentation {
+        InstallPresentation.resolve(status: viewModel.status, phase: installationPhase,
+                                    taskPhase: taskPhase, isExport: isExport)
+    }
 
 	var body: some View {
 		VStack(spacing: 12) {
@@ -35,7 +39,7 @@ struct InstallProgressView: View {
 				}
 		}
 		.accessibilityElement(children: .combine)
-		.accessibilityLabel(Text(verbatim: statusLabel))
+		.accessibilityLabel(Text(verbatim: presentation.accessibilityLabel))
 		.accessibilityIdentifier(A11y.Install.progress)
 	}
 	
@@ -53,11 +57,11 @@ struct InstallProgressView: View {
 					ZStack {
 						Circle().strokeBorder(Color.white, lineWidth: 4.5)
 						PieShape(progress: viewModel.overallProgress)
-							.scaleEffect(viewModel.isCompleted ? 2.2 : 1)
-							.animation(.smooth, value: viewModel.isCompleted)
+							.scaleEffect(presentation == .installed || presentation == .operationCompleted ? 2.2 : 1)
+							.animation(_reduceMotion ? nil : .smooth, value: viewModel.isCompleted)
 					}
 				)
-				.animation(.smooth, value: viewModel.overallProgress)
+				.animation(_reduceMotion ? nil : .smooth, value: viewModel.overallProgress)
 		}
 	}
 	

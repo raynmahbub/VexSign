@@ -58,7 +58,7 @@ enum UnifiedTaskKind: String, Codable, CaseIterable {
 	}
 }
 
-enum UnifiedTaskPhase: String, Codable, CaseIterable {
+enum UnifiedTaskPhase: String, Codable, CaseIterable, Sendable {
 	case queued
 	case downloading
 	case extracting
@@ -85,7 +85,7 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
         case .readyToSign: .localized("Ready to sign")
         case .signed: .localized("Signed")
         case .preparingInstallation: .localized("Preparing installation")
-        case .waitingForIOS: .localized("Waiting for iOS installation")
+        case .waitingForIOS: .localized("Waiting for iOS confirmation")
         case .verifying: .localized("Verifying installation")
 		case .queued: .localized("Queued")
 		case .downloading: .localized("Downloading")
@@ -114,7 +114,17 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable {
             default: return false
             }
         }
-        if kind == .install, [.signing, .signed, .readyToSign, .importing].contains(next) { return false }
+        if kind == .install {
+            if next == self || next == .failed || next == .cancelled || next == .unconfirmed { return true }
+            switch self {
+            case .queued: return next == .preparingInstallation
+            case .preparingInstallation: return next == .waitingForIOS || next == .installing
+            case .waitingForIOS: return next == .installing || next == .verifying
+            case .installing: return next == .verifying || next == .completed
+            case .verifying: return next == .completed
+            default: return false
+            }
+        }
         return true
     }
 
@@ -191,6 +201,10 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
     var displayPhaseTitle: String {
         if phase == .completed && kind == .sign { return UnifiedTaskPhase.signed.title }
         if phase == .completed && kind == .importIPA { return UnifiedTaskPhase.readyToSign.title }
+        if phase == .completed && kind == .install,
+           ["native-installation-completed", "device-confirmed-installed"].contains(context?.confirmationReason ?? "") {
+            return .localized("Installed")
+        }
         return phase.title
     }
 
@@ -218,13 +232,16 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 
     func recoverAfterRestart(at date: Date = Date()) {
         guard !phase.isTerminal else { return }
-        failureStage = phase
-        // Recovery is not another installation/signing attempt.
-        phase = .interrupted
+        // A handed-off install may have continued while this process was absent.
+        // Neither completion nor cancellation can be inferred on relaunch.
+        let handedOff = kind == .install && context?.handoffAt != nil
+        failureStage = handedOff ? nil : phase
+        phase = handedOff ? .unconfirmed : .interrupted
+        context?.monitoringActive = false
         updatedAt = max(updatedAt, date)
-        stageHistory.append(.init(phase: .interrupted, date: updatedAt))
+        stageHistory.append(.init(phase: phase, date: updatedAt))
         if stageHistory.count > 256 { stageHistory.removeFirst(stageHistory.count - 256) }
-        context?.confirmationReason = "interrupted-process-exit"
+        context?.confirmationReason = handedOff ? "process-exit-installation-unconfirmed" : "interrupted-process-exit"
     }
 
     /// One transition authority for UI, persistence and receipts. Progress updates

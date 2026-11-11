@@ -26,7 +26,7 @@ enum TaskReceipt {
         }
         let reasons = ["import-registered", "signature-verified-and-artifact-registered", "native-installation-completed", "device-confirmed-installed",
                        "device-reports-other-version", "device-did-not-report-installed-app", "install-start-not-observed",
-                       "installation-evidence-unavailable", "installation-monitoring-deadline", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue"]
+                       "installation-evidence-unavailable", "installation-monitoring-deadline", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue", "process-exit-installation-unconfirmed", "supported-installation-inventory-unavailable", "ota-completion-not-authoritative"]
         if let reason = context?.confirmationReason, reasons.contains(reason) { lines.append("Result evidence: " + reason) }
         // How many times the device was asked, so a receipt for an install that waited on
         // verification shows it was being checked rather than merely left open.

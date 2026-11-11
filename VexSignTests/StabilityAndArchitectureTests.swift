@@ -282,6 +282,8 @@ final class StabilityAndArchitectureTests: XCTestCase {
 	@MainActor
 	func testUnifiedTaskTerminalStateIsFinal() {
 		let task = UnifiedTaskCenter.shared.begin(kind: .install, title: "App")
+        UnifiedTaskCenter.shared.transition(task, to: .preparingInstallation)
+        UnifiedTaskCenter.shared.transition(task, to: .installing)
 		UnifiedTaskCenter.shared.transition(task, to: .completed)
 		// Transitions after a terminal phase are ignored.
 		UnifiedTaskCenter.shared.transition(task, to: .failed, error: "late error")

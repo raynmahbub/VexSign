@@ -109,14 +109,14 @@ struct BatchProgressView: View {
 
 	private var _accent: Color {
 		guard runner.isFinished else { return .accentColor }
-		return runner.failed > 0 ? .orange : .green
+		return runner.failed > 0 || runner.unconfirmed > 0 ? .orange : .green
 	}
 
 	private var _summaryIcon: String {
 		switch runner.phase {
 		case .signing: "signature"
 		case .installing: "square.and.arrow.down"
-		case .finished: runner.failed > 0 ? "exclamationmark.triangle.fill" : "checkmark"
+		case .finished: runner.failed > 0 || runner.unconfirmed > 0 ? "exclamationmark.triangle.fill" : "checkmark"
 		}
 	}
 
@@ -133,6 +133,9 @@ struct BatchProgressView: View {
 				: ""
 		}
 
+        if runner.unconfirmed > 0 {
+            return .localized("%lld succeeded, %lld failed, %lld not confirmed", arguments: runner.succeeded, runner.failed, runner.unconfirmed)
+        }
 		return runner.failed > 0
 			? .localized("%lld succeeded, %lld failed", arguments: runner.succeeded, runner.failed)
 			: .localized("%lld of %lld", arguments: runner.succeeded, runner.items.count)
@@ -166,7 +169,7 @@ struct BatchProgressView: View {
 			.frame(maxWidth: .infinity, alignment: .leading)
 
 			if isInstalling {
-				Button(.localized("Skip"), action: runner.skipCurrentInstall)
+				Button(runner.currentInstaller?.hasHandedOffInstall == true ? .localized("Stop Monitoring") : .localized("Skip"), action: runner.skipCurrentInstall)
 					.font(.subheadline.weight(.medium))
 					.buttonStyle(.bordered)
 					.controlSize(.small)
@@ -189,6 +192,7 @@ struct BatchProgressView: View {
 		case .signed: .localized("Signed")
 		case .alreadySigned: .localized("Already Signed")
 		case .installed: .localized("Installed")
+        case .unconfirmed: .localized("Installation not confirmed")
 		case .failed(let message): message
 		case .skipped: .localized("Skipped")
 		}
@@ -211,6 +215,9 @@ struct BatchProgressView: View {
 		case .installed:
 			Image(systemName: "checkmark.circle.fill")
 				.foregroundStyle(.green)
+        case .unconfirmed:
+            Image(systemName: "questionmark.circle")
+                .foregroundStyle(.orange)
 		case .failed:
 			Image(systemName: "exclamationmark.triangle.fill")
 				.foregroundStyle(.red)
@@ -233,27 +240,18 @@ private struct BatchInstallStatusView: View {
 		self.viewModel = installer.viewModel
 	}
 
-	private var _presentation: InstallStatusPresentation {
-		InstallStatusPresentation.resolve(
-			transport: viewModel.status,
-			phase: installer.installationPhase,
-			verificationAttempt: installer.verificationAttempt,
-			overallProgress: viewModel.overallProgress,
-			isCompleted: viewModel.isCompleted
-		)
-	}
-
-	private var _statusImage: String { _presentation.systemImage }
+    private var presentation: InstallPresentation {
+        InstallPresentation.resolve(status: viewModel.status, phase: installer.installationPhase,
+                                    taskPhase: installer.hasOpenedInstallHandoff ? .waitingForIOS : nil,
+                                    isExport: installer.isExport)
+    }
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 6) {
 			ProgressView(value: viewModel.overallProgress)
 				.animation(.smooth, value: viewModel.overallProgress)
 
-			// Same precedence as the single-install card: the lifecycle outranks a transport
-			// status that has not caught up, so this line cannot sit on "Ready" while iOS is
-			// showing its confirmation prompt.
-			Label(installer.statusLabel, systemImage: _statusImage)
+            Label(presentation.label(verificationAttempt: installer.verificationAttempt), systemImage: presentation.symbol)
 				.font(.subheadline)
 				.foregroundStyle(.secondary)
 				.labelStyle(.titleAndIcon)

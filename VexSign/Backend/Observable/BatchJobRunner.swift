@@ -17,6 +17,7 @@ struct BatchItem: Identifiable {
 		case signed
 		case alreadySigned
 		case installed
+        case unconfirmed
 		case failed(String)
 		case skipped
 	}
@@ -101,6 +102,8 @@ final class BatchJobRunner: ObservableObject {
 		}.count
 	}
 
+    var unconfirmed: Int { items.filter { $0.state == .unconfirmed }.count }
+
 	var failed: Int {
 		items.filter {
 			if case .failed = $0.state { return true }
@@ -140,7 +143,12 @@ final class BatchJobRunner: ObservableObject {
 		// cleaned up and reported `.cancelled`.
 		SigningService.shared.cancelAll()
 		isCancelled = true
-		currentInstaller?.stop()
+        if let installer = currentInstaller {
+            if installer.hasHandedOffInstall, items.indices.contains(currentIndex) {
+                items[currentIndex].state = .unconfirmed
+            }
+            installer.stop(preserveHandoff: installer.hasHandedOffInstall)
+        }
 		_resumeInstall(.success(()))
 		SigningLiveActivityManager.shared.cancel()
 
@@ -149,7 +157,7 @@ final class BatchJobRunner: ObservableObject {
 		}
 	}
 
-	/// A declined iOS install prompt leaves the status pending forever, with nothing else to wake it.
+	/// Stop observing this item; do not infer the system dialog's answer.
 	func skipCurrentInstall() {
 		_skipRequested = true
 		_resumeInstall(.success(()))
@@ -283,14 +291,15 @@ final class BatchJobRunner: ObservableObject {
 				}
 			}
 
-			installer.stop()
+            let handedOff = installer.hasHandedOffInstall
+            installer.stop(preserveHandoff: _skipRequested && handedOff)
 			currentInstaller = nil
 
 			guard !_cancelled else { return }
 
 			if _skipRequested {
 				_skipRequested = false
-				items[index].state = .skipped
+				items[index].state = handedOff ? .unconfirmed : .skipped
 				continue
 			}
 
@@ -299,7 +308,12 @@ final class BatchJobRunner: ObservableObject {
 				items[index].state = .installed
 				InstallCleanup.stage(items[index].installable)
 			case .failure(let error):
-				items[index].state = .failed(error.localizedDescription)
+                if let failure = error as? InstallConfirmation.Failure,
+                   [.timedOutWaiting, .timedOutVerifying, .notInstalled].contains(failure.verdict) {
+                    items[index].state = .unconfirmed
+                } else {
+                    items[index].state = .failed(error.localizedDescription)
+                }
 			}
 		}
 	}
