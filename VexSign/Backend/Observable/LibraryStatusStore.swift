@@ -416,6 +416,15 @@ final class LibraryStatusStore: ObservableObject {
     }
 
     /// The attempt being monitored for this identifier, pruning one that outlived its bound.
+    /// `now` is threaded through every hop, including the default.
+    ///
+    /// `isInstalling` used to call `activeInstallation(identifier:)` and fall back to this
+    /// method's `Date()` default, silently ignoring the caller's clock. That made the pair
+    /// inconsistent: a caller reasoning about a specific instant got the same answer as one asking
+    /// about the present, so `activeInstallation(…, now: startedAt + attemptTimeout)` could return
+    /// an attempt while `isInstalling` — asked about the same instant — said no. The regression
+    /// test `testAnAttemptIsBelievedForExactlyItsBound` fails on the real clock for exactly that
+    /// reason: the attempt is anchored at epoch 2,000,000, which is decades stale.
     func activeInstallation(identifier: String, now: Date = Date()) -> InstallationAttempt? {
         guard let attempt = attempts[identifier] else { return nil }
         guard now.timeIntervalSince(attempt.startedAt) <= Self.attemptTimeout else {

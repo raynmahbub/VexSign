@@ -645,3 +645,57 @@ Eight phases. Six self-inflicted defects, all found by re-reading, none by tooli
 Three of those six would have failed the build or produced visibly wrong behaviour.
 
 Everything portable is green. Nothing has been compiled.
+
+---
+
+# Phase 9: what CI actually found
+
+This branch was opened as a pull request after eight phases of reading. CI found
+things reading had not, in both directions.
+
+## Defects in this branch, found by the compiler and the tests
+
+| What | Caught by | Note |
+| --- | --- | --- |
+| `BGProcessingTask.progress` does not exist | build | Only `BGContinuedProcessingTask` publishes progress. I wrote it from memory. |
+| `completedPercent` reported 100 while work remained | simulator test | My own test asserted the right rule and failed. |
+| Two tests encoded the old behaviour | simulator test | Both written this branch, both corrected to the new rule. |
+| `nil`-date key test asserted a premise the type does not have | simulator test | The doc claimed the collapse was "preserved"; it was not, and is now corrected. |
+
+None of these were visible to `make verify`. The build error in particular — a
+member that does not exist on a type — is exactly the class the earlier phases
+could only guess at.
+
+## A pre-existing build break that blocked everything
+
+`CertificateExporter.swift` did not compile on `main` at the base commit:
+
+```
+error: call can throw, but it is not marked with 'try' and the error is not handled
+```
+
+`requireSigningPassword()` is `throws`. `main`'s build job has been red since
+`a989867`. Fixed here because the PR could never go green otherwise: the export
+returns `nil` and logs, rather than writing a password-less archive.
+
+## Two pre-existing test failures, not caused by this branch
+
+Both fail in files this PR does not touch, and neither references anything it
+changed:
+
+- `WebDAVTransferPolicyTests.testExistingSymlinkCannotAliasSourceOrEscapeInbox`
+  — `XCTAssertFalse` on the alias/outside cases.
+- `LibraryInstallationLifecycleTests.testAnAttemptIsBelievedForExactlyItsBound`
+  — `XCTAssertTrue(store.isInstalling(identifier))` after anchoring an attempt at
+  epoch 2,000,000.
+
+The second has an identifiable cause. `activeInstallation(identifier:now:)`
+accepts a clock, but `isInstalling` calls it **without** passing one, so it falls
+back to `Date()`. The attempt is 56 years stale by the real clock, so the
+timeout branch deletes it and `isInstalling` returns `false` — while
+`activeInstallation` asked about the same synthetic instant returns the attempt.
+The test is right and the two accessors disagree; noted here rather than patched,
+because changing `isInstalling`'s signature reaches call sites outside this
+branch's subject.
+
+The first has no identified cause yet and is left alone rather than guessed at.
