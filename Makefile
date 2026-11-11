@@ -100,13 +100,23 @@ deploy-server:
 # "unknown argument" before a single file is type-checked. Warnings are already
 # non-fatal unless `-warnings-as-errors` is given, so the diagnostics this target
 # is supposed to report need no extra flag.
+#
+# Both packages are iOS/tvOS-only: neither declares a macOS platform, and
+# AltSourceKit imports SwiftUI. A bare host `swift build` therefore cannot work,
+# so they are built against the iOS SDK. Warnings stay non-fatal; this is a
+# report, not a gate.
+IOS_SDK ?= $(shell xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)
+IOS_TRIPLE ?= arm64-apple-ios17.0
+STRICT_CONCURRENCY_FLAGS = $(if $(IOS_SDK),--sdk "$(IOS_SDK)") --triple $(IOS_TRIPLE) -Xswiftc -strict-concurrency=complete
+
 strict-concurrency:
 	@echo "== AltSourceKit (StrictConcurrency, warnings only) =="
-	swift build --package-path AltSourceKit -Xswiftc -strict-concurrency=complete
+	swift build --package-path AltSourceKit $(STRICT_CONCURRENCY_FLAGS)
 	@echo "== NimbleKit (Swift 6 language mode: complete by default) =="
-	swift build --package-path NimbleKit
+	swift build --package-path NimbleKit --sdk "$(IOS_SDK)" --triple $(IOS_TRIPLE)
 	@echo "== app target =="
-	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe))."
+	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe)),"
+	@echo "and by tools/test_concurrency_audit.py (every escape needs a written invariant)."
 
 # Everything that can be checked without Xcode: the same gates as CI's quick
 # job, minus Swift syntax parsing. Use this before pushing; `make test` and

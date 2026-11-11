@@ -536,10 +536,11 @@ jobs:
   # stops escapes from spreading but proves nothing about isolation. This is the
   # compiler half, and it can only run on macOS — AltSourceKit imports SwiftUI.
   #
-  # Report-only (continue-on-error) on purpose. Its first job is to produce a
-  # real diagnostic list for a branch that is still being cleaned up, and a
-  # report that can page someone is a report nobody keeps running. Promote it to
-  # a gate once it is green on main.
+  # Report-only on purpose: the diagnostics step carries `continue-on-error`, so
+  # a package that is mid-cleanup cannot fail the PR. Its first job is to produce
+  # a real diagnostic list for a branch that is still being cleaned up, and a
+  # report that can page someone is a report nobody keeps running. Drop the
+  # `continue-on-error` to promote it to a gate once it is green on main.
   #
   # `make strict-concurrency` passes `-strict-concurrency=complete` and no
   # `-warnings-as-errors`, because swiftc has no `-warnings-as-errors=false` and
@@ -551,7 +552,6 @@ jobs:
     needs: quick
     runs-on: macos-15
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -572,7 +572,11 @@ jobs:
             spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-
             spm-${{ runner.os }}-
 
+      # continue-on-error on the STEP, not just the job: a package that is
+      # mid-cleanup fails the build, and the job's value is the summary it
+      # produces either way, not a red X on every PR.
       - name: Strict concurrency diagnostics
+        continue-on-error: true
         run: |
           set -uo pipefail
           make strict-concurrency 2>&1 | tee "${RUNNER_TEMP}/strict-concurrency.log"

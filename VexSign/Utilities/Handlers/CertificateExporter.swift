@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import OSLog
 import Zip
 
 enum CertificateExporter {
@@ -17,7 +18,18 @@ enum CertificateExporter {
 		else { return nil }
 
         let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
-        return package(p12: p12, provision: provision, password: cert.requireSigningPassword(), name: name,
+        // `requireSigningPassword` reads the Keychain-backed secret store, so it can throw. An
+        // export that cannot produce the password is not a partial export — the zip would be
+        // useless to whoever received it — so it returns nil like the missing-file cases above
+        // rather than writing an archive that silently fails to unlock.
+        let password: String
+        do {
+            password = try cert.requireSigningPassword()
+        } catch {
+            Logger.misc.error("Certificate export failed: no signing password available: \(error.localizedDescription)")
+            return nil
+        }
+        return package(p12: p12, provision: provision, password: password, name: name,
                        directory: FileManager.default.uniqueTemporaryDirectory("CertExport"))
     }
 
