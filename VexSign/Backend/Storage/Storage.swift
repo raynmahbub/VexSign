@@ -51,8 +51,7 @@ final class Storage: ObservableObject {
 			// container is pointed at the legacy file instead: the library keeps working, and
 			// the next launch retries the move.
 			Logger.misc.fault(
-				"Opening the legacy store in place because it could not be migrated: "
-					+ LogRedaction.redact(migrationFailure.localizedDescription)
+				"Opening the legacy store in place because it could not be migrated: \(LogRedaction.redact(migrationFailure.localizedDescription), privacy: .public)"
 			)
 			legacyStoreIsStillInUse = true
 		}
@@ -259,8 +258,7 @@ final class Storage: ObservableObject {
 				try fm.moveItem(at: oldFile, to: newFile)
 			} catch {
 				Logger.misc.fault(
-					"Legacy library could not be migrated; refusing to open an empty store over it: "
-						+ LogRedaction.redact(error.localizedDescription)
+					"Legacy library could not be migrated; refusing to open an empty store over it: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
 				)
 				return error
 			}
@@ -279,9 +277,7 @@ final class Storage: ObservableObject {
 		container.loadPersistentStores { description, error in
 			if let error, self._legacyStoreIsLive {
 				Logger.misc.fault(
-					"The legacy library could not be opened. It is left untouched — recovery "
-						+ "would delete it along with the app folders. "
-						+ LogRedaction.redact(error.localizedDescription)
+					"The legacy library could not be opened. It is left untouched — recovery would delete it along with the app folders. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
 				)
 				return
 			}

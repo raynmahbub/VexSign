@@ -9,6 +9,22 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+### Fixed
+
+- Five log calls added by the storage-durability change did not compile. OSLog's
+  `Logger.fault`/`Logger.error` take an `OSLogMessage`, which is built by string
+  interpolation, so joining the message with `+` is a type error — the macOS
+  `build` and `tests` jobs rejected all five with *cannot convert value of type
+  'String' to expected argument type 'OSLogMessage'*. They are now single
+  interpolated literals. The same edit marks each redacted description
+  `privacy: .public`: OSLog interpolation defaults to `.private`, so those
+  messages would otherwise read as `<private>` in Console — hiding the very
+  failures that change was written to surface.
+- `tools/test_logging_message_policy.py` pins both properties: no `Logger` call
+  concatenates its message, and no `LogRedaction.redact(...)` reaches OSLog
+  without `privacy: .public`. Neither is visible to the localisation, docs or
+  `swift-syntax` checks, which is why only the Apple jobs caught it.
+
 ### Changed
 
 - Free Apple ID and paid-certificate signing no longer share wording that implies

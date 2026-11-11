@@ -94,9 +94,7 @@ extension Storage {
 				}
 			} catch {
 				Logger.misc.error(
-					"Could not delete certificate files for \(cert.uuid ?? "an unnamed certificate"); "
-						+ "the private key remains on disk until Remove Leftovers runs. "
-						+ LogRedaction.redact(error.localizedDescription)
+					"Could not delete certificate files for \(cert.uuid ?? "an unnamed certificate"); the private key remains on disk until Remove Leftovers runs. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
 				)
 			}
 		}
