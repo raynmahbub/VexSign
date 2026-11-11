@@ -208,7 +208,7 @@ final class BackgroundTaskCompletionTests: XCTestCase {
             averageProgress: 4.2,
             hasUnfinishedWork: true
         )
-        XCTAssertEqual(over.completedPercent, 100, "a corrupt progress value must not overflow the counter")
+        XCTAssertEqual(over.completedPercent, 99, "a corrupt value is still capped, and unfinished is never 100")
 
         let under = BackgroundDownloadWork(
             itemCount: 1,
@@ -255,6 +255,11 @@ final class BackgroundTaskCompletionTests: XCTestCase {
             .timedOut(workRemaining: true)
         )
 
+        // Not `timedOut(workRemaining: false)`: a sample that is already finished is reported as
+        // `finished`, even past the deadline. Both mean success — the policy checks `isFinished`
+        // first precisely so a task that drained at the buzzer is not described as having timed
+        // out — but asserting the dead branch would be testing a state the policy cannot reach
+        // through this path.
         let drained = BackgroundDownloadWork(
             itemCount: 1,
             activeCount: 0,
@@ -263,7 +268,7 @@ final class BackgroundTaskCompletionTests: XCTestCase {
         )
         XCTAssertEqual(
             BackgroundDownloadMonitorPolicy.decide(work: drained, elapsed: 600, timeout: 600),
-            .timedOut(workRemaining: false)
+            .finished
         )
     }
 
