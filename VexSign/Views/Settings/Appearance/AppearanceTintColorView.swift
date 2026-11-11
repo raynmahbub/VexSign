@@ -30,8 +30,6 @@ struct AppearanceTintColorView: View {
         ])
     ]
 
-    private var _flat: [(name: String, hex: String)] { _groups.flatMap { $0.items } }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(_groups, id: \.title) { group in

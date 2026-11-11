@@ -24,8 +24,6 @@ struct TunnelHeaderView: View {
 }
 
 struct TunnelPulseRing: View {
-	@State private var _animationProgress = 0.0
-	
 	private let _animationDuration = 10.0
 	private let _colorStartThreshold = 0.5
 	private let _colorTransitionDuration = 9.0

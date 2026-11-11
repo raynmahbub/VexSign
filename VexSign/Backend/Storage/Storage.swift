@@ -16,7 +16,6 @@ final class Storage: ObservableObject {
 	let container: NSPersistentContainer
 
 	private let _name: String = "VexSign"
-	private let _legacyName: String = "Feather" // For migration from old installs
 	private let _inMemory: Bool
 
 	/// One model instance per process, shared by every `Storage`.

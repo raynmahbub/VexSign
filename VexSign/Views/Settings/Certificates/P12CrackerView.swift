@@ -19,7 +19,6 @@ struct P12CrackerView: View {
 	@State private var selectedMode: P12Cracker.Mode = .fullDictionary
 	@State private var customWordlistText = ""
 	@State private var showCustomInput = false
-	@State private var statusMessage: String?
 	@State private var hasFinished = false
 
 	var body: some View {

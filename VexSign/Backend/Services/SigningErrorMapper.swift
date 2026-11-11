@@ -4,13 +4,10 @@
 
 import Foundation
 import CoreData
-import OSLog
 import NativeSigning
 import NimbleExtensions
 
 struct SigningErrorMapper {
-    private static let logger = Logger(subsystem: "com.vexsign", category: "SigningErrorMapper")
-
     /// Maps any error to a user-friendly SigningError with recovery suggestions.
     static func map(_ error: Error, context: SigningContext = .general) -> SigningError {
         let nsError = error as NSError
