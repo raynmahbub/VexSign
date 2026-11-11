@@ -689,13 +689,18 @@ changed:
   — `XCTAssertTrue(store.isInstalling(identifier))` after anchoring an attempt at
   epoch 2,000,000.
 
-The second has an identifiable cause. `activeInstallation(identifier:now:)`
-accepts a clock, but `isInstalling` calls it **without** passing one, so it falls
-back to `Date()`. The attempt is 56 years stale by the real clock, so the
-timeout branch deletes it and `isInstalling` returns `false` — while
-`activeInstallation` asked about the same synthetic instant returns the attempt.
-The test is right and the two accessors disagree; noted here rather than patched,
-because changing `isInstalling`'s signature reaches call sites outside this
-branch's subject.
+**The first is now fixed.** `activeInstallation(identifier:now:)` accepted a clock
+but `isInstalling` called it without passing one, so it fell back to `Date()`. The
+attempt was 56 years stale by the real clock, so the timeout branch deleted it and
+`isInstalling` returned `false` — while `activeInstallation` asked about the same
+synthetic instant returned the attempt. The test was right; the two accessors
+disagreed. `isInstalling` now forwards `now`, and the test asks both accessors
+about the same instant, which is the property it was always trying to express.
 
-The first has no identified cause yet and is left alone rather than guessed at.
+**The second is not fixed, and is worse than it looked.** `WebDAVTransferPolicy`
+and `WebDAVTransferPolicyTests` were both introduced by the base commit
+`a989867` — there is no earlier revision of either. So the test has never passed,
+and the policy it covers is untested rather than regression-tested. Modelled in a
+scratch reproduction, all three assertions should hold, so the cause is
+environment-specific (symlink resolution semantics under the simulator's
+container) and guessing at it would be worse than leaving it visible.

@@ -438,9 +438,15 @@ final class LibraryStatusStore: ObservableObject {
     ///
     /// Also what gates actions that make no sense mid-install, and what keeps a forced refresh
     /// from publishing a device reading taken while iOS is still writing the bundle.
-    func isInstalling(_ identifier: String?) -> Bool {
+    ///
+    /// `now` is forwarded rather than dropped. Without it this method answered a different
+    /// question from the `activeInstallation(identifier:now:)` it delegates to: a caller passing a
+    /// synthetic clock — every test that time-travels — got the real-time answer here and the
+    /// synthetic one there, so the two accessors could disagree about the same instant. The
+    /// regression test `testAnAttemptIsBelievedForExactlyItsBound` is the case that exposed it.
+    func isInstalling(_ identifier: String?, now: Date = Date()) -> Bool {
         guard let identifier, !identifier.isEmpty else { return false }
-        return activeInstallation(identifier: identifier) != nil
+        return activeInstallation(identifier: identifier, now: now) != nil
     }
 
     /// Overlays the transient state onto a status. The last word before publishing, so a probe

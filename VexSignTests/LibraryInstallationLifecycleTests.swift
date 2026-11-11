@@ -353,14 +353,20 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 		let start = Date(timeIntervalSince1970: 2_000_000)
 		store.beginInstallation(identifier: identifier, attemptID: "attempt-1", now: start)
 
+		// Both accessors are asked about the same synthetic instant, which is the property under
+		// test: they must agree. Anchoring the attempt at epoch 2,000,000 and then asking
+		// `isInstalling` without a clock compared a deliberate fixture against the real clock, so
+		// the attempt was decades stale and the two disagreed.
+		let atBound = start.addingTimeInterval(LibraryStatusStore.attemptTimeout)
 		// Inclusive: an attempt that started exactly `attemptTimeout` ago is still the row's
 		// authoritative answer, so the backstop cannot expire a live attempt early.
-		XCTAssertNotNil(store.activeInstallation(identifier: identifier, now: start.addingTimeInterval(LibraryStatusStore.attemptTimeout)))
-		XCTAssertTrue(store.isInstalling(identifier))
+		XCTAssertNotNil(store.activeInstallation(identifier: identifier, now: atBound))
+		XCTAssertTrue(store.isInstalling(identifier, now: atBound))
 
 		// One tick past it, the owner is presumed dead and the row stops claiming "Installing".
-		XCTAssertNil(store.activeInstallation(identifier: identifier, now: start.addingTimeInterval(LibraryStatusStore.attemptTimeout + 1)))
-		XCTAssertFalse(store.isInstalling(identifier))
+		let pastBound = start.addingTimeInterval(LibraryStatusStore.attemptTimeout + 1)
+		XCTAssertNil(store.activeInstallation(identifier: identifier, now: pastBound))
+		XCTAssertFalse(store.isInstalling(identifier, now: pastBound))
 	}
 
 	// MARK: - Helpers
