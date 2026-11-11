@@ -10,8 +10,11 @@ import NimbleExtensions
 enum LibraryAppWorkflowAction: Hashable {
     case install, resign, signAndInstall
 
-    static func actions(isSigned: Bool) -> [Self] {
-        isSigned ? [.install, .resign] : [.signAndInstall]
+    static func actions(isSigned: Bool, containerized: Bool = false) -> [Self] {
+        if isSigned { return [.install, .resign] }
+        // The host signs a guest during its explicit import flow. Direct OTA/IDevice installs
+        // retain the certificate-signing requirement for an unsigned library import.
+        return containerized ? [.install, .signAndInstall] : [.signAndInstall]
     }
 
     static func signingOptions(from base: Options, installAfterSigning: Bool) -> Options {

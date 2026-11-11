@@ -104206,6 +104206,248 @@
           }
         }
       }
+    },
+    "App Routing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Routing"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic"
+          }
+        }
+      }
+    },
+    "Automatic uses a usable long-lived or enterprise certificate for direct signing. In the combined host, a missing, expired, revoked or short-profile certificate selects the container instead. Standalone builds retain their direct OTA/IDevice path for already signed IPAs. Explicit modes never silently fall back." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic uses a usable long-lived or enterprise certificate for direct signing. In the combined host, a missing, expired, revoked or short-profile certificate selects the container instead. Standalone builds retain their direct OTA/IDevice path for already signed IPAs. Explicit modes never silently fall back."
+          }
+        }
+      }
+    },
+    "Changing this selector chooses Direct Paid / Certificate routing. Your current container selection remains unchanged until then." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changing this selector chooses Direct Paid / Certificate routing. Your current container selection remains unchanged until then."
+          }
+        }
+      }
+    },
+    "Containerized Free Account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Containerized Free Account"
+          }
+        }
+      }
+    },
+    "Containerized routing requires the embedded LiveContainer runtime. Install and open the experimental combined host, or choose Direct Paid / Certificate routing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Containerized routing requires the embedded LiveContainer runtime. Install and open the experimental combined host, or choose Direct Paid / Certificate routing."
+          }
+        }
+      }
+    },
+    "Direct Installation Type" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Direct Installation Type"
+          }
+        }
+      }
+    },
+    "Direct Paid / Certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Direct Paid / Certificate"
+          }
+        }
+      }
+    },
+    "Dual-mode app routing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dual-mode app routing"
+          }
+        }
+      }
+    },
+    "Free Apple ID: 3 apps per 7 days with weekly profile refresh and limited entitlements. Selecting this method routes app installs to the embedded LiveContainer host; the combined runtime must be loaded. Account sign-in alone does not import or install a guest." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free Apple ID: 3 apps per 7 days with weekly profile refresh and limited entitlements. Selecting this method routes app installs to the embedded LiveContainer host; the combined runtime must be loaded. Account sign-in alone does not import or install a guest."
+          }
+        }
+      }
+    },
+    "Import a .p12 certificate and .mobileprovision profile. Selecting this method routes installs through the direct OTA/IDevice pipeline. Profile scope, entitlements and certificate validity still require signing preflight." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .p12 certificate and .mobileprovision profile. Selecting this method routes installs through the direct OTA/IDevice pipeline. Profile scope, entitlements and certificate validity still require signing preflight."
+          }
+        }
+      }
+    },
+    "Ready means local prerequisites are present, not that an app has been installed. Export and TrollStore remain separate actions. A prepared guest is not an iOS device installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready means local prerequisites are present, not that an app has been installed. Export and TrollStore remain separate actions. A prepared guest is not an iOS device installation."
+          }
+        }
+      }
+    },
+    "Resolved route" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolved route"
+          }
+        }
+      }
+    },
+    "Server (Recommended): Uses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced): Uses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback. It does not require a local HTTPS certificate or an externally hosted server." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server (Recommended): Uses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced): Uses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback. It does not require a local HTTPS certificate or an externally hosted server."
+          }
+        }
+      }
+    },
+    "The saved direct installation method (%lld) is invalid. Choose Server or idevice in Settings → Installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved direct installation method (%lld) is invalid. Choose Server or idevice in Settings → Installation."
+          }
+        }
+      }
+    },
+    "This batch contains a containerized guest route. Use Library Install for one app at a time, or choose Direct Paid / Certificate routing for every app before starting a device-install batch." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This batch contains a containerized guest route. Use Library Install for one app at a time, or choose Direct Paid / Certificate routing for every app before starting a device-install batch."
+          }
+        }
+      }
+    },
+    "Unknown installation method. Choose OTA, pairing/IDevice or containerized routing in Settings → Installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown installation method. Choose OTA, pairing/IDevice or containerized routing in Settings → Installation."
+          }
+        }
+      }
+    },
+    "Guest import queued. Confirm it in the embedded container." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guest import queued. Confirm it in the embedded container."
+          }
+        }
+      }
+    },
+    "Guest import queued…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guest import queued…"
+          }
+        }
+      }
+    },
+    "Prepare Guest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare Guest"
+          }
+        }
+      }
+    },
+    "Prepare Guest Import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare Guest Import"
+          }
+        }
+      }
+    },
+    "Preparing guest import…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing guest import…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

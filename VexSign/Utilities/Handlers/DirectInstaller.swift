@@ -148,6 +148,16 @@ final class DirectInstaller {
 		let verification = verify(app)
 
 		guard verification.bundlePath != nil else { throw DirectInstallError.appNotFound }
+
+        // LiveContainer owns guest signing during its confirmed import flow. An unsigned guest
+        // may therefore be staged, but the exact same bundle still cannot bypass direct-install
+        // signature verification for OTA or a paired device.
+        if try SigningModeManager.shared.pipeline(for: app) == .containerized {
+            InstallQueue.shared.enqueue(app)
+            Logger.misc.info("Guest import queued for \(app.identifier ?? "unknown")")
+            return verification
+        }
+
 		guard verification.isSigned else { throw DirectInstallError.notSigned(verification.issues) }
 
 		if !allowingIssues, verification.hasBlockingIssues {

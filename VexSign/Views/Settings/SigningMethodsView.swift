@@ -19,6 +19,7 @@ struct SigningMethodsView: View {
     }
 
     @StateObject private var nativeManager = NativeSigningManager.shared
+    @StateObject private var signingMode = SigningModeManager.shared
     @State private var selectedMethod: SigningMethod = .paidCertificate
     @State private var showAppleIDLogin = false
     @State private var showTeamSelection = false
@@ -43,7 +44,9 @@ struct SigningMethodsView: View {
                     isSelected: selectedMethod == .paidCertificate,
                     availability: SigningMethodAvailability.current(for: .paidCertificate)
                 ) {
+                    guard SigningMethodAvailability.current(for: .paidCertificate).isAvailable else { return }
                     selectedMethod = .paidCertificate
+                    signingMode.selectPreference(.directPaid)
                 }
 
                 if selectedMethod == .paidCertificate {
@@ -52,7 +55,7 @@ struct SigningMethodsView: View {
                     }
                     .disabled(!SigningMethodAvailability.current(for: .paidCertificate).isAvailable)
 
-                    Text(.localized("Import a .p12 certificate and .mobileprovision profile. No app limits, 1-year validity, full entitlement support."))
+                    Text(.localized("Import a .p12 certificate and .mobileprovision profile. Selecting this method routes installs through the direct OTA/IDevice pipeline. Profile scope, entitlements and certificate validity still require signing preflight."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } header: {
@@ -67,6 +70,7 @@ struct SigningMethodsView: View {
                     availability: SigningMethodAvailability.current(for: .freeAppleID)
                 ) {
                     selectedMethod = .freeAppleID
+                    signingMode.selectPreference(.containerized)
                 }
 
                 if selectedMethod == .freeAppleID {
@@ -129,6 +133,13 @@ struct SigningMethodsView: View {
                 }
             } header: {
                 Text(.localized("Diagnostics"))
+            }
+        }
+        .onAppear {
+            switch signingMode.preference {
+            case .directPaid: selectedMethod = .paidCertificate
+            case .containerized: selectedMethod = .freeAppleID
+            case .automatic: break
             }
         }
         .task {
@@ -349,7 +360,7 @@ struct SigningMethodsView: View {
             AnisetteProviderConfigView()
 
             // Info
-            Text(.localized("Free Apple ID: 3 apps per 7 days. Requires weekly profile refresh. Limited entitlements (no push, no iCloud, no app groups)."))
+            Text(.localized("Free Apple ID: 3 apps per 7 days with weekly profile refresh and limited entitlements. Selecting this method routes app installs to the embedded LiveContainer host; the combined runtime must be loaded. Account sign-in alone does not import or install a guest."))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(.vertical, 8)

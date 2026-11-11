@@ -38,6 +38,7 @@
   "VexSign/Backend/Services/AnisetteProvider.swift": 1,
   "VexSign/Backend/Services/AppOperationRegistry.swift": 1,
   "VexSign/Backend/Services/NativeSigningManager.swift": 1,
+  "VexSign/Backend/Services/SigningModeManager.swift": 1,
   "VexSign/Backend/Storage/Storage.swift": 1,
   "VexSign/Companion/CompanionStore.swift": 1,
   "VexSign/RepositorySync/EcosystemDatabase.swift": 1,

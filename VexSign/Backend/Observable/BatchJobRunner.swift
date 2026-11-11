@@ -249,13 +249,17 @@ final class BatchJobRunner: ObservableObject {
 	}
 
 	private func _installAll() async {
-		// Guest imports need an interactive, one-at-a-time handoff. A staged guest
-		// must never flow through this batch's device-installed success/cleanup path.
-		if UserDefaults.standard.integer(forKey: "VexSign.installationMethod") == 2 {
+		// Guest imports need an interactive, one-at-a-time handoff. Resolve every item because
+        // automatic routing may select a container for only part of a mixed batch.
+        let pipelines = items.map { item -> InstallationPipeline? in
+            do { return try SigningModeManager.shared.pipeline(for: item.installable) }
+            catch { return nil } // The item's own installer presents this route error.
+        }
+        if pipelines.contains(where: { $0?.mode == .containerized }) {
 			for index in items.indices {
 				switch items[index].state {
 				case .signed, .alreadySigned, .queued:
-					items[index].state = .failed(.localized("Guest import requires confirmation. Use the Library Install action for one app at a time, or select OTA/IDevice for device-install batches."))
+					items[index].state = .failed(.localized("This batch contains a containerized guest route. Use Library Install for one app at a time, or choose Direct Paid / Certificate routing for every app before starting a device-install batch."))
 				default: break
 				}
 			}

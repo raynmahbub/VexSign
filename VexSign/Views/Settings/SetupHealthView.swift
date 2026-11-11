@@ -15,7 +15,7 @@ struct SetupHealthView: View {
         entity: CertificatePair.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
     ) private var certificates: FetchedResults<CertificatePair>
-    @AppStorage("VexSign.installationMethod") private var installationMethod = 0
+    @StateObject private var signingMode = SigningModeManager.shared
     @State private var checkedAt = Date()
     @State private var inputs = InstallPreflightInputs()
 
@@ -138,9 +138,13 @@ struct SetupHealthView: View {
             items.append(.init(id: "missingCertificate", title: .localized("No Certificate Configured"), detail: .localized("Import your certificate and provisioning profile to enable signing."), target: .certificates))
         }
 
-        let readiness = InstallMethodKind.selected(forStoredValue: installationMethod)
-            .map { InstallPreflight.readiness(for: $0, inputs) }
-            ?? .missing(.localized("Unknown installation method. Choose OTA, pairing/IDevice or embedded guest import in Settings."))
+        let readiness: InstallReadiness
+        do {
+            let pipeline = try signingMode.pipeline()
+            readiness = InstallPreflight.readiness(for: pipeline.installMethod, inputs)
+        } catch {
+            readiness = .unavailable(error.localizedDescription)
+        }
         switch readiness {
         case .ready: break
         case .missing(let detail), .unknown(let detail), .unavailable(let detail):

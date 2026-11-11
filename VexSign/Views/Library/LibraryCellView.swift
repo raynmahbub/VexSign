@@ -18,6 +18,7 @@ struct LibraryCellView: View {
 	@ObservedObject private var updateChecker = AppUpdateChecker.shared
 	@ObservedObject private var lockManager = AppLockManager.shared
 	@ObservedObject private var _status = LibraryStatusStore.shared
+    @StateObject private var _signingMode = SigningModeManager.shared
 
 	/// The expiry the pill counts down.
 	///
@@ -180,7 +181,7 @@ struct LibraryCellView: View {
 		}
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             if !isEditing {
-                ForEach(LibraryAppWorkflowAction.actions(isSigned: app.isSigned), id: \.self) { action in
+                ForEach(_workflowActions, id: \.self) { action in
                     Button {
                         _performWorkflow(action)
                     } label: {
@@ -368,6 +369,15 @@ struct LibraryCellView: View {
         let state: String = app.isSigned ? .localized("Signed copy") : .localized("Imported copy")
         return version + " · " + state
     }
+
+    private var _usesContainer: Bool {
+        do { return try _signingMode.pipeline(for: app).mode == .containerized }
+        catch { return false } // Starting an install presents the unresolved-route error.
+    }
+
+    private var _workflowActions: [LibraryAppWorkflowAction] {
+        LibraryAppWorkflowAction.actions(isSigned: app.isSigned, containerized: _usesContainer)
+    }
 }
 
 // MARK: - Extension: View
@@ -525,15 +535,22 @@ extension LibraryCellView {
 				InstallQueue.shared.enqueue(app, exporting: true)
 			}
 		} else {
+            if _usesContainer {
+                Button(.localized("Prepare Guest Import"), systemImage: "shippingbox") {
+                    _performWorkflow(.install)
+                }
+            }
             Button(.localized("Sign & Install"), systemImage: "signature") {
                 _performWorkflow(.signAndInstall)
             }
 			Button(.localized("Sign"), systemImage: "signature") {
 				Presentation.afterDismiss { selectedSigningAppPresenting = AnyApp(base: app) }
 			}
-			Button(.localized("Install Without Signing"), systemImage: "bolt.badge.checkmark") {
-				_installWithoutSigning(app)
-			}
+            if !_usesContainer {
+                Button(.localized("Install Without Signing"), systemImage: "bolt.badge.checkmark") {
+                    _installWithoutSigning(app)
+                }
+            }
 		}
 	}
 	
@@ -599,15 +616,15 @@ extension LibraryCellView {
 			} else {
 				Button {
 					NBHaptic.tap()
-					_performWorkflow(.resign)
+                    _performWorkflow(_usesContainer ? .install : .resign)
 				} label: {
 					FRExpirationPillView(
-						title: .localized("Sign"),
+                        title: _usesContainer ? .localized("Prepare Guest") : .localized("Sign"),
 						revoked: false,
 						expiration: nil
 					)
 				}
-				.accessibilityLabel(Text(.localized("Sign")))
+                .accessibilityLabel(Text(_usesContainer ? .localized("Prepare Guest") : .localized("Sign")))
 			}
 		}
 		.buttonStyle(.borderless)

@@ -249,15 +249,35 @@ recovery; and update/relaunch without data loss. Exercise supported signing/JIT
 modes and document the tested iOS versions. Distribute the required corresponding
 sources and retain upstream licenses/notices for the combined work.
 
-### VexSign install-route selection
+### VexSign dual-mode install routing
 
-Settings → Installation now keeps the existing preference values `0` (OTA) and
-`1` (pairing/IDevice), and adds `2` (embedded guest import). Unsupported stored
-values fail explicitly rather than silently choosing OTA. The guest option
-requires the loaded process-local runtime; merely installing a separate
-LiveContainer app does not activate it.
+Settings → Installation separates **App Routing** from **Direct Installation
+Type**. Routing can be Automatic, Direct Paid / Certificate, or Containerized
+Free Account. Automatic selects direct OTA/IDevice delivery when the selected or
+app-associated identity has a readable, unexpired, non-revoked P12/profile pair
+and either an enterprise profile or a profile lifetime over seven days. In a
+loaded combined host, missing/incomplete/expired/revoked identities and short
+profiles select the guest pipeline instead. Standalone builds retain their
+existing direct pipeline for already signed or ad-hoc IPAs; this routing check
+does not replace signing preflight, profile/device entitlement validation, or
+PKCS#12 password verification.
 
-The Library Install action packages and validates the selected guest IPA, stages
+The legacy installation preference values remain `0` (OTA), `1`
+(pairing/IDevice), and `2` (embedded guest import). An existing value `2` stays
+containerized in Automatic mode. Direct mode restores the last direct transport
+when leaving that legacy state. Unsupported values fail explicitly rather than
+silently choosing OTA. Explicit container mode requires the loaded process-local
+runtime; merely installing a separate LiveContainer app does not activate it,
+and no explicit mode silently falls back to the other pipeline.
+
+Each installer snapshots its resolved route. Queue prewarming is invalidated if
+that route changes, and batches containing any containerized item stop with an
+explanation instead of mixing guest staging with device-install success.
+Containerized Library, direct-URL and update flows may package an unsigned import
+for the host's explicit import/sign step; the same unsigned bundle remains
+blocked by direct-install signature verification for OTA/IDevice. Auto-import
+still enqueues only when the existing install-after-signing preference requests
+it. The Library Install action packages and validates the selected guest IPA, stages
 it in the host inbox, then offers **Open container** or **Later**. The open action
 requires no active VexSign tasks and explicit confirmation because the host
 switch closes the current session. Finish import/signing in the host. Staging is
