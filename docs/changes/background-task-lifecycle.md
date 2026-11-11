@@ -707,36 +707,34 @@ container) and guessing at it would be worse than leaving it visible.
 
 # Environment note: the Linux job's Python
 
-Not a code defect, recorded because it blocked verification of this branch and
-will block the next one.
+Not a code defect, recorded because it blocked verification of this branch.
 
 `quick` began failing in its *toolchain* step, not its checks: `python3` is
-absent from the job container. The step's original fallback ran
+absent from the job container. The step's fallback was
 `python3 --version || (apt-get update -qq && apt-get install -y -qq python3)`,
-which reported only an opaque `exit code 100`.
+which surfaced only as an opaque `exit code 100` — apt-get's generic code — and
+`-qq` threw away the one line that explained it.
 
-Diagnosis, in order:
+Diagnosis, with each step's actual output:
 
-1. `exit 100` is apt-get's generic failure code, and this step is the only
-   place the workflow calls it.
-2. After printing apt's own message: `E: Unable to locate package python3` —
-   while `apt-get update` had *succeeded*. That combination means the container
-   has Debian sources configured (so update is a no-op success) but the mirror
-   it points at is not the image's own.
-3. `ls /usr/bin | grep python` returned **nothing**. The upstream
-   `swift:6.4-noble` image installs `libpython3-dev`, whose dependency chain
-   provides `python3-minimal` and `/usr/bin/python3.12`. An image with no
-   python at all is therefore not that image.
+| Probe | Result | What it rules out |
+|---|---|---|
+| `QUICK_CHECK_SWIFT_IMAGE` | empty | a repository variable overriding the pin |
+| `ls /usr/bin \| grep python` | nothing | an interpreter merely missing from `PATH` |
+| `apt-get update` | exit 0 | a runner that cannot reach its mirrors |
+| `apt-get install python3` | `E: Unable to locate package python3` | a missing-but-fetchable package |
 
-The workflow does `image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}`,
-so a repository variable is overriding the pin with a stripped image. That
-variable is not readable with this installation's token (`403 Resource not
-accessible by integration`), so it is reported rather than "fixed" blind.
+The upstream `swift:6.4-noble` image installs `libpython3-dev`, which pulls in
+`python3-minimal`, so it has `/usr/bin/python3.12`. Its **slim** variant installs
+only `libcurl4`, `libxml2` and `tzdata`, and ends its build with
+`rm -r /var/lib/apt/lists/*`. The observed container matches slim on both counts:
+no interpreter, and an empty package index that makes every name unlocatable even
+though `update` reports success.
 
 Confirmed not caused by this branch: rerunning `main`'s own commit `a989867`,
-which passed `quick` at 05:52 UTC, now fails the same step. Nothing in the
-workflow or tooling differs between the green run and the red ones.
+which passed `quick` at 05:52 UTC, fails the same step, with no workflow change
+in between.
 
-What the step does now, on a healthy image: nothing beyond an explicit
-`python3 --version`. On a stripped image it names the override and the missing
-package instead of exiting 100.
+The step now aliases a versioned interpreter when one exists, and otherwise
+clears the pruned index before fetching. It also stopped passing `-qq`, because
+the diagnostic was being discarded exactly when it was needed.

@@ -133,69 +133,32 @@ jobs:
         run: |
           set -u
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          swiftc --version
 
-          # Name each missing tool instead of letting the step die on an opaque exit code.
-          # An `exit 100` with no message cost a full debugging cycle once already: apt-get
-          # returns 100 for everything, so a network blip and a genuinely broken image are
-          # indistinguishable from the outside.
-          if ! swiftc --version; then
-            echo "::error::swiftc is missing from the runner image; the pinned container tag may have moved. Check QUICK_CHECK_SWIFT_IMAGE."
-            exit 1
-          fi
-
-          # The Swift image installs libpython3-dev, which brings a versioned interpreter
-          # (python3.12) but not the unversioned `python3` package. Relying on apt-get to
-          # supply that alias made every Linux job depend on the runner reaching its package
-          # mirrors, and a mirror blip took the whole pipeline red. Alias what is already
-          # installed instead, and only reach for apt-get when there is no interpreter at all.
+          # The swift image prunes /var/lib/apt/lists at build time, so the package index
+          # is empty and `apt-get install` reports "Unable to locate package" even after a
+          # successful update against a stale mirror. Clear and refresh before installing.
           if ! python3 --version; then
-            # Look everywhere a Swift image might keep it before concluding it is absent:
-            # the versioned name in /usr/bin, and anything under /usr/local or /opt.
-            PYTHON_ALT=""
-            for candidate in python3 python3.13 python3.12 python3.11 python3.10; do
-              for dir in /usr/bin /usr/local/bin /opt/*/bin /usr/libexec; do
-                if [ -x "$dir/$candidate" ]; then
-                  PYTHON_ALT="$dir/$candidate"
-                  break 2
-                fi
-              done
+            for candidate in python3.13 python3.12 python3.11; do
+              if command -v "$candidate" >/dev/null 2>&1; then
+                echo "python3 absent; aliasing $candidate (already in the image)."
+                mkdir -p "$RUNNER_TEMP/bin"
+                ln -sf "$(command -v "$candidate")" "$RUNNER_TEMP/bin/python3"
+                echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+                export PATH="$RUNNER_TEMP/bin:$PATH"
+                break
+              fi
             done
-            if [ -z "$PYTHON_ALT" ]; then
-              PYTHON_ALT="$(find / -maxdepth 4 -name 'python3*' -type f -perm -u+x 2>/dev/null | head -1)"
-            fi
-
-            if [ -n "$PYTHON_ALT" ]; then
-              echo "python3 is absent; aliasing $PYTHON_ALT (ships with the image, no network needed)."
-              mkdir -p "$RUNNER_TEMP/bin"
-              ln -sf "$PYTHON_ALT" "$RUNNER_TEMP/bin/python3"
-              echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-              export PATH="$RUNNER_TEMP/bin:$PATH"
-            else
-              echo "::warning::no Python interpreter found; installing one."
-              # 'Unable to locate package python3' after a *successful* apt-get update is the
-              # decisive detail: update succeeded because the image ships a stale package
-              # index (/var/lib/apt/lists was populated at build time), and the index does not
-              # name python3. So the container was built for a different base than the one it
-              # is running as, and no amount of fetching will resolve the name. Nothing here
-              # can fix that from inside the job; it is a pin problem.
-              APT_LOG="$RUNNER_TEMP/apt.log"
-              if ! apt-get update >"$APT_LOG" 2>&1; then
-                echo "::error::apt-get update failed; the runner could not reach its package mirrors."
-                tail -n 12 "$APT_LOG" | sed 's/^/::error::apt: /'
-                exit 1
-              fi
-              # Split the pipeline so the assertion is on apt-get's status, not on tail's:
-              # `if ! apt-get ... | tail` tests tail, which always succeeds.
-              if ! apt-get install -y python3 >"$APT_LOG" 2>&1; then
-                echo "::error::apt-get install python3 failed; the image's package index does not name python3. The quick job's container is pinned to swift:6.4-noble, which installs libpython3-dev and therefore python3.12, so this runner is not serving that image. Re-pin or rebuild it; the workflow cannot repair its own container."
-                tail -n 12 "$APT_LOG" | sed 's/^/::error::apt: /'
-                exit 1
-              fi
-            fi
           fi
 
-          # Fail here, not 30 lines later in an unrelated script, if the shim did not take.
-          python3 --version
+          if ! python3 --version; then
+            echo "No interpreter in the image; installing python3."
+            rm -rf /var/lib/apt/lists/*
+            if ! apt-get update || ! apt-get install -y python3; then
+              echo "::error::Could not install python3. If apt-get update succeeded but the package is unlocatable, the container's apt index does not match its base; re-pin the swift image."
+              exit 1
+            fi
+          fi
 
           python3 tools/ci-scope.py
 
