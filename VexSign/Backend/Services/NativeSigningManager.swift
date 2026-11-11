@@ -484,7 +484,7 @@ final class NativeSigningManager: ObservableObject {
     private static func handoffPassword() throws -> String {
         var bytes = Data(count: 32)
         let status = bytes.withUnsafeMutableBytes {
-            SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress)
+            SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!)
         }
         guard status == errSecSuccess else {
             throw NativeSigningError.signingFailed(.localized("A secure password for the certificate export could not be generated. Nothing was imported."))

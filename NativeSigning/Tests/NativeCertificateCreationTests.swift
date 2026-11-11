@@ -329,7 +329,8 @@ final class NativeCertificateCreationTests: XCTestCase {
         let exported = try await bridge.exportProvisioningProfile(contextID: context, profileUUID: profileUUID,
             identityID: identityID, bundleIdentifier: Self.exportBundle, deviceIdentifier: Self.exportUDID, consent: consent)
         XCTAssertEqual(exported, Self.exportCMS)
-        XCTAssertEqual(await calls.downloadCount(), 1)
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 1)
         await bridge.shutdown()
     }
 
@@ -344,7 +345,8 @@ final class NativeCertificateCreationTests: XCTestCase {
                 deviceIdentifier: Self.exportUDID, consent: consent)
             XCTFail("A profile without an authenticated receipt must not be exported")
         } catch { XCTAssertEqual(error as? NativeProfileValidationError, .receiptUnavailable) }
-        XCTAssertEqual(await calls.downloadCount(), 0)
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 0)
         await bridge.shutdown()
     }
 
@@ -363,7 +365,8 @@ final class NativeCertificateCreationTests: XCTestCase {
                 identityID: identityID, bundleIdentifier: Self.exportBundle, deviceIdentifier: Self.exportUDID, consent: consent)
             XCTFail("The returned CMS must match the authenticated receipt")
         } catch { XCTAssertEqual(error as? NativeProfileValidationError, .receiptMismatch) }
-        XCTAssertEqual(await calls.downloadCount(), 1)
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 1)
         await bridge.shutdown()
     }
 
@@ -383,7 +386,8 @@ final class NativeCertificateCreationTests: XCTestCase {
                 identityID: identityID, bundleIdentifier: Self.exportBundle, deviceIdentifier: Self.exportUDID, consent: consent)
             XCTFail("Expired consent must fail closed")
         } catch { XCTAssertEqual(error as? AnisetteConsentError, .consentRequired) }
-        XCTAssertEqual(await calls.downloadCount(), 0)
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 0)
         await bridge.shutdown()
     }
 

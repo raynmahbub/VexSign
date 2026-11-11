@@ -3,6 +3,7 @@ import XCTest
 import NativeSigning
 @testable import VexSign
 
+@MainActor
 final class NativeSigningHandoffPreflightTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_000_000)
     private let team = "ABCDE12345"
