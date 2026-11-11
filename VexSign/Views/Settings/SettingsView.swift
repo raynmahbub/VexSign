@@ -545,21 +545,29 @@ private extension SettingsView {
 
     func _makeGitHubIssueURL(url: String) -> String {
         var configurationSection = "### App Configuration:\n"
-        switch UserDefaults.standard.integer(forKey: "VexSign.installationMethod") {
-        case 0:
-            let serverMethod = UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
-            let ipFix = UserDefaults.standard.bool(forKey: "VexSign.ipFix")
-            let serverType = (serverMethod == 0) ? "Fully Local" : "Semi Local"
-            configurationSection += "- Install method: `Server`\n"
-            configurationSection += "  - Server type: `\(serverType)`\n"
-            configurationSection += "  - IP Fix: `\(ipFix)`\n"
-        case 1:
-            let pairingPath = HeartbeatManager.pairingFile()
-            let pairingExists = FileManager.default.fileExists(atPath: pairingPath)
-            configurationSection += "- Install method: `idevice`\n"
-            configurationSection += "  - Pairing file: `\(pairingExists ? "Present" : "Not Present")`\n"
-        default:
-            configurationSection += "- Install method: `Unknown`\n"
+        let modeManager = SigningModeManager.shared
+        configurationSection += "- App routing preference: `\(modeManager.preference.rawValue)`\n"
+        do {
+            switch try modeManager.pipeline() {
+            case .directPaid(.server):
+                let serverMethod = UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
+                let ipFix = UserDefaults.standard.bool(forKey: "VexSign.ipFix")
+                let serverType = (serverMethod == 0) ? "Fully Local" : "Semi Local"
+                configurationSection += "- Install method: `Server`\n"
+                configurationSection += "  - Server type: `\(serverType)`\n"
+                configurationSection += "  - IP Fix: `\(ipFix)`\n"
+            case .directPaid(.idevice):
+                let pairingPath = HeartbeatManager.pairingFile()
+                let pairingExists = FileManager.default.fileExists(atPath: pairingPath)
+                configurationSection += "- Install method: `idevice`\n"
+                configurationSection += "  - Pairing file: `\(pairingExists ? "Present" : "Not Present")`\n"
+            case .containerized:
+                configurationSection += "- Install method: `Embedded guest import`\n"
+            case .directPaid:
+                configurationSection += "- Install method: `Unsupported direct route`\n"
+            }
+        } catch {
+            configurationSection += "- Install method: `Unresolved`\n"
         }
         let body = """
         ### Device Information

@@ -251,6 +251,29 @@ extension DownloadManager {
 			return
 		}
 
+        do {
+            if try SigningModeManager.shared.pipeline(for: app) == .containerized {
+                let profile = SigningProfileStore.shared.profile(forBundleID: app.identifier)
+                let options = (profile?.options ?? Options.batchBase).resolved(for: app)
+                if options.post_installAppAfterSigned {
+                    InstallQueue.shared.enqueue(app)
+                    report(for: download, status: "✅ Guest import queued") {
+                        Toast.info(.localized("Guest import queued. Confirm it in the embedded container."))
+                    }
+                } else {
+                    report(for: download, status: "✅ Added to Library") {}
+                }
+                finishImport(of: download, succeeded: true)
+                return
+            }
+        } catch {
+            report(for: download, status: "❌ Install route unavailable") {
+                Toast.error(error.localizedDescription, duration: .sticky)
+            }
+            finishImport(of: download, succeeded: true)
+            return
+        }
+
 		endImport(for: download)
 		objectWillChange.send()
 		download.isSigning = true

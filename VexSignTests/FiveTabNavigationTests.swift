@@ -106,7 +106,11 @@ final class FiveTabNavigationTests: XCTestCase {
         XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: true), [.install, .resign])
         XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: false), [.signAndInstall])
         XCTAssertFalse(LibraryAppWorkflowAction.actions(isSigned: false).contains(.install),
-                       "Unsigned imports must not bypass signing through the quick action")
+                       "Unsigned imports must not bypass signing through the direct quick action")
+        XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: false, containerized: true),
+                       [.install, .signAndInstall])
+        XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: true, containerized: true),
+                       [.install, .resign])
     }
 
     func testSignAndInstallIntentChangesOnlyTheRequestOptions() {

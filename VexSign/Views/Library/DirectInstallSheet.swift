@@ -91,7 +91,15 @@ struct DirectInstallSheet: View {
 			return
 		}
 
-		guard selectedMode == .installWithoutSigning else {
+        let preparesGuest: Bool
+        do {
+            preparesGuest = try SigningModeManager.shared.pipeline() == .containerized
+        } catch {
+            Toast.error(error.localizedDescription, duration: .sticky)
+            return
+        }
+
+		guard selectedMode == .installWithoutSigning || preparesGuest else {
 			// Normal path: the download manager imports it and AutoSign signs + queues it.
 			_ = DownloadManager.shared.startDownload(
 				from: targetURL,
@@ -102,8 +110,8 @@ struct DirectInstallSheet: View {
 			return
 		}
 
-		// "Already signed": fetch, import and install as-is — Zsign is never invoked,
-		// so the original identity, keychain groups and app groups survive.
+		// Fetch and import as-is. Direct installs preserve an existing identity; container guests
+        // are signed by the host during its confirmed import flow. Zsign is not invoked here.
 		isProcessing = true
 		statusMessage = .localized("Downloading…")
 
@@ -156,11 +164,17 @@ struct DirectInstallSheet: View {
 			return
 		}
 
-		statusMessage = .localized("Verifying signature…")
+        let preparesGuest: Bool
+        do { preparesGuest = try SigningModeManager.shared.pipeline(for: imported) == .containerized }
+        catch { preparesGuest = false } // DirectInstaller immediately presents the same route error.
+        statusMessage = preparesGuest ? .localized("Preparing guest import…") : .localized("Verifying signature…")
 
 		do {
 			try DirectInstaller.shared.install(imported)
-			Toast.success(.localized("Installing without signing…"), systemImage: "bolt.badge.checkmark")
+            Toast.success(
+                preparesGuest ? .localized("Guest import queued…") : .localized("Installing without signing…"),
+                systemImage: preparesGuest ? "shippingbox" : "bolt.badge.checkmark"
+            )
 			dismiss()
 		} catch DirectInstaller.DirectInstallError.verificationFailed(let issues) {
 			// Same rule as the library: name the failed checks and let the user decide.
