@@ -62,6 +62,14 @@ validates them — so keep what you observe with the report, for example in the
 notes of the closest check above (`import_sign_verify`, `installed_version`,
 `cancel_and_timeout`). This repository records no result for any of them.
 
+### Library swipe-to-delete (pending)
+
+On a test device, try left and right swipes on signed and imported apps in compact
+list, adaptive cards and icon-grid layouts. Confirm the Delete action opens the
+existing confirmation, Cancel preserves the library copy, and Delete removes only
+that copy—not an installed app. Check vertical scrolling, edit selection, VoiceOver,
+and large text. No result has been recorded for these checks.
+
 ## 4. Record acceptance
 
 From the exact, clean candidate checkout (Python 3.11+):

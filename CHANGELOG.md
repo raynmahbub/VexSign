@@ -61,6 +61,9 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Library cards and icon tiles now reveal a Delete action on a left swipe, like
+  the existing compact-list action. Delete still asks for confirmation and only
+  removes the stored library copy; swipe right to close the action.
 - Debian tweak archive members must now be single safe filenames and cannot
   repeat (including case-only variants) before either analyzer or injector
   writes them. Conventional trailing slashes on short ar names are accepted.
