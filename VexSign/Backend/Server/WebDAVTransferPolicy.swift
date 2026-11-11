@@ -3,10 +3,38 @@ import Foundation
 /// Prevent an overwrite from deleting the source or the WebDAV inbox itself.
 enum WebDAVTransferPolicy {
     static func permits(source: URL, destination: URL, inbox: URL) -> Bool {
-        // Resolve existing symlinks and normalize dot segments. Case-folding is
-        // conservative on case-sensitive volumes and protects typical iOS volumes.
+        // Foundation does not reliably resolve an intermediate symlink when the
+        // final destination does not exist yet. Resolve the nearest existing
+        // entry first, then reattach the nonexistent suffix so alias/new and
+        // outside/new cannot evade the overlap and containment checks.
+        func resolved(_ url: URL) -> URL {
+            let manager = FileManager.default
+            func entryExists(_ url: URL) -> Bool {
+                if manager.fileExists(atPath: url.path) { return true }
+                do {
+                    return try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true
+                } catch {
+                    return false
+                }
+            }
+
+            var prefix = url.standardizedFileURL
+            var suffix: [String] = []
+            while !entryExists(prefix) {
+                let parent = prefix.deletingLastPathComponent()
+                guard parent != prefix else { break }
+                suffix.insert(prefix.lastPathComponent, at: 0)
+                prefix = parent
+            }
+            var result = prefix.resolvingSymlinksInPath().standardizedFileURL
+            for component in suffix { result.appendPathComponent(component) }
+            return result.standardizedFileURL
+        }
+
+        // Case-folding is conservative on case-sensitive volumes and protects
+        // typical iOS volumes.
         func components(_ url: URL) -> [String] {
-            url.standardizedFileURL.resolvingSymlinksInPath().pathComponents.map { $0.lowercased() }
+            resolved(url).pathComponents.map { $0.lowercased() }
         }
         let root = components(inbox)
         let from = components(source)
