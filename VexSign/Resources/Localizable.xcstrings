@@ -103931,6 +103931,116 @@
           }
         }
       }
+    },
+    "Add an optional app source" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an optional app source"
+          }
+        }
+      }
+    },
+    "Browse repositories; local IPA imports do not need a source." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse repositories; local IPA imports do not need a source."
+          }
+        }
+      }
+    },
+    "Certificate selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate selected"
+          }
+        }
+      }
+    },
+    "Check Downloads for status." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Downloads for status."
+          }
+        }
+      }
+    },
+    "Import an IPA, sign it with your certificate, and choose an installation method." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import an IPA, sign it with your certificate, and choose an installation method."
+          }
+        }
+      }
+    },
+    "Matches from your sources" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matches from your sources"
+          }
+        }
+      }
+    },
+    "No updates shown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No updates shown"
+          }
+        }
+      }
+    },
+    "Open Updates to review available matches" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Updates to review available matches"
+          }
+        }
+      }
+    },
+    "Opens the Library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the Library."
+          }
+        }
+      }
+    },
+    "Set up certificates, apps, and optional sources." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up certificates, apps, and optional sources."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

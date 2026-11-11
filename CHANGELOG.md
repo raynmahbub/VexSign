@@ -67,6 +67,10 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Home no longer describes an empty update list as proof repositories are up to
+  date, or claims a URL download started when the manager rejected it. It keeps
+  rejected input and points tracked downloads to their status. Source setup is
+  described as optional; Home also improves large-text and URL-field access.
 - Library cards and icon tiles now reveal a Delete action on a left swipe, like
   the existing compact-list action. Delete still asks for confirmation and only
   removes the stored library copy; swipe right to close the action.

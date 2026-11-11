@@ -101,6 +101,15 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertTrue(WorkspaceActionSizing.shouldStack(idealWidths: [44], availableWidth: 0, spacing: 12, accessibility: false))
     }
 
+    func testHomeDownloadFeedbackRequiresTheReturnedTrackedObject() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/app.ipa"))
+        let tracked = Download(id: "one", url: url)
+        let rejected = Download(id: "one", url: url)
+        XCTAssertTrue(VexHomeDownloadFeedback.isTracked(tracked, in: [tracked]))
+        XCTAssertFalse(VexHomeDownloadFeedback.isTracked(rejected, in: [tracked]))
+        XCTAssertFalse(VexHomeDownloadFeedback.isTracked(rejected, in: []))
+    }
+
     func testHomeSetupCountsOnlyThreeRealSteps() {
         XCTAssertEqual(VexHomeSetup.completedSteps(certificates: 0, repositories: 0, apps: 0), 0)
         XCTAssertEqual(VexHomeSetup.completedSteps(certificates: 1, repositories: 0, apps: 0), 1)

@@ -378,7 +378,7 @@ struct HomeView: View {
                 "https://example.com/app.ipa",
                 text: $packageURL
             )
-            .font(.system(size: 16, weight: .medium, design: .monospaced))
+            .font(.system(.body, design: .monospaced).weight(.medium))
             .foregroundStyle(FlarePalette.pink)
             .tint(FlarePalette.pink)
             .textInputAutocapitalization(.never)
@@ -386,16 +386,17 @@ struct HomeView: View {
             .keyboardType(.URL)
             .submitLabel(.go)
             .onSubmit { startURLDownload() }
+            .accessibilityLabel(Text(.localized("Download app from URL")))
+            .accessibilityHint(Text(.localized("Enter a direct IPA or TIPA URL and press Go.")))
         }
         .padding(.horizontal, 19)
-        .frame(height: 64)
+        .padding(.vertical, 10)
+        .frame(minHeight: 64)
         .background(FlarePalette.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(FlarePalette.border, lineWidth: 1)
         }
-        .accessibilityLabel(Text(.localized("Download app from URL")))
-        .accessibilityHint(Text(.localized("Enter a direct IPA or TIPA URL and press Go.")))
     }
 
     private var quickSignRow: some View {
@@ -631,12 +632,15 @@ struct HomeView: View {
             return
         }
 
-        _ = downloadManager.startDownload(
+        let download = downloadManager.startDownload(
             from: url,
             id: "VexSignHomeURL_\(UUID().uuidString)",
             appName: url.deletingPathExtension().lastPathComponent
         )
-        Toast.info(.localized("Download started"), systemImage: "arrow.down.circle")
+        // Rejected requests return an untracked placeholder; the manager reports why.
+        // An existing row can also be paused, so do not claim it has started.
+        guard VexHomeDownloadFeedback.isTracked(download, in: downloadManager.downloads) else { return }
+        Toast.info(.localized("Check Downloads for status."), systemImage: "arrow.down.circle")
         packageURL = ""
     }
 }

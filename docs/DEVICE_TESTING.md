@@ -75,6 +75,15 @@ the rounded launch mark in light and dark mode. Check Home actions at accessibil
 text sizes and the app-icon picker after changing icons. No result has been
 recorded for these checks.
 
+### Home UX and accessibility (pending)
+
+Test both Home presentations with VoiceOver, Bold Text and accessibility text
+sizes. Check the updates summary offline and before a refresh, optional source
+onboarding, and the URL field's label and touch target. Attempt a download with
+Game Mode enabled, then with a valid URL; also try an existing paused or queued
+row. Confirm rejected requests keep the entered URL and never claim a transfer
+started. No result has been recorded for these checks.
+
 ## 4. Record acceptance
 
 From the exact, clean candidate checkout (Python 3.11+):

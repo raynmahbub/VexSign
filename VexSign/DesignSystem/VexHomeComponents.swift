@@ -22,6 +22,14 @@ enum VexHomeSetup {
 }
 
 
+/// `startDownload` also returns an untracked placeholder when admission fails.
+/// Identity matters: an older row with the same URL or ID is not that placeholder.
+enum VexHomeDownloadFeedback {
+    static func isTracked(_ result: Download, in downloads: [Download]) -> Bool {
+        downloads.contains { $0 === result }
+    }
+}
+
 /// A quiet, opaque surface. Glass stays on navigation and hero actions only.
 struct VexHomeSurface<Content: View>: View {
     var padding: CGFloat = 16

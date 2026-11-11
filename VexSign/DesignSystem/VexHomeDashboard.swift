@@ -135,13 +135,17 @@ struct VexHomeDashboard: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 8) {
-                Text(.localized("ON-DEVICE SIGNING"))
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.4)
-                    .foregroundStyle(.white.opacity(0.78))
-                Spacer(minLength: 4)
-                certificatePill
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    heroCaption
+                    certificatePill
+                }
+            } else {
+                HStack(spacing: 8) {
+                    heroCaption
+                    Spacer(minLength: 4)
+                    certificatePill
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -149,7 +153,7 @@ struct VexHomeDashboard: View {
                     .font(.system(.largeTitle, design: .rounded).weight(.bold))
                     .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(.localized("Import an IPA, sign it with your certificate, and install it — without leaving your iPhone."))
+                Text(.localized("Import an IPA, sign it with your certificate, and choose an installation method."))
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.82))
                     .fixedSize(horizontal: false, vertical: true)
@@ -189,6 +193,13 @@ struct VexHomeDashboard: View {
         .shadow(color: Theme.tint.opacity(0.24), radius: 22, y: 10)
     }
 
+    private var heroCaption: some View {
+        Text(.localized("ON-DEVICE SIGNING"))
+            .font(.caption2.weight(.bold))
+            .tracking(1.4)
+            .foregroundStyle(.white.opacity(0.78))
+    }
+
     @ViewBuilder
     private var heroActions: some View {
         VexHeroAction(
@@ -215,8 +226,8 @@ struct VexHomeDashboard: View {
         let state = certificateState
         return Label(state.title, systemImage: state.icon)
             .font(.caption.weight(.semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+            .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.8)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .foregroundStyle(.white)
@@ -247,27 +258,51 @@ struct VexHomeDashboard: View {
         if days <= 30 {
             return (String.localized("Expires in %lld days", arguments: days), "clock.badge.exclamationmark")
         }
-        return (.localized("Certificate ready"), "checkmark.shield")
+        return (.localized("Certificate selected"), "checkmark.shield")
     }
 
     // MARK: - Metrics
 
     private var metrics: some View {
         VexHomeSurface(padding: 0) {
-            HStack(spacing: 0) {
-                metric(value: appCount, label: .localized("Library"), icon: "square.grid.2x2.fill") {
-                    onOpenTab(.library)
-                }
-                metricDivider
-                metric(value: certificateCount, label: .localized("Certificates"), icon: "checkmark.seal.fill") {
-                    onOpenTab(.settings)
-                }
-                metricDivider
-                metric(value: repositoryCount, label: .localized("Repositories"), icon: "globe.desk.fill") {
-                    onOpenTab(.appStore)
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: 0) {
+                        libraryMetric
+                        Divider().accessibilityHidden(true)
+                        certificateMetric
+                        Divider().accessibilityHidden(true)
+                        repositoryMetric
+                    }
+                } else {
+                    HStack(spacing: 0) {
+                        libraryMetric
+                        metricDivider
+                        certificateMetric
+                        metricDivider
+                        repositoryMetric
+                    }
                 }
             }
             .padding(.vertical, 14)
+        }
+    }
+
+    private var libraryMetric: some View {
+        metric(value: appCount, label: .localized("Library"), icon: "square.grid.2x2.fill") {
+            onOpenTab(.library)
+        }
+    }
+
+    private var certificateMetric: some View {
+        metric(value: certificateCount, label: .localized("Certificates"), icon: "checkmark.seal.fill") {
+            onOpenTab(.settings)
+        }
+    }
+
+    private var repositoryMetric: some View {
+        metric(value: repositoryCount, label: .localized("Repositories"), icon: "globe.desk.fill") {
+            onOpenTab(.appStore)
         }
     }
 
@@ -292,9 +327,10 @@ struct VexHomeDashboard: View {
                 Text(label)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                    .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.8)
             }
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
             .frame(maxWidth: .infinity, minHeight: 52)
             .contentShape(Rectangle())
         }
@@ -309,10 +345,10 @@ struct VexHomeDashboard: View {
             ? .localized("1 Update Available")
             : updateCount > 1
                 ? String.localized("%lld Updates Available", arguments: updateCount)
-                : .localized("No Updates Available")
+                : .localized("No updates shown")
         let detail: String = updateCount > 0
-            ? .localized("From repositories you have installed")
-            : .localized("Your repositories are up to date")
+            ? .localized("Matches from your sources")
+            : .localized("Open Updates to review available matches")
 
         return Button(action: onOpenUpdates) {
             HStack(spacing: 14) {
@@ -330,9 +366,9 @@ struct VexHomeDashboard: View {
                         Text(title)
                             .font(.system(.headline, design: .rounded).weight(.bold))
                             .foregroundStyle(.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        if updateCount > 0 {
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                            .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.8)
+                        if updateCount > 0 && !dynamicTypeSize.isAccessibilitySize {
                             Text("\(updateCount)")
                                 .font(.caption.weight(.bold).monospacedDigit())
                                 .foregroundStyle(.white)
@@ -344,8 +380,8 @@ struct VexHomeDashboard: View {
                     Text(detail)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                        .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.85)
                 }
 
                 Spacer(minLength: 4)
@@ -362,9 +398,8 @@ struct VexHomeDashboard: View {
             .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(VexSignFlareButtonStyle())
-        .accessibilityLabel(Text(updateCount > 0
-            ? String.localized("%lld updates available", arguments: updateCount)
-            : .localized("No updates available")))
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text(.localized("Open Updates to review available matches")))
     }
 
     private var importCard: some View {
@@ -430,11 +465,14 @@ struct VexHomeDashboard: View {
                 .submitLabel(.go)
                 .onSubmit(startURLDownload)
                 .accessibilityLabel(Text(.localized("Download app from URL")))
+                .accessibilityHint(Text(.localized("Enter a direct IPA or TIPA URL and press Go.")))
 
             Button(action: startURLDownload) {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 28, weight: .medium))
                     .foregroundStyle(Theme.tint)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -447,7 +485,6 @@ struct VexHomeDashboard: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Theme.separator, lineWidth: 0.75)
         }
-        .accessibilityHint(Text(.localized("Enter a direct IPA or TIPA URL and press Go.")))
     }
 
     // MARK: - Getting started
@@ -459,7 +496,7 @@ struct VexHomeDashboard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(.localized("Get started"))
                             .font(.headline)
-                        Text(.localized("Three steps to your first signed app."))
+                        Text(.localized("Set up certificates, apps, and optional sources."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -481,8 +518,8 @@ struct VexHomeDashboard: View {
                     action: { onOpenTab(.settings) }
                 )
                 VexSetupRow(
-                    title: .localized("Add an app source"),
-                    detail: .localized("Browse repositories or import an IPA."),
+                    title: .localized("Add an optional app source"),
+                    detail: .localized("Browse repositories; local IPA imports do not need a source."),
                     systemImage: "globe.desk",
                     done: repositoryCount > 0,
                     action: onAddRepository
@@ -576,6 +613,7 @@ struct VexHomeDashboard: View {
                             }
                         }
                         .buttonStyle(VexSignFlareButtonStyle())
+                        .accessibilityHint(Text(.localized("Opens the Library.")))
                     }
                 }
                 .padding(.vertical, 1)
@@ -649,12 +687,15 @@ struct VexHomeDashboard: View {
             return
         }
 
-        _ = downloadManager.startDownload(
+        let download = downloadManager.startDownload(
             from: url,
             id: "VexSignHomeURL_\(UUID().uuidString)",
             appName: url.deletingPathExtension().lastPathComponent
         )
-        Toast.info(.localized("Download started"), systemImage: "arrow.down.circle")
+        // Rejected requests return an untracked placeholder; the manager reports why.
+        // An existing row can also be paused, so do not claim it has started.
+        guard VexHomeDownloadFeedback.isTracked(download, in: downloadManager.downloads) else { return }
+        Toast.info(.localized("Check Downloads for status."), systemImage: "arrow.down.circle")
         urlText = ""
     }
 }
