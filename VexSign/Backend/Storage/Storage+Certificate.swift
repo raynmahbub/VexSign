@@ -79,8 +79,26 @@ extension Storage {
 			CertificateStatusManager.shared.removeRevocationSnapshot(for: cert)
 		}
 
+		// The directory holds this certificate's `.p12` — its private key — and its profile,
+		// so a failure here leaves usable key material on disk after the user asked for it to
+		// be gone. The row is still deleted (a certificate that cannot be removed from the
+		// list is worse), but the file error is reported rather than swallowed: the snapshot
+		// of remaining files then names the orphan, and `Remove Leftovers` reclaims it.
+		//
+		// The default is to *not* sweep leftovers automatically, so silence here could leave
+		// the key behind indefinitely.
 		if let url = getUuidDirectory(for: cert) {
-			try? FileManager.default.removeItem(at: url)
+			do {
+				if FileManager.default.fileExists(atPath: url.path) {
+					try FileManager.default.removeItem(at: url)
+				}
+			} catch {
+				Logger.misc.error(
+					"Could not delete certificate files for \(cert.uuid ?? "an unnamed certificate"); "
+						+ "the private key remains on disk until Remove Leftovers runs. "
+						+ LogRedaction.redact(error.localizedDescription)
+				)
+			}
 		}
 		context.delete(cert)
 		saveContext()
