@@ -49,10 +49,15 @@ struct BackgroundDownloadWork: Equatable, Sendable {
     var isFinished: Bool { activeCount == 0 && !hasUnfinishedWork }
 
     /// `0...100`, for `BGTask.progress.completedUnitCount`.
+    ///
+    /// Clamped to `99` while any work remains. With no active transfer, `averageProgress` defaults
+    /// to `1`, so the unclamped value was 100 — reporting a task as complete while verifying,
+    /// importing or signing was still running. The progress counter is informational and this
+    /// cannot prove anything, but a full bar next to a spinning task is a lie the user can see.
     var completedPercent: Int64 {
         guard !isFinished else { return 100 }
         let clamped = min(max(averageProgress, 0), 1)
-        return Int64((clamped * 100).rounded())
+        return min(99, Int64((clamped * 100).rounded()))
     }
 }
 

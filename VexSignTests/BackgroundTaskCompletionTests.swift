@@ -229,7 +229,7 @@ final class BackgroundTaskCompletionTests: XCTestCase {
             hasUnfinishedWork: true
         )
         XCTAssertFalse(work.isFinished)
-        XCTAssertNotEqual(work.completedPercent, 100)
+        XCTAssertEqual(work.completedPercent, 99, "a running task must never show 100%")
     }
 
     // MARK: - Monitor policy

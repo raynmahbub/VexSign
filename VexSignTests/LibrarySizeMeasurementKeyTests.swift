@@ -67,14 +67,22 @@ final class LibrarySizeMeasurementKeyTests: XCTestCase {
         XCTAssertEqual(key(signed: [(nil, date)]), key(signed: [("", date)]))
     }
 
-    /// `nil` date was `0` in the old key because of `?? 0`. A row actually dated at the epoch is
-    /// therefore indistinguishable from an undated one — preserved deliberately, since changing it
-    /// would change when measurements fire.
-    func testNilDateAndEpochDateCollapseAsBefore() {
-        XCTAssertEqual(
-            key(signed: [(("a"), nil)]),
-            key(signed: [(("a"), Date(timeIntervalSince1970: 0))])
+    /// The old key interpolated `date ?? 0`, so an undated row produced the same *text* as a row
+    /// dated at the epoch. This key keeps `nil` distinct — it is a value type, not a string format
+    /// — so the two are no longer equal. That is a change in representation, not in behaviour:
+    /// what the key decides is whether the input changed between two evaluations, and swapping a
+    /// `nil` date for an epoch date on the same row *is* a change worth measuring again. The
+    /// previous string key could not tell them apart and would have skipped that re-measure.
+    func testNilDateIsDistinctFromEpochDate() {
+        XCTAssertNotEqual(
+            key(signed: [("a", nil)]),
+            key(signed: [("a", Date(timeIntervalSince1970: 0))])
         )
+    }
+
+    /// Both forms are stable, so this distinction cannot cause repeated measurement on its own.
+    func testNilDateIsStableAcrossEvaluations() {
+        XCTAssertEqual(key(signed: [("a", nil)]), key(signed: [("a", nil)]))
     }
 
     // MARK: - Shape

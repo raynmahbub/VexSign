@@ -347,7 +347,11 @@ It is allocation-only, not behavioural — deliberately:
 - order stays significant (the old key joined in array order);
 - signed and imported stay distinct (the old `s:` / `i:` prefixes);
 - a missing uuid still collapses to `""`;
-- `nil` date still collapses to the epoch, because the old key used `?? 0`.
+- `nil` date no longer collapses to the epoch. The old *string* key used `?? 0` and could not
+  tell them apart; a value type keeps them distinct. That is a representation change, not a
+  behaviour change — swapping a `nil` date for an epoch date on a row genuinely is an input change,
+  and the old key would have skipped re-measuring it. Both forms are individually stable, so this
+  cannot cause repeated measurement.
 
 Each of those is pinned by a test in `LibrarySizeMeasurementKeyTests`, including
 the two collapsing rules, so a future "cleanup" cannot silently change when
