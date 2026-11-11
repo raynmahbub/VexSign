@@ -149,13 +149,20 @@ jobs:
           # mirrors, and a mirror blip took the whole pipeline red. Alias what is already
           # installed instead, and only reach for apt-get when there is no interpreter at all.
           if ! python3 --version; then
+            # Look everywhere a Swift image might keep it before concluding it is absent:
+            # the versioned name in /usr/bin, and anything under /usr/local or /opt.
             PYTHON_ALT=""
-            for candidate in python3.13 python3.12 python3.11 python3.10; do
-              if command -v "$candidate" >/dev/null 2>&1; then
-                PYTHON_ALT="$(command -v "$candidate")"
-                break
-              fi
+            for candidate in python3 python3.13 python3.12 python3.11 python3.10; do
+              for dir in /usr/bin /usr/local/bin /opt/*/bin /usr/libexec; do
+                if [ -x "$dir/$candidate" ]; then
+                  PYTHON_ALT="$dir/$candidate"
+                  break 2
+                fi
+              done
             done
+            if [ -z "$PYTHON_ALT" ]; then
+              PYTHON_ALT="$(find / -maxdepth 4 -name 'python3*' -type f -perm -u+x 2>/dev/null | head -1)"
+            fi
 
             if [ -n "$PYTHON_ALT" ]; then
               echo "python3 is absent; aliasing $PYTHON_ALT (ships with the image, no network needed)."
@@ -165,13 +172,12 @@ jobs:
               export PATH="$RUNNER_TEMP/bin:$PATH"
             else
               echo "::warning::no Python interpreter found; installing one."
-              # The upstream swift:6.4-noble image installs libpython3-dev, whose dependency
-              # chain provides /usr/bin/python3.12. Finding no python at all therefore means
-              # this job is not running that image — QUICK_CHECK_SWIFT_IMAGE is overriding it
-              # with a stripped one. Say so, because the next message ("unable to locate
-              # package python3") otherwise reads like a network problem and is not.
-              echo "::error::No python in /usr/bin. The pinned image is overridden by QUICK_CHECK_SWIFT_IMAGE=${{ vars.QUICK_CHECK_SWIFT_IMAGE }}; upstream swift:6.4-noble ships python3.12 via libpython3-dev, so a missing interpreter means a stripped image, not a mirror failure."
-              ls /usr/bin | grep -i '^python' | head -5 || true
+              # 'Unable to locate package python3' after a *successful* apt-get update is the
+              # decisive detail: update succeeded because the image ships a stale package
+              # index (/var/lib/apt/lists was populated at build time), and the index does not
+              # name python3. So the container was built for a different base than the one it
+              # is running as, and no amount of fetching will resolve the name. Nothing here
+              # can fix that from inside the job; it is a pin problem.
               APT_LOG="$RUNNER_TEMP/apt.log"
               if ! apt-get update >"$APT_LOG" 2>&1; then
                 echo "::error::apt-get update failed; the runner could not reach its package mirrors."
@@ -181,7 +187,7 @@ jobs:
               # Split the pipeline so the assertion is on apt-get's status, not on tail's:
               # `if ! apt-get ... | tail` tests tail, which always succeeds.
               if ! apt-get install -y python3 >"$APT_LOG" 2>&1; then
-                echo "::error::apt-get install python3 failed."
+                echo "::error::apt-get install python3 failed; the image's package index does not name python3. The quick job's container is pinned to swift:6.4-noble, which installs libpython3-dev and therefore python3.12, so this runner is not serving that image. Re-pin or rebuild it; the workflow cannot repair its own container."
                 tail -n 12 "$APT_LOG" | sed 's/^/::error::apt: /'
                 exit 1
               fi
