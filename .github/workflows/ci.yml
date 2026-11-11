@@ -165,17 +165,17 @@ jobs:
               export PATH="$RUNNER_TEMP/bin:$PATH"
             else
               echo "::warning::no Python interpreter found; installing one."
-              if ! apt-get update 2>&1 | tail -n 25; then
+              APT_LOG="$RUNNER_TEMP/apt.log"
+              if ! apt-get update >"$APT_LOG" 2>&1; then
                 echo "::error::apt-get update failed; the runner could not reach its package mirrors."
+                tail -n 12 "$APT_LOG" | sed 's/^/::error::apt: /'
                 exit 1
               fi
-              if ! apt-get install -y python3 2>&1 | tee "$RUNNER_TEMP/apt.log" | tail -n 40; then
-                # The reason has to reach the annotation, not just the log: logs for this
-                # repository are not retrievable from every client, and an unexplained
-                # install failure costs another full pipeline cycle to Rediscover.
-                while IFS= read -r line; do
-                  [ -n "$line" ] && echo "::error::apt: $line"
-                done < <(tail -n 12 "$RUNNER_TEMP/apt.log")
+              # Split the pipeline so the assertion is on apt-get's status, not on tail's:
+              # `if ! apt-get ... | tail` tests tail, which always succeeds.
+              if ! apt-get install -y python3 >"$APT_LOG" 2>&1; then
+                echo "::error::apt-get install python3 failed."
+                tail -n 12 "$APT_LOG" | sed 's/^/::error::apt: /'
                 exit 1
               fi
             fi
