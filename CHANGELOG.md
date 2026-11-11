@@ -115,6 +115,22 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Deleting a certificate no longer reports success when its private key could
+  not be erased. The certificate's folder holds the imported `.p12` and its
+  profile; the removal used to swallow every error and then delete the row, so
+  the screen said the certificate was gone while usable key material stayed on
+  disk — reclaimed only if **Remove Leftovers** happened to be on. The row is
+  still deleted, and a failed removal is now recorded so the leftover is named
+  and can be reclaimed. The same silence in the failed-import cleanup is fixed
+  there too, where no row exists to own the staged key.
+- A library stored under the old `Feather.sqlite` name can no longer appear to
+  vanish. If the one-time migration to `VexSign.sqlite` failed, the app used to
+  open a new, empty store beside the intact original: every app, certificate
+  and source looked deleted, and nothing was reported. The store is now opened
+  in place at its old name so the library keeps working, and the move is
+  retried on the next launch. The corrupt-store recovery is also refused while
+  that fallback is active, because it deletes the store file together with the
+  signed, unsigned and certificate folders.
 - `make verify` no longer fails on a source archive. `tools/device-acceptance.py`
   called `git rev-parse HEAD` unconditionally, so running the suite from an
   unpacked zip (no `.git`) ended in `fatal: not a git repository` and failed the
