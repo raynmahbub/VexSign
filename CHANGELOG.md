@@ -11,6 +11,11 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
+- `DownloadManager` is split along a boundary it already had. Network policy and
+  the transfer lifecycle — pausing, cancelling, resuming, and finishing a
+  download when its task ends — moved to `DownloadManager+TransferControl.swift`,
+  matching the existing `+PackageImport`, `+Recovery`, `+Delegates` and
+  `+LiveActivity` extensions. No behaviour changed; the bodies are identical.
 - The launch screen uses a rounded version of the existing VexSign mark. Home
   actions stack at accessibility text sizes, and the app-icon picker reuses its
   preview images instead of decoding them each time the view is constructed.
