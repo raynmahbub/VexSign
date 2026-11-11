@@ -704,3 +704,39 @@ and the policy it covers is untested rather than regression-tested. Modelled in 
 scratch reproduction, all three assertions should hold, so the cause is
 environment-specific (symlink resolution semantics under the simulator's
 container) and guessing at it would be worse than leaving it visible.
+
+# Environment note: the Linux job's Python
+
+Not a code defect, recorded because it blocked verification of this branch and
+will block the next one.
+
+`quick` began failing in its *toolchain* step, not its checks: `python3` is
+absent from the job container. The step's original fallback ran
+`python3 --version || (apt-get update -qq && apt-get install -y -qq python3)`,
+which reported only an opaque `exit code 100`.
+
+Diagnosis, in order:
+
+1. `exit 100` is apt-get's generic failure code, and this step is the only
+   place the workflow calls it.
+2. After printing apt's own message: `E: Unable to locate package python3` —
+   while `apt-get update` had *succeeded*. That combination means the container
+   has Debian sources configured (so update is a no-op success) but the mirror
+   it points at is not the image's own.
+3. `ls /usr/bin | grep python` returned **nothing**. The upstream
+   `swift:6.4-noble` image installs `libpython3-dev`, whose dependency chain
+   provides `python3-minimal` and `/usr/bin/python3.12`. An image with no
+   python at all is therefore not that image.
+
+The workflow does `image: ${{ vars.QUICK_CHECK_SWIFT_IMAGE || 'swift:6.4-noble' }}`,
+so a repository variable is overriding the pin with a stripped image. That
+variable is not readable with this installation's token (`403 Resource not
+accessible by integration`), so it is reported rather than "fixed" blind.
+
+Confirmed not caused by this branch: rerunning `main`'s own commit `a989867`,
+which passed `quick` at 05:52 UTC, now fails the same step. Nothing in the
+workflow or tooling differs between the green run and the red ones.
+
+What the step does now, on a healthy image: nothing beyond an explicit
+`python3 --version`. On a stripped image it names the override and the missing
+package instead of exiting 100.
