@@ -244,6 +244,7 @@ extension DownloadManager {
 		}
 	}
 
+	@MainActor
 	func autoSignOrFinish(_ app: AppInfoPresentable, for download: Download) {
 		guard AutoSignManager.isEnabled else {
 			if isAppInBackground { sendCompletionNotification(for: download, status: "✅ Added to Library") }

@@ -127,6 +127,7 @@ verify: docs-check
 	@python3 tools/test_public_blur_policy.py
 	@python3 tools/test_private_launch_policy.py
 	@python3 tools/test_signing_identity_policy.py
+	@python3 tools/test_integration_contracts.py
 	@python3 tools/test_performance_fixtures.py
 	@python3 tools/test_ci_repair_agent.py
 	@python3 tools/test_autopilot.py

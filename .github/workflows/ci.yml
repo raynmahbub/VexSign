@@ -178,6 +178,7 @@ jobs:
         run: |
           python3 tools/check-docs.py
           python3 tools/test_docs.py
+          python3 tools/test_integration_contracts.py
           python3 tools/test_ci_repair_agent.py
           python3 tools/test_device_acceptance.py
           python3 tools/test_release_assets.py

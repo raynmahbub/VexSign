@@ -1,6 +1,6 @@
 // AnisetteServer — a PROTOCOL MOCK for VexSign's Free Apple ID signing flow.
 //
-// ⚠️ This does NOT produce valid Anisette data. It returns the ten required
+// ⚠️ This does NOT produce valid Anisette data. It returns the eleven required
 // header fields with FABRICATED values (a random serial, a UUID-derived hash,
 // a fixed routing number) so the client/server wire format can be exercised
 // locally. Apple's services will reject these headers; this server cannot be
@@ -16,24 +16,21 @@
 //
 // Endpoint: GET http://localhost:<port>/anisette
 //
-// Required header fields (10 total), returned as {"headers": { ... }}:
+// Required header fields (11 total), returned as one flat JSON object:
 // - X-Apple-I-MD
 // - X-Apple-I-MD-M
 // - X-Apple-I-MD-RINFO
 // - X-Apple-I-MD-LU
 // - X-Apple-I-SRL-NO
+// - X-MMe-Client-Info
+// - User-Agent
 // - X-Apple-I-Client-Time
 // - X-Apple-I-Timezone
 // - X-Apple-Locale
-// - X-Apple-Device-ID
 // - X-Mme-Device-Id
 
 import Foundation
 import Network
-
-struct AnisetteResponse: Codable {
-    let headers: [String: String]
-}
 
 actor AnisetteServer {
     private let port: UInt16
@@ -58,11 +55,11 @@ actor AnisetteServer {
             return HTTPResponse(status: 404, body: "Not Found")
         }
 
-        let response = AnisetteResponse(headers: generateAnisetteHeaders())
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         do {
-            let data = try encoder.encode(response)
+            // HTTPSAnisetteProvider consumes one flat object, not a nested headers object.
+            let data = try encoder.encode(generateAnisetteHeaders())
             return HTTPResponse(
                 status: 200,
                 headers: ["Content-Type": "application/json"],
@@ -94,10 +91,11 @@ actor AnisetteServer {
             "X-Apple-I-MD-RINFO": "1710000000",
             "X-Apple-I-MD-LU": "\(Int(now.timeIntervalSince1970))",
             "X-Apple-I-SRL-NO": "\(Int.random(in: 100000...999999))",
+            "X-MMe-Client-Info": "VexSign-Protocol-Mock/1",
+            "User-Agent": "VexSign-Protocol-Mock/1",
             "X-Apple-I-Client-Time": clientTime,
             "X-Apple-I-Timezone": timezone,
             "X-Apple-Locale": locale,
-            "X-Apple-Device-ID": deviceID,
             "X-Mme-Device-Id": deviceID
         ]
     }
