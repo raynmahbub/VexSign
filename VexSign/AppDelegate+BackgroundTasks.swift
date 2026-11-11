@@ -99,75 +99,112 @@ extension AppDelegate {
 	
 	@available(iOS 19.0, *)
 	private func _handleContinuedProcessing(task: BGContinuedProcessingTask) {
-        // Runs in background; DownloadManager already handles Live Activity updates.
-        var wasExpired = false
+        // Progress reporting is required by the system for a continued-processing task.
+        task.progress.totalUnitCount = 100
 
+        // Expiration here does not pause: BGContinuedProcessingTask exists precisely so the user's
+        // download can finish after backgrounding, and DownloadManager already owns pause/resume.
+        //
+        // Order matters. The handler cancels the monitor first and only then asks ownership to
+        // complete: if a monitor was running, its cancellation path closes the gate and
+        // `ownership.expired()` is a no-op; if the main-actor hop never ran, no monitor exists and
+        // ownership completes instead. Either way exactly one completion, and always one.
+        let gate = BackgroundTaskCompletionGate { success in
+            task.setTaskCompleted(success: success)
+        }
+        let cancellation = BackgroundWorkCancellation()
+        let ownership = BackgroundTaskOwnership(gate: gate)
+
+        // Wire expiration before the main-actor runner exists: a BGTaskScheduler handler is not
+        // async, and expiration must be able to cancel the monitor synchronously. If the main-actor
+        // hop never runs, `expired()` also completes the task — otherwise nobody would.
         task.expirationHandler = {
-            wasExpired = true
-            // Don't pause — let DownloadManager handle continuation.
-            task.setTaskCompleted(success: false)
+            cancellation.cancel()
+            ownership.expired()
         }
 
-        // Progress tracking is required by the system.
-        let progress = task.progress
-        progress.totalUnitCount = 100
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            while !wasExpired && !DownloadManager.shared.downloads.isEmpty {
-                let activeDownloads = DownloadManager.shared.downloads.filter {
-                    $0.isActive || ($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused)
+        Task { @MainActor in
+            let runner = BackgroundDownloadRunner(
+                gate: gate,
+                monitor: DownloadManagerBackgroundMonitor(),
+                cancellation: cancellation,
+                // The previous implementation had no deadline and could poll until the system
+                // killed it. A continued-processing task gets a bounded window, so keep one
+                // explicit.
+                timeout: 15 * 60,
+                pollInterval: 2,
+                ownership: ownership,
+                onProgress: { work in
+                    task.progress.completedUnitCount = work.completedPercent
                 }
-
-                if activeDownloads.isEmpty {
-                    progress.completedUnitCount = 100
-                    break
-                }
-
-                let totalProgress = activeDownloads.reduce(0.0) { $0 + $1.progress }
-                let averageProgress = activeDownloads.isEmpty ? 1.0 : totalProgress / Double(activeDownloads.count)
-                progress.completedUnitCount = Int64(averageProgress * 100)
-
-                Thread.sleep(forTimeInterval: 2.0)
-            }
-
-            task.setTaskCompleted(success: !wasExpired && DownloadManager.shared.downloads.isEmpty)
+            )
+            runner.start()
         }
     }
 
 	// iOS 17 and below.
 	private func _handleBackgroundDownload(task: BGProcessingTask) {
+        task.progress.totalUnitCount = 100
+
+        let gate = BackgroundTaskCompletionGate { success in
+            task.setTaskCompleted(success: success)
+        }
+        let cancellation = BackgroundWorkCancellation()
+        let ownership = BackgroundTaskOwnership(gate: gate)
+
+        // Expiration cancels the monitor. The monitor pauses downloads on its way out and closes
+        // the gate with failure; because the gate is single-owner, this can no longer contradict
+        // a success the worker already reported. `expired()` runs second and covers the case where
+        // the main-actor hop never ran at all, so no monitor exists to close anything.
         task.expirationHandler = {
-            DownloadManager.shared.pauseAllDownloads()
-            task.setTaskCompleted(success: false)
+            cancellation.cancel()
+            ownership.expired()
         }
 
-        DownloadManager.shared.resumeAllDownloads()
-
-        let timeout: TimeInterval = 4 * 60
-        let startTime = Date()
-
-        DispatchQueue.global().async {
-            while !DownloadManager.shared.downloads.isEmpty {
-                if Date().timeIntervalSince(startTime) > timeout {
-                    break
+        Task { @MainActor in
+            let runner = BackgroundDownloadRunner(
+                gate: gate,
+                monitor: DownloadManagerBackgroundMonitor(),
+                cancellation: cancellation,
+                timeout: 4 * 60,
+                // Losing background time here means the system will suspend the transfer anyway;
+                // leave the downloads paused and resumable rather than half-alive.
+                pauseOnCancellation: true,
+                ownership: ownership,
+                onProgress: { work in
+                    task.progress.completedUnitCount = work.completedPercent
                 }
-                Thread.sleep(forTimeInterval: 5.0)
-            }
-            task.setTaskCompleted(success: true)
+            )
+            runner.start()
         }
     }
 	
 	private func _handleBackgroundRefresh(task: BGAppRefreshTask) {
+        // Same single-owner rule as the download handlers: the body and the expiration handler
+        // both used to call setTaskCompleted, so an expiration landing between them reported
+        // failure and then success for one task.
+        let gate = BackgroundTaskCompletionGate { success in
+            task.setTaskCompleted(success: success)
+        }
+
+        // This handler's whole body is one main-actor hop, so the hop itself is the thing that can
+        // be lost: if the app is suspended before it runs, an expiration-only handler would leave
+        // the task uncompleted. The refresh work is idempotent and cheap, so let expiration finish
+        // it directly rather than relying on ownership tracking.
         task.expirationHandler = {
-            task.setTaskCompleted(success: false)
+            gate.finish(success: false, source: .expiration)
         }
 
-        // Schedule a processing task if downloads are still pending.
-        if !DownloadManager.shared.downloads.isEmpty {
-            _scheduleBackgroundDownloadTask()
+        // The launch handler is not guaranteed to run on the main actor, and `downloads` is
+        // main-actor UI state; read it there.
+        let monitor = DownloadManagerBackgroundMonitor()
+        Task { @MainActor in
+            // Schedule a processing task if downloads are still pending.
+            if monitor.currentWork().hasUnfinishedWork {
+                self._scheduleBackgroundDownloadTask()
+            }
+            gate.finish(success: true)
         }
-
-        task.setTaskCompleted(success: true)
     }
 
     func _scheduleBackgroundDownloadTask() {

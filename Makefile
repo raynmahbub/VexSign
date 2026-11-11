@@ -96,11 +96,15 @@ deploy-server:
 # left. Warnings only — this is a report, not a gate, so it can be run on a branch that is still
 # being cleaned up.  Exit code is the build's, so a clean run is a real signal.
 #   make strict-concurrency
+# swiftc has no `-warnings-as-errors=false`; passing it fails with
+# "unknown argument" before a single file is type-checked. Warnings are already
+# non-fatal unless `-warnings-as-errors` is given, so the diagnostics this target
+# is supposed to report need no extra flag.
 strict-concurrency:
 	@echo "== AltSourceKit (StrictConcurrency, warnings only) =="
-	swift build --package-path AltSourceKit -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors=false
+	swift build --package-path AltSourceKit -Xswiftc -strict-concurrency=complete
 	@echo "== NimbleKit (Swift 6 language mode: complete by default) =="
-	swift build --package-path NimbleKit -Xswiftc -warnings-as-errors=false
+	swift build --package-path NimbleKit
 	@echo "== app target =="
 	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe))."
 
@@ -134,6 +138,8 @@ verify: docs-check
 	@python3 tools/singleton-freeze.py
 	@echo "== concurrency discipline =="
 	@python3 tools/concurrency-discipline.py
+	@echo "== concurrency audit (every escape needs a reason) =="
+	@python3 tools/test_concurrency_audit.py
 	@echo "== native signing capability =="
 	@python3 tools/check-native-handoff.py
 	@echo "== CMS fixture contract =="

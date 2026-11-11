@@ -75,22 +75,121 @@ struct TweakLibraryList: View {
 
 	private var _sort: ItemSortOption { ItemSortOption(rawValue: _sortRaw) ?? .dateNewest }
 
-	private func _matches(_ tweak: ManagedTweak) -> Bool {
-		let q = _query.trimmingCharacters(in: .whitespaces)
-		guard !q.isEmpty else { return true }
-		return tweak.name.localizedCaseInsensitiveContains(q)
-			|| (tweak.notes ?? "").localizedCaseInsensitiveContains(q)
-			|| tweak.autoInjectBundleIds.contains { $0.localizedCaseInsensitiveContains(q) }
+	/// Filtered and sorted once per input change, not once per read.
+	///
+	/// `_listContent` reads `_allFiltered` five times in a single paint (the results header, the
+	/// list, the empty check, and twice more through `_visibleSelectableIds`), and `_autoTweaks` /
+	/// `_uncategorized` each re-derive it again. When these were computed properties, one paint of a
+	/// non-search list did roughly six full filter+sort passes over every tweak, plus one
+	/// `localizedCaseInsensitiveContains` triage per element per pass.
+	///
+	/// ## Why this is correct rather than merely fast
+	///
+	/// The cached value is validated against the same inputs the computation reads, on every access.
+	/// A cache miss recomputes; a cache hit is only possible when the inputs are `==` to those that
+	/// produced the stored value, and the derivation is a pure function of exactly those inputs
+	/// (`comparator()` is pure over `SortableItem` properties, and `_folderComparator` reads only its
+	/// arguments and `manager`).
+	///
+	/// Two earlier drafts of this were wrong, and both are worth remembering:
+	///
+	/// 1. A key of `ObjectIdentifier(manager.tweaks as AnyObject)` — bridging an array to `AnyObject`
+	///    yields a fresh object per call, so it never signalled a content change.
+	/// 2. A `@State` cache refreshed only from `onAppear`/`onChange` — the *first* paint renders
+	///    before either fires, so the list showed "Nothing here" until a second render. A cache that
+	///    must be seeded before it is read is a cache that can be read unseeded.
+	///
+	/// Validating on read removes both failure modes: there is no window in which the cache is
+	/// consulted without a matching input comparison.
+	///
+	/// The cache lives behind a reference so that reading and filling it during `body` never mutates
+	/// the `@State` value itself. Assigning `@State` while SwiftUI is evaluating this view is the
+	/// "Modifying state during view update" hazard; mutating a box the `@State` merely points at is
+	/// not, because the stored value (the reference) never changes.
+	@State private var _cacheBox = _DerivedCache()
+
+	private final class _DerivedCache {
+		var value = _Derived()
+		var key: _DerivationKey?
 	}
 
-	private var _allFiltered: [ManagedTweak] {
-		manager.tweaks.filter(_matches).sorted(by: _sort.comparator())
+	private struct _Derived {
+		var tweaks: [ManagedTweak] = []
+		var auto: [ManagedTweak] = []
+		var uncategorized: [ManagedTweak] = []
+		var folders: [TweakFolder] = []
 	}
+
+	/// Every input the derived arrays depend on.
+	///
+	/// `ManagedTweak` and `TweakFolder` are `Equatable` structs, so this is a value comparison.
+	private struct _DerivationKey: Equatable {
+		let tweaks: [ManagedTweak]
+		let folders: [TweakFolder]
+		let query: String
+		let sort: String
+	}
+
+	private var _derivationKey: _DerivationKey {
+		_DerivationKey(
+			tweaks: manager.tweaks,
+			folders: manager.folders,
+			query: _query.trimmingCharacters(in: .whitespaces),
+			sort: _sortRaw
+		)
+	}
+
+	// Reading is the only way to reach the cache, and both accessors route through `_current`.
+	private var _allFiltered: [ManagedTweak] { _current.tweaks }
 	// Root sections exclude tweaks filed in folders (those show only in their folder).
-	private var _autoTweaks: [ManagedTweak] { _allFiltered.filter { $0.hasAutoRule && $0.folderId == nil } }
-	private var _uncategorized: [ManagedTweak] { _allFiltered.filter { !$0.hasAutoRule && $0.folderId == nil } }
-	private var _folders: [TweakFolder] {
-		manager.folders.sorted(by: _folderComparator)
+	private var _autoTweaks: [ManagedTweak] { _current.auto }
+	private var _uncategorized: [ManagedTweak] { _current.uncategorized }
+	private var _folders: [TweakFolder] { _current.folders }
+
+	/// Returns the cache when its key matches the current inputs, otherwise recomputes and stores.
+	///
+	/// The returned value is used immediately and also stored, so the next evaluation in the same
+	/// paint is a hit. Because the box is a reference, the store triggers no view invalidation —
+	/// which is the intent: the inputs have already decided what should be drawn.
+	private var _current: _Derived {
+		let key = _derivationKey
+		let box = _cacheBox
+		if key == box.key { return box.value }
+		let derived = Self._derive(
+			tweaks: key.tweaks,
+			folders: key.folders,
+			query: key.query,
+			sort: _sort,
+			folderComparator: _folderComparator
+		)
+		box.value = derived
+		box.key = key
+		return derived
+	}
+
+	private static func _derive(
+		tweaks: [ManagedTweak],
+		folders: [TweakFolder],
+		query: String,
+		sort: ItemSortOption,
+		folderComparator: (TweakFolder, TweakFolder) -> Bool
+	) -> _Derived {
+		let matched = tweaks.filter { _matches($0, query: query) }.sorted(by: sort.comparator())
+		return _Derived(
+			tweaks: matched,
+			auto: matched.filter { $0.hasAutoRule && $0.folderId == nil },
+			uncategorized: matched.filter { !$0.hasAutoRule && $0.folderId == nil },
+			folders: folders.sorted(by: folderComparator)
+		)
+	}
+
+	/// Trimmed once per pass instead of once per element, which is what `_matches` did when it was
+	/// called from `filter`.
+	private static func _matches(_ tweak: ManagedTweak, query: String) -> Bool {
+		guard !query.isEmpty else { return true }
+		return tweak.name.localizedCaseInsensitiveContains(query)
+			|| (tweak.notes ?? "").localizedCaseInsensitiveContains(query)
+			|| tweak.autoInjectBundleIds.contains { $0.localizedCaseInsensitiveContains(query) }
 	}
 	private func _folderComparator(_ a: TweakFolder, _ b: TweakFolder) -> Bool {
 		switch _sort {
