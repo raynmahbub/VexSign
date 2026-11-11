@@ -125,6 +125,7 @@ verify: docs-check
 	@python3 tools/check-pbxproj.py
 	@echo "== package graph (workspace/project pins) =="
 	@python3 tools/check-package-graph.py
+	@python3 tools/test_xcode_package_audit.py
 	@echo "== localisation catalogue =="
 	@python3 tools/sync-strings.py --check
 	@python3 tools/test_sync_strings.py
