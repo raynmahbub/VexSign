@@ -44,7 +44,11 @@ final class AppInstaller: ObservableObject {
 
 
 	private let _isSharing: Bool
-	private let _installationMethod = UserDefaults.standard.integer(forKey: "VexSign.installationMethod")
+    /// Resolved once per attempt. Settings changes apply to a retry/new installer, never midway
+    /// through packaging or after an installation handoff.
+    private let _pipeline: InstallationPipeline?
+	private let _installationMethod: Int
+    private let _routingError: Error?
 	private let _serverMethod: Int
 	private let _useShareSheet = UserDefaults.standard.bool(forKey: "VexSign.useShareSheetForArchiving")
 	private let _useNovaDNSDynamic = UserDefaults.standard.bool(forKey: "VexSign.useNovaDNSDynamic")
@@ -58,7 +62,14 @@ final class AppInstaller: ObservableObject {
 
     /// Settings changed while prewarming? Discard the snapshot and build afresh.
     var preparationMatchesSettings: Bool {
-        _installationMethod == UserDefaults.standard.integer(forKey: "VexSign.installationMethod") &&
+        let routeMatches: Bool
+        if _isSharing {
+            routeMatches = true
+        } else {
+            do { routeMatches = try SigningModeManager.shared.pipeline(for: app) == _pipeline }
+            catch { routeMatches = false }
+        }
+        return routeMatches &&
         _serverMethod == UserDefaults.standard.integer(forKey: "VexSign.serverMethod") &&
         _useNovaDNSDynamic == UserDefaults.standard.bool(forKey: "VexSign.useNovaDNSDynamic") &&
         _preparationCompression == ArchiveHandler.getCompressionLevel() &&
@@ -114,6 +125,22 @@ final class AppInstaller: ObservableObject {
 		useLocalhost: Bool = false,
 		probe: InstalledAppProbing = UnavailableInstallationProbe()
 	) {
+        if isSharing {
+            _pipeline = nil
+            _installationMethod = 0
+            _routingError = nil
+        } else {
+            do {
+                let pipeline = try SigningModeManager.shared.pipeline(for: app)
+                _pipeline = pipeline
+                _installationMethod = pipeline.installationMethodValue
+                _routingError = nil
+            } catch {
+                _pipeline = nil
+                _installationMethod = -1
+                _routingError = error
+            }
+        }
 		self._probe = probe
 		self._serverMethod = useLocalhost ? 1 : UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
 		self.app = app
@@ -143,6 +170,10 @@ final class AppInstaller: ObservableObject {
 	func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		guard _completion == nil, !_hasFinished else { return }
 		_completion = completion
+        if let _routingError {
+            _finish(.failure(_routingError))
+            return
+        }
         do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
         catch { _finish(.failure(error)); return }
 

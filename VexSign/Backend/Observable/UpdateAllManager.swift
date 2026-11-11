@@ -212,6 +212,21 @@ final class UpdateAllManager: ObservableObject {
 		try? FileManager.default.removeItem(at: ipaURL)
 
 		tasks[index].state = .signing
+        do {
+            if try SigningModeManager.shared.pipeline(for: imported) == .containerized {
+                // The container signs during its confirmed import. Do not manufacture a paid
+                // signing requirement (or a second signed library copy) for a guest update.
+                if !automatic || UpdateMatchingPreferences.shared.autoInstallAfterUpdate {
+                    InstallQueue.shared.enqueue(imported)
+                }
+                tasks[index].state = .finished
+                return .success(())
+            }
+        } catch {
+            tasks[index].state = .failed(error.localizedDescription)
+            return .failure(error)
+        }
+
 		let result = await _sign(imported, automatic: automatic)
 		if case .success = result {
 			tasks[index].state = .finished

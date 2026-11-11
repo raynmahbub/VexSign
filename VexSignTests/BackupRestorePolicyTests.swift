@@ -114,6 +114,8 @@ final class BackupRestorePolicyTests: XCTestCase {
 	func testOrdinarySettingsAreBackedUp() {
 		for key in [
 			"VexSign.installationMethod",
+            SigningModeManager.preferenceKey,
+            SigningModeManager.preferredDirectMethodKey,
 			"VexSign.serverMethod",
 			"VexSign.appearance.theme",
 			"vexsign.selectedTab",

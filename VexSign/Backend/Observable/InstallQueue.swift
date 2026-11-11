@@ -137,6 +137,14 @@ final class InstallQueue: ObservableObject {
 	var upcoming: [AnyApp] { Array(apps.dropFirst(index + 1)) }
 	var showsPill: Bool { current != nil && !isSheetPresented && !isFinished }
 
+    /// Exports bypass app routing. An unresolved route stays invalid (-1), so the real installer
+    /// reports its actionable error rather than queue bookkeeping accidentally treating it as OTA.
+    private func _installationMethod(for entry: AnyApp) -> Int {
+        guard !entry.archive else { return 0 }
+        do { return try SigningModeManager.shared.pipeline(for: entry.base).installationMethodValue }
+        catch { return -1 }
+    }
+
 	/// Exports share the success counter, but must never get an Open action.
 	var installedApps: [AnyApp] {
 		apps.filter {
@@ -175,9 +183,12 @@ final class InstallQueue: ObservableObject {
     /// not another archive build, prompt or server. Pause keeps a ready package parked.
     private func _prepareNext() {
         guard !isFinished, !hasFailure, installer?.hasPackaged == true,
-              let current, let next = upcoming.first,
+              let current, let next = upcoming.first else { return }
+        let currentMethod = _installationMethod(for: current)
+        let nextMethod = _installationMethod(for: next)
+        guard currentMethod == 0,
               InstallPreparationPolicy.allows(
-                installationMethod: UserDefaults.standard.integer(forKey: "VexSign.installationMethod"),
+                installationMethod: nextMethod,
                 currentIsExport: current.archive, nextIsExport: next.archive) else { return }
         guard preparedNext?.id != next.id else { return }
         _discardPreparation()
@@ -205,7 +216,7 @@ final class InstallQueue: ObservableObject {
 		// One independent task record per item/attempt, not one mutable batch verdict.
 		if unifiedTask == nil {
 			let title = current.base.name ?? .localized("App")
-			let preparesGuest = !current.archive && UserDefaults.standard.integer(forKey: "VexSign.installationMethod") == 2
+			let preparesGuest = !current.archive && _installationMethod(for: current) == 2
 			unifiedTask = UnifiedTaskCenter.shared.begin(
 				kind: current.archive || preparesGuest ? .export : .install,
 				title: title,
@@ -235,8 +246,8 @@ final class InstallQueue: ObservableObject {
                let info = NSDictionary(contentsOf: directory.appendingPathComponent("Info.plist")) {
                 trace.appBuild = TaskContext.versionToken(info["CFBundleVersion"] as? String)
             }
-            let method = UserDefaults.standard.integer(forKey: "VexSign.installationMethod")
-            trace.installationMethod = current.archive ? "export" : (method == 1 ? "paired-device" : (method == 2 ? "guest-import" : "OTA"))
+            let method = _installationMethod(for: current)
+            trace.installationMethod = current.archive ? "export" : (method == 1 ? "paired-device" : (method == 2 ? "guest-import" : (method == 0 ? "OTA" : "unresolved")))
             trace.signingTaskID = UnifiedTaskCenter.shared.history.first {
                 $0.kind == .sign && $0.context?.artifactID == current.base.uuid && current.base.uuid != nil
             }?.id
@@ -290,7 +301,7 @@ final class InstallQueue: ObservableObject {
 	private func _beginInstallationAttempt(for entry: AnyApp, taskID: String?) {
 		_endInstallationAttempt()
 		guard !entry.archive,
-			  UserDefaults.standard.integer(forKey: "VexSign.installationMethod") != 2,
+              (0...1).contains(_installationMethod(for: entry)),
 			  let identifier = entry.base.identifier, !identifier.isEmpty else { return }
 		let attemptID = Self.attemptID(runGeneration: runGeneration, taskID: taskID, entryID: entry.id)
 		activeInstallation = (identifier, attemptID)

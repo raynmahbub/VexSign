@@ -19,6 +19,7 @@ struct LibraryInfoView: View {
 	@State private var _isClonePresenting = false
     @State private var _renewalReadiness: RenewalReadiness?
     @State private var _renewalInstallation: InstallMethodReport?
+    @State private var _renewalInstallationError: String?
     @State private var _renewalCheckedAt: Date?
     @State private var _renewalIssues: [PreflightIssue] = []
     @State private var _isResigning = false
@@ -186,7 +187,9 @@ extension LibraryInfoView {
                         Text(LogRedaction.redact(issue.detail)).font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                if let installation = _renewalInstallation {
+                if let installationError = _renewalInstallationError {
+                    Text(installationError).font(.caption).foregroundStyle(.orange)
+                } else if let installation = _renewalInstallation {
                     LabeledContent(.localized("Selected installation method"), value: installation.method.title)
                     switch installation.readiness {
                     case .ready:
@@ -240,9 +243,17 @@ extension LibraryInfoView {
             hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable
         )
-        if let method = InstallMethodKind.selected(forStoredValue: UserDefaults.standard.integer(forKey: "VexSign.installationMethod")) {
-            _renewalInstallation = InstallMethodReport(method: method, readiness: InstallPreflight.readiness(for: method, inputs))
-        } else { _renewalInstallation = nil }
+        _renewalInstallationError = nil
+        do {
+            let pipeline = try SigningModeManager.shared.pipeline(for: app)
+            _renewalInstallation = InstallMethodReport(
+                method: pipeline.installMethod,
+                readiness: InstallPreflight.readiness(for: pipeline.installMethod, inputs)
+            )
+        } catch {
+            _renewalInstallation = nil
+            _renewalInstallationError = error.localizedDescription
+        }
         _renewalCheckedAt = Date()
     }
 
