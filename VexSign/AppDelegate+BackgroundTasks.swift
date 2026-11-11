@@ -144,8 +144,9 @@ extension AppDelegate {
 
 	// iOS 17 and below.
 	private func _handleBackgroundDownload(task: BGProcessingTask) {
-        task.progress.totalUnitCount = 100
-
+        // No progress reporting here: `progress` is a BGContinuedProcessingTask member only.
+        // A BGProcessingTask is either running or not, and the system measures it by its own
+        // budget rather than by a counter we publish.
         let gate = BackgroundTaskCompletionGate { success in
             task.setTaskCompleted(success: success)
         }
@@ -170,10 +171,7 @@ extension AppDelegate {
                 // Losing background time here means the system will suspend the transfer anyway;
                 // leave the downloads paused and resumable rather than half-alive.
                 pauseOnCancellation: true,
-                ownership: ownership,
-                onProgress: { work in
-                    task.progress.completedUnitCount = work.completedPercent
-                }
+                ownership: ownership
             )
             runner.start()
         }
