@@ -10,6 +10,9 @@ name: CI
 #   build   macOS · unsigned Debug build, warnings gate (baseline in
 #           .github/build-warnings-baseline.json), 14-day test IPA.
 #   tests   macOS · simulator tests, in parallel with build.
+#   concurrency  macOS · `make strict-concurrency`, the only check that
+#           compiles the first-party packages with complete concurrency
+#           diagnostics. Report-only for now; see the job comment.
 #
 # Not here: release builds (release.yml), companion SDKs (platform-check.yml),
 # Python/TypeScript services (services.yml), SwiftLint (`make lint` locally).
@@ -128,9 +131,38 @@ jobs:
       - name: Toolchain and scope
         id: scope
         run: |
+          set -u
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           swiftc --version
-          python3 --version || (apt-get update -qq && apt-get install -y -qq python3 >/dev/null)
+
+          # The swift image prunes /var/lib/apt/lists at build time, so the package index
+          # is empty and `apt-get install` reports "Unable to locate package" even after a
+          # successful update against a stale mirror. Clear and refresh before installing.
+          if ! python3 --version; then
+            for candidate in python3.13 python3.12 python3.11; do
+              if command -v "$candidate" >/dev/null 2>&1; then
+                echo "python3 absent; aliasing $candidate (already in the image)."
+                mkdir -p "$RUNNER_TEMP/bin"
+                ln -sf "$(command -v "$candidate")" "$RUNNER_TEMP/bin/python3"
+                echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+                export PATH="$RUNNER_TEMP/bin:$PATH"
+                break
+              fi
+            done
+          fi
+
+          if ! python3 --version; then
+            echo "No interpreter in the image; installing python3."
+            rm -rf /var/lib/apt/lists/*
+            apt-get update 2>&1 | tail -n 20
+            echo "--- sources ---"; cat /etc/apt/sources.list 2>/dev/null | grep -v '^#' | grep . | head -10
+            find /etc/apt/sources.list.d -type f 2>/dev/null | head -5 | xargs -r grep -h . 2>/dev/null | head -12
+            echo "--- candidates ---"; apt-cache policy python3 2>&1 | head -8
+            echo "--- packages.d? ---"; ls /var/lib/apt/lists/ 2>&1 | head -8
+            apt-get install -y python3 2>&1 | tail -n 20 || true
+            python3 --version || { echo "::error::python3 is unavailable in this container and cannot be installed from its configured sources."; exit 1; }
+          fi
+
           python3 tools/ci-scope.py
 
       # swiftc -parse on every first-party file, duplicate types/file names,
@@ -152,6 +184,9 @@ jobs:
           python3 tools/error-discipline.py
           python3 tools/singleton-freeze.py
           python3 tools/concurrency-discipline.py
+          # A count is not a reason: every escape needs its invariant on record.
+          python3 tools/test_concurrency_audit.py --self-test
+          python3 tools/test_concurrency_audit.py
           python3 tools/check-native-handoff.py
           # The CMS fixture is generated elsewhere (OpenSSL) and must keep
           # conforming to the subset the parser accepts; drift fails here.
@@ -521,4 +556,79 @@ jobs:
             ${{ runner.temp }}/VexSignTests.xcresult
             ${{ runner.temp }}/xcodebuild-test.log
           if-no-files-found: warn
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------
+  # What still breaks under complete concurrency checking?
+  # ---------------------------------------------------------------------------
+  # `tools/concurrency-discipline.py` in the quick job is a counting gate: it
+  # stops escapes from spreading but proves nothing about isolation. This is the
+  # compiler half, and it can only run on macOS — AltSourceKit imports SwiftUI.
+  #
+  # Report-only on purpose: the diagnostics step carries `continue-on-error`, so
+  # a package that is mid-cleanup cannot fail the PR. Its first job is to produce
+  # a real diagnostic list for a branch that is still being cleaned up, and a
+  # report that can page someone is a report nobody keeps running. Drop the
+  # `continue-on-error` to promote it to a gate once it is green on main.
+  #
+  # `make strict-concurrency` passes `-strict-concurrency=complete` and no
+  # `-warnings-as-errors`, because swiftc has no `-warnings-as-errors=false` and
+  # that argument used to fail the target before it compiled anything.
+  concurrency:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
+    name: concurrency · first-party packages (report)
+    needs: quick
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode
+        id: xcode
+        env:
+          REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+
+      # Same cache as build/tests, read-only: this job never owns cache writes.
+      - name: Restore Swift packages
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/DerivedData/SourcePackages
+          key: spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-${{ steps.xcode.outputs.xcode_version }}-
+            spm-${{ runner.os }}-
+
+      # continue-on-error on the STEP, not just the job: a package that is
+      # mid-cleanup fails the build, and the job's value is the summary it
+      # produces either way, not a red X on every PR.
+      - name: Strict concurrency diagnostics
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          make strict-concurrency 2>&1 | tee "${RUNNER_TEMP}/strict-concurrency.log"
+          status=${PIPESTATUS[0]}
+          # Summarise rather than annotate every line: a package mid-cleanup can
+          # emit hundreds of warnings, and the job summary is the artifact people
+          # actually read.
+          {
+            echo "### Strict concurrency (report)"
+            echo
+            echo '```'
+            grep -E "warning:|error:" "${RUNNER_TEMP}/strict-concurrency.log" \
+              | sed -E 's#^.*/##' \
+              | sort | uniq -c | sort -rn | head -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "${status}"
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: strict-concurrency-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/strict-concurrency.log
+          if-no-files-found: ignore
           retention-days: 3

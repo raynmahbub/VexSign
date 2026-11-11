@@ -121,10 +121,18 @@ struct LibraryView: View {
     }
     
     /// Date/identity changes invalidate measurements; search/layout changes do not rescan disk.
-    private var sizeMeasurementKey: String {
-        guard _sort == .size else { return "disabled" }
-        return _sizeGeneration.uuidString + (_signedApps.map { "s:\($0.uuid ?? ""):\($0.date?.timeIntervalSince1970 ?? 0)" }
-            + _importedApps.map { "i:\($0.uuid ?? ""):\($0.date?.timeIntervalSince1970 ?? 0)" }).joined(separator: "|")
+    ///
+    /// Returns a value type rather than a joined string. `.task(id:)` builds and compares this on
+    /// every body evaluation, and body evaluates the filtered arrays many times per paint; the
+    /// previous string form allocated once per app and joined the results, which is main-thread
+    /// work proportional to the library for a comparison that almost never changes.
+    private var sizeMeasurementKey: LibrarySizeMeasurementKey {
+        guard _sort == .size else { return .disabled }
+        return LibrarySizeMeasurementKey.make(
+            generation: _sizeGeneration,
+            signed: _signedApps.map { (uuid: $0.uuid, date: $0.date) },
+            imported: _importedApps.map { (uuid: $0.uuid, date: $0.date) }
+        )
     }
 
     @MainActor

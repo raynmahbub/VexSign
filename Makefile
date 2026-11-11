@@ -96,13 +96,27 @@ deploy-server:
 # left. Warnings only — this is a report, not a gate, so it can be run on a branch that is still
 # being cleaned up.  Exit code is the build's, so a clean run is a real signal.
 #   make strict-concurrency
+# swiftc has no `-warnings-as-errors=false`; passing it fails with
+# "unknown argument" before a single file is type-checked. Warnings are already
+# non-fatal unless `-warnings-as-errors` is given, so the diagnostics this target
+# is supposed to report need no extra flag.
+#
+# Both packages are iOS/tvOS-only: neither declares a macOS platform, and
+# AltSourceKit imports SwiftUI. A bare host `swift build` therefore cannot work,
+# so they are built against the iOS SDK. Warnings stay non-fatal; this is a
+# report, not a gate.
+IOS_SDK ?= $(shell xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)
+IOS_TRIPLE ?= arm64-apple-ios17.0
+STRICT_CONCURRENCY_FLAGS = $(if $(IOS_SDK),--sdk "$(IOS_SDK)") --triple $(IOS_TRIPLE) -Xswiftc -strict-concurrency=complete
+
 strict-concurrency:
 	@echo "== AltSourceKit (StrictConcurrency, warnings only) =="
-	swift build --package-path AltSourceKit -Xswiftc -strict-concurrency=complete -Xswiftc -warnings-as-errors=false
+	swift build --package-path AltSourceKit $(STRICT_CONCURRENCY_FLAGS)
 	@echo "== NimbleKit (Swift 6 language mode: complete by default) =="
-	swift build --package-path NimbleKit -Xswiftc -warnings-as-errors=false
+	swift build --package-path NimbleKit --sdk "$(IOS_SDK)" --triple $(IOS_TRIPLE)
 	@echo "== app target =="
-	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe))."
+	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe)),"
+	@echo "and by tools/test_concurrency_audit.py (every escape needs a written invariant)."
 
 # Everything that can be checked without Xcode: the same gates as CI's quick
 # job, minus Swift syntax parsing. Use this before pushing; `make test` and
@@ -135,6 +149,8 @@ verify: docs-check
 	@python3 tools/singleton-freeze.py
 	@echo "== concurrency discipline =="
 	@python3 tools/concurrency-discipline.py
+	@echo "== concurrency audit (every escape needs a reason) =="
+	@python3 tools/test_concurrency_audit.py
 	@echo "== native signing capability =="
 	@python3 tools/check-native-handoff.py
 	@echo "== CMS fixture contract =="
