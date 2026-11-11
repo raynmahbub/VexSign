@@ -17,8 +17,22 @@ enum CertificateExporter {
 		else { return nil }
 
         let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
-        return package(p12: p12, provision: provision, password: cert.requireSigningPassword(), name: name,
-                       directory: FileManager.default.uniqueTemporaryDirectory("CertExport"))
+        return packageWithPassword(p12: p12, provision: provision, name: name,
+                                   directory: FileManager.default.uniqueTemporaryDirectory("CertExport"),
+                                   password: { try cert.requireSigningPassword() })
+    }
+
+    /// Resolve the password before creating scratch files; an unavailable Keychain
+    /// must fail closed, not produce an archive with a guessed or empty password.
+    static func packageWithPassword(p12: URL, provision: URL, name: String, directory: URL,
+                                    password: () throws -> String) -> URL? {
+        do {
+            let value = try password()
+            return package(p12: p12, provision: provision, password: value, name: name, directory: directory)
+        } catch {
+            FileLogger.error("Certificate export password is unavailable.", category: "certificates")
+            return nil
+        }
     }
 
     /// `directory` must be a new scratch directory. A failed export removes only

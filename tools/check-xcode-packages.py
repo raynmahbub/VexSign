@@ -10,8 +10,8 @@ Usage:
     python3 tools/check-xcode-packages.py --format markdown
     python3 tools/check-xcode-packages.py --fail-on-outdated
 
-Exit status is 0 unless --fail-on-outdated is given and a newer compatible
-version exists. Network/API failures are reported as "unknown", not outdated.
+Exit status is 0 unless --fail-on-outdated is given and an update candidate
+exists. Exact pins require a deliberate requirement change, not an automatic update. Network/API failures are reported as "unknown", not outdated.
 """
 from __future__ import annotations
 
@@ -110,15 +110,23 @@ def choose(req: Requirement, versions: list[str]) -> str | None:
         return None
     for candidate in versions:
         parsed = parse_version(candidate)
-        if parsed is None:
+        if parsed is None or parsed < current:
             continue
-        if req.kind == "exactVersion":
+        if req.kind == "exactVersion" and parsed == current:
             return candidate
         if req.kind == "upToNextMajorVersion" and parsed[0] == current[0]:
             return candidate
         if req.kind == "upToNextMinorVersion" and parsed[:2] == current[:2]:
             return candidate
     return None
+
+
+def has_update(req: Requirement) -> bool:
+    # Exact pins require an explicit requirement change; latest is only a candidate.
+    candidate = req.latest if req.kind == "exactVersion" else req.compatible
+    declared = parse_version(req.declared)
+    version = parse_version(candidate) if candidate else None
+    return declared is not None and version is not None and version > declared
 
 
 def main() -> int:
@@ -140,10 +148,7 @@ def main() -> int:
         except Exception as error:  # Network failures must not fail the build.
             req.error = str(error)
 
-    outdated = [
-        req for req in rows
-        if req.compatible and parse_version(req.compatible) != parse_version(req.declared)
-    ]
+    outdated = [req for req in rows if has_update(req)]
 
     if args.format == "markdown":
         print("| Package | Rule | Declared | Latest | Newest compatible |")
@@ -153,7 +158,7 @@ def main() -> int:
             compatible = req.compatible or "-"
             print(f"| `{req.name}` | `{req.kind}` | `{req.declared}` | `{latest}` | `{compatible}` |")
         if outdated:
-            print("\n> Run the package refresh in `docs/MAINTENANCE.md`; root Xcode packages are pinned for compatibility testing.")
+            print("\n> Update candidates require review and macOS build/testing; exact pins require a deliberate requirement change. “Compatible” means the version satisfies the declared rule, not that it has been tested.")
     else:
         for req in rows:
             latest = req.latest or ("unknown" if req.error else "none")

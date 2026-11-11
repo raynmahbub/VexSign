@@ -296,6 +296,21 @@ final class TweakBackupDurabilityTests: XCTestCase {
 }
 
 final class CertificateExportScratchTests: XCTestCase {
+    func testUnavailablePasswordFailsBeforeCreatingScratch() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let scratch = root.appendingPathComponent("export")
+        let result = CertificateExporter.packageWithPassword(
+            p12: root.appendingPathComponent("source.p12"),
+            provision: root.appendingPathComponent("source.mobileprovision"),
+            name: "Example", directory: scratch
+        ) { throw CocoaError(.fileReadNoPermission) }
+        XCTAssertNil(result)
+        XCTAssertFalse(fm.fileExists(atPath: scratch.path))
+    }
+
     func testSuccessfulExportRemovesUnpackedSecrets() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
