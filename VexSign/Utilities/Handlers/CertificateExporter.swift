@@ -18,19 +18,22 @@ enum CertificateExporter {
 		else { return nil }
 
         let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
-        // `requireSigningPassword` reads the Keychain-backed secret store, so it can throw. An
-        // export that cannot produce the password is not a partial export — the zip would be
-        // useless to whoever received it — so it returns nil like the missing-file cases above
-        // rather than writing an archive that silently fails to unlock.
-        let password: String
+        return packageWithPassword(p12: p12, provision: provision, name: name,
+                                   directory: FileManager.default.uniqueTemporaryDirectory("CertExport"),
+                                   password: { try cert.requireSigningPassword() })
+    }
+
+    /// Resolve the password before creating scratch files; an unavailable Keychain
+    /// must fail closed, not produce an archive with a guessed or empty password.
+    static func packageWithPassword(p12: URL, provision: URL, name: String, directory: URL,
+                                    password: () throws -> String) -> URL? {
         do {
-            password = try cert.requireSigningPassword()
+            let value = try password()
+            return package(p12: p12, provision: provision, password: value, name: name, directory: directory)
         } catch {
-            Logger.misc.error("Certificate export failed: no signing password available: \(error.localizedDescription)")
+            FileLogger.error("Certificate export password is unavailable.", category: "certificates")
             return nil
         }
-        return package(p12: p12, provision: provision, password: password, name: name,
-                       directory: FileManager.default.uniqueTemporaryDirectory("CertExport"))
     }
 
     /// `directory` must be a new scratch directory. A failed export removes only

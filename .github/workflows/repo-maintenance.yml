@@ -177,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           TITLE='Xcode package audit: updates available'
-          BODY="$(printf 'A compatible update is available for one or more root Xcode SwiftPM packages.\n\n%s\n\nThis is a review prompt, not an automatic bump: root packages are pinned because they must build against the current Xcode and iOS SDK. Use the refresh procedure in `docs/MAINTENANCE.md`, then build and test on macOS.\n\nAudit run: %s/%s/actions/runs/%s\n' "$(cat "$RUNNER_TEMP/report.md")" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}")"
+          BODY="$(printf 'An update candidate is available for one or more root Xcode SwiftPM packages. Exact pins require a requirement change; candidates are not necessarily build-tested.\n\n%s\n\nThis is a review prompt, not an automatic bump: root packages are pinned because they must build against the current Xcode and iOS SDK. Use the refresh procedure in `docs/MAINTENANCE.md`, then build and test on macOS.\n\nAudit run: %s/%s/actions/runs/%s\n' "$(cat "$RUNNER_TEMP/report.md")" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}")"
 
           EXISTING="$(gh issue list --state open --search 'Xcode package audit in:title' --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING" ]; then
