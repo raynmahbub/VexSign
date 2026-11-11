@@ -8,11 +8,11 @@ import UIKit
 import NimbleExtensions
 
 struct AppearanceView: View {
-    @AppStorage("VexSign.userInterfaceStyle") private var _userIntefacerStyle: Int = UIUserInterfaceStyle.unspecified.rawValue
+    @AppStorage("VexSign.userInterfaceStyle") private var _userInterfaceStyle: Int = UIUserInterfaceStyle.unspecified.rawValue
 
     @AppStorage("VexSign.storeCellAppearance") private var _storeCellAppearance: Int = 0
     private let _storeCellAppearanceMethods: [(name: String, desc: String)] = [
-        (.localized("Standard"), .localized("Default style for the app, only includes subtitle.")),
+        (.localized("Standard"), .localized("The default style shows the subtitle.")),
         (.localized("Big Description"), .localized("Adds the localized description of the app."))
     ]
 
@@ -20,6 +20,7 @@ struct AppearanceView: View {
     @AppStorage("VexSign.shouldTintIcons") private var _shouldTintIcons: Bool = false
     @AppStorage("VexSign.shouldChangeIconsBasedOffStyle") private var _shouldChangeIconsBasedOffStyle: Bool = false
     @AppStorage("VexSign.userTintColor") private var _selectedColorHex: String = "#848ef9"
+    @AppStorage("VexSign.interfaceSoundsEnabled") private var _interfaceSoundsEnabled = false
 
     /// Theme/font/animation preferences go through the shared appearance store
     /// so every observer (app root, tab bar, motion modifiers) updates at once.
@@ -91,7 +92,7 @@ struct AppearanceView: View {
                 .listRowInsets(EdgeInsets())
             } header: { Text(.localized("Live Preview")) }
             Section {
-                Picker(.localized("Appearance"), selection: $_userIntefacerStyle) {
+                Picker(.localized("Appearance"), selection: $_userInterfaceStyle) {
                     ForEach(UIUserInterfaceStyle.allCases.sorted(by: { $0.rawValue < $1.rawValue }), id: \.rawValue) { style in
                         Text(style.label).tag(style.rawValue)
                     }
@@ -110,7 +111,7 @@ struct AppearanceView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                     .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
             } footer: {
-                Text(.localized("The tint colors navigation, buttons and highlights across the app."))
+                Text(.localized("Your tint is used for navigation, buttons, and highlights throughout the app."))
             }
 
             NBSection(.localized("Visual Theme"), systemName: "paintpalette") {
@@ -178,6 +179,16 @@ struct AppearanceView: View {
                 Text(.localized("System typography is recommended. Font sizing follows Dynamic Type; technical identifiers keep monospaced styling. Button feedback respects Reduce Motion."))
             }
 
+            NBSection(.localized("Interaction Feedback"), systemName: "hand.tap") {
+                Toggle(.localized("Interface sounds"), isOn: $_interfaceSoundsEnabled)
+                    .tint(Color.userTint)
+                    .onChange(of: _interfaceSoundsEnabled) { _, enabled in
+                        if enabled { InterfaceFeedback.selection() }
+                    }
+            } footer: {
+                Text(.localized("Off by default. Plays a short cue when a Library card's swipe action is revealed. System sound settings still apply."))
+            }
+
             if #available(iOS 18.0, *) {
                 NBSection(.localized("Library Icons")) {
                     Toggle(.localized("Dynamic Icons"), isOn: $_shouldChangeIconsBasedOffStyle)
@@ -228,12 +239,12 @@ struct AppearanceView: View {
                 _appearance.setFontFamily(.system)
                 _appearance.setFontScale(1)
                 _appearance.setAnimationsEnabled(true)
-                _userIntefacerStyle = UIUserInterfaceStyle.unspecified.rawValue
+                _userInterfaceStyle = UIUserInterfaceStyle.unspecified.rawValue
                 UserDefaults.standard.removeObject(forKey: "VexSign.userTintColor")
             }
             Button(.localized("Cancel"), role: .cancel) {}
         }
-        .nbOnChange(of: _userIntefacerStyle) { value in
+        .nbOnChange(of: _userInterfaceStyle) { value in
             if let style = UIUserInterfaceStyle(rawValue: value) {
                 UIApplication.topViewController()?.view.window?.overrideUserInterfaceStyle = style
             }

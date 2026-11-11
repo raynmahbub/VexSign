@@ -70,6 +70,7 @@ struct VexSectionTitle: View {
 }
 
 struct VexHeroAction: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let systemImage: String
     let filled: Bool
@@ -79,8 +80,10 @@ struct VexHeroAction: View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.85)
+                .padding(.horizontal, 12)
+                .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
                 .frame(maxWidth: .infinity, minHeight: 46)
                 .foregroundStyle(filled ? Theme.tintDeep : Color.white)
                 .background(filled ? Color.white : Color.white.opacity(0.14), in: Capsule())

@@ -68,7 +68,12 @@ On a test device, try left and right swipes on signed and imported apps in compa
 list, adaptive cards and icon-grid layouts. Confirm the Delete action opens the
 existing confirmation, Cancel preserves the library copy, and Delete removes only
 that copy—not an installed app. Check vertical scrolling, edit selection, VoiceOver,
-and large text. No result has been recorded for these checks.
+and large text. With Reduce Motion and button animations disabled, confirm the
+reveal is immediate. In Appearance, turn interface sounds on and off: check the
+preview and Library grid reveal, including the device's silent setting. Inspect
+the rounded launch mark in light and dark mode. Check Home actions at accessibility
+text sizes and the app-icon picker after changing icons. No result has been
+recorded for these checks.
 
 ## 4. Record acceptance
 

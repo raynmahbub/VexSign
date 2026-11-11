@@ -28,6 +28,7 @@ struct VexHomeDashboard: View {
     let onOpenUpdates: () -> Void
     let onAddRepository: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject private var tasks = UnifiedTaskCenter.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
 
@@ -101,8 +102,8 @@ struct VexHomeDashboard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(WorkspaceGreeting.title(hour: Calendar.current.component(.hour, from: context.date)))
                         .font(.system(.title2, design: .rounded).weight(.bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                     Text(.localized("Your signing workspace"))
                         .font(.subheadline)
@@ -154,25 +155,10 @@ struct VexHomeDashboard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 10) {
-                VexHeroAction(
-                    title: signingActionTitle,
-                    systemImage: signingActionIcon,
-                    filled: true,
-                    action: {
-                        if isSigningReady {
-                            onQuickSign()
-                        } else {
-                            isCertificateManagerPresented = true
-                        }
-                    }
-                )
-                VexHeroAction(
-                    title: .localized("Open Library"),
-                    systemImage: "square.grid.2x2",
-                    filled: false,
-                    action: { onOpenTab(.library) }
-                )
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) { heroActions }
+            } else {
+                HStack(spacing: 10) { heroActions }
             }
         }
         .padding(22)
@@ -203,6 +189,28 @@ struct VexHomeDashboard: View {
         .shadow(color: Theme.tint.opacity(0.24), radius: 22, y: 10)
     }
 
+    @ViewBuilder
+    private var heroActions: some View {
+        VexHeroAction(
+            title: signingActionTitle,
+            systemImage: signingActionIcon,
+            filled: true,
+            action: {
+                if isSigningReady {
+                    onQuickSign()
+                } else {
+                    isCertificateManagerPresented = true
+                }
+            }
+        )
+        VexHeroAction(
+            title: .localized("Open Library"),
+            systemImage: "square.grid.2x2",
+            filled: false,
+            action: { onOpenTab(.library) }
+        )
+    }
+
     private var certificatePill: some View {
         let state = certificateState
         return Label(state.title, systemImage: state.icon)
@@ -224,7 +232,7 @@ struct VexHomeDashboard: View {
             return (.localized("Certificate revoked"), "xmark.shield")
         }
         guard let expiry = certificate.expiration else {
-            return (.localized("Certificate ready"), "checkmark.shield")
+            return (.localized("Expiration unknown"), "questionmark.shield")
         }
         guard expiry > Date() else {
             return (.localized("Certificate expired"), "xmark.shield")

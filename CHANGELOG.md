@@ -11,6 +11,12 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
+- The launch screen uses a rounded version of the existing VexSign mark. Home
+  actions stack at accessibility text sizes, and the app-icon picker reuses its
+  preview images instead of decoding them each time the view is constructed.
+- Library grid swipe actions respect Reduce Motion and button-animation settings,
+  with selection haptics and an optional, off-by-default interface sound. The
+  sound setting is in Appearance and currently applies to revealing that action.
 - **Delete Signed App** (Settings → Auto Cleanup → After Signing) now removes the
   signed copy a re-sign was *started from*, once the new copy is in the library.
   In the signing sheet and when signing with saved settings it used to delete

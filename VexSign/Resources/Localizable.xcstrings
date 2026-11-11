@@ -103865,6 +103865,72 @@
           }
         }
       }
+    },
+    "Expiration unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiration unknown"
+          }
+        }
+      }
+    },
+    "Interaction Feedback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interaction Feedback"
+          }
+        }
+      }
+    },
+    "Interface sounds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface sounds"
+          }
+        }
+      }
+    },
+    "Off by default. Plays a short cue when a Library card's swipe action is revealed. System sound settings still apply." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. Plays a short cue when a Library card's swipe action is revealed. System sound settings still apply."
+          }
+        }
+      }
+    },
+    "The default style shows the subtitle." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The default style shows the subtitle."
+          }
+        }
+      }
+    },
+    "Your tint is used for navigation, buttons, and highlights throughout the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tint is used for navigation, buttons, and highlights throughout the app."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

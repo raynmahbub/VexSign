@@ -13,8 +13,14 @@ enum LibraryGridSwipePolicy {
 struct LibraryGridSwipeDelete: ViewModifier {
     let enabled: Bool
     let onDelete: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var appearance = AppearanceStore.shared
     @State private var isOpen = false
     private let actionWidth: CGFloat = 78
+
+    private var actionAnimation: Animation? {
+        reduceMotion || !appearance.animationsEnabled ? nil : .easeInOut(duration: 0.2)
+    }
 
     init(enabled: Bool, onDelete: @escaping () -> Void) {
         self.enabled = enabled
@@ -27,7 +33,7 @@ struct LibraryGridSwipeDelete: ViewModifier {
             ZStack(alignment: .trailing) {
                 if isOpen {
                     Button(role: .destructive) {
-                        withAnimation(.easeInOut(duration: 0.2)) { isOpen = false }
+                        withAnimation(actionAnimation) { isOpen = false }
                         onDelete()
                     } label: {
                         VStack(spacing: 4) {
@@ -55,7 +61,10 @@ struct LibraryGridSwipeDelete: ViewModifier {
                         vertical: gesture.translation.height,
                         currentlyOpen: isOpen
                     )
-                    withAnimation(.easeInOut(duration: 0.2)) { isOpen = next }
+                    guard next != isOpen else { return }
+                    NBHaptic.selection()
+                    if next { InterfaceFeedback.selection() }
+                    withAnimation(actionAnimation) { isOpen = next }
                 }
             )
             .accessibilityAction(named: Text(.localized("Delete"))) { onDelete() }
