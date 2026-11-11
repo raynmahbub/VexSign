@@ -143,18 +143,41 @@ jobs:
             exit 1
           fi
 
+          # The Swift image installs libpython3-dev, which brings a versioned interpreter
+          # (python3.12) but not the unversioned `python3` package. Relying on apt-get to
+          # supply that alias made every Linux job depend on the runner reaching its package
+          # mirrors, and a mirror blip took the whole pipeline red. Alias what is already
+          # installed instead, and only reach for apt-get when there is no interpreter at all.
           if ! python3 --version; then
-            echo "::warning::python3 is absent; trying to install it (the image should provide it)."
-            # Not -qq: the reason apt-get failed is the only useful output this branch produces.
-            if ! apt-get update; then
-              echo "::error::apt-get update failed; the runner could not reach its package mirrors."
-              exit 1
-            fi
-            if ! apt-get install -y python3; then
-              echo "::error::apt-get install python3 failed."
-              exit 1
+            PYTHON_ALT=""
+            for candidate in python3.13 python3.12 python3.11 python3.10; do
+              if command -v "$candidate" >/dev/null 2>&1; then
+                PYTHON_ALT="$(command -v "$candidate")"
+                break
+              fi
+            done
+
+            if [ -n "$PYTHON_ALT" ]; then
+              echo "python3 is absent; aliasing $PYTHON_ALT (ships with the image, no network needed)."
+              mkdir -p "$RUNNER_TEMP/bin"
+              ln -sf "$PYTHON_ALT" "$RUNNER_TEMP/bin/python3"
+              echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+              export PATH="$RUNNER_TEMP/bin:$PATH"
+            else
+              echo "::warning::no Python interpreter found; installing one."
+              if ! apt-get update; then
+                echo "::error::apt-get update failed; the runner could not reach its package mirrors."
+                exit 1
+              fi
+              if ! apt-get install -y python3; then
+                echo "::error::apt-get install python3 failed."
+                exit 1
+              fi
             fi
           fi
+
+          # Fail here, not 30 lines later in an unrelated script, if the shim did not take.
+          python3 --version
 
           python3 tools/ci-scope.py
 
