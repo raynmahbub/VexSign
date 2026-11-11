@@ -165,6 +165,13 @@ jobs:
               export PATH="$RUNNER_TEMP/bin:$PATH"
             else
               echo "::warning::no Python interpreter found; installing one."
+              # What "python3 is absent" actually means depends on the image, and the two
+              # likely shapes need different fixes: an image with no apt sources at all
+              # (apt-get update trivially succeeds, every package is unlocatable) versus one
+              # whose sources are present but cannot be fetched. Print the evidence.
+              echo "::error::diag interpreters:"; ls /usr/bin | grep -i '^python' | sed 's/^/::error::  /' || true
+              echo "::error::diag sources:"; ls -1 /etc/apt/sources.list.d/ 2>&1 | sed 's/^/::error::  /'
+              cat /etc/apt/sources.list.d/*.sources 2>/dev/null | head -12 | sed 's/^/::error::  /' || true
               APT_LOG="$RUNNER_TEMP/apt.log"
               if ! apt-get update >"$APT_LOG" 2>&1; then
                 echo "::error::apt-get update failed; the runner could not reach its package mirrors."
