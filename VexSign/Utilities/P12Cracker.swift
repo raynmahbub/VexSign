@@ -2,8 +2,10 @@
 //  P12Cracker.swift
 //  VexSign
 //
-//  Recovers passwords for PKCS#12 (.p12) certificate files using common dictionary
-//  candidates, numeric PIN sequences, or custom wordlists.
+//  Recovers passwords for PKCS#12 (.p12) certificate files using generic weak-password
+//  candidates, numeric PIN sequences, or a wordlist the user supplies. The built-in list
+//  contains only universally weak strings: no credentials published for a third party's
+//  certificate, and nothing tied to a named signing service.
 //
 
 import Foundation
@@ -40,18 +42,17 @@ final class P12Cracker: ObservableObject {
 		// iOS / Apple-flavored
 		"apple", "Apple", "apple123", "Apple123", "ios", "iOS", "iphone",
 		"iPhone", "ipad", "iPad", "appleid", "applep12",
-		// Signing / sideloading communities
+		// Signing vocabulary a user would plausibly choose for their own .p12
 		"cert", "Cert", "p12", "P12", "sign", "Sign", "signer", "Signer",
-		"developer", "Developer", "app", "App", "vex", "Vex", "vexsign",
-		"VexSign", "esign", "ESign", "esign123", "scarlet", "Scarlet",
-		"gbox", "GBox", "khoindvn", "hdwg", "sidestore", "SideStore",
-		"altstore", "AltStore", "feather", "Feather", "zsign", "Zsign",
-		"bullfrog", "burrito", "yattee", "foul", "trollstore", "TrollStore",
-		// Community-shared certs (known defaults)
-		"www.chinasign.com", "sign", "chinasign", "ChinaSign", "123qwe",
-		"qwe123", "qweasd", "a123456", "A123456", "1qaz2wsx", "1q2w3e",
+		"developer", "Developer", "app", "App",
+		// Generic weak strings - the same ones every password-audit wordlist carries
+		"123qwe", "qwe123", "qweasd", "a123456", "A123456", "1qaz2wsx", "1q2w3e",
 		"123qweasd", "123abc", "abc1234", "p@ssw0rd", "P@ssw0rd", "passw0rd",
 		"123abc456", "123Abc", "q1w2e3", "aaa111", "aaa123", "5201314"
+		// Deliberately absent: passwords published for certificates issued by third
+		// parties. Recovering a user's own .p12 is the point of this tool; carrying a
+		// list of other people's shared credentials is not, and shipping one is both a
+		// reputational and a legal exposure that has nothing to do with the feature.
 	]
 
 	enum Mode: String, CaseIterable, Identifiable {
