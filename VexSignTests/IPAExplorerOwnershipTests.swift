@@ -53,7 +53,7 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         XCTAssertEqual(workspace.changeCount, 0)
     }
 
-    func testEditingLeaseBlocksLibraryDeletionAndReleasesAfterScope() async throws {
+    func testEditingLeaseBlocksLibraryDeletionAndReleasesAfterScope() throws {
         let (storage, row, workspace) = try fixture()
         defer { try? FileManager.default.removeItem(at: workspace.containerURL) } // try? ok: test teardown only
         do {
@@ -68,7 +68,7 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         XCTAssertEqual(workspace.changeCount, 1)
     }
 
-    func testDeletedWorkspaceCannotRecreateLibraryFilesOrLeakLease() async throws {
+    func testDeletedWorkspaceCannotRecreateLibraryFilesOrLeakLease() throws {
         let (storage, row, workspace) = try fixture()
         defer { withExtendedLifetime(storage) {} }
         try FileManager.default.removeItem(at: workspace.containerURL)
