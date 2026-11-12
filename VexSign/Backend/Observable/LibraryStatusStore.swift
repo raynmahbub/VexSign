@@ -36,6 +36,8 @@ struct LibraryAppStatus: Equatable, Sendable {
 	var guest: ContainerGuestState = .unavailable
 	/// nil until the stored bundle's signature has been read; not needed for unsigned apps.
 	var signature: BundleSignature.State?
+	/// Whether the library row still has a usable bundle behind it. `.unknown` until read.
+	var artifact: LibraryArtifactState = .unknown
 	var updatedAt: Date = .distantPast
 
 	/// The expiry to show instead of the certificate row's date, when the bundle answered.
@@ -563,7 +565,8 @@ final class LibraryStatusStore: ObservableObject {
 		_ request: Request,
 		probe: InstalledAppProbing,
 		readSignature: @Sendable (URL) -> BundleSignature.State,
-		readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable }
+		readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable },
+		readArtifact: @Sendable (URL) -> LibraryArtifactState = LibraryArtifactInspector.read
 	) -> LibraryAppStatus {
         let candidate: InstalledApp?
         if let identifier = request.bundleIdentifier, !identifier.isEmpty {
@@ -571,14 +574,16 @@ final class LibraryStatusStore: ObservableObject {
         } else {
             candidate = nil
         }
-        return resolve(request, installedApp: candidate, readSignature: readSignature, readGuest: readGuest)
+        return resolve(request, installedApp: candidate, readSignature: readSignature,
+                       readGuest: readGuest, readArtifact: readArtifact)
     }
 
     nonisolated static func resolve(
         _ request: Request,
         installedApp candidate: InstalledApp?,
         readSignature: @Sendable (URL) -> BundleSignature.State,
-        readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable }
+        readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable },
+        readArtifact: @Sendable (URL) -> LibraryArtifactState = LibraryArtifactInspector.read
     ) -> LibraryAppStatus {
         var status = LibraryAppStatus()
         status.bundleIdentifier = request.bundleIdentifier
@@ -591,6 +596,11 @@ final class LibraryStatusStore: ObservableObject {
             )
         }
 
+        if let url = request.bundleURL {
+            // Independent of signing: an unsigned row with deleted files is just as broken, and
+            // this is the only read that asks the filesystem instead of the database.
+            status.artifact = readArtifact(url)
+        }
         if request.isSigned, let url = request.bundleURL {
             status.signature = readSignature(url)
         }

@@ -325,10 +325,33 @@ struct LibraryCellView: View {
 		}
 	}
 
+	/// A row whose files are gone still renders like a healthy one unless it says otherwise.
+	///
+	/// The badge is only about files: an app can be missing its bundle and still be installed on
+	/// a device, or present locally and uninstalled. `.unknown` stays silent — an unread row must
+	/// not look broken.
+	@ViewBuilder
+	private var _artifactBadge: some View {
+		if let title = _status.status(for: app).artifact.title {
+			HStack(spacing: 3) {
+				Image(systemName: "exclamationmark.triangle.fill")
+					.font(.system(size: 10, weight: .bold))
+				Text(title)
+					.font(.caption2.weight(.bold))
+			}
+			.padding(.horizontal, 7)
+			.padding(.vertical, 3)
+			.background(Color.orange.opacity(0.16), in: Capsule())
+			.foregroundStyle(.orange)
+			.accessibilityHint(Text(_status.status(for: app).artifact.detail ?? ""))
+		}
+	}
+
 	/// Pill when an update is available (from AltSource repositories or App Store).
 	@ViewBuilder
 	private var _appStoreBadge: some View {
 		_installBadge
+		_artifactBadge
 
 		if let uuid = app.uuid, lockManager.isAppLocked(uuid) {
 			Image(systemName: "lock.fill")
