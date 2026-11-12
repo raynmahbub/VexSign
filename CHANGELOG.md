@@ -11,6 +11,16 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Two of the new pipeline tests tripped the main-actor runtime check. They awaited
+  the `nonisolated` `SigningPipeline().run(...)` from a `@MainActor` test while
+  passing a `Signed` fixture that belongs to `Storage.context`, the *view*
+  context — the exact cross-queue use `Storage` documents as forbidden. The
+  refused-identity cases now assert `SigningIdentityPolicy.rejection(for:)`
+  directly, which is the property they were checking; the ordering that makes the
+  gate effective is already pinned by
+  `testThePipelineAsksTheIdentityPolicyBeforeStarting`. A duplicate modify-only
+  test was dropped, since `testModifyOnlyNeverNeedsAnIdentity` covers it plus the
+  expired-certificate case.
 - Four of the new acceptance tests failed on their first real run, which is what
   they were for. `CertificateRemovalDurabilityTests` and the
   `SigningIdentityPolicyTests` fixture created a `CertificatePair` without
