@@ -16,9 +16,11 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   `isBatchControllingDownloads`, `ensureKeepAlive` and `releaseKeepAliveIfIdle`
   (declared in `DownloadManager.swift`, used by `+TransferControl.swift`) and
   `networkPolicyAllowsStarting` and `networkPolicyDidChange` (moved out, still
-  used by `DownloadManager.swift`). All five are now `fileprivate`, which keeps
-  them out of the public interface while letting the extensions that form the
-  type reach them. Caught by the macOS `build` and `tests` jobs.
+  used by `DownloadManager.swift`). `fileprivate` does not help either — it is
+  file-scoped too, and the build failed again with *is inaccessible due to
+  'fileprivate' protection level*. Reaching across a split needs `internal`, the
+  default, which is still module-scoped and so does not widen the public
+  interface. All five now use it.
 - `tools/test_cross_file_privacy.py` pins this: for each type split across files,
   no `private` member may be referenced from a file that does not declare it.
   It follows braces to attribute a member to the type it is private *inside* (a

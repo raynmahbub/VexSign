@@ -15,12 +15,18 @@ and the breakage appears only in the macOS jobs. It happened in this repository:
 splitting `DownloadManager` moved code that used five `private` members and broke
 the build, caught by run 43108652953 after the portable gates were green.
 
-`fileprivate` is the correct fix — it keeps the member out of the public
-interface while letting the extensions that form one type reach it.
+`fileprivate` does NOT fix it either. It is also file-scoped: an `extension` in
+another file gets no access, and the compiler then says
+'is inaccessible due to `fileprivate` protection level'. Reaching across a file
+split needs `internal` — the default, i.e. no access modifier — which is still
+scoped to the module and so never widens the public interface.
 
-What is checked: for each group of files that extend the same type, every
-`private` member must not be referenced from a file in the group that does not
-declare it. `fileprivate` members are skipped: being cross-file is their purpose.
+That distinction cost a CI cycle here: the first fix used `fileprivate` and failed
+again for the same reason. This check therefore treats `private` and `fileprivate`
+alike.
+
+What is checked: for each group of files that extend the same type, no member that
+one file has scoped to itself may be referenced from a sibling file.
 """
 
 from __future__ import annotations
@@ -124,9 +130,9 @@ TYPE_START = re.compile(r"^[ \t]*(?:public |internal |open )?(?:final )?"
                         r"(class|struct|enum|actor|extension)[ \t]+(\w+)")
 
 
-def private_members_by_type(path: Path) -> dict[str, str]:
-    """member name -> the type it is `private` inside, for this file."""
-    found: dict[str, str] = {}
+def private_members_by_type(path: Path) -> dict[str, tuple[str, str]]:
+    """member name -> (the type it is file-scoped inside, `private`/`fileprivate`)."""
+    found: dict[str, tuple[str, str]] = {}
     stack: list[str | None] = []
     pending: str | None = None
     for line in stripped(path).splitlines():
@@ -134,10 +140,12 @@ def private_members_by_type(path: Path) -> dict[str, str]:
         if start:
             pending = start.group(2)
         decl = DECL.match(line)
-        if decl and decl.group(1) == "private":
+        # `private` AND `fileprivate` are both file-scoped. Treating `fileprivate`
+        # as the fix was wrong: it does not help across a file split either.
+        if decl and decl.group(1) in ("private", "fileprivate"):
             owner = next((t for t in reversed(stack) if t), None)
             if owner:
-                found.setdefault(decl.group(2), owner)
+                found.setdefault(decl.group(2), (owner, decl.group(1)))
         for ch in line:
             if ch == "{":
                 stack.append(pending)
@@ -204,11 +212,11 @@ def cross_file_private_violations() -> list[str]:
         for path in files:
             # Only members `private` *inside* `type_name`. A `private` member of some
             # other type declared in the same file is not this type's business.
-            for member, owner_type in private_members_by_type(path).items():
+            for member, (owner_type, kind) in private_members_by_type(path).items():
                 if owner_type == type_name:
-                    private_members.setdefault(member, path)
+                    private_members.setdefault(member, (path, kind))
 
-        for member, owner in sorted(private_members.items()):
+        for member, (owner, kind) in sorted(private_members.items()):
             for path in files:
                 if path == owner:
                     continue
@@ -223,9 +231,10 @@ def cross_file_private_violations() -> list[str]:
                     if before.endswith(".") and not before.endswith("self."):
                         continue
                     violations.append(
-                        f"{path.relative_to(ROOT)} uses `{member}`, which is `private` in "
+                        f"{path.relative_to(ROOT)} uses `{member}`, which is `{kind}` in "
                         f"{owner.relative_to(ROOT)}; the {type_name} extensions in {module} span "
-                        "files, so this does not compile — make it `fileprivate`"
+                        "files, so neither `private` nor `fileprivate` works — it needs "
+                        "`internal` (the default)"
                     )
                     break
     return violations

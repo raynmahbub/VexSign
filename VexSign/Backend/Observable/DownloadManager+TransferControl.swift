@@ -17,13 +17,13 @@ import NimbleExtensions
 import UIKit
 
 extension DownloadManager {
-fileprivate var networkPolicyAllowsStarting: Bool {
+var networkPolicyAllowsStarting: Bool {
     !GameMode.isEnabled
         && (!DownloadPreferences.wifiOnly || !DownloadPreferences.isOnExpensivePath)
         && (!DownloadPreferences.chargeOnly || DownloadPreferences.isCharging)
 }
 
-@objc fileprivate func networkPolicyDidChange() {
+@objc func networkPolicyDidChange() {
     reconcileNetworkPolicy()
 }
 
