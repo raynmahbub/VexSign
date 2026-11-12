@@ -79,6 +79,18 @@ final class UnifiedTaskCenter: ObservableObject {
         progress: Double = 0,
 		subjectID: String? = nil
 	) -> UnifiedTask {
+		// A double tap must not become two tasks for one operation. A queued duplicate has
+		// done no work, so the caller can adopt it; anything further along is already running
+		// and is returned as-is rather than restarted.
+		if phase == .queued,
+		   let existing = TaskSubmissionPolicy.adoptable(kind: kind, subjectID: subjectID, in: tasks) {
+			return existing
+		}
+		if let running = TaskSubmissionPolicy.inFlight(kind: kind, subjectID: subjectID, in: tasks),
+		   running.phase != .queued {
+			Logger.misc.notice("Task of kind \(kind.rawValue, privacy: .public) is already running for this subject; not starting a second one.")
+			return running
+		}
 		let task = UnifiedTask(kind: kind, title: title, subtitle: subtitle, phase: phase, progress: progress, subjectID: subjectID)
 		tasks.insert(task, at: 0)
         _persistHistory()
@@ -86,8 +98,19 @@ final class UnifiedTaskCenter: ObservableObject {
 	}
 
 	func transition(_ task: UnifiedTask, to phase: UnifiedTaskPhase, progress: Double? = nil, error: String? = nil) {
+		let previousPhase = task.phase
         guard task.move(to: phase) else { return }
-		if let progress { task.progress = progress }
+		// A stage change may start lower than the stage before it; within a stage, progress
+		// never rewinds. A completed task is at 100% whatever the last callback said.
+		let proposed = progress ?? task.progress
+		task.progress = TaskProgressRule.final(
+			phase: phase,
+			current: TaskProgressRule.next(
+				previous: task.progress,
+				proposed: proposed,
+				stageChanged: phase != previousPhase
+			)
+		)
 		task.errorText = error.map(LogRedaction.redact)
         if phase == .failed, task.context?.confirmationReason == nil { task.context?.confirmationReason = "operation-failed" }
         if phase == .cancelled, task.context?.confirmationReason != "monitoring-stopped-install-may-continue" { task.context?.confirmationReason = "cancelled" }
@@ -102,7 +125,9 @@ final class UnifiedTaskCenter: ObservableObject {
 
 	func update(_ task: UnifiedTask, progress: Double) {
 		guard !task.phase.isTerminal else { return }
-		task.progress = progress
+		// Same stage, so the floor applies: a late callback from an abandoned step cannot drag
+		// the bar backwards, and a caller cannot report past 100%.
+		task.progress = TaskProgressRule.next(previous: task.progress, proposed: progress, stageChanged: false)
 		task.updatedAt = Date()
 		objectWillChange.send()
 	}
@@ -113,14 +138,15 @@ final class UnifiedTaskCenter: ObservableObject {
 	}
 
 	func registerRetry(_ task: UnifiedTask, handler: @escaping () -> Void) {
-		guard !task.phase.isTerminal || task.phase == .failed || task.phase == .cancelled
-			|| task.phase == .unconfirmed else { return }
+		// Only a stopped task can be retried. Registering against a running one used to be
+		// accepted by a guard that was always true, which kept a live closure alive for the
+		// lifetime of the process.
+		guard TaskRetryPolicy.canOffer(task.phase) else { return }
 		retryHandlers[task.id] = handler
 	}
 
     func canRetry(_ task: UnifiedTask) -> Bool {
-        (task.phase == .failed || task.phase == .cancelled || task.phase == .unconfirmed)
-			&& retryHandlers[task.id] != nil
+        TaskRetryPolicy.canOffer(task.phase) && retryHandlers[task.id] != nil
     }
 
 	/// Retry a failed/cancelled task when its flow registered a handler.
@@ -148,6 +174,10 @@ final class UnifiedTaskCenter: ObservableObject {
 	}
 
 	func _finalize(_ task: UnifiedTask) {
+		// A finished task cannot be retried, and the closure it registered may hold the flow
+		// that produced it. Releasing it here is what keeps a long session from accumulating
+		// one live closure per finished task.
+		retryHandlers.removeValue(forKey: task.id)
 		if let index = tasks.firstIndex(where: { $0.id == task.id }) {
 			tasks.remove(at: index)
 		}
