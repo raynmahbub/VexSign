@@ -57,6 +57,7 @@ enum A11y {
 		static let lockBadge = "vexsign.library.locked"
 		static let resign = "vexsign.library.resign"
 		static let export = "vexsign.library.export"
+		static let selectionToggle = "vexsign.library.selection"
 	}
 
 	/// Every identifier, for the test that keeps them unique and prefixed.
@@ -67,7 +68,7 @@ enum A11y {
 			Install.start, Install.progress, Install.appName, Install.status,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,
-			Library.resign, Library.export
+			Library.resign, Library.export, Library.selectionToggle
 		]
 	}
 }
