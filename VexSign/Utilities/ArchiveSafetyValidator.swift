@@ -26,6 +26,10 @@ struct ArchiveSafetyValidator {
         case duplicateEntry(String)
         case tooManyEntries
         case tooLarge
+        /// One entry expands far beyond what its compressed size can plausibly account for.
+        case suspiciousCompression(String)
+        /// A path with more components than any real bundle uses.
+        case excessiveDepth(String)
         /// A later entry claims a path that an earlier entry only implies as a directory.
         ///
         /// `Payload/App.app/Info.plist` implies `Payload/App.app` is a directory; a second
@@ -49,18 +53,46 @@ struct ArchiveSafetyValidator {
                 return .localized("The archive contains too many files to extract safely.")
             case .tooLarge:
                 return .localized("The archive expands beyond the safe extraction limit.")
+            case .suspiciousCompression(let path):
+                return .localized("The archive contains an entry that expands too far for its compressed size: %@", arguments: path)
+            case .excessiveDepth(let path):
+                return .localized("The archive contains a path nested deeper than any application bundle: %@", arguments: path)
             case .pathTypeConflict(let path):
                 return .localized("The archive uses the same path as both a file and a folder: %@", arguments: path)
             }
         }
     }
 
-    // These limits are deliberately generous for IPA files while preventing
-    // accidental archive bombs from consuming unbounded storage.
-    private static let maxEntries = 50_000
-    private static let maxUncompressedBytes: UInt64 = 8 * 1024 * 1024 * 1024
+    /// The bounds a single archive must stay inside.
+    ///
+    /// Generous for real IPA files and deliberately explicit, so a test can prove each bound is
+    /// enforced without generating a multi-gigabyte fixture. They are advisory only in one
+    /// direction: lowering them never permits extraction, raising them is never done implicitly.
+    struct Limits: Equatable {
+        /// Entries in the central directory.
+        var maxEntries = 50_000
+        /// Sum of every entry's declared uncompressed size.
+        var maxExpandedBytes: UInt64 = 8 * 1024 * 1024 * 1024
+        /// A single entry's declared uncompressed size.
+        var maxEntryBytes: UInt64 = 4 * 1024 * 1024 * 1024
+        /// Components in a path, counting the file name.
+        var maxDepth = 64
+        /// Expanded-to-compressed ratio tolerated for one large entry.
+        var maxCompressionRatio = 200.0
+        /// Entries below this size are exempt from the ratio bound: tiny compressible files
+        /// (plists, zero-byte placeholders) legitimately reach high ratios.
+        var ratioFloorBytes: UInt64 = 64 * 1024 * 1024
 
-    static func validate(_ archiveURL: URL, destination: URL? = nil) throws {
+        static let `default` = Limits()
+
+        /// A bomb is a *large* expansion from a *small* file, not a well-compressed one.
+        func exceedsRatio(expanded: UInt64, compressed: UInt64) -> Bool {
+            guard expanded >= ratioFloorBytes, compressed > 0 else { return false }
+            return Double(expanded) / Double(compressed) > maxCompressionRatio
+        }
+    }
+
+    static func validate(_ archiveURL: URL, destination: URL? = nil, limits: Limits = .default) throws {
         let archive: Archive
         do {
             archive = try Archive(url: archiveURL, accessMode: .read)
@@ -80,7 +112,7 @@ struct ArchiveSafetyValidator {
 
         for entry in archive {
             entryCount += 1
-            guard entryCount <= maxEntries else { throw ValidationError.tooManyEntries }
+            guard entryCount <= limits.maxEntries else { throw ValidationError.tooManyEntries }
 
             let path = entry.path.replacingOccurrences(of: "\\", with: "/")
             if path.hasPrefix("/") || path.hasPrefix("~") {
@@ -94,13 +126,22 @@ struct ArchiveSafetyValidator {
             guard !components.contains(where: { $0 == ".." || $0 == "." }) else {
                 throw ValidationError.traversalPath(path)
             }
+            guard components.count <= limits.maxDepth else {
+                throw ValidationError.excessiveDepth(path)
+            }
 
             if entry.type == .symlink {
                 throw ValidationError.symbolicLink(path)
             }
 
-            guard entry.uncompressedSize <= maxUncompressedBytes - min(uncompressedBytes, maxUncompressedBytes) else {
+            guard entry.uncompressedSize <= limits.maxEntryBytes else {
                 throw ValidationError.tooLarge
+            }
+            guard entry.uncompressedSize <= limits.maxExpandedBytes - min(uncompressedBytes, limits.maxExpandedBytes) else {
+                throw ValidationError.tooLarge
+            }
+            guard !limits.exceedsRatio(expanded: entry.uncompressedSize, compressed: entry.compressedSize) else {
+                throw ValidationError.suspiciousCompression(path)
             }
             uncompressedBytes += entry.uncompressedSize
 
