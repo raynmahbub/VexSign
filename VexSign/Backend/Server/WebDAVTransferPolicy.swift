@@ -5,8 +5,25 @@ enum WebDAVTransferPolicy {
     static func permits(source: URL, destination: URL, inbox: URL) -> Bool {
         // Resolve existing symlinks and normalize dot segments. Case-folding is
         // conservative on case-sensitive volumes and protects typical iOS volumes.
+        //
+        // `resolvingSymlinksInPath()` only resolves symlinks when the path exists. A
+        // destination that has not been created yet — `alias/new`, where `alias` is a
+        // symlink to the source — came back untouched, so the alias stopped being
+        // visible exactly when it mattered: before the write that would follow it.
+        // Resolve the deepest existing ancestor and re-append the components that do
+        // not exist yet, which is well defined for not-yet-created paths.
         func components(_ url: URL) -> [String] {
-            url.standardizedFileURL.resolvingSymlinksInPath().pathComponents.map { $0.lowercased() }
+            var existing = url.standardizedFileURL
+            var pending: [String] = []
+            while !FileManager.default.fileExists(atPath: existing.path) {
+                let parent = existing.deletingLastPathComponent()
+                // `deletingLastPathComponent()` of `/` is `/`: stop rather than spin.
+                guard parent.path != existing.path else { break }
+                pending.insert(existing.lastPathComponent, at: 0)
+                existing = parent
+            }
+            let resolved = existing.resolvingSymlinksInPath()
+            return (resolved.pathComponents + pending).map { $0.lowercased() }
         }
         let root = components(inbox)
         let from = components(source)
