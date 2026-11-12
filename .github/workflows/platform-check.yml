@@ -5,8 +5,8 @@ name: Platform check
 # simulator-agnostic builds: they prove the sources type-check per SDK.
 #
 # The companions mirror the iPhone app (docs/PLATFORMS.md), so this also guards
-# VexSign/Companion/*, which is compiled into the iOS, tvOS, visionOS and
-# watchOS targets — a change that breaks only one shows up here, not on a device.
+# VexSign/Companion/* and the shared Keychain primitive, compiled into the
+# iOS, tvOS and visionOS targets — a change that breaks only one shows up here, not on a device.
 
 on:
   push:
@@ -17,6 +17,8 @@ on:
       - 'VexSignWatch/**'
       - 'VexSignWatchWidgets/**'
       - 'VexSign/Companion/**'
+      - 'VexSign/Security/SecureSecretStore.swift'
+      - 'PlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
       - 'NimbleKit/**'
@@ -34,6 +36,8 @@ on:
       - 'VexSignWatch/**'
       - 'VexSignWatchWidgets/**'
       - 'VexSign/Companion/**'
+      - 'VexSign/Security/SecureSecretStore.swift'
+      - 'PlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
       - 'NimbleKit/**'

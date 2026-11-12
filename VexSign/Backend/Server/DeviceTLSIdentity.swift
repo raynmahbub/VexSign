@@ -1,3 +1,5 @@
+import CryptoKit
+import Darwin
 import Foundation
 import Security
 
@@ -17,6 +19,9 @@ enum DeviceTLSIdentity {
         var leafKey: Data
         var leafCertificate: Data
         var leafExpiry: Date
+        /// Optional for backwards-compatible decoding of identities created before
+        /// the Web Manager added a LAN host to the certificate's SAN extension.
+        var serverNames: [String]? = nil
     }
 
     enum Failure: LocalizedError {
@@ -37,25 +42,43 @@ enum DeviceTLSIdentity {
     }
 
     /// Called before serving TLS or exporting the trust profile. Never falls back to bundle keys.
-    static func ensure() throws {
+    /// The root CA stays stable; a renewed leaf retains the SANs already issued and adds
+    /// the current listener names, so changing Wi-Fi addresses does not silently change trust.
+    @discardableResult
+    static func ensure(serverNames: [String] = ["127.0.0.1", "localhost"]) throws -> Identity {
         lock.lock()
         defer { lock.unlock() }
+        let requestedNames = try canonicalServerNames(serverNames)
         let now = Date()
         let saved = try load()
         var identity: Identity
         if let saved {
             guard saved.rootExpiry > now.addingTimeInterval(86400) else { throw Failure.expiredCA }
+            let existingNames = try canonicalServerNames(saved.serverNames ?? ["127.0.0.1", "localhost"])
+            let combinedNames = try canonicalServerNames(existingNames + requestedNames)
             identity = saved
-            if saved.leafExpiry < now.addingTimeInterval(7 * 86400) {
-                identity = try renew(saved)
+            if saved.leafExpiry < now.addingTimeInterval(7 * 86400) || combinedNames != existingNames {
+                identity = try renew(saved, serverNames: combinedNames)
                 try save(identity, updating: true)
             }
         } else {
-            identity = try generate()
+            identity = try generate(serverNames: requestedNames)
             // Persist before exporting anything; a write failure cannot create an ephemeral trusted CA.
             try save(identity, updating: false)
         }
         try cache(identity)
+        return identity
+    }
+
+    /// SHA-256 of the stable device-local CA certificate. Companions compare this
+    /// out of band before accepting the CA into their own Keychain trust store.
+    static func fingerprint() throws -> String {
+        let identity = try ensure()
+        return Self.fingerprint(identity.rootCertificate)
+    }
+
+    static func fingerprint(_ certificate: Data) -> String {
+        SHA256.hash(data: certificate).map { String(format: "%02X", Int($0)) }.joined(separator: ":")
     }
 
     /// Only after the user explicitly accepts installing/trusting a different CA.
@@ -70,7 +93,8 @@ enum DeviceTLSIdentity {
     }
 
     /// Pure generation seam for native certificate/signature tests (no Keychain writes).
-    static func generate() throws -> Identity {
+    static func generate(serverNames: [String] = ["127.0.0.1", "localhost"]) throws -> Identity {
+        let serverNames = try canonicalServerNames(serverNames)
         let root = try newKey()
         let leaf = try newKey()
         let now = Date()
@@ -81,17 +105,21 @@ enum DeviceTLSIdentity {
                 publicKey: root, signer: root, ca: true, until: rootExpiry),
             rootExpiry: rootExpiry, leafKey: try external(leaf),
             leafCertificate: try certificate(subject: "VexSign Local Server", issuer: "VexSign Device Local CA",
-                publicKey: leaf, signer: root, ca: false, until: leafExpiry), leafExpiry: leafExpiry)
+                publicKey: leaf, signer: root, ca: false, until: leafExpiry, serverNames: serverNames),
+            leafExpiry: leafExpiry, serverNames: serverNames)
     }
 
-    static func renew(_ saved: Identity, now: Date = Date()) throws -> Identity {
+    static func renew(_ saved: Identity, now: Date = Date(), serverNames: [String]? = nil) throws -> Identity {
         guard saved.rootExpiry > now.addingTimeInterval(86400) else { throw Failure.expiredCA }
+        let names = try canonicalServerNames(serverNames ?? saved.serverNames ?? ["127.0.0.1", "localhost"])
         var identity = saved
         let leaf = try newKey()
         identity.leafKey = try external(leaf)
         identity.leafExpiry = min(now.addingTimeInterval(397 * 86400), saved.rootExpiry)
         identity.leafCertificate = try certificate(subject: "VexSign Local Server", issuer: "VexSign Device Local CA",
-            publicKey: leaf, signer: try key(from: saved.rootKey), ca: false, until: identity.leafExpiry)
+            publicKey: leaf, signer: try key(from: saved.rootKey), ca: false, until: identity.leafExpiry,
+            serverNames: names)
+        identity.serverNames = names
         return identity
     }
 
@@ -186,6 +214,66 @@ enum DeviceTLSIdentity {
         return data
     }
 
+    private static func canonicalServerNames(_ names: [String]) throws -> [String] {
+        var result = Set<String>()
+        for rawName in names {
+            let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !trimmed.contains("%"), !trimmed.contains("*") else {
+                throw Failure.invalidIdentity
+            }
+            let name = trimmed.lowercased()
+            if _isIPAddress(name) {
+                result.insert(name)
+                continue
+            }
+            let labels = name.split(separator: ".", omittingEmptySubsequences: false)
+            guard name.utf8.count <= 253, !labels.isEmpty,
+                  labels.allSatisfy({ label in
+                      !label.isEmpty && label.count <= 63 &&
+                      label.first != "-" && label.last != "-" &&
+                      label.utf8.allSatisfy { byte in
+                          (byte >= 97 && byte <= 122) || (byte >= 48 && byte <= 57) || byte == 45
+                      }
+                  }) else {
+                throw Failure.invalidIdentity
+            }
+            result.insert(name)
+        }
+        guard !result.isEmpty else { throw Failure.invalidIdentity }
+        return result.sorted()
+    }
+
+    private static func _isIPAddress(_ host: String) -> Bool {
+        var ipv4 = [UInt8](repeating: 0, count: 4)
+        let v4Result = host.withCString { pointer in
+            ipv4.withUnsafeMutableBytes { buffer in inet_pton(AF_INET, pointer, buffer.baseAddress) }
+        }
+        if v4Result == 1 { return true }
+
+        var ipv6 = [UInt8](repeating: 0, count: 16)
+        let v6Result = host.withCString { pointer in
+            ipv6.withUnsafeMutableBytes { buffer in inet_pton(AF_INET6, pointer, buffer.baseAddress) }
+        }
+        return v6Result == 1
+    }
+
+    private static func subjectAlternativeName(_ host: String) throws -> Data {
+        var ipv4 = [UInt8](repeating: 0, count: 4)
+        let v4Result = host.withCString { pointer in
+            ipv4.withUnsafeMutableBytes { buffer in inet_pton(AF_INET, pointer, buffer.baseAddress) }
+        }
+        if v4Result == 1 { return der(0x87, Data(ipv4)) }
+
+        var ipv6 = [UInt8](repeating: 0, count: 16)
+        let v6Result = host.withCString { pointer in
+            ipv6.withUnsafeMutableBytes { buffer in inet_pton(AF_INET6, pointer, buffer.baseAddress) }
+        }
+        if v6Result == 1 { return der(0x87, Data(ipv6)) }
+
+        guard host.utf8.allSatisfy({ $0 < 128 }) else { throw Failure.invalidIdentity }
+        return der(0x82, Data(host.utf8))
+    }
+
     // Small, fixed-schema DER encoder: no remote ASN.1, parameters or algorithm selection.
     static func der(_ tag: UInt8, _ body: Data) -> Data {
         var length = body.count
@@ -211,7 +299,8 @@ enum DeviceTLSIdentity {
         seq(oid([0x55,0x1d,number]), critical ? der(1, Data([0xff])) : Data(), der(4, content))
     }
     private static func certificate(subject: String, issuer: String, publicKey: SecKey,
-                                    signer: SecKey, ca: Bool, until: Date) throws -> Data {
+                                    signer: SecKey, ca: Bool, until: Date,
+                                    serverNames: [String] = []) throws -> Data {
         guard let publicKey = SecKeyCopyPublicKey(publicKey) else { throw Failure.invalidIdentity }
         let spki = seq(seq(oid([0x2a,0x86,0x48,0x86,0xf7,0x0d,1,1,1]), der(5, Data())),
                        der(3, Data([0]) + (try external(publicKey))))
@@ -222,7 +311,9 @@ enum DeviceTLSIdentity {
         extensions += ext(15, der(3, ca ? Data([1,6]) : Data([5,0xa0])), critical: true)
         if !ca {
             extensions += ext(37, seq(oid([0x2b,6,1,5,5,7,3,1])))
-            extensions += ext(17, seq(der(0x87, Data([127,0,0,1])), der(0x82, Data("localhost".utf8))))
+            let names = try canonicalServerNames(serverNames)
+            let alternatives = try names.map(subjectAlternativeName)
+            extensions += ext(17, der(0x30, alternatives.reduce(Data(), +)))
         }
         let tbs = seq(der(0xa0, der(2, Data([2]))), der(2, Data(serial)), algorithm, name(issuer),
                       seq(time(Date().addingTimeInterval(-300)), time(until)), name(subject), spki, der(0xa3, seq(extensions)))

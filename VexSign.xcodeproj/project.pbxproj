@@ -141,6 +141,7 @@
 				Companion/CompanionModels.swift,
 				Companion/CompanionClient.swift,
 				Companion/CompanionStore.swift,
+				Security/SecureSecretStore.swift,
 			);
 			target = C0FFEE000000000000000006 /* VexSignTV */;
 		};
@@ -150,6 +151,7 @@
 				Companion/CompanionModels.swift,
 				Companion/CompanionClient.swift,
 				Companion/CompanionStore.swift,
+				Security/SecureSecretStore.swift,
 			);
 			target = C0FFEE000000000000000012 /* VexSignVision */;
 		};
@@ -1561,6 +1563,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1589,6 +1592,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1617,6 +1621,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1646,6 +1651,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1676,6 +1682,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1706,6 +1713,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1736,6 +1744,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1767,6 +1776,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;

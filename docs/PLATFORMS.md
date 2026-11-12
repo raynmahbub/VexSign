@@ -22,27 +22,48 @@ membership-exception mechanism the widget extension already uses:
 | `CompanionModels.swift` (wire format) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `CompanionClient.swift` (Web Manager reader) | ✅ | ✅ | ✅ | — | — |
 | `CompanionStore.swift` (view model) | ✅ | ✅ | ✅ | — | — |
+| `SecureSecretStore.swift` (companion credential Keychain access) | ✅ | ✅ | ✅ | — | — |
 | `WatchSnapshotStore.swift` (app-group hand-off) | — | — | — | ✅ | ✅ |
 
-These files import Foundation (plus SwiftUI/Combine in the store) and nothing
-else, which is what keeps them portable. Anything that touches UIKit, Core Data
-or the signer stays in the iOS target.
+The shared client uses Foundation, the store adds SwiftUI/Combine, and the small
+Keychain primitive uses Foundation/Security. Companion passwords and API tokens
+are migrated out of legacy UserDefaults before the legacy entries are removed.
+Anything that touches UIKit, Core Data or the signer stays in the iOS target.
 
 ## Apple TV
 
 `VexSignTV/` — one screen, focus-first: certificate hero card, four count tiles,
 pending updates, library grid.
 
-**Pairing:** open VexSign on the iPhone → *Settings → Web Manager* → set a
-username and password, turn on **Allow This Network**, then start the server and
-enter the printed address (plus the username/password, and the API token if one is
-set) in *Settings → Companion Devices → Apple TV & Vision Pro*… or simply type it
-into the TV app's connect screen. The server listens on loopback until network
-access is turned on, and it will not start at all while *Require Password* is on
-and the password is empty — the companion reads `/api/status`, `/api/library` and
-`/api/updates`, which are behind that password when one is configured. There is no
-auto-discovery: the Web Manager does not advertise a Bonjour service, and guessing
-addresses is worse than asking.
+**Connection:** open VexSign on the iPhone → *Settings → Web Manager* → set a
+username and password, turn on **Allow This Network**, then start the server.
+Enter its HTTPS address, compare and enter the printed CA fingerprint, and add
+the password or API token in the companion. The server listens
+on loopback until network access is turned on, and will not start while *Require
+Password* is on and the password is empty. The companion reads `/api/status`,
+`/api/library` and `/api/updates`, which are behind that password when configured.
+There is no auto-discovery: the Web Manager does not advertise a Bonjour service,
+and guessing addresses is worse than asking.
+
+**Transport and pairing:** a bare host is treated as HTTPS. In VexSign → Settings
+→ Web Manager, compare the displayed **Device CA SHA-256 fingerprint** and enter
+that value in the companion before the first connection. The companion accepts
+only the matching certificate chain, applies the platform SSL policy for the
+requested host/IP (including validity, chain signatures, EKU and SAN matching),
+and saves the accepted CA certificate in Keychain, scoped to that HTTPS origin.
+Credentials are sent only after validation and the Keychain write succeed. An
+invalid, expired, hostname-mismatched or changed certificate fails closed; a
+changed fingerprint requires explicitly forgetting the old trust and pairing
+again after checking the new value on the iPhone. The CA remains stable across
+leaf-certificate renewals, and its leaf includes the current LAN address.
+
+The Web Manager always serves HTTPS; it does not fall back to HTTP. The companion
+refuses HTTPS-to-HTTP, cross-host and cross-port redirects. HTTP remains available
+only after enabling **Allow unencrypted HTTP on a trusted local network**; this
+explicit opt-in has no certificate pairing and exposes credentials and API data
+to devices on the network. Do not use it on an untrusted network. A browser may
+show a warning for the locally issued certificate; companion pairing does not
+install that CA into the browser or operating system's global trust store.
 
 **What it reads:** `GET /api/status`, `GET /api/library`, `GET /api/updates` —
 the automation endpoints that already existed. No new server surface was added
@@ -111,8 +132,8 @@ xcodebuild -workspace VexSign.xcworkspace -scheme VexSignWatch \
 ```
 
 `.github/workflows/platform-check.yml` runs exactly these three builds on macOS
-runners whenever a companion target, `VexSign/Companion/` or the project file
-changes.
+runners whenever a companion target, `VexSign/Companion/`, the shared
+`VexSign/Security/SecureSecretStore.swift`, `PlatformInfo/`, or the project file changes.
 
 The watch app is embedded in the iPhone app by an *Embed Watch Content* build
 phase on the `VexSign` target, and the watch widget is embedded in the watch app
@@ -134,6 +155,10 @@ the watch pair with it.
 - **The TV/vision companions need the Web Manager running.** iOS suspends the
   server when the phone locks unless *Keep alive* is on; a companion then shows
   the last snapshot and a staleness indicator rather than fresh data.
+- **Browser trust is separate from companion pairing.** The TV/Vision apps pin
+  the device CA after the user checks its fingerprint. That does not install the
+  CA into Safari/Finder or the device-wide trust store; a browser or WebDAV client
+  may require a separate manual trust step for the locally issued certificate.
 - **Watch reachability is Apple's call.** Commands may take until the next
   in-range moment; the UI says so instead of pretending they ran.
 - **Not device-tested here.** These targets compile in CI (macOS runners) but the

@@ -245,8 +245,21 @@ final class WebManager: NSObject, ObservableObject {
 		effectiveBindMode == .thisDevice ? "127.0.0.1" : localAddress
 	}
 
-	var httpURL: String { "http://\(displayHost):\(port)/" }
-	var webdavURL: String { "dav://\(displayHost):\(port)/" }
+	private var urlDisplayHost: String {
+		displayHost.contains(":") && !displayHost.hasPrefix("[") ? "[\(displayHost)]" : displayHost
+	}
+
+	var httpsURL: String { "https://\(urlDisplayHost):\(port)/" }
+	/// Finder and Files use the standard HTTPS URL for a TLS-protected WebDAV endpoint.
+	var webdavURL: String { httpsURL }
+
+	var certificateFingerprint: String? {
+		do { return try DeviceTLSIdentity.fingerprint() }
+		catch {
+			Logger.misc.error("Web Manager TLS fingerprint unavailable: \(error.localizedDescription)")
+			return nil
+		}
+	}
 
 	/// One line the UI can show whenever the server runs, so a running server is
 	/// never presented without its exposure.
@@ -257,7 +270,8 @@ final class WebManager: NSObject, ObservableObject {
 		let reach = effectiveBindMode == .thisDevice
 			? String.localized("this device only")
 			: String.localized("this network")
-		return "\(access) · \(reach)"
+		let transport = String.localized("TLS encrypted")
+		return "\(access) · \(transport) · \(reach)"
 	}
 
 	// MARK: Keep-alive

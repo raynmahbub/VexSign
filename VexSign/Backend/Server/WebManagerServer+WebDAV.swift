@@ -2,7 +2,7 @@
 //  WebManagerServer+WebDAV.swift
 //  VexSign
 //
-//  WebDAV subset so the inbox mounts read/write in Finder (dav://) and the iOS Files app.
+//  WebDAV subset so the inbox mounts read/write over HTTPS in Finder and the iOS Files app.
 //
 
 import Foundation

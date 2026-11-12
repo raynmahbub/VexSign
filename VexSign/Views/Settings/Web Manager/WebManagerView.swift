@@ -2,7 +2,7 @@
 //  WebManagerView.swift
 //  VexSign
 //
-//  Controls the Web Manager server: HTTP upload page + WebDAV mount.
+//  Controls the Web Manager server: TLS-protected upload page + WebDAV mount.
 //
 
 import SwiftUI
@@ -71,7 +71,7 @@ extension WebManagerView {
 				.font(.footnote)
 			}
 		} footer: {
-			Text(.localized("Upload files and manage your apps, certificates and tweaks from a browser or a mounted drive. Requires a username and password unless you choose to run it on this device only."))
+			Text(.localized("Upload files and manage your apps, certificates and tweaks over HTTPS from a browser or mounted drive. Web Manager connections are encrypted; password and network exposure settings still control access."))
 		}
 		// One-time explanation for installs that used to run the server open.
 		.alert(
@@ -90,12 +90,30 @@ extension WebManagerView {
 	@ViewBuilder
 	private var _connectSection: some View {
 		NBSection(.localized("Connect")) {
-			_urlRow(.localized("Browser"), value: manager.httpURL, systemImage: "safari")
-			_urlRow(.localized("WebDAV (Finder)"), value: manager.webdavURL, systemImage: "externaldrive.connected.to.line.below")
+			_urlRow(.localized("HTTPS Browser"), value: manager.httpsURL, systemImage: "safari")
+			_urlRow(.localized("Secure WebDAV (Finder)"), value: manager.webdavURL, systemImage: "externaldrive.connected.to.line.below")
+
+			if let fingerprint = manager.certificateFingerprint {
+				VStack(alignment: .leading, spacing: 6) {
+					Label(.localized("Device CA Fingerprint (SHA-256)"), systemImage: "checkmark.seal")
+					Text(fingerprint)
+						.font(.caption.monospaced())
+						.textSelection(.enabled)
+					Button {
+						UIPasteboard.general.string = fingerprint
+						Toast.info(.localized("Copied"), systemImage: "doc.on.doc.fill")
+					} label: {
+						Label(.localized("Copy Fingerprint"), systemImage: "doc.on.doc")
+					}
+				}
+			} else {
+				Label(.localized("TLS identity is unavailable. The Web Manager will not start without its certificate."), systemImage: "exclamationmark.triangle.fill")
+					.foregroundStyle(.red)
+			}
 
 			HStack {
 				Spacer()
-				if let qr = QRCode.generate(from: manager.httpURL) {
+				if let qr = QRCode.generate(from: manager.httpsURL) {
 					Image(uiImage: qr)
 						.interpolation(.none)
 						.resizable()
@@ -111,7 +129,7 @@ extension WebManagerView {
 			if manager.effectiveBindMode == .thisDevice {
 				Text(.localized("Only this device can connect while the server listens on 127.0.0.1. Turn on “Allow this network” to reach it from a computer, the Files app on another device, or the Apple TV app."))
 			} else {
-				Text(.localized("Scan the code to open the Web Manager, or mount the WebDAV address in Finder (Go → Connect to Server) or the Files app. Traffic is unencrypted on the local network."))
+				Text(.localized("Scan the code to open the TLS-protected Web Manager, or mount the HTTPS WebDAV address in Finder (Go → Connect to Server) or Files. Before connecting an Apple TV or Vision Pro, compare the CA fingerprint above with this iPhone and enter it in the companion. A browser may ask you to trust this locally issued certificate."))
 			}
 		}
 	}
@@ -288,7 +306,7 @@ extension WebManagerView {
 				.onSubmit { manager.restartIfRunning() }
 			}
 		} footer: {
-			Text(.localized("Changing the port restarts the server. Traffic is sent over your local network unencrypted, so only run this on a network you trust."))
+			Text(.localized("Changing the port restarts the server. Web Manager traffic uses HTTPS with a device-local certificate; companion apps verify its SHA-256 CA fingerprint before sending credentials."))
 		}
 
 		NBSection(.localized("Background")) {
