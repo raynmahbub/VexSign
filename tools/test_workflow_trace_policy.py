@@ -328,13 +328,13 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('repeat signing replaces this source copy', details)
 
     def test_source_journal_and_build_sidecars_are_wired(self):
-        # The journal load lives in the persistence extension; the task model carries the
-        # default progress the journal restores into.
+        # History load/save and the restore path live with the task center's state,
+        # which is what the journal writes into; the task model carries the default
+        # progress the journal restores into.
         center = self.text('VexSign/Backend/Observable/UnifiedTaskCenter.swift')
         self.assertIn('progress: Double = 0', center)
-        journal = self.text('VexSign/Backend/Observable/UnifiedTaskPersistence.swift')
-        self.assertIn('(tasks + history).map', journal)
-        self.assertIn('task.recoverAfterRestart()', journal)
+        self.assertIn('(tasks + history).map', center)
+        self.assertIn('task.recoverAfterRestart()', center)
         release = self.text('.github/workflows/release.yml')
         for required in ['write-build-provenance.py --directory upload', 'upload/BUILD.json', 'upload/SHA256SUMS']:
             self.assertIn(required, release)
