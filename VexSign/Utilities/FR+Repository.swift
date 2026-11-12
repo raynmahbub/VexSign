@@ -74,6 +74,22 @@ extension FR {
             return
         }
 
+        // Duplicate detection by address, before any network request. The declared identifier
+        // is not the address a source was added by, so a catalogue reachable as two spellings
+        // of the same URL used to become two sources with two independent catalogs.
+        if let key = CatalogIdentity.sourceKey(url.absoluteString),
+           Storage.shared.configuredSourceAddresses().contains(where: {
+               CatalogIdentity.sourceKey($0) == key
+           }) {
+            let error = NSError(domain: "VexSign", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                String.localized("This repository is already added.")])
+            if showAlerts {
+                DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
+            }
+            competion(.failure(error))
+            return
+        }
+
         if let apiURL = GitHubReleaseSource.apiURL(for: url) {
             _handleGitHubSource(url, apiURL: apiURL, showAlerts: showAlerts, completion: competion)
             return

@@ -107055,6 +107055,17 @@
           }
         }
       }
+    },
+    "This repository is already added." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This repository is already added."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

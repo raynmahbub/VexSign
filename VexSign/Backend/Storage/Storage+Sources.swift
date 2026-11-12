@@ -122,6 +122,22 @@ extension Storage {
 		saveContext()
 	}
 
+	/// Every configured source address, read on the context's own queue.
+	///
+	/// Used to detect the same repository added under two spellings: a declared `identifier`
+	/// only catches a repository that names itself, and `…/repo.json` versus `…/repo.json/`
+	/// used to become two rows with two independent catalogs.
+	func configuredSourceAddresses() -> [String] {
+		let context = self.context
+		var addresses: [String] = []
+		context.performAndWait {
+			let request: NSFetchRequest<AltSource> = AltSource.fetchRequest()
+			guard let sources = try? context.fetch(request) else { return } // try? ok: an unreadable store yields no rows, treated as "nothing configured"
+			addresses = sources.compactMap { $0.sourceURL?.absoluteString }
+		}
+		return addresses
+	}
+
 	func sourceExists(_ identifier: String) -> Bool {
 		let fetchRequest: NSFetchRequest<AltSource> = AltSource.fetchRequest()
 		fetchRequest.predicate = NSPredicate(format: "identifier == %@", identifier)

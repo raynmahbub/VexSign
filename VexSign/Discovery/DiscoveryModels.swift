@@ -16,6 +16,30 @@ struct DiscoveryApp: Codable, Identifiable, Hashable, Sendable {
     var searchText: String { "\(name) \(bundleIdentifier) \(summary) \(developer) \(category)".folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) }
 }
 
+extension DiscoveryApp {
+    /// A deterministic preference between two listings of the same bundle identifier.
+    ///
+    /// Newest date first, then the higher version, then the lower source key, then the id. Every
+    /// step is decidable and stable, so two runs over the same catalogs choose the same primary
+    /// listing — which the previous `max(by: date)` did not guarantee on a tie, and §13 asks for
+    /// explicitly rather than a silent pick.
+    static func isPreferred(_ lhs: DiscoveryApp, over rhs: DiscoveryApp) -> Bool {
+        let leftDate = lhs.updated ?? .distantPast
+        let rightDate = rhs.updated ?? .distantPast
+        if leftDate != rightDate { return leftDate > rightDate }
+
+        if let order = VersionOrder.precedence(lhs.version, rhs.version), order != .orderedSame {
+            return order == .orderedDescending
+        }
+
+        let leftSource = CatalogIdentity.sourceKey(lhs.source) ?? lhs.source
+        let rightSource = CatalogIdentity.sourceKey(rhs.source) ?? rhs.source
+        if leftSource != rightSource { return leftSource < rightSource }
+
+        return lhs.id < rhs.id
+    }
+}
+
 struct CollectionItem: Identifiable { let id: String; let title: String; let apps: [DiscoveryApp] }
 struct CategoryItem: Identifiable { let name: String; let apps: [DiscoveryApp]; var id: String { name } }
 
@@ -62,25 +86,36 @@ actor DiscoveryIndex {
         searchable = Dictionary(apps.map { ($0.id, $0.searchText) }, uniquingKeysWith: { first, _ in first })
     }
 
-    /// Groups apps by canonical bundle identifier to deduplicate multi-source listings.
+    /// Groups listings by canonical bundle identifier, so two publishers of one app are one
+    /// entry and two casings of one identifier are not two applications.
+    ///
+    /// The primary listing is chosen by `DiscoveryApp.isPreferred`, which is a total order: the
+    /// old `max(by: date)` picked whichever value the dictionary happened to enumerate first
+    /// whenever two sources published the same date.
     func canonicalGroups(for candidateApps: [DiscoveryApp]? = nil) -> [CanonicalAppGroup] {
         let pool = candidateApps ?? apps
-        let grouped = Dictionary(grouping: pool, by: \.bundleIdentifier)
-        return grouped.compactMap { bundleID, list in
-            guard let primary = list.max(by: { lhs, rhs in
-                (lhs.updated ?? .distantPast) < (rhs.updated ?? .distantPast)
-            }) else { return nil }
-            let sortedList = list.sorted {
-                ($0.updated ?? .distantPast) > ($1.updated ?? .distantPast)
-            }
+        let grouped = Dictionary(grouping: pool) { app in
+            CatalogIdentity.bundleKey(app.bundleIdentifier) ?? app.bundleIdentifier
+        }
+        return grouped.compactMap { bundleID, list -> CanonicalAppGroup? in
+            let sortedList = list.sorted { DiscoveryApp.isPreferred($0, over: $1) }
+            guard let primary = sortedList.first else { return nil }
             return CanonicalAppGroup(bundleIdentifier: bundleID, primaryApp: primary, versions: sortedList)
-        }.sorted { $0.primaryApp.name.localizedStandardCompare($1.primaryApp.name) == .orderedAscending }
+        }.sorted { lhs, rhs in
+            if lhs.primaryApp.name == rhs.primaryApp.name { return lhs.bundleIdentifier < rhs.bundleIdentifier }
+            return lhs.primaryApp.name.localizedStandardCompare(rhs.primaryApp.name) == .orderedAscending
+        }
     }
 
     /// Returns all available source variants and versions for a given bundle identifier.
+    ///
+    /// The argument is normalized the same way the pool was, so a caller holding the identifier
+    /// exactly as one publisher spelled it still finds every other publisher's listing.
     func versions(for bundleIdentifier: String) -> [DiscoveryApp] {
-        apps.filter { $0.bundleIdentifier == bundleIdentifier }
-            .sorted { ($0.updated ?? .distantPast) > ($1.updated ?? .distantPast) }
+        let key = CatalogIdentity.bundleKey(bundleIdentifier) ?? bundleIdentifier
+        return apps
+            .filter { (CatalogIdentity.bundleKey($0.bundleIdentifier) ?? $0.bundleIdentifier) == key }
+            .sorted { DiscoveryApp.isPreferred($0, over: $1) }
     }
 
     /// An empty query matches every app (allSatisfy over no words is true), which is
