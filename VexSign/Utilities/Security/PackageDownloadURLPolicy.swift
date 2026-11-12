@@ -25,7 +25,7 @@ enum PackageDownloadURLPolicy {
             case .packageTooLarge:
                 return String.localized("The package is larger than the 8 GiB safety limit.")
             case .insecureTransport:
-                return String.localized("Package downloads must use HTTPS. Enable 'Allow Insecure HTTP Sources' in Settings → Security only for a trusted local source.")
+                return String.localized("Package downloads must use HTTPS. Plain HTTP is only available for a package on your local network, and only after enabling 'Allow Insecure HTTP Sources' in Settings → Security.")
             case .redirectDowngrade:
                 return String.localized("The package download tried to redirect from HTTPS to an insecure connection, so it was blocked.")
             }
@@ -38,7 +38,7 @@ enum PackageDownloadURLPolicy {
         switch url.scheme?.lowercased() {
         case "https":
             return
-        case "http" where SourceURLPolicy.allowInsecureHTTP:
+        case "http" where SourceURLPolicy.allowInsecureHTTP && SourceURLPolicy.isLocalNetworkHost(url):
             return
         case "http":
             throw Failure.insecureTransport
@@ -57,7 +57,10 @@ enum PackageDownloadURLPolicy {
         case "https":
             return true
         case "http":
-            guard SourceURLPolicy.allowInsecureHTTP else { return false }
+            // The opt-in is a LAN convenience: it must not carry a public package URL,
+            // and it must not be reached by downgrading an HTTPS request either.
+            guard SourceURLPolicy.allowInsecureHTTP,
+                  SourceURLPolicy.isLocalNetworkHost(destination) else { return false }
             return source?.scheme?.lowercased() == "http"
         default:
             return false

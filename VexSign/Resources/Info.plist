@@ -201,8 +201,10 @@
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<!-- Local network transports stay reachable (repository on a LAN, the on-device
+		     Web Manager). Plaintext to a public host is not exempted: every remote
+		     repository and package download is HTTPS unless the user opted into a
+		     local source, which SourceURLPolicy now also confines to a local host. -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>

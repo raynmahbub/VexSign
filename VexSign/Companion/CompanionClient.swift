@@ -500,30 +500,11 @@ struct CompanionClient {
 
 	/// Local-network classification for the HTTP opt-in. Public IPs and hostnames
 	/// remain disallowed even when the user enables unencrypted transport.
+	///
+	/// The rule itself lives in `LocalNetworkHost` so the repository and package
+	/// policies cannot drift from the one the companion transport applies.
 	static func isLocalNetworkHost(_ rawHost: String) -> Bool {
-		let bracketless = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
-		let host = bracketless.hasSuffix(".") ? String(bracketless.dropLast()) : bracketless
-		if host == "localhost" || host == "::1" || host.hasSuffix(".local") { return true }
-
-		if host.contains(":") {
-			return host.hasPrefix("fc") || host.hasPrefix("fd") || host.hasPrefix("fe8")
-				|| host.hasPrefix("fe9") || host.hasPrefix("fea") || host.hasPrefix("feb")
-		}
-
-		let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-		guard parts.count == 4,
-			  let first = Int(parts[0]),
-			  let second = Int(parts[1]),
-			  parts.allSatisfy({ part in
-				  !part.isEmpty && part.utf8.allSatisfy { (48...57).contains($0) }
-					  && Int(part).map { (0...255).contains($0) } == true
-			  }) else {
-			return false
-		}
-		switch (first, second) {
-		case (127, _), (10, _), (192, 168), (172, 16...31), (169, 254): return true
-		default: return false
-		}
+		LocalNetworkHost.matches(rawHost)
 	}
 
 	private func _result<T: Decodable>(_ path: String, as type: T.Type) async -> Result<T, CompanionClientError> {
