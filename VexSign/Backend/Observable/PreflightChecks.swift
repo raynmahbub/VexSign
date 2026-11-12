@@ -212,6 +212,20 @@ enum PreflightChecks {
 		// "Modify only" never needs a certificate.
 		guard options.signingOption != .onlyModify else { return }
 
+		// A revoked identity signs a bundle iOS refuses at install. The pipeline already
+		// refuses it; saying so here as well is what lets the screen explain why before the
+		// run starts, instead of only after a failure the user has to read a log to find.
+		if certificate?.revoked == true {
+			issues.append(PreflightIssue(
+				.localized("Certificate revoked"),
+				.localized("This certificate has been revoked, so anything it signs will be rejected on install."),
+				severity: .blocking,
+				code: .certificateRevoked,
+				status: .invalid,
+				remediation: .localized("Import a certificate that has not been revoked.")
+			))
+			return
+		}
 		guard certificate == nil, options.signingOption == .default else {
 			verifyExpiry(certificate, into: &issues)
 			return
