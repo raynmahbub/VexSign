@@ -225,6 +225,15 @@ enum SigningCapabilityResolver {
 		let preflight = PreflightChecks.run(app: app, options: options, certificate: certificate)
 		issues.append(contentsOf: preflight.issues.map(issue(for:)))
 
+		// What the bundle contains, and whether each nested component can be signed at all.
+		// This is the same walk `NestedBundleAudit` and `SignatureVerifier` perform; doing it
+		// once before the copy means a malformed extension is reported before two minutes of
+		// work rather than after an install failure.
+		if let bundle = Storage.shared.getAppDirectory(for: app) {
+			let plan = SigningPlan.make(appBundle: bundle)
+			issues.append(contentsOf: plan.validationIssues())
+		}
+
 		return SigningCapability(issues: issues)
 	}
 
