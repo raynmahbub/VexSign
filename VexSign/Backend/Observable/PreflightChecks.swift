@@ -25,12 +25,31 @@ struct PreflightIssue: Identifiable, Equatable {
 	let title: String
 	let detail: String
 	let severity: Severity
+	/// Stable classification, so the same finding can be logged, attributed and tested by code
+	/// rather than by matching its English sentence.
+	let code: SigningCapability.Issue.Code
+	/// What the finding implies for the run. Defaults from `severity` and is overridden where
+	/// the reason is more specific than "incompatible" — an expired profile is expired, not
+	/// merely incompatible.
+	let status: SigningCapabilityStatus
+	/// The action that resolves the finding, when there is one the user can take.
+	let remediation: String?
 
-	init(_ title: String, _ detail: String, severity: Severity = .warning) {
+	init(
+		_ title: String,
+		_ detail: String,
+		severity: Severity = .warning,
+		code: SigningCapability.Issue.Code = .general,
+		status: SigningCapabilityStatus? = nil,
+		remediation: String? = nil
+	) {
 		self.id = "\(title)|\(detail)"
 		self.title = title
 		self.detail = detail
 		self.severity = severity
+		self.code = code
+		self.status = status ?? (severity == .blocking ? .incompatible : .supported)
+		self.remediation = remediation
 	}
 }
 
@@ -70,39 +89,57 @@ enum PreflightChecks {
     private static func executableAndStorage(app: AppInfoPresentable, options: Options, into issues: inout [PreflightIssue]) {
         guard let bundle = Storage.shared.getAppDirectory(for: app),
               let executable = SigningInputValidation.executable(in: bundle) else {
-            issues.append(PreflightIssue(.localized("Executable unavailable"), .localized("The library bundle has no readable executable inside its own directory."), severity: .blocking))
+            issues.append(PreflightIssue(.localized("Executable unavailable"), .localized("The library bundle has no readable executable inside its own directory."), severity: .blocking,
+				code: .executableUnavailable,
+				status: .invalid,
+				remediation: .localized("Replace the app with a complete copy.")))
             return
         }
         do {
             let data = try Data(contentsOf: executable, options: .mappedIfSafe)
             if let evidence = ExecutablePreflight.inspect(data) {
                 if !evidence.isArm64 || (evidence.platform != nil && evidence.platform != 2) {
-                    issues.append(PreflightIssue(.localized("Unsupported executable platform"), .localized("The selected executable slice is not an arm64 iOS-device binary."), severity: .blocking))
+                    issues.append(PreflightIssue(.localized("Unsupported executable platform"), .localized("The selected executable slice is not an arm64 iOS-device binary."), severity: .blocking,
+					code: .executableUnsupportedPlatform,
+					status: .unsupported))
                 }
                 if evidence.encrypted {
-                    issues.append(PreflightIssue(.localized("Encrypted executable"), .localized("The selected executable slice declares encryption. Re-signing does not decrypt App Store executables."), severity: .blocking))
+                    issues.append(PreflightIssue(.localized("Encrypted executable"), .localized("The selected executable slice declares encryption. Re-signing does not decrypt App Store executables."), severity: .blocking,
+					code: .executableEncrypted,
+					status: .unsupported,
+					remediation: .localized("Use a decrypted copy of the app.")))
                 }
                 if evidence.platform == nil {
-                    issues.append(PreflightIssue(.localized("Executable platform unknown"), .localized("No supported platform load command was found. Compatibility has not been established.")))
+                    issues.append(PreflightIssue(.localized("Executable platform unknown"), .localized("No supported platform load command was found. Compatibility has not been established."),
+					code: .executablePlatformUnknown,
+					status: .ambiguous))
                 }
                 if let minimum = evidence.minimumOS {
                     if let current = ExecutablePreflight.packedVersion(UIDevice.current.systemVersion), minimum > current {
-                        issues.append(PreflightIssue(.localized("Executable requires newer iOS"), .localized("The executable deployment target exceeds this device's iOS version. Removing the plist minimum does not make newer APIs compatible."), severity: .blocking))
+                        issues.append(PreflightIssue(.localized("Executable requires newer iOS"), .localized("The executable deployment target exceeds this device's iOS version. Removing the plist minimum does not make newer APIs compatible."), severity: .blocking,
+						code: .minimumOSNewerThanDevice,
+						status: .unsupported))
                     }
                     if !options.removeMinimumOSVersion {
                         let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: bundle.appendingPathComponent("Info.plist")), options: [], format: nil) as? [String: Any]
                         if let declared = plist?["MinimumOSVersion"] as? String,
                            let declaredVersion = ExecutablePreflight.packedVersion(declared), minimum > declaredVersion {
-                            issues.append(PreflightIssue(.localized("Deployment targets disagree"), .localized("The executable requires newer iOS than the bundle plist declares. Changing metadata cannot lower the binary deployment target.")))
+                            issues.append(PreflightIssue(.localized("Deployment targets disagree"), .localized("The executable requires newer iOS than the bundle plist declares. Changing metadata cannot lower the binary deployment target."),
+							code: .deploymentTargetMismatch))
                         }
                     }
                 }
             } else {
-                issues.append(PreflightIssue(.localized("Executable inspection incomplete"), .localized("The selected Mach-O slice could not be inspected safely. This is not evidence of compatible architecture, platform, or encryption state.")))
+                issues.append(PreflightIssue(.localized("Executable inspection incomplete"), .localized("The selected Mach-O slice could not be inspected safely. This is not evidence of compatible architecture, platform, or encryption state."),
+					code: .executableUnavailable,
+					status: .ambiguous))
             }
             let capacity = try bundle.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage
             if let capacity, capacity < 128 * 1024 * 1024 {
-                issues.append(PreflightIssue(.localized("Low working disk space"), .localized("Less than 128 MiB is available for important usage. Signing copies and packaging need additional space; this is a warning threshold, not an exact space estimate.")))
+                issues.append(PreflightIssue(.localized("Low working disk space"), .localized("Less than 128 MiB is available for important usage. Signing copies and packaging need additional space; this is a warning threshold, not an exact space estimate."),
+					code: .storageInsufficient,
+					status: .requiresAction,
+					remediation: .localized("Free up storage and try again.")))
             }
         } catch {
             issues.append(PreflightIssue(.localized("Preflight input could not be read"), LogRedaction.redact(error.localizedDescription)))
@@ -116,8 +153,9 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				.localized("Missing bundle identifier"),
 				.localized("The app has no bundle identifier, so iOS may reject the install."),
-				severity: .blocking
-			))
+				severity: .blocking,
+				code: .bundleIdentifierMissing,
+				status: .invalid))
 			return
 		}
 
@@ -151,8 +189,9 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				.localized("Unreadable Info.plist"),
 				.localized("The app bundle's Info.plist could not be read. Signing may still work, but the app may crash on launch."),
-				severity: .blocking
-			))
+				severity: .blocking,
+				code: .infoPlistUnreadable,
+				status: .invalid))
 			return
 		}
 
@@ -161,8 +200,9 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				.localized("Missing Info.plist key"),
 				String.localized("“%@” is missing from the app's Info.plist.", arguments: entry.label),
-				severity: .blocking
-			))
+				severity: .blocking,
+				code: .infoPlistUnreadable,
+				status: .invalid))
 		}
 	}
 
@@ -171,6 +211,21 @@ enum PreflightChecks {
 	private static func certificateExpiry(certificate: CertificatePair?, options: Options, into issues: inout [PreflightIssue]) {
 		// "Modify only" never needs a certificate.
 		guard options.signingOption != .onlyModify else { return }
+
+		// A revoked identity signs a bundle iOS refuses at install. The pipeline already
+		// refuses it; saying so here as well is what lets the screen explain why before the
+		// run starts, instead of only after a failure the user has to read a log to find.
+		if certificate?.revoked == true {
+			issues.append(PreflightIssue(
+				.localized("Certificate revoked"),
+				.localized("This certificate has been revoked, so anything it signs will be rejected on install."),
+				severity: .blocking,
+				code: .certificateRevoked,
+				status: .invalid,
+				remediation: .localized("Import a certificate that has not been revoked.")
+			))
+			return
+		}
 		guard certificate == nil, options.signingOption == .default else {
 			verifyExpiry(certificate, into: &issues)
 			return
@@ -180,7 +235,10 @@ enum PreflightChecks {
 			.localized("No certificate"),
 			.localized("The default signing option needs a certificate; none is selected. Import one in Settings → Certificates."),
 			severity: .blocking
-		))
+		,
+			code: .certificateMissing,
+			status: .requiresAction,
+			remediation: .localized("Import a certificate in Settings → Certificates, or choose Modify.")))
 	}
 
 	private static func verifyExpiry(_ certificate: CertificatePair?, into issues: inout [PreflightIssue]) {
@@ -189,8 +247,10 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				.localized("Certificate expired"),
 				String.localized("The selected certificate expired on %@.", arguments: expiration.formatted(date: .abbreviated, time: .omitted)),
-				severity: .blocking
-			))
+				severity: .blocking,
+				code: .certificateExpired,
+				status: .expired,
+				remediation: .localized("Import a current certificate.")))
 			return
 		}
 
@@ -199,7 +259,8 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				.localized("Certificate expiring soon"),
 				String.localized("The selected certificate expires %@.", arguments: RelativeDateTimeFormatter().localizedString(for: expiration, relativeTo: Date()))
-			))
+			,
+				code: .certificateExpired))
 		}
 	}
 
@@ -244,7 +305,10 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				title(for: issue.code),
 				issue.detail,
-				severity: issue.isBlocking ? .blocking : .warning
+				severity: issue.isBlocking ? .blocking : .warning,
+				code: capabilityCode(for: issue.code),
+				status: capabilityStatus(for: issue.code),
+				remediation: remediation(for: issue.code)
 			))
 		}
 	}
@@ -267,6 +331,51 @@ enum PreflightChecks {
 			.localized("Certificate not in profile")
 		case .deviceNotProvisioned:
 			.localized("Device not provisioned")
+		}
+	}
+
+	/// The capability code for a profile-compatibility finding. The rule stays in
+	/// `ProfileCompatibility`; only the label changes shape.
+	private static func capabilityCode(for code: ProfileCompatibility.Issue.Code) -> SigningCapability.Issue.Code {
+		switch code {
+		case .profileMissing: .profileMissing
+		case .profileExpired: .profileExpired
+		case .appIdentifierMismatch: .appIdentifierMismatch
+		case .extensionNotCovered: .extensionNotCovered
+		case .entitlementNotGranted: .entitlementNotGranted
+		case .teamMismatch: .teamMismatch
+		case .certificateNotInProfile: .certificateNotInProfile
+		case .deviceNotProvisioned: .deviceNotProvisioned
+		}
+	}
+
+	private static func capabilityStatus(for code: ProfileCompatibility.Issue.Code) -> SigningCapabilityStatus {
+		switch code {
+		case .profileExpired: .expired
+		case .deviceNotProvisioned, .profileMissing: .requiresAction
+		case .appIdentifierMismatch, .extensionNotCovered, .entitlementNotGranted,
+			 .teamMismatch, .certificateNotInProfile: .incompatible
+		}
+	}
+
+	private static func remediation(for code: ProfileCompatibility.Issue.Code) -> String? {
+		switch code {
+		case .profileMissing:
+			.localized("Import the .mobileprovision file that came with this certificate.")
+		case .profileExpired:
+			.localized("Import a current profile for this app.")
+		case .appIdentifierMismatch:
+			.localized("Choose a profile whose App ID covers this bundle identifier.")
+		case .extensionNotCovered:
+			.localized("Enable automatic compatibility mode to remove the uncovered extension.")
+		case .entitlementNotGranted:
+			.localized("Choose a profile that grants this entitlement, or remove it from the app's plist.")
+		case .teamMismatch:
+			.localized("Choose a certificate and profile from the same team.")
+		case .certificateNotInProfile:
+			.localized("Import the profile that was issued for this certificate.")
+		case .deviceNotProvisioned:
+			.localized("Add this device to the profile, then import it again.")
 		}
 	}
 
@@ -296,7 +405,9 @@ enum PreflightChecks {
 			.localized("Signed by a different certificate"),
 			detail,
 			severity: .warning
-		))
+		,
+			code: .signerMismatch,
+			status: .ambiguous))
 
 		// The fingerprint is the only unambiguous identifier when both certificates were issued
 		// to the same person — the common case for a re-issued Apple Development certificate.
@@ -347,8 +458,10 @@ enum PreflightChecks {
 					"%@ can no longer be read, so it cannot be injected. Remove it under Tweaks and add it again before signing.",
 					arguments: OneShotTweakFiles.names(unavailable).joined(separator: ", ")
 				),
-				severity: .blocking
-			))
+				severity: .blocking,
+				code: .injectionProblem,
+				status: .invalid,
+				remediation: .localized("Remove it under Tweaks and add it again before signing.")))
 		}
 
 		for file in options.injectionFiles {
@@ -366,7 +479,8 @@ enum PreflightChecks {
 			issues.append(PreflightIssue(
 				.localized("Duplicate dylib"),
 				String.localized("“%@” is injected %lld times. Duplicate injections can make the sign fail.", arguments: name, count)
-			))
+			,
+				code: .injectionProblem))
 		}
 	}
 
@@ -398,7 +512,8 @@ enum PreflightChecks {
 				.localized("Architecture mismatch"),
 				String.localized("“%@” is not built for the app's architecture and may fail to load.", arguments: file.lastPathComponent),
 				severity: .warning
-			))
+			,
+				code: .injectionProblem))
 			return
 		}
 	}

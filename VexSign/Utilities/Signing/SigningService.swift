@@ -225,6 +225,20 @@ struct SigningPipeline: SigningWork {
 final class SigningService {
 	static let shared = SigningService()
 
+	/// The capability report for a prospective run.
+	///
+	/// Every entry point — the signing sheet, batch, Update All, Shortcuts, self-update —
+	/// asks this, so none of them can disagree about whether a run is possible, or why it is
+	/// not. Enforcement stays where it was: the identity rule lives in the pipeline, and the
+	/// sheet's "Sign Anyway" still covers profile and entitlement compatibility.
+	func capability(for request: SigningRequest) -> SigningCapability {
+		SigningCapabilityResolver.report(
+			app: request.app,
+			options: request.options,
+			certificate: request.certificate
+		)
+	}
+
 	/// Runs are keyed by request id so a caller can cancel its own and leave the rest alone.
 	private var _runs: [String: Task<Void, Never>] = [:]
     /// A fresh request ID must not bypass ownership of the same library bundle.

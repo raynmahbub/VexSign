@@ -106142,6 +106142,314 @@
           }
         }
       }
+    },
+    "Add this device to the profile, then import it again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add this device to the profile, then import it again."
+          }
+        }
+      }
+    },
+    "Check before signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check before signing"
+          }
+        }
+      }
+    },
+    "Choose a certificate and profile from the same team." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a certificate and profile from the same team."
+          }
+        }
+      }
+    },
+    "Choose a profile that grants this entitlement, or remove it from the app's plist." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a profile that grants this entitlement, or remove it from the app's plist."
+          }
+        }
+      }
+    },
+    "Choose a profile whose App ID covers this bundle identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a profile whose App ID covers this bundle identifier."
+          }
+        }
+      }
+    },
+    "Enable automatic compatibility mode to remove the uncovered extension." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable automatic compatibility mode to remove the uncovered extension."
+          }
+        }
+      }
+    },
+    "Experimental: account provisioning is not yet integrated with signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental: account provisioning is not yet integrated with signing."
+          }
+        }
+      }
+    },
+    "Extension has no executable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extension has no executable"
+          }
+        }
+      }
+    },
+    "Extension has no identifier" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extension has no identifier"
+          }
+        }
+      }
+    },
+    "Free up storage and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free up storage and try again."
+          }
+        }
+      }
+    },
+    "Import a certificate in Settings → Certificates, or choose Modify." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a certificate in Settings → Certificates, or choose Modify."
+          }
+        }
+      }
+    },
+    "Import a certificate that has not been revoked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a certificate that has not been revoked."
+          }
+        }
+      }
+    },
+    "Import a current certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a current certificate."
+          }
+        }
+      }
+    },
+    "Import a current profile for this app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a current profile for this app."
+          }
+        }
+      }
+    },
+    "Import the .mobileprovision file that came with this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import the .mobileprovision file that came with this certificate."
+          }
+        }
+      }
+    },
+    "Import the profile that was issued for this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import the profile that was issued for this certificate."
+          }
+        }
+      }
+    },
+    "Needs your input" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs your input"
+          }
+        }
+      }
+    },
+    "Nested component has no executable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nested component has no executable"
+          }
+        }
+      }
+    },
+    "Not compatible" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not compatible"
+          }
+        }
+      }
+    },
+    "Not usable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not usable"
+          }
+        }
+      }
+    },
+    "Remove it under Tweaks and add it again before signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove it under Tweaks and add it again before signing."
+          }
+        }
+      }
+    },
+    "Remove the extension, or replace the app with a complete copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the extension, or replace the app with a complete copy."
+          }
+        }
+      }
+    },
+    "Replace the app with a complete copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace the app with a complete copy."
+          }
+        }
+      }
+    },
+    "This certificate has been revoked, so anything it signs will be rejected on install." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This certificate has been revoked, so anything it signs will be rejected on install."
+          }
+        }
+      }
+    },
+    "Use a decrypted copy of the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use a decrypted copy of the app."
+          }
+        }
+      }
+    },
+    "“%@” declares no readable executable, so iOS would refuse to load it after install." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” declares no readable executable, so iOS would refuse to load it after install."
+          }
+        }
+      }
+    },
+    "“%@” has no CFBundleIdentifier, so no provisioning profile can cover it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” has no CFBundleIdentifier, so no provisioning profile can cover it."
+          }
+        }
+      }
+    },
+    "“%@” has no readable executable. It will be signed as a resource." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” has no readable executable. It will be signed as a resource."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

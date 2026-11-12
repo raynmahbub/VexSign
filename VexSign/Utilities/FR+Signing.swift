@@ -63,6 +63,18 @@ extension FR {
                 log.warn(detail)
             }
 
+            // One report for every path that signs, including the ones that never show a sheet.
+            // It is logged rather than enforced here: the sheet asks the same question before it
+            // offers Sign, and the identity rule that must never be excused is enforced by the
+            // pipeline. Profile and entitlement findings that can still install are exactly what
+            // "Sign Anyway" exists for, so turning this into a hard stop would remove that choice.
+            let capability = SigningService.shared.capability(for: request)
+            if !capability.issues.isEmpty {
+                for line in capability.logLines {
+                    log.warn(line)
+                }
+            }
+
             SigningLiveActivityManager.shared.start(appName: request.name)
 
             // Unified task pipeline: one record for the whole sign operation.
