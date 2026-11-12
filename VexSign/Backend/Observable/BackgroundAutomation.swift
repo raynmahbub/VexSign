@@ -279,8 +279,9 @@ enum BackgroundAutomation {
 		}
 
 		guard !Task.isCancelled else { return nil }
-        // 4. Free Apple ID profile renewal (if signed in)
-		await renewFreeAppleIDProfiles()
+        // 4. Free Apple ID profile expiry check (if signed in). Discovery only — see
+        // `trackExpiringFreeAppleIDProfiles`; nothing here renews or re-signs.
+		await trackExpiringFreeAppleIDProfiles()
 		guard !Task.isCancelled else {
 			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
 			return nil
@@ -299,12 +300,15 @@ enum BackgroundAutomation {
 		return result
 	}
 
-	/// Checks for expiring free Apple ID profiles and renews them.
-	/// Only runs when a free Apple ID session is active.
-	private static func renewFreeAppleIDProfiles() async {
+	/// Refreshes the expiring-profile *list* for a free Apple ID session.
+	///
+	/// It does not renew: the name `renewFreeAppleIDProfiles` claimed the scheduled task
+	/// performed an account mutation, which it never did and must not do without an explicit
+	/// user grant. The UI reads `renewalCandidates` and tells the user to renew by hand.
+	private static func trackExpiringFreeAppleIDProfiles() async {
 		let manager = NativeSigningManager.shared
 		guard manager.isBackendReady else { return }
-		await manager.renewExpiringProfiles()
+		await manager.refreshRenewalCandidates()
 	}
 
 	private nonisolated static func postSummary(_ result: AutomationRunResult) {

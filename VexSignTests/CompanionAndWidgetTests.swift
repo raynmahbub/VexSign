@@ -368,7 +368,7 @@ final class CompanionAndWidgetTests: XCTestCase {
 			_ = try await httpClient.snapshot()
 			XCTFail("plain HTTP must be rejected unless explicitly enabled")
 		} catch let error as CompanionClientError {
-			XCTAssertEqual(error, .insecureHTTPRequiresOptIn)
+			XCTAssertEqual(error, .insecureTransport)
 		} catch {
 			XCTFail("unexpected error: \(error)")
 		}
@@ -409,10 +409,14 @@ final class CompanionAndWidgetTests: XCTestCase {
 			from: URL(string: "https://10.0.0.5:8080/api/status"),
 			to: URL(string: "https://10.0.0.5:8081/api/status")
 		))
-		XCTAssertTrue(CompanionRedirectPolicy.permits(
+		XCTAssertFalse(CompanionRedirectPolicy.permits(
 			from: URL(string: "https://10.0.0.5:8080/api/status"),
 			to: URL(string: "https://10.0.0.5:8080/api/status?next=1")
-		))
+		), "even a same-origin URL change is a redirect and is refused")
+		XCTAssertTrue(CompanionRedirectPolicy.permits(
+			from: URL(string: "https://10.0.0.5:8080/api/status"),
+			to: URL(string: "https://10.0.0.5:8080/api/status")
+		), "a direct response to the exact request URL is allowed")
 
 		let downgradeClient = CompanionClient(
 			address: "https://10.0.0.5:8080",
@@ -468,6 +472,74 @@ final class CompanionAndWidgetTests: XCTestCase {
 			XCTAssertEqual(error, .unsafeRedirect)
 		} catch {
 			XCTFail("unexpected error: \(error)")
+		}
+	}
+
+	func testHTTPOptInStillBlocksPublicHostsBeforeSendingCredentials() async {
+		var attemptedRequest = false
+		let client = CompanionClient(
+			address: "http://8.8.8.8:8080",
+			username: "vex",
+			password: "fixture-password",
+			apiToken: "fixture-token",
+			allowInsecureHTTP: true,
+			dataLoader: { _ in
+				attemptedRequest = true
+				throw URLError(.cannotConnectToHost)
+			}
+		)
+
+		do {
+			_ = try await client.snapshot()
+			XCTFail("an HTTP opt-in must not permit a public host")
+		} catch let error as CompanionClientError {
+			XCTAssertEqual(error, .insecureTransport)
+		} catch {
+			XCTFail("unexpected error: \(error)")
+		}
+		XCTAssertFalse(attemptedRequest, "credentials must not reach the loader for a public HTTP address")
+	}
+
+	func testCompanionTransportLimitsOptedInHTTPToLocalAddresses() throws {
+		let localAddresses = [
+			"http://localhost:8080", "http://127.0.0.1:8080", "http://10.0.0.5:8080",
+			"http://172.16.4.2:8080", "http://172.31.255.254:8080", "http://192.168.1.20:8080",
+			"http://169.254.10.2:8080", "http://iphone.local:8080", "http://[fd00::1]:8080",
+			"http://[fe80::1]:8080"
+		]
+		for address in localAddresses {
+			XCTAssertEqual(
+				try CompanionClient.transport(for: address, allowInsecureHTTP: true).scheme,
+				"http",
+				address
+			)
+		}
+
+		let publicAddresses = [
+			"http://example.com:8080", "http://8.8.8.8:8080", "http://172.15.0.1:8080",
+			"http://172.32.0.1:8080", "http://192.169.0.1:8080", "http://[2001:4860:4860::8888]:8080"
+		]
+		for address in publicAddresses {
+			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address) {
+				XCTAssertEqual($0 as? CompanionClientError, .insecureTransport, address)
+			}
+		}
+	}
+
+	func testCompanionTransportRejectsMalformedAddressesAndNeverDowngradesHTTPS() throws {
+		for address in [
+			"https://user:pass@192.168.1.20:8080", "ftp://192.168.1.20:8080",
+			"https://", "https://192.168.1.20:8080/#fragment", "   "
+		] {
+			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address)
+		}
+
+		for allowHTTP in [true, false] {
+			let url = try CompanionClient.transport(
+				for: "https://192.168.1.20:8080",
+				allowInsecureHTTP: allowHTTP
+			)
+			XCTAssertEqual(url.scheme, "https", "an HTTPS failure is never retried over HTTP")
 		}
 	}
 

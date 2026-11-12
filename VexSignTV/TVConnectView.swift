@@ -77,10 +77,15 @@ struct TVConnectView: View {
 					.focused($_focused, equals: .token)
 					.disableAutocorrection(true)
 
-				Toggle("Allow unencrypted HTTP on a trusted local network", isOn: $store.allowsInsecureHTTP)
-				Text("HTTPS verifies the paired device CA and address before sending credentials. HTTP has no encryption or certificate pairing; if enabled, passwords, tokens and library data can be observed on the network.")
-					.font(.footnote)
-					.foregroundStyle(.secondary)
+				Toggle(isOn: $store.allowInsecureHTTP) {
+					Text("Allow HTTP on this network")
+				}
+				if store.allowInsecureHTTP {
+					Text("HTTP is unencrypted and only allowed for a local-network address. The current VexSign Web Manager uses HTTPS; use HTTP only with a compatible local server. Anyone monitoring that network can read credentials and data.")
+						.font(.caption2)
+						.foregroundStyle(.orange)
+						.fixedSize(horizontal: false, vertical: true)
+				}
 			}
 			.frame(maxWidth: 520)
 
@@ -92,6 +97,14 @@ struct TVConnectView: View {
 			}
 			.buttonStyle(.borderedProminent)
 			.disabled(store.address.trimmingCharacters(in: .whitespaces).isEmpty)
+
+			if store.hasUnmigratedCredential {
+				Text("A credential from an earlier version remains in preferences because Keychain is unavailable. Unlock the device and reconnect to finish migration.")
+					.font(.caption2)
+					.foregroundStyle(.orange)
+					.multilineTextAlignment(.center)
+					.frame(maxWidth: 640)
+			}
 
 			if let error = store.credentialStorageError {
 				Text(error)

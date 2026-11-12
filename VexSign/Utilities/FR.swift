@@ -453,6 +453,9 @@ enum FR {
 				request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 				request.setValue("VexSign", forHTTPHeaderField: "User-Agent")
 				request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+				// Adding a source must fail visibly; it must not sit on a spinner while the
+				// session's 60 s default runs out, once per redirect hop.
+				request.timeoutInterval = 20
 				let (data, response) = try await URLSession.shared.data(for: request)
 				guard let response = response as? HTTPURLResponse else {
 					throw GitHubReleaseSource.Failure.malformedRelease

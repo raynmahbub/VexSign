@@ -290,10 +290,15 @@ struct VisionConnectView: View {
 			SecureField("API token (alternative to username and password)", text: $store.apiToken)
 				.textFieldStyle(.roundedBorder)
 
-			Toggle("Allow unencrypted HTTP on a trusted local network", isOn: $store.allowsInsecureHTTP)
-			Text("HTTPS verifies the paired device CA and address before sending credentials. HTTP has no encryption or certificate pairing; if enabled, passwords, tokens and library data can be observed on the network.")
-				.font(.footnote)
-				.foregroundStyle(.secondary)
+			Toggle(isOn: $store.allowInsecureHTTP) {
+				Text("Allow HTTP on this network")
+			}
+			if store.allowInsecureHTTP {
+				Text("HTTP is unencrypted and only allowed for a local-network address. The current VexSign Web Manager uses HTTPS; use HTTP only with a compatible local server. Anyone monitoring that network can read credentials and data.")
+					.font(.footnote)
+					.foregroundStyle(.orange)
+					.fixedSize(horizontal: false, vertical: true)
+			}
 
 			HStack {
 				Button(store.connectButtonTitle) {
@@ -305,6 +310,13 @@ struct VisionConnectView: View {
 				if store.isRefreshing {
 					ProgressView()
 				}
+			}
+
+			if store.hasUnmigratedCredential {
+				Text("A credential from an earlier version remains in preferences because Keychain is unavailable. Unlock the device and reconnect to finish migration.")
+					.font(.caption)
+					.foregroundStyle(.orange)
+					.fixedSize(horizontal: false, vertical: true)
 			}
 
 			if let error = store.credentialStorageError {

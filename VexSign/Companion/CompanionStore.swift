@@ -23,7 +23,8 @@ final class CompanionStore: ObservableObject {
 	@Published private(set) var updatesResult: Result<[CompanionUpdateEntry], CompanionClientError>?
 	@Published private(set) var isRefreshing = false
 	@Published private(set) var lastError: String?
-	@Published private(set) var credentialStorageError: String?
+	@Published private(set) var credentialIssue: String?
+	@Published private(set) var hasUnmigratedCredential = false
 	@Published private(set) var certificateTrustError: String?
 	@Published private(set) var trustedCertificateFingerprint: String?
 	@Published private(set) var lastUpdated: Date?
@@ -34,10 +35,17 @@ final class CompanionStore: ObservableObject {
 	static let usernameKey = "VexSign.companion.username"
 	static let legacyPasswordKey = "VexSign.companion.password" // legacy plaintext; migrated on launch
 	static let legacyTokenKey = "VexSign.companion.token" // legacy plaintext; migrated on launch
-	static let insecureHTTPKey = "VexSign.companion.allowInsecureHTTP"
+	static let passwordKey = legacyPasswordKey
+	static let tokenKey = legacyTokenKey
+	static let allowInsecureHTTPKey = "VexSign.companion.allowInsecureHTTP"
+	static let insecureHTTPKey = allowInsecureHTTPKey
 
-	private static let _passwordAccount = "companion.password"
-	private static let _tokenAccount = "companion.apiToken"
+	private static let _passwordAccount = CompanionSecretStore.Account.password
+	private static let _tokenAccount = CompanionSecretStore.Account.apiToken
+	private static let _credentialService = CompanionSecretStore.service
+	private static let _legacyCredentialService = "com.vexsign.secrets"
+	private static let _legacyPasswordAccount = "companion.password"
+	private static let _legacyTokenAccount = "companion.apiToken"
 	private static let _credentialWarning = "Keychain access failed. Previously saved credentials were not deleted; unlock the device and reconnect. New credential changes will not persist until secure storage is available."
 
 	@Published var address: String {
@@ -58,8 +66,12 @@ final class CompanionStore: ObservableObject {
 	@Published var apiToken: String {
 		didSet { _persistCredential(apiToken, account: Self._tokenAccount, legacyKey: Self.legacyTokenKey) }
 	}
-	@Published var allowsInsecureHTTP: Bool {
-		didSet { UserDefaults.standard.set(allowsInsecureHTTP, forKey: Self.insecureHTTPKey) }
+	@Published var allowInsecureHTTP: Bool {
+		didSet { UserDefaults.standard.set(allowInsecureHTTP, forKey: Self.allowInsecureHTTPKey) }
+	}
+	var allowsInsecureHTTP: Bool {
+		get { allowInsecureHTTP }
+		set { allowInsecureHTTP = newValue }
 	}
 
 	/// Seconds between background refreshes; 0 turns the loop off.
@@ -73,10 +85,12 @@ final class CompanionStore: ObservableObject {
 	private var _refreshTask: Task<Void, Never>?
 	private var _credentialMigrationRetries = Set<String>()
 	private var _credentialWriteRetries = Set<String>()
+	private var _unmigratedCredentialAccounts = Set<String>()
 
 	private struct CredentialLoad {
 		var value: String
 		var needsMigrationRetry: Bool
+		var hasUnmigratedLegacyValue: Bool
 	}
 
 	private init() {
@@ -97,7 +111,7 @@ final class CompanionStore: ObservableObject {
 		self.username = defaults.string(forKey: Self.usernameKey) ?? ""
 		self.password = passwordLoad.value
 		self.apiToken = tokenLoad.value
-		self.allowsInsecureHTTP = defaults.bool(forKey: Self.insecureHTTPKey)
+		self.allowInsecureHTTP = defaults.bool(forKey: Self.allowInsecureHTTPKey)
 
 		// Split out of the `as?` chain so the optional cast and the default stay
 		// readable, and a failed cast cannot hide behind the coalescing operator.
@@ -110,6 +124,12 @@ final class CompanionStore: ObservableObject {
 		if tokenLoad.needsMigrationRetry {
 			_credentialMigrationRetries.insert(Self._tokenAccount)
 		}
+		if passwordLoad.hasUnmigratedLegacyValue {
+			_unmigratedCredentialAccounts.insert(Self._passwordAccount)
+		}
+		if tokenLoad.hasUnmigratedLegacyValue {
+			_unmigratedCredentialAccounts.insert(Self._tokenAccount)
+		}
 		_refreshCredentialStorageWarning()
 		_reloadTrustedCertificate()
 	}
@@ -120,26 +140,72 @@ final class CompanionStore: ObservableObject {
 				key,
 				account: account,
 				defaults: defaults,
-				read: { try SecureSecretStore.read($0) },
-				write: { data, account in try SecureSecretStore.write(data, account: account) }
+				read: { try Self._readCredential($0) },
+				write: { data, account in
+					try SecureSecretStore.write(data, account: account, service: Self._credentialService)
+				}
 			)
-			return CredentialLoad(value: value, needsMigrationRetry: false)
+			return CredentialLoad(value: value, needsMigrationRetry: false, hasUnmigratedLegacyValue: false)
 		} catch {
 			// Keep the old plaintext value in memory as a last-resort compatibility
 			// path, but never remove it or imply that Keychain migration succeeded.
-			return CredentialLoad(value: defaults.string(forKey: key) ?? "", needsMigrationRetry: true)
+			let legacyValue = defaults.string(forKey: key) ?? ""
+			return CredentialLoad(
+				value: legacyValue,
+				needsMigrationRetry: true,
+				hasUnmigratedLegacyValue: !legacyValue.isEmpty
+			)
 		}
+	}
+
+	/// Read the current Keychain namespace first, then migrate the namespace used by
+	/// the earlier PR build. A legacy item is deleted only after its replacement has
+	/// been written successfully.
+	private static func _legacyCredentialAccount(for account: String) -> String? {
+		if account == Self._passwordAccount { return Self._legacyPasswordAccount }
+		if account == Self._tokenAccount { return Self._legacyTokenAccount }
+		return nil
+	}
+
+	private static func _readCredential(_ account: String) throws -> Data? {
+		let oldAccount = Self._legacyCredentialAccount(for: account)
+
+		if let current = try SecureSecretStore.read(account, service: _credentialService) {
+			if let oldAccount {
+				try? SecureSecretStore.delete(oldAccount, service: _legacyCredentialService) // try? ok: a failure leaves only a duplicate legacy item; the current credential is already durable
+			}
+			return current
+		}
+
+		guard let oldAccount,
+			  let legacy = try SecureSecretStore.read(oldAccount, service: _legacyCredentialService) else {
+			return nil
+		}
+		try SecureSecretStore.write(legacy, account: account, service: _credentialService)
+		try? SecureSecretStore.delete(oldAccount, service: _legacyCredentialService) // try? ok: the replacement is durable; a failure only leaves the old Keychain copy
+		return legacy
 	}
 
 	private func _persistCredential(_ value: String, account: String, legacyKey: String) {
 		_credentialMigrationRetries.remove(account)
 		do {
-			try SecureSecretStore.write(Data(value.utf8), account: account)
+			if value.isEmpty {
+				try CompanionSecretStore.delete(account)
+			} else {
+				try CompanionSecretStore.write(value, account: account)
+			}
+			if let oldAccount = Self._legacyCredentialAccount(for: account) {
+				try? SecureSecretStore.delete(oldAccount, service: Self._legacyCredentialService) // try? ok: new value is durable; a failure leaves only the legacy Keychain copy
+			}
 			UserDefaults.standard.removeObject(forKey: legacyKey)
+			_unmigratedCredentialAccounts.remove(account)
 			_credentialWriteRetries.remove(account)
 		} catch {
 			// Do not put the new value back into UserDefaults. Any prior legacy value
 			// remains untouched until the secure write succeeds.
+			if let legacyValue = UserDefaults.standard.string(forKey: legacyKey), !legacyValue.isEmpty {
+				_unmigratedCredentialAccounts.insert(account)
+			}
 			_credentialWriteRetries.insert(account)
 		}
 		_refreshCredentialStorageWarning()
@@ -166,10 +232,13 @@ final class CompanionStore: ObservableObject {
 				key,
 				account: account,
 				defaults: defaults,
-				read: { try SecureSecretStore.read($0) },
-				write: { data, itemAccount in try SecureSecretStore.write(data, account: itemAccount) }
+				read: { try Self._readCredential($0) },
+				write: { data, itemAccount in
+					try SecureSecretStore.write(data, account: itemAccount, service: Self._credentialService)
+				}
 			)
 			_credentialMigrationRetries.remove(account)
+			_unmigratedCredentialAccounts.remove(account)
 			if migrated != currentValue {
 				if account == Self._passwordAccount {
 					password = migrated
@@ -196,10 +265,14 @@ final class CompanionStore: ObservableObject {
 	}
 
 	private func _refreshCredentialStorageWarning() {
-		credentialStorageError = _credentialMigrationRetries.isEmpty && _credentialWriteRetries.isEmpty
+		hasUnmigratedCredential = !_unmigratedCredentialAccounts.isEmpty
+		credentialIssue = _credentialMigrationRetries.isEmpty && _credentialWriteRetries.isEmpty
 			? nil
 			: Self._credentialWarning
 	}
+
+	/// Compatibility name used by the TLS-pairing UI from the earlier PR version.
+	var credentialStorageError: String? { credentialIssue }
 
 	private func _reloadTrustedCertificate() {
 		let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -271,7 +344,7 @@ final class CompanionStore: ObservableObject {
 	/// HTTPS is the default. It requires a manually verified CA fingerprint on
 	/// first connection; HTTP has a separate explicit unencrypted-traffic opt-in.
 	var addressHint: String {
-		"Use the HTTPS URL and SHA-256 device CA fingerprint shown in VexSign → Settings → Web Manager. Pairing is saved in Keychain. For http://, enable the explicit unencrypted HTTP option above; HTTP has no certificate pairing."
+		"Use the HTTPS URL and SHA-256 device CA fingerprint shown in VexSign → Settings → Web Manager; pairing is saved in Keychain. The current Web Manager serves HTTPS only. HTTP is for a compatible local-network HTTP server after opting in and is never a fallback."
 	}
 
 	// MARK: Refresh
@@ -282,7 +355,7 @@ final class CompanionStore: ObservableObject {
 			username: username.isEmpty ? nil : username,
 			password: password.isEmpty ? nil : password,
 			apiToken: apiToken.isEmpty ? nil : apiToken,
-			allowsInsecureHTTP: allowsInsecureHTTP,
+			allowInsecureHTTP: allowInsecureHTTP,
 			pairingFingerprint: pairingFingerprint.isEmpty ? nil : pairingFingerprint
 		)
 	}
@@ -344,7 +417,7 @@ final class CompanionStore: ObservableObject {
 
 		_refreshTask = Task { [weak self] in
 			while !Task.isCancelled {
-				try? await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000)
+				try? await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000) // try? ok: cancellation is checked immediately below
 				guard !Task.isCancelled else { return }
 				await self?.refresh()
 			}

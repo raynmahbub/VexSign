@@ -5,7 +5,9 @@
 //  Reads a companion snapshot from the iPhone's Web Manager. HTTPS is mandatory
 //  by default: the platform validates the Web Manager's host certificate against
 //  a device CA whose SHA-256 fingerprint the user compares out of band. The
-//  accepted CA is kept in Keychain. HTTP is possible only after an explicit opt-in.
+//  accepted CA is kept in Keychain. HTTP is possible only after an explicit opt-in
+//  for a local-network address; it is never used as a fallback. Redirects are
+//  refused so URLSession cannot forward credentials to another request target.
 //
 //  Foundation/Security/CryptoKit only, shared by the tvOS and visionOS apps.
 //
@@ -20,7 +22,7 @@ import Security
 enum CompanionClientError: LocalizedError, Equatable {
 	case missingAddress
 	case invalidAddress
-	case insecureHTTPRequiresOptIn
+	case insecureTransport
 	case certificatePairingRequired
 	case invalidCertificateFingerprint
 	case certificateFingerprintMismatch
@@ -42,8 +44,8 @@ enum CompanionClientError: LocalizedError, Equatable {
 			return "No iPhone address is set. Enter the HTTPS Web Manager URL shown in VexSign → Settings → Web Manager."
 		case .invalidAddress:
 			return "That address is not a valid HTTP or HTTPS URL."
-		case .insecureHTTPRequiresOptIn:
-			return "This address uses unencrypted HTTP. Enable the explicit HTTP option only if you accept sending credentials and data without encryption on your local network."
+		case .insecureTransport:
+			return "Plain HTTP is allowed only after opting in for a local-network address. Credentials and data are sent without encryption."
 		case .certificatePairingRequired:
 			return "This HTTPS address is not paired yet. Compare the device CA SHA-256 fingerprint shown in iPhone Settings → Web Manager, enter it above, then connect."
 		case .invalidCertificateFingerprint:
@@ -280,30 +282,12 @@ enum CompanionCertificateTrust {
 	}
 }
 
-/// Only same-origin redirects are followed; HTTPS may never redirect down to HTTP.
+/// Validates that the response came from the exact requested URL. Redirects are
+/// refused outright because URLSession can forward Authorization headers.
 enum CompanionRedirectPolicy {
 	static func permits(from source: URL?, to destination: URL?) -> Bool {
-		guard
-			let source,
-			let destination,
-			let sourceScheme = source.scheme?.lowercased(),
-			let destinationScheme = destination.scheme?.lowercased(),
-			let sourceHost = source.host?.lowercased(),
-			let destinationHost = destination.host?.lowercased(),
-			sourceHost == destinationHost,
-			["http", "https"].contains(sourceScheme),
-			["http", "https"].contains(destinationScheme),
-			_effectivePort(source) == _effectivePort(destination)
-		else {
-			return false
-		}
-
-		return sourceScheme != "https" || destinationScheme == "https"
-	}
-
-	private static func _effectivePort(_ url: URL) -> Int? {
-		if let port = url.port { return port }
-		return url.scheme?.lowercased() == "https" ? 443 : 80
+		guard let source, let destination else { return false }
+		return source.absoluteString == destination.absoluteString
 	}
 }
 
@@ -381,12 +365,10 @@ private final class CompanionURLSessionDelegate: NSObject, URLSessionDelegate, U
 		newRequest request: URLRequest,
 		completionHandler: @escaping (URLRequest?) -> Void
 	) {
-		guard CompanionRedirectPolicy.permits(from: response.url, to: request.url) else {
-			_record(.unsafeRedirect)
-			completionHandler(nil)
-			return
-		}
-		completionHandler(request)
+		// The Web Manager's three API endpoints are direct responses. Reject every
+		// redirect, even a same-origin one, before URLSession can reuse credential headers.
+		_record(.unsafeRedirect)
+		completionHandler(nil)
 	}
 
 	private func _challengeMatchesOrigin(_ protectionSpace: URLProtectionSpace) -> Bool {
@@ -411,7 +393,11 @@ struct CompanionClient {
 	var username: String?
 	var password: String?
 	var apiToken: String?
-	var allowsInsecureHTTP: Bool
+	var allowInsecureHTTP: Bool
+	var allowsInsecureHTTP: Bool {
+		get { allowInsecureHTTP }
+		set { allowInsecureHTTP = newValue }
+	}
 	var pairingFingerprint: String?
 
 	private static let _timeout: TimeInterval = 12
@@ -422,7 +408,7 @@ struct CompanionClient {
 		username: String?,
 		password: String?,
 		apiToken: String?,
-		allowsInsecureHTTP: Bool = false,
+		allowInsecureHTTP: Bool = false,
 		pairingFingerprint: String? = nil,
 		dataLoader: DataLoader? = nil
 	) {
@@ -430,7 +416,7 @@ struct CompanionClient {
 		self.username = username
 		self.password = password
 		self.apiToken = apiToken
-		self.allowsInsecureHTTP = allowsInsecureHTTP
+		self.allowInsecureHTTP = allowInsecureHTTP
 		self.pairingFingerprint = pairingFingerprint
 		if let dataLoader {
 			self._dataLoader = dataLoader
@@ -439,6 +425,27 @@ struct CompanionClient {
 				try await Self._defaultDataLoader(request, pairingFingerprint: pairingFingerprint)
 			}
 		}
+	}
+
+	/// Compatibility spelling retained for callers on the earlier PR version.
+	init(
+		address: String,
+		username: String?,
+		password: String?,
+		apiToken: String?,
+		allowsInsecureHTTP: Bool,
+		pairingFingerprint: String? = nil,
+		dataLoader: DataLoader? = nil
+	) {
+		self.init(
+			address: address,
+			username: username,
+			password: password,
+			apiToken: apiToken,
+			allowInsecureHTTP: allowsInsecureHTTP,
+			pairingFingerprint: pairingFingerprint,
+			dataLoader: dataLoader
+		)
 	}
 
 	func snapshot() async throws -> CompanionSnapshotResult {
@@ -455,10 +462,6 @@ struct CompanionClient {
 	}
 
 	// MARK: - Request
-
-	private func _baseURL() throws -> URL {
-		try Self.baseURL(from: address)
-	}
 
 	static func baseURL(from address: String) throws -> URL {
 		let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -484,6 +487,45 @@ struct CompanionClient {
 		return url
 	}
 
+	/// Resolve an address without allowing an unencrypted public-network request.
+	/// HTTPS remains the default and is never downgraded after a TLS failure.
+	static func transport(for rawAddress: String, allowInsecureHTTP: Bool) throws -> URL {
+		let url = try baseURL(from: rawAddress)
+		guard url.scheme?.lowercased() == "http" else { return url }
+		guard allowInsecureHTTP, let host = url.host, isLocalNetworkHost(host) else {
+			throw CompanionClientError.insecureTransport
+		}
+		return url
+	}
+
+	/// Local-network classification for the HTTP opt-in. Public IPs and hostnames
+	/// remain disallowed even when the user enables unencrypted transport.
+	static func isLocalNetworkHost(_ rawHost: String) -> Bool {
+		let bracketless = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+		let host = bracketless.hasSuffix(".") ? String(bracketless.dropLast()) : bracketless
+		if host == "localhost" || host == "::1" || host.hasSuffix(".local") { return true }
+
+		if host.contains(":") {
+			return host.hasPrefix("fc") || host.hasPrefix("fd") || host.hasPrefix("fe8")
+				|| host.hasPrefix("fe9") || host.hasPrefix("fea") || host.hasPrefix("feb")
+		}
+
+		let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+		guard parts.count == 4,
+			  let first = Int(parts[0]),
+			  let second = Int(parts[1]),
+			  parts.allSatisfy({ part in
+				  !part.isEmpty && part.utf8.allSatisfy { (48...57).contains($0) }
+					  && Int(part).map { (0...255).contains($0) } == true
+			  }) else {
+			return false
+		}
+		switch (first, second) {
+		case (127, _), (10, _), (192, 168), (172, 16...31), (169, 254): return true
+		default: return false
+		}
+	}
+
 	private func _result<T: Decodable>(_ path: String, as type: T.Type) async -> Result<T, CompanionClientError> {
 		do {
 			return .success(try await _get(path, as: type))
@@ -495,12 +537,7 @@ struct CompanionClient {
 	}
 
 	private func _get<T: Decodable>(_ path: String, as type: T.Type) async throws -> T {
-		let base = try _baseURL()
-		let scheme = base.scheme?.lowercased()
-		if scheme == "http", !allowsInsecureHTTP {
-			throw CompanionClientError.insecureHTTPRequiresOptIn
-		}
-
+		let base = try Self.transport(for: address, allowInsecureHTTP: allowInsecureHTTP)
 		let url = base.appendingPathComponent(path)
 		var request = URLRequest(url: url)
 		request.timeoutInterval = Self._timeout

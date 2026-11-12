@@ -27,7 +27,13 @@ final class WebDAVTransferPolicyTests: XCTestCase {
     }
 
     func testExistingSymlinkCannotAliasSourceOrEscapeInbox() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        // Resolved, because the policy resolves symlinks before comparing: on the
+        // simulator `temporaryDirectory` is itself reached through a link, so a root
+        // built from the unresolved path would not be the root the policy sees and
+        // every comparison below would be against the wrong directory.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let source = root.appendingPathComponent("source", isDirectory: true)

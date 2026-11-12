@@ -244,6 +244,13 @@ extension DownloadManager {
 		}
 	}
 
+	/// Main-actor isolated because everything it touches is: `SigningModeManager`,
+	/// `SigningProfileStore`, `InstallQueue`, `AutoSignManager` and this manager's own
+	/// `objectWillChange`/`finishImport`. Every caller already runs there — the two
+	/// `DispatchQueue.main.async` branches in `DownloadManager.swift` and the
+	/// `@MainActor` `ImportDuplicateReview.resolve` completion — so this annotates the
+	/// isolation that was always true. Without it the compiler treats the body as
+	/// nonisolated and the main-actor accesses become Swift 6 errors.
 	@MainActor
 	func autoSignOrFinish(_ app: AppInfoPresentable, for download: Download) {
 		guard AutoSignManager.isEnabled else {

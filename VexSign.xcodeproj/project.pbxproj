@@ -140,6 +140,7 @@
 			membershipExceptions = (
 				Companion/CompanionModels.swift,
 				Companion/CompanionClient.swift,
+				Companion/CompanionSecretStore.swift,
 				Companion/CompanionStore.swift,
 				Security/SecureSecretStore.swift,
 			);
@@ -150,6 +151,7 @@
 			membershipExceptions = (
 				Companion/CompanionModels.swift,
 				Companion/CompanionClient.swift,
+				Companion/CompanionSecretStore.swift,
 				Companion/CompanionStore.swift,
 				Security/SecureSecretStore.swift,
 			);

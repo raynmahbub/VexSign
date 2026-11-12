@@ -9,8 +9,80 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+### Fixed
+
+- Four of the new acceptance tests failed on their first real run, which is what
+  they were for. `CertificateRemovalDurabilityTests` and the
+  `SigningIdentityPolicyTests` fixture created a `CertificatePair` without
+  `ppQCheck`, `isDefault` or `date` — non-optional in the model — so Core Data
+  refused the save with *ppQCheck is a required value*.
+  `testArchiveRejectsDuplicatesThatDifferOnlyInUnicodeNormalization` asserted
+  `precomposed != decomposed`, but `String` compares by canonical equivalence and
+  the two spellings are equal; the assertion now compares UTF-8 bytes, which is
+  the difference the archive and the filesystem actually see. Suite totals before
+  the fix: 1339 tests, 1330 passed, 7 failed.
+- The post-sign certificate check was in the wrong function and did not compile.
+  Phase 2 put `expectation.expectsFreshSignature` inside
+  `_signatureIssues(in:executable:)`, which has no `expectation` parameter —
+  *cannot find 'expectation' in scope*. The parameter is now threaded through, so
+  the check still reads the certificate out of the signature zsign produced and
+  still runs only for bundles this run signed. Caught by the macOS `build` and
+  `tests` jobs (runs 43168765711).
+- The `DownloadManager` split did not compile. Swift's `private` is scoped to the
+  *file*, not the type, so five members the moved code uses became invisible:
+  `isBatchControllingDownloads`, `ensureKeepAlive` and `releaseKeepAliveIfIdle`
+  (declared in `DownloadManager.swift`, used by `+TransferControl.swift`) and
+  `networkPolicyAllowsStarting` and `networkPolicyDidChange` (moved out, still
+  used by `DownloadManager.swift`). `fileprivate` does not help either — it is
+  file-scoped too, and the build failed again with *is inaccessible due to
+  'fileprivate' protection level*. Reaching across a split needs `internal`, the
+  default, which is still module-scoped and so does not widen the public
+  interface. All five now use it.
+- `tools/test_cross_file_privacy.py` pins this: for each type split across files,
+  no `private` member may be referenced from a file that does not declare it.
+  It follows braces to attribute a member to the type it is private *inside* (a
+  file can declare several), treats top-level directories as separate modules,
+  and counts `self.member` as a real reference.
+- `CertificateFileHandler.clean()` did not compile after that. An `OSLogMessage`
+  interpolation is an `@escaping @autoclosure`, so an *instance property* inside
+  one needs an explicit `self.`: `\(_uuid)` became `\(self._uuid)`. The other four
+  sites interpolate locals or a captured `error`, which are unaffected.
+- Five log calls added by the storage-durability change did not compile. OSLog's
+  `Logger.fault`/`Logger.error` take an `OSLogMessage`, which is built by string
+  interpolation, so joining the message with `+` is a type error — the macOS
+  `build` and `tests` jobs rejected all five with *cannot convert value of type
+  'String' to expected argument type 'OSLogMessage'*. They are now single
+  interpolated literals. The same edit marks each redacted description
+  `privacy: .public`: OSLog interpolation defaults to `.private`, so those
+  messages would otherwise read as `<private>` in Console — hiding the very
+  failures that change was written to surface.
+- `tools/test_logging_message_policy.py` pins both properties: no `Logger` call
+  concatenates its message, and no `LogRedaction.redact(...)` reaches OSLog
+  without `privacy: .public`. Neither is visible to the localisation, docs or
+  `swift-syntax` checks, which is why only the Apple jobs caught it.
+
 ### Changed
 
+- Free Apple ID and paid-certificate signing no longer share wording that implies
+  the wrong one runs. `SigningMethod.shortDescription` said **Weekly refresh**
+  for Free Apple ID, and the method picker renders that string: it promised an
+  automatic renewal that does not exist in this build. It now says **Renew by
+  hand each week**. The unused `supportsAutoRefresh` property is gone — it
+  answered `true` for Free Apple ID with nothing behind it.
+- Two internal names described work the app does not do. `NativeSigningManager`
+  exposed `renewExpiringProfiles()` and `BackgroundAutomation` a scheduled
+  `renewFreeAppleIDProfiles()` step; both only refetched the list of profiles
+  close to expiry, and the scheduled step's doc comment claimed it "renews them".
+  They are now `refreshRenewalCandidates()` and
+  `trackExpiringFreeAppleIDProfiles()`, and the comments say renewal is manual
+  and needs an explicit grant this build does not have. No behaviour changed.
+  `tools/check-native-handoff.py` fails if either name, or the "Weekly refresh"
+  copy, comes back.
+- `DownloadManager` is split along a boundary it already had. Network policy and
+  the transfer lifecycle — pausing, cancelling, resuming, and finishing a
+  download when its task ends — moved to `DownloadManager+TransferControl.swift`,
+  matching the existing `+PackageImport`, `+Recovery`, `+Delegates` and
+  `+LiveActivity` extensions. No behaviour changed; the bodies are identical.
 - The launch screen uses a rounded version of the existing VexSign mark. Home
   actions stack at accessibility text sizes, and the app-icon picker reuses its
   preview images instead of decoding them each time the view is constructed.
@@ -65,7 +137,80 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - Make deletion of custom entitlements files and individual entitlement keys
   easier to discover and confirm.
 
+### Security
+
+- Signing now refuses an identity that cannot produce an installable app, on
+  every path rather than only in the Signing screen. Certificate expiry used to
+  be checked by the preflight sheet alone, so **batch**, **Update All**,
+  **Shortcuts** and **self-update** handed an expired or revoked certificate to
+  zsign: the run reported success and the app was rejected at install with an
+  error that names the signature, not the cause. `SigningPipeline` now asks
+  `SigningIdentityPolicy` before it copies anything, and the run's log says
+  which identity problem stopped it. Modify-only runs are unaffected, because
+  they never use a certificate. The **Sign Anyway** override does not excuse
+  this: an expired certificate cannot install, unlike the profile and
+  entitlement problems that override exists for.
+- After signing, the verifier reads the certificate that actually signed the
+  bundle out of the produced signature and fails the run if it has expired.
+  This catches a certificate that lapsed since it was imported, or a stored row
+  with no date — the row is a cache, the signature is the evidence. Bundles
+  signed elsewhere are unaffected: installing without signing still accepts an
+  app whose signing certificate has since expired, which iOS allows.
+- The Apple TV and Vision Pro companions store the Web Manager password and API
+  token in the Keychain instead of `UserDefaults`. Both keys were written on every
+  edit, so a reusable password and a token with the same reach sat in every
+  preferences dump, backup and diagnostics bundle. Existing values migrate on
+  first launch, and the plaintext copy is removed only after the Keychain write
+  succeeds — a locked Keychain therefore keeps a working credential instead of
+  losing it, and the connect screen says so. A failed write is reported in place;
+  no credential value is logged.
+- The companion client defaults to HTTPS. An address typed without a scheme used
+  to become `http://`, which sent Basic credentials and the token in cleartext.
+  Plain HTTP now requires an explicit **Allow HTTP on this network** switch *and* a
+  local-network host (private IPv4, IPv6 link-local/unique-local, `*.local` or
+  loopback); a public address is refused and an `https://` address is never
+  downgraded after a failed connection. Redirects are refused rather than followed,
+  so `URLSession` cannot forward `Authorization` and `X-VexSign-Token` to another
+  host.
+- The app no longer writes SwiftUI's undocumented
+  `com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck` preference to force the Liquid
+  Glass redesign. The stale value is cleared once from the container, and
+  `tools/test_private_defaults_policy.py` now fails on any first-party write to a
+  `com.apple.*` default.
+- The archive validator folds Unicode normalization into an entry's identity, so
+  the same file shipped once precomposed and once decomposed (`Café.app` as NFC
+  and NFD) is a duplicate rather than two paths that collide on APFS. It also
+  rejects an archive that uses one path as both a file and a folder, whichever of
+  the two entries comes first; previously the extractor decided that by order.
+  `tools/test_archive_extraction_policy.py` keeps every extraction route behind
+  `ArchiveSafetyValidator.validate(_:destination:)`.
+
 ### Fixed
+
+- Deleting a certificate no longer reports success when its private key could
+  not be erased. The certificate's folder holds the imported `.p12` and its
+  profile; the removal used to swallow every error and then delete the row, so
+  the screen said the certificate was gone while usable key material stayed on
+  disk — reclaimed only if **Remove Leftovers** happened to be on. The row is
+  still deleted, and a failed removal is now recorded so the leftover is named
+  and can be reclaimed. The same silence in the failed-import cleanup is fixed
+  there too, where no row exists to own the staged key.
+- A library stored under the old `Feather.sqlite` name can no longer appear to
+  vanish. If the one-time migration to `VexSign.sqlite` failed, the app used to
+  open a new, empty store beside the intact original: every app, certificate
+  and source looked deleted, and nothing was reported. The store is now opened
+  in place at its old name so the library keeps working, and the move is
+  retried on the next launch. The corrupt-store recovery is also refused while
+  that fallback is active, because it deletes the store file together with the
+  signed, unsigned and certificate folders.
+- `make verify` no longer fails on a source archive. `tools/device-acceptance.py`
+  called `git rev-parse HEAD` unconditionally, so running the suite from an
+  unpacked zip (no `.git`) ended in `fatal: not a git repository` and failed the
+  native acceptance test for a reason unrelated to acceptance. The commit now
+  comes from `--commit`, then `VEXSIGN_SOURCE_COMMIT`/`GITHUB_SHA`, then git, and
+  a run with none of them exits with a one-line diagnostic instead of a traceback
+  and without writing a report. The commit binding itself is unchanged, and the
+  new tests cover the archive case, the CI case and a mismatched report.
 
 - Home no longer describes an empty update list as proof repositories are up to
   date, or claims a URL download started when the manager rejected it. It keeps
