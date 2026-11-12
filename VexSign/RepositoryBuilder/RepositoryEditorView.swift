@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import NimbleExtensions
 
 struct RepositoryJSONFile: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
@@ -24,30 +25,30 @@ struct RepositoryEditorView: View {
             Section("Repository") {
                 TextField("Name", text: $document.name)
                 TextField("Identifier", text: $document.identifier).textInputAutocapitalization(.never)
-                TextField("Icon URL", text: $document.iconURL).textInputAutocapitalization(.never)
-                Picker("Export format", selection: $document.format) {
+                TextField(.localized("Icon URL"), text: $document.iconURL).textInputAutocapitalization(.never)
+                Picker(.localized("Export format"), selection: $document.format) {
                     ForEach(RepositoryFormat.allCases) { Text($0.rawValue).tag($0) }
                 }
-                Text("Conversion uses the shared public JSON schema. Non-AltStore exports flatten release history to the selected version. Marketplace permissions and encrypted ESign feeds require provider-specific tooling.").font(.caption).foregroundStyle(.secondary)
+                Text(.localized("Conversion uses the shared public JSON schema. Non-AltStore exports flatten release history to the selected version. Marketplace permissions and encrypted ESign feeds require provider-specific tooling.")).font(.caption).foregroundStyle(.secondary)
             }
             Section("Apps") {
                 ForEach($document.apps) { $app in
-                    NavigationLink { RepositoryAppEditor(app: $app) } label: { Text(app.name.isEmpty ? "Untitled App" : app.name) }
+                    NavigationLink { RepositoryAppEditor(app: $app) } label: { Text(app.name.isEmpty ? .localized("Untitled App") : app.name) }
                 }.onDelete { document.apps.remove(atOffsets: $0) }
-                Button("Add App") { document.apps.append(RepositoryApp()) }
+                Button(.localized("Add App")) { document.apps.append(RepositoryApp()) }
             }
-            Section("Validation & Export") {
-                Button("Validate") { issues = RepositoryValidator.validate(document) }
-                Button("Check Download Links") {
+            Section(.localized("Validation & Export")) {
+                Button(.localized("Validate")) { issues = RepositoryValidator.validate(document) }
+                Button(.localized("Check Download Links")) {
                     busy = true
                     Task {
                         issues = RepositoryValidator.validate(document) + (await RepositoryValidator.checkDownloads(document))
                         busy = false
                     }
                 }
-                Button("Apply Safe Fixes") { RepositoryValidator.applySafeFixes(to: &document); issues = RepositoryValidator.validate(document) }
-                Button("Export source.json") { export(appsOnly: false) }
-                Button("Export apps.json") { export(appsOnly: true) }
+                Button(.localized("Apply Safe Fixes")) { RepositoryValidator.applySafeFixes(to: &document); issues = RepositoryValidator.validate(document) }
+                Button(.localized("Export source.json")) { export(appsOnly: false) }
+                Button(.localized("Export apps.json")) { export(appsOnly: true) }
                 ForEach(issues) { issue in
                     VStack(alignment: .leading) {
                         Label(issue.message, systemImage: issue.severity == .error ? "xmark.octagon" : "exclamationmark.triangle")
@@ -92,17 +93,17 @@ private struct RepositoryAppEditor: View {
             TextField("Name", text: $app.name)
             TextField("Bundle identifier", text: $app.bundleIdentifier)
             TextField("Version", text: $app.version)
-            TextField("Version date (ISO 8601)", text: $app.versionDate)
+            TextField(.localized("Version date (ISO 8601)"), text: $app.versionDate)
             TextField("Developer", text: $app.developerName)
             TextField("Category", text: $app.category)
-            TextField("Tint color (hex)", text: $app.tintColor)
-            TextField("Download URL", text: $app.downloadURL)
-            TextField("Icon URL", text: $app.iconURL)
-            TextField("Size in bytes", value: $app.size, format: .number).keyboardType(.numberPad)
+            TextField(.localized("Tint color (hex)"), text: $app.tintColor)
+            TextField(.localized("Download URL"), text: $app.downloadURL)
+            TextField(.localized("Icon URL"), text: $app.iconURL)
+            TextField(.localized("Size in bytes"), value: $app.size, format: .number).keyboardType(.numberPad)
             Section("Description") { TextEditor(text: $app.localizedDescription).frame(minHeight: 120) }
-            Section("Screenshots (one URL per line)") {
+            Section(.localized("Screenshots (one URL per line)")) {
                 TextEditor(text: Binding(get: { app.screenshotURLs.joined(separator: "\n") }, set: { app.screenshotURLs = $0.components(separatedBy: "\n").filter { !$0.isEmpty } })).frame(minHeight: 100)
             }
-        }.textInputAutocapitalization(.never).autocorrectionDisabled().navigationTitle("App Details")
+        }.textInputAutocapitalization(.never).autocorrectionDisabled().navigationTitle(.localized("App Details"))
     }
 }

@@ -24,7 +24,7 @@ extension UnifiedTaskCenter {
             .store(in: &cancellables)
     }
 
-    private func _syncMirrored(downloads: [Download]) {
+    func _syncMirrored(downloads: [Download]) {
         let activeIDs = Set(downloads.map { $0.id })
 
         // Drop mirrors whose download disappeared without a terminal phase.

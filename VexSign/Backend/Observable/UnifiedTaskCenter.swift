@@ -37,18 +37,18 @@ final class UnifiedTaskCenter: ObservableObject {
 	@Published private(set) var history: [UnifiedTask] = []
 
 	/// Registered retry handlers (in-memory only — a retry needs the live flow).
-	private let iconArchive = TaskIconArchive()
+	let iconArchive = TaskIconArchive()
 	private var retryHandlers: [String: () -> Void] = [:]
-	private var downloadMirrors: [String: UnifiedTask] = [:]
-	private var cancellables = Set<AnyCancellable>()
+	var downloadMirrors: [String: UnifiedTask] = [:]
+	var cancellables = Set<AnyCancellable>()
 
     @Published private(set) var historyPersistenceIssue: TaskHistoryJournal.Issue?
-    private let historyJournal = TaskHistoryJournal(url: UnifiedTaskCenter.historyFileURL)
-    private var historyLoaded = false
-    private var historyLoading = false
-    private var clearHistoryRequested = false
+    let historyJournal = TaskHistoryJournal(url: UnifiedTaskCenter.historyFileURL)
+    var historyLoaded = false
+    var historyLoading = false
+    var clearHistoryRequested = false
 
-	private static let historyLimit = 200
+	static let historyLimit = 200
 	private static var historyFileURL: URL {
 		let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
 			?? FileManager.default.temporaryDirectory
@@ -147,7 +147,7 @@ final class UnifiedTaskCenter: ObservableObject {
 		return latest.errorText ?? .localized("Unknown error")
 	}
 
-	private func _finalize(_ task: UnifiedTask) {
+	func _finalize(_ task: UnifiedTask) {
 		if let index = tasks.firstIndex(where: { $0.id == task.id }) {
 			tasks.remove(at: index)
 		}

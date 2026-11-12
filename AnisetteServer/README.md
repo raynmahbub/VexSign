@@ -3,7 +3,7 @@
 A minimal macOS HTTP server that returns the **shape** of an Anisette provider
 response for VexSign's Free Apple ID signing flow.
 
-> ⚠️ **This is a mock, not a working Anisette provider.** The ten header values
+> ⚠️ **This is a mock, not a working Anisette provider.** The eleven header values
 > are **fabricated** (a random serial number, a UUID-derived hash, a fixed routing
 > number). Apple's services will reject them, so this server **cannot**
 > authenticate an Apple ID or provision certificates. It exists only to exercise
@@ -33,24 +33,23 @@ Example response (values are illustrative and fabricated):
 
 ```json
 {
-  "headers": {
-    "X-Apple-I-MD": "abc123...",
-    "X-Apple-I-MD-M": "def456...",
-    "X-Apple-I-MD-RINFO": "1710000000",
-    "X-Apple-I-MD-LU": "1710000000",
-    "X-Apple-I-SRL-NO": "123456",
-    "X-Apple-I-Client-Time": "2024-01-15T10:30:00.000Z",
-    "X-Apple-I-Timezone": "America/New_York",
-    "X-Apple-Locale": "en_US",
-    "X-Apple-Device-ID": "ABCDEF12-3456-7890-ABCD-EF1234567890",
-    "X-Mme-Device-Id": "ABCDEF12-3456-7890-ABCD-EF1234567890"
-  }
+  "X-Apple-I-MD": "abc123...",
+  "X-Apple-I-MD-M": "def456...",
+  "X-Apple-I-MD-RINFO": "1710000000",
+  "X-Apple-I-MD-LU": "1710000000",
+  "X-Apple-I-SRL-NO": "123456",
+  "X-MMe-Client-Info": "VexSign-Protocol-Mock/1",
+  "User-Agent": "VexSign-Protocol-Mock/1",
+  "X-Apple-I-Client-Time": "2024-01-15T10:30:00.000Z",
+  "X-Apple-I-Timezone": "America/New_York",
+  "X-Apple-Locale": "en_US",
+  "X-Mme-Device-Id": "ABCDEF12-3456-7890-ABCD-EF1234567890"
 }
 ```
 
 ## Required header fields
 
-A real provider must return these ten fields as a JSON object under `headers`:
+A real provider must return these eleven fields as one flat JSON object:
 
 | Header | Description |
 |--------|-------------|
@@ -59,11 +58,12 @@ A real provider must return these ten fields as a JSON object under `headers`:
 | `X-Apple-I-MD-RINFO` | Routing info |
 | `X-Apple-I-MD-LU` | Last-updated timestamp |
 | `X-Apple-I-SRL-NO` | Serial number |
+| `X-MMe-Client-Info` | Client information |
+| `User-Agent` | Client user agent |
 | `X-Apple-I-Client-Time` | ISO8601 client time |
 | `X-Apple-I-Timezone` | IANA timezone identifier |
 | `X-Apple-Locale` | Locale identifier |
-| `X-Apple-Device-ID` | Device UUID |
-| `X-Mme-Device-Id` | Device UUID (duplicate) |
+| `X-Mme-Device-Id` | Device UUID |
 
 VexSign's HTTPS transport requires an `https://` endpoint with no embedded
 credentials, query string or fragment, and validates that exactly these fields

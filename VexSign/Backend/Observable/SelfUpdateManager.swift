@@ -365,6 +365,10 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		}
 		var request = URLRequest(url: finalURL)
 		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+		// A page that never answers would leave the update screen spinning with no way out.
+		// `URLSession.shared`'s default is 60 s per page, multiplied by however many pages
+		// GitHub reports.
+		request.timeoutInterval = 20
 
 		let (data, response) = try await URLSession.shared.data(for: request)
 		guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {

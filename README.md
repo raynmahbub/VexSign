@@ -2,7 +2,13 @@
   <img src="icon.png" alt="VexSign icon" width="96">
   <h1>VexSign</h1>
   <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
+  <p>
+    <a href="https://github.com/raynmahbub/VexSign/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/raynmahbub/VexSign?label=latest%20release"></a>
+    <a href="https://github.com/raynmahbub/VexSign/blob/main/LICENSE"><img alt="GPL-3.0 license" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
+    <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
+  </p>
   <p><a href="#download">Download</a> · <a href="docs/README.md">Guides</a> · <a href="docs/BUILD.md">Build</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+  <a href="docs/assets/hero.svg"><img src="docs/assets/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%"></a>
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -29,6 +35,9 @@ maps each area to the code that provides it. That mapping is a presence check, n
 device acceptance — the caveats in each section still apply.
 
 ### ✍️ Signing & installation
+<details>
+<summary><strong>✍️ Signing & installation</strong></summary>
+
 
 - **On-device IPA signing** powered by Zsign.
 - **Batch signing and install queues** for processing multiple apps with per-app settings.
@@ -38,7 +47,12 @@ device acceptance — the caveats in each section still apply.
 - **Signing Live Activities** to follow progress on supported devices.
 - **Auto-sign workflows** and **Update All** for re-signing source updates.
 
+</details>
+
 ### 🧩 Customization & IPA tools
+<details>
+<summary><strong>🧩 Customization & IPA tools</strong></summary>
+
 
 - **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support.
 - **Tweak management** to organize injection components, with dependency-aware ElleKit injection and legacy Substrate replacement.
@@ -49,7 +63,12 @@ device acceptance — the caveats in each section still apply.
 - **Clone icon badges** when a writable PNG icon is available; cloned apps still need compatible signing options and profiles.
 - **File manager**, document browsing, QuickLook previews and file/compression settings.
 
+</details>
+
 ### 📚 Sources, discovery & updates
+<details>
+<summary><strong>📚 Sources, discovery & updates</strong></summary>
+
 
 - **GitHub IPA import** — browse up to 20 public releases from a repository and choose an IPA; prereleases are opt-in and existing download/auto-sign settings apply.
 - **AltStore-compatible repositories** through AltSourceKit, including the existing encrypted ESign parsing support.
@@ -67,7 +86,12 @@ device acceptance — the caveats in each section still apply.
 - **Premium activation, restore and device recovery** through the configured backend, with premium catalog filters.
 - **App self-update checking**, with a one-time local notification when a newer release appears, and controls for skipped source updates.
 
+</details>
+
 ### 🛠️ Repository Builder & sharing
+<details>
+<summary><strong>🛠️ Repository Builder & sharing</strong></summary>
+
 
 Available from **Settings → Ecosystem**.
 
@@ -79,15 +103,25 @@ Available from **Settings → Ecosystem**.
 
 > OTA export does not upload your files or configure hosting. Installation requires a reachable HTTPS host and a correctly signed IPA. Repository conversion supports a common public JSON subset, not every provider-specific field.
 
+</details>
+
 ### ⬇️ Downloads & file transfer
+<details>
+<summary><strong>⬇️ Downloads & file transfer</strong></summary>
+
 
 - **Background downloads** with progress, speed tracking, pause/resume/stop controls, Live Activities and Dynamic Island support where available. Download controls are not a promise of resumable IPA extraction.
 - **Wi-Fi-only and charging-only download conditions**.
-- **HTTP and WebDAV file transfer** through the built-in web manager.
+- **HTTPS/WebDAV file transfer** through the built-in web manager.
 - **SHA-256 hashing** in download logs and file verification against a supplied hash.
 - **Game Mode** to pause downloads and background work.
 
+</details>
+
 ### 🔐 Certificates & security
+<details>
+<summary><strong>🔐 Certificates & security</strong></summary>
+
 
 - Import and manage signing certificates and provisioning profiles.
 - **Certificate status monitoring**, batch checks and expiry reminders.
@@ -102,7 +136,12 @@ Available from **Settings → Ecosystem**.
 - **Authenticated Web Manager** with explicit network access, API-token controls and separate certificate-export permission.
 - **Anti-Revoke DNS profile tools** for verification-host filtering; these do not guarantee protection from certificate revocation.
 
+</details>
+
 ### ⚡ Automation, cleanup & backup
+<details>
+<summary><strong>⚡ Automation, cleanup & backup</strong></summary>
+
 
 - **Scheduled automation** with hourly-to-daily best-effort frequency, update-check/sign policy, per-app and per-source auto-update controls, Wi-Fi-only enforcement, certificate selection, optional install-queueing and completion summaries. iOS controls actual background execution times.
 - **Siri & Shortcuts**: App Intents for signing a chosen app, installation, repository refresh, certificate checks, URL downloads, section navigation, Game Mode, Update All, cleanup and signing the latest download; library-summary actions expose status to automations. See **Settings → Siri & Shortcuts**.
@@ -112,7 +151,12 @@ Available from **Settings → Ecosystem**.
 - **Local analytics** with daily, weekly and monthly charts for recorded signing/install activity, certificate/source events and storage gauges.
 - **Console and signing logs** for troubleshooting, plus diagnostic ZIP export with secret-redaction filters. Review diagnostics before sharing.
 
+</details>
+
 ### 📺 Companion platforms
+<details>
+<summary><strong>📺 Companion platforms</strong></summary>
+
 
 Apple TV, Apple Vision Pro and Apple Watch apps mirror what the phone is doing.
 They cannot sign or install — no certificate, no IPA storage, no `installd` — so
@@ -127,7 +171,12 @@ trigger a refresh, a certificate check, Update All or a cleanup on the phone.
 See [companion platforms](docs/PLATFORMS.md) for pairing, build commands and the
 limits.
 
+</details>
+
 ### 🌐 Web tools
+<details>
+<summary><strong>🌐 Web tools</strong></summary>
+
 
 Served by the backend under `/tools`, and linked from **Settings → Ecosystem →
 Web Tools**:
@@ -147,7 +196,12 @@ Web Tools**:
 
 See [web tools](docs/WEBTOOLS.md) for endpoints and the privacy stance.
 
+</details>
+
 ### 🎨 A native workspace
+<details>
+<summary><strong>🎨 A native workspace</strong></summary>
+
 
 - SwiftUI navigation, search, material surfaces and availability-gated Liquid Glass styling.
 - System, Midnight Violet, Graphite, Paper, OLED, Luna and Flare appearances, tint and app-icon settings.
@@ -178,6 +232,8 @@ For detailed feature boundaries, security caveats and remaining device/release t
 For upstream changes and porting considerations, see the
 [upstream integration assessment](docs/research/public-signer-integration-assessment.md).
 
+</details>
+
 ## Download
 
 Download an IPA or add the VexSign source to a compatible signer:
@@ -197,6 +253,16 @@ Download an IPA or add the VexSign source to a compatible signer:
 
 The **Add Source** button uses a third-party link helper. If it cannot open your
 signer, paste the source URL below manually.
+
+#### Add the VexSign source directly
+
+Already using a compatible signer? Open one of these links to add the stable VexSign feed:
+
+- [Add to AltStore](altstore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+- [Add to SideStore](sidestore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+- [Add to Feather](feather://source/https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json)
+
+If a link does not open your app, copy the stable source URL shown below and add it manually.
 
 ### Start signing
 
@@ -251,9 +317,12 @@ Local signing keeps signing work on-device; optional remote flows have different
 trust boundaries. Archives are validated before extraction, and the local install
 server uses a device-specific TLS identity. Report vulnerabilities privately as
 explained in [SECURITY.md](SECURITY.md); do not put credentials in issues.
+See the [threat model](docs/THREAT_MODEL.md) for data-flow and trust-boundary
+notes, including optional network features.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
-[Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE)
+[Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE) ·
+[Third-party notices](THIRD_PARTY_NOTICES.md)
 
 Built on Zsign, idevice, ElleKit and other open-source projects; retain their
 [third-party licenses](Vendor/README.md) and [ElleKit license](LICENSE_ELLEKIT).

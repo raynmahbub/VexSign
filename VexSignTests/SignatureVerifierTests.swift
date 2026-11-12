@@ -187,6 +187,61 @@ final class SignatureVerifierTests: XCTestCase {
 		)
 	}
 
+	// MARK: - Certificate expiry
+
+	func testAnExpiredSigningCertificateIsAFailure() throws {
+		let expiry = Date(timeIntervalSince1970: 1_800_000_000)
+		let issue = try XCTUnwrap(
+			SignatureVerifier.certificateExpiryIssue(signatureExpiry: expiry, now: expiry),
+			"a signature whose certificate expired at now must be reported"
+		)
+		XCTAssertEqual(issue.code, .certificateExpired)
+		XCTAssertEqual(issue.severity, .failure)
+	}
+
+	func testASigningCertificateValidForOneMoreSecondPasses() throws {
+		let expiry = Date(timeIntervalSince1970: 1_800_000_000)
+		XCTAssertNil(
+			SignatureVerifier.certificateExpiryIssue(signatureExpiry: expiry, now: expiry.addingTimeInterval(-1))
+		)
+	}
+
+	func testAnUnreadableOrAdHocSignatureIsNotCalledExpired() throws {
+		// No certificate in the signature (ad-hoc), or a signature that could not be read, is
+		// *unknown* — never "expired". Guessing here would fail bundles that carry no signer.
+		XCTAssertNil(SignatureVerifier.certificateExpiryIssue(signatureExpiry: nil, now: .distantFuture))
+	}
+
+	/// The check must read the certificate out of the *produced signature*, and must run only
+	/// for bundles this run signed.
+	///
+	/// An end-to-end fixture with an expired X.509 certificate is not in the suite: the CMS
+	/// fixture in `BundleSignatureTests` is signed by a certificate valid until 2027, and
+	/// forging an expired one would mean hand-assembling a signed CMS. What is asserted here
+	/// is the wiring the pure-function tests above cannot see.
+	func testTheExpiryCheckReadsTheProducedSignatureAndOnlyForFreshSigns() throws {
+		let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.appendingPathComponent("VexSign/Utilities/Signing/SignatureVerifier.swift"))
+		let scan = try XCTUnwrap(source.range(of: "static func _signatureIssues"))
+		let body = String(source[scan.lowerBound...])
+
+		XCTAssertTrue(
+			body.contains("BundleSignature.read(bundleAt: bundleURL).expiresAt"),
+			"the expiry must come from the bundle's own signature, not from the stored row"
+		)
+		XCTAssertTrue(
+			body.contains("expectation.expectsFreshSignature"),
+			"a bundle signed elsewhere may legitimately carry an expired signing certificate"
+		)
+
+		// And "already signed" installs must stay unaffected.
+		let expectation = SignatureVerifier.Expectation.alreadySigned
+		XCTAssertFalse(expectation.expectsFreshSignature)
+		XCTAssertTrue(SignatureVerifier.Expectation.freshlySigned.expectsFreshSignature)
+	}
+
 	// MARK: - Entitlements
 
 	func testAnEntitlementTheProfileDoesNotGrantIsAFailure() throws {
@@ -324,7 +379,10 @@ final class SignatureVerifierTests: XCTestCase {
         let codes: [SignatureVerifier.Issue.Code] = [.bundleNotFound, .executableMissing, .bundleIdentifierMissing,
             .missingCodeResources, .unsignedExecutable, .unsignedNestedBundle,
             .requestedIdentifierMismatch, .profileMissing, .profileUnreadable,
-            .profileIdentifierUnknown, .entitlementUnreadable]
+            .profileIdentifierUnknown, .entitlementUnreadable,
+            // An expired signing certificate cannot produce an installable app, so it
+            // belongs with the failures "Sign Anyway" must not excuse.
+            .certificateExpired]
         for code in codes {
             let report = SignatureVerifier.Report(bundlePath: "/test.app",
                 issues: [.init(code: code, severity: .failure, detail: code.rawValue)], duration: 0)

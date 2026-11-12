@@ -1,6 +1,6 @@
 # Free Apple ID Signing Setup Guide
 
-This guide walks you through setting up and using VexSign's **Free Apple ID signing** feature, which allows you to sign and install apps using a free Apple Developer account (3 apps, 7-day expiry).
+This guide describes VexSign's **experimental Free Apple ID provisioning and certificate-import handoff**. Imported-certificate signing remains the supported path; native account signing has not completed production CMS or physical-device acceptance.
 
 ## Table of Contents
 
@@ -24,14 +24,14 @@ This guide walks you through setting up and using VexSign's **Free Apple ID sign
 - **Paired Device**: Your iOS device paired with a Mac (for device UDID retrieval)
 - **TrollStore** (optional): For permanent installation on iOS 14.0–16.6.1
 
-> **This flow cannot sign yet.** VexSign can authenticate a free Apple ID, select
-> a team, register a device and record a provisioning profile, but nothing
-> converts that identity and profile into the certificate pair the signer reads.
-> Profile creation is additionally gated on a CMS verifier that shipping builds
-> do not supply. Treat the steps below as the shape of the flow, not a working
-> end-to-end path — [Free Apple ID handoff](NATIVE_SIGNING_HANDOFF.md) lists the
-> three closed gates and what each needs. Signing with an imported
-> `.p12` + `.mobileprovision` is the supported path.
+> **Native account signing is not integrated or device-accepted yet.** The code
+> can validate and export a receipt-bound profile and, after separate explicit
+> consent, import its identity into the ordinary certificate store. However,
+> profile creation is still gated on a production CMS verifier that shipping
+> builds do not select. Treat the steps below as an experimental developer flow,
+> not a working end-to-end path. [Free Apple ID handoff](NATIVE_SIGNING_HANDOFF.md)
+> records the implemented seam and remaining acceptance gates. Signing with an
+> imported `.p12` + `.mobileprovision` is the supported path.
 
 ---
 
@@ -39,24 +39,25 @@ This guide walks you through setting up and using VexSign's **Free Apple ID sign
 
 ### What is an Anisette Provider?
 
-Free Apple ID signing requires an **Anisette Provider** - an HTTPS server that returns 10 specific Apple headers used for authenticating with Apple's services (GSX, Albert, etc.). VexSign cannot include a default provider due to Apple's terms of service.
+Free Apple ID signing requires an **Anisette Provider** - an HTTPS server that returns 11 specific Apple header fields used for authenticating with Apple's services (GSX, Albert, etc.). VexSign cannot include a default provider due to Apple's terms of service.
 
 ### Required Headers
 
-Your endpoint must return these 10 headers as JSON:
+Your endpoint must return these 11 fields as one flat JSON object:
 
 | Header | Description |
 |--------|-------------|
 | `X-Apple-I-MD` | Machine ID hash |
 | `X-Apple-I-MD-M` | Machine ID hash (variant) |
-| `X-Apple-I-MD-RINFO` | Machine info timestamp |
+| `X-Apple-I-MD-RINFO` | Routing info |
 | `X-Apple-I-MD-LU` | Last updated timestamp |
 | `X-Apple-I-SRL-NO` | Serial number |
+| `X-MMe-Client-Info` | Client information |
+| `User-Agent` | Client user agent |
 | `X-Apple-I-Client-Time` | ISO8601 client time |
 | `X-Apple-I-Timezone` | IANA timezone identifier |
 | `X-Apple-Locale` | Locale identifier |
-| `X-Apple-Device-ID` | Device UUID |
-| `X-Mme-Device-Id` | Device UUID (duplicate) |
+| `X-Mme-Device-Id` | Device UUID |
 
 ### Quick Deploy Options
 
@@ -175,10 +176,12 @@ docker run -d -p 8080:8080 -e PORT=8080 anisette-server
   4. Create a provisioning profile
 - Progress is shown live with stage indicators
 
-#### Step 5: Complete
-- The app is now signed and ready for installation
-- Tap **Install** to install via your preferred method
-- Tap **Export .ipa** to save the signed IPA
+#### Step 5: Experimental certificate import
+- Review the separate private-key export consent.
+- Tap **Import Certificate & Profile** to validate the fresh profile and import
+  the pair into **Certificates**. This does not sign or install the selected app.
+- If import succeeds, select that certificate explicitly in the existing signing
+  flow. Production CMS gating and device acceptance still apply.
 
 ---
 
@@ -235,32 +238,14 @@ Limits worth knowing:
 
 ## Auto-Renewal
 
-Free Apple ID profiles expire after **7 days**. VexSign can automatically renew them:
+Free Apple ID profiles normally expire after **7 days**. Unattended native
+renewal is **not implemented**. Background discovery can identify locally
+recorded profiles that are nearing expiry, but it does not mint mutation consent,
+create profiles, export keys, sign apps or queue installations.
 
-### Enable Background Automation
-
-1. Go to **Settings** → **Automation**
-2. Enable **Background Automation**
-3. Choose policy:
-   - **Notify Only**: Checks for updates, notifies you
-   - **Sign & Queue**: Automatically signs and queues installs
-
-### How Auto-Renewal Works
-
-When enabled, the daily background task:
-1. Checks for expiring free Apple ID profiles (within 2 days)
-2. For each expiring profile:
-   - Re-runs provisioning (device, App ID, certificate, profile)
-   - Re-signs the app with the new profile
-   - Queues the signed IPA for installation
-3. Runs cleanup of old files
-4. Sends a summary notification
-
-### Manual Renewal
-
-You can also trigger renewal manually:
-1. Go to **Settings** → **Signing Methods** → **Free Apple ID**
-2. Tap **Provision App** → Select the app → **Renew**
+To renew during an accepted developer test, repeat the explicit provisioning and
+certificate-import flow, then sign again through the ordinary certificate flow.
+Do not interpret an expiry notification as a completed renewal.
 
 ---
 
@@ -316,7 +301,7 @@ You can also trigger renewal manually:
 | Limitation | Details |
 |------------|---------|
 | **3 Apps** | Free tier limited to 3 active apps |
-| **7 Days** | Profiles expire after 7 days (auto-renewal available) |
+| **7 Days** | Profiles normally expire after 7 days; unattended native renewal is not implemented |
 | **No Push/iCloud** | Free certs don't support push notifications, iCloud, App Groups |
 | **Development Only** | Cannot create distribution/App Store profiles |
 | **iOS 17+** | Requires iOS 17.0 or later |

@@ -907,6 +907,70 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
         return data
     }
 
+    /// Export only the exact authenticated CMS envelope represented by a durable
+    /// receipt. The portal response is never trusted from its UUID or plaintext:
+    /// current session/team, owned identity, certificate, device, bundle, expiry,
+    /// CMS trust and receipt digest are all checked again before returning bytes.
+    func exportProvisioningProfile(contextID: UUID, profileUUID: UUID, identityID: UUID,
+                                   bundleIdentifier: String, deviceIdentifier: String,
+                                   consent token: AnisetteConsentToken) async throws -> Data {
+        guard !closed else { throw Failure.closed }
+        try profileValidator.requireCMSVerification()
+        guard !setupBusy, maintenanceCount == 0, active == nil, provisioningTask == nil, identityTask == nil,
+              identityDiscardTask == nil, certificateTask == nil, registrationTask == nil, profileTask == nil,
+              certificateStatusTask == nil else { throw NativeProfileCreationError.busy }
+        setupBusy = true
+        defer { setupBusy = false }
+        try consent.require(token, provider: provider.descriptor, now: clock())
+        let flow = generation
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        let owner = try await identityOwner(contextID: contextID, flow: flow)
+        let owned = try await signingIdentities.ownedProfileIdentity(owner: owner, identityID: identityID,
+            bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier, now: clock())
+        let request = try NativeProfileValidationRequest(teamIdentifier: owner.teamIdentifier,
+            bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier,
+            certificateDER: owned.validation.certificateDER, expectedUUID: profileUUID)
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+
+        guard let profileReceipts else { throw NativeProfileValidationError.receiptUnavailable }
+        let matching = try profileReceipts.list(owner: owner).filter {
+            $0.identityID == identityID && $0.profileUUID == profileUUID
+                && $0.bundleIdentifier == bundleIdentifier && $0.deviceIdentifier == request.deviceIdentifier
+        }
+        guard matching.count == 1, let receipt = matching.first else {
+            throw NativeProfileValidationError.receiptUnavailable
+        }
+        try receipt.validate(owner: owner)
+        guard receipt.certificateSHA256 == NativeSigningIdentityOwner.hash(request.certificateDER) else {
+            throw NativeProfileValidationError.receiptMismatch
+        }
+        guard let candidate = try await coordinator.provisioningCandidate(contextID: contextID, now: clock()) else {
+            throw NativeProvisioningError.contextChanged
+        }
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        let headers: AnisetteData
+        do { headers = try await provider.freshHeaders() }
+        catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            throw NativeProvisioningError.providerFailed
+        }
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        let cms = try await adapter.provisioningPortal.downloadProvisioningProfile(
+            encodedSession: candidate.encodedSession, headers: headers,
+            teamIdentifier: candidate.context.team.identifier, profileUUID: profileUUID, now: clock())
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        let profile = try await profileValidator.validate(cms: cms, request: request, now: clock())
+        guard profile.cmsSHA256 == receipt.cmsSHA256,
+              profile.certificateSHA256 == receipt.certificateSHA256,
+              profile.deviceIdentifier == receipt.deviceIdentifier,
+              profile.constraints.expiresAt == receipt.expiresAt else {
+            throw NativeProfileValidationError.receiptMismatch
+        }
+        try await requireProvisioningCurrent(contextID: contextID, token: token, flow: flow)
+        try Task.checkCancellation()
+        return profile.encodedCMS
+    }
+
     private func requireProfileSlot(token: AnisetteConsentToken) throws {
         guard !closed else { throw Failure.closed }
         try profileValidator.requireCMSVerification()

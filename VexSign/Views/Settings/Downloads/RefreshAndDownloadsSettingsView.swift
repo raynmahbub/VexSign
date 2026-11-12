@@ -17,6 +17,28 @@ struct RefreshAndDownloadsSettingsView: View {
     private let intervals = ["15m", "30m", "1h", "2h", "6h", "12h", "24h"]
     private let networkOptions = ["Wi-Fi", "Cellular", "Wi-Fi & Cellular"]
 
+    private func networkTitle(_ opt: String) -> String {
+        switch opt {
+        case "Wi-Fi": return .localized("Wi-Fi")
+        case "Cellular": return .localized("Cellular")
+        case "Wi-Fi & Cellular": return .localized("Wi-Fi & Cellular")
+        default: return opt
+        }
+    }
+
+    private func intervalTitle(_ token: String) -> String {
+        switch token {
+        case "15m": return .localized("%lldm", arguments: 15)
+        case "30m": return .localized("%lldm", arguments: 30)
+        case "1h": return .localized("%lldh", arguments: 1)
+        case "2h": return .localized("%lldh", arguments: 2)
+        case "6h": return .localized("%lldh", arguments: 6)
+        case "12h": return .localized("%lldh", arguments: 12)
+        case "24h": return .localized("%lldh", arguments: 24)
+        default: return token
+        }
+    }
+
     var body: some View {
         NBList(.localized("Refresh & Downloads")) {
             // MARK: - Background Refresh
@@ -45,7 +67,7 @@ struct RefreshAndDownloadsSettingsView: View {
                         Circle()
                             .fill(bgRefreshEnabled ? Color.green : Color.secondary)
                             .frame(width: 6, height: 6)
-                        Text(bgRefreshEnabled ? "ON" : "OFF")
+                        Text(bgRefreshEnabled ? .localized("ON") : .localized("OFF"))
                             .font(.caption2.weight(.heavy))
                             .foregroundStyle(bgRefreshEnabled ? Color.green : .secondary)
                     }
@@ -104,14 +126,14 @@ struct RefreshAndDownloadsSettingsView: View {
                     Spacer()
 
                     Menu {
-                        Picker("Interval", selection: $refreshInterval) {
+                        Picker(.localized("Interval"), selection: $refreshInterval) {
                             ForEach(intervals, id: \.self) { item in
-                                Text(item).tag(item)
+                                Text(intervalTitle(item)).tag(item)
                             }
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Text(refreshInterval)
+                            Text(intervalTitle(refreshInterval))
                                 .font(.subheadline.weight(.semibold))
                             Image(systemName: "chevron.down")
                                 .font(.caption2.weight(.bold))
@@ -164,7 +186,7 @@ struct RefreshAndDownloadsSettingsView: View {
                             }
                             .padding(.trailing, 4)
 
-                            Text(opt)
+                            Text(networkTitle(opt))
                                 .font(.subheadline.weight(refreshNetworkOption == opt ? .semibold : .regular))
                                 .foregroundStyle(refreshNetworkOption == opt ? Color.pink : .primary)
 
@@ -222,7 +244,7 @@ struct RefreshAndDownloadsSettingsView: View {
                             }
                             .padding(.trailing, 4)
 
-                            Text(opt)
+                            Text(networkTitle(opt))
                                 .font(.subheadline.weight(downloadsNetworkOption == opt ? .semibold : .regular))
                                 .foregroundStyle(downloadsNetworkOption == opt ? Color.pink : .primary)
 

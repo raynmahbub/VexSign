@@ -4,6 +4,24 @@ import CoreFoundation
 public enum NativeProfileValidationError: Error, Equatable, Sendable {
     case invalidRequest, malformedProfile, cmsVerificationUnavailable, cmsRejected
     case contextMismatch, expired, certificateMismatch, unsupportedEntitlements
+    case receiptUnavailable, receiptMismatch
+}
+
+extension NativeProfileValidationError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .invalidRequest: return "The native provisioning request is invalid."
+        case .malformedProfile: return "The provisioning profile is malformed or unsupported."
+        case .cmsVerificationUnavailable: return "Apple provisioning-profile CMS verification is not enabled in this build."
+        case .cmsRejected: return "The provisioning profile's Apple CMS signature or trust chain could not be verified."
+        case .contextMismatch: return "The provisioning profile does not match the selected account, team, app, or device."
+        case .expired: return "The provisioning profile is expired or is not valid yet."
+        case .certificateMismatch: return "The provisioning profile does not include the selected signing certificate."
+        case .unsupportedEntitlements: return "The provisioning profile grants unsupported entitlements for this free-account flow."
+        case .receiptUnavailable: return "No authenticated receipt matches this exact app, device, identity, and profile. Reconcile the profile before exporting it."
+        case .receiptMismatch: return "The downloaded profile no longer matches its authenticated receipt. Reconcile it before exporting; nothing was imported."
+        }
+    }
 }
 
 /// Internal constraints only: no credentials or private key, never an anisette

@@ -1,8 +1,18 @@
 import SwiftUI
 import Charts
+import NimbleExtensions
 
 struct AnalyticsView: View {
-    enum Period: String, CaseIterable { case daily = "Daily", weekly = "Weekly", monthly = "Monthly" }
+    enum Period: String, CaseIterable {
+        case daily = "Daily", weekly = "Weekly", monthly = "Monthly"
+        var title: String {
+            switch self {
+            case .daily: return .localized("Daily")
+            case .weekly: return .localized("Weekly")
+            case .monthly: return .localized("Monthly")
+            }
+        }
+    }
     @State private var period = Period.daily
     @State private var metric = AnalyticsMetric.appsSigned
     @State private var buckets: [AnalyticsBucket] = []
@@ -19,19 +29,19 @@ struct AnalyticsView: View {
     }
     var body: some View {
         List {
-            Section("Local Activity") {
-                Picker("Period", selection: $period) { ForEach(Period.allCases, id: \.self) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented)
-                Picker("Metric", selection: $metric) { ForEach(AnalyticsMetric.allCases) { Text($0.title).tag($0) } }
-                Chart(chart) { point in BarMark(x: .value("Date", point.date), y: .value("Count", point.count)) }.frame(height: 230)
-                Text("Total: \(chart.reduce(0) { $0 + $1.count })").font(.headline)
-                Text("Private, on-device counts from this version onward. OTA handoff is not proof of installation. No historical counts are invented.").font(.caption).foregroundStyle(.secondary)
+            Section(.localized("Local Activity")) {
+                Picker(.localized("Period"), selection: $period) { ForEach(Period.allCases, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                Picker(.localized("Metric"), selection: $metric) { ForEach(AnalyticsMetric.allCases) { Text($0.title).tag($0) } }
+                Chart(chart) { point in BarMark(x: .value(.localized("Date"), point.date), y: .value(.localized("Count"), point.count)) }.frame(height: 230)
+                Text(String.localized("Total: %lld", arguments: chart.reduce(0) { $0 + $1.count })).font(.headline)
+                Text(.localized("Private, on-device counts from this version onward. OTA handoff is not proof of installation. No historical counts are invented.")).font(.caption).foregroundStyle(.secondary)
             }
-            Section("Current Inventory") {
-                LabeledContent("Certificates", value: String(certificates))
-                LabeledContent("Documents Storage", value: ByteCountFormatter.string(fromByteCount: storage, countStyle: .file))
+            Section(.localized("Current Inventory")) {
+                LabeledContent(.localized("Certificates"), value: String(certificates))
+                LabeledContent(.localized("Documents Storage"), value: ByteCountFormatter.string(fromByteCount: storage, countStyle: .file))
             }
             if let error { Text(error).foregroundStyle(.red) }
-        }.navigationTitle("Analytics")
+        }.navigationTitle(.localized("Analytics"))
             .task {
                 do { buckets = try await AnalyticsStore.shared.load() } catch { self.error = error.localizedDescription }
                 certificates = Storage.shared.getAllCertificates().count

@@ -69,7 +69,8 @@ final class InstallConfirmationTests: XCTestCase {
         let resultTask = Task.detached {
             await probe.installedAppWithTimeout(for: identifier, timeout: 0.05)
         }
-        XCTAssertEqual(probe.entered.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(probe.entered.wait(timeout: .now() + 10), .success,
+                       "The detached probe should enter even when simulator test scheduling is congested")
         let result = await resultTask.value
         XCTAssertNil(result)
     }

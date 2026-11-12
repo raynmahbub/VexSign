@@ -25,7 +25,7 @@ extension UnifiedTaskCenter {
         }
     }
 
-    private func pruneHistoryIcons() {
+    func pruneHistoryIcons() {
         do { try iconArchive.prune(keeping: Set((tasks + history).map(\.id))) }
         catch { Logger.misc.warning("Could not prune task thumbnails: \(error.localizedDescription)") }
     }

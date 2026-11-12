@@ -126,12 +126,19 @@ verify: docs-check
 	@python3 tools/check_ios_icon_assets.py
 	@python3 tools/test_public_blur_policy.py
 	@python3 tools/test_private_launch_policy.py
+	@python3 tools/test_private_defaults_policy.py
+	@python3 tools/test_archive_extraction_policy.py
+	@python3 tools/test_network_timeout_policy.py
+	@python3 tools/test_logging_message_policy.py
+	@python3 tools/test_cross_file_privacy.py
 	@python3 tools/test_signing_identity_policy.py
+	@python3 tools/test_integration_contracts.py
 	@python3 tools/test_performance_fixtures.py
 	@python3 tools/test_ci_repair_agent.py
 	@python3 tools/test_autopilot.py
 	@python3 tools/test_release_assets.py
 	@python3 tools/test_device_acceptance.py
+	@python3 tools/test_native_promotion_evidence.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --self-test
 	@python3 .github/scripts/quick_check.py --no-swiftc

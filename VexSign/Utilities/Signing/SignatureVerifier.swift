@@ -44,6 +44,8 @@ enum SignatureVerifier {
 			case profileMissing
 			case profileUnreadable
 			case profileExpired
+			/// The certificate that actually signed the bundle is past its `notAfter`.
+			case certificateExpired
 			case profileIdentifierUnknown
 			case bundleIdentifierMismatch
             case requestedIdentifierMismatch
@@ -83,6 +85,10 @@ enum SignatureVerifier {
             return failures.contains { issue in
                 guard overridingBlockingIssues else { return true }
                 switch issue.code {
+                // Deliberately *not* listed: `certificateExpired`. An expired signing
+                // certificate cannot produce an installable app, so "Sign Anyway" — which
+                // exists to let the user accept profile and entitlement risk — must not
+                // talk them past it.
                 case .profileExpired, .bundleIdentifierMismatch,
                      .nestedIdentifierUncovered, .entitlementNotGranted:
                     return false
@@ -146,17 +152,25 @@ enum SignatureVerifier {
 		/// The identifier the user asked for, when there is one. A mismatch with the produced
 		/// bundle means the signing options did not take effect.
 		var declaredBundleIdentifier: String?
+		/// Whether this bundle was signed by *this* run, so its signer is ours to judge.
+		///
+		/// False when checking a bundle signed elsewhere. Such an app may legitimately carry
+		/// an expired signing certificate — iOS accepts a signature made while the
+		/// certificate was valid — and "install without signing" must not be blocked for it.
+		var expectsFreshSignature: Bool
 
 		static let freshlySigned = Expectation(
 			expectsSignature: true,
 			requiresEmbeddedProfile: true,
-			declaredBundleIdentifier: nil
+			declaredBundleIdentifier: nil,
+			expectsFreshSignature: true
 		)
 
 		static let alreadySigned = Expectation(
 			expectsSignature: true,
 			requiresEmbeddedProfile: false,
-			declaredBundleIdentifier: nil
+			declaredBundleIdentifier: nil,
+			expectsFreshSignature: false
 		)
 	}
 
@@ -230,7 +244,7 @@ enum SignatureVerifier {
 		}
 
 		if expectation.expectsSignature {
-			issues += _signatureIssues(in: bundleURL, executable: executable)
+			issues += _signatureIssues(in: bundleURL, executable: executable, expectation: expectation)
 		}
 
 		issues += _profileIssues(
@@ -245,7 +259,11 @@ enum SignatureVerifier {
 
 	// MARK: Signature
 
-	private static func _signatureIssues(in bundleURL: URL, executable: URL?) -> [Issue] {
+	private static func _signatureIssues(
+		in bundleURL: URL,
+		executable: URL?,
+		expectation: Expectation
+	) -> [Issue] {
 		var issues: [Issue] = []
 		let codeResources = bundleURL.appendingPathComponent("_CodeSignature/CodeResources")
         let resourceValues = try? codeResources.resourceValues(forKeys: [.isRegularFileKey, .isReadableKey, .isSymbolicLinkKey]) // try? ok: missing/unreadable signature resources are a verification failure.
@@ -269,6 +287,20 @@ enum SignatureVerifier {
 			)
 		}
 
+		// The certificate in the signature, not the stored row.
+		//
+		// `SigningIdentityPolicy` refuses an identity the library already knows is expired, but
+		// the row is a cache written at import: a certificate that lapsed since then, or one
+		// whose row never carried a date, is still caught here because this reads the real
+		// X.509 `notAfter` out of the CMS blob zsign produced. Without it, the run reported
+		// success and the app failed at install with an error that names the signature only.
+		if expectation.expectsFreshSignature {
+			let expiry = BundleSignature.read(bundleAt: bundleURL).expiresAt
+			if let issue = certificateExpiryIssue(signatureExpiry: expiry) {
+				issues.append(issue)
+			}
+		}
+
 		// A nested bundle without its own signature fails the whole install, but report it as a
 		// warning: zsign's handling of some third-party frameworks is outside VexSign's control,
 		// and owns the per-extension profile story.
@@ -290,6 +322,24 @@ enum SignatureVerifier {
 		}
 
 		return issues
+	}
+
+	/// The certificate-expiry decision on its own, so it can be tested without building a CMS.
+	///
+	/// - Parameters:
+	///   - signatureExpiry: the soonest `notAfter` in the produced signature, or nil when the
+	///     signature carries no certificate (ad-hoc) or could not be read.
+	///   - now: injected for the boundary test.
+	static func certificateExpiryIssue(signatureExpiry: Date?, now: Date = Date()) -> Issue? {
+		guard let signatureExpiry, signatureExpiry <= now else { return nil }
+		return Issue(
+			code: .certificateExpired,
+			severity: .failure,
+			detail: .localized(
+				"The signing certificate expired on %@.",
+				arguments: signatureExpiry.formatted(date: .abbreviated, time: .shortened)
+			)
+		)
 	}
 
 	// MARK: Profile

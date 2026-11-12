@@ -176,6 +176,20 @@ struct SigningPipeline: SigningWork {
 			log.warn(notice)
 		}
 
+		// The identity is decided here, before a byte is copied.
+		//
+		// Only the Signing screen ran `PreflightChecks`, and only after the user pressed
+		// Sign; batch, Update All, Shortcuts and self-update never rendered it. An expired
+		// or revoked certificate therefore reached zsign on those paths, produced a bundle
+		// iOS refuses to install, and failed minutes later with a signature-shaped error.
+		// `overridesBlockingPreflightIssues` intentionally does not excuse this: the
+		// preflight's "Sign Anyway" covers profile and entitlement compatibility, which can
+		// still install, not an identity that is invalid on its face.
+		if let rejection = SigningIdentityPolicy.rejection(for: request) {
+			log.error(SigningIdentityPolicy.logLine(for: rejection))
+			return .failure(rejection)
+		}
+
 		let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
 		handler.appCertificate = request.certificate
 		handler.appIcon = request.icon

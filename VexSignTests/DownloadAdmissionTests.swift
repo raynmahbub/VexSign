@@ -62,16 +62,64 @@ final class DownloadAdmissionTests: XCTestCase {
         withManager { manager in
             let running = manager.startDownload(from: url(90))
             let manual = manager.startDownload(from: url(91))
+            waitForTaskState(running.task, equals: .running)
             manager.pauseDownload(manual)
             manager.reconcileNetworkPolicy(allowed: false)
+            waitForTaskState(running.task, equals: .suspended)
             XCTAssertEqual(running.task?.state, .suspended)
             XCTAssertTrue(running.isWaitingForSlot)
             XCTAssertFalse(running.isPaused)
             manager.reconcileNetworkPolicy(allowed: true)
+            waitForTaskState(running.task, equals: .running)
             XCTAssertEqual(running.task?.state, .running)
             XCTAssertTrue(manual.isPaused)
             XCTAssertEqual(manual.task?.state, .suspended)
         }
+    }
+
+    /// Characterization for the split of `DownloadManager.swift`.
+    ///
+    /// The transfer-control members now live in `DownloadManager+TransferControl.swift`.
+    /// A split is only safe if the behaviour is unchanged, and the tests above already
+    /// exercise `reconcileNetworkPolicy`, `pauseDownload` and `drainNetworkQueue` through
+    /// the real type — so they cover the moved bodies without knowing where they live.
+    /// What they cannot see is a member quietly going missing, so that is what is pinned.
+    @MainActor
+    func testTransferControlMembersAreStillReachable() {
+        let manager = DownloadManager(configureServices: false)
+        let download = Download(id: "split-check", url: url(1))
+        manager.downloads.append(download)
+
+        // Every member the split moved, called once so a missing one fails to compile.
+        XCTAssertEqual(manager.getDownload(by: "split-check")?.id, "split-check")
+        XCTAssertEqual(manager.getDownloadIndex(by: "split-check"), 0)
+        XCTAssertNil(manager.getDownload(by: "absent"))
+        // `isManualDownload` is a substring test, not a lookup: a manual download is
+        // identified by its id carrying this marker.
+        XCTAssertFalse(manager.isManualDownload("split-check"))
+        XCTAssertTrue(manager.isManualDownload("VexSignManualDownload-1"))
+        XCTAssertEqual(manager.nonManualDownloads.count, manager.downloads.count)
+        manager.reconcileNetworkPolicy(allowed: false)
+        manager.drainNetworkQueue()
+        manager.pauseDownload(download)
+        manager.cancelDownload(download)
+        manager.cancelAllDownloads()
+    }
+
+    /// URLSession publishes suspend/resume state asynchronously. Wait for that observation
+    /// instead of treating a still-pending transition as a policy failure.
+    @MainActor
+    private func waitForTaskState(
+        _ task: URLSessionTask?,
+        equals expected: URLSessionTask.State,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let settled = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in task?.state == expected },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed, file: file, line: line)
     }
 
     private func url(_ index: Int) -> URL { URL(string: "https://example.invalid/\(index).ipa")! }

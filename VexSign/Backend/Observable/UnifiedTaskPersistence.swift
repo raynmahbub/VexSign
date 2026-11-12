@@ -10,7 +10,7 @@ import OSLog
 import NimbleExtensions
 
 extension UnifiedTaskCenter {
-    private func _loadHistory() {
+    func _loadHistory() {
         guard !historyLoading, !historyLoaded else { return }
         historyLoading = true
         
@@ -47,7 +47,7 @@ extension UnifiedTaskCenter {
         }
     }
 
-    private func _persistHistory() {
+    func _persistHistory() {
         guard historyLoaded else {
             // Retry unavailable reads on subsequent activity or device unlock.
             // Never replace a journal we have not successfully read/preserved.
