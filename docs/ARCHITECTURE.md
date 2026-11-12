@@ -196,7 +196,7 @@ that, so a claim can be traced to code instead of a promise:
 | Premium activation and catalog filters | `VexSign/Backend/Observable/PremiumManager.swift`, `VexSign/Views/Sources/PremiumSettingsView.swift`, `server/` |
 | Self-update checks, release notification and install methods | `VexSign/Backend/Observable/SelfUpdateManager.swift`, `SelfUpdateNotifier.swift`, `VexSign/Views/Updates/` |
 | Background downloads, conditions and Game Mode | `DownloadManager.swift`, `DownloadManager+Delegates.swift`, `DownloadManager+LiveActivity.swift`, `DownloadManager+PackageImport.swift`, `DownloadPreferences.swift`, `GameMode.swift` |
-| Web manager with HTTP/WebDAV | `VexSign/Views/Settings/Web Manager/WebManagerView.swift`, `server/web_tools.py` |
+| Web manager with device-local HTTPS and WebDAV | `VexSign/Views/Settings/Web Manager/WebManagerView.swift`, `VexSign/Backend/Server/WebManagerServer.swift` |
 | Storage report and cleanup | `VexSign/Backend/Observable/StorageManager.swift` (`LibrarySnapshot` decides what is an orphan; a failed certificate fetch protects everything, and a copy that is being signed or imported is never an orphan) |
 | Download integrity and hashing | `VexSign/Utilities/DownloadIntegrity.swift`, `FileIntegrity.swift` |
 | Certificate monitoring, dashboard and OCSP | `CertificateStatusManager.swift`, `BatchCertChecker.swift`, `VexSign/CertificateDashboard/`, `VexSign/Utilities/OCSP/` |

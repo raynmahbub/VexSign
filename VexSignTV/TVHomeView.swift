@@ -17,6 +17,21 @@ struct TVHomeView: View {
 		ScrollView {
 			VStack(alignment: .leading, spacing: 28) {
 				_header
+				if let error = store.lastError {
+					Label(error, systemImage: "exclamationmark.triangle.fill")
+						.font(.callout)
+						.foregroundStyle(.red)
+				}
+				if let error = store.credentialStorageError {
+					Label(error, systemImage: "key.horizontal.fill")
+						.font(.callout)
+						.foregroundStyle(.orange)
+				}
+				if let error = store.certificateTrustError {
+					Label(error, systemImage: "checkmark.seal")
+						.font(.callout)
+						.foregroundStyle(.orange)
+				}
 				_certificateCard
 				_countsRow
 				_updatesSection
@@ -139,73 +154,112 @@ struct TVHomeView: View {
 	// MARK: Updates
 
 	private var _updatesSection: some View {
-		let updates = store.snapshot?.updates ?? []
-
-		return VStack(alignment: .leading, spacing: 12) {
+		VStack(alignment: .leading, spacing: 12) {
 			Text("Pending updates")
 				.font(.title3.bold())
+			_updatesContent
+		}
+	}
 
-			if updates.isEmpty {
-				Text("Everything is up to date.")
-					.font(.callout)
-					.foregroundStyle(.secondary)
-			} else {
-				ForEach(updates.prefix(12)) { update in
-					HStack {
-						VStack(alignment: .leading, spacing: 2) {
-							Text(update.name)
-								.font(.headline)
-							Text(update.bundleID)
-								.font(.caption)
-								.foregroundStyle(.secondary)
+	@ViewBuilder
+	private var _updatesContent: some View {
+		if let result = store.updatesResult {
+			switch result {
+			case .success(let updates):
+				if updates.isEmpty {
+					Text("Everything is up to date.")
+						.font(.callout)
+						.foregroundStyle(.secondary)
+				} else {
+					ForEach(updates.prefix(12)) { update in
+						HStack {
+							VStack(alignment: .leading, spacing: 2) {
+								Text(update.name)
+									.font(.headline)
+								Text(update.bundleID)
+									.font(.caption)
+									.foregroundStyle(.secondary)
+							}
+							Spacer()
+							Text("\(update.installedVersion ?? "?") → \(update.availableVersion ?? "?")")
+								.font(.callout.monospacedDigit())
+								.foregroundStyle(.orange)
 						}
-						Spacer()
-						Text("\(update.installedVersion ?? "?") → \(update.availableVersion ?? "?")")
-							.font(.callout.monospacedDigit())
-							.foregroundStyle(.orange)
+						.padding(16)
+						.background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 					}
-					.padding(16)
-					.background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 				}
+			case .failure(let error):
+				_endpointFailure("Updates", error: error)
 			}
+		} else {
+			Text(store.isRefreshing ? "Loading updates…" : "Updates have not been loaded yet.")
+				.font(.callout)
+				.foregroundStyle(.secondary)
 		}
 	}
 
 	// MARK: Library
 
 	private var _librarySection: some View {
-		let library = store.snapshot?.library ?? []
-
-		return VStack(alignment: .leading, spacing: 12) {
+		VStack(alignment: .leading, spacing: 12) {
 			Text("Library")
 				.font(.title3.bold())
+			_libraryContent
+		}
+	}
 
-			if library.isEmpty {
-				Text("Nothing in the library yet.")
-					.font(.callout)
-					.foregroundStyle(.secondary)
-			} else {
-				LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], alignment: .leading, spacing: 16) {
-					ForEach(library.prefix(24)) { app in
-						HStack(spacing: 12) {
-							Image(systemName: app.signed ? "checkmark.seal.fill" : "app.dashed")
-								.foregroundStyle(app.signed ? .green : .secondary)
-							VStack(alignment: .leading, spacing: 2) {
-								Text(app.name)
-									.font(.headline)
-									.lineLimit(1)
-								Text("\(app.version) · \(app.bundleID)")
-									.font(.caption)
-									.foregroundStyle(.secondary)
-									.lineLimit(1)
+	@ViewBuilder
+	private var _libraryContent: some View {
+		if let result = store.libraryResult {
+			switch result {
+			case .success(let library):
+				if library.isEmpty {
+					Text("Nothing in the library yet.")
+						.font(.callout)
+						.foregroundStyle(.secondary)
+				} else {
+					LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], alignment: .leading, spacing: 16) {
+						ForEach(library.prefix(24)) { app in
+							HStack(spacing: 12) {
+								Image(systemName: app.signed ? "checkmark.seal.fill" : "app.dashed")
+									.foregroundStyle(app.signed ? .green : .secondary)
+								VStack(alignment: .leading, spacing: 2) {
+									Text(app.name)
+										.font(.headline)
+										.lineLimit(1)
+									Text("\(app.version) · \(app.bundleID)")
+										.font(.caption)
+										.foregroundStyle(.secondary)
+										.lineLimit(1)
+								}
+								Spacer(minLength: 0)
 							}
-							Spacer(minLength: 0)
+							.padding(16)
+							.background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 						}
-						.padding(16)
-						.background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 					}
 				}
+			case .failure(let error):
+				_endpointFailure("Library", error: error)
 			}
+		} else {
+			Text(store.isRefreshing ? "Loading library…" : "The library has not been loaded yet.")
+				.font(.callout)
+				.foregroundStyle(.secondary)
 		}
+	}
+
+	private func _endpointFailure(_ section: String, error: CompanionClientError) -> some View {
+		VStack(alignment: .leading, spacing: 4) {
+			Label(
+				error.isAuthenticationFailure ? "Authentication failed" : "\(section) temporarily unavailable",
+				systemImage: error.isAuthenticationFailure ? "lock.fill" : "exclamationmark.triangle.fill"
+			)
+			Text(error.localizedDescription)
+				.font(.caption)
+				.foregroundStyle(.secondary)
+		}
+		.foregroundStyle(error.isAuthenticationFailure ? Color.red : Color.orange)
 	}
 }

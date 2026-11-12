@@ -26,6 +26,8 @@ extension SourcesAddView {
 			}
 			#endif
 
+			// Same: a catalog that never answers must surface as an error, not an endless spinner.
+			request.timeoutInterval = 20
 			let (data, response) = try await URLSession.shared.data(for: request)
 
 			guard let httpResponse = response as? HTTPURLResponse,

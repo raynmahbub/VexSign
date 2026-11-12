@@ -104580,6 +104580,226 @@
           }
         }
       }
+    },
+    "Changing the port restarts the server. Web Manager traffic uses HTTPS with a device-local certificate; companion apps verify its SHA-256 CA fingerprint before sending credentials." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changing the port restarts the server. Web Manager traffic uses HTTPS with a device-local certificate; companion apps verify its SHA-256 CA fingerprint before sending credentials."
+          }
+        }
+      }
+    },
+    "Copy CA Fingerprint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy CA Fingerprint"
+          }
+        }
+      }
+    },
+    "Copy Fingerprint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Fingerprint"
+          }
+        }
+      }
+    },
+    "Copy HTTPS Address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy HTTPS Address"
+          }
+        }
+      }
+    },
+    "Device CA Fingerprint (SHA-256)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device CA Fingerprint (SHA-256)"
+          }
+        }
+      }
+    },
+    "Device CA fingerprint: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device CA fingerprint: %@"
+          }
+        }
+      }
+    },
+    "Enter this HTTPS address and the SHA-256 device CA fingerprint in the companion. It reads the same status, library and update endpoints the automation API uses." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter this HTTPS address and the SHA-256 device CA fingerprint in the companion. It reads the same status, library and update endpoints the automation API uses."
+          }
+        }
+      }
+    },
+    "HTTPS Browser" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS Browser"
+          }
+        }
+      }
+    },
+    "Scan the code to open the TLS-protected Web Manager, or mount the HTTPS WebDAV address in Finder (Go → Connect to Server) or Files. Before connecting an Apple TV or Vision Pro, compare the CA fingerprint above with this iPhone and enter it in the companion. A browser may ask you to trust this locally issued certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan the code to open the TLS-protected Web Manager, or mount the HTTPS WebDAV address in Finder (Go → Connect to Server) or Files. Before connecting an Apple TV or Vision Pro, compare the CA fingerprint above with this iPhone and enter it in the companion. A browser may ask you to trust this locally issued certificate."
+          }
+        }
+      }
+    },
+    "Secure WebDAV (Finder)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure WebDAV (Finder)"
+          }
+        }
+      }
+    },
+    "TLS identity is unavailable. The Web Manager will not start without its certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TLS identity is unavailable. The Web Manager will not start without its certificate."
+          }
+        }
+      }
+    },
+    "TLS encrypted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TLS encrypted"
+          }
+        }
+      }
+    },
+    "Upload files and manage your apps, certificates and tweaks over HTTPS from a browser or mounted drive. Web Manager connections are encrypted; password and network exposure settings still control access." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload files and manage your apps, certificates and tweaks over HTTPS from a browser or mounted drive. Web Manager connections are encrypted; password and network exposure settings still control access."
+          }
+        }
+      }
+    },
+    "3 apps / 7 days · Renew by hand each week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 apps / 7 days · Renew by hand each week"
+          }
+        }
+      }
+    },
+    "Certificate expired %@ — iOS will refuse to install what it signs." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate expired %@ — iOS will refuse to install what it signs."
+          }
+        }
+      }
+    },
+    "No certificate selected. Choose one in Settings → Certificates, or sign with Modify." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No certificate selected. Choose one in Settings → Certificates, or sign with Modify."
+          }
+        }
+      }
+    },
+    "The archive uses the same path as both a file and a folder: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive uses the same path as both a file and a folder: %@"
+          }
+        }
+      }
+    },
+    "The selected certificate has been revoked, so anything it signs will be rejected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected certificate has been revoked, so anything it signs will be rejected."
+          }
+        }
+      }
+    },
+    "The signing certificate expired on %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing certificate expired on %@."
+          }
+        }
+      }
+    },
+    "The signing identity cannot be used." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing identity cannot be used."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

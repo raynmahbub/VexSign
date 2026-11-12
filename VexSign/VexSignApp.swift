@@ -65,10 +65,13 @@ struct VexSignApp: App {
             CleanupManager.Key.enabled: true
         ])
 
-        // Enable liquid glass on iOS 19+
-        if #available(iOS 19.0, *) {
-            UserDefaults.standard.set(true, forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")
-        }
+        // Liquid Glass is adopted the supported way: the views that want the material ask
+        // for it through availability-checked APIs (`glassEffect`, `glassBackgroundEffect`).
+        // The app previously forced the redesign on by writing SwiftUI's undocumented
+        // `com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck` preference; a key Apple never
+        // documented can change meaning or vanish between releases. A build that wrote it
+        // may still have the stale value in its container, so it is cleared once here.
+        UserDefaults.standard.removeObject(forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")
     }
 
 	private static func _migrateLegacyUserDefaults() {

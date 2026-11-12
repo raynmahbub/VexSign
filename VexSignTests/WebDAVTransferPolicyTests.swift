@@ -20,12 +20,20 @@ final class WebDAVTransferPolicyTests: XCTestCase {
             XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: destination, inbox: root),
                            "\(source.path) -> \(destination.path)")
         }
-        XCTAssertTrue(WebDAVTransferPolicy.permits(source: url("folder"), destination: url("folder-copy"), inbox: root))
-        XCTAssertTrue(WebDAVTransferPolicy.permits(source: url("one/file"), destination: url("two/file"), inbox: root))
+        XCTAssertTrue(WebDAVTransferPolicy.permits(source: url("folder"), destination: url("folder-copy"), inbox: root),
+                      "Distinct sibling directories should be allowed")
+        XCTAssertTrue(WebDAVTransferPolicy.permits(source: url("one/file"), destination: url("two/file"), inbox: root),
+                      "Independent files should be allowed")
     }
 
     func testExistingSymlinkCannotAliasSourceOrEscapeInbox() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        // Resolved, because the policy resolves symlinks before comparing: on the
+        // simulator `temporaryDirectory` is itself reached through a link, so a root
+        // built from the unresolved path would not be the root the policy sees and
+        // every comparison below would be against the wrong directory.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let source = root.appendingPathComponent("source", isDirectory: true)
@@ -34,8 +42,14 @@ final class WebDAVTransferPolicyTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: source)
         let outside = root.appendingPathComponent("outside")
         try FileManager.default.createSymbolicLink(at: outside, withDestinationURL: root.deletingLastPathComponent())
+        let dangling = root.appendingPathComponent("dangling")
+        try FileManager.default.createSymbolicLink(
+            atPath: dangling.path,
+            withDestinationPath: root.deletingLastPathComponent().appendingPathComponent("missing-target").path
+        )
         XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: alias, inbox: root))
         XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: alias.appendingPathComponent("new"), inbox: root))
         XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: outside.appendingPathComponent("new"), inbox: root))
+        XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: dangling.appendingPathComponent("new"), inbox: root))
     }
 }

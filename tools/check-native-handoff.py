@@ -26,6 +26,11 @@ and neither can be produced by a code edit. They are recorded instead in
   * complete evidence while the flag is still `.notIntegrated` also fails, so
     the flag, the UI copy and the doc move in the same change.
 
+It also keeps the rule that landed with the identity-strategy audit: nothing may
+claim that Free Apple ID renewal happens. `renewExpiringProfiles()`,
+`renewFreeAppleIDProfiles()`, `supportsAutoRefresh` and the "Weekly refresh"
+picker copy each described a capability this build does not have.
+
 This check encodes the current, deliberate state. It is meant to be updated in
 the same change that implements the seam — see docs/NATIVE_SIGNING_HANDOFF.md.
 """
@@ -44,6 +49,8 @@ CAPABILITIES = Path("VexSign/Backend/Services/SigningMethodCapabilities.swift")
 MANAGER = Path("VexSign/Backend/Services/NativeSigningManager.swift")
 FLOW = Path("VexSign/Views/Settings/ProvisioningFlowView.swift")
 BACKEND = Path("NativeSigning/Authentication/NativeAccountBackend.swift")
+AUTOMATION = Path("VexSign/Backend/Observable/BackgroundAutomation.swift")
+SIGNING_METHOD = Path("VexSign/Backend/Services/SigningMethod.swift")
 HANDOFF_DOC = Path("docs/NATIVE_SIGNING_HANDOFF.md")
 EVIDENCE_RELATIVE = Path("docs/evidence/native-signing-promotion.json")
 
@@ -137,7 +144,50 @@ def evaluate(root: Path = ROOT) -> tuple[list[str], dict[str, str]]:
             "capability is still .notIntegrated; update both in the same change"
         )
 
-    # 5. The design note is the reason the gate is closed; it must not go stale.
+    # 5. Nothing may claim that renewal happens. The identity split is only honest if
+    #    the free-Apple-ID side stops at "here is what is expiring".
+    #
+    #    `NativeSigningManager` used to expose `renewExpiringProfiles()` and
+    #    `BackgroundAutomation` a `renewFreeAppleIDProfiles()` step. Both only refreshed
+    #    a candidate list. The names are the hazard: a maintainer reads a scheduled
+    #    "renew" step, assumes renewal ships, and later reports it as working.
+    renewal_claims = {
+        "VexSign/Backend/Services/NativeSigningManager.swift": MANAGER,
+        "VexSign/Backend/Observable/BackgroundAutomation.swift": AUTOMATION,
+        "VexSign/Backend/Services/SigningMethod.swift": SIGNING_METHOD,
+    }
+
+    #    Only real code counts. The explanations of *why* the claims were removed name the
+    #    old spellings on purpose, so full-line comments are stripped before matching.
+    def code_only(text: str) -> str:
+        return "\n".join(
+            line for line in text.splitlines() if not line.lstrip().startswith(("//", "///"))
+        )
+
+    for label, relative in renewal_claims.items():
+        path = root / relative
+        if not path.is_file():
+            continue
+        body = code_only(path.read_text())
+        for bad in ("func renewExpiringProfiles", "func renewFreeAppleIDProfiles"):
+            if bad in body:
+                problems.append(
+                    f"{label}: `{bad}` is back; it only refreshes a candidate list, so the "
+                    "name overstates what runs. Keep the refresh verb."
+                )
+        if "supportsAutoRefresh" in body:
+            problems.append(
+                f"{label}: `supportsAutoRefresh` is back; nothing in this build refreshes a "
+                "free-Apple-ID profile automatically, so the property is an unbacked claim."
+            )
+        if "Weekly refresh" in body:
+            problems.append(
+                f"{label}: the Free Apple ID copy advertises \"Weekly refresh\", but renewal "
+                "is manual in this build; the method picker would promise an automatic "
+                "capability that does not exist."
+            )
+
+    # 6. The design note is the reason the gate is closed; it must not go stale.
     if doc and "Status: not implemented" in doc and native_integrated:
         problems.append("docs/NATIVE_SIGNING_HANDOFF.md says not implemented while the capability claims .implemented")
     if doc and "Production gate still closed" in doc and native_integrated:
@@ -146,7 +196,7 @@ def evaluate(root: Path = ROOT) -> tuple[list[str], dict[str, str]]:
             "while the capability claims .implemented; update the doc in the same change"
         )
 
-    # 6. Wiring is necessary but not sufficient: promotion needs recorded genuine
+    # 7. Wiring is necessary but not sufficient: promotion needs recorded genuine
     #    Apple CMS observations and a complete physical-device ladder.
     evidence = evidence_tool()
     evidence_state, evidence_errors = promotion_evidence(root, evidence)

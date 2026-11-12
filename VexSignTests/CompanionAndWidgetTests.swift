@@ -10,6 +10,8 @@
 //  runs on any host.
 //
 
+import Foundation
+import Security
 import XCTest
 @testable import VexSign
 
@@ -173,6 +175,473 @@ final class CompanionAndWidgetTests: XCTestCase {
 		} catch {
 			XCTFail("unexpected error \(error)")
 		}
+	}
+
+	func testCompanionCertificateFingerprintPairingValidatesCAChainAndHostname() throws {
+		let host = "192.168.1.20"
+		let identity = try DeviceTLSIdentity.generate(serverNames: ["127.0.0.1", "localhost", host])
+		let expected = CompanionCertificateTrust.fingerprint(identity.rootCertificate)
+		let trust = try _serverTrust(for: identity, hostname: host)
+
+		let accepted = try CompanionCertificateTrust.validate(
+			serverTrust: trust,
+			host: host,
+			pinned: nil,
+			expectedFingerprint: expected
+		)
+		XCTAssertEqual(accepted, identity.rootCertificate)
+
+		let pin = CompanionCertificateTrust.Pin(certificate: identity.rootCertificate, fingerprint: expected)
+		let storedTrust = try _serverTrust(for: identity, hostname: host)
+		XCTAssertEqual(
+			try CompanionCertificateTrust.validate(serverTrust: storedTrust, host: host, pinned: pin, expectedFingerprint: nil),
+			identity.rootCertificate
+		)
+	}
+
+	func testCompanionCertificateTrustRejectsInvalidAndMismatchedCertificates() throws {
+		let host = "192.168.1.20"
+		let presented = try DeviceTLSIdentity.generate(serverNames: [host])
+		let otherDevice = try DeviceTLSIdentity.generate(serverNames: [host])
+		let wrongFingerprintTrust = try _serverTrust(for: presented, hostname: host)
+		XCTAssertThrowsError(try CompanionCertificateTrust.validate(
+			serverTrust: wrongFingerprintTrust,
+			host: host,
+			pinned: nil,
+			expectedFingerprint: CompanionCertificateTrust.fingerprint(otherDevice.rootCertificate)
+		)) { error in
+			XCTAssertEqual(error as? CompanionClientError, .certificateFingerprintMismatch)
+		}
+
+		let wrongHostTrust = try _serverTrust(for: presented, hostname: "wrong.example.invalid")
+		XCTAssertThrowsError(try CompanionCertificateTrust.validate(
+			serverTrust: wrongHostTrust,
+			host: "wrong.example.invalid",
+			pinned: nil,
+			expectedFingerprint: CompanionCertificateTrust.fingerprint(presented.rootCertificate)
+		)) { error in
+			XCTAssertEqual(error as? CompanionClientError, .invalidServerCertificate)
+		}
+
+		let corruptPin = CompanionCertificateTrust.Pin(certificate: Data("not a certificate".utf8), fingerprint: "00")
+		let corruptTrust = try _serverTrust(for: presented, hostname: host)
+		XCTAssertThrowsError(try CompanionCertificateTrust.validate(
+			serverTrust: corruptTrust,
+			host: host,
+			pinned: corruptPin,
+			expectedFingerprint: nil
+		)) { error in
+			XCTAssertEqual(error as? CompanionClientError, .invalidStoredTrust)
+		}
+	}
+
+	func testChangedTrustedDeviceCertificateFailsClosed() throws {
+		let host = "192.168.1.20"
+		let original = try DeviceTLSIdentity.generate(serverNames: [host])
+		let replacement = try DeviceTLSIdentity.generate(serverNames: [host])
+		let pin = CompanionCertificateTrust.Pin(
+			certificate: original.rootCertificate,
+			fingerprint: CompanionCertificateTrust.fingerprint(original.rootCertificate)
+		)
+		let trust = try _serverTrust(for: replacement, hostname: host)
+
+		XCTAssertThrowsError(try CompanionCertificateTrust.validate(
+			serverTrust: trust,
+			host: host,
+			pinned: pin,
+			expectedFingerprint: nil
+		)) { error in
+			XCTAssertEqual(error as? CompanionClientError, .certificateChanged)
+		}
+	}
+
+	func testHTTPSPairingRequiresFingerprintAndCannotSilentlyReplaceSavedTrust() throws {
+		let fingerprint = String(repeating: "AB", count: 32)
+		XCTAssertThrowsError(try CompanionCertificateTrust.expectedFingerprint(for: nil, entered: nil)) { error in
+			XCTAssertEqual(error as? CompanionClientError, .certificatePairingRequired)
+		}
+		XCTAssertEqual(
+			try XCTUnwrap(CompanionCertificateTrust.expectedFingerprint(for: nil, entered: fingerprint)),
+			fingerprint
+		)
+
+		let pin = CompanionCertificateTrust.Pin(certificate: Data(), fingerprint: fingerprint)
+		XCTAssertNil(try CompanionCertificateTrust.expectedFingerprint(for: pin, entered: fingerprint))
+		XCTAssertThrowsError(try CompanionCertificateTrust.expectedFingerprint(
+			for: pin,
+			entered: String(repeating: "CD", count: 32)
+		)) { error in
+			XCTAssertEqual(error as? CompanionClientError, .certificateChangeRequiresExplicitForget)
+		}
+	}
+
+	func testFingerprintInputRequiresACompleteSHA256Digest() {
+		let digest = String(repeating: "A1:", count: 31) + "A1"
+		XCTAssertEqual(try XCTUnwrap(CompanionCertificateTrust.normalizedFingerprint(digest)), String(repeating: "A1", count: 32))
+		XCTAssertNil(CompanionCertificateTrust.normalizedFingerprint("A1:02"))
+		XCTAssertNil(CompanionCertificateTrust.normalizedFingerprint(String(repeating: "GG", count: 32)))
+	}
+
+	func testCompanionClientKeepsEmptyDataDistinctFromAnEndpointFailure() async throws {
+		let fixtureStatus = CompanionStatus(
+			certValid: true,
+			certName: "Development",
+			certExpiry: nil,
+			certDaysRemaining: 10,
+			certRevoked: false,
+			certPPQLess: true,
+			installedApps: 1,
+			signedApps: 1,
+			pendingUpdates: 0,
+			storageFree: 500
+		)
+		let statusData = try JSONEncoder().encode(fixtureStatus)
+		let updatesData = try JSONEncoder().encode([CompanionUpdateEntry]())
+		let client = CompanionClient(
+			address: "https://10.0.0.5:8080",
+			username: nil,
+			password: nil,
+			apiToken: nil,
+			dataLoader: { request in
+				switch request.url?.path {
+				case "/api/status":
+					return (statusData, Self._response(request, statusCode: 200))
+				case "/api/library":
+					return (Data(), Self._response(request, statusCode: 500))
+				case "/api/updates":
+					return (updatesData, Self._response(request, statusCode: 200))
+				default:
+					throw URLError(.badURL)
+				}
+			}
+		)
+
+		let fetched = try await client.snapshot()
+		XCTAssertEqual(fetched.status, fixtureStatus)
+		XCTAssertEqual(fetched.library, .failure(.httpStatus(500)))
+		XCTAssertEqual(fetched.updates, .success([]), "a successful empty list is not an endpoint failure")
+	}
+
+	func testCompanionClientReportsAuthServerAndTimeoutFailuresForEveryEndpoint() async throws {
+		let failures: [CompanionClientError] = [.unauthorized, .httpStatus(500), .timedOut]
+		for endpoint in ["api/status", "api/library", "api/updates"] {
+			for failure in failures {
+				try await _assertEndpointFailure(endpoint, failure: failure)
+			}
+		}
+	}
+
+	func testCompanionTransportDefaultsToHTTPSAndRequiresExplicitHTTPOptIn() async throws {
+		let statusData = try JSONEncoder().encode(_fixtureStatus)
+		var schemes: [String] = []
+		let httpsClient = CompanionClient(
+			address: "10.0.0.5:8080",
+			username: nil,
+			password: nil,
+			apiToken: nil,
+			dataLoader: { request in
+				schemes.append(request.url?.scheme ?? "missing")
+				let data: Data
+				switch request.url?.path {
+				case "/api/status": data = statusData
+				case "/api/library", "/api/updates": data = try JSONEncoder().encode([String]())
+				default: throw URLError(.badURL)
+				}
+				return (data, Self._response(request, statusCode: 200))
+			}
+		)
+		_ = try await httpsClient.snapshot()
+		XCTAssertEqual(schemes, ["https", "https", "https"])
+
+		var madeInsecureRequest = false
+		let httpClient = CompanionClient(
+			address: "http://10.0.0.5:8080",
+			username: "vex",
+			password: "fixture-password",
+			apiToken: "fixture-token",
+			dataLoader: { _ in
+				madeInsecureRequest = true
+				throw URLError(.cannotConnectToHost)
+			}
+		)
+		do {
+			_ = try await httpClient.snapshot()
+			XCTFail("plain HTTP must be rejected unless explicitly enabled")
+		} catch let error as CompanionClientError {
+			XCTAssertEqual(error, .insecureTransport)
+		} catch {
+			XCTFail("unexpected error: \(error)")
+		}
+		XCTAssertFalse(madeInsecureRequest, "credentials must not reach the loader before explicit consent")
+
+		var optedInRequestCount = 0
+		let optedInHTTPClient = CompanionClient(
+			address: "http://10.0.0.5:8080",
+			username: "vex",
+			password: "fixture-password",
+			apiToken: "fixture-token",
+			allowsInsecureHTTP: true,
+			dataLoader: { request in
+				optedInRequestCount += 1
+				XCTAssertEqual(request.url?.scheme, "http")
+				XCTAssertEqual(request.value(forHTTPHeaderField: "X-VexSign-Token"), "fixture-token")
+				let data: Data
+				switch request.url?.path {
+				case "/api/status": data = statusData
+				case "/api/library", "/api/updates": data = try JSONEncoder().encode([String]())
+				default: throw URLError(.badURL)
+				}
+				return (data, Self._response(request, statusCode: 200))
+			}
+		)
+		_ = try await optedInHTTPClient.snapshot()
+		XCTAssertEqual(optedInRequestCount, 3)
+
+		XCTAssertFalse(CompanionRedirectPolicy.permits(
+			from: URL(string: "https://10.0.0.5:8080/api/status"),
+			to: URL(string: "http://10.0.0.5:8080/api/status")
+		))
+		XCTAssertFalse(CompanionRedirectPolicy.permits(
+			from: URL(string: "https://10.0.0.5:8080/api/status"),
+			to: URL(string: "https://other.example/api/status")
+		))
+		XCTAssertFalse(CompanionRedirectPolicy.permits(
+			from: URL(string: "https://10.0.0.5:8080/api/status"),
+			to: URL(string: "https://10.0.0.5:8081/api/status")
+		))
+		XCTAssertFalse(CompanionRedirectPolicy.permits(
+			from: URL(string: "https://10.0.0.5:8080/api/status"),
+			to: URL(string: "https://10.0.0.5:8080/api/status?next=1")
+		), "even a same-origin URL change is a redirect and is refused")
+		XCTAssertTrue(CompanionRedirectPolicy.permits(
+			from: URL(string: "https://10.0.0.5:8080/api/status"),
+			to: URL(string: "https://10.0.0.5:8080/api/status")
+		), "a direct response to the exact request URL is allowed")
+
+		let downgradeClient = CompanionClient(
+			address: "https://10.0.0.5:8080",
+			username: nil,
+			password: nil,
+			apiToken: nil,
+			dataLoader: { request in
+				let downgradedURL = URL(string: "http://10.0.0.5:8080/api/status")!
+				return (statusData, Self._response(request, statusCode: 200, responseURL: downgradedURL))
+			}
+		)
+		do {
+			_ = try await downgradeClient.snapshot()
+			XCTFail("an HTTPS request must reject a final HTTP response")
+		} catch let error as CompanionClientError {
+			XCTAssertEqual(error, .unsafeRedirect)
+		} catch {
+			XCTFail("unexpected error: \(error)")
+		}
+
+		let crossPortClient = CompanionClient(
+			address: "https://10.0.0.5:8080",
+			username: nil,
+			password: nil,
+			apiToken: nil,
+			dataLoader: { request in
+				let redirectedURL = URL(string: "https://10.0.0.5:8081/api/status")!
+				return (statusData, Self._response(request, statusCode: 200, responseURL: redirectedURL))
+			}
+		)
+		do {
+			_ = try await crossPortClient.snapshot()
+			XCTFail("a same-host redirect to a different port must be rejected")
+		} catch let error as CompanionClientError {
+			XCTAssertEqual(error, .unsafeRedirect)
+		} catch {
+			XCTFail("unexpected error: \(error)")
+		}
+
+		let stoppedRedirectClient = CompanionClient(
+			address: "https://10.0.0.5:8080",
+			username: nil,
+			password: nil,
+			apiToken: nil,
+			dataLoader: { request in
+				return (Data(), Self._response(request, statusCode: 302))
+			}
+		)
+		do {
+			_ = try await stoppedRedirectClient.snapshot()
+			XCTFail("an un-followed redirect response must be reported as unsafe")
+		} catch let error as CompanionClientError {
+			XCTAssertEqual(error, .unsafeRedirect)
+		} catch {
+			XCTFail("unexpected error: \(error)")
+		}
+	}
+
+	func testHTTPOptInStillBlocksPublicHostsBeforeSendingCredentials() async {
+		var attemptedRequest = false
+		let client = CompanionClient(
+			address: "http://8.8.8.8:8080",
+			username: "vex",
+			password: "fixture-password",
+			apiToken: "fixture-token",
+			allowInsecureHTTP: true,
+			dataLoader: { _ in
+				attemptedRequest = true
+				throw URLError(.cannotConnectToHost)
+			}
+		)
+
+		do {
+			_ = try await client.snapshot()
+			XCTFail("an HTTP opt-in must not permit a public host")
+		} catch let error as CompanionClientError {
+			XCTAssertEqual(error, .insecureTransport)
+		} catch {
+			XCTFail("unexpected error: \(error)")
+		}
+		XCTAssertFalse(attemptedRequest, "credentials must not reach the loader for a public HTTP address")
+	}
+
+	func testCompanionTransportLimitsOptedInHTTPToLocalAddresses() throws {
+		let localAddresses = [
+			"http://localhost:8080", "http://127.0.0.1:8080", "http://10.0.0.5:8080",
+			"http://172.16.4.2:8080", "http://172.31.255.254:8080", "http://192.168.1.20:8080",
+			"http://169.254.10.2:8080", "http://iphone.local:8080", "http://[fd00::1]:8080",
+			"http://[fe80::1]:8080"
+		]
+		for address in localAddresses {
+			XCTAssertEqual(
+				try CompanionClient.transport(for: address, allowInsecureHTTP: true).scheme,
+				"http",
+				address
+			)
+		}
+
+		let publicAddresses = [
+			"http://example.com:8080", "http://8.8.8.8:8080", "http://172.15.0.1:8080",
+			"http://172.32.0.1:8080", "http://192.169.0.1:8080", "http://[2001:4860:4860::8888]:8080"
+		]
+		for address in publicAddresses {
+			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address) {
+				XCTAssertEqual($0 as? CompanionClientError, .insecureTransport, address)
+			}
+		}
+	}
+
+	func testCompanionTransportRejectsMalformedAddressesAndNeverDowngradesHTTPS() throws {
+		for address in [
+			"https://user:pass@192.168.1.20:8080", "ftp://192.168.1.20:8080",
+			"https://", "https://192.168.1.20:8080/#fragment", "   "
+		] {
+			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address)
+		}
+
+		for allowHTTP in [true, false] {
+			let url = try CompanionClient.transport(
+				for: "https://192.168.1.20:8080",
+				allowInsecureHTTP: allowHTTP
+			)
+			XCTAssertEqual(url.scheme, "https", "an HTTPS failure is never retried over HTTP")
+		}
+	}
+
+	private var _fixtureStatus: CompanionStatus {
+		CompanionStatus(
+			certValid: true,
+			certName: "Development",
+			certExpiry: nil,
+			certDaysRemaining: 10,
+			certRevoked: false,
+			certPPQLess: true,
+			installedApps: 1,
+			signedApps: 1,
+			pendingUpdates: 0,
+			storageFree: 500
+		)
+	}
+
+	private func _assertEndpointFailure(_ endpoint: String, failure: CompanionClientError) async throws {
+		let statusData = try JSONEncoder().encode(_fixtureStatus)
+		let libraryData = try JSONEncoder().encode([CompanionLibraryEntry]())
+		let updatesData = try JSONEncoder().encode([CompanionUpdateEntry]())
+		var paths: [String] = []
+		let client = CompanionClient(
+			address: "https://10.0.0.5:8080",
+			username: nil,
+			password: nil,
+			apiToken: nil,
+			dataLoader: { request in
+				let path = request.url?.path ?? ""
+				paths.append(path)
+				if path == "/\(endpoint)", failure == .timedOut {
+					throw URLError(.timedOut)
+				}
+				let statusCode: Int
+				if path == "/\(endpoint)" {
+					statusCode = failure == .unauthorized ? 401 : 500
+				} else {
+					statusCode = 200
+				}
+				let data: Data
+				switch path {
+				case "/api/status": data = statusData
+				case "/api/library": data = libraryData
+				case "/api/updates": data = updatesData
+				default: throw URLError(.badURL)
+				}
+				return (data, Self._response(request, statusCode: statusCode))
+			}
+		)
+
+		let expectedPaths = endpoint == "api/status"
+			? ["/api/status"]
+			: ["/api/status", "/api/library", "/api/updates"]
+		if endpoint == "api/status" {
+			do {
+				_ = try await client.snapshot()
+				XCTFail("the status endpoint is required for a snapshot")
+			} catch let error as CompanionClientError {
+				XCTAssertEqual(error, failure, "status failure for \(failure)")
+			} catch {
+				XCTFail("unexpected error: \(error)")
+			}
+		} else {
+			do {
+				let result = try await client.snapshot()
+				if endpoint == "api/library" {
+					if case .failure(let error) = result.library {
+						XCTAssertEqual(error, failure, "\(endpoint) failure")
+					} else {
+						XCTFail("\(endpoint) failure must not become empty data")
+					}
+				} else if case .failure(let error) = result.updates {
+					XCTAssertEqual(error, failure, "\(endpoint) failure")
+				} else {
+					XCTFail("\(endpoint) failure must not become empty data")
+				}
+			} catch {
+				XCTFail("a partial endpoint failure should not discard status: \(error)")
+			}
+		}
+		XCTAssertEqual(paths, expectedPaths)
+	}
+
+	private func _serverTrust(for identity: DeviceTLSIdentity.Identity, hostname: String) throws -> SecTrust {
+		let leaf = try XCTUnwrap(SecCertificateCreateWithData(nil, identity.leafCertificate as CFData))
+		let root = try XCTUnwrap(SecCertificateCreateWithData(nil, identity.rootCertificate as CFData))
+		var trust: SecTrust?
+		XCTAssertEqual(SecTrustCreateWithCertificates(
+			[leaf, root] as CFArray,
+			SecPolicyCreateSSL(true, hostname as CFString),
+			&trust
+		), errSecSuccess)
+		return try XCTUnwrap(trust)
+	}
+
+	private static func _response(
+		_ request: URLRequest,
+		statusCode: Int,
+		responseURL: URL? = nil
+	) -> HTTPURLResponse {
+		HTTPURLResponse(url: responseURL ?? request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1", headerFields: nil)!
 	}
 
 	// MARK: - App Intent entities

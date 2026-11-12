@@ -96,6 +96,14 @@ def native_handoff_cases():
 
 
 def current_commit(root: Path = ROOT) -> str:
+    """The revision a record binds to, or '' when none can be established.
+
+    `device-acceptance.resolve_commit` raises `CommitUnavailable` because a report
+    must never be written unbound. This tool inspects records as often as it writes
+    them, so an unestablishable revision (a source archive, a scratch checkout in
+    the regressions) skips the binding instead of failing the inspection; every
+    other rule still applies.
+    """
     try:
         return subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True,
                                        cwd=root, stderr=subprocess.DEVNULL).strip()

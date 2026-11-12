@@ -144,7 +144,7 @@ struct SigningMethodsView: View {
         }
         .task {
             await nativeManager.synchronizeProvider()
-            await nativeManager.renewExpiringProfiles()
+            await nativeManager.refreshRenewalCandidates()
         }
         .sheet(isPresented: $showAppleIDLogin, onDismiss: { password = "" }) {
             AppleIDLoginView(
@@ -317,7 +317,7 @@ struct SigningMethodsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     Button {
-                        Task { await nativeManager.renewExpiringProfiles() }
+                        Task { await nativeManager.refreshRenewalCandidates() }
                     } label: {
                         Label(.localized("Check Profiles for Renewal"), systemImage: "arrow.triangle.2.circlepath")
                     }

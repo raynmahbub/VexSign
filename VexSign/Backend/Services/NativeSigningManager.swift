@@ -259,10 +259,15 @@ final class NativeSigningManager: ObservableObject {
         }
     }
 
-    /// Background discovery is read-only. No certificate generation, registration
-    /// or profile approval may be manufactured by a scheduled task. An explicit,
-    /// narrowly scoped renewal grant and re-sign/install input are still required.
-    func renewExpiringProfiles() async {
+    /// Refreshes `renewalCandidates` — the profiles that are close to expiring.
+    ///
+    /// This **renews nothing.** It used to be called `renewExpiringProfiles`, which read as
+    /// an action the app performs; the name is what makes a maintainer wire a scheduled task
+    /// to it and believe renewal shipped. Background discovery is read-only: no certificate
+    /// generation, registration or profile approval may be manufactured by a scheduled task,
+    /// and an explicit narrowly scoped renewal grant plus re-sign/install input are still
+    /// required. Until that exists, renewing is the user's job, once a week.
+    func refreshRenewalCandidates() async {
         let profiles = await fetchActiveFreeAccountProfiles()
         renewalCandidates = freeAccountInventoryAvailable ? profiles.filter { $0.isExpiringSoon } : []
     }
