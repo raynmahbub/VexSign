@@ -41,10 +41,15 @@ final class DiscoveryViewModel: ObservableObject {
             guard !loaded.isEmpty else { return }
             var next: [DiscoveryApp] = []
             for (source, repository) in loaded {
-                let sourceID = source.sourceURL?.absoluteString ?? source.identifier ?? ""
+                let rawSource = source.sourceURL?.absoluteString ?? source.identifier ?? ""
+                // Canonical address: the same repository added with a trailing slash or an
+                // upper-case host must not produce a second, independent set of listings.
+                let sourceID = CatalogIdentity.sourceKey(rawSource) ?? rawSource
                 for app in repository.apps {
-                    guard let bundleID = app.id else { continue }
-                    next.append(.init(id: sourceID + "#" + bundleID, source: sourceID, bundleIdentifier: bundleID,
+                    guard let bundleID = app.id,
+                          let listingID = CatalogIdentity.appID(source: rawSource, bundleIdentifier: bundleID)
+                    else { continue }
+                    next.append(.init(id: listingID, source: sourceID, bundleIdentifier: bundleID,
                                       name: app.currentName, summary: app.currentDescription ?? "", developer: app.developer ?? "",
                                       category: app.category ?? "Other", version: app.currentVersion ?? "",
                                       icon: app.iconURL, download: app.currentDownloadUrl, updated: app.currentDate?.date,
@@ -57,8 +62,10 @@ final class DiscoveryViewModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func versions(for bundleIdentifier: String) -> [DiscoveryApp] {
-        apps.filter { $0.bundleIdentifier == bundleIdentifier }
-            .sorted { ($0.updated ?? .distantPast) > ($1.updated ?? .distantPast) }
+        let key = CatalogIdentity.bundleKey(bundleIdentifier) ?? bundleIdentifier
+        return apps
+            .filter { (CatalogIdentity.bundleKey($0.bundleIdentifier) ?? $0.bundleIdentifier) == key }
+            .sorted { DiscoveryApp.isPreferred($0, over: $1) }
     }
 
     func search(_ query: String) async {
