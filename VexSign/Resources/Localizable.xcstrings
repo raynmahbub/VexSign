@@ -107066,6 +107066,17 @@
           }
         }
       }
+    },
+    "This app was signed with an identity that is no longer installed. It is being signed with the current selection, which may not install over the existing copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app was signed with an identity that is no longer installed. It is being signed with the current selection, which may not install over the existing copy."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
