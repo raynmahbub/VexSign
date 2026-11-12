@@ -148,7 +148,7 @@ extension Storage {
                 )
                 // Re-fetch the certificate to ensure it still exists and is valid
                 await MainActor.run {
-                    guard let refreshedCert = self.getCertificate(uuid: certUUID),
+                    guard let refreshedCert = self._certificate(uuid: certUUID),
                           !refreshedCert.isDeleted,
                           refreshedCert.managedObjectContext != nil else {
                         completion?(false)
@@ -169,7 +169,7 @@ extension Storage {
     }
     
     @MainActor
-    private func getCertificate(uuid: String) -> CertificatePair? {
+    private func _certificate(uuid: String) -> CertificatePair? {
         let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "uuid == %@", uuid)
         fetchRequest.fetchLimit = 1
