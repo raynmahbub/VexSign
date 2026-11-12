@@ -107352,6 +107352,28 @@
           }
         }
       }
+    },
+    "Adds this app to the current selection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adds this app to the current selection."
+          }
+        }
+      }
+    },
+    "Deselect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deselect"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
