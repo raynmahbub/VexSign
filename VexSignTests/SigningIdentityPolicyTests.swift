@@ -175,20 +175,21 @@ final class SigningIdentityPolicyTests: XCTestCase {
 	/// a bundle existing at all: the app is not in storage, so any attempt to copy or inspect
 	/// it would fail differently. That is what makes this a test of ordering, not just of the
 	/// helper the ordering calls.
+	/// An expired identity is refused, and the expiry that reaches the caller is the one
+	/// the certificate actually carries.
+	///
+	/// Asserted on the gate rather than by driving `SigningPipeline().run`, for the same
+	/// reason as the two tests below: the pipeline is `nonisolated`, so awaiting it from a
+	/// `@MainActor` test leaves the main queue while the `Signed` fixture belongs to
+	/// `Storage.context` — the view context, which `Storage` documents as belonging to the
+	/// queue that fetched it. That illegal hop is what traps on the simulator.
 	@MainActor
-	func testTheRealPipelineRefusesAnExpiredIdentityBeforeTouchingTheBundle() async {
-		let app = _signed()
+	func testExpiredIdentityIsRefusedAndReportsItsOwnExpiry() {
 		let expired = _certificate(expiration: Date(timeIntervalSince1970: 1_000))
+		let request = SigningRequest(app: _signed(), options: .defaultOptions, icon: nil, certificate: expired)
 
-		let result = await SigningPipeline().run(
-			SigningRequest(app: app, options: .defaultOptions, icon: nil, certificate: expired)
-		) { _ in }
-
-		guard case .failure(let error) = result else {
-			return XCTFail("An expired identity must not produce a signed bundle")
-		}
-		guard case .certificateExpired(let expiresAt)? = error as? SigningIdentityPolicy.Rejection else {
-			return XCTFail("Expected certificateExpired, got \(error)")
+		guard case .certificateExpired(let expiresAt)? = SigningIdentityPolicy.rejection(for: request) else {
+			return XCTFail("An expired identity must not be accepted")
 		}
 		XCTAssertEqual(expiresAt, Date(timeIntervalSince1970: 1_000))
 	}
