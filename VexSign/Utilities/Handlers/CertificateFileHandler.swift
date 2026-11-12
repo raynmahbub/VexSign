@@ -88,7 +88,7 @@ final class CertificateFileHandler: NSObject {
 			try _fileManager.removeItem(at: directory)
 		} catch {
 			Logger.misc.error(
-				"Could not remove staged certificate files for \(_uuid); a private key copy remains on disk until Remove Leftovers runs. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+				"Could not remove staged certificate files for \(self._uuid); a private key copy remains on disk until Remove Leftovers runs. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
 			)
 		}
 	}

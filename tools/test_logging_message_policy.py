@@ -23,6 +23,15 @@ Two properties are pinned:
      the one path that writes user-visible text.
 
 Scope is `Logger.<level>(` calls only. String concatenation elsewhere is normal.
+
+Not covered: a *property* interpolated into OSLog from inside a nested closure
+needs an explicit `self.` (`reference to property '_uuid' in closure requires
+explicit use of 'self'`). Deciding that from source needs scope analysis — a
+closure, or not; a property, or a parameter shadowing one — and a heuristic based
+on indentation produced false positives on parameters and on SwiftUI view
+properties read from ordinary methods. Rather than ship a check that cries wolf,
+it is left out; that error is caught by the macOS jobs, which is how the one real
+instance (`self._uuid`) was found.
 """
 
 from __future__ import annotations

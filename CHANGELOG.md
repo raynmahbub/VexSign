@@ -24,6 +24,10 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   It follows braces to attribute a member to the type it is private *inside* (a
   file can declare several), treats top-level directories as separate modules,
   and counts `self.member` as a real reference.
+- `CertificateFileHandler.clean()` did not compile after that. An `OSLogMessage`
+  interpolation is an `@escaping @autoclosure`, so an *instance property* inside
+  one needs an explicit `self.`: `\(_uuid)` became `\(self._uuid)`. The other four
+  sites interpolate locals or a captured `error`, which are unaffected.
 - Five log calls added by the storage-durability change did not compile. OSLog's
   `Logger.fault`/`Logger.error` take an `OSLogMessage`, which is built by string
   interpolation, so joining the message with `+` is a type error — the macOS
