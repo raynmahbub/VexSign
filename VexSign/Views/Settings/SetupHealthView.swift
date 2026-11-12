@@ -199,7 +199,7 @@ struct SetupHealthView: View {
         checkedAt = Date()
         inputs = InstallPreflightInputs(
             hasServerCertificate: LocalTLSIdentity.current() != nil,
-            hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
+            pairing: PairingRecordInspector.inspect(fileAt: URL(fileURLWithPath: HeartbeatManager.pairingFile())),
             trollStoreDetected: TrollStoreHandoff.installedByTrollStore(),
             hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable

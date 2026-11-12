@@ -1,5 +1,9 @@
 // MARK: - DevicePickerTests
-/// Unit tests for the DevicePickerView and LockdownClient functionality.
+/// Unit tests for the device picker's model.
+///
+/// The picker's job is narrower than it used to be: it reports what the pairing record says and
+/// refuses to invent the rest. These tests pin that down — the record's fields, the stable
+/// identity, and the fact that a readable file never becomes a trust claim.
 
 import Foundation
 import Testing
@@ -20,7 +24,7 @@ struct DevicePickerTests {
             iosVersion: "17.2",
             buildVersion: "21C62",
             modelNumber: "iPhone15,2",
-            isTrusted: true
+            trust: .verified
         )
 
         #expect(info.displayName == "John's iPhone (iPhone)")
@@ -35,29 +39,62 @@ struct DevicePickerTests {
             iosVersion: "17.2",
             buildVersion: "21C62",
             modelNumber: "iPad14,3",
-            isTrusted: true
+            trust: .verified
         )
 
         #expect(info.displayName == "Jane's iPad (iPad)")
     }
 
-    // MARK: - PairedDevice Tests
-
-    @Test("PairedDevice initialization")
-    func testPairedDeviceInitialization() {
-        let device = PairedDevice(
+    @Test("Trust is a claim about the device, not about the file")
+    func testTrustIsNotPresence() {
+        let unverified = DeviceInfo(
             udid: "ABCDEF1234567890",
-            name: "Test iPhone",
+            name: "iPhone",
             deviceType: "iPhone",
             iosVersion: "17.2",
-            isTrusted: true
+            buildVersion: "21C62",
+            modelNumber: "iPhone15,2",
+            trust: .unverified
+        )
+        #expect(unverified.isTrusted == false, "a readable pairing record is not authorization")
+
+        let verified = DeviceInfo(
+            udid: "ABCDEF1234567890",
+            name: "iPhone",
+            deviceType: "iPhone",
+            iosVersion: "17.2",
+            buildVersion: "21C62",
+            modelNumber: "iPhone15,2",
+            trust: .verified
+        )
+        #expect(verified.isTrusted)
+    }
+
+    // MARK: - Record identity
+
+    @Test("A record's identity is its UDID, so a refresh cannot reseat the selection")
+    func testRecordIdentityIsStable() {
+        let first = PairedDeviceRecord(
+            udid: "00008120-001A2B3C4D5E6F70",
+            name: "iPhone",
+            deviceType: "iPhone",
+            iosVersion: "17.2",
+            presence: .discovered,
+            pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            trust: .unverified
+        )
+        let second = PairedDeviceRecord(
+            udid: "00008120-001A2B3C4D5E6F70",
+            name: "Renamed iPhone",
+            deviceType: "iPhone",
+            iosVersion: "18.0",
+            presence: .discovered,
+            pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            trust: .unverified
         )
 
-        #expect(device.udid == "ABCDEF1234567890")
-        #expect(device.name == "Test iPhone")
-        #expect(device.deviceType == "iPhone")
-        #expect(device.iosVersion == "17.2")
-        #expect(device.isTrusted == true)
+        #expect(first.id == second.id)
+        #expect(first.id == first.udid)
     }
 
     // MARK: - UDID Formatting Tests
@@ -96,16 +133,20 @@ struct DevicePickerTests {
 
     @MainActor
     @Test("IDeviceManager answers from the pairing file and nothing else")
-    func testPairedDevicesComeFromPairingFile() async throws {
+    func testPairedDevicesComeFromPairingFile() async {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let pairingFile = documents.appendingPathComponent("pairingFile.plist")
         #expect(pairingFile.path.contains("Documents"))
         #expect(pairingFile.path.contains("pairingFile.plist"))
 
-        // One device per pairing record and none without one: the manager never
-        // invents a device out of a UDID it could not read.
-        let expected = FileManager.default.fileExists(atPath: pairingFile.path) ? 1 : 0
-        let devices = try await IDeviceManager.shared.getPairedDevices()
-        #expect(devices.count == expected)
+        // One device per usable pairing record and none without one: the manager never invents
+        // a device out of a UDID it could not read, and an unusable record produces no row.
+        let result = await IDeviceManager.shared.pairedDevices()
+        #expect(result.devices.count <= 1)
+        #expect(result.devices.isEmpty == (result.pairing.udid == nil))
+        if let record = result.devices.first {
+            #expect(record.udid == result.pairing.udid)
+            #expect(record.trust != .verified, "no session was opened, so nothing may claim trust")
+        }
     }
 }

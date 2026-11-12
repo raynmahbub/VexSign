@@ -281,8 +281,18 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 					throw Self.error(InstallPreflight.detail(for: .init(method: method,
 						readiness: InstallPreflight.readiness(for: method, .init()))))
 				}
-				if method == .idevice, !FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) {
-					throw Self.error(.localized("No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN."))
+				if method == .idevice {
+					// A file that exists but cannot start a session is the same dead end as no
+					// file at all, and it used to fail later with a socket error. Inspect the
+					// record here so the run stops before the copy, naming what is wrong.
+					let pairing = PairingRecordInspector.inspect(
+						fileAt: URL(fileURLWithPath: HeartbeatManager.pairingFile())
+					)
+					guard pairing.isUsable else {
+						throw Self.error(pairing == .absent
+							? .localized("No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN.")
+							: pairing.detail)
+					}
 				}
 			}
             let prepared: PreparedInstallationPackage

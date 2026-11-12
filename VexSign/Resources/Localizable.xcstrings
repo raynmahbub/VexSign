@@ -106450,6 +106450,611 @@
           }
         }
       }
+    },
+    "A complete pairing record exists, but nothing has confirmed the device would accept it. That only happens when a session or an install succeeds." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A complete pairing record exists, but nothing has confirmed the device would accept it. That only happens when a session or an install succeeds."
+          }
+        }
+      }
+    },
+    "A pairing file describes one device: the one it was generated for. VexSign cannot enumerate other devices from inside the sandbox." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A pairing file describes one device: the one it was generated for. VexSign cannot enumerate other devices from inside the sandbox."
+          }
+        }
+      }
+    },
+    "A session to the device succeeded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A session to the device succeeded."
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        }
+      }
+    },
+    "Connecting…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting…"
+          }
+        }
+      }
+    },
+    "Connection failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection failed"
+          }
+        }
+      }
+    },
+    "Determined from the pairing record, the pairing session and the installation service this build links, not from what a device might support in general." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Determined from the pairing record, the pairing session and the installation service this build links, not from what a device might support in general."
+          }
+        }
+      }
+    },
+    "Device found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device found"
+          }
+        }
+      }
+    },
+    "Disconnected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnected"
+          }
+        }
+      }
+    },
+    "Import a .mobiledevicepairing file in Settings → Installation → Pairing file, and keep the pairing VPN running." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .mobiledevicepairing file in Settings → Installation → Pairing file, and keep the pairing VPN running."
+          }
+        }
+      }
+    },
+    "Import a pairing file in Settings → Installation. Without one there is no session to install over." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a pairing file in Settings → Installation. Without one there is no session to install over."
+          }
+        }
+      }
+    },
+    "Install over the local server (OTA)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install over the local server (OTA)"
+          }
+        }
+      }
+    },
+    "Install over the pairing session" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install over the pairing session"
+          }
+        }
+      }
+    },
+    "Installs through the pairing session. VexSign still verifies the result on the device before calling it installed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installs through the pairing session. VexSign still verifies the result on the device before calling it installed."
+          }
+        }
+      }
+    },
+    "Looking for the device…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for the device…"
+          }
+        }
+      }
+    },
+    "Needs authorization" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs authorization"
+          }
+        }
+      }
+    },
+    "Needs the local HTTPS server with a trusted certificate. Open Server & SSL to set it up." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs the local HTTPS server with a trusted certificate. Open Server & SSL to set it up."
+          }
+        }
+      }
+    },
+    "Needs the pairing session" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs the pairing session"
+          }
+        }
+      }
+    },
+    "No pairing record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pairing record"
+          }
+        }
+      }
+    },
+    "No pairing record and no session. Connect the device, trust this computer, and import the pairing file in Settings → Installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pairing record and no session. Connect the device, trust this computer, and import the pairing file in Settings → Installation."
+          }
+        }
+      }
+    },
+    "Not authorized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not authorized"
+          }
+        }
+      }
+    },
+    "Not yet verified" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not yet verified"
+          }
+        }
+      }
+    },
+    "Opening a session to the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening a session to the device."
+          }
+        }
+      }
+    },
+    "Pairing record found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record found"
+          }
+        }
+      }
+    },
+    "Pairing record found. Device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record found. Device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."
+          }
+        }
+      }
+    },
+    "Pairing record incomplete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record incomplete"
+          }
+        }
+      }
+    },
+    "Pairing record too large" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record too large"
+          }
+        }
+      }
+    },
+    "Pairing record unreadable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record unreadable"
+          }
+        }
+      }
+    },
+    "Pairing required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing required"
+          }
+        }
+      }
+    },
+    "Read installed apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read installed apps"
+          }
+        }
+      }
+    },
+    "Reads this device's installed-app records. The sandbox cannot enumerate another device's apps, and a filtered lookup stays unknown rather than becoming \"not installed\"." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reads this device's installed-app records. The sandbox cannot enumerate another device's apps, and a filtered lookup stays unknown rather than becoming \"not installed\"."
+          }
+        }
+      }
+    },
+    "Reconnecting…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnecting…"
+          }
+        }
+      }
+    },
+    "Serves the signed IPA from this device and hands it to installd through itms-services." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serves the signed IPA from this device and hands it to installd through itms-services."
+          }
+        }
+      }
+    },
+    "Supported operations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supported operations"
+          }
+        }
+      }
+    },
+    "Temporarily unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "The device accepted a session from this host." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device accepted a session from this host."
+          }
+        }
+      }
+    },
+    "The device answered but does not accept this installation transport." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device answered but does not accept this installation transport."
+          }
+        }
+      }
+    },
+    "The device is reachable but has not authorized this host. Unlock it, tap Trust on the device, then reconnect." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device is reachable but has not authorized this host. Unlock it, tap Trust on the device, then reconnect."
+          }
+        }
+      }
+    },
+    "The device refused this host. A pairing that was revoked or reset on the device cannot be repaired by importing the old file again — pair it again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device refused this host. A pairing that was revoked or reset on the device cannot be repaired by importing the old file again — pair it again."
+          }
+        }
+      }
+    },
+    "The device was found. A session has not been opened against it yet." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device was found. A session has not been opened against it yet."
+          }
+        }
+      }
+    },
+    "The file has the fields a session needs. Readability is not authorization: the device still has to accept the session." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file has the fields a session needs. Readability is not authorization: the device still has to accept the session."
+          }
+        }
+      }
+    },
+    "The installation service this build links can install but not remove apps. Uninstall from the device's own Home Screen, or from a paired computer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The installation service this build links can install but not remove apps. Uninstall from the device's own Home Screen, or from a paired computer."
+          }
+        }
+      }
+    },
+    "The pairing file cannot be parsed as a property list. It may be truncated or the wrong file; import the pairing plist again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing file cannot be parsed as a property list. It may be truncated or the wrong file; import the pairing plist again."
+          }
+        }
+      }
+    },
+    "The pairing file is larger than a real pairing record, so it was not parsed. Import the original file exported by your pairing tool." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing file is larger than a real pairing record, so it was not parsed. Import the original file exported by your pairing tool."
+          }
+        }
+      }
+    },
+    "The pairing record is complete, but the pairing VPN is not running. Start it on the Tunnel screen; the session runs over it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing record is complete, but the pairing VPN is not running. Start it on the Tunnel screen; the session runs over it."
+          }
+        }
+      }
+    },
+    "The pairing record is missing %@. A session cannot start without them; import a complete pairing plist." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing record is missing %@. A session cannot start without them; import a complete pairing plist."
+          }
+        }
+      }
+    },
+    "The previous session ended. VexSign is trying once more." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The previous session ended. VexSign is trying once more."
+          }
+        }
+      }
+    },
+    "There is no pairing record, so nothing can be said about trust." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is no pairing record, so nothing can be said about trust."
+          }
+        }
+      }
+    },
+    "Trust unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trust unknown"
+          }
+        }
+      }
+    },
+    "Uninstall" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uninstall"
+          }
+        }
+      }
+    },
+    "VexSign can see a pairing record naming this device. It cannot observe the cable from inside the sandbox, so this is not proof the device is reachable right now." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign can see a pairing record naming this device. It cannot observe the cable from inside the sandbox, so this is not proof the device is reachable right now."
+          }
+        }
+      }
+    },
+    "iOS Device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS Device"
+          }
+        }
+      }
+    },
+    "iPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone"
+          }
+        }
+      }
+    },
+    "Reads this device's installed-app records through LaunchServices. A device-side listing exists in the linked installation service but needs the pairing session, so the local probe stays the evidence used for verification: a filtered lookup is reported as unknown, never as \"not installed\"." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reads this device's installed-app records through LaunchServices. A device-side listing exists in the linked installation service but needs the pairing session, so the local probe stays the evidence used for verification: a filtered lookup is reported as unknown, never as \"not installed\"."
+          }
+        }
+      }
+    },
+    "VexSign has no removal path yet: the linked installation service can uninstall, but nothing in this build uses it, and removal needs its own confirmation and verification. Uninstall from the device's Home Screen or a paired computer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign has no removal path yet: the linked installation service can uninstall, but nothing in this build uses it, and removal needs its own confirmation and verification. Uninstall from the device's Home Screen or a paired computer."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

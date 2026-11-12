@@ -1,6 +1,9 @@
 // MARK: - DevicePickerView
-/// Device selection UI that integrates with IDeviceSwift for paired devices
-/// and supports manual UDID entry.
+/// Device selection UI.
+///
+/// The picker describes the pairing record it holds and the capabilities that actually follow
+/// from it. It does not claim a live connection it cannot observe, and it does not claim trust
+/// because a file could be read — see `DeviceConnectivity.swift` for the states.
 
 import SwiftUI
 import NimbleViews
@@ -13,10 +16,10 @@ struct DevicePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var manualUDID = ""
     @State private var useManual = false
-    @State private var pairedDevices: [PairedDevice] = []
+    @State private var pairedDevices: [PairedDeviceRecord] = []
+    @State private var pairing: DevicePairingState = .absent
     @State private var isLoading = false
-    @State private var loadError: String?
-    @State private var selectedDevice: PairedDevice?
+    @State private var selectedUDID: String?
 
     var body: some View {
         NavigationStack {
@@ -47,57 +50,14 @@ struct DevicePickerView: View {
                             Text(.localized("Loading paired devices…"))
                                 .foregroundStyle(.secondary)
                         }
-                    } else if let error = loadError {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label(.localized("Failed to load paired devices"), systemImage: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                            Text(error)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Button(.localized("Retry")) {
-                                Task { await loadPairedDevices() }
-                            }
-                            .buttonStyle(.bordered)
-                        }
                     } else if pairedDevices.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(.localized("No paired devices found"))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Text(.localized("Connect your device via USB and trust it, or ensure a valid pairing file is configured in Settings → Installation."))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Button(.localized("Refresh")) {
-                                Task { await loadPairedDevices() }
-                            }
-                            .buttonStyle(.bordered)
-                        }
+                        pairingProblem
                     } else {
                         ForEach(pairedDevices) { device in
                             Button {
-                                selectedDevice = device
+                                selectedUDID = device.udid
                             } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(device.name)
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-                                        Text(device.udid)
-                                            .font(.caption.monospaced())
-                                            .foregroundStyle(.secondary)
-                                        HStack(spacing: 8) {
-                                            Label(device.deviceType, systemImage: deviceTypeIcon(device.deviceType))
-                                            Label(device.iosVersion, systemImage: "iphone.gen3")
-                                        }
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                    }
-                                    Spacer()
-                                    if selectedDevice?.udid == device.udid {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(Color.accentColor)
-                                    }
-                                }
+                                deviceRow(device)
                             }
                             .buttonStyle(.plain)
                         }
@@ -105,7 +65,11 @@ struct DevicePickerView: View {
                 } header: {
                     Text(.localized("Paired Devices"))
                 } footer: {
-                    Text(.localized("Select a paired device to use its UDID automatically. Pairing requires a valid pairing file configured in Settings → Installation."))
+                    Text(.localized("A pairing file describes one device: the one it was generated for. VexSign cannot enumerate other devices from inside the sandbox."))
+                }
+
+                if !pairedDevices.isEmpty {
+                    capabilitySection
                 }
             }
             .navigationTitle(.localized("Select Device"))
@@ -117,12 +81,12 @@ struct DevicePickerView: View {
                     Button(.localized("Done")) {
                         if useManual && !manualUDID.isEmpty {
                             deviceIdentifier = manualUDID
-                        } else if let device = selectedDevice {
-                            deviceIdentifier = device.udid
+                        } else if let udid = selectedUDID {
+                            deviceIdentifier = udid
                         }
                         dismiss()
                     }
-                    .disabled((useManual && manualUDID.isEmpty) || (!useManual && selectedDevice == nil))
+                    .disabled((useManual && manualUDID.isEmpty) || (!useManual && selectedUDID == nil))
                 }
             }
         }
@@ -130,6 +94,111 @@ struct DevicePickerView: View {
             await loadPairedDevices()
         }
         .presentationDetents([.medium, .large])
+    }
+
+    // MARK: Rows
+
+    @ViewBuilder
+    private func deviceRow(_ device: PairedDeviceRecord) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(device.name)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(device.udid)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Label(device.deviceType, systemImage: deviceTypeIcon(device.deviceType))
+                    Label(device.iosVersion, systemImage: "iphone.gen3")
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                // Presence and trust are separate claims: a row can be "device found" without
+                // being able to say the device would accept this host.
+                HStack(spacing: 6) {
+                    Label(device.presence.title, systemImage: "antenna.radiowaves.left.and.right")
+                        .foregroundStyle(.secondary)
+                    Text("·").foregroundStyle(.tertiary)
+                    Label(device.trust.title, systemImage: device.trust == .verified ? "checkmark.seal.fill" : "questionmark.circle")
+                        .foregroundStyle(device.trust == .verified ? Color.green : Color.orange)
+                }
+                .font(.caption2)
+            }
+            Spacer()
+            if selectedUDID == device.udid {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+    }
+
+    /// What is wrong with the pairing record, named precisely.
+    ///
+    /// "No paired devices" used to be the only sentence, whether the file was missing, truncated
+    /// or missing half its keys — three problems with three different fixes.
+    @ViewBuilder
+    private var pairingProblem: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(pairing.title, systemImage: pairing.isUsable ? "exclamationmark.triangle.fill" : "tray")
+                .font(.subheadline)
+                .foregroundStyle(pairing.isUsable ? Color.orange : Color.secondary)
+            Text(pairing.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button(.localized("Refresh")) {
+                Task { await loadPairedDevices() }
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    /// The same capability answers the install paths read, so a row cannot promise an operation
+    /// the transport does not support.
+    @ViewBuilder
+    private var capabilitySection: some View {
+        Section {
+            ForEach(report.capabilities, id: \.operation.id) { capability in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(capability.operation.title)
+                            .font(.subheadline)
+                        Spacer()
+                        Text(capability.status.title)
+                            .font(.caption)
+                            .foregroundStyle(color(for: capability.status))
+                    }
+                    Text(capability.detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text(.localized("Supported operations"))
+        } footer: {
+            Text(.localized("Determined from the pairing record, the pairing session and the installation service this build links, not from what a device might support in general."))
+        }
+    }
+
+    private var report: DeviceCapabilityReport {
+        DeviceCapabilityResolver.report(
+            DeviceCapabilityContext(
+                pairing: pairing,
+                presence: pairedDevices.first?.presence ?? .disconnected,
+                trust: pairedDevices.first?.trust ?? .unknown,
+                pairingTransportAvailable: false,
+                companionAvailable: LocalTLSIdentity.current() != nil && LocalTLSIdentity.isSystemTrusted()
+            )
+        )
+    }
+
+    private func color(for status: DeviceCapabilityStatus) -> Color {
+        switch status {
+        case .supported: .green
+        case .requiresCompanion, .requiresAuthorization, .requiresUserAction: .orange
+        case .unsupported, .temporarilyUnavailable: .red
+        case .unknown: .secondary
+        }
     }
 
     private func deviceTypeIcon(_ type: String) -> String {
@@ -145,50 +214,31 @@ struct DevicePickerView: View {
 
     private func loadPairedDevices() async {
         isLoading = true
-        loadError = nil
         defer { isLoading = false }
 
-        do {
-            let devices = try await IDeviceManager.shared.getPairedDevices()
-            await MainActor.run {
-                self.pairedDevices = devices
-            }
-        } catch {
-            await MainActor.run {
-                self.loadError = error.localizedDescription
-            }
+        let result = await IDeviceManager.shared.pairedDevices()
+        pairing = result.pairing
+        pairedDevices = result.devices
+        if let selectedUDID, !pairedDevices.contains(where: { $0.udid == selectedUDID }) {
+            self.selectedUDID = nil
+        }
+
+        // What this build can do with the record, written once per load so a support log can
+        // answer "why did the paired install fail?" without a device in hand. No identifier is
+        // included: `logLines` carries operation names and statuses only.
+        for line in report.logLines {
+            logger.debug("\(line, privacy: .public)")
         }
     }
 }
 
-// MARK: - Supporting Types
-
-/// Device information retrieved via Lockdown.
-public struct DeviceInfo: Sendable, Equatable {
-    public let udid: String
-    public let name: String
-    public let deviceType: String
-    public let iosVersion: String
-    public let buildVersion: String
-    public let modelNumber: String
-    public let isTrusted: Bool
-
-    public var displayName: String {
-        "\(name) (\(deviceType))"
-    }
-}
-
-struct PairedDevice: Identifiable {
-    let id = UUID()
-    let udid: String
-    let name: String
-    let deviceType: String
-    let iosVersion: String
-    let isTrusted: Bool
-}
-
 // MARK: - IDeviceManager
 
+/// Reads the pairing record and describes the device it names.
+///
+/// Not a device manager in the sense of owning sessions: the linked `IDevice` binary talks to one
+/// device through the pairing record, and this type reads that record. Naming it after the
+/// framework it wraps keeps the existing call sites intact.
 @MainActor
 final class IDeviceManager {
     static let shared = IDeviceManager()
@@ -200,56 +250,45 @@ final class IDeviceManager {
         HeartbeatManager.pairingFile()
     }
 
-    /// Attempts to read the pairing file and extract device UDID
-    private func readPairingFileUDID() -> String? {
-        let path = pairingFilePath
-        guard FileManager.default.fileExists(atPath: path) else { return nil }
-
-        do {
-            let data = try Data(contentsOf: URL(fileURLWithPath: path))
-            // The pairing file is a plist with keys like DeviceID, HostID, etc.
-            if let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
-               let deviceID = plist["DeviceID"] as? String {
-                return deviceID
-            }
-        } catch {
-            // Try reading as binary plist
-            if let plist = try? PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: path)), options: [], format: nil) as? [String: Any], // try? ok: fallback parse, guard handles nil
-               let deviceID = plist["DeviceID"] as? String {
-                return deviceID
-            }
-        }
-        return nil
+    struct Result: Sendable {
+        let pairing: DevicePairingState
+        let devices: [PairedDeviceRecord]
     }
 
-    /// Gets paired devices by reading the pairing file and querying device info via IDevice
-    func getPairedDevices() async throws -> [PairedDevice] {
-        // First, try to get UDID from pairing file
-        guard let udid = readPairingFileUDID() else {
-            // No pairing file found
-            return []
+    /// One record per device, with the pairing state that produced it.
+    ///
+    /// Duplicate records collapse by UDID, so importing the same pairing file twice — or reading
+    /// it in two formats — cannot produce two rows for one device.
+    func pairedDevices() async -> Result {
+        let url = URL(fileURLWithPath: pairingFilePath)
+        let pairing = PairingRecordInspector.inspect(fileAt: url)
+
+        guard let udid = pairing.udid else {
+            return Result(pairing: pairing, devices: [])
         }
 
-        // Try to get device info via IDevice if device is connected
-        // For now, we return the device from pairing file with basic info
-        // In a full implementation, we'd connect via USB and query device details
+        let info = await queryDeviceInfo()
 
-        // Check if we can get more details via IDevice
-        let deviceInfo = try? await queryDeviceInfo(udid: udid) // try? ok: optional device info, guard handles nil
-
-        let device = PairedDevice(
+        // Presence is "found", not "connected": the record is the only evidence available from
+        // inside the sandbox, and the capability report says what still has to happen.
+        let record = PairedDeviceRecord(
             udid: udid,
-            name: deviceInfo?.name ?? "iOS Device",
-            deviceType: deviceInfo?.deviceType ?? "iPhone",
-            iosVersion: deviceInfo?.iosVersion ?? "Unknown",
-            isTrusted: deviceInfo?.isTrusted ?? true
+            name: info?.name ?? .localized("iOS Device"),
+            deviceType: info?.deviceType ?? .localized("iPhone"),
+            iosVersion: info?.iosVersion ?? .localized("Unknown"),
+            presence: .discovered,
+            pairing: pairing,
+            trust: info?.trust ?? .unverified
         )
 
-        return [device]
+        return Result(pairing: pairing, devices: PairedDeviceRecord.unique([record]))
     }
 
-    /// Queries device info via IDeviceSwift LockdownClient
-    private func queryDeviceInfo(udid: String) async throws -> DeviceInfo? {
+    /// Device details through `LockdownClient`.
+    ///
+    /// This reads the record and the running system. It does not open a device session, which is
+    /// why the answer it returns can never raise trust.
+    private func queryDeviceInfo() async -> DeviceInfo? {
         let pairingFileURL = URL(fileURLWithPath: pairingFilePath)
         guard FileManager.default.fileExists(atPath: pairingFilePath) else { return nil }
 

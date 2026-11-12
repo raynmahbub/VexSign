@@ -21,7 +21,7 @@ final class InstallPreflightTests: XCTestCase {
 			for: method,
 			InstallPreflightInputs(
 				hasServerCertificate: cert,
-				hasPairingFile: pairing,
+				pairing: pairing ? .readable(udid: "00008120-001A2B3C4D5E6F70") : .absent,
 				trollStoreDetected: trollstore
 			)
 		)

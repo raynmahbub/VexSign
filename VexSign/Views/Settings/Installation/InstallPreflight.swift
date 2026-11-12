@@ -64,8 +64,15 @@ struct InstallMethodReport: Identifiable, Equatable, Sendable {
 struct InstallPreflightInputs: Equatable, Sendable {
 	/// `LocalTLSIdentity.current() != nil` — a certificate has been imported or generated.
 	var hasServerCertificate: Bool = false
-	/// `HeartbeatManager.pairingFile()` exists on disk.
-	var hasPairingFile: Bool = false
+	/// The pairing record at `HeartbeatManager.pairingFile()`, inspected rather than assumed.
+	///
+	/// A Bool could only say "the file is there". A truncated file, a file that is not a plist
+	/// and a complete record were the same answer, so the row told the user to start a VPN for a
+	/// record that could never carry a session.
+	var pairing: DevicePairingState = .absent
+
+	/// Whether any record exists. Kept for call sites that only need presence.
+	var hasPairingFile: Bool { pairing != .absent }
 	/// A TrollStore URL scheme answered `canOpenURL`.
 	var trollStoreDetected: Bool = false
     /// Local identity presence alone does not mean the user trusted its profile.
@@ -91,9 +98,16 @@ enum InstallPreflight {
 				: .missing(.localized("No local server certificate is available. Open Server & SSL to check the device identity, then export and trust its Root CA profile."))
 
 		case .idevice:
-			return inputs.hasPairingFile
-				? .unknown(.localized("Pairing file found. Device trust, pairing validity and VPN connectivity will be checked when connecting; file presence alone does not prove readiness."))
-				: .missing(.localized("No pairing file. Generate one from a computer on the Tunnel screen; the VPN also has to be running."))
+			switch inputs.pairing {
+			case .absent:
+				return .missing(.localized("No pairing file. Generate one from a computer on the Tunnel screen; the VPN also has to be running."))
+			case .unreadable, .oversized, .incomplete:
+				// The record cannot start a session, so this is not "unknown readiness" — it is a
+				// record that has to be replaced, and the sentence says which part is wrong.
+				return .missing(inputs.pairing.detail)
+			case .readable:
+				return .unknown(.localized("Pairing record found. Device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."))
+			}
 
 		case .liveContainer:
 			return inputs.hasEmbeddedRuntime
