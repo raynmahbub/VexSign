@@ -51,6 +51,112 @@ struct NativeSigningHandoffPreflight {
     }
 }
 
+/// Owns the certificate-handoff transaction after the manager has captured its
+/// authenticated account and identity. Operations stay injectable so lifecycle,
+/// cancellation and protected-file cleanup can be tested without Apple access.
+/// This does not implement signing or replace the ordinary certificate importer.
+@MainActor
+struct NativeSigningHandoffCoordinator {
+    struct Request {
+        let profileUUID: UUID
+        let expiresAt: Date
+        let teamIdentifier: String
+        let identity: NativeSigningManager.SigningIdentity
+        let bundleIdentifier: String
+        let deviceIdentifier: String
+    }
+
+    private let taskCenter: UnifiedTaskCenter
+    private let temporaryDirectory: URL
+    private let generatePassword: () throws -> String
+    private let now: () -> Date
+
+    init(
+        taskCenter: UnifiedTaskCenter = .shared,
+        temporaryDirectory: URL = FileManager.default.temporaryDirectory,
+        generatePassword: (() throws -> String)? = nil,
+        now: @escaping () -> Date = { Date() }
+    ) {
+        self.taskCenter = taskCenter
+        self.temporaryDirectory = temporaryDirectory
+        self.generatePassword = generatePassword ?? Self.makePassword
+        self.now = now
+    }
+
+    func run(
+        request: Request,
+        exportProfile: () async throws -> Data,
+        backendIsCurrent: () -> Bool,
+        exportIdentity: (String) async throws -> Data,
+        importCertificate: (_ p12URL: URL, _ provisionURL: URL, _ password: String, _ name: String) async throws -> Void
+    ) async throws {
+        let task = taskCenter.begin(kind: .export,
+            title: .localized("Import Apple ID Certificate"), subtitle: request.bundleIdentifier,
+            phase: .queued, subjectID: request.profileUUID.uuidString)
+        let directory = temporaryDirectory
+            .appendingPathComponent("native-signing-handoff-" + UUID().uuidString, isDirectory: true)
+        do {
+            try Task.checkCancellation()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700, .protectionKey: FileProtectionType.complete])
+            defer { try? FileManager.default.removeItem(at: directory) } // try? ok: import result is already known; scratch cleanup is best-effort
+
+            taskCenter.transition(task, to: .downloading, progress: 0.15)
+            let profileData = try await exportProfile()
+            try Task.checkCancellation()
+            guard backendIsCurrent() else { throw CancellationError() }
+            let provisionURL = directory.appendingPathComponent("native.mobileprovision")
+            try Self.write(profileData, to: provisionURL)
+            guard let decoded = CertificateReader(provisionURL).decoded else {
+                throw NativeSigningError.provisioningFailed(.localized("The authenticated provisioning profile could not be read. Nothing was imported."))
+            }
+            taskCenter.transition(task, to: .extracting, progress: 0.4)
+            try NativeSigningHandoffPreflight.validate(decoded, profileUUID: request.profileUUID,
+                expiresAt: request.expiresAt, teamIdentifier: request.teamIdentifier,
+                identity: request.identity, bundleIdentifier: request.bundleIdentifier,
+                deviceIdentifier: request.deviceIdentifier, now: now())
+
+            taskCenter.transition(task, to: .importing, progress: 0.65)
+            let password = try generatePassword()
+            let p12Data = try await exportIdentity(password)
+            try Task.checkCancellation()
+            guard backendIsCurrent() else { throw CancellationError() }
+            let p12URL = directory.appendingPathComponent("native.p12")
+            try Self.write(p12Data, to: p12URL)
+            let name = "Apple ID " + String(request.identity.identityID.uuidString.prefix(8))
+            try await importCertificate(p12URL, provisionURL, password, name)
+            taskCenter.transition(task, to: .completed, progress: 1)
+        } catch {
+            if error is CancellationError || Task.isCancelled {
+                taskCenter.transition(task, to: .cancelled)
+            } else {
+                taskCenter.transition(task, to: .failed, error: error.localizedDescription)
+            }
+            throw error
+        }
+    }
+
+    private static func write(_ data: Data, to url: URL) throws {
+        guard !data.isEmpty, data.count <= 2 * 1024 * 1024 else {
+            throw NativeSigningError.signingFailed(.localized("The native certificate export was empty or too large. Nothing was imported."))
+        }
+        try data.write(to: url, options: [.atomic, .completeFileProtection])
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    private static func makePassword() throws -> String {
+        var bytes = Data(count: 32)
+        let status = bytes.withUnsafeMutableBytes { buffer -> OSStatus in
+            guard let address = buffer.baseAddress else { return errSecAllocate }
+            return SecRandomCopyBytes(kSecRandomDefault, buffer.count, address)
+        }
+        guard status == errSecSuccess else {
+            throw NativeSigningError.signingFailed(.localized("A secure password for the certificate export could not be generated. Nothing was imported."))
+        }
+        return bytes.base64EncodedString()
+    }
+}
+
 // MARK: - NativeSigningManager
 
 @MainActor
@@ -416,81 +522,37 @@ final class NativeSigningManager: ObservableObject {
               let identity = await getIdentityDetails(identityID: identityID) else {
             throw NativeSigningError.provisioningFailed(.localized("The Apple account or signing identity changed. Review the current account and try again."))
         }
-        let task = UnifiedTaskCenter.shared.begin(kind: .export,
-            title: .localized("Import Apple ID Certificate"), subtitle: bundleIdentifier,
-            phase: .queued, subjectID: profile.profileUUID.uuidString)
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("native-signing-handoff-" + UUID().uuidString, isDirectory: true)
+        let request = NativeSigningHandoffCoordinator.Request(profileUUID: profile.profileUUID,
+            expiresAt: profile.expiresAt, teamIdentifier: context.team.identifier,
+            identity: identity, bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier)
         do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
-                attributes: [.posixPermissions: 0o700, .protectionKey: FileProtectionType.complete])
-            defer { try? FileManager.default.removeItem(at: directory) } // try? ok: import result is already known; scratch cleanup is best-effort
-
-            UnifiedTaskCenter.shared.transition(task, to: .downloading, progress: 0.15)
-            let anisetteConsent = try await backend.recordExplicitAnisetteConsent()
-            let profileData = try await backend.exportProvisioningProfile(contextID: contextID,
-                profileUUID: profile.profileUUID, identityID: identityID,
-                bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier,
-                consent: anisetteConsent)
-            guard self.backend === backend else { throw CancellationError() }
-            let provisionURL = directory.appendingPathComponent("native.mobileprovision")
-            try Self.writeHandoff(profileData, to: provisionURL)
-            guard let decoded = CertificateReader(provisionURL).decoded else {
-                throw NativeSigningError.provisioningFailed(.localized("The authenticated provisioning profile could not be read. Nothing was imported."))
-            }
-            UnifiedTaskCenter.shared.transition(task, to: .extracting, progress: 0.4)
-            try NativeSigningHandoffPreflight.validate(decoded, profileUUID: profile.profileUUID,
-                expiresAt: profile.expiresAt, teamIdentifier: context.team.identifier,
-                identity: identity, bundleIdentifier: bundleIdentifier,
-                deviceIdentifier: deviceIdentifier)
-
-            UnifiedTaskCenter.shared.transition(task, to: .importing, progress: 0.65)
-            let password = try Self.handoffPassword()
-            let p12Data = try await backend.exportSigningIdentity(contextID: contextID,
-                identityID: identityID, password: password, consent: consent)
-            guard self.backend === backend else { throw CancellationError() }
-            let p12URL = directory.appendingPathComponent("native.p12")
-            try Self.writeHandoff(p12Data, to: p12URL)
-            try Task.checkCancellation()
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                FR.handleCertificateFiles(p12URL: p12URL, provisionURL: provisionURL,
-                    p12Password: password, certificateName: "Apple ID " + String(identityID.uuidString.prefix(8))) { error in
-                    if let error { continuation.resume(throwing: error) }
-                    else { continuation.resume() }
+            try await NativeSigningHandoffCoordinator().run(request: request, exportProfile: {
+                let anisetteConsent = try await backend.recordExplicitAnisetteConsent()
+                return try await backend.exportProvisioningProfile(contextID: contextID,
+                    profileUUID: profile.profileUUID, identityID: identityID,
+                    bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier,
+                    consent: anisetteConsent)
+            }, backendIsCurrent: {
+                self.backend === backend
+            }, exportIdentity: { password in
+                try await backend.exportSigningIdentity(contextID: contextID,
+                    identityID: identityID, password: password, consent: consent)
+            }, importCertificate: { p12URL, provisionURL, password, name in
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    FR.handleCertificateFiles(p12URL: p12URL, provisionURL: provisionURL,
+                        p12Password: password, certificateName: name) { error in
+                        if let error { continuation.resume(throwing: error) }
+                        else { continuation.resume() }
+                    }
                 }
-            }
-            UnifiedTaskCenter.shared.transition(task, to: .completed, progress: 1)
+            })
             lastError = nil
         } catch {
-            if error is CancellationError || Task.isCancelled {
-                UnifiedTaskCenter.shared.transition(task, to: .cancelled)
-            } else {
-                let message = error.localizedDescription
-                lastError = message
-                UnifiedTaskCenter.shared.transition(task, to: .failed, error: message)
+            if !(error is CancellationError) && !Task.isCancelled {
+                lastError = error.localizedDescription
             }
             throw error
         }
-    }
-
-    private static func writeHandoff(_ data: Data, to url: URL) throws {
-        guard !data.isEmpty, data.count <= 2 * 1024 * 1024 else {
-            throw NativeSigningError.signingFailed(.localized("The native certificate export was empty or too large. Nothing was imported."))
-        }
-        try data.write(to: url, options: [.atomic, .completeFileProtection])
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-    }
-
-    private static func handoffPassword() throws -> String {
-        var bytes = Data(count: 32)
-        let status = bytes.withUnsafeMutableBytes {
-            SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!)
-        }
-        guard status == errSecSuccess else {
-            throw NativeSigningError.signingFailed(.localized("A secure password for the certificate export could not be generated. Nothing was imported."))
-        }
-        return bytes.base64EncodedString()
-    }
 
     // MARK: - Certificate Status
 

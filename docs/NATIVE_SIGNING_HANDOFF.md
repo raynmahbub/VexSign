@@ -29,8 +29,12 @@ signing flow. Provisioning does not automatically sign, install or renew an app.
 
 Package regressions cover exact-byte export, missing receipts, CMS digest
 substitution and expired consent. App regressions cover target, identity,
-certificate, expiry and entitlement mismatches. Synthetic CMS verification in
-these tests is not evidence of Apple production trust.
+certificate, expiry and entitlement mismatches. Coordinator regressions exercise
+exact-byte staging, `0700`/`0600` permissions, cleanup, pre-export and post-export
+cancellation, import failure, and task-center terminal states using injected
+synthetic operations; the production adapter still calls the same backend and
+`FR.handleCertificateFiles` route. Synthetic CMS verification and injected import
+operations are not evidence of Apple production trust or a real certificate import.
 
 ## Production gate still closed
 
