@@ -89,6 +89,13 @@ struct LibraryCellView: View {
 						.font(.title2)
 				}
 				.buttonStyle(.borderless)
+				// An icon-only control otherwise reaches VoiceOver as the symbol's own name —
+				// "checkmark circle fill" — which says nothing about what tapping it does, and
+				// nothing about whether this row is already selected.
+				.accessibilityLabel(_isSelected ? Text(.localized("Deselect")) : Text(.localized("Select")))
+				.accessibilityAddTraits(_isSelected ? [.isSelected] : [])
+				.accessibilityHint(Text(.localized("Adds this app to the current selection.")))
+				.accessibilityIdentifier(A11y.Library.selectionToggle)
 			}
 			
 			FRAppIconView(app: app, size: 48)
