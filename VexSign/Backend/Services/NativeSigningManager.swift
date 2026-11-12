@@ -553,6 +553,7 @@ final class NativeSigningManager: ObservableObject {
             }
             throw error
         }
+    }
 
     // MARK: - Certificate Status
 
