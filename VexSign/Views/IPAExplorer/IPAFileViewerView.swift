@@ -26,6 +26,7 @@ struct IPAFileViewerView: View {
 	@State private var _strings: String = ""
 	@State private var _binaryMode = 0
 	@State private var _dylibs: [String] = []
+	@State private var _binary: MachOInspector.Inspection?
 	@State private var _attributes: [FileAttributeKey: Any] = [:]
 	@State private var _didLoad = false
 
@@ -46,6 +47,7 @@ struct IPAFileViewerView: View {
 			_content
 			_actions
 			_info
+			_binaryInfo
 			_links
 		}
 		.toolbar { _toolbar }
@@ -269,6 +271,56 @@ extension IPAFileViewerView {
 		}
 	}
 
+	/// What the binary itself says, rather than what its container is called.
+	///
+	/// The explorer used to list linked libraries and nothing else: no architecture, no minimum
+	/// system, no encryption state, no indication that a problem exists. These are facts a user
+	/// needs before deciding whether an app can be signed for a device at all.
+	@ViewBuilder
+	private var _binaryInfo: some View {
+		if let binary = _binary, !binary.isEmpty {
+			Section {
+				LabeledContent(.localized("Architectures"),
+							   value: binary.architectures.map(\.description).joined(separator: ", "))
+
+				if let slice = binary.deviceNativeSlices.first ?? binary.slices.first {
+					if let platform = slice.platform {
+						LabeledContent(.localized("Platform"), value: platform)
+					}
+					if let minimum = slice.minimumSystemVersion {
+						LabeledContent(.localized("Minimum iOS"), value: minimum)
+					}
+					if let sdk = slice.sdkVersion {
+						LabeledContent(.localized("SDK"), value: sdk)
+					}
+					LabeledContent(.localized("Code Signature"),
+								   value: slice.hasCodeSignature ? String.localized("Present") : String.localized("Missing"))
+					LabeledContent(.localized("Encrypted"),
+								   value: slice.isEncrypted ? String.localized("Yes") : String.localized("No"))
+					ForEach(slice.runtimeSearchPaths, id: \.self) { path in
+						Text(path)
+							.font(.system(size: 12, design: .monospaced))
+							.textSelection(.enabled)
+					}
+				}
+			} header: {
+				Text(.localized("Binary"))
+			}
+
+			if !binary.issues.isEmpty {
+				Section {
+					ForEach(Array(binary.issues.enumerated()), id: \.offset) { _, issue in
+						Text(issue.message)
+							.font(.footnote)
+							.foregroundStyle(.secondary)
+					}
+				} header: {
+					Text(.localized("Diagnostics"))
+				}
+			}
+		}
+	}
+
 	@ViewBuilder
 	private var _links: some View {
 		if !_dylibs.isEmpty {
@@ -331,6 +383,7 @@ extension IPAFileViewerView {
 		_strings = ""
 		_binaryMode = 0
 		_dylibs = []
+		_binary = nil
 
 		switch _kind {
 		case .plist:
@@ -345,7 +398,11 @@ extension IPAFileViewerView {
 			_hex = Self.hexPreview(of: entry.url)
 			_strings = Self.stringPreview(of: entry.url)
 			if _kind == .executable {
-				_dylibs = MachOReader.dylibs(forExecutableAt: entry.url)
+				// One parse answers both questions: the libraries the signing sheet lists and the
+				// shape this screen reports.
+				let inspection = MachOInspector.inspect(fileAt: entry.url)
+				_binary = inspection
+				_dylibs = inspection.resolvedLinkedLibraries
 			}
 		case .directory:
 			break
