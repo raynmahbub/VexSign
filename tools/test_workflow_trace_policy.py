@@ -17,7 +17,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('VexSign/Resources/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):
-        for path in ['VexSign/Utilities/FR.swift', 'VexSign/Views/Settings/DevicePickerView.swift',
+        for path in ['VexSign/Utilities/FR+Certificates.swift', 'VexSign/Views/Settings/DevicePickerView.swift',
                      'VexSign/Utilities/IDevice/LockdownClient.swift']:
             source = self.text(path)
             self.assertIn('HeartbeatManager.pairingFile()', source)
@@ -31,7 +31,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('validatedCommit', source)
 
     def test_failed_install_does_not_invoke_signing(self):
-        source = self.text('VexSign/Backend/Observable/InstallQueue.swift')
+        source = self.text('VexSign/Backend/Observable/InstallQueueCore.swift')
         self.assertNotIn('signPackageFile', source)
         self.assertNotIn('SigningService', source)
         self.assertIn('self.current?.id == failedEntryID', source)
@@ -110,7 +110,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('signingTrace(subjectID:', details)
 
     def test_declined_install_closes_its_own_task_record(self):
-        source = self.text('VexSign/Backend/Observable/InstallQueue.swift')
+        source = self.text('VexSign/Backend/Observable/InstallQueueCore.swift')
         declined = source.split('\t\tcase .success(.cancelled):\n', 1)[1].split('case .success(.guestImportPrepared):', 1)[0]
         self.assertIn('_finishUnifiedTask(cancelled: true)', declined)
         self.assertLess(declined.index('_finishUnifiedTask(cancelled: true)'), declined.index('_abandon()'))
@@ -181,7 +181,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         #   FR declares the function. FeatureStatusRegistry names it in a description.
         elsewhere = {
             'VexSign/Backend/Observable/SelfUpdateManager.swift',
-            'VexSign/Utilities/FR.swift',
+            'VexSign/Utilities/FR+Signing.swift',
             'VexSign/Backend/Observable/FeatureStatusRegistry.swift',
         }
         named, started = set(), set()
@@ -192,7 +192,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
             if 'SigningService.shared.sign(' in source:
                 started.add(path.relative_to(ROOT).as_posix())
         self.assertEqual(named, set(flows) | elsewhere)
-        self.assertEqual(started, {'VexSign/Utilities/FR.swift'})
+        self.assertEqual(started, {'VexSign/Utilities/FR+Signing.swift'})
 
     def test_no_flow_can_ask_for_the_signed_copy_to_be_dropped(self):
         # The entry points that took the signed copy together with a "keep it?" flag are gone.
@@ -328,10 +328,13 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('repeat signing replaces this source copy', details)
 
     def test_source_journal_and_build_sidecars_are_wired(self):
+        # The journal load lives in the persistence extension; the task model carries the
+        # default progress the journal restores into.
         center = self.text('VexSign/Backend/Observable/UnifiedTaskCenter.swift')
-        self.assertIn('(tasks + history).map', center)
-        self.assertIn('task.recoverAfterRestart()', center)
         self.assertIn('progress: Double = 0', center)
+        journal = self.text('VexSign/Backend/Observable/UnifiedTaskPersistence.swift')
+        self.assertIn('(tasks + history).map', journal)
+        self.assertIn('task.recoverAfterRestart()', journal)
         release = self.text('.github/workflows/release.yml')
         for required in ['write-build-provenance.py --directory upload', 'upload/BUILD.json', 'upload/SHA256SUMS']:
             self.assertIn(required, release)
