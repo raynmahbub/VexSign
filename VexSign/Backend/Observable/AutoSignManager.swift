@@ -58,7 +58,17 @@ final class AutoSignManager {
 
 		// Saved settings never carry the files that were staged for one sign. Say so in the
 		// run's own log instead of dropping them silently.
-		let notices = OneShotTweakFiles.replayNotices(for: stored?.oneShotFileNames ?? [])
+		var notices = OneShotTweakFiles.replayNotices(for: stored?.oneShotFileNames ?? [])
+
+		// This path shows no sheet, so an identity substitution has to be said in the run's own
+		// log: the app was signed with another key, and an update signed with a different one may
+		// not install over the copy that is already there.
+		if case .orphaned = SigningProfileStore.resolveIdentity(
+			captured: stored?.certificateUUID,
+			available: Set(Storage.shared.getAllCertificates().compactMap { $0.uuid?.lowercased() })
+		) {
+			notices.append(.localized("This app was signed with an identity that is no longer installed. It is being signed with the current selection, which may not install over the existing copy."))
+		}
 
 		let result = await withCheckedContinuation { continuation in
 			FR.signPackageFile(

@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import OSLog
 
 // MARK: - Model
 struct SigningProfile: Codable, Equatable {
@@ -50,6 +51,37 @@ extension SigningProfile {
 			)
 		)
 	}
+}
+
+// MARK: - Identity resolution
+
+/// What the identity a profile captured resolves to today.
+///
+/// A profile stores `certificateUUID`. Certificates get deleted, re-imported and replaced, so
+/// that reference can outlive the row it named. The store used to answer such a profile with the
+/// *currently selected* certificate and say nothing, which meant an automatic re-sign (Update All,
+/// Auto Sign) could quietly switch identities — the one thing the app warns the user about when
+/// they do it by hand.
+enum SigningIdentityResolution: Equatable, Sendable {
+    /// The profile captured no identity; using the current selection is the documented behaviour.
+    case currentSelection
+    /// The captured identity is still installed.
+    case captured(uuid: String)
+    /// The captured identity is no longer installed. Callers may fall back, but must not claim
+    /// the result is the same identity.
+    case orphaned(uuid: String)
+
+    var capturedUUID: String? {
+        switch self {
+        case .currentSelection: nil
+        case .captured(let uuid), .orphaned(let uuid): uuid
+        }
+    }
+
+    var isOrphaned: Bool {
+        if case .orphaned = self { return true }
+        return false
+    }
 }
 
 // MARK: - Store
@@ -148,11 +180,67 @@ final class SigningProfileStore {
 	}
 
 	/// Resolves the certificate a stored profile points at, falling back to the app-wide selection.
+	/// Resolves the identity a profile captured against the certificates installed right now.
+	///
+	/// Pure and injectable: the store's own callers pass the real inventory, and tests pass a
+	/// set, so the orphan rule is verifiable without a store, a Keychain or a certificate file.
+	static func resolveIdentity(captured: String?, available: Set<String>) -> SigningIdentityResolution {
+		guard let captured else { return .currentSelection }
+		let key = captured.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+		guard !key.isEmpty else { return .currentSelection }
+		return available.contains(key) ? .captured(uuid: key) : .orphaned(uuid: key)
+	}
+
+	/// The certificate to sign with, and the truth about whether it is the one the profile wanted.
+	///
+	/// The fallback is kept — refusing to sign an app because an older profile points at a deleted
+	/// identity would strand the app — but it is no longer silent: an orphaned reference is logged
+	/// here and reported to automatic runs as a notice.
 	func certificate(for profile: SigningProfile?) -> CertificatePair? {
-		guard let uuid = profile?.certificateUUID else {
-			return Storage.shared.getCertificate(for: UserDefaults.standard.integer(forKey: "vexsign.selectedCert"))
+		let certificates = Storage.shared.getAllCertificates()
+		let available = Set(certificates.compactMap { $0.uuid?.lowercased() })
+		let resolution = Self.resolveIdentity(captured: profile?.certificateUUID, available: available)
+
+		switch resolution {
+		case .captured(let uuid):
+			if let match = certificates.first(where: { $0.uuid?.lowercased() == uuid }) {
+				return match
+			}
+			// The inventory changed between the lookup and the match. Report it the same way as a
+			// reference that was already known to be gone instead of guessing.
+			return _currentSelection(replacingOrphaned: uuid)
+		case .orphaned(let uuid):
+			return _currentSelection(replacingOrphaned: uuid)
+		case .currentSelection:
+			return _currentSelection(replacingOrphaned: nil)
 		}
-		return Storage.shared.getAllCertificates().first { $0.uuid == uuid }
-			?? Storage.shared.getCertificate(for: UserDefaults.standard.integer(forKey: "vexsign.selectedCert"))
+	}
+
+	/// The documented fallback, made audible.
+	///
+	/// Refusing to sign because an older profile points at a deleted identity would strand the app;
+	/// signing silently with another key would hide an identity change that the app warns about
+	/// when the user makes it by hand. So the run continues and says what it substituted.
+	private func _currentSelection(replacingOrphaned reference: String?) -> CertificatePair? {
+		if let reference {
+			Logger.misc.warning(
+				"Signing profile identity is no longer installed; signing with the current selection instead. Reference: \(reference.suffix(8), privacy: .public)"
+			)
+		}
+		return Storage.shared.getCertificate(for: UserDefaults.standard.integer(forKey: "vexsign.selectedCert"))
+	}
+
+	/// Bundle identifiers whose saved identity has been deleted.
+	///
+	/// Diagnostics, not cleanup: removing the reference would erase the evidence that this app was
+	/// originally signed with another key, and deleting a profile row is the user's decision.
+	func orphanedBundleIDs(available: Set<String>? = nil) -> [String] {
+		let uuids = available ?? Set(Storage.shared.getAllCertificates().compactMap { $0.uuid?.lowercased() })
+		return all
+			.filter { _, profile in
+				Self.resolveIdentity(captured: profile.certificateUUID, available: uuids).isOrphaned
+			}
+			.keys
+			.sorted()
 	}
 }
