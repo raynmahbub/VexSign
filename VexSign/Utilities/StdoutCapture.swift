@@ -19,9 +19,18 @@ final class StdoutCapture {
 	private var _buffer = Data()
 	private var _onLine: ((String) -> Void)?
 
-	func start(_ onLine: @escaping (String) -> Void) {
+	/// Starts capturing the process's stdout/stderr until `stop()` is called.
+	///
+	/// Capture is process-wide, so only one scope can own it at a time. A second caller
+	/// gets `false` instead of silently receiving nothing - and, just as importantly, must
+	/// not call `stop()`, because that would restore the descriptors the first caller is
+	/// still relying on. The signing gate normally makes the second caller impossible; this
+	/// keeps a future caller from turning that assumption into lost log output.
+	/// - Returns: `true` when this call owns the capture.
+	@discardableResult
+	func start(_ onLine: @escaping (String) -> Void) -> Bool {
 		_queue.sync {
-			guard _pipe == nil else { return }
+			guard _pipe == nil else { return false }
 
 			let pipe = Pipe()
 			_onLine = onLine
@@ -38,6 +47,7 @@ final class StdoutCapture {
 				guard !data.isEmpty, let self else { return }
 				self._queue.async { self._consume(data) }
 			}
+			return true
 		}
 	}
 
