@@ -106109,6 +106109,39 @@
           }
         }
       }
+    },
+    "Another signing run already owns engine output capture; this run's log will be incomplete." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another signing run already owns engine output capture; this run's log will be incomplete."
+          }
+        }
+      }
+    },
+    "Package downloads must use HTTPS. Plain HTTP is only available for a package on your local network, and only after enabling 'Allow Insecure HTTP Sources' in Settings → Security." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Package downloads must use HTTPS. Plain HTTP is only available for a package on your local network, and only after enabling 'Allow Insecure HTTP Sources' in Settings → Security."
+          }
+        }
+      }
+    },
+    "Plain HTTP is only available for a repository on your local network. Use HTTPS for '%@'." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plain HTTP is only available for a repository on your local network. Use HTTPS for '%@'."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

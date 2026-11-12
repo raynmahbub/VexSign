@@ -106,6 +106,54 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "file:///etc/passwd")!), "Opt-in only opens HTTP, not arbitrary schemes")
 	}
 
+	func testInsecureHTTPOptInIsConfinedToLocalHosts() throws {
+		// The setting is offered as a LAN convenience. Once ATS no longer exempts public
+		// hosts, a public `http://` source would fail inside URLSession with an error the
+		// user cannot act on, so the policy refuses it first and says why.
+		let key = SourceURLPolicy.allowInsecureHTTPKey
+		let original = UserDefaults.standard.object(forKey: key)
+		addTeardownBlock {
+			if let original { UserDefaults.standard.set(original, forKey: key) }
+			else { UserDefaults.standard.removeObject(forKey: key) }
+		}
+		UserDefaults.standard.set(true, forKey: key)
+
+		try SourceURLPolicy.validate(URL(string: "http://192.168.1.10/repo.json")!)
+		try SourceURLPolicy.validate(URL(string: "http://nas.local/repo.json")!)
+		try SourceURLPolicy.validate(URL(string: "http://localhost:8080/repo.json")!)
+		XCTAssertThrowsError(try SourceURLPolicy.validate(URL(string: "http://example.com/repo.json")!),
+							 "the opt-in must not make a public catalog plaintext")
+
+		try PackageDownloadURLPolicy.validateInitialURL(URL(string: "http://192.168.1.10/app.ipa")!)
+		XCTAssertThrowsError(try PackageDownloadURLPolicy.validateInitialURL(URL(string: "http://cdn.example.com/app.ipa")!),
+							 "a public package URL stays HTTPS-only even with the opt-in")
+		XCTAssertFalse(PackageDownloadURLPolicy.permitsRedirect(
+			from: URL(string: "http://192.168.1.10/app.ipa"),
+			to: URL(string: "http://cdn.example.com/app.ipa")!
+		))
+	}
+
+	func testLocalNetworkClassification() {
+		XCTAssertTrue(LocalNetworkHost.matches("localhost"))
+		XCTAssertTrue(LocalNetworkHost.matches("nas.local"))
+		XCTAssertTrue(LocalNetworkHost.matches("127.0.0.1"))
+		XCTAssertTrue(LocalNetworkHost.matches("10.1.2.3"))
+		XCTAssertTrue(LocalNetworkHost.matches("172.16.0.1"))
+		XCTAssertTrue(LocalNetworkHost.matches("172.31.255.254"))
+		XCTAssertTrue(LocalNetworkHost.matches("192.168.1.10"))
+		XCTAssertTrue(LocalNetworkHost.matches("169.254.10.1"))
+		XCTAssertTrue(LocalNetworkHost.matches("fe80::1"))
+		XCTAssertTrue(LocalNetworkHost.matches("fd00::1"))
+
+		XCTAssertFalse(LocalNetworkHost.matches("example.com"))
+		XCTAssertFalse(LocalNetworkHost.matches("8.8.8.8"))
+		XCTAssertFalse(LocalNetworkHost.matches("172.32.0.1"), "172.32 is public")
+		XCTAssertFalse(LocalNetworkHost.matches("192.169.0.1"))
+		XCTAssertFalse(LocalNetworkHost.matches("2001:db8::1"))
+		XCTAssertFalse(LocalNetworkHost.matches("999.1.1.1"))
+		XCTAssertFalse(LocalNetworkHost.matches(""))
+	}
+
 	func testRestorableRepositoryKeepsALANRepositoryWithoutTheHTTPOptIn() throws {
 		// A restore reinstates a repository the user already saved, so it does not consult the
 		// opt-in — but it is still not a reason to accept another scheme or embedded credentials.
