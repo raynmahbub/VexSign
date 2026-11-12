@@ -70,7 +70,7 @@ final class StorageConcurrencyTests: XCTestCase {
 		let rows = try await rowsOnceMerged(Imported.fetchRequest(), expected: 20)
 
 		XCTAssertEqual(rows.count, 20, "every concurrent import must produce exactly one row")
-		XCTAssertEqual(Set(rows.map { $0.uuid ?? "" }).count, 20)
+		XCTAssertEqual(Set(rows.map { $0.uuid ?? "" }).count, 20, "each import keeps its own uuid")
 
 		// An imported app keeps the identifier it was read with.
 		XCTAssertTrue(rows.allSatisfy { $0.originalIdentifier == $0.identifier })
@@ -79,7 +79,7 @@ final class StorageConcurrencyTests: XCTestCase {
 		// context, so 20 simultaneous inserts still get 20 distinct values - two
 		// independent background contexts would all have read the same lowest
 		// value and collided.
-		XCTAssertEqual(Set(rows.map { $0.sortIndex }).count, 20)
+		XCTAssertEqual(Set(rows.map { $0.sortIndex }).count, 20, "each import gets its own sort index")
 	}
 
 	@MainActor
@@ -115,8 +115,8 @@ final class StorageConcurrencyTests: XCTestCase {
 
 		// Two entity types share one write context; each still gets its own range
 		// of sortIndex values.
-		XCTAssertEqual(Set(signed.map { $0.sortIndex }).count, 10)
-		XCTAssertEqual(Set(imported.map { $0.sortIndex }).count, 10)
+		XCTAssertEqual(Set(signed.map { $0.sortIndex }).count, 10, "each signed copy gets its own sort index")
+		XCTAssertEqual(Set(imported.map { $0.sortIndex }).count, 10, "each import gets its own sort index")
 
 		XCTAssertEqual(Self.storage.getAllApps().count, 20)
 	}

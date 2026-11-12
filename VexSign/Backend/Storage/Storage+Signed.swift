@@ -34,7 +34,7 @@ extension Storage {
 			new.uuid = uuid
 			new.source = source
 			new.date = Date()
-			new.sortIndex = self.nextSignedSortIndex(in: context)
+			new.sortIndex = self.nextSortIndex(in: context, entity: "Signed")
 
 			if let certificateID {
 				// Re-fetch on the write context: the caller's instance belongs to
@@ -55,16 +55,5 @@ extension Storage {
 
 		Task { @MainActor in WidgetStatusPublisher.publish() }
 		return id
-	}
-
-	/// Below the current lowest so new apps land at the top.
-	/// Must run on the context that is doing the insert.
-	func nextSignedSortIndex(in context: NSManagedObjectContext) -> Int32 {
-		let request: NSFetchRequest<Signed> = Signed.fetchRequest()
-		request.sortDescriptors = [NSSortDescriptor(key: "sortIndex", ascending: true)]
-		request.fetchLimit = 1
-
-		let lowest = (try? context.fetch(request))?.first?.sortIndex ?? 1
-		return lowest - 1
 	}
 }
