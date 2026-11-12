@@ -50,7 +50,7 @@ struct RepositoryRow: View {
 
                 HStack(spacing: 6) {
                     if let url = source.sourceURL, VexSignAPI.isPremiumSource(url) {
-                        Label("Premium", systemImage: "crown.fill")
+                        Label(.localized("Premium"), systemImage: "crown.fill")
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Color.orange.opacity(0.15), in: Capsule())

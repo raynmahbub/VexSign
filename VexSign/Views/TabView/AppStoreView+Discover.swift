@@ -171,7 +171,7 @@ extension AppStoreView {
                         .scaledToFit()
                         .frame(width: 20, height: 20)
                         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                    Text("FEATURED ON VEXSIGN")
+                    Text(.localized("FEATURED ON VEXSIGN"))
                         .font(.caption2.weight(.heavy))
                         .tracking(1.0)
                         .foregroundStyle(.white.opacity(0.9))
@@ -179,12 +179,12 @@ extension AppStoreView {
 
                 // Main headline
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(featuredItem?.app.currentName ?? "Discover & Sideload")
+                    Text(featuredItem?.app.currentName ?? .localized("Discover & Sideload"))
                         .font(.title2.weight(.heavy))
                         .foregroundStyle(.white)
                         .lineLimit(2)
 
-                    Text(featuredItem?.app.currentDescription ?? "Sign & install any iOS app on-device without PC or revocations.")
+                    Text(featuredItem?.app.currentDescription ?? .localized("Sign & install any iOS app on-device without PC or revocations."))
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.88))
                         .lineLimit(2)
@@ -227,7 +227,7 @@ extension AppStoreView {
                 } else {
                     HStack(spacing: 8) {
                         Image(systemName: "globe.desk.fill")
-                        Text("\(nonExcludedSources.count) sources connected")
+                        Text(String.localized("%lld sources connected", arguments: nonExcludedSources.count))
                             .font(.caption.weight(.medium))
                     }
                     .foregroundStyle(.white.opacity(0.9))

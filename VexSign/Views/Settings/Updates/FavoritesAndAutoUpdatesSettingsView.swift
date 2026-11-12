@@ -32,6 +32,13 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
         case favorites = "Favorites"
         case autoUpdate = "Auto-Update"
         var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .all: return .localized("All")
+            case .favorites: return .localized("Favorites")
+            case .autoUpdate: return .localized("Auto-Update")
+            }
+        }
     }
 
     private var allApps: [AppInfoPresentable] {
@@ -119,11 +126,11 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
     private var autoUpdateCertSection: some View {
         NBSection(.localized("Auto Update Certificate")) {
             Picker(.localized("Signing Certificate"), selection: $prefs.autoUpdateCertificate) {
-                Text("Global Default").tag("Global Default")
+                Text(.localized("Global Default")).tag("Global Default")
                 Text("VexSign (Dist)").tag("VexSign (Dist)")
                 ForEach(certificates, id: \.uuid) { cert in
                     let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
-                    Text(name).tag(name)
+                    Text(name == "Certificate" ? .localized("Certificate") : name).tag(name)
                 }
             }
             .pickerStyle(.menu)
@@ -156,7 +163,7 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
         NBSection(.localized("Manage Apps")) {
             Picker(.localized("Filter"), selection: $filterMode) {
                 ForEach(FilterOption.allCases) { opt in
-                    Text(opt.rawValue).tag(opt)
+                    Text(opt.title).tag(opt)
                 }
             }
             .pickerStyle(.segmented)

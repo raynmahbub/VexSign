@@ -23,10 +23,30 @@ struct CertificateHealth: Identifiable, Sendable {
 	let detail: String
     var effectiveExpiry: Date { min(expires, certificateExpires ?? expires) }
     var daysRemaining: Int { Int(floor(effectiveExpiry.timeIntervalSinceNow / 86_400)) }
-    var score: Int {
-        guard effectiveExpiry > Date(), revocation != .revoked else { return 0 }
-        let base = revocation == .good ? 100 : 60
-        return max(0, base - (daysRemaining < 7 ? 40 : daysRemaining < 30 ? 20 : 0))
+
+    /// Share-safe summary: includes entitlement names but deliberately omits
+    /// identifiers, profile payloads, entitlement values, and certificate data.
+    var redactedHealthCard: String {
+        let entitlementNames: [String]
+        if let data = entitlements.data(using: .utf8),
+           let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any] { // try? ok: diagnostic share text; unparsable payload lists no entitlement names
+            entitlementNames = plist.keys.sorted()
+        } else {
+            entitlementNames = []
+        }
+        let date = ISO8601DateFormatter()
+        date.formatOptions = [.withInternetDateTime]
+        return [
+            "VexSign Certificate Health Card",
+            "Generated: \(date.string(from: checkedAt))",
+            "OCSP status: \(revocation.rawValue.capitalized)",
+            "Provisioning profile expiry: \(date.string(from: expires))",
+            "Signing certificate expiry: \(certificateExpires.map { date.string(from: $0) } ?? "Unavailable")",
+            "Device scope: \(allDevices ? "All devices" : "Limited device profile (\(deviceCount) devices)")",
+            "Device UDID match: Not assessed by this report",
+            "Entitlements: \(entitlementNames.isEmpty ? "None parsed" : entitlementNames.joined(separator: ", "))",
+            "\nThis summary omits certificate/profile contents, account identifiers, bundle identifiers, device UDIDs, and entitlement values. OCSP Unknown does not mean valid."
+        ].joined(separator: "\n")
     }
 }
 

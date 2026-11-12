@@ -22,6 +22,8 @@ credentials or pairing files. Redact bundle identifiers and tokens where
 possible. We will acknowledge the report, investigate, and coordinate a fix and
 disclosure with you.
 
+See the [VexSign threat model](docs/THREAT_MODEL.md) for an overview of assets, trust boundaries, data flows, and remaining limitations. It is not a security audit or guarantee.
+
 ## Scope
 
 In scope:

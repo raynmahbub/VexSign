@@ -46,6 +46,7 @@ versioned with the code.
 | [Public signer integration assessment](research/public-signer-integration-assessment.md) | You need the 2026-11-08 pinned source inventory, feature dispositions, first integration batch and remaining gates. |
 | [Signing comparison notes](research/public-signer-comparison.md) | You need the concise public-source comparison, reviewed revisions and licensing context. |
 | [Security](../SECURITY.md) | You are reporting a vulnerability or reviewing the trust boundaries. |
+| [Translation guide](../TRANSLATING.md) | You want to add or review a language in the Xcode String Catalog. |
 | [Changelog](../CHANGELOG.md) | You need the user-visible history. |
 
 ## Repository conventions

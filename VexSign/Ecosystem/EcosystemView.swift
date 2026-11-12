@@ -1,28 +1,29 @@
 import SwiftUI
+import NimbleExtensions
 
 struct EcosystemView: View {
     @AppStorage("VexSign.ecosystem.repositoryAutoRefresh") private var autoRefresh = false
     var body: some View {
         List {
-            Section("Publish & Discover") {
-                NavigationLink(destination: RepositoryBuilderView()) { Label("Repository Builder", systemImage: "shippingbox") }
-                NavigationLink(destination: DiscoveryView()) { Label("Discovery", systemImage: "sparkles") }
+            Section(.localized("Publish & Discover")) {
+                NavigationLink(destination: RepositoryBuilderView()) { Label(.localized("Repository Builder"), systemImage: "shippingbox") }
+                NavigationLink(destination: DiscoveryView()) { Label(.localized("Discovery"), systemImage: "sparkles") }
             }
-            Section("Repository Sync") {
-                Toggle("Automatic Six-Hour Refresh", isOn: $autoRefresh)
+            Section(.localized("Repository Sync")) {
+                Toggle(.localized("Automatic Six-Hour Refresh"), isOn: $autoRefresh)
                     .onChange(of: autoRefresh) { _, _ in EcosystemMaintenance.schedule() }
-                Text("Refreshes at startup and during available background time. iOS controls the actual schedule. Game Mode pauses network work.").font(.caption).foregroundStyle(.secondary)
+                Text(.localized("Refreshes at startup and during available background time. iOS controls the actual schedule. Game Mode pauses network work.")).font(.caption).foregroundStyle(.secondary)
             }
-            Section("Signing Tools") {
-                NavigationLink(destination: CertificateDashboardView()) { Label("Certificate Health", systemImage: "checkmark.shield") }
-                NavigationLink(destination: OTAView()) { Label("OTA Distribution", systemImage: "qrcode") }
-                NavigationLink(destination: CloneWizardView()) { Label("Clone Wizard", systemImage: "square.on.square") }
-                NavigationLink(destination: AnalyticsView()) { Label("Analytics", systemImage: "chart.bar") }
+            Section(.localized("Signing Tools")) {
+                NavigationLink(destination: CertificateDashboardView()) { Label(.localized("Certificate Health"), systemImage: "checkmark.shield") }
+                NavigationLink(destination: OTAView()) { Label(.localized("OTA Distribution"), systemImage: "qrcode") }
+                NavigationLink(destination: CloneWizardView()) { Label(.localized("Clone Wizard"), systemImage: "square.on.square") }
+                NavigationLink(destination: AnalyticsView()) { Label(.localized("Analytics"), systemImage: "chart.bar") }
             }
-            Section("Web Tools") {
-                NavigationLink(destination: WebToolsView()) { Label("Repository Creator, Certificate Checker, UDID", systemImage: "globe") }
-                Text("Browser tools served by the VexSign backend under /tools. They run on the server: no private key ever leaves your device, and the repository creator hands you a file instead of hosting your IPAs.").font(.caption).foregroundStyle(.secondary)
+            Section(.localized("Web Tools")) {
+                NavigationLink(destination: WebToolsView()) { Label(.localized("Repository Creator, Certificate Checker, UDID"), systemImage: "globe") }
+                Text(.localized("Browser tools served by the VexSign backend under /tools. They run on the server: no private key ever leaves your device, and the repository creator hands you a file instead of hosting your IPAs.")).font(.caption).foregroundStyle(.secondary)
             }
-        }.navigationTitle("Ecosystem")
+        }.navigationTitle(.localized("Ecosystem"))
     }
 }
