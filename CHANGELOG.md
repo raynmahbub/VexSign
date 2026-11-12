@@ -11,6 +11,16 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Four of the new acceptance tests failed on their first real run, which is what
+  they were for. `CertificateRemovalDurabilityTests` and the
+  `SigningIdentityPolicyTests` fixture created a `CertificatePair` without
+  `ppQCheck`, `isDefault` or `date` — non-optional in the model — so Core Data
+  refused the save with *ppQCheck is a required value*.
+  `testArchiveRejectsDuplicatesThatDifferOnlyInUnicodeNormalization` asserted
+  `precomposed != decomposed`, but `String` compares by canonical equivalence and
+  the two spellings are equal; the assertion now compares UTF-8 bytes, which is
+  the difference the archive and the filesystem actually see. Suite totals before
+  the fix: 1339 tests, 1330 passed, 7 failed.
 - The post-sign certificate check was in the wrong function and did not compile.
   Phase 2 put `expectation.expectsFreshSignature` inside
   `_signatureIssues(in:executable:)`, which has no `expectation` parameter —

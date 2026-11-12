@@ -247,6 +247,10 @@ final class SigningIdentityPolicyTests: XCTestCase {
 		certificate.uuid = UUID().uuidString
 		certificate.expiration = expiration
 		certificate.revoked = revoked
+		// Non-optional in the model, so set them instead of relying on defaults.
+		certificate.ppQCheck = false
+		certificate.isDefault = false
+		certificate.date = Date()
 		certificate.nickname = "Test Certificate"
 		return certificate
 	}

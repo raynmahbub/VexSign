@@ -46,6 +46,11 @@ final class CertificateRemovalDurabilityTests: XCTestCase {
 		certificate.uuid = UUID().uuidString
 		certificate.nickname = "Detached"
 		certificate.expiration = Date().addingTimeInterval(86_400)
+		// Non-optional in the model, so set them instead of relying on defaults.
+		certificate.ppQCheck = false
+		certificate.isDefault = false
+		certificate.revoked = false
+		certificate.date = Date()
 		try storage.context.save()
 
 		// No files were ever written for this row, so there is nothing to remove. The point is

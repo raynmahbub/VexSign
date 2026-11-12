@@ -88,7 +88,14 @@ final class ImportAndInstallationTests: XCTestCase {
     func testArchiveRejectsDuplicatesThatDifferOnlyInUnicodeNormalization() {
         let precomposed = "Payload/Caf\u{00E9}.app/Info.plist"       // é as one scalar
         let decomposed = "Payload/Cafe\u{0301}.app/Info.plist"       // e + combining acute
-        XCTAssertNotEqual(precomposed, decomposed, "the fixture has to be two distinct Swift strings")
+        // `String` compares by canonical equivalence, so these are *equal* as Swift
+        // strings even though their UTF-8 differs. That is exactly why the fixture
+        // cannot rely on `!=`: the distinctness has to be measured at the byte level,
+        // which is also what the archive carries and what the filesystem stores.
+        XCTAssertNotEqual(
+            Array(precomposed.utf8), Array(decomposed.utf8),
+            "the fixture has to differ in its bytes"
+        )
 
         var claimed = Set<String>()
         XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate(precomposed, in: &claimed))
