@@ -466,6 +466,59 @@ def check_resources(root: Path, report: Report) -> None:
     report.stats["resources_checked"] = checked
 
 
+def _line_of(path: Path, needle: str) -> int:
+    for number, line in enumerate(read_lines(path), start=1):
+        if needle in line:
+            return number
+    return 1
+
+
+def check_security_settings(root: Path, report: Report) -> None:
+    """Keep the two settings that quietly weaken a release from coming back.
+
+    Neither is a style preference. `NSAllowsArbitraryLoads` turns App Transport Security
+    off for every public host in the app, which is how a plaintext catalog or package
+    URL stops being an error and becomes a silent downgrade; the local-network exception
+    is what the app actually needs. `get-task-allow` in the app's own entitlements is a
+    development entitlement that a distribution profile does not grant.
+
+    The entitlements check is advisory because removing the key has to be verified by a
+    signed build; the ATS check is an error because there is no configuration in which
+    the app needs it.
+    """
+    info = root / "VexSign/Resources/Info.plist"
+    if info.is_file():
+        try:
+            plist = plistlib.loads(info.read_bytes())
+        except Exception:  # noqa: BLE001 - check_resources already reports the parse failure
+            plist = {}
+        transport = plist.get("NSAppTransportSecurity") or {}
+        if transport.get("NSAllowsArbitraryLoads") is True:
+            report.add(Finding(
+                "security-settings", "error",
+                "NSAllowsArbitraryLoads is enabled: ATS must cover public hosts. "
+                "Keep NSAllowsLocalNetworking for LAN repositories and the on-device server.",
+                rel(root, info), _line_of(info, "NSAllowsArbitraryLoads"), 1))
+        if transport.get("NSAllowsArbitraryLoadsInWebContent") is True:
+            report.add(Finding(
+                "security-settings", "warning",
+                "NSAllowsArbitraryLoadsInWebContent is enabled: web views load plaintext content.",
+                rel(root, info), _line_of(info, "NSAllowsArbitraryLoadsInWebContent"), 1))
+
+    entitlements = root / "VexSign/Supporting Files/VexSign.entitlements"
+    if entitlements.is_file():
+        try:
+            values = plistlib.loads(entitlements.read_bytes())
+        except Exception:  # noqa: BLE001 - check_resources already reports the parse failure
+            values = {}
+        if values.get("get-task-allow") is True:
+            report.add(Finding(
+                "security-settings", "warning",
+                "get-task-allow is in the shipping entitlements: it is a development entitlement and "
+                "does not match a distribution profile. Move it to a Debug-only entitlements file.",
+                rel(root, entitlements), _line_of(entitlements, "get-task-allow"), 1))
+
+
 def check_pbxproj(root: Path, report: Report) -> None:
     for path in iter_files(root, {".pbxproj"}):
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -517,7 +570,7 @@ def render_summary(report: Report, swiftc_version: str) -> str:
     out.append("| Check | Errors | Warnings |")
     out.append("|---|---:|---:|")
     for check in ["repository-layout", "tool-syntax", "conflict-markers", "swift-syntax", "duplicate-types", "duplicate-filenames",
-                  "cross-module-imports", "resources", "pbxproj"]:
+                  "cross-module-imports", "resources", "security-settings", "pbxproj"]:
         e = sum(1 for f in errors if f.check == check)
         w = sum(1 for f in warnings if f.check == check)
         label = "swift-syntax (skipped)" if check == "swift-syntax" and report.stats.get("swift_syntax_skipped") else check
@@ -610,6 +663,29 @@ def run_self_tests() -> int:
                 expected = 2 if shutil.which("bash") else 1
                 self.assertEqual(len(report.errors), expected)
 
+        def test_security_settings_catch_ats_and_debug_entitlements(self):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "VexSign/Resources").mkdir(parents=True)
+                info = root / "VexSign/Resources/Info.plist"
+                info.write_bytes(plistlib.dumps({"NSAppTransportSecurity": {"NSAllowsArbitraryLoads": True}}))
+                report = Report(root)
+                check_security_settings(root, report)
+                self.assertEqual(len(report.errors), 1)
+
+                info.write_bytes(plistlib.dumps({"NSAppTransportSecurity": {"NSAllowsLocalNetworking": True}}))
+                clean = Report(root)
+                check_security_settings(root, clean)
+                self.assertEqual(clean.findings, [])
+
+                (root / "VexSign/Supporting Files").mkdir()
+                (root / "VexSign/Supporting Files/VexSign.entitlements").write_bytes(
+                    plistlib.dumps({"get-task-allow": True}))
+                debug = Report(root)
+                check_security_settings(root, debug)
+                self.assertEqual(debug.errors, [])
+                self.assertEqual(len(debug.warnings), 1)
+
         def test_script_input_rename(self):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
@@ -659,6 +735,7 @@ def main() -> int:
     check_duplicate_filenames(root, report)
     check_cross_module_imports(root, report)
     check_resources(root, report)
+    check_security_settings(root, report)
     check_pbxproj(root, report)
 
     if not args.no_annotations:
