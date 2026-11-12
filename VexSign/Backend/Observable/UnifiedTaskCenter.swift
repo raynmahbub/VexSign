@@ -555,12 +555,14 @@ final class UnifiedTaskCenter: ObservableObject {
 
 	// MARK: - Persistence
 
-	private func _loadHistory() {
+private func _loadHistory() {
         guard !historyLoading, !historyLoaded else { return }
         historyLoading = true
-        historyJournal.load { [weak self] result in
-            Task { @MainActor in
-                guard let self else { return }
+        
+        Task { [weak self] in
+            guard let self else { return }
+            let result = await self.historyJournal.load()
+            await MainActor.run {
                 self.historyLoading = false
                 switch result {
                 case .blocked(let issue):
@@ -588,9 +590,9 @@ final class UnifiedTaskCenter: ObservableObject {
                 }
             }
         }
-	}
+    }
 
-    private func _persistHistory() {
+private func _persistHistory() {
         guard historyLoaded else {
             // Retry unavailable reads on subsequent activity or device unlock.
             // Never replace a journal we have not successfully read/preserved.
@@ -600,9 +602,11 @@ final class UnifiedTaskCenter: ObservableObject {
         pruneHistoryIcons()
         // Capture values on the main actor; no mutable UnifiedTask crosses to IO.
         let snapshots = (tasks + history).map { $0.snapshot }
-        historyJournal.save(snapshots) { [weak self] issue in
-            Task { @MainActor in
-                guard let self else { return }
+        
+        Task { [weak self] in
+            guard let self else { return }
+            let issue = await self.historyJournal.save(snapshots)
+            await MainActor.run {
                 if let issue {
                     self.historyPersistenceIssue = issue
                     Logger.misc.warning("Task history write failed; prior atomic journal retained.")
@@ -611,7 +615,7 @@ final class UnifiedTaskCenter: ObservableObject {
                 }
             }
         }
-	}
+    }
 
 	/// Clears the persisted history (Settings → Diagnostics).
 	func clearHistory() {
