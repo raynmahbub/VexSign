@@ -72,12 +72,12 @@ struct NativeSigningHandoffCoordinator {
     private let now: () -> Date
 
     init(
-        taskCenter: UnifiedTaskCenter = .shared,
+        taskCenter: UnifiedTaskCenter? = nil,
         temporaryDirectory: URL = FileManager.default.temporaryDirectory,
         generatePassword: (() throws -> String)? = nil,
         now: @escaping () -> Date = { Date() }
     ) {
-        self.taskCenter = taskCenter
+        self.taskCenter = taskCenter ?? .shared
         self.temporaryDirectory = temporaryDirectory
         self.generatePassword = generatePassword ?? Self.makePassword
         self.now = now
