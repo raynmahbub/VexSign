@@ -242,12 +242,14 @@ struct SigningMethodsView: View {
                     Text(method.shortDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    // An unavailable row must say why; the reason was computed
-                    // but never rendered before.
-                    if !availability.isAvailable, let reason = availability.availabilityReason {
+                    // An unavailable row must say why; the reason was computed but never
+                    // rendered before. An available row can still be qualified — the account
+                    // path is reachable while its adapter is not integrated with signing — and
+                    // that caveat is the difference between "experimental" and "supported".
+                    if let reason = availability.availabilityReason {
                         Text(reason)
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(availability.isAvailable ? Color.secondary : Color.orange)
                             .lineLimit(2)
                     }
                 }

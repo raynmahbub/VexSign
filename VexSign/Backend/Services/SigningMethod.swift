@@ -87,7 +87,8 @@ enum SigningMethod: String, CaseIterable, Codable, Identifiable {
 /// fields did).
 struct SigningMethodAvailability: Equatable {
     let isAvailable: Bool
-    /// Why the method cannot be selected; `nil` exactly when it is available.
+    /// Why the method cannot be selected, or the caveat that applies when it can; `nil`
+    /// exactly when the method is fully usable.
     let availabilityReason: String?
 
     static func current(for method: SigningMethod) -> SigningMethodAvailability {
@@ -99,9 +100,17 @@ struct SigningMethodAvailability: Equatable {
                 availabilityReason: hasCert ? nil : .localized("Import a .p12 certificate and .mobileprovision profile")
             )
         case .freeAppleID:
-            // Always selectable: choosing it starts sign-in, and the live
-            // session state is rendered from NativeSigningManager's snapshot.
-            return SigningMethodAvailability(isAvailable: true, availabilityReason: nil)
+            // Always selectable: choosing it starts sign-in, and the live session state is
+            // rendered from NativeSigningManager's snapshot. It is not, however, equivalent to
+            // an imported certificate while the native account adapter stays unintegrated, and
+            // the picker is where the user should learn that.
+            let registration = SigningMethodCapabilities.current.nativeAppleAccountSigning
+            return SigningMethodAvailability(
+                isAvailable: true,
+                availabilityReason: registration == .notIntegrated
+                    ? .localized("Experimental: account provisioning is not yet integrated with signing.")
+                    : nil
+            )
         case .trollStore:
             let available = TrollStoreDetector.isAvailable
             return SigningMethodAvailability(
