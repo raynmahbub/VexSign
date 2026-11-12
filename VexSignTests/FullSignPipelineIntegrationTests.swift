@@ -9,6 +9,7 @@ import Foundation
 import XCTest
 @testable import VexSign
 
+@MainActor
 final class FullSignPipelineIntegrationTests: XCTestCase {
     /// Tests the complete pipeline from IPA import through signing to installation verification.
     /// This is a structural test that verifies the wiring between components without requiring
