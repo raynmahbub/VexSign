@@ -61,7 +61,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
             case .success(let signed):
                 signedApp = signed
                 signExpectation.fulfill()
-            case .failure(let error):
+            case .failure:
                 // Signing may fail for various reasons in test environment
                 // The important thing is the pipeline was invoked
                 signExpectation.fulfill()
@@ -132,32 +132,31 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
     func testAppOperationRegistryPipelineOwnership() async throws {
         let registry = AppOperationRegistry()
         let testUUID = "test-pipeline-\(UUID().uuidString)"
-        let key = "imported:\(testUUID)"
-        
+        let key = "signed:\(testUUID)"
+
         // Import claims production
         let importClaim = registry.claimProduction(of: testUUID)
         XCTAssertTrue(registry.knowsProduction(of: testUUID))
-        
+
         // Import confirms production
         registry.confirmProduction(of: testUUID)
         XCTAssertTrue(registry.knowsProduction(of: testUUID))
         withExtendedLifetime(importClaim) {}
-        
-        // Sign acquires ownership
-        let signLease = try registry.acquire("signed:\(testUUID)")
-        XCTAssertTrue(registry.isBusy("signed:\(testUUID)"))
-        withExtendedLifetime(signLease) {}
-        
-        // Install acquires ownership (different key)
-        let installLease = try registry.acquire("signed:\(testUUID)")
-        XCTAssertTrue(registry.isBusy("signed:\(testUUID)"))
-        withExtendedLifetime(installLease) {}
-        
-        // Cleanup can only run when all operations complete
-        XCTAssertNil(registry.acquireCleanup())
-        
-        // After releasing, cleanup can proceed
-        // (leases released via deinit)
+
+        // Sign acquires ownership; a second claim on the same copy is refused while it is held
+        do {
+            let signLease = try registry.acquire(key)
+            XCTAssertTrue(registry.isBusy(key))
+            XCTAssertThrowsError(try registry.acquire(key))
+
+            // Cleanup cannot run while an operation holds a stored copy
+            XCTAssertNil(registry.acquireCleanup())
+            withExtendedLifetime(signLease) {}
+        }
+
+        // Releasing the lease frees the copy for cleanup
+        XCTAssertFalse(registry.isBusy(key))
+        XCTAssertNotNil(registry.acquireCleanup())
     }
 
     /// Creates a minimal test IPA for pipeline testing
