@@ -14,40 +14,33 @@ enum WebDAVTransferPolicy {
         return !contains(from, to) && !contains(to, from)
     }
 
-    /// Resolve symlinks one path component at a time. `resolvingSymlinksInPath()`
-    /// may leave a symlink unresolved when the path has a nonexistent suffix
-    /// (for example, `alias/new-file`); resolving each existing component keeps
-    /// those destinations inside the same containment checks as existing paths.
+    /// Resolve the longest existing prefix before restoring a missing suffix.
+    /// Resolving a full URL can leave an ancestor symlink unresolved when the
+    /// final destination does not exist yet (for example, `alias/new-file`).
     private static func components(_ url: URL) -> [String]? {
         guard url.isFileURL else { return nil }
 
-        var pending = Array(url.standardizedFileURL.pathComponents.dropFirst())
-        var resolved = URL(fileURLWithPath: "/", isDirectory: true)
-        var symlinkCount = 0
         let fileManager = FileManager.default
+        var existingPrefix = url.standardizedFileURL
+        var missingSuffix: [String] = []
 
-        while !pending.isEmpty {
-            let component = pending.removeFirst()
-            guard !component.isEmpty, component != "/" else { continue }
-            let candidate = resolved.appendingPathComponent(component)
-
+        while existingPrefix.path != "/" {
+            if fileManager.fileExists(atPath: existingPrefix.path) { break }
             do {
-                let destination = try fileManager.destinationOfSymbolicLink(atPath: candidate.path)
-                symlinkCount += 1
-                // Fail closed on a symlink cycle or an unexpectedly deep chain.
-                guard symlinkCount <= 40 else { return nil }
-                let target = destination.hasPrefix("/")
-                    ? URL(fileURLWithPath: destination, isDirectory: true)
-                    : resolved.appendingPathComponent(destination, isDirectory: true)
-                pending = Array(target.standardizedFileURL.pathComponents.dropFirst()) + pending
-                resolved = URL(fileURLWithPath: "/", isDirectory: true)
+                // fileExists follows links and returns false for dangling ones.
+                // Their target cannot be safely canonicalized here, so fail closed.
+                _ = try fileManager.destinationOfSymbolicLink(atPath: existingPrefix.path)
+                return nil
             } catch {
-                // A non-symlink path component is expected; the remaining path
-                // components will be checked individually as they are visited.
-                resolved = candidate
+                missingSuffix.append(existingPrefix.lastPathComponent)
+                existingPrefix.deleteLastPathComponent()
             }
         }
 
+        var resolved = existingPrefix.standardizedFileURL.resolvingSymlinksInPath()
+        for component in missingSuffix.reversed() {
+            resolved.appendPathComponent(component)
+        }
         return resolved.standardizedFileURL.pathComponents.map { $0.lowercased() }
     }
 }
