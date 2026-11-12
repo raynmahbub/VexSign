@@ -192,4 +192,54 @@ final class UnifiedTaskPolicyTests: XCTestCase {
         XCTAssertTrue(task.move(to: .signed))
         XCTAssertEqual(task.stageHistory.map(\.phase), [.queued, .signing, .signed])
     }
+
+    // MARK: - Mirroring a download that disappeared
+
+    func testAVanishedDownloadIsNeverReportedAsCompleted() {
+        // DownloadManager removes the row on a transfer error, on the 8 GiB size limit and when
+        // the user stops the transfer. None of those is a finished download, so none of them may
+        // become `.completed` just because the row is gone.
+        for phase: UnifiedTaskPhase in [.queued, .downloading, .paused, .verifying, .importing, .extracting] {
+            XCTAssertEqual(TaskMirrorPolicy.vanished(phase), .interrupted, "\(phase) must not read as success")
+            XCTAssertNotEqual(TaskMirrorPolicy.vanished(phase), .completed)
+        }
+    }
+
+    func testAFinishedDownloadKeepsItsOwnVerdict() {
+        // A completed download is removed from the manager only after the mirror already
+        // finalized it; re-labelling that would rewrite history from an absence.
+        for phase: UnifiedTaskPhase in [.completed, .failed, .cancelled, .interrupted, .unconfirmed] {
+            XCTAssertNil(TaskMirrorPolicy.vanished(phase), "\(phase) is already decided")
+        }
+    }
+
+    func testTheMirrorVerdictIsAlwaysTerminal() {
+        // Whatever the policy returns must be a phase the transition authority will accept and
+        // the journal will stop tracking, otherwise the record lingers in the live list forever.
+        for phase in UnifiedTaskPhase.allCases {
+            guard let verdict = TaskMirrorPolicy.vanished(phase) else { continue }
+            XCTAssertTrue(verdict.isTerminal, "\(verdict) would stay in flight")
+        }
+    }
+
+    func testAnInterruptedVerdictCanBeAppliedToALiveMirror() throws {
+        for kind: UnifiedTaskKind in [.download, .importIPA] {
+            let running = task(kind: kind, subject: "dl", phase: .downloading)
+            let verdict = try XCTUnwrap(TaskMirrorPolicy.vanished(running.phase))
+            XCTAssertTrue(running.move(to: verdict), "\(kind) must accept the mirroring verdict")
+            XCTAssertEqual(running.phase, .interrupted)
+            XCTAssertTrue(running.phase.isTerminal)
+            XCTAssertFalse(TaskRetryPolicy.canOffer(running.phase), "a lost transfer is not a retryable failure record")
+        }
+    }
+
+    func testAnInterruptedMirrorDoesNotClaimTheDownloadFailed() {
+        // We know the transfer did not finish; we do not know why. Marking it failed would put an
+        // invented error in front of the user for a download they stopped themselves.
+        let running = task(kind: .download, subject: "dl", phase: .downloading)
+        _ = running.move(to: .interrupted)
+        XCTAssertNil(running.failureStage)
+        XCTAssertNil(running.errorText)
+        XCTAssertEqual(running.displayPhaseTitle, UnifiedTaskPhase.interrupted.title)
+    }
 }

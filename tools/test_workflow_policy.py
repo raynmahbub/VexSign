@@ -17,6 +17,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / '.github/workflows'
 VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml', 'embedded-container.yml')
+# Workflows that validate a merge to main. Every one of them shares the same rule: a push to
+# main must not cancel the previous main run (see the concurrency test below).
+MAIN_VALIDATORS = VALIDATORS + ('docs.yml',)
 
 
 def block(text, key, indent):
@@ -264,9 +267,26 @@ class WorkflowPolicyTests(unittest.TestCase):
                 push = block(events, 'push', 2)
                 self.assertIn('    branches: [main]', push)
                 self.assertTrue(push_paths(name))
-                self.assertIn('  cancel-in-progress: true', text)
+                self.assertIn("  cancel-in-progress: ${{ github.event_name == 'pull_request' }}", text)
                 self.assertFalse(covers(name, 'README.md'))
                 self.assertFalse(covers(name, 'CHANGELOG.md'))
+
+    def test_a_main_push_never_cancels_the_previous_main_run(self):
+        """A merged commit is already on main; cancelling its run leaves it unvalidated.
+
+        `cancel-in-progress: true` with a group keyed only on `github.ref` replaced the running
+        main build on every merge. Runs 370-386 on main were all cancelled that way, so the
+        branch a release is cut from had no completed CI at all — the failure mode is invisible
+        in the workflow file and only shows up in the run list. Superseding is right for a pull
+        request, where the newest commit is the one under review, and wrong for main.
+        """
+        for name in MAIN_VALIDATORS:
+            with self.subTest(workflow=name):
+                section = block((WORKFLOWS / name).read_text(), 'concurrency', 0)
+                self.assertIn("github.event_name == 'push' && github.sha", section,
+                              'a main-push group must be keyed per commit so merges queue up')
+                self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+                              section)
 
     def test_app_dependencies_and_vendored_package_changes_are_covered(self):
         for path in ('VexSign/VexSignApp.swift', 'VexSignTests/DesignSystemTests.swift',

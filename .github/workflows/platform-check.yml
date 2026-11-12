@@ -52,9 +52,14 @@ on:
 permissions:
   contents: read
 
+# A superseded push to a pull request should stop: the newest commit is the one under
+# review. A push to main is the opposite — those commits are already merged, and cancelling the
+# run destroys the only validation that commit will ever get. On main the group is therefore
+# keyed by SHA, so consecutive merges queue independently instead of replacing each other.
+# (Before this, runs 370-386 on main were all cancelled and main had no completed CI.)
 concurrency:
-  group: platform-check-${{ github.ref }}
-  cancel-in-progress: true
+  group: platform-check-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
