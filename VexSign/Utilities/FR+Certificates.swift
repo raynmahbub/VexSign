@@ -48,7 +48,7 @@ extension FR {
                 await MainActor.run {
                     completion(nil)
                 }
-            } error {
+                } catch {
                 handler.clean()
                 await MainActor.run {
                     completion(error)

@@ -82,7 +82,7 @@ final class AppInstaller: ObservableObject {
     func prepareForQueuedOTA() {
         guard !_isSharing, _installationMethod == 0, !_hasFinished, _preparedPackage == nil else { return }
         do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
-        error { return }
+        catch { return }
         _preparedPackage = Task { try await _createPackage() }
     }
 
@@ -175,7 +175,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             return
         }
         do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
-        error { _finish(.failure(error)); return }
+        catch { _finish(.failure(error)); return }
 
 		guard _isSharing || app.identifier != Bundle.main.bundleIdentifier || _installationMethod == 1 else {
 			_finish(.failure(Self.error(.localized("You cannot update '%@' with itself, please use an alternative tool to update it.", arguments: Bundle.main.name))))

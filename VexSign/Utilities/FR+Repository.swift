@@ -64,7 +64,7 @@ extension FR {
         // explicitly opted into insecure HTTP for local repositories.
         do {
             try SourceURLPolicy.validate(url)
-        } error {
+            } catch {
             if showAlerts {
                 DispatchQueue.main.async {
                     Toast.error(error.localizedDescription, duration: .sticky)
@@ -157,7 +157,7 @@ extension FR {
                 await MainActor.run {
                     _addGitHubRepository(repository, sourceURL: sourceURL, showAlerts: showAlerts, completion: completion)
                 }
-            } error {
+                } catch {
                 if showAlerts {
                     DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
                 }

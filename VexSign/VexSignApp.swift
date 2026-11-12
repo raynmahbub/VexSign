@@ -381,9 +381,9 @@ struct VexSignApp: App {
 		} else {
 			let ext = url.pathExtension.lowercased()
 			if ext == "ipa" || ext == "tipa" {
-let workLease: AppOperationRegistry.Lease
+                let workLease: AppOperationRegistry.Lease
                 do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-                error {
+                catch {
                     Toast.error(error.localizedDescription, duration: .long)
                     return
                 }

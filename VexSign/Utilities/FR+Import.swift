@@ -28,7 +28,7 @@ extension FR {
             }
             let workLease: AppOperationRegistry.Lease
             do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-            error {
+            catch {
                 await MainActor.run {
                     if let importRecord {
                         importRecord.context?.recordFailure(error)
@@ -59,7 +59,7 @@ extension FR {
                     }
                 }
                 try? await handler.clean() // try? ok: best-effort cleanup of temporary work directory
-            await MainActor.run {
+                await MainActor.run {
                     do {
                         let imported = try handler.importedApp(for: objectID)
                         UnifiedTaskCenter.shared.recordImportedArtifact(imported, task: importRecord, downloadID: download?.id)

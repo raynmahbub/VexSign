@@ -240,8 +240,7 @@ final class SigningService {
 	) -> String? {
         guard canStart(request) else { return nil }
         let appKey = _appKey(request)
-        do { _leases[request.id] = try await ownership.acquire(appKey) }
-        error { return nil }
+        do { _leases[request.id] = try ownership.acquire(appKey) } catch { return nil }
         if let appKey { _appOwners[appKey] = request.id }
 
 		let id = request.id

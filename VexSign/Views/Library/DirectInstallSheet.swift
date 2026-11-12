@@ -122,9 +122,9 @@ struct DirectInstallSheet: View {
 	private func _downloadAndInstall(from targetURL: URL) async {
 		defer { isProcessing = false }
 
-let workLease: AppOperationRegistry.Lease
+        let workLease: AppOperationRegistry.Lease
         do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-        error {
+        catch {
             Toast.error(error.localizedDescription, duration: .sticky)
             return
         }

@@ -53,7 +53,7 @@ final class InstallQueue: ObservableObject {
     private func _installationMethod(for entry: AnyApp) -> Int {
         guard !entry.archive else { return 0 }
         do { return try SigningModeManager.shared.pipeline(for: entry.base).installationMethodValue }
-        error { return -1 }
+        catch { return -1 }
     }
 
 	/// Exports share the success counter, but must never get an Open action.
