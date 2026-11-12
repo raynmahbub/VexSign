@@ -11,6 +11,13 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- The post-sign certificate check was in the wrong function and did not compile.
+  Phase 2 put `expectation.expectsFreshSignature` inside
+  `_signatureIssues(in:executable:)`, which has no `expectation` parameter —
+  *cannot find 'expectation' in scope*. The parameter is now threaded through, so
+  the check still reads the certificate out of the signature zsign produced and
+  still runs only for bundles this run signed. Caught by the macOS `build` and
+  `tests` jobs (runs 43168765711).
 - The `DownloadManager` split did not compile. Swift's `private` is scoped to the
   *file*, not the type, so five members the moved code uses became invisible:
   `isBatchControllingDownloads`, `ensureKeepAlive` and `releaseKeepAliveIfIdle`

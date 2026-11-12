@@ -244,7 +244,7 @@ enum SignatureVerifier {
 		}
 
 		if expectation.expectsSignature {
-			issues += _signatureIssues(in: bundleURL, executable: executable)
+			issues += _signatureIssues(in: bundleURL, executable: executable, expectation: expectation)
 		}
 
 		issues += _profileIssues(
@@ -259,7 +259,11 @@ enum SignatureVerifier {
 
 	// MARK: Signature
 
-	private static func _signatureIssues(in bundleURL: URL, executable: URL?) -> [Issue] {
+	private static func _signatureIssues(
+		in bundleURL: URL,
+		executable: URL?,
+		expectation: Expectation
+	) -> [Issue] {
 		var issues: [Issue] = []
 		let codeResources = bundleURL.appendingPathComponent("_CodeSignature/CodeResources")
         let resourceValues = try? codeResources.resourceValues(forKeys: [.isRegularFileKey, .isReadableKey, .isSymbolicLinkKey]) // try? ok: missing/unreadable signature resources are a verification failure.
