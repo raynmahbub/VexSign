@@ -150,6 +150,44 @@ final class EcosystemTests: XCTestCase {
         XCTAssertTrue(sanitized.contains("[REDACTED_PRIVATE_KEY_BLOCK]"))
     }
 
+    func testDiagnosticBundleSanitizerCoversHeadersURLsAndNamedSecrets() {
+        // A diagnostic bundle is the one artefact a user is expected to hand to a
+        // stranger. These are the three shapes the earlier rules did not cover: an
+        // authentication header, credentials inside a repository URL, and a named
+        // secret that is not spelled "password".
+        let sampleLog = """
+        [INFO] Authorization: Basic dXNlcjpzZWNyZXQxMjM0
+        [INFO] Fetching https://bob:hunter2@repo.example.com/apps.json
+        [INFO] api_key=sk-live-9f8e7d6c5b4a
+        [INFO] Downloaded Example.ipa in 3s
+        """
+
+        let sanitized = DiagnosticBundleExporter._sanitize(sampleLog)
+        XCTAssertFalse(sanitized.contains("dXNlcjpzZWNyZXQxMjM0"), "an Authorization header value must not leave the app")
+        XCTAssertTrue(sanitized.contains("[REDACTED_AUTH]"))
+        XCTAssertFalse(sanitized.contains("hunter2"), "URL userinfo is a credential")
+        XCTAssertTrue(sanitized.contains("https://[REDACTED]@repo.example.com/apps.json"))
+        XCTAssertFalse(sanitized.contains("sk-live-9f8e7d6c5b4a"))
+        XCTAssertTrue(sanitized.contains("api_key=[REDACTED]"))
+        XCTAssertTrue(sanitized.contains("Downloaded Example.ipa in 3s"), "ordinary log lines survive")
+    }
+
+    func testPasswordRecoveryDictionaryCarriesNoThirdPartyCredentials() {
+        // Recovering a user's own .p12 is the feature. A built-in list of passwords
+        // published for other services' certificates is not, and shipping one is a
+        // legal and reputational exposure rather than a capability.
+        let publishedElsewhere: Set<String> = [
+            "chinasign", "www.chinasign.com", "gbox", "khoindvn", "hdwg", "scarlet",
+            "esign", "esign123", "sidestore", "altstore", "feather", "zsign",
+            "trollstore", "bullfrog", "burrito", "yattee"
+        ]
+        let shipped = Set(P12Cracker.commonPasswords.map { $0.lowercased() })
+        XCTAssertTrue(shipped.isDisjoint(with: publishedElsewhere),
+                      "the built-in list must not ship credentials published for third-party certificates")
+        XCTAssertTrue(shipped.contains("123456"), "generic weak passwords remain available")
+        XCTAssertTrue(shipped.contains("password"), "generic weak passwords remain available")
+    }
+
     func testLocalCAProfileGeneratesValidMobileconfig() throws {
         // A 16-byte DER prefix in base64. It has to be valid base64 — the extractor
         // decodes it strictly — but not a certificate: what is under test is finding
