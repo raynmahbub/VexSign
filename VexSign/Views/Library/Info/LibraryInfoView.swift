@@ -238,7 +238,7 @@ extension LibraryInfoView {
         _renewalIssues = PreflightChecks.run(app: app, options: (profile?.options ?? Options.batchBase).resolved(for: app), certificate: certificate).issues
         let inputs = InstallPreflightInputs(
             hasServerCertificate: LocalTLSIdentity.current() != nil,
-            hasPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()),
+            pairing: PairingRecordInspector.inspect(fileAt: URL(fileURLWithPath: HeartbeatManager.pairingFile())),
             trollStoreDetected: TrollStoreHandoff.installedByTrollStore(),
             hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable
