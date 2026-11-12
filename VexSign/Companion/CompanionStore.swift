@@ -303,8 +303,8 @@ final class CompanionStore: ObservableObject {
 			let previous = snapshot
 			snapshot = CompanionSnapshot(
 				status: fetched.status,
-				library: _successValue(fetched.library) ?? previous?.library ?? [],
-				updates: _successValue(fetched.updates) ?? previous?.updates ?? [],
+				library: _successValue(in: fetched.library) ?? previous?.library ?? [],
+				updates: _successValue(in: fetched.updates) ?? previous?.updates ?? [],
 				generatedAt: fetched.generatedAt
 			)
 			libraryResult = fetched.library

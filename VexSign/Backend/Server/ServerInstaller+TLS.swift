@@ -71,7 +71,7 @@ extension ServerInstaller {
 	/// Creates the Web Manager's TLS identity with the actual listener hostname/IP
 	/// in the leaf SAN before loading it. A missing/corrupt identity is a startup
 	/// error; the LAN listener never falls back to plaintext HTTP.
-	static func webManagerTLSConfiguration(serverNames: [String]) throws -> TLSConfiguration {
+	nonisolated static func webManagerTLSConfiguration(serverNames: [String]) throws -> TLSConfiguration {
 		try DeviceTLSIdentity.ensure(serverNames: serverNames)
 		let certificateURL = DeviceTLSIdentity.directory.appendingPathComponent("server.crt")
 		let privateKeyURL = DeviceTLSIdentity.directory.appendingPathComponent("server.pem")
@@ -82,7 +82,7 @@ extension ServerInstaller {
 		return try _loadTLSConfiguration(certificateURL: certificateURL, privateKeyURL: privateKeyURL)
 	}
 
-	private static func _loadTLSConfiguration(certificateURL: URL, privateKeyURL: URL) throws -> TLSConfiguration {
+	nonisolated private static func _loadTLSConfiguration(certificateURL: URL, privateKeyURL: URL) throws -> TLSConfiguration {
 		let source = { (url: URL) in
 			LocalTLSIdentity.diagnosticSource(for: url, deviceDirectory: DeviceTLSIdentity.directory)
 		}
@@ -159,7 +159,7 @@ extension ServerInstaller {
 		return addresses
 	}
 	
-	static func getLocalAddress() -> String? {
+	nonisolated static func getLocalAddress() -> String? {
 		var address: String?
 		var ifaddr: UnsafeMutablePointer<ifaddrs>?
 		
