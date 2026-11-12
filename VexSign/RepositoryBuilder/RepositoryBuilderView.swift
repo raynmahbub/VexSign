@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import NimbleExtensions
 
 struct RepositoryBuilderView: View {
     @StateObject private var model = RepositoryBuilderViewModel()
@@ -10,25 +11,25 @@ struct RepositoryBuilderView: View {
     var body: some View {
         List {
             Section {
-                Button("Create Repository") { editing = RepositoryDocument() }
-                Button("Import JSON File") { importing = true }
+                Button(.localized("Create Repository")) { editing = RepositoryDocument() }
+                Button(.localized("Import JSON File")) { importing = true }
             }
-            Section("Import HTTPS Repository") {
-                TextField("https://example.com/source.json", text: $remoteURL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Picker("Format", selection: $format) { ForEach(RepositoryFormat.allCases) { Text($0.rawValue).tag($0) } }
-                Button("Import URL") { Task { await model.importURL(remoteURL, format: format) } }.disabled(remoteURL.isEmpty)
+            Section(.localized("Import HTTPS Repository")) {
+                TextField(.localized("https://example.com/source.json"), text: $remoteURL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                Picker(.localized("Format"), selection: $format) { ForEach(RepositoryFormat.allCases) { Text($0.rawValue).tag($0) } }
+                Button(.localized("Import URL")) { Task { await model.importURL(remoteURL, format: format) } }.disabled(remoteURL.isEmpty)
             }
-            Section("Your Repositories") {
+            Section(.localized("Your Repositories")) {
                 ForEach(model.documents) { doc in
                     Button { editing = doc } label: {
-                        VStack(alignment: .leading) { Text(doc.name); Text("\(doc.apps.count) apps · \(doc.format.rawValue)").font(.caption).foregroundStyle(.secondary) }
+                        VStack(alignment: .leading) { Text(doc.name); Text(String.localized("%lld apps · %@", arguments: doc.apps.count, doc.format.rawValue)).font(.caption).foregroundStyle(.secondary) }
                     }
                 }.onDelete { offsets in Task { await model.delete(offsets) } }
             }
-            if let error = model.error { Section("Error") { Text(error).foregroundStyle(.red) } }
+            if let error = model.error { Section(.localized("Error")) { Text(error).foregroundStyle(.red) } }
         }
         .disabled(model.busy)
-        .navigationTitle("Repository Builder")
+        .navigationTitle(.localized("Repository Builder"))
         .task { await model.load() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
             switch result {

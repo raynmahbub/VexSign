@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import NimbleExtensions
 
 private struct OTAManifestFile: FileDocument {
     static var readableContentTypes: [UTType] { [.xml] }
@@ -23,27 +24,27 @@ struct OTAView: View {
 	@State private var error: String?
 	var body: some View {
 		Form {
-			Section("Hosted Signed IPA") {
+			Section(.localized("Hosted Signed IPA")) {
 				if !signedApps.isEmpty {
 					Menu {
 						ForEach(signedApps, id: \.uuid) { app in
 							Button {
 								prefill(from: app)
 							} label: {
-								Text(app.name ?? "Untitled")
+								Text(app.name ?? .localized("Untitled"))
 							}
 						}
 					} label: {
-						Label("Prefill from Signed Apps", systemImage: "square.and.arrow.down.on.square")
+						Label(.localized("Prefill from Signed Apps"), systemImage: "square.and.arrow.down.on.square")
 					}
 				}
 				TextField("App name", text: $name)
                 TextField("Bundle identifier", text: $bundleID)
                 TextField("Version", text: $version)
-                TextField("HTTPS IPA URL", text: $download)
-                TextField("HTTPS manifest URL", text: $manifest)
-                Text("Host the exported manifest at exactly this URL. OTA still requires a valid signature and a profile that permits the device; generating a link does not sign an app.").font(.caption)
-                Button("Generate Manifest & Install Link") {
+                TextField(.localized("HTTPS IPA URL"), text: $download)
+                TextField(.localized("HTTPS manifest URL"), text: $manifest)
+                Text(.localized("Host the exported manifest at exactly this URL. OTA still requires a valid signature and a profile that permits the device; generating a link does not sign an app.")).font(.caption)
+                Button(.localized("Generate Manifest & Install Link")) {
                     do {
                         guard let downloadURL = URL(string: download), let manifestURL = URL(string: manifest) else { throw URLError(.badURL) }
                         file = OTAManifestFile(data: try OTAExporter.manifest(.init(name: name, bundleIdentifier: bundleID, version: version, downloadURL: downloadURL, iconURL: nil)))
@@ -55,12 +56,12 @@ struct OTAView: View {
             if let link {
                 Section("Install") {
                     ShareLink(item: link)
-                    Button("Copy Link") { UIPasteboard.general.url = link }
-                    if let qr { Image(uiImage: qr).interpolation(.none).resizable().scaledToFit().frame(maxWidth: 240).accessibilityLabel("Install QR code") }
+                    Button(.localized("Copy Link")) { UIPasteboard.general.url = link }
+                    if let qr { Image(uiImage: qr).interpolation(.none).resizable().scaledToFit().frame(maxWidth: 240).accessibilityLabel(.localized("Install QR code")) }
                 }
             }
             if let error { Text(error).foregroundStyle(.red) }
-        }.textInputAutocapitalization(.never).autocorrectionDisabled().navigationTitle("OTA Distribution")
+        }.textInputAutocapitalization(.never).autocorrectionDisabled().navigationTitle(.localized("OTA Distribution"))
             .onAppear {
                 if signedApps.isEmpty {
                     signedApps = Storage.shared.getAllApps().filter { $0.isSigned }
