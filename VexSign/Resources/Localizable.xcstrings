@@ -107286,6 +107286,72 @@
           }
         }
       }
+    },
+    "Files missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files missing"
+          }
+        }
+      }
+    },
+    "Incomplete files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incomplete files"
+          }
+        }
+      }
+    },
+    "The files for this app are no longer on this device. The library entry is only metadata; import or download the app again to restore it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files for this app are no longer on this device. The library entry is only metadata; import or download the app again to restore it."
+          }
+        }
+      }
+    },
+    "This app's Info.plist is missing, so it cannot be inspected or installed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app's Info.plist is missing, so it cannot be inspected or installed."
+          }
+        }
+      }
+    },
+    "This app's bundle is empty on disk." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app's bundle is empty on disk."
+          }
+        }
+      }
+    },
+    "This app's executable is missing from the bundle." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app's executable is missing from the bundle."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
