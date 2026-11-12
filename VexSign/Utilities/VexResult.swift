@@ -6,7 +6,7 @@ typealias VexResult<T> = Result<T, VexSignError>
 extension Result where Failure == VexSignError {
     /// Maps the success value to a new value, or passes through the error.
     func map<U>(_ transform: (Success) throws -> U) -> VexResult<U> {
-        flatMap { try transform($0) }
+        flatMap { .success(try transform($0)) }
     }
     
     /// Maps the success value to a new Result, or passes through the error.

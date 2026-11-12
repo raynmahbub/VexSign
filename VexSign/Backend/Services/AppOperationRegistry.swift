@@ -79,7 +79,7 @@ final class AppOperationRegistry: Sendable {
     }
 
     private func releaseTemporaryWork(_ owner: UUID) {
-        state.withLock { $0.temporaryWorkers.remove(owner) }
+        _ = state.withLock { $0.temporaryWorkers.remove(owner) }
     }
 
     private func releaseCleanup(_ owner: UUID) {
@@ -123,7 +123,7 @@ final class AppOperationRegistry: Sendable {
     /// pass read, and its claim is gone by the time its folder is judged. This is what still
     /// says the folder is wanted.
     func confirmProduction(of uuid: String) {
-        state.withLock { $0.produced.insert(uuid) }
+        _ = state.withLock { $0.produced.insert(uuid) }
     }
 
     /// True when a copy with this identifier is being produced, or was produced and registered

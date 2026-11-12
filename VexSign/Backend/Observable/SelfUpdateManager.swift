@@ -353,7 +353,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 
 	func fetchReleases(page: Int) async throws -> [SelfUpdateRelease] {
 		guard var comps = URLComponents(string: "https://api.github.com/repos/\(_repo)/releases"),
-		      let url = comps.url else {
+		      comps.url != nil else {
 			throw NSError(domain: "SelfUpdate", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid GitHub API URL"])
 		}
 		comps.queryItems = [

@@ -42,7 +42,7 @@ final class UnifiedTaskCenter: ObservableObject {
 	var downloadMirrors: [String: UnifiedTask] = [:]
 	var cancellables = Set<AnyCancellable>()
 
-    @Published private(set) var historyPersistenceIssue: TaskHistoryJournal.Issue?
+    @Published var historyPersistenceIssue: TaskHistoryJournal.Issue?
     let historyJournal = TaskHistoryJournal(url: UnifiedTaskCenter.historyFileURL)
     var historyLoaded = false
     var historyLoading = false
