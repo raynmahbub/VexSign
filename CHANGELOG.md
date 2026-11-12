@@ -11,6 +11,19 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- The `DownloadManager` split did not compile. Swift's `private` is scoped to the
+  *file*, not the type, so five members the moved code uses became invisible:
+  `isBatchControllingDownloads`, `ensureKeepAlive` and `releaseKeepAliveIfIdle`
+  (declared in `DownloadManager.swift`, used by `+TransferControl.swift`) and
+  `networkPolicyAllowsStarting` and `networkPolicyDidChange` (moved out, still
+  used by `DownloadManager.swift`). All five are now `fileprivate`, which keeps
+  them out of the public interface while letting the extensions that form the
+  type reach them. Caught by the macOS `build` and `tests` jobs.
+- `tools/test_cross_file_privacy.py` pins this: for each type split across files,
+  no `private` member may be referenced from a file that does not declare it.
+  It follows braces to attribute a member to the type it is private *inside* (a
+  file can declare several), treats top-level directories as separate modules,
+  and counts `self.member` as a real reference.
 - Five log calls added by the storage-durability change did not compile. OSLog's
   `Logger.fault`/`Logger.error` take an `OSLogMessage`, which is built by string
   interpolation, so joining the message with `+` is a type error — the macOS

@@ -130,6 +130,7 @@ verify: docs-check
 	@python3 tools/test_archive_extraction_policy.py
 	@python3 tools/test_network_timeout_policy.py
 	@python3 tools/test_logging_message_policy.py
+	@python3 tools/test_cross_file_privacy.py
 	@python3 tools/test_signing_identity_policy.py
 	@python3 tools/test_performance_fixtures.py
 	@python3 tools/test_ci_repair_agent.py

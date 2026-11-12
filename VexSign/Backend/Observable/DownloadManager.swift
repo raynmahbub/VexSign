@@ -87,7 +87,7 @@ class DownloadManager: NSObject, ObservableObject {
 	var isCreatingLiveActivity = false
 
 	private var speedTracker = DownloadSpeedTracker()
-    private var isBatchControllingDownloads = false
+    fileprivate var isBatchControllingDownloads = false
     private let configureSystemServices: Bool
 
 	var completedDownloadNames: [String] = []
@@ -196,7 +196,7 @@ class DownloadManager: NSObject, ObservableObject {
 	}
 	
 	// Audio sessions can only be activated while the app is still foreground.
-	private func ensureKeepAlive() {
+	fileprivate func ensureKeepAlive() {
 		guard backgroundTaskManager == nil else { return }
 
 		let manager = BackgroundTaskManager(
@@ -209,7 +209,7 @@ class DownloadManager: NSObject, ObservableObject {
 		startProgressTimer()
 	}
 
-	private func releaseKeepAliveIfIdle() {
+	fileprivate func releaseKeepAliveIfIdle() {
 		guard !hasUnfinishedWork else { return }
 		backgroundTaskManager?.stop()
 		backgroundTaskManager = nil
