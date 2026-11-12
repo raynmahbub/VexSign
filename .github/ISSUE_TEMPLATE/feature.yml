@@ -1,37 +1,47 @@
-name: Create Feature Request
-description: Suggest a feature to be implemented to VexSign.
-title: '[Feature] '
+name: Feature request
+description: Suggest a specific improvement to VexSign.
+title: "[Feature]: "
 labels:
   - enhancement
-
 body:
   - type: markdown
     attributes:
       value: >-
-        Make sure you read the [Code of
-        Conduct](https://github.com/raynmahbub/VexSign/blob/main/CODE_OF_CONDUCT.md)
-        before making an issue, and make sure there aren't already the same bug
-        reported.
+        Search existing issues first and read the
+        [Code of Conduct](https://github.com/raynmahbub/VexSign/blob/main/CODE_OF_CONDUCT.md).
 
   - type: textarea
-    id: text
+    id: problem
     attributes:
-      label: Request
+      label: What problem would this solve?
+      description: Explain the user need or friction this feature addresses.
+      placeholder: I often need to…
+      render: text
     validations:
       required: true
 
-  - type: checkboxes
-    id: agreement
+  - type: textarea
+    id: solution
     attributes:
-      label: Request Agreement
-      options:
-        - label: I have read the requirements for opening an issue above
-          required: true
+      label: Proposed solution
+      description: Describe what you would like VexSign to do.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or alternative approaches?
+      render: text
+    validations:
+      required: false
 
   - type: checkboxes
-    id: agreement2
+    id: checks
     attributes:
-      label: Contributor Checks
+      label: Before submitting
       options:
-        - label: I am willing to attempt to make a pull request with these requested features
-          required: false
+        - label: I searched existing issues and confirmed this is not a duplicate.
+          required: true
