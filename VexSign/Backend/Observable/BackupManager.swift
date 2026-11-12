@@ -201,6 +201,8 @@ struct BackupRestoreSummary {
 	private(set) var restored: BackupComponents = []
 	private var _added: [BackupComponents: Int] = [:]
 	private var _skipped: [BackupComponents: Int] = [:]
+	/// What a post-restore read found actually in place, per component.
+	private var _verified: [BackupComponents: Int] = [:]
 
 	mutating func record(_ component: BackupComponents, added: Int, skipped: Int) {
 		restored.insert(component)
@@ -208,8 +210,23 @@ struct BackupRestoreSummary {
 		_skipped[component] = max(0, skipped)
 	}
 
+	mutating func recordVerification(_ component: BackupComponents, verified: Int) {
+		_verified[component] = max(0, verified)
+	}
+
+	/// Restored items the post-restore read could not find.
+	///
+	/// A restore reports what it attempted; this is the part that was checked afterwards. The
+	/// two disagree only when a write silently did not stick, and that is exactly the case a
+	/// success message must never hide.
+	var unverified: Int {
+		restored.reduce(0) { total, component in
+			total + max(0, (_added[component] ?? 0) - (_verified[component] ?? 0))
+		}
+	}
+
 	var lines: [String] {
-		BackupComponents.ordered.compactMap { component in
+		var result: [String] = BackupComponents.ordered.compactMap { component in
 			guard restored.contains(component) else { return nil }
 			let added = _added[component] ?? 0
 			let skipped = _skipped[component] ?? 0
@@ -217,6 +234,12 @@ struct BackupRestoreSummary {
 			? .localized("%@: %lld added, %lld skipped", arguments: component.title, added, skipped)
 			: .localized("%@: %lld added", arguments: component.title, added)
 		}
+		// Only a summary that actually ran the post-restore read can say something was not found.
+		// A caller that recorded counts without verifying is not silently accused of failing.
+		if !_verified.isEmpty, unverified > 0 {
+			result.append(.localized("%lld restored item(s) could not be verified. Reopen the app and check those components.", arguments: unverified))
+		}
+		return result
 	}
 }
 
@@ -346,10 +369,7 @@ final class BackupManager {
 		}
 
 		if components.contains(.settings) {
-			var settings: [String: Any] = [:]
-			for (key, value) in UserDefaults.standard.dictionaryRepresentation() where Self.isBackupableSettingKey(key) {
-				settings[key] = value
-			}
+			let settings = Self.backupableSettings()
 			if !settings.isEmpty {
 				let data = try PropertyListSerialization.data(fromPropertyList: settings, format: .binary, options: 0)
 				try data.write(to: staging.appendingPathComponent("settings.plist"))
@@ -433,7 +453,19 @@ final class BackupManager {
                 // Never emit a container our own safety policy would refuse to restore.
                 try ArchiveSafetyValidator.validate(packURL)
                 try Task.checkCancellation()
+                // What was packed, before it is sealed: the only way to prove afterwards that
+                // the file on disk holds these bytes and not a truncated copy of them.
+                let packed = try BackupVerification.digest(of: packURL)
                 try BackupCrypto.sealFile(packURL, to: file, password: password)
+                try Task.checkCancellation()
+                // Sealing returned successfully. That is not the same as the file being
+                // restorable, so the container is opened again before success is reported.
+                _ = try BackupVerification.verifySealedContainer(
+                    at: file,
+                    expectedPlaintextSHA256: packed,
+                    password: password,
+                    scratch: outDir
+                )
             }
             try await withTaskCancellationHandler {
                 try await worker.value
@@ -671,7 +703,53 @@ final class BackupManager {
             summary.record(.library, added: added, skipped: skipped)
         }
 
+		// Everything above reports what this run attempted. This reads the store back and
+		// records what is actually there, so a restore whose writes did not stick is not
+		// presented as a completed one.
+		let restoredComponents = summary.restored
+		verifyRestored(manifest: manifest, wanted: restoredComponents, summary: &summary)
 		return summary
+	}
+
+	/// Re-reads each restored component and counts what is genuinely in place.
+	private func verifyRestored(manifest: BackupManifest, wanted: BackupComponents, summary: inout BackupRestoreSummary) {
+		if wanted.contains(.certificates) {
+			let tracked = Set(Storage.shared.getAllCertificates().compactMap { $0.uuid })
+			let verified = manifest.certificates.filter {
+				tracked.contains($0.uuid) && _fm.fileExists(atPath: _fm.certificates($0.uuid).path)
+			}.count
+			summary.recordVerification(.certificates, verified: verified)
+		}
+		if wanted.contains(.sources) {
+			let verified = manifest.sources.filter { Storage.shared.sourceExists($0.identifier) }.count
+			summary.recordVerification(.sources, verified: verified)
+		}
+		if wanted.contains(.settings) {
+			let verified = Self.backupableSettings().keys.filter {
+				UserDefaults.standard.object(forKey: $0) != nil
+			}.count
+			summary.recordVerification(.settings, verified: verified)
+		}
+		if wanted.contains(.library) {
+			let tracked = Set(Storage.shared.getAllApps().compactMap { $0.uuid })
+			let verified = (manifest.apps ?? []).filter { entry in
+				guard tracked.contains(entry.uuid) else { return false }
+				let destination = entry.signed ? _fm.signed(entry.uuid) : _fm.unsigned(entry.uuid)
+				return _fm.fileExists(atPath: destination.appendingPathComponent(entry.bundleName).path)
+			}.count
+			summary.recordVerification(.library, verified: verified)
+		}
+		if wanted.contains(.tweaks) {
+			summary.recordVerification(.tweaks, verified: _fm.fileExists(atPath: _fm.tweaksLibrary.path) ? Int(manifest.count(of: .tweaks) ?? 0) : 0)
+		}
+	}
+
+	private static func backupableSettings() -> [String: Any] {
+		var settings: [String: Any] = [:]
+		for (key, value) in UserDefaults.standard.dictionaryRepresentation() where isBackupableSettingKey(key) {
+			settings[key] = value
+		}
+		return settings
 	}
 
     private func requireIdleLibrary() throws {
