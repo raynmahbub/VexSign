@@ -296,7 +296,6 @@ final class CompanionAndWidgetTests: XCTestCase {
 			storageFree: 500
 		)
 		let statusData = try JSONEncoder().encode(fixtureStatus)
-		let libraryData = try JSONEncoder().encode([CompanionLibraryEntry]())
 		let updatesData = try JSONEncoder().encode([CompanionUpdateEntry]())
 		let client = CompanionClient(
 			address: "https://10.0.0.5:8080",

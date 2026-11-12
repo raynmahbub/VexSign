@@ -392,9 +392,11 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 
 	@MainActor
 	private func _waitUntil(_ condition: () -> Bool) async throws {
-		for _ in 0..<500 {
+		// Simulator test runs can queue actor work for several seconds while other
+		// suites are active; leave enough headroom for the asynchronous store read.
+		for _ in 0..<600 {
 			if condition() { return }
-			try await Task.sleep(nanoseconds: 10_000_000)
+			try await Task.sleep(nanoseconds: 50_000_000)
 		}
 		XCTFail("Timed out waiting for the library status to settle")
 		throw NSError(domain: "LibraryInstallationLifecycleTests", code: 1)
