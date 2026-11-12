@@ -8,8 +8,8 @@
 //    • Apple Watch  — WatchConnectivity. The phone pushes a snapshot and runs the
 //      four commands the watch sends back. Nothing leaves the pair.
 //    • Apple TV / Vision Pro — the Web Manager the app already runs. Those apps
-//      read `/api/status`, `/api/library` and `/api/updates`, so "pairing" is
-//      nothing more than typing the printed address into the companion.
+//      read `/api/status`, `/api/library` and `/api/updates`, and pair by checking
+//      the device CA's SHA-256 fingerprint before storing that trust in Keychain.
 //
 
 import SwiftUI
@@ -94,10 +94,15 @@ struct CompanionSettingsView: View {
 		NBSection(.localized("Apple TV & Vision Pro")) {
 			Label {
 				VStack(alignment: .leading, spacing: 2) {
-					Text(_webManager.isRunning ? WebManager.shared.httpURL : .localized("Web Manager is off"))
-					Text(.localized("Enter this address in the companion app. It reads the same status, library and update endpoints the automation API uses."))
+					Text(_webManager.isRunning ? WebManager.shared.httpsURL : .localized("Web Manager is off"))
+					Text(.localized("Enter this HTTPS address and the SHA-256 device CA fingerprint in the companion. It reads the same status, library and update endpoints the automation API uses."))
 						.font(.caption)
 						.foregroundStyle(.secondary)
+					if _webManager.isRunning, let fingerprint = _webManager.certificateFingerprint {
+						Text(String.localized("Device CA fingerprint: %@", arguments: fingerprint))
+							.font(.caption2.monospaced())
+							.textSelection(.enabled)
+					}
 					if _webManager.isRunning && _webManager.effectiveBindMode == .thisDevice {
 						Text(.localized("The server currently accepts connections from this device only. Turn on “Allow This Network” in Web Manager so the Apple TV can reach it."))
 							.font(.caption)
@@ -110,11 +115,19 @@ struct CompanionSettingsView: View {
 			}
 
 			Button {
-				_copy(_webManager.httpURL)
+				_copy(_webManager.httpsURL)
 			} label: {
-				Label(.localized("Copy Address"), systemImage: "doc.on.doc")
+				Label(.localized("Copy HTTPS Address"), systemImage: "doc.on.doc")
 			}
 			.disabled(!_webManager.isRunning)
+
+			if _webManager.isRunning, let fingerprint = _webManager.certificateFingerprint {
+				Button {
+					_copy(fingerprint)
+				} label: {
+					Label(.localized("Copy CA Fingerprint"), systemImage: "number")
+				}
+			}
 
 			NavigationLink(destination: WebManagerView()) {
 				Label(.localized("Web Manager & File Server"), systemImage: "gearshape")

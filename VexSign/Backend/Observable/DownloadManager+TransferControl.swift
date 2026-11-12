@@ -152,7 +152,7 @@ func cancelDownload(_ download: Download) {
 			}
 		}
 	}
-	
+
 	/// Stops every network/import job represented by the current Live Activity.
 /// Network jobs leave immediately. Imports leave only after cooperative cancellation
 /// and workspace cleanup; an auto-sign run is not hidden or cancelled by this action.
@@ -182,7 +182,7 @@ func cancelDownload(_ download: Download) {
 		for download in currentDownloads {
 			pauseDownload(download)
 		}
-		
+
 		DispatchQueue.main.async {
 			let activeDownloads = self.downloads.filter {
 				($0.progress > 0 && $0.progress < 1.0) ||
@@ -194,7 +194,7 @@ func cancelDownload(_ download: Download) {
 			}
 		}
 	}
-	
+
 	func resumeAllDownloads() {
     if !Thread.isMainThread {
         DispatchQueue.main.async { self.resumeAllDownloads() }
@@ -220,23 +220,23 @@ func cancelDownload(_ download: Download) {
 			ensureKeepAlive()
 		}
 	}
-	
+
 	func isManualDownload(_ string: String) -> Bool {
 		return string.contains("VexSignManualDownload")
 	}
-	
+
 	func getDownload(by id: String) -> Download? {
 		return downloads.first(where: { $0.id == id })
 	}
-	
+
 	func getDownloadIndex(by id: String) -> Int? {
 		return downloads.firstIndex(where: { $0.id == id })
 	}
-	
+
 	func getDownloadTask(by task: URLSessionDownloadTask) -> Download? {
 		return downloads.first(where: { $0.task == task })
 	}
-	
+
 	var nonManualDownloads: [Download] {
 		downloads.filter { !isManualDownload($0.id) }
 	}

@@ -83,7 +83,7 @@ Available from **Settings → Ecosystem**.
 
 - **Background downloads** with progress, speed tracking, pause/resume/stop controls, Live Activities and Dynamic Island support where available. Download controls are not a promise of resumable IPA extraction.
 - **Wi-Fi-only and charging-only download conditions**.
-- **HTTP and WebDAV file transfer** through the built-in web manager.
+- **HTTPS/WebDAV file transfer** through the built-in web manager.
 - **SHA-256 hashing** in download logs and file verification against a supplied hash.
 - **Game Mode** to pause downloads and background work.
 

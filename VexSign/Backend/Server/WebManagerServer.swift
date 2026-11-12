@@ -2,7 +2,7 @@
 //  WebManagerServer.swift
 //  VexSign
 //
-//  On-device LAN server to push IPAs/tweaks via browser (HTTP) or mounted drive (WebDAV).
+//  On-device LAN server to push IPAs/tweaks via a TLS-protected browser or WebDAV.
 //  Reuses Vapor from the install server.
 //
 
@@ -444,10 +444,18 @@ final class WebManagerServer {
 
 	private func _setup() async throws -> Application {
 		// Reuse ServerInstaller.env — a second LoggingSystem bootstrap would crash.
-		// Reuse the same bootstrap and shared server configuration path. Streaming
-		// uploads still bypass this collected-body cap, as before.
+		// The Web Manager is always HTTPS. Its self-managed leaf includes the LAN
+		// address (when exposed) and loopback names; a missing identity is fatal.
+		let advertisedHost = bindHost == "0.0.0.0"
+			? (ServerInstaller.getLocalAddress() ?? "127.0.0.1")
+			: bindHost
+		let tls = try ServerInstaller.webManagerTLSConfiguration(
+			serverNames: [advertisedHost, "127.0.0.1", "localhost"]
+		)
+
+		// Streaming uploads still bypass this collected-body cap, as before.
 		return try await ServerApplicationFactory.make(environment: ServerInstaller.env, threads: 2,
-			hostname: bindHost, bindHost: bindHost, port: port, transport: .http,
+			hostname: bindHost, bindHost: bindHost, port: port, transport: .https(tls),
 			bodyLimit: "32mb", caseInsensitive: true)
 	}
 

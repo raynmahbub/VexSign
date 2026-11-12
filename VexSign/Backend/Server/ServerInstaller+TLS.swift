@@ -57,7 +57,7 @@ extension ServerInstaller {
 	}
 	
 	func tls() throws -> TLSConfiguration? {
-        try DeviceTLSIdentity.ensure()
+		try DeviceTLSIdentity.ensure()
 		guard
 			let crt = Self.getUrl("server", ext: "crt"),
 			let pem = Self.getUrl("server", ext: "pem")
@@ -65,17 +65,33 @@ extension ServerInstaller {
 			FileLogger.error("Device-local server certificate or key is missing", category: "install")
 			return nil
 		}
-		
+		return try Self._loadTLSConfiguration(certificateURL: crt, privateKeyURL: pem)
+	}
+
+	/// Creates the Web Manager's TLS identity with the actual listener hostname/IP
+	/// in the leaf SAN before loading it. A missing/corrupt identity is a startup
+	/// error; the LAN listener never falls back to plaintext HTTP.
+	nonisolated static func webManagerTLSConfiguration(serverNames: [String]) throws -> TLSConfiguration {
+		try DeviceTLSIdentity.ensure(serverNames: serverNames)
+		let certificateURL = DeviceTLSIdentity.directory.appendingPathComponent("server.crt")
+		let privateKeyURL = DeviceTLSIdentity.directory.appendingPathComponent("server.pem")
+		guard FileManager.default.fileExists(atPath: certificateURL.path),
+			  FileManager.default.fileExists(atPath: privateKeyURL.path) else {
+			throw DeviceTLSIdentity.Failure.invalidIdentity
+		}
+		return try _loadTLSConfiguration(certificateURL: certificateURL, privateKeyURL: privateKeyURL)
+	}
+
+	nonisolated private static func _loadTLSConfiguration(certificateURL: URL, privateKeyURL: URL) throws -> TLSConfiguration {
 		let source = { (url: URL) in
-            LocalTLSIdentity.diagnosticSource(for: url, deviceDirectory: DeviceTLSIdentity.directory)
-        }
-		FileLogger.log("cert=\(source(crt)) key=\(source(pem))", category: "install")
-		
+			LocalTLSIdentity.diagnosticSource(for: url, deviceDirectory: DeviceTLSIdentity.directory)
+		}
+		FileLogger.log("cert=\(source(certificateURL)) key=\(source(privateKeyURL))", category: "install")
+
 		do {
-			let chain = try NIOSSLCertificate.fromPEMFile(crt.path)
-			let key = try NIOSSLPrivateKey(file: pem.path, format: .pem)
+			let chain = try NIOSSLCertificate.fromPEMFile(certificateURL.path)
+			let key = try NIOSSLPrivateKey(file: privateKeyURL.path, format: .pem)
 			FileLogger.log("loaded certificate chain of \(chain.count) (a leaf plus intermediates is expected)", category: "install")
-			
 			return TLSConfiguration.makeServerConfiguration(
 				certificateChain: chain.map { NIOSSLCertificateSource.certificate($0) },
 				privateKey: .privateKey(key)
@@ -143,7 +159,7 @@ extension ServerInstaller {
 		return addresses
 	}
 	
-	static func getLocalAddress() -> String? {
+	nonisolated static func getLocalAddress() -> String? {
 		var address: String?
 		var ifaddr: UnsafeMutablePointer<ifaddrs>?
 		

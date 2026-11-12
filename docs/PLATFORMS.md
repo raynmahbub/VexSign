@@ -22,28 +22,61 @@ membership-exception mechanism the widget extension already uses:
 | `CompanionModels.swift` (wire format) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `CompanionClient.swift` (Web Manager reader) | ✅ | ✅ | ✅ | — | — |
 | `CompanionStore.swift` (view model) | ✅ | ✅ | ✅ | — | — |
-| `CompanionSecretStore.swift` (Keychain for password/token) | ✅ | ✅ | ✅ | — | — |
+| `CompanionSecretStore.swift` (password/token Keychain access) | ✅ | ✅ | ✅ | — | — |
+| `SecureSecretStore.swift` (TLS trust and migration support) | ✅ | ✅ | ✅ | — | — |
 | `WatchSnapshotStore.swift` (app-group hand-off) | — | — | — | ✅ | ✅ |
 
-These files import Foundation (plus SwiftUI/Combine in the store) and nothing
-else, which is what keeps them portable. Anything that touches UIKit, Core Data
-or the signer stays in the iOS target.
+The shared client uses Foundation, Security and CryptoKit; the store adds
+SwiftUI/Combine. Both Keychain helpers use Foundation/Security and remain portable.
+Anything that touches UIKit, Core Data or the signer stays in the iOS target.
 
 ## Apple TV
 
 `VexSignTV/` — one screen, focus-first: certificate hero card, four count tiles,
 pending updates, library grid.
 
-**Pairing:** open VexSign on the iPhone → *Settings → Web Manager* → set a
-username and password, turn on **Allow This Network**, then start the server and
-enter the printed address (plus the username/password, and the API token if one is
-set) in *Settings → Companion Devices → Apple TV & Vision Pro*… or simply type it
-into the TV app's connect screen. The server listens on loopback until network
-access is turned on, and it will not start at all while *Require Password* is on
-and the password is empty — the companion reads `/api/status`, `/api/library` and
-`/api/updates`, which are behind that password when one is configured. There is no
-auto-discovery: the Web Manager does not advertise a Bonjour service, and guessing
-addresses is worse than asking.
+**Connection and pairing:** open VexSign on the iPhone → *Settings → Web Manager*;
+set a username and password, turn on **Allow This Network**, then start the server.
+Enter the printed HTTPS address and compare the printed CA fingerprint directly
+with the iPhone before pairing. Add the username/password or API token in *Settings
+→ Companion Devices → Apple TV & Vision Pro*, or type them into the companion's
+connect screen. The server listens on loopback until network access is turned on,
+and will not start while *Require Password* is on and the password is empty. The
+companion reads `/api/status`, `/api/library` and `/api/updates`, which are behind
+the configured password. There is no auto-discovery: the Web Manager does not
+advertise a Bonjour service, and guessing addresses is worse than asking.
+
+**Transport and pairing:** a bare host is treated as HTTPS. In VexSign → Settings
+→ Web Manager, compare the displayed **Device CA SHA-256 fingerprint** and enter
+that value in the companion before the first connection. The companion accepts
+only the matching certificate chain, applies the platform SSL policy for the
+requested host/IP (including validity, chain signatures, EKU and SAN matching),
+and saves the accepted CA certificate in Keychain, scoped to that HTTPS origin.
+Credentials are sent only after validation and the Keychain write succeed. An
+invalid, expired, hostname-mismatched or changed certificate fails closed; a
+changed fingerprint requires explicitly forgetting the old trust and pairing
+again after checking the new value on the iPhone. The CA remains stable across
+leaf-certificate renewals, and its leaf includes the current LAN address.
+
+The Web Manager in this build serves HTTPS only and fails closed if its
+device-local TLS identity is unavailable; it never falls back to plaintext. The
+companion refuses every redirect so URLSession cannot forward credentials to a
+changed request target. For compatibility with older or custom HTTP servers, a
+separate **Allow HTTP on this network** opt-in accepts only local-network hosts
+(private IPv4, IPv6 link-local/unique-local, `*.local` or loopback). That path has
+no certificate pairing and exposes credentials and API data to anyone who can
+monitor the network; it is not a fallback for failed HTTPS and is not used by the
+current Web Manager. A browser may show a warning for the locally issued
+certificate; companion pairing does not install that CA into Safari/Finder or the
+operating system's global trust store.
+
+**Credential storage:** the password and API token live in the Keychain through
+`CompanionSecretStore` with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`,
+not in `UserDefaults`. Legacy plaintext defaults and the earlier Keychain account
+namespace are migrated, and an old copy is removed only after the replacement
+write succeeds. If Keychain access fails, the connect screen reports it and keeps
+the previous credential available for retry; secrets are never logged or silently
+treated as empty. TLS trust is stored separately with `SecureSecretStore`.
 
 **What it reads:** `GET /api/status`, `GET /api/library`, `GET /api/updates` —
 the automation endpoints that already existed. No new server surface was added
@@ -52,24 +85,6 @@ for the companions.
 **Refresh:** on appear, on demand, and every 30 seconds by default
 (`autoRefreshInterval`, settable in the store). A failed refresh keeps the last
 good snapshot on screen instead of blanking.
-
-**Transport.** The companion client speaks HTTPS. An address typed without a
-scheme gets `https://`, and a `http://` address is refused unless
-**Allow HTTP on this network** is on *and* the host is a local-network address
-(private IPv4, IPv6 link-local/unique-local, `*.local` or loopback). Plain HTTP is
-the case where the password and API token travel in cleartext, so it is an
-explicit choice for a home network — never a fallback for a failed HTTPS
-connection, and never valid for a public host. Redirects are refused outright,
-because `URLSession` forwards request headers (including `Authorization`) when it
-follows one.
-
-**Credential storage.** The password and API token live in the Keychain
-(`CompanionSecretStore`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), not
-in `UserDefaults`. Values written by an earlier build are migrated on first launch
-and the plaintext copy is removed only after the Keychain write succeeds, so a
-locked Keychain leaves a working credential instead of losing it. A Keychain
-failure is shown in the connect screen; it is never logged and never silently
-treated as an empty password.
 
 ## Apple Vision Pro
 
@@ -130,8 +145,8 @@ xcodebuild -workspace VexSign.xcworkspace -scheme VexSignWatch \
 ```
 
 `.github/workflows/platform-check.yml` runs exactly these three builds on macOS
-runners whenever a companion target, `VexSign/Companion/` or the project file
-changes.
+runners whenever a companion target, `VexSign/Companion/`, the shared
+`VexSign/Security/SecureSecretStore.swift`, `PlatformInfo/`, or the project file changes.
 
 The watch app is embedded in the iPhone app by an *Embed Watch Content* build
 phase on the `VexSign` target, and the watch widget is embedded in the watch app
@@ -153,11 +168,10 @@ the watch pair with it.
 - **The TV/vision companions need the Web Manager running.** iOS suspends the
   server when the phone locks unless *Keep alive* is on; a companion then shows
   the last snapshot and a staleness indicator rather than fresh data.
-- **The Web Manager itself serves HTTP.** It is a Vapor HTTP listener (`transport:
-  .http`), so a companion reaching it over HTTP has no server-side TLS to negotiate;
-  the HTTPS path is the one the local install server provides. Treat the pairing
-  credentials as readable by anyone on the network that can sniff it, which is why
-  the HTTP opt-in is local-only and off by default.
+- **Browser trust is separate from companion pairing.** The TV/Vision apps pin
+  the device CA after the user checks its fingerprint. That does not install the
+  CA into Safari/Finder or the device-wide trust store; a browser or WebDAV client
+  may require a separate manual trust step for the locally issued certificate.
 - **Watch reachability is Apple's call.** Commands may take until the next
   in-range moment; the UI says so instead of pretending they ran.
 - **Not device-tested here.** These targets compile in CI (macOS runners) but the

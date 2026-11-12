@@ -33,6 +33,21 @@ final class DeviceTLSIdentityTests: XCTestCase {
         XCTAssertNotEqual(first.leafKey, second.leafKey)
     }
 
+    func testGeneratedLeafIncludesTheWebManagerLANAddressInItsSAN() throws {
+        let identity = try DeviceTLSIdentity.generate(serverNames: ["127.0.0.1", "localhost", "192.168.1.20"])
+        XCTAssertTrue(try verify(identity, host: "192.168.1.20"))
+        XCTAssertFalse(try verify(identity, host: "192.168.1.21"))
+        XCTAssertEqual(identity.serverNames ?? [], ["127.0.0.1", "192.168.1.20", "localhost"])
+    }
+
+    func testLeafReissueAddsLANNameWithoutChangingThePinnedCA() throws {
+        let saved = try DeviceTLSIdentity.generate()
+        let renewed = try DeviceTLSIdentity.renew(saved, serverNames: ["127.0.0.1", "localhost", "192.168.1.20"])
+        XCTAssertEqual(saved.rootCertificate, renewed.rootCertificate)
+        XCTAssertEqual(saved.rootKey, renewed.rootKey)
+        XCTAssertTrue(try verify(renewed, host: "192.168.1.20"))
+    }
+
     func testLeafRenewalPreservesTrustedCA() throws {
         let saved = try DeviceTLSIdentity.generate()
         let renewed = try DeviceTLSIdentity.renew(saved)
