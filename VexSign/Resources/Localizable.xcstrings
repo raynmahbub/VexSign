@@ -104449,6 +104449,138 @@
         }
       }
     },
+    "A secure password for the certificate export could not be generated. Nothing was imported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A secure password for the certificate export could not be generated. Nothing was imported."
+          }
+        }
+      }
+    },
+    "Certificate Imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate Imported"
+          }
+        }
+      }
+    },
+    "Experimental: production CMS verification and physical-device acceptance are still required before native Apple-account signing is considered integrated." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental: production CMS verification and physical-device acceptance are still required before native Apple-account signing is considered integrated."
+          }
+        }
+      }
+    },
+    "I consent to exporting this device-only private key once into VexSign's certificate store." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I consent to exporting this device-only private key once into VexSign's certificate store."
+          }
+        }
+      }
+    },
+    "Import Apple ID Certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Apple ID Certificate"
+          }
+        }
+      }
+    },
+    "Import Certificate & Profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Certificate & Profile"
+          }
+        }
+      }
+    },
+    "The Apple ID identity and profile are now available in Certificates. Select them in the existing signing flow; this step did not sign or install an app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Apple ID identity and profile are now available in Certificates. Select them in the existing signing flow; this step did not sign or install an app."
+          }
+        }
+      }
+    },
+    "The Apple account or signing identity changed. Review the current account and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Apple account or signing identity changed. Review the current account and try again."
+          }
+        }
+      }
+    },
+    "The authenticated profile does not match the selected team, identity, app, device, or expiry. Nothing was imported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The authenticated profile does not match the selected team, identity, app, device, or expiry. Nothing was imported."
+          }
+        }
+      }
+    },
+    "The authenticated provisioning profile could not be read. Nothing was imported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The authenticated provisioning profile could not be read. Nothing was imported."
+          }
+        }
+      }
+    },
+    "The native certificate export was empty or too large. Nothing was imported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The native certificate export was empty or too large. Nothing was imported."
+          }
+        }
+      }
+    },
+    "Validating & Importing…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validating & Importing…"
+          }
+        }
+      }
+    },
     "Changing the port restarts the server. Web Manager traffic uses HTTPS with a device-local certificate; companion apps verify its SHA-256 CA fingerprint before sending credentials." : {
       "extractionState" : "manual",
       "localizations" : {

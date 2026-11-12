@@ -115,7 +115,28 @@ final class NativeCertificateCreationTests: XCTestCase {
     private struct RejectionVerifier: NativeProfileCMSVerifying {
         func verifyAppleProvisioningCMS(_ cms: Data, now: Date) async throws -> Data { throw NativeProfileValidationError.cmsRejected }
     }
+    private struct ExportVerifier: NativeProfileCMSVerifying {
+        let payload: Data
+        func verifyAppleProvisioningCMS(_ cms: Data, now: Date) async throws -> Data { payload }
+    }
+    private struct ReceiptStore: NativeProfileReceiptStorage {
+        let lock = OSAllocatedUnfairLock<[NativeProfileReceipt]>(initialState: [])
+        func record(_ receipt: NativeProfileReceipt, owner: NativeSigningIdentityOwner) throws {
+            lock.withLock { $0.append(receipt) }
+        }
+        func list(owner: NativeSigningIdentityOwner) throws -> [NativeProfileReceipt] {
+            lock.withLock { $0.filter { $0.ownerDigest == owner.digest } }
+        }
+    }
+    private final class Clock: Sendable {
+        private let locked = OSAllocatedUnfairLock<Date>(initialState: NativeCertificateCreationTests.now)
+        var now: Date { locked.withLock { $0 } }
+        func advance(by interval: TimeInterval) { locked.withLock { $0 = $0.addingTimeInterval(interval) } }
+    }
     private actor Calls {
+        private var downloads = 0
+        func downloadedProfile() { downloads += 1 }
+        func downloadCount() -> Int { downloads }
         private var profilePause = false
         private var profileEntered = false
         private var profileEntry: CheckedContinuation<Void, Never>?
@@ -187,6 +208,7 @@ final class NativeCertificateCreationTests: XCTestCase {
         let calls: Calls
         let failSend: Bool
         let registrations: RegistrationStore
+        let downloadCMS: Data?
         func registrationInventory(subject: NativeRegistrationSubject, team: Team, session: Session) async throws -> [NativeRegistrationObservation] {
             await calls.profileRead()
             let values = await calls.registrationValues()
@@ -200,8 +222,12 @@ final class NativeCertificateCreationTests: XCTestCase {
         }
         func downloadProvisioningProfile(encodedSession: Data, headers: AnisetteData, teamIdentifier: String,
                                          profileUUID: UUID, now: Date) async throws -> Data {
-            XCTFail("Default CMS gate must prevent profile download")
-            throw NativeProfileCreationError.inventoryRejected
+            guard let downloadCMS else {
+                XCTFail("Default CMS gate must prevent profile download")
+                throw NativeProfileCreationError.inventoryRejected
+            }
+            await calls.downloadedProfile()
+            return downloadCMS
         }
         func profileCertificateInventory(team: Team, session: Session) async throws -> [NativeProfileCertificateObservation] {
             XCTFail("Default CMS gate must prevent certificate I/O"); return []
@@ -245,13 +271,15 @@ final class NativeCertificateCreationTests: XCTestCase {
     }
     private static func fixture(failSend: Bool = false, phase: NativeSigningIdentityPhase = .prepared,
                                 profileValidator: NativeProvisioningProfileValidator = .init(),
-                                exportFixture: Bool = false) async throws -> (Bridge, Vault, Calls, UUID, AnisetteConsentToken) {
+                                exportFixture: Bool = false, receipts: (any NativeProfileReceiptStorage)? = nil,
+                                downloadCMS: Data? = nil, clock suppliedClock: Clock? = nil) async throws -> (Bridge, Vault, Calls, UUID, AnisetteConsentToken) {
         let vault = Vault(phase: phase, exportFixture: exportFixture); let calls = Calls(); let store = Store()
         let registrations = RegistrationStore()
-        let portal = Portal(vault: vault, calls: calls, failSend: failSend, registrations: registrations)
+        let portal = Portal(vault: vault, calls: calls, failSend: failSend, registrations: registrations, downloadCMS: downloadCMS)
+        let clock = suppliedClock ?? Clock()
         let descriptor = try AnisetteProviderDescriptor(identifier: "fixture", displayName: "Fixture", policyRevision: "1", endpoint: nil)
-        let bridge = Bridge(adapter: SideSignAccountAdapter(portal: portal, clock: { now }),
-            provider: Provider(descriptor: descriptor), sessions: store, journal: store, clock: { now }, lifetime: Lifetime(), identities: vault, registrations: registrations, profiles: ProfileStore(), profileValidator: profileValidator)
+        let bridge = Bridge(adapter: SideSignAccountAdapter(portal: portal, clock: { clock.now }),
+            provider: Provider(descriptor: descriptor), sessions: store, journal: store, clock: { clock.now }, lifetime: Lifetime(), identities: vault, registrations: registrations, profiles: ProfileStore(), receipts: receipts, profileValidator: profileValidator)
         let consent = try await bridge.recordExplicitAnisetteConsent()
         let handle = try await bridge.startAuthentication(appleID: "fixture@example.invalid", password: "SYNTHETIC", xcodeVersion: "26.2", consent: consent)
         await handle.waitUntilFinished()
@@ -259,6 +287,108 @@ final class NativeCertificateCreationTests: XCTestCase {
         let snapshot = await bridge.snapshot()
         guard case .signedIn(let context) = snapshot.phase else { throw NativeSigningIdentityError.contextChanged }
         return (bridge, vault, calls, context.id, consent)
+    }
+
+    private static let exportBundle = "com.example.fixture"
+    private static let exportUDID = "0000ABCD-0011223344556677"
+    private static let exportCMS = Data("SYNTHETIC EXPORT CMS".utf8)
+
+    private static func exportValidator(profileUUID: UUID) throws -> NativeProvisioningProfileValidator {
+        let root: [String: Any] = ["Version": 1, "UUID": profileUUID.uuidString,
+            "CreationDate": now.addingTimeInterval(-60), "ExpirationDate": now.addingTimeInterval(3600), "Platform": ["iOS"],
+            "TeamIdentifier": ["ABCDE12345"], "ApplicationIdentifierPrefix": ["ABCDE12345"],
+            "ProvisionedDevices": [exportUDID], "DeveloperCertificates": [Data([1])],
+            "Entitlements": ["application-identifier": "ABCDE12345." + exportBundle,
+                "com.apple.developer.team-identifier": "ABCDE12345", "get-task-allow": true,
+                "keychain-access-groups": ["ABCDE12345.*"]]]
+        let payload = try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)
+        return NativeProvisioningProfileValidator(verifier: ExportVerifier(payload: payload))
+    }
+
+    private static func exportReceipt(identityID: UUID, profileUUID: UUID,
+                                      validator: NativeProvisioningProfileValidator) async throws -> NativeProfileReceipt {
+        let owner = try NativeSigningIdentityOwner(accountIdentifier: "123", dsid: "123", teamIdentifier: "ABCDE12345")
+        let validation = try NativeProfileValidationRequest(teamIdentifier: "ABCDE12345",
+            bundleIdentifier: exportBundle, deviceIdentifier: exportUDID, certificateDER: Data([1]))
+        let request = try NativeProfileCreationRequest(identityID: identityID, validation: validation,
+            appID: "APP1", deviceID: "DEVICE1", certificateID: "CERT1")
+        let profile = try await validator.validate(cms: exportCMS, request: validation, now: now)
+        return try NativeProfileReceipt(profile: profile, owner: owner, request: request, recordedAt: now)
+    }
+
+    func testProfileExportReturnsExactFreshlyValidatedCMSBytes() async throws {
+        let profileUUID = UUID()
+        let validator = try Self.exportValidator(profileUUID: profileUUID)
+        let receipts = ReceiptStore()
+        let (bridge, vault, calls, context, consent) = try await Self.fixture(phase: .certificateRecorded,
+            profileValidator: validator, receipts: receipts, downloadCMS: Self.exportCMS)
+        let identityID = await vault.identityID
+        let receipt = try await Self.exportReceipt(identityID: identityID, profileUUID: profileUUID, validator: validator)
+        try receipts.record(receipt,
+                            owner: NativeSigningIdentityOwner(accountIdentifier: "123", dsid: "123", teamIdentifier: "ABCDE12345"))
+        let exported = try await bridge.exportProvisioningProfile(contextID: context, profileUUID: profileUUID,
+            identityID: identityID, bundleIdentifier: Self.exportBundle, deviceIdentifier: Self.exportUDID, consent: consent)
+        XCTAssertEqual(exported, Self.exportCMS)
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 1)
+        await bridge.shutdown()
+    }
+
+    func testProfileExportRequiresCurrentReceiptBeforePortalDownload() async throws {
+        let profileUUID = UUID()
+        let validator = try Self.exportValidator(profileUUID: profileUUID)
+        let (bridge, vault, calls, context, consent) = try await Self.fixture(phase: .certificateRecorded,
+            profileValidator: validator, receipts: ReceiptStore(), downloadCMS: Self.exportCMS)
+        do {
+            _ = try await bridge.exportProvisioningProfile(contextID: context, profileUUID: profileUUID,
+                identityID: await vault.identityID, bundleIdentifier: Self.exportBundle,
+                deviceIdentifier: Self.exportUDID, consent: consent)
+            XCTFail("A profile without an authenticated receipt must not be exported")
+        } catch { XCTAssertEqual(error as? NativeProfileValidationError, .receiptUnavailable) }
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 0)
+        await bridge.shutdown()
+    }
+
+    func testProfileExportRejectsDigestSubstitutionAfterDownload() async throws {
+        let profileUUID = UUID()
+        let validator = try Self.exportValidator(profileUUID: profileUUID)
+        let receipts = ReceiptStore()
+        let (bridge, vault, calls, context, consent) = try await Self.fixture(phase: .certificateRecorded,
+            profileValidator: validator, receipts: receipts, downloadCMS: Data("SUBSTITUTED CMS".utf8))
+        let identityID = await vault.identityID
+        let receipt = try await Self.exportReceipt(identityID: identityID, profileUUID: profileUUID, validator: validator)
+        try receipts.record(receipt,
+                            owner: NativeSigningIdentityOwner(accountIdentifier: "123", dsid: "123", teamIdentifier: "ABCDE12345"))
+        do {
+            _ = try await bridge.exportProvisioningProfile(contextID: context, profileUUID: profileUUID,
+                identityID: identityID, bundleIdentifier: Self.exportBundle, deviceIdentifier: Self.exportUDID, consent: consent)
+            XCTFail("The returned CMS must match the authenticated receipt")
+        } catch { XCTAssertEqual(error as? NativeProfileValidationError, .receiptMismatch) }
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 1)
+        await bridge.shutdown()
+    }
+
+    func testProfileExportRejectsExpiredConsentBeforePortalDownload() async throws {
+        let profileUUID = UUID()
+        let validator = try Self.exportValidator(profileUUID: profileUUID)
+        let receipts = ReceiptStore(); let clock = Clock()
+        let (bridge, vault, calls, context, consent) = try await Self.fixture(phase: .certificateRecorded,
+            profileValidator: validator, receipts: receipts, downloadCMS: Self.exportCMS, clock: clock)
+        let identityID = await vault.identityID
+        let receipt = try await Self.exportReceipt(identityID: identityID, profileUUID: profileUUID, validator: validator)
+        try receipts.record(receipt,
+                            owner: NativeSigningIdentityOwner(accountIdentifier: "123", dsid: "123", teamIdentifier: "ABCDE12345"))
+        clock.advance(by: 901)
+        do {
+            _ = try await bridge.exportProvisioningProfile(contextID: context, profileUUID: profileUUID,
+                identityID: identityID, bundleIdentifier: Self.exportBundle, deviceIdentifier: Self.exportUDID, consent: consent)
+            XCTFail("Expired consent must fail closed")
+        } catch { XCTAssertEqual(error as? AnisetteConsentError, .consentRequired) }
+        let downloads = await calls.downloadCount()
+        XCTAssertEqual(downloads, 0)
+        await bridge.shutdown()
     }
 
     func testFailedExportConsumesGrantBeforePrivateKeyReadAndReplay() async throws {
@@ -461,7 +591,7 @@ final class NativeCertificateCreationTests: XCTestCase {
     }
 
     func testBoundProfileDefaultVerifierBlocksBeforeSessionAndCallbacks() throws {
-        let portal = Portal(vault: Vault(), calls: Calls(), failSend: false, registrations: RegistrationStore())
+        let portal = Portal(vault: Vault(), calls: Calls(), failSend: false, registrations: RegistrationStore(), downloadCMS: nil)
         let owner = try NativeSigningIdentityOwner(accountIdentifier: "123", dsid: "123", teamIdentifier: "ABCDE12345")
         let validation = try NativeProfileValidationRequest(teamIdentifier: owner.teamIdentifier, bundleIdentifier: "com.example.fixture",
             deviceIdentifier: "0000ABCD-0011223344556677", certificateDER: Data([1]))

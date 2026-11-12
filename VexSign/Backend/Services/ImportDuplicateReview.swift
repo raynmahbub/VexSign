@@ -7,7 +7,7 @@ import NimbleExtensions
 enum ImportDuplicateReview {
     private struct Review {
         let app: AppInfoPresentable
-        let completion: (AppInfoPresentable, Bool) -> Void
+        let completion: @MainActor (AppInfoPresentable, Bool) -> Void
     }
     private static var pending: [Review] = []
     private static var processing = false
@@ -18,7 +18,7 @@ enum ImportDuplicateReview {
     }
 
     /// Bool is true only when the newly imported copy was retained.
-    static func resolve(_ app: AppInfoPresentable, completion: @escaping (AppInfoPresentable, Bool) -> Void) {
+    static func resolve(_ app: AppInfoPresentable, completion: @MainActor @escaping (AppInfoPresentable, Bool) -> Void) {
         pending.append(Review(app: app, completion: completion))
         guard !processing else { return }
         processing = true

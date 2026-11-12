@@ -532,6 +532,28 @@ public actor NativeAccountBackend {
         } catch { throw Self.certificateError(error) }
     }
 
+    /// Freshly downloads and authenticates the exact CMS envelope represented by
+    /// this owner's durable receipt. No profile bytes are returned when the
+    /// identity, bundle, device, certificate, expiry or CMS digest has changed.
+    public func exportProvisioningProfile(
+        contextID: UUID,
+        profileUUID: UUID,
+        identityID: UUID,
+        bundleIdentifier: String,
+        deviceIdentifier: String,
+        consent: AnisetteConsentToken
+    ) async throws -> Data {
+        try requireOpen()
+        do {
+            let data = try await bridge.exportProvisioningProfile(contextID: contextID,
+                profileUUID: profileUUID, identityID: identityID, bundleIdentifier: bundleIdentifier,
+                deviceIdentifier: deviceIdentifier, consent: consent)
+            try requireOpen()
+            try Task.checkCancellation()
+            return data
+        } catch { throw Self.profileError(error) }
+    }
+
     /// Downloads a provisioning profile by UUID as a .mobileprovision file.
     /// - Parameters:
     ///   - contextID: The active signing context ID

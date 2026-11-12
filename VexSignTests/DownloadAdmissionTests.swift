@@ -62,12 +62,15 @@ final class DownloadAdmissionTests: XCTestCase {
         withManager { manager in
             let running = manager.startDownload(from: url(90))
             let manual = manager.startDownload(from: url(91))
+            waitForTaskState(running.task, equals: .running)
             manager.pauseDownload(manual)
             manager.reconcileNetworkPolicy(allowed: false)
+            waitForTaskState(running.task, equals: .suspended)
             XCTAssertEqual(running.task?.state, .suspended)
             XCTAssertTrue(running.isWaitingForSlot)
             XCTAssertFalse(running.isPaused)
             manager.reconcileNetworkPolicy(allowed: true)
+            waitForTaskState(running.task, equals: .running)
             XCTAssertEqual(running.task?.state, .running)
             XCTAssertTrue(manual.isPaused)
             XCTAssertEqual(manual.task?.state, .suspended)
@@ -101,6 +104,22 @@ final class DownloadAdmissionTests: XCTestCase {
         manager.pauseDownload(download)
         manager.cancelDownload(download)
         manager.cancelAllDownloads()
+    }
+
+    /// URLSession publishes suspend/resume state asynchronously. Wait for that observation
+    /// instead of treating a still-pending transition as a policy failure.
+    @MainActor
+    private func waitForTaskState(
+        _ task: URLSessionTask?,
+        equals expected: URLSessionTask.State,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let settled = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in task?.state == expected },
+            object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed, file: file, line: line)
     }
 
     private func url(_ index: Int) -> URL { URL(string: "https://example.invalid/\(index).ipa")! }
