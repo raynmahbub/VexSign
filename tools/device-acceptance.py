@@ -22,6 +22,19 @@ NATIVE_PRIMARY_CASES = ('native_primary_bootstrap', 'host_session_switches',
                         'scoped_unattended_renewal')
 
 
+# Free Apple ID → certificate-store handoff ladder, step 5 of
+# docs/NATIVE_SIGNING_HANDOFF.md. These are recorded only when a device run
+# actually exercised the native account flow (`init --include-native-handoff`);
+# `tools/native-promotion-evidence.py` requires every one of them, plus genuine
+# Apple-issued CMS evidence, before
+# SigningMethodCapabilities.nativeAppleAccountSigning may claim `.implemented`.
+NATIVE_HANDOFF_CASES = ('native_sign_in_team_selection', 'native_device_and_app_id_registration',
+                        'native_profile_creation_and_export', 'native_key_export_consent_import',
+                        'native_signed_output_verification', 'native_install_and_relaunch',
+                        'native_seven_day_expiry_observed',
+                        'native_identity_persistence_after_relaunch')
+
+
 def artifact_architecture(ipa):
     """Classify metadata only, not code trust or successful native execution."""
     with zipfile.ZipFile(ipa) as archive:
@@ -68,7 +81,16 @@ def validate(report, commit, digest, architecture='standalone'):
     cases = report.get('checks', {})
     if not isinstance(cases, dict):
         return errors + ['checks must be an object']
-    for case in required_cases(architecture):
+    if report.get('native_handoff') not in (None, True):
+        errors.append('native_handoff must be true or absent')
+    required = required_cases(architecture)
+    if report.get('native_handoff') is True:
+        required += NATIVE_HANDOFF_CASES
+    elif any(case in cases for case in NATIVE_HANDOFF_CASES):
+        # A partially recorded ladder reads like a partial pass. Either the run
+        # exercised the native handoff or it did not.
+        errors.append('native handoff checks recorded without native_handoff: true')
+    for case in required:
         item = cases.get(case, {})
         if not isinstance(item, dict) or item.get('result') != 'pass' or not isinstance(item.get('notes'), str) or not item['notes'].strip():
             errors.append(f'{case}: requires explicit pass and observation notes')
@@ -80,7 +102,11 @@ def main():
     parser.add_argument('mode', choices=('init', 'check'))
     parser.add_argument('--ipa', required=True, type=Path)
     parser.add_argument('--report', required=True, type=Path)
+    parser.add_argument('--include-native-handoff', action='store_true',
+                        help='init: also record the Free Apple ID handoff ladder cases')
     args = parser.parse_args()
+    if args.mode == 'check' and args.include_native_handoff:
+        parser.exit(1, '--include-native-handoff applies to init only; a report declares itself\n')
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     digest = hashlib.file_digest(args.ipa.open('rb'), 'sha256').hexdigest()
     try:
@@ -88,13 +114,19 @@ def main():
     except (ValueError, plistlib.InvalidFileException, zipfile.BadZipFile) as error:
         parser.exit(1, str(error) + '\n')
     if args.mode == 'init':
+        cases = required_cases(architecture)
+        if args.include_native_handoff:
+            cases += NATIVE_HANDOFF_CASES
         report = dict(architecture=architecture, commit=commit, ipa_sha256=digest, tester='', device_model='',
                       os_version='', tested_at_utc='', checks={
-                          case: dict(result='pending', notes='') for case in required_cases(architecture)})
+                          case: dict(result='pending', notes='') for case in cases})
+        if args.include_native_handoff:
+            report['native_handoff'] = True
         with args.report.open('x') as handle:
             json.dump(report, handle, indent=2)
             handle.write('\n')
-        print('Pending report created. No device checks have passed.')
+        print('Pending report created. No device checks have passed.'
+              + (' Native handoff ladder included.' if args.include_native_handoff else ''))
         return
     errors = validate(json.loads(args.report.read_text()), commit, digest, architecture)
     if errors:

@@ -93,3 +93,31 @@ Other temp users and externally owned resources have not all been audited, and a
 An `InstallationArchive` now owns a temporary-work lease for its entire lifetime, including any retained OTA response after monitoring stops; releasing the installer source-app lease no longer exposes the served IPA to cleanup. Web Manager inbox files are user-owned transfers, not cleanup leftovers. Browser and WebDAV routing import staged copies and retain the inbox original on both success and failure; manage those originals explicitly in Web Manager. Streamed uploads now write a private sibling staging file and replace the destination only after the stream finishes, synchronizes and closes; failed uploads leave the previous destination untouched. A failed WebDAV PUT is no longer scheduled for import, and the signing API no longer treats an unsuccessful upload response as a successful stream. Added filesystem/lease regression cases, pending Xcode execution and actual Vapor/WebDAV integration tests.
 
 WebDAV MOVE now uses an atomic rename and COPY stages into a private sibling directory before publishing; unsupported replacements fail without deleting the destination. Several other temporary-file producers are still outside the lease system. These changes do not constitute iOS installation evidence or a physical-device test.
+
+### Native signing promotion evidence gate
+
+The Free Apple ID handoff is wired at adapter level, but nothing in this
+repository can observe Apple trust or device behaviour: synthetic CMS bytes,
+injected import operations, simulator runs, native link smoke and combined builds
+all pass without either. Promotion of
+`SigningMethodCapabilities.nativeAppleAccountSigning` is therefore gated on a
+recorded artifact — `docs/evidence/native-signing-promotion.json`, written and
+checked by `tools/native-promotion-evidence.py`. A record must carry genuine
+Apple-issued CMS observations (portal source, `Security` framework chain and
+`SecKeyVerifySignature`, observed Apple roots, envelope and payload digests that
+may not match any committed fixture), real production wiring
+(`SideSignAccountBridge` defaulting to `.appleCMS()`), and a device report created
+with `tools/device-acceptance.py --include-native-handoff` whose eight ladder
+cases are explicitly passed and bound to a commit and IPA digest.
+`tools/check-native-handoff.py` now fails in both directions: `.implemented`
+without complete evidence or without the production verifier, and complete
+evidence while the flag is still `.notIntegrated`.
+
+This adds no signing capability and records no result. No evidence file exists,
+the production factory still constructs an unconfigured validator, and the
+capability remains `.notIntegrated` behind its UI caveat. Records hold digests and
+observations only; profile bytes, PKCS#12 material, passwords, private keys,
+device identifiers and logs stay out of Git. A complete record is a human
+attestation bound to a revision and an artifact digest, not independent
+verification, and it would not make the flow supported on any device other than
+the one recorded.

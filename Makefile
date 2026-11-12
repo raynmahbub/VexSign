@@ -133,6 +133,7 @@ verify: docs-check
 	@python3 tools/test_autopilot.py
 	@python3 tools/test_release_assets.py
 	@python3 tools/test_device_acceptance.py
+	@python3 tools/test_native_promotion_evidence.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --self-test
 	@python3 .github/scripts/quick_check.py --no-swiftc

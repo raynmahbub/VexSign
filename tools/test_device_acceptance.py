@@ -95,6 +95,86 @@ class AcceptanceTests(unittest.TestCase):
         self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64))
 
 
+class NativeHandoffReportTests(unittest.TestCase):
+    """The Free Apple ID ladder is opt-in, but never partial.
+
+    `tools/native-promotion-evidence.py` requires these cases before
+    `nativeAppleAccountSigning` may claim `.implemented`, so a report that
+    records some of them silently — or declares the ladder and leaves a case
+    pending — must fail here rather than look like a pass.
+    """
+
+    def report(self):
+        report = dict(commit='a' * 40, ipa_sha256='b' * 64, tester='Tester',
+                      device_model='Test iPhone', os_version='26',
+                      tested_at_utc='2026-11-10T10:00:00Z', native_handoff=True,
+                      checks={case: dict(result='pass', notes='Observed on the test device')
+                              for case in module.CASES + module.NATIVE_HANDOFF_CASES})
+        return report
+
+    def test_declared_ladder_is_complete(self):
+        self.assertEqual(module.validate(self.report(), 'a' * 40, 'b' * 64), [])
+
+    def test_declared_ladder_cannot_drop_or_pend_a_case(self):
+        report = self.report()
+        del report['checks']['native_seven_day_expiry_observed']
+        self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64))
+        for value in (dict(result='pending', notes=''), dict(result='fail', notes='Install failed'),
+                      dict(result='pass', notes='')):
+            report = self.report()
+            report['checks']['native_install_and_relaunch'] = value
+            self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64))
+
+    def test_undeclared_partial_ladder_is_rejected(self):
+        report = self.report()
+        del report['native_handoff']
+        errors = module.validate(report, 'a' * 40, 'b' * 64)
+        self.assertTrue(any('without native_handoff: true' in error for error in errors), errors)
+
+    def test_declaration_must_be_boolean(self):
+        report = self.report()
+        report['native_handoff'] = 'yes'
+        errors = module.validate(report, 'a' * 40, 'b' * 64)
+        self.assertTrue(any('native_handoff must be true or absent' in error for error in errors), errors)
+
+    def test_ladder_applies_to_every_architecture(self):
+        for architecture in ('standalone', 'guest-prototype'):
+            report = self.report()
+            report['architecture'] = architecture
+            self.assertEqual(module.validate(report, 'a' * 40, 'b' * 64, architecture), [])
+        report = self.report()
+        report['architecture'] = 'native-primary'
+        self.assertTrue(module.validate(report, 'a' * 40, 'b' * 64, 'native-primary'))
+
+    def test_cli_creates_the_ladder_only_when_asked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            ipa = Path(temporary) / 'fixture.ipa'
+            with zipfile.ZipFile(ipa, 'w') as archive:
+                archive.writestr('Payload/Fixture.app/Info.plist', plistlib.dumps({}))
+            plain = Path(temporary) / 'plain.json'
+            ladder = Path(temporary) / 'ladder.json'
+            command = [sys.executable, str(Path(module.__file__)), 'init', '--ipa', str(ipa)]
+            subprocess.run(command + ['--report', str(plain)], check=True, capture_output=True)
+            result = subprocess.run(command + ['--report', str(ladder), '--include-native-handoff'],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Native handoff ladder included.', result.stdout)
+            without = json.loads(plain.read_text())
+            with_ladder = json.loads(ladder.read_text())
+            self.assertNotIn('native_handoff', without)
+            self.assertEqual(set(without['checks']), set(module.CASES))
+            self.assertIs(with_ladder['native_handoff'], True)
+            self.assertEqual(set(with_ladder['checks']), set(module.CASES + module.NATIVE_HANDOFF_CASES))
+            self.assertTrue(all(value == {'result': 'pending', 'notes': ''}
+                                for value in with_ladder['checks'].values()))
+            self.assertTrue(module.validate(with_ladder, with_ladder['commit'], with_ladder['ipa_sha256']))
+            check = subprocess.run([sys.executable, str(Path(module.__file__)), 'check', '--ipa', str(ipa),
+                                    '--report', str(ladder), '--include-native-handoff'],
+                                   capture_output=True, text=True)
+            self.assertNotEqual(check.returncode, 0)
+            self.assertIn('applies to init only', check.stderr)
+
+
 class PendingAcceptanceClaimsTests(unittest.TestCase):
     """Keep published claims behind the device evidence that supports them.
 

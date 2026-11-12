@@ -181,3 +181,44 @@ it needs its own design and review, not an acceptance run:
 Until both are satisfied the guard in `tools/test_device_acceptance.py` keeps the
 README's "experimental" wording tied to this section. Removing the caveat and
 leaving the paths unexercised is the failure mode that guard exists to prevent.
+
+## Free Apple ID handoff ladder (pending)
+
+The native account → certificate-store handoff
+([native signing handoff](NATIVE_SIGNING_HANDOFF.md)) has its own device ladder.
+It is recorded inside the ordinary report rather than in a second file:
+
+```bash
+python3 tools/device-acceptance.py init --ipa /path/to/tested.ipa \
+  --report device-acceptance.local.json --include-native-handoff
+```
+
+That private working copy is gitignored. Promotion evidence is reviewed from the
+repository, so `tools/native-promotion-evidence.py` requires a **redacted,
+committed** copy — by convention
+`docs/evidence/device-acceptance-native-handoff.json` — and rejects a record that
+points at an ignored path. Redact device identifiers, portal details and account
+information before committing it, and keep raw screenshots and logs local.
+
+| Report check | Required observation |
+| --- | --- |
+| `native_sign_in_team_selection` | Sign in with the test Apple ID and select the free team; no account request happens before explicit consent. |
+| `native_device_and_app_id_registration` | Register the device and the test bundle ID from the app, then confirm both in the developer portal. |
+| `native_profile_creation_and_export` | Create the development profile and export it; the exported bytes match the recorded profile UUID, bundle ID and expiry. |
+| `native_key_export_consent_import` | Grant the single-use key export with the in-app password and confirm the identity appears in the certificate store. Import is not signing and not installation. |
+| `native_signed_output_verification` | Sign a small test app with that imported identity and inspect the verification output, not only a success banner. |
+| `native_install_and_relaunch` | Install the signed app on the device and relaunch it. |
+| `native_seven_day_expiry_observed` | Confirm the profile's seven-day expiry as reported on the device or portal. Never change the device clock to force it. |
+| `native_identity_persistence_after_relaunch` | Relaunch VexSign; the imported identity and its profile remain available without a second key export. |
+
+The flag is opt-in: a run that never touched the native flow records nothing and
+stays valid. Declaring the ladder makes every case required, and recording some
+of the cases without declaring it is rejected — neither shape reads as a pass.
+Keep portal screenshots, device identifiers and logs out of Git.
+
+Completing this report is necessary but not sufficient. Promoting
+`SigningMethodCapabilities.nativeAppleAccountSigning` also requires the genuine
+Apple CMS observations recorded by `tools/native-promotion-evidence.py`, which
+binds itself to this report's digest, commit and tested IPA checksum, and refuses
+a digest that matches a committed synthetic fixture. No result has been recorded
+for any case above; the ladder has never been exercised on hardware.
