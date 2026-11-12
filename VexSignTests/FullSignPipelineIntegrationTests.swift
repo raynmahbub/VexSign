@@ -135,13 +135,18 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         let key = "signed:\(testUUID)"
 
         // Import claims production
-        let importClaim = registry.claimProduction(of: testUUID)
-        XCTAssertTrue(registry.knowsProduction(of: testUUID))
+        do {
+            let importClaim = registry.claimProduction(of: testUUID)
+            XCTAssertTrue(registry.knowsProduction(of: testUUID))
 
-        // Import confirms production
-        registry.confirmProduction(of: testUUID)
+            // Import confirms production
+            registry.confirmProduction(of: testUUID)
+            XCTAssertTrue(registry.knowsProduction(of: testUUID))
+            withExtendedLifetime(importClaim) {}
+        }
+
+        // A confirmed copy stays known after its claim is gone
         XCTAssertTrue(registry.knowsProduction(of: testUUID))
-        withExtendedLifetime(importClaim) {}
 
         // Sign acquires ownership; a second claim on the same copy is refused while it is held
         do {
