@@ -58,8 +58,8 @@ enum FR {
                         UnifiedTaskCenter.shared.captureHistoryIcon(historyIcon, subjectID: download.id)
                     }
                 }
-                try? await handler.clean()
-				await MainActor.run {
+try? await handler.clean() // try? ok: best-effort cleanup of temporary work directory
+			await MainActor.run {
                     do {
                         let imported = try handler.importedApp(for: objectID)
                         UnifiedTaskCenter.shared.recordImportedArtifact(imported, task: importRecord, downloadID: download?.id)
@@ -73,7 +73,7 @@ enum FR {
                     }
 				}
 			} catch {
-				try? await handler.clean()
+				try? await handler.clean() // try? ok: best-effort cleanup of temporary work directory on error
                 await MainActor.run {
                     if let importRecord {
                         importRecord.context?.recordFailure(error)
@@ -286,7 +286,7 @@ enum FR {
 		// Security validates both the password and private key without the old
 		// OpenSSL CMS warm-up, which asserted on malformed or unreadable profiles.
 		guard CertificateReader(provision).decoded != nil,
-			  let data = try? CertificateInputReader.read(key), !data.isEmpty else { return false }
+			  let data = try? CertificateInputReader.read(key), !data.isEmpty else { return false } // try? ok: validation check; unreadable key fails validation
 		var items: CFArray?
 		let options = [kSecImportExportPassphrase as String: password] as CFDictionary
 		guard SecPKCS12Import(data as CFData, options, &items) == errSecSuccess,
@@ -504,7 +504,7 @@ enum FR {
 		func performExport(for certificate: CertificatePair) {
 			guard
 				let certificateKeyFile = Storage.shared.getFile(.certificate, from: certificate),
-				let certificateKeyFileData = try? Data(contentsOf: certificateKeyFile)
+				let certificateKeyFileData = try? Data(contentsOf: certificateKeyFile) // try? ok: certificate file may be missing or unreadable
 			else {
 				return
 			}

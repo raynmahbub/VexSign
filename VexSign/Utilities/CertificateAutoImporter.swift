@@ -71,7 +71,7 @@ class CertificateAutoImporter {
 							continue
 						}
 
-						guard let password = try? String(contentsOf: passwordUrl, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) else {
+						guard let password = try? String(contentsOf: passwordUrl, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) else { // try? ok: password file may be unreadable
 							Logger.misc.warning("Skipping \(certName): failed to read password")
 							continue
 						}
@@ -98,7 +98,7 @@ class CertificateAutoImporter {
 						continue
 					}
 
-					guard let password = try? String(contentsOf: passwordUrl, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) else {
+					guard let password = try? String(contentsOf: passwordUrl, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) else { // try? ok: password file may be unreadable
 						Logger.misc.warning("Skipping \(certName): failed to read password")
 						continue
 					}
@@ -191,8 +191,8 @@ class CertificateAutoImporter {
 		// Deterministic concatenation, not Hasher (which is seeded per-launch).
 		var hashComponents: [String] = []
 
-		if let p12Attrs = try? FileManager.default.attributesOfItem(atPath: p12.path),
-		   let provAttrs = try? FileManager.default.attributesOfItem(atPath: provision.path) {
+		if let p12Attrs = try? FileManager.default.attributesOfItem(atPath: p12.path), // try? ok: file attrs may be unavailable
+		   let provAttrs = try? FileManager.default.attributesOfItem(atPath: provision.path) { // try? ok: file attrs may be unavailable
 			hashComponents.append("p12size:\(p12Attrs[.size] as? Int ?? 0)")
 			hashComponents.append("provsize:\(provAttrs[.size] as? Int ?? 0)")
 			hashComponents.append("p12mod:\((p12Attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)")

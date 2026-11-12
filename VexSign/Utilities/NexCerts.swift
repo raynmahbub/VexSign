@@ -16,7 +16,12 @@ enum NexCerts {
 	static let sourceHost = "sideloading.net"
 
 	private static let apiBaseURL = "https://\(sourceHost)/api/certificates"
-	private static let listAllURL = URL(string: "\(apiBaseURL)/list/all")!
+	private static let listAllURL: URL = {
+		guard let url = URL(string: "\(apiBaseURL)/list/all") else {
+			return URL(string: "about:blank")!
+		}
+		return url
+	}()
 
 	/// These files are a few hundred kilobytes. The cap stops a broken or hostile host from
 	/// streaming something enormous into memory.
@@ -24,10 +29,11 @@ enum NexCerts {
 
 	/// Every download URL is built here so there is a single place to audit.
 	static func downloadURLs(for id: Int) -> (p12: URL, provision: URL, password: URL) {
-		(
-			p12: URL(string: "\(apiBaseURL)/download/\(id)/cert.p12")!,
-			provision: URL(string: "\(apiBaseURL)/download/\(id)/cert.mobileprovision")!,
-			password: URL(string: "\(apiBaseURL)/download/\(id)/password")!
+		let base = "\(apiBaseURL)/download/\(id)"
+		return (
+			p12: URL(string: "\(base)/cert.p12") ?? URL(string: "about:blank")!,
+			provision: URL(string: "\(base)/cert.mobileprovision") ?? URL(string: "about:blank")!,
+			password: URL(string: "\(base)/password") ?? URL(string: "about:blank")!
 		)
 	}
 

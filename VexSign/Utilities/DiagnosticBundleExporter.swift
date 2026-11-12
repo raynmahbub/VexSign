@@ -51,7 +51,7 @@ enum DiagnosticBundleExporter {
 			try Zip.zipFiles(paths: filesToZip, zipFilePath: zipURL, password: nil, progress: nil)
 
 			// Clean up staging folder
-			try? fm.removeItem(at: stagingDir)
+			try? fm.removeItem(at: stagingDir) // try? ok: best-effort cleanup; temp directory will be cleaned on next launch
 
 			return zipURL
 		} catch {
@@ -66,7 +66,7 @@ enum DiagnosticBundleExporter {
 		var result = text
 
 		// Redact password values
-		let passwordRegex = try? NSRegularExpression(
+		let passwordRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
 			pattern: #"(password["':\s=]+)([^"'\s,\r\n]+)"#,
 			options: [.caseInsensitive]
 		)
@@ -81,7 +81,7 @@ enum DiagnosticBundleExporter {
 		}
 
 		// Redact Bearer / API tokens
-		let tokenRegex = try? NSRegularExpression(
+		let tokenRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
 			pattern: #"(Bearer\s+)[A-Za-z0-9_\-\.]{10,}"#,
 			options: [.caseInsensitive]
 		)
@@ -97,7 +97,7 @@ enum DiagnosticBundleExporter {
 
 		// Redact raw private key blocks if any
 		if result.contains("-----BEGIN") {
-			let keyRegex = try? NSRegularExpression(
+			let keyRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
 				pattern: #"-----BEGIN[A-Z\s]+KEY-----[\s\S]*?-----END[A-Z\s]+KEY-----"#,
 				options: []
 			)
@@ -120,7 +120,7 @@ enum DiagnosticBundleExporter {
 	private static func _buildEnvironmentJSON() -> Data {
 		var diskFree: Int64 = 0
 		var diskTotal: Int64 = 0
-		if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()) {
+		if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()) { // try? ok: filesystem attrs may be unavailable
 			diskFree = (attrs[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
 			diskTotal = (attrs[.systemSize] as? NSNumber)?.int64Value ?? 0
 		}
@@ -141,7 +141,7 @@ enum DiagnosticBundleExporter {
 			"timestamp": ISO8601DateFormatter().string(from: Date())
 		]
 
-		return (try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted])) ?? Data()
+		return (try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
 	}
 
 	@MainActor
@@ -168,7 +168,7 @@ enum DiagnosticBundleExporter {
 			"certificates": summaries
 		]
 
-		return (try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted])) ?? Data()
+		return (try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
 	}
 
 	private static func _buildOptionsSummaryJSON() -> Data {
@@ -192,7 +192,7 @@ enum DiagnosticBundleExporter {
 			"experiment_supportLiquidGlass": opts.experiment_supportLiquidGlass
 		]
 
-		return (try? JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted])) ?? Data()
+		return (try? JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
 	}
 
 	private static func _timestamp() -> String {

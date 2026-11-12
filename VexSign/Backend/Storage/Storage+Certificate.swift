@@ -42,7 +42,7 @@ extension Storage {
 			try context.save()
 		} catch {
 			context.delete(new)
-			try? SecureSecretStore.delete("certificate.password.\(uuid)")
+			try? SecureSecretStore.delete("certificate.password.\(uuid)") // try? ok: best-effort cleanup on failed certificate creation
 			completion(error)
 			return
 		}
@@ -80,7 +80,7 @@ extension Storage {
 		}
 
 		if let url = getUuidDirectory(for: cert) {
-			try? FileManager.default.removeItem(at: url)
+			try? FileManager.default.removeItem(at: url) // try? ok: best-effort cleanup; orphaned files are handled by periodic sweep
 		}
 		context.delete(cert)
 		saveContext()
@@ -117,26 +117,47 @@ extension Storage {
             return
         }
         let name = cert.nickname ?? "Certificate"
+        
+        // Capture all needed data before the async work to avoid retaining the managed object
+        let certUUID = uuid
+        let certP12 = p12
+        let certProfile = profile
+        let certPassword = password
+        let certName = name
+        
         Task {
             do {
                 let health = try await CertificateInspector.inspect(
-                    id: uuid, name: name, p12: p12, password: password, profile: profile, online: true
+                    id: certUUID, name: certName, p12: certP12, password: certPassword, profile: certProfile, online: true
                 )
-                guard !cert.isDeleted, cert.managedObjectContext != nil else {
-                    completion?(false)
-                    return
+                // Re-fetch the certificate to ensure it still exists and is valid
+                await MainActor.run {
+                    guard let refreshedCert = self.getCertificate(uuid: certUUID),
+                          !refreshedCert.isDeleted,
+                          refreshedCert.managedObjectContext != nil else {
+                        completion?(false)
+                        return
+                    }
+                    if health.revocation == .revoked {
+                        refreshedCert.revoked = true
+                        self.saveContext()
+                    }
+                    completion?(refreshedCert.revoked)
                 }
-                if health.revocation == .revoked {
-                    cert.revoked = true
-                    saveContext()
-                }
-                completion?(cert.revoked)
             } catch {
                 // Offline, malformed or unverifiable evidence is unknown, not revoked.
                 FileLogger.log("Certificate status check could not complete: \(error)", category: "certificate")
-                completion?(false)
+                await MainActor.run { completion?(false) }
             }
         }
+    }
+    
+    @MainActor
+    private func getCertificate(uuid: String) -> CertificatePair? {
+        let fetchRequest: NSFetchRequest<CertificatePair> = CertificatePair.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "uuid == %@", uuid)
+        fetchRequest.fetchLimit = 1
+        return fetchOnQueue(fetchRequest).first
     }
 
 	enum FileRequest: String {

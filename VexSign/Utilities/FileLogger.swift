@@ -36,8 +36,8 @@ enum FileLogger {
 			do {
 				try _fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
 				_rotateIfNeeded(url)
-				if let handle = try? FileHandle(forWritingTo: url) {
-					defer { try? handle.close() }
+				if let handle = try? FileHandle(forWritingTo: url) { // try? ok: open for append; fallback to atomic write
+					defer { try? handle.close() } // try? ok: best-effort close
 					try handle.seekToEnd()
 					handle.write(Data(line.utf8))
 				} else {
@@ -61,19 +61,19 @@ enum FileLogger {
 
 	/// Current log contents (for an in-app share/export).
 	static func read() -> String {
-		(try? String(contentsOf: logFileURL, encoding: .utf8)) ?? ""
+		(try? String(contentsOf: logFileURL, encoding: .utf8)) ?? "" // try? ok: log file may not exist yet
 	}
 
 	/// Full history including the rotated file, oldest first.
 	static func readAll() -> String {
-		let rotated = (try? String(contentsOf: _rotatedFileURL, encoding: .utf8)) ?? ""
+		let rotated = (try? String(contentsOf: _rotatedFileURL, encoding: .utf8)) ?? "" // try? ok: rotated log may not exist
 		return rotated + read()
 	}
 
 	static func clear() {
 		_queue.async {
-			try? _fm.removeItem(at: logFileURL)
-			try? _fm.removeItem(at: _rotatedFileURL)
+			try? _fm.removeItem(at: logFileURL) // try? ok: best-effort cleanup
+			try? _fm.removeItem(at: _rotatedFileURL) // try? ok: best-effort cleanup
 		}
 	}
 
@@ -81,13 +81,13 @@ enum FileLogger {
 
 	private static func _rotateIfNeeded(_ url: URL) {
 		guard
-			let attrs = try? _fm.attributesOfItem(atPath: url.path),
+			let attrs = try? _fm.attributesOfItem(atPath: url.path), // try? ok: file may not exist
 			let bytes = attrs[.size] as? UInt64,
 			bytes > _maxBytes
 		else { return }
 		let rotated = url.deletingPathExtension().appendingPathExtension("1.log")
-		try? _fm.removeItem(at: rotated)
-		try? _fm.moveItem(at: url, to: rotated)
+		try? _fm.removeItem(at: rotated) // try? ok: best-effort cleanup of old rotation
+		try? _fm.moveItem(at: url, to: rotated) // try? ok: best-effort rotation; original preserved on failure
 	}
 
 	private static func _timestamp() -> String {

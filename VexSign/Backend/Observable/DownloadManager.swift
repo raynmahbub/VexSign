@@ -57,8 +57,8 @@ class DownloadManager: NSObject, ObservableObject {
 		downloads.contains { $0.isActive || $0.isWaitingForSlot || $0.isVerifying || $0.isImporting || $0.isSigning || ($0.progress > 0 && $0.progress < 1.0) }
 	}
 
-	var _backgroundSession: URLSession!
-	var _foregroundSession: URLSession!
+	var _backgroundSession: URLSession?
+	var _foregroundSession: URLSession?
 	var backgroundCompletionHandler: (() -> Void)?
 
 	var isAppInBackground = false
@@ -137,7 +137,7 @@ class DownloadManager: NSObject, ObservableObject {
 
 		_backgroundSession = URLSession(configuration: backgroundConfig, delegate: self, delegateQueue: .main)
         // No silent replay: unowned restored transfers require explicit recovery review.
-        _backgroundSession.getAllTasks { [weak self] tasks in
+        _backgroundSession?.getAllTasks { [weak self] tasks in
             DispatchQueue.main.async {
                 guard let self else { return }
                 for task in tasks where !self.downloads.contains(where: { $0.task === task }) { task.cancel() }
@@ -558,7 +558,13 @@ class DownloadManager: NSObject, ObservableObject {
         let download = Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID)
         download.isWaitingForSlot = true
 
-		let session = isAppInBackground ? _backgroundSession! : _foregroundSession!
+		guard let session = isAppInBackground ? _backgroundSession : _foregroundSession else {
+			download.isActive = false
+			download.isWaitingForSlot = false
+			let error = NSError(domain: "VexSign.Download", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download sessions not initialized"])
+			DispatchQueue.main.async { self.errorDelegate?.showUIErrorMessage(title: "Download Failed", message: error.localizedDescription) }
+			return download
+		}
 
 		var request = URLRequest(url: url)
 		request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -689,7 +695,12 @@ class DownloadManager: NSObject, ObservableObject {
         }
         if download.task?.state != .suspended {
             if download.resumeData == nil { download.resumeData = loadResumeData(for: download) }
-            let session = (isAppInBackground ? _backgroundSession : _foregroundSession) ?? URLSession.shared
+            guard let session = isAppInBackground ? _backgroundSession : _foregroundSession else {
+                download.isActive = false
+                download.isWaitingForSlot = false
+                download.isPaused = true
+                return
+            }
             if let resumeData = download.resumeData {
                 download.task = session.downloadTask(withResumeData: resumeData)
                 download.resumeData = nil

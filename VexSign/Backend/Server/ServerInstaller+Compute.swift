@@ -17,7 +17,7 @@ extension ServerInstaller {
 		comps.host = sni()
 		comps.path = "/\(id).plist"
 		comps.port = port
-		return comps.url!
+		return comps.url ?? URL(string: "about:blank")!
 	}
 
 	var payloadEndpoint: URL {
@@ -26,7 +26,7 @@ extension ServerInstaller {
 		comps.host = sni()
 		comps.path = "/\(id).ipa"
 		comps.port = port
-		return comps.url!
+		return comps.url ?? URL(string: "about:blank")!
 	}
 	
 	var pageEndpoint: URL {
@@ -35,7 +35,7 @@ extension ServerInstaller {
 		comps.host = sni()
 		comps.path = "/install"
 		comps.port = port
-		return comps.url!
+		return comps.url ?? URL(string: "about:blank")!
 	}
 	
 	var iTunesLink: String {
@@ -58,7 +58,7 @@ extension ServerInstaller {
 			URLQueryItem(name: "action", value: "download-manifest"),
 			URLQueryItem(name: "url", value: url)
 		]
-		return components.url!.absoluteString
+		return components.url?.absoluteString ?? ""
 	}
 
 	var displayImageSmallEndpoint: URL {
@@ -67,7 +67,7 @@ extension ServerInstaller {
 		comps.host = sni()
 		comps.path = "/app57x57.png"
 		comps.port = port
-		return comps.url!
+		return comps.url ?? URL(string: "about:blank")!
 	}
 
 	var displayImageLargeEndpoint: URL {
@@ -76,7 +76,7 @@ extension ServerInstaller {
 		comps.host = sni()
 		comps.path = "/app512x512.png"
 		comps.port = port
-		return comps.url!
+		return comps.url ?? URL(string: "about:blank")!
 	}
 	
 	var displayImageSmallData: Data {
@@ -93,7 +93,7 @@ extension ServerInstaller {
 			UIColor.tintColor.setFill()
 			ctx.fill(.init(x: 0, y: 0, width: r, height: r))
 		}
-		return image.pngData()!
+		return image.pngData() ?? Data()
 	}
 
 	var html: String {

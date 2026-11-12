@@ -66,7 +66,7 @@ actor EncryptedCertificateStore {
         let url = directory.appendingPathComponent(id.uuidString + ".sealed")
         try SecureSecretStore.write(keyData, account: account)
         do { try ciphertext.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]) }
-        catch { try? SecureSecretStore.delete(account); throw error }
+        catch { try? SecureSecretStore.delete(account) // try? ok: best-effort cleanup on write failure; throw error
         return url
     }
     func read(id: UUID, directory: URL) throws -> Data {

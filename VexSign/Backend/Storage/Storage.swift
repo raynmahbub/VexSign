@@ -36,9 +36,15 @@ final class Storage: ObservableObject {
 		}
 		return model
 	}()
-	/// Private-queue context owned by `write(_:)`. Created at the end of `init`
-	/// and only ever touched from inside `perform`, which serialises writers.
-	private var _writeContext: NSManagedObjectContext!
+/// Private-queue context owned by `write(_:)`. Created lazily on first use
+/// and only ever touched from inside `perform`, which serialises writers.
+private lazy var _writeContext: NSManagedObjectContext = {
+	let writeContext = container.newBackgroundContext()
+	writeContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+	writeContext.automaticallyMergesChangesFromParent = true
+	writeContext.undoManager = nil
+	return writeContext
+}()
 
 	init(inMemory: Bool = false) {
 		self._inMemory = inMemory
@@ -67,15 +73,6 @@ final class Storage: ObservableObject {
 		container.viewContext.automaticallyMergesChangesFromParent = true
 		container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
 		_migrateSortIndexIfNeeded()
-
-		// One write context for the whole app: `perform` serialises on it, so a
-		// read-modify-write (the sortIndex calculation) cannot interleave with
-		// another write the way two independent background contexts could.
-		let writeContext = container.newBackgroundContext()
-		writeContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-		writeContext.automaticallyMergesChangesFromParent = true
-		writeContext.undoManager = nil
-		_writeContext = writeContext
 	}
 	
 	// MARK: - Concurrency contract
@@ -132,9 +129,7 @@ final class Storage: ObservableObject {
 	func write(
 		_ changes: @escaping (NSManagedObjectContext) throws -> NSManagedObject
 	) async throws -> NSManagedObjectID {
-		// Non-optional after `init`; the declaration is an IUO only because the
-		// context needs the loaded container.
-		let context = _writeContext!
+		let context = _writeContext
 		return try await withCheckedThrowingContinuation { continuation in
 			context.perform {
 				do {
