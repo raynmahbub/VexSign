@@ -107077,6 +107077,182 @@
           }
         }
       }
+    },
+    "Architectures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Architectures"
+          }
+        }
+      }
+    },
+    "Code Signature" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code Signature"
+          }
+        }
+      }
+    },
+    "Encrypted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encrypted"
+          }
+        }
+      }
+    },
+    "Load command %lld is malformed, so the rest of the command list cannot be read." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load command %lld is malformed, so the rest of the command list cannot be read."
+          }
+        }
+      }
+    },
+    "Load command %lld points at a name outside itself." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load command %lld points at a name outside itself."
+          }
+        }
+      }
+    },
+    "Minimum iOS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum iOS"
+          }
+        }
+      }
+    },
+    "SDK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SDK"
+          }
+        }
+      }
+    },
+    "The %@ slice carries no code signature." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The %@ slice carries no code signature."
+          }
+        }
+      }
+    },
+    "The %@ slice is still encrypted (cryptid %lld)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The %@ slice is still encrypted (cryptid %lld)."
+          }
+        }
+      }
+    },
+    "The archive contains a path nested deeper than any application bundle: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive contains a path nested deeper than any application bundle: %@"
+          }
+        }
+      }
+    },
+    "The archive contains an entry that expands too far for its compressed size: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive contains an entry that expands too far for its compressed size: %@"
+          }
+        }
+      }
+    },
+    "The binary header is truncated." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The binary header is truncated."
+          }
+        }
+      }
+    },
+    "The universal binary header lists more architectures than the file contains." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The universal binary header lists more architectures than the file contains."
+          }
+        }
+      }
+    },
+    "This binary has no arm64 slice, so it cannot be signed for a device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This binary has no arm64 slice, so it cannot be signed for a device."
+          }
+        }
+      }
+    },
+    "This file is not a Mach-O binary." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not a Mach-O binary."
+          }
+        }
+      }
+    },
+    "This slice targets %@, which iOS devices do not run." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This slice targets %@, which iOS devices do not run."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
