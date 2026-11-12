@@ -146,6 +146,9 @@ public actor LockdownClient {
         let buildVersion = try await getBuildVersion()
         let modelNumber = try await getModelNumber()
 
+        // A readable record proves the file was written, not that the device would accept a
+        // session from this host. Trust is raised only by device-side evidence, which this
+        // client cannot obtain from inside the sandbox.
         return DeviceInfo(
             udid: udid,
             name: name,
@@ -153,7 +156,7 @@ public actor LockdownClient {
             iosVersion: iosVersion,
             buildVersion: buildVersion,
             modelNumber: modelNumber,
-            isTrusted: true // If the pairing record is readable, the device is trusted
+            trust: .unverified
         )
     }
 
@@ -166,11 +169,16 @@ public actor LockdownClient {
     }
 
     /// The `DeviceID` entry of a pairing record, which is the device's UDID.
+    ///
+    /// Normalized through the shared inspector so comparisons and duplicate detection see the
+    /// same identifier the rest of the app does.
     private static func udid(in data: Data) -> String? {
         guard let plist = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) as? [String: Any] else { // try? ok: an unparseable record is reported as invalidPairingFile by the caller
             return nil
         }
-        return plist["DeviceID"] as? String
+        guard let raw = plist["DeviceID"] as? String else { return nil }
+        let udid = PairingRecordInspector.normalize(raw)
+        return udid.isEmpty ? nil : udid
     }
 }
 
