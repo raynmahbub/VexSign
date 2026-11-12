@@ -370,7 +370,7 @@ final class WebManagerServer {
 
                 if WebManagerRouter.destination(for: url) != .inbox {
                     do {
-                        let lease = try AppOperationRegistry.shared.acquireTemporaryWork()
+                        let lease = try await AppOperationRegistry.shared.acquireTemporaryWork()
                         if let staged = Self.stagedCopy(of: url) {
                             WebManagerRouter.route(staged, lease: lease, stagedDirectory: staged.deletingLastPathComponent())
                         } else {
@@ -482,7 +482,7 @@ final class WebManagerServer {
 		successStatus: HTTPResponseStatus
 	) -> EventLoopFuture<Response> {
         let workLease: AppOperationRegistry.Lease
-        do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+        do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
         catch {
             return request.eventLoop.makeSucceededFuture(Response(status: .serviceUnavailable,
                 body: .init(string: "Cleanup is in progress. Retry the upload.")))

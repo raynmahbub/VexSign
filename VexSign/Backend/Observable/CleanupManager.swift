@@ -336,7 +336,7 @@ final class CleanupManager: ObservableObject {
 	/// `CleanupPassPolicy`. What is left alone is recorded in the summary's `deferred`.
 	private func purgeWhatMayBeCleared(of categories: [StorageCategory]) -> CleanupSummary {
         let guarded = categories.filter { $0 == .temporary || $0 == .leftovers }
-        let lease = guarded.isEmpty ? nil : AppOperationRegistry.shared.acquireCleanup()
+        let lease = guarded.isEmpty ? nil : await AppOperationRegistry.shared.acquireCleanup()
         defer { withExtendedLifetime(lease) {} }
         let plan = CleanupPassPolicy.plan(categories, operationsActive: lease == nil)
         var summary = CleanupSummary()

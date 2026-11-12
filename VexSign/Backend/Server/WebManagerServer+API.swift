@@ -150,9 +150,9 @@ extension WebManagerServer {
 				return req.eventLoop.makeSucceededFuture(Response(status: .internalServerError))
 			}
 
-            let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-            catch {
+let workLease: AppOperationRegistry.Lease
+            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
+            error {
                 return req.eventLoop.makeSucceededFuture(Response(status: .serviceUnavailable,
                     body: .init(string: "Cleanup is in progress. Retry the upload.")))
             }

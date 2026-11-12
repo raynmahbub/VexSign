@@ -181,6 +181,14 @@ lint:
 		echo "swiftlint is not installed: brew install swiftlint"; exit 1; }
 	@if [ "$(FIX)" = "1" ]; then swiftlint --fix; else swiftlint --strict; fi
 
+# swiftformat for consistent code style
+#   make format            # report (fails on any violation)
+#   make format FIX=1      # auto-correct in place
+format:
+	@command -v swiftformat >/dev/null 2>&1 || { \
+		echo "swiftformat is not installed: brew install swiftformat"; exit 1; }
+	@if [ "$(FIX)" = "1" ]; then swiftformat .; else swiftformat --lint .; fi
+
 # Unit tests. Same command the CI `tests` job runs (.github/workflows/ci.yml);
 # a second way to run the suite should never exist.
 # The simulator is resolved at run time so this does not rot when Xcode renames

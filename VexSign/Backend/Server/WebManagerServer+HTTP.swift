@@ -184,12 +184,12 @@ extension WebManagerServer {
 					.forbidden
 				)
 			}
-			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
+guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
             let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
             catch { return Self.text("Cleanup is in progress. Retry the download.", .serviceUnavailable) }
             defer { withExtendedLifetime(workLease) {} }
-			let zipURL: URL? = await MainActor.run {
+            let zipURL: URL? = await MainActor.run {
 				guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == uuid }) else { return nil }
 				return CertificateExporter.makeZip(for: cert)
 			}
@@ -197,12 +197,12 @@ extension WebManagerServer {
 			return try await Self.downloadTemporary(req, file: zipURL, as: zipURL.lastPathComponent, lease: workLease)
 		}
 
-		app.on(.POST, "api", "certs") { req async -> Response in
+app.on(.POST, "api", "certs") { req async -> Response in
             let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
             catch { return Self.text("Cleanup is in progress. Retry the upload.", .serviceUnavailable) }
             defer { withExtendedLifetime(workLease) {} }
-			let upload: CertUpload
+            let upload: CertUpload
 			do { upload = try req.content.decode(CertUpload.self) } catch { return Self.text("Invalid upload.", .badRequest) }
 
 			let dir = FileManager.default.uniqueTemporaryDirectory("CertUpload")
@@ -274,18 +274,18 @@ extension WebManagerServer {
 			return Self.json(options)
 		}
 
-		app.get("api", "apps", ":uuid", "download") { req async throws -> Response in
-			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
+app.get("api", "apps", ":uuid", "download") { req async throws -> Response in
+            guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
             let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-            catch { return Self.text("Cleanup is in progress. Retry the download.", .serviceUnavailable) }
+            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
+            error { return Self.text("Cleanup is in progress. Retry the download.", .serviceUnavailable) }
             defer { withExtendedLifetime(workLease) {} }
             let info: (dir: URL, name: String, version: String, lease: AppOperationRegistry.Lease)?
             do {
                 info = try await MainActor.run {
                     guard let target = Storage.shared.app(withUuid: uuid),
                           let dir = Storage.shared.getAppDirectory(for: target) else { return nil }
-                    let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(target))
+                    let lease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(target))
                     return (dir, target.name ?? "App", target.version ?? "", lease)
                 }
             } catch { return Self.text("The app is in use. Retry the download.", .conflict) }

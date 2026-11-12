@@ -51,7 +51,7 @@ extension Storage {
         var leases: [AppOperationRegistry.Lease] = []
         do {
             for key in Set(managedApps.compactMap(AppOperationRegistry.key)) {
-                leases.append(try AppOperationRegistry.shared.acquire(key))
+                leases.append(try await AppOperationRegistry.shared.acquire(key))
             }
         } catch {
             Toast.error(error.localizedDescription)

@@ -81,8 +81,8 @@ final class AppInstaller: ObservableObject {
     /// Packaging only: never starts a server, opens an install URL or reports success.
     func prepareForQueuedOTA() {
         guard !_isSharing, _installationMethod == 0, !_hasFinished, _preparedPackage == nil else { return }
-        do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
-        catch { return }
+        do { if _sourceLease == nil { _sourceLease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
+        error { return }
         _preparedPackage = Task { try await _createPackage() }
     }
 
@@ -167,15 +167,15 @@ final class AppInstaller: ObservableObject {
 		_progressTask?.cancel()
 	}
 
-	func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
-		guard _completion == nil, !_hasFinished else { return }
-		_completion = completion
+func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
+        guard _completion == nil, !_hasFinished else { return }
+        _completion = completion
         if let _routingError {
             _finish(.failure(_routingError))
             return
         }
-        do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
-        catch { _finish(.failure(error)); return }
+        do { if _sourceLease == nil { _sourceLease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
+        error { _finish(.failure(error)); return }
 
 		guard _isSharing || app.identifier != Bundle.main.bundleIdentifier || _installationMethod == 1 else {
 			_finish(.failure(Self.error(.localized("You cannot update '%@' with itself, please use an alternative tool to update it.", arguments: Bundle.main.name))))

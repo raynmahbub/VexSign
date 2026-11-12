@@ -40,7 +40,7 @@ enum IPAExplorerActions {
 		}
 
 		do {
-			let lease = try workspace.acquireEditingLease()
+			let lease = try await workspace.acquireEditingLease()
 			defer { withExtendedLifetime(lease) {} }
 			try _fileManager.createDirectoryIfNeeded(at: target)
 			workspace.journalChange(kind: .added, url: target, backupName: nil)
@@ -55,11 +55,11 @@ enum IPAExplorerActions {
 
 	/// Copies picked files (or folders) into `directory`, overwriting on request.
 	@discardableResult
-	static func importFiles(_ urls: [URL], into directory: URL, workspace: IPAWorkspace, overwrite: Bool = false) -> Int {
+static func importFiles(_ urls: [URL], into directory: URL, workspace: IPAWorkspace, overwrite: Bool = false) async -> Int {
 		let lease: AppOperationRegistry.Lease
 		do {
-			lease = try workspace.acquireEditingLease()
-		} catch {
+			lease = try await workspace.acquireEditingLease()
+		} error {
 			Toast.error(error.localizedDescription, duration: .long)
 			return 0
 		}
@@ -116,8 +116,8 @@ enum IPAExplorerActions {
 	}
 
 	/// Atomically saves editor content after a durable archive-workspace undo copy is ready.
-	static func save(data: Data, to url: URL, workspace: IPAWorkspace) throws {
-		let lease = try workspace.acquireEditingLease()
+	static func save(data: Data, to url: URL, workspace: IPAWorkspace) async throws {
+		let lease = try await workspace.acquireEditingLease()
 		defer { withExtendedLifetime(lease) {} }
 		let backupName = try workspace.backupForUndo(url)
 		do {
@@ -134,7 +134,7 @@ enum IPAExplorerActions {
 
 	/// Renames in place and returns the new URL.
 	@discardableResult
-	static func rename(_ entry: IPAFileEntry, to rawName: String, workspace: IPAWorkspace) -> URL? {
+	static func rename(_ entry: IPAFileEntry, to rawName: String, workspace: IPAWorkspace) async -> URL? {
 		let name = sanitized(rawName)
 		guard !name.isEmpty, name != entry.name else { return nil }
 
@@ -145,7 +145,7 @@ enum IPAExplorerActions {
 		}
 
 		do {
-			let lease = try workspace.acquireEditingLease()
+			let lease = try await workspace.acquireEditingLease()
 			defer { withExtendedLifetime(lease) {} }
 			// A rename is recorded as two journal entries so undo is exact: "removed" restores
 			// the original name+bytes, "added" drops the moved-away file.
@@ -164,12 +164,12 @@ enum IPAExplorerActions {
 
 	/// Swaps a file's contents for the picked one, keeping the name.
 	@discardableResult
-	static func replace(_ entry: IPAFileEntry, with url: URL, workspace: IPAWorkspace) -> Bool {
+	static func replace(_ entry: IPAFileEntry, with url: URL, workspace: IPAWorkspace) async -> Bool {
 		let scoped = url.startAccessingSecurityScopedResource()
 		defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
 		do {
-			let lease = try workspace.acquireEditingLease()
+			let lease = try await workspace.acquireEditingLease()
 			defer { withExtendedLifetime(lease) {} }
 			let backupName = try workspace.backupForUndo(entry.url)
 			do {
@@ -189,9 +189,9 @@ enum IPAExplorerActions {
 		}
 	}
 
-	static func delete(_ entry: IPAFileEntry, workspace: IPAWorkspace) {
+	static func delete(_ entry: IPAFileEntry, workspace: IPAWorkspace) async {
 		do {
-			let lease = try workspace.acquireEditingLease()
+			let lease = try await workspace.acquireEditingLease()
 			defer { withExtendedLifetime(lease) {} }
 			let backupName = try workspace.backupForUndo(entry.url)
 			try _fileManager.removeItem(at: entry.url)

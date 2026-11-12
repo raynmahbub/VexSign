@@ -173,6 +173,11 @@ jobs:
           # conforming to the subset the parser accepts; drift fails here.
           python3 NativeSigning/Fixtures/make_cms_fixture.py --check
 
+      # swiftformat for consistent code style
+      - name: swiftformat
+        run: |
+          swiftformat --lint .
+
       # Documentation links plus the offline regression suites.
       - name: Docs and regressions
         run: |

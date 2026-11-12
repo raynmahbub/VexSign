@@ -25,14 +25,14 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         try Data("replacement".utf8).write(to: replacement)
         let entry = IPAFileEntry(url: file, name: "original.txt", isDirectory: false,
                                  size: 8, date: Date(), kind: .text, childCount: 0)
-        let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row))
+        let lease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row))
         defer { withExtendedLifetime((storage, lease)) {} }
-        XCTAssertThrowsError(try workspace.acquireEditingLease())
-        XCTAssertNil(IPAExplorerActions.createFolder(named: "blocked", in: workspace.appURL, workspace: workspace))
-        XCTAssertNil(IPAExplorerActions.rename(entry, to: "renamed.txt", workspace: workspace))
-        XCTAssertFalse(IPAExplorerActions.replace(entry, with: replacement, workspace: workspace))
-        XCTAssertEqual(IPAExplorerActions.importFiles([replacement], into: workspace.appURL, workspace: workspace), 0)
-        IPAExplorerActions.delete(entry, workspace: workspace)
+        await XCTAssertThrowsError(try await workspace.acquireEditingLease())
+        XCTAssertNil(await IPAExplorerActions.createFolder(named: "blocked", in: workspace.appURL, workspace: workspace))
+        XCTAssertNil(await IPAExplorerActions.rename(entry, to: "renamed.txt", workspace: workspace))
+        XCTAssertFalse(await IPAExplorerActions.replace(entry, with: replacement, workspace: workspace))
+        XCTAssertEqual(await IPAExplorerActions.importFiles([replacement], into: workspace.appURL, workspace: workspace), 0)
+        await IPAExplorerActions.delete(entry, workspace: workspace)
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "original")
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: workspace.appURL.path), ["original.txt"])
         XCTAssertEqual(workspace.changeCount, 0)
@@ -53,27 +53,27 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         XCTAssertEqual(workspace.changeCount, 0)
     }
 
-    func testEditingLeaseBlocksLibraryDeletionAndReleasesAfterScope() throws {
+    func testEditingLeaseBlocksLibraryDeletionAndReleasesAfterScope() async throws {
         let (storage, row, workspace) = try fixture()
         defer { try? FileManager.default.removeItem(at: workspace.containerURL) } // try? ok: test teardown only
         do {
-            let lease = try workspace.acquireEditingLease()
+            let lease = try await workspace.acquireEditingLease()
             defer { withExtendedLifetime(lease) {} }
             XCTAssertFalse(storage.deleteApps([row]))
             XCTAssertFalse(row.isDeleted)
-            XCTAssertThrowsError(try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row)))
+            await XCTAssertThrowsError(try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row)))
         }
         XCTAssertFalse(AppOperationRegistry.shared.isBusy(AppOperationRegistry.key(row)))
-        XCTAssertNotNil(IPAExplorerActions.createFolder(named: "allowed", in: workspace.appURL, workspace: workspace))
+        XCTAssertNotNil(await IPAExplorerActions.createFolder(named: "allowed", in: workspace.appURL, workspace: workspace))
         XCTAssertEqual(workspace.changeCount, 1)
     }
 
-    func testDeletedWorkspaceCannotRecreateLibraryFilesOrLeakLease() throws {
+    func testDeletedWorkspaceCannotRecreateLibraryFilesOrLeakLease() async throws {
         let (storage, row, workspace) = try fixture()
         defer { withExtendedLifetime(storage) {} }
         try FileManager.default.removeItem(at: workspace.containerURL)
-        XCTAssertThrowsError(try workspace.acquireEditingLease())
-        XCTAssertNil(IPAExplorerActions.createFolder(named: "blocked", in: workspace.appURL, workspace: workspace))
+        await XCTAssertThrowsError(try await workspace.acquireEditingLease())
+        XCTAssertNil(await IPAExplorerActions.createFolder(named: "blocked", in: workspace.appURL, workspace: workspace))
         XCTAssertFalse(FileManager.default.fileExists(atPath: workspace.containerURL.path))
         XCTAssertFalse(AppOperationRegistry.shared.isBusy(AppOperationRegistry.key(row)))
     }

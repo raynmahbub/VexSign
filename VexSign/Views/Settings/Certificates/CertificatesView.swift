@@ -244,7 +244,7 @@ extension CertificatesView {
 		}
 		Button(.localized("Export Certificate"), systemImage: "square.and.arrow.up") {
             let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
+            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
             catch { Toast.error(error.localizedDescription); return }
             guard let zip = CertificateExporter.makeZip(for: cert) else {
                 Toast.error(.localized("Couldn't export certificate"))
