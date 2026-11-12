@@ -259,13 +259,13 @@ extension StorageManager {
 		StorageScanner.purge(contentsOf: StorageScanner.cachesDirectory)
 	}
 
-	nonisolated static func purgeTemporary() {
+nonisolated static func purgeTemporary() {
         guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
         defer { withExtendedLifetime(lease) {} }
         StorageScanner.purgeTemporary()
-	}
+    }
 
-	nonisolated static func purgeStaleTemporary() {
+    nonisolated static func purgeStaleTemporary() {
         guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
         defer { withExtendedLifetime(lease) {} }
 		let fm = FileManager.default

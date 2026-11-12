@@ -16,7 +16,13 @@ enum VexSignAPI {
 	// MARK: - Contact
 
 	static let telegramUsername = "@iamSMMH"
-	static let telegramURL = URL(string: "https://t.me/iamSMMH")!
+	static let telegramURL: URL = {
+		guard let url = URL(string: "https://t.me/iamSMMH") else {
+			// Fallback URL that won't crash - will be handled by openTelegram()
+			return URL(string: "about:blank")!
+		}
+		return url
+	}()
 	static let contactSuffix = "Contact \(telegramUsername) on Telegram"
 
 	// MARK: - API
@@ -60,7 +66,12 @@ enum VexSignAPI {
 
 	// MARK: - Repos
 
-	static let reposListURL = URL(string: "https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/repos.json")!
+	static let reposListURL: URL = {
+		guard let url = URL(string: "https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/repos.json") else {
+			return URL(string: "about:blank")!
+		}
+		return url
+	}()
 
 	// MARK: - Device Identity
 

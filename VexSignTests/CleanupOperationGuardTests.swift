@@ -21,44 +21,44 @@ import XCTest
 final class CleanupOperationGuardTests: XCTestCase {
 	// MARK: - Is anything running?
 
-	func testTheRegistryIsIdleUntilSomethingIsAcquired() {
-		XCTAssertFalse(AppOperationRegistry().hasActiveOperations)
-	}
+func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
+        XCTAssertFalse(AppOperationRegistry().hasActiveOperations)
+    }
 
-	func testTheRegistryStaysActiveUntilTheLastLeaseIsReleased() throws {
-		let registry = AppOperationRegistry()
-		var signing: AppOperationRegistry.Lease? = try registry.acquire("imported:one")
-		var installing: AppOperationRegistry.Lease? = try registry.acquire("signed:two")
-		XCTAssertTrue(registry.hasActiveOperations)
+    func testTheRegistryStaysActiveUntilTheLastLeaseIsReleased() async throws {
+        let registry = AppOperationRegistry()
+        var signing: AppOperationRegistry.Lease? = try registry.acquire("imported:one")
+        var installing: AppOperationRegistry.Lease? = try registry.acquire("signed:two")
+        XCTAssertTrue(registry.hasActiveOperations)
 
-		XCTAssertNotNil(signing)
-		signing = nil
-		XCTAssertTrue(registry.hasActiveOperations, "One operation finishing does not free the directory for the other")
+        XCTAssertNotNil(signing)
+        signing = nil
+        XCTAssertTrue(registry.hasActiveOperations, "One operation finishing does not free the directory for the other")
 
-		XCTAssertNotNil(installing)
-		installing = nil
-		XCTAssertFalse(registry.hasActiveOperations)
-	}
+        XCTAssertNotNil(installing)
+        installing = nil
+        XCTAssertFalse(registry.hasActiveOperations)
+    }
 
-	func testAnOperationWithoutAStoredCopyStillCounts() throws {
-		let registry = AppOperationRegistry()
-		var anonymous: AppOperationRegistry.Lease? = try registry.acquire(nil)
-		XCTAssertTrue(registry.hasActiveOperations)
+    func testAnOperationWithoutAStoredCopyStillCounts() async throws {
+        let registry = AppOperationRegistry()
+        var anonymous: AppOperationRegistry.Lease? = try registry.acquire(nil)
+        XCTAssertTrue(registry.hasActiveOperations)
 
-		XCTAssertNotNil(anonymous)
-		anonymous = nil
-		XCTAssertFalse(registry.hasActiveOperations)
-	}
+        XCTAssertNotNil(anonymous)
+        anonymous = nil
+        XCTAssertFalse(registry.hasActiveOperations)
+    }
 
-	func testARefusedAcquireLeavesNothingBehind() throws {
-		let registry = AppOperationRegistry()
-		var owner: AppOperationRegistry.Lease? = try registry.acquire("signed:one")
-		XCTAssertThrowsError(try registry.acquire("signed:one"))
+    func testARefusedAcquireLeavesNothingBehind() async throws {
+        let registry = AppOperationRegistry()
+        var owner: AppOperationRegistry.Lease? = try registry.acquire("signed:one")
+        XCTAssertThrowsError(try registry.acquire("signed:one"))
 
-		XCTAssertNotNil(owner)
-		owner = nil
-		XCTAssertFalse(registry.hasActiveOperations, "A refused request must not look like a running operation")
-	}
+        XCTAssertNotNil(owner)
+        owner = nil
+        XCTAssertFalse(registry.hasActiveOperations, "A refused request must not look like a running operation")
+    }
 
     @MainActor
     func testStaleLeftoverSelectionMustStillBelongToAnOrphan() {
@@ -69,7 +69,7 @@ final class CleanupOperationGuardTests: XCTestCase {
         XCTAssertFalse(StorageManager.isWithinCurrentLeftovers(old, []))
     }
 
-    func testTemporaryWorkerBlocksCleanupAndCannotStartDuringCleanup() throws {
+    func testTemporaryWorkerBlocksCleanupAndCannotStartDuringCleanup() async throws {
         let registry = AppOperationRegistry()
         var worker: AppOperationRegistry.Lease? = try registry.acquireTemporaryWork()
         XCTAssertNil(registry.acquireCleanup())
@@ -82,13 +82,13 @@ final class CleanupOperationGuardTests: XCTestCase {
         XCTAssertNoThrow(try registry.acquireTemporaryWork())
     }
 
-    func testCleanupAndOperationsExcludeEachOtherUntilTheirLeasesEnd() throws {
+    func testCleanupAndOperationsExcludeEachOtherUntilTheirLeasesEnd() async throws {
         let registry = AppOperationRegistry()
         var operation: AppOperationRegistry.Lease? = try registry.acquire("one")
         XCTAssertNil(registry.acquireCleanup())
         XCTAssertNotNil(operation)
         operation = nil
-        var cleanup: AppOperationRegistry.Lease? = registry.acquireCleanup()
+        var cleanup = registry.acquireCleanup()
         XCTAssertNotNil(cleanup)
         XCTAssertNil(registry.acquireCleanup())
         XCTAssertThrowsError(try registry.acquire("two"))
@@ -96,78 +96,78 @@ final class CleanupOperationGuardTests: XCTestCase {
         XCTAssertNoThrow(try registry.acquire("two"))
     }
 
-	// MARK: - What is being produced?
+// MARK: - What is being produced?
 
-	func testACopyIsKnownFromTheMomentItIsAnnounced() {
-		let registry = AppOperationRegistry()
-		XCTAssertFalse(registry.knowsProduction(of: "new-copy"))
+    func testACopyIsKnownFromTheMomentItIsAnnounced() {
+        let registry = AppOperationRegistry()
+        XCTAssertFalse(registry.knowsProduction(of: "new-copy"))
 
-		let claim = registry.claimProduction(of: "new-copy")
+        let claim = registry.claimProduction(of: "new-copy")
 
-		XCTAssertTrue(registry.knowsProduction(of: "new-copy"))
-		XCTAssertFalse(registry.knowsProduction(of: "another-copy"))
-		withExtendedLifetime(claim) {}
-	}
+        XCTAssertTrue(registry.knowsProduction(of: "new-copy"))
+        XCTAssertFalse(registry.knowsProduction(of: "another-copy"))
+        withExtendedLifetime(claim) {}
+    }
 
-	func testAClaimGivenUpWithoutARowEndsWithTheRun() {
-		let registry = AppOperationRegistry()
-		var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "abandoned")
-		XCTAssertTrue(registry.knowsProduction(of: "abandoned"))
+    func testAClaimGivenUpWithoutARowEndsWithTheRun() {
+        let registry = AppOperationRegistry()
+        var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "abandoned")
+        XCTAssertTrue(registry.knowsProduction(of: "abandoned"))
 
-		// A run that fails or is cancelled never confirms.
-		XCTAssertNotNil(claim)
-		claim = nil
+        // A run that fails or is cancelled never confirms.
+        XCTAssertNotNil(claim)
+        claim = nil
 
-		XCTAssertFalse(registry.knowsProduction(of: "abandoned"), "What it left behind is a leftover like any other")
-	}
+        XCTAssertFalse(registry.knowsProduction(of: "abandoned"), "What it left behind is a leftover like any other")
+    }
 
-	func testARegisteredCopyStaysKnownAfterItsRunIsOver() {
-		let registry = AppOperationRegistry()
-		var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
-		registry.confirmProduction(of: "new-copy")
+    func testARegisteredCopyStaysKnownAfterItsRunIsOver() {
+        let registry = AppOperationRegistry()
+        var claim: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
+        registry.confirmProduction(of: "new-copy")
 
-		XCTAssertNotNil(claim)
-		claim = nil
+        XCTAssertNotNil(claim)
+        claim = nil
 
-		XCTAssertTrue(
-			registry.knowsProduction(of: "new-copy"),
-			"A pass that read the library before the row was committed has only this to go by"
-		)
-	}
+        XCTAssertTrue(
+            registry.knowsProduction(of: "new-copy"),
+            "A pass that read the library before the row was committed has only this to go by"
+        )
+    }
 
-	func testTwoClaimsOnOneCopyNeedBothGivenUp() {
-		let registry = AppOperationRegistry()
-		var first: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
-		var second: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
+    func testTwoClaimsOnOneCopyNeedBothGivenUp() {
+        let registry = AppOperationRegistry()
+        var first: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
+        var second: AppOperationRegistry.Lease? = registry.claimProduction(of: "new-copy")
 
-		XCTAssertNotNil(first)
-		first = nil
-		XCTAssertTrue(registry.knowsProduction(of: "new-copy"), "One holder letting go does not speak for the other")
+        XCTAssertNotNil(first)
+        first = nil
+        XCTAssertTrue(registry.knowsProduction(of: "new-copy"), "One holder letting go does not speak for the other")
 
-		XCTAssertNotNil(second)
-		second = nil
-		XCTAssertFalse(registry.knowsProduction(of: "new-copy"))
-	}
+        XCTAssertNotNil(second)
+        second = nil
+        XCTAssertFalse(registry.knowsProduction(of: "new-copy"))
+    }
 
-	func testAClaimIsNotAnOperationOnAStoredCopy() throws {
-		let registry = AppOperationRegistry()
-		let claim = registry.claimProduction(of: "new-copy")
-		registry.confirmProduction(of: "new-copy")
+    func testAClaimIsNotAnOperationOnAStoredCopy() async throws {
+        let registry = AppOperationRegistry()
+        let claim = registry.claimProduction(of: "new-copy")
+        registry.confirmProduction(of: "new-copy")
 
-		XCTAssertFalse(registry.hasActiveOperations, "Producing a copy does not hold up a cleanup pass by itself")
-		XCTAssertFalse(registry.isBusy("signed:new-copy"))
-		// Once the copy is registered, the next operation can own it straight away.
-		XCTAssertNoThrow(try registry.acquire("signed:new-copy"))
-		withExtendedLifetime(claim) {}
-	}
+        XCTAssertFalse(registry.hasActiveOperations, "Producing a copy does not hold up a cleanup pass by itself")
+        XCTAssertFalse(registry.isBusy("signed:new-copy"))
+        // Once the copy is registered, the next operation can own it straight away.
+        XCTAssertNoThrow(try registry.acquire("signed:new-copy"))
+        withExtendedLifetime(claim) {}
+    }
 
-	func testAnOperationOnAStoredCopyIsNotAClaim() throws {
-		let registry = AppOperationRegistry()
-		let lease = try registry.acquire("signed:one")
+    func testAnOperationOnAStoredCopyIsNotAClaim() async throws {
+        let registry = AppOperationRegistry()
+        let lease = try registry.acquire("signed:one")
 
-		XCTAssertFalse(registry.knowsProduction(of: "one"), "Being signed from, installed or deleted is not being produced")
-		withExtendedLifetime(lease) {}
-	}
+        XCTAssertFalse(registry.knowsProduction(of: "one"), "Being signed from, installed or deleted is not being produced")
+        withExtendedLifetime(lease) {}
+    }
 
 	// MARK: - What a pass may clear
 
@@ -234,7 +234,7 @@ final class TemporaryCleanupPolicyTests: XCTestCase {
         XCTAssertFalse(TemporaryCleanupPolicy.isRetained(root.deletingLastPathComponent().appendingPathComponent("VexSignTweak_123"), temporaryRoot: root, downloadStaging: staging))
     }
 
-    func testStaleSweepDoesNotUseAgeAsProofOfIdleOrDeleteRetainedOutput() throws {
+    func testStaleSweepDoesNotUseAgeAsProofOfIdleOrDeleteRetainedOutput() async throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try fm.createDirectory(at: root, withIntermediateDirectories: true)

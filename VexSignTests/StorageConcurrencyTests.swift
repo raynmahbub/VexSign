@@ -32,6 +32,25 @@ final class StorageConcurrencyTests: XCTestCase {
 
 	// MARK: - Concurrent writes
 
+	/// Core Data hands a sibling context's save to the view context through the
+	/// main queue, so a task group can finish before the last merge lands: the
+	/// rows are committed, but a count read straight after `waitForAll()` is
+	/// eventually consistent. Wait for the expected count instead of asserting on
+	/// that race.
+	@MainActor
+	private func rowsOnceMerged<T: NSManagedObject>(
+		_ request: NSFetchRequest<T>,
+		expected: Int
+	) async throws -> [T] {
+		let deadline = Date().addingTimeInterval(5)
+		var rows = try Self.storage.context.fetch(request)
+		while rows.count < expected, Date() < deadline {
+			try await Task.sleep(nanoseconds: 5_000_000)
+			rows = try Self.storage.context.fetch(request)
+		}
+		return rows
+	}
+
 	@MainActor
 	func testConcurrentImportsCreateOneRowEach() async throws {
 		try await withThrowingTaskGroup(of: Void.self) { group in
@@ -48,7 +67,7 @@ final class StorageConcurrencyTests: XCTestCase {
 			try await group.waitForAll()
 		}
 
-		let rows = try Self.storage.context.fetch(Imported.fetchRequest())
+		let rows = try await rowsOnceMerged(Imported.fetchRequest(), expected: 20)
 
 		XCTAssertEqual(rows.count, 20, "every concurrent import must produce exactly one row")
 		XCTAssertEqual(Set(rows.map { $0.uuid ?? "" }).count, 20)
@@ -88,8 +107,8 @@ final class StorageConcurrencyTests: XCTestCase {
 			try await group.waitForAll()
 		}
 
-		let signed = try Self.storage.context.fetch(Signed.fetchRequest())
-		let imported = try Self.storage.context.fetch(Imported.fetchRequest())
+		let signed = try await rowsOnceMerged(Signed.fetchRequest(), expected: 10)
+		let imported = try await rowsOnceMerged(Imported.fetchRequest(), expected: 10)
 
 		XCTAssertEqual(signed.count, 10)
 		XCTAssertEqual(imported.count, 10)

@@ -1,0 +1,44 @@
+# swiftformat configuration for VexSign
+# Run with: swiftformat . (or swiftformat --lint . to check only)
+
+# Indentation
+indent 4
+tabwidth 4
+usetabs false
+
+# Line length
+maxwidth 120
+
+# Spacing
+spacearoundoperators true
+spacearoundbrackets false
+spacearoundbraces true
+spacearoundrangeoperators true
+spaceinsidebrackets false
+spaceinsideparens false
+spaceinsidebraces false
+
+# Braces
+braces sameLine
+wraparguments preserve
+
+# Semicolons
+semicolons inline
+
+# Header
+header strip
+
+# Swift version
+swiftversion 6.0
+
+# Rules
+rules trailingClosures,void,redundantSelf,redundantLet,redundantNilInit,redundantType,redundantParens,redundantPattern,redundantOptionalInit,redundantReturn,redundantLetError,redundantProtocol,unusedArguments,unusedImport,unusedPrivateDeclaration,unusedVariable,fileHeader,linebreaks,trailingCommas,trimWhitespace,preferForLoop,preferKeyPath,preferNimbleOperator,preferSelfType,specifiedSelfType,strongOutlets,wrapArguments,wrapMultilineStatementBraces,wrapSwitchCases,wrapTernary,wrapCollections,wrapEnumCases,wrapFunctionCalls,wrapFunctionDefinitions
+
+# Exclude
+exclude Vendor,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
+
+# Custom options
+indentcase true
+ifdef indent
+elsebalance true
+self insert

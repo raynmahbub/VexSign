@@ -57,7 +57,7 @@ extension FileManager {
 		let raw = base64.replacingOccurrences(of: " ", with: "+")
 		guard let data = Data(base64Encoded: raw) else { return nil }
 		let dir = self.temporaryDirectory.appendingPathComponent(UUID().uuidString + pathComponent)
-		try? data.write(to: dir)
+		try? data.write(to: dir) // try? ok: best-effort write to temp directory; caller validates file existence
 		return dir
 	}
 	
@@ -65,14 +65,14 @@ extension FileManager {
 	public func moveAndStore(_ url: URL, with prepend: String, completion: @escaping (URL) -> Void) {
 		let destination = _getDestination(url, with: prepend)
 		
-		try? createDirectoryIfNeeded(at: destination.temp)
+		try? createDirectoryIfNeeded(at: destination.temp) // try? ok: directory may already exist
 		
-		try? self.copyItem(at: url, to: destination.dest)
+		try? self.copyItem(at: url, to: destination.dest) // try? ok: best-effort copy; completion receives destination regardless
 		completion(destination.dest)
 	}
 	
 	public func deleteStored(_ url: URL, completion: @escaping (URL) -> Void) {
-		try? FileManager.default.removeItem(at: url)
+		try? FileManager.default.removeItem(at: url) // try? ok: best-effort deletion
 		completion(url)
 	}
 	

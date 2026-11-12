@@ -173,7 +173,7 @@ final class ImportAndInstallationTests: XCTestCase {
     }
 
     func testADeeplyNestedPathIsAcceptedAndStillContained() throws {
-        let root = try FileManager.default.temporaryDirectory
+        let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }

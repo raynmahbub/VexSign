@@ -352,12 +352,18 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	// MARK: - Releases fetch (paginated)
 
 	func fetchReleases(page: Int) async throws -> [SelfUpdateRelease] {
-		var comps = URLComponents(string: "https://api.github.com/repos/\(_repo)/releases")!
+		guard var comps = URLComponents(string: "https://api.github.com/repos/\(_repo)/releases"),
+		      comps.url != nil else {
+			throw NSError(domain: "SelfUpdate", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid GitHub API URL"])
+		}
 		comps.queryItems = [
 			URLQueryItem(name: "per_page", value: String(_perPage)),
 			URLQueryItem(name: "page", value: String(page))
 		]
-		var request = URLRequest(url: comps.url!)
+		guard let finalURL = comps.url else {
+			throw NSError(domain: "SelfUpdate", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid GitHub API URL with query"])
+		}
+		var request = URLRequest(url: finalURL)
 		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 		// A page that never answers would leave the update screen spinning with no way out.
 		// `URLSession.shared`'s default is 60 s per page, multiplied by however many pages

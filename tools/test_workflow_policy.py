@@ -324,7 +324,9 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertNotIn('cp deps/', makefile)
         self.assertNotIn('deps-release:', makefile)
         self.assertFalse((WORKFLOWS / 'pin-release-tls.yml').exists())
-        self.assertNotIn('downloadSSLCertificates', (ROOT / 'VexSign/Utilities/FR.swift').read_text())
+        # FR is split into a facade plus one extension per concern; the rule applies to all of them.
+        fr = '\n'.join(p.read_text() for p in sorted((ROOT / 'VexSign/Utilities').glob('FR*.swift')))
+        self.assertNotIn('downloadSSLCertificates', fr)
         resolver = (ROOT / 'VexSign/Backend/Server/ServerInstaller+TLS.swift').read_text()
         self.assertNotIn('Bundle.main', resolver)
         self.assertIn('DeviceTLSIdentity.directory', resolver)

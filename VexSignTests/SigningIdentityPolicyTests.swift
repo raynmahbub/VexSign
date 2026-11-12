@@ -158,7 +158,7 @@ final class SigningIdentityPolicyTests: XCTestCase {
 		// gate is no longer on those paths and this test should fail.
 		let sources = ["VexSign/Backend/Observable/BatchJobRunner.swift",
 					   "VexSign/Backend/Observable/AutoSignManager.swift",
-					   "VexSign/Utilities/FR.swift"]
+					   "VexSign/Utilities/FR+Signing.swift"]
 		for path in sources {
 			let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
 				.deletingLastPathComponent().deletingLastPathComponent()

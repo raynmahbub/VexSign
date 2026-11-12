@@ -175,6 +175,31 @@ jobs:
           # conforming to the subset the parser accepts; drift fails here.
           python3 NativeSigning/Fixtures/make_cms_fixture.py --check
 
+      # swiftformat for consistent code style. The runner image ships Swift but not
+      # the formatter, so the pinned release is built once per run.
+      - name: Install swiftformat
+        run: |
+          set -euo pipefail
+          version=0.64.6
+          if command -v swiftformat >/dev/null 2>&1; then
+            swiftformat --version
+            exit 0
+          fi
+          git clone --quiet --depth 1 --branch "$version" \
+            https://github.com/nicklockwood/SwiftFormat.git "$RUNNER_TEMP/SwiftFormat"
+          swift build --package-path "$RUNNER_TEMP/SwiftFormat" -c release --product swiftformat
+          install "$RUNNER_TEMP/SwiftFormat/.build/release/swiftformat" /usr/local/bin/swiftformat
+          swiftformat --version
+
+      # Report-only for now: the tree mixes tab and space indentation, so a
+      # whole-tree lint lists hundreds of pre-existing files rather than anything
+      # this change did. `make format` is the adoption path; this step surfaces
+      # the count as an annotation until the reformat lands.
+      - name: swiftformat lint (report)
+        continue-on-error: true
+        run: |
+          swiftformat --lint . 2>&1 | tail -40
+
       # Documentation links plus the offline regression suites.
       - name: Docs and regressions
         run: |

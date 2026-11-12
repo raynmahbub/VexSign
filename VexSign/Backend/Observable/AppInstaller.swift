@@ -167,9 +167,9 @@ final class AppInstaller: ObservableObject {
 		_progressTask?.cancel()
 	}
 
-	func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
-		guard _completion == nil, !_hasFinished else { return }
-		_completion = completion
+func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
+        guard _completion == nil, !_hasFinished else { return }
+        _completion = completion
         if let _routingError {
             _finish(.failure(_routingError))
             return

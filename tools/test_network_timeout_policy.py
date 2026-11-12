@@ -25,11 +25,11 @@ ROOT = Path(__file__).resolve().parents[1]
 BOUNDED_REQUESTS = [
     (
         "VexSign/Backend/Observable/SelfUpdateManager.swift",
-        "comps.url!",
+        "URLRequest(url: finalURL)",
         "self-update release pages; the update screen waits on the first page",
     ),
     (
-        "VexSign/Utilities/FR.swift",
+        "VexSign/Utilities/FR+Repository.swift",
         "X-GitHub-Api-Version",
         "resolving a GitHub release source while a repository is being added",
     ),

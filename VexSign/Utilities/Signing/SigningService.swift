@@ -247,15 +247,15 @@ final class SigningService {
 	/// Events arrive on the main actor, in the order they were produced, and the last one is
 	/// always terminal — including when the run is cancelled before it does anything. A caller can
 	/// therefore rely on exactly one of `.finished`, `.cancelled` or `.failed`.
-	@discardableResult
+@discardableResult
 	func sign(
 		_ request: SigningRequest,
 		onEvent: @MainActor @escaping (SigningEvent) -> Void
 	) -> String? {
         guard canStart(request) else { return nil }
-        do { _leases[request.id] = try ownership.acquire(_appKey(request)) }
-        catch { return nil }
-        if let appKey = _appKey(request) { _appOwners[appKey] = request.id }
+        let appKey = _appKey(request)
+        do { _leases[request.id] = try ownership.acquire(appKey) } catch { return nil }
+        if let appKey { _appOwners[appKey] = request.id }
 
 		let id = request.id
 		let work = self.work

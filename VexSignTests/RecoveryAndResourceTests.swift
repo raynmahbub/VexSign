@@ -23,7 +23,7 @@ final class RecoveryAndResourceTests: XCTestCase {
         XCTAssertEqual(complete.phase, .completed)
     }
 
-    func testSharedOwnershipBlocksConflictsButNotOtherApps() throws {
+    func testSharedOwnershipBlocksConflictsButNotOtherApps() async throws {
         let registry = AppOperationRegistry()
         var lease: AppOperationRegistry.Lease? = try registry.acquire("signed:one")
         XCTAssertTrue(registry.isBusy("signed:one"))
@@ -37,7 +37,7 @@ final class RecoveryAndResourceTests: XCTestCase {
         withExtendedLifetime([unrelated, retry]) {}
     }
 
-    func testWorkerReferenceRetainsLeaseAfterOwnerStops() throws {
+    func testWorkerReferenceRetainsLeaseAfterOwnerStops() async throws {
         let registry = AppOperationRegistry()
         var owner: AppOperationRegistry.Lease? = try registry.acquire("app")
         var worker = owner

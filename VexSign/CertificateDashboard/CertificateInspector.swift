@@ -24,6 +24,15 @@ struct CertificateHealth: Identifiable, Sendable {
     var effectiveExpiry: Date { min(expires, certificateExpires ?? expires) }
     var daysRemaining: Int { Int(floor(effectiveExpiry.timeIntervalSinceNow / 86_400)) }
 
+    /// 0-100 summary of the two things that make a certificate unusable: a revoked
+    /// certificate is worthless however long it lasts, and a certificate that has already
+    /// expired is equally so. OCSP Unknown is not Good, so it scores below it.
+    var score: Int {
+        guard effectiveExpiry > Date(), revocation != .revoked else { return 0 }
+        let base = revocation == .good ? 100 : 60
+        return max(0, base - (daysRemaining < 7 ? 40 : daysRemaining < 30 ? 20 : 0))
+    }
+
     /// Share-safe summary: includes entitlement names but deliberately omits
     /// identifiers, profile payloads, entitlement values, and certificate data.
     var redactedHealthCard: String {

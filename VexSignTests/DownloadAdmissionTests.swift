@@ -211,7 +211,7 @@ final class DownloadAdmissionTests: XCTestCase {
         try withManager { manager in
             let first = manager.startDownload(from: url(1))
             let oldTask = try XCTUnwrap(first.task)
-            let replacement = manager._foregroundSession.downloadTask(with: url(1))
+            let replacement = try XCTUnwrap(try XCTUnwrap(manager._foregroundSession).downloadTask(with: url(1)))
             first.task = replacement
             first.isActive = true
             manager.networkTransferFinished(first, task: oldTask)

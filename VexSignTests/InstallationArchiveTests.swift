@@ -51,7 +51,7 @@ final class InstallationArchiveTests: XCTestCase {
         }
     }
 
-    func testArchiveBlocksCleanupUntilTheLastStreamReleasesIt() throws {
+    func testArchiveBlocksCleanupUntilTheLastStreamReleasesIt() async throws {
         try fixture { root in
             let registry = AppOperationRegistry()
             var archive: InstallationArchive? = try InstallationArchive(temporaryRoot: root, registry: registry)
@@ -67,7 +67,7 @@ final class InstallationArchiveTests: XCTestCase {
         }
     }
 
-    func testArchiveDoesNotStartWhileCleanupOwnsTheBoundary() throws {
+    func testArchiveDoesNotStartWhileCleanupOwnsTheBoundary() async throws {
         try fixture { root in
             let registry = AppOperationRegistry()
             let cleanup = try XCTUnwrap(registry.acquireCleanup())
