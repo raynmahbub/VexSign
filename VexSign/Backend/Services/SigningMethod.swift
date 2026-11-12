@@ -29,10 +29,17 @@ enum SigningMethod: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    /// What this method gives you, in the method picker.
+    ///
+    /// Free Apple ID deliberately does *not* say "Weekly refresh". Nothing in this build
+    /// renews a profile: `NativeSigningManager.refreshRenewalCandidates` only lists the
+    /// profiles that are close to expiring, and the audit register keeps that renewal
+    /// behind an explicit grant that is not implemented. Advertising the refresh as a
+    /// feature would promise the one thing the user has to do by hand.
     var shortDescription: String {
         switch self {
         case .paidCertificate: return .localized("No limits · 1 year · Full entitlements")
-        case .freeAppleID: return .localized("3 apps / 7 days · Weekly refresh")
+        case .freeAppleID: return .localized("3 apps / 7 days · Renew by hand each week")
         case .trollStore: return .localized("Permanent · No cert · iOS 14–16.6.1")
         }
     }
@@ -50,14 +57,6 @@ enum SigningMethod: String, CaseIterable, Codable, Identifiable {
         case .paidCertificate: return true
         case .freeAppleID: return true
         case .trollStore: return false
-        }
-    }
-
-    var supportsAutoRefresh: Bool {
-        switch self {
-        case .paidCertificate: return false // Certs don't auto-renew
-        case .freeAppleID: return true // Profiles expire weekly
-        case .trollStore: return false // Permanent
         }
     }
 

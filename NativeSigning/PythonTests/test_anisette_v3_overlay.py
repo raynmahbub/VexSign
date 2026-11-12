@@ -87,7 +87,9 @@ class AnisetteOverlayTests(unittest.TestCase):
 
     def test_background_discovery_cannot_manufacture_mutation_approvals(self):
         source = (HERE.parent / 'VexSign/Backend/Services/NativeSigningManager.swift').read_text()
-        renewal = source.split('func renewExpiringProfiles()', 1)[1].split('// MARK: - Backend Initialization', 1)[0]
+        marker = 'func refreshRenewalCandidates()'
+        self.assertIn(marker, source, 'the read-only renewal refresh no longer exists under its honest name')
+        renewal = source.split(marker, 1)[1].split('// MARK: - Backend Initialization', 1)[0]
         self.assertIn('fetchActiveFreeAccountProfiles()', renewal)
         self.assertNotIn('recordCertificateCreationApproval', renewal)
         self.assertNotIn('recordRegistrationApproval', renewal)

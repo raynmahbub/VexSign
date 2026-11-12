@@ -44,8 +44,16 @@ final class Storage: ObservableObject {
 		self._inMemory = inMemory
 
 		// Migrate legacy store file if exists (Feather.sqlite -> VexSign.sqlite) to preserve user data
-		if !inMemory {
-			Self._migrateLegacyStoreIfNeeded()
+		var legacyStoreIsStillInUse = false
+		if !inMemory, let migrationFailure = Self._migrateLegacyStoreIfNeeded() {
+			// The move failed, and `Feather.sqlite` still holds the user's library. Opening a
+			// fresh `VexSign.sqlite` beside it would read as "all my apps are gone", so the
+			// container is pointed at the legacy file instead: the library keeps working, and
+			// the next launch retries the move.
+			Logger.misc.fault(
+				"Opening the legacy store in place because it could not be migrated: \(LogRedaction.redact(migrationFailure.localizedDescription), privacy: .public)"
+			)
+			legacyStoreIsStillInUse = true
 		}
 
 		if let model = Self._sharedModel {
@@ -61,6 +69,15 @@ final class Storage: ObservableObject {
 			let description = NSPersistentStoreDescription()
 			description.type = NSInMemoryStoreType
 			container.persistentStoreDescriptions = [description]
+		} else if legacyStoreIsStillInUse,
+				  let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+			// Same store, same schema — just where the migration could not move it from.
+			let description = NSPersistentStoreDescription(url: support.appendingPathComponent("Feather.sqlite"))
+			description.type = NSSQLiteStoreType
+			description.shouldMigrateStoreAutomatically = true
+			description.shouldInferMappingModelAutomatically = true
+			container.persistentStoreDescriptions = [description]
+			_legacyStoreIsLive = true
 		}
 
 		_loadPersistentStoreAggressively()
@@ -201,14 +218,17 @@ final class Storage: ObservableObject {
 		return "\((try? context.count(for: request)) ?? 0)" // try? ok: display count; an unreadable store shows zero
 	}
 
-	private static func _migrateLegacyStoreIfNeeded() {
+	/// - Returns: why the legacy store could not be moved, when it could not be. The caller
+	///   must not then open a fresh store at `VexSign.sqlite`, or the user's library reads as
+	///   empty while their data still sits in `Feather.sqlite`.
+	private static func _migrateLegacyStoreIfNeeded() -> Error? {
 		let fm = FileManager.default
-		guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
+		guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
 		let legacyBase = appSupport.appendingPathComponent("Feather.sqlite")
 		let newBase = appSupport.appendingPathComponent("VexSign.sqlite")
 		
-		if fm.fileExists(atPath: newBase.path) { return }
-		if !fm.fileExists(atPath: legacyBase.path) { return }
+		if fm.fileExists(atPath: newBase.path) { return nil }
+		if !fm.fileExists(atPath: legacyBase.path) { return nil }
 		
 		let legacyFiles = [
 			legacyBase,
@@ -221,15 +241,46 @@ final class Storage: ObservableObject {
 			newBase.deletingPathExtension().appendingPathExtension("sqlite-shm")
 		]
 		
+		// A pointer to the legacy store is only worth following if the store actually moves.
+		//
+		// This used to swallow every failure. When the move failed, `loadPersistentStores`
+		// found nothing at `VexSign.sqlite` and created a *new, empty* store — so the user's
+		// entire library (apps, certificates, sources) appeared to have been deleted, and the
+		// old file sat beside it, unreferenced, until it was garbage-collected. Nothing was
+		// reported, because the migration had "finished" without throwing.
+		//
+		// Now the base store either arrives or the failure is surfaced before the container is
+		// loaded, so the recovery path in `_loadPersistentStoreAggressively` decides what to do
+		// instead of a silent empty database.
 		for (oldFile, newFile) in zip(legacyFiles, newFiles) {
-			if fm.fileExists(atPath: oldFile.path) {
-				try? fm.moveItem(at: oldFile, to: newFile) // try? ok: best-effort legacy store migration
+			guard fm.fileExists(atPath: oldFile.path) else { continue }
+			do {
+				try fm.moveItem(at: oldFile, to: newFile)
+			} catch {
+				Logger.misc.fault(
+					"Legacy library could not be migrated; refusing to open an empty store over it: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+				)
+				return error
 			}
 		}
+		return nil
 	}
+
+	/// True while the container is pointed at an unmigrated legacy store.
+	///
+	/// `_destroyStore` deletes the store file *and* the signed/unsigned/certificate folders.
+	/// That is the right response to a corrupt throwaway store and catastrophic for one that
+	/// holds the user's only copy of their library, so recovery is refused outright here.
+	private var _legacyStoreIsLive = false
 
 	private func _loadPersistentStoreAggressively() {
 		container.loadPersistentStores { description, error in
+			if let error, self._legacyStoreIsLive {
+				Logger.misc.fault(
+					"The legacy library could not be opened. It is left untouched — recovery would delete it along with the app folders. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+				)
+				return
+			}
 			if let error {
 				// Recovery deletes the store and the app's library folders; that is
 				// the right call for a corrupt on-disk store and the wrong one for a

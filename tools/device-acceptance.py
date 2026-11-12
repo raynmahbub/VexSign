@@ -3,11 +3,61 @@
 import argparse
 import hashlib
 import json
+import os
 import plistlib
 import zipfile
 from pathlib import Path
 import re
 import subprocess
+
+
+class CommitUnavailable(RuntimeError):
+    """No commit can be established, so a report could not be bound to source.
+
+    Raised instead of returning an empty string: a report whose `commit` is blank would
+    validate against an empty expectation, which is the opposite of the integrity check
+    this tool exists for.
+    """
+
+
+def resolve_commit(explicit=None, environ=None):
+    """The commit a report is bound to.
+
+    Priority is explicit `--commit`, then `VEXSIGN_SOURCE_COMMIT`/`GITHUB_SHA` (CI has the
+    commit but a source archive has no `.git`), then `git rev-parse HEAD`.
+
+    An unpacked archive is the case this ordering fixes: `make verify` runs from a zip with
+    no VCS metadata, so the git call used to end in an uncaught `fatal: not a git
+    repository` traceback. CI still resolves a real commit, and a caller with neither
+    metadata nor an argument gets a one-line diagnostic naming both remedies rather than
+    a stack trace.
+    """
+    environ = os.environ if environ is None else environ
+
+    candidate = (explicit or '').strip()
+    if not candidate:
+        for key in ('VEXSIGN_SOURCE_COMMIT', 'GITHUB_SHA'):
+            candidate = environ.get(key, '').strip()
+            if candidate:
+                break
+
+    if not candidate:
+        try:
+            candidate = subprocess.check_output(
+                ['git', 'rev-parse', 'HEAD'], text=True, stderr=subprocess.DEVNULL, env=environ
+            ).strip()
+        except (OSError, subprocess.CalledProcessError):
+            candidate = ''
+
+    if not re.fullmatch(r'[0-9a-fA-F]{40}|[0-9a-fA-F]{64}', candidate):
+        raise CommitUnavailable(
+            'No source commit could be established. Run from a git checkout, pass '
+            '--commit <sha>, or set VEXSIGN_SOURCE_COMMIT (or GITHUB_SHA in CI). '
+            'A report is never written without the commit it attests.'
+        )
+
+    # Lowercase so a short-form SHA handed in by a caller still compares like git's output.
+    return candidate.lower()
 
 CASES = ('launch', 'import_sign_verify', 'trust_profile', 'offline_local_install',
          'installed_version', 'relaunch_persistence', 'update_persistence',
@@ -80,8 +130,17 @@ def main():
     parser.add_argument('mode', choices=('init', 'check'))
     parser.add_argument('--ipa', required=True, type=Path)
     parser.add_argument('--report', required=True, type=Path)
+    parser.add_argument('--commit', help='Source commit to bind the report to. Defaults to '
+                                        'VEXSIGN_SOURCE_COMMIT/GITHUB_SHA, then git HEAD.')
     args = parser.parse_args()
-    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+
+    try:
+        commit = resolve_commit(args.commit)
+    except CommitUnavailable as error:
+        # A diagnostic, not a traceback: this is an expected state when the tool runs
+        # from a source archive.
+        parser.exit(2, f'error: {error}\n')
+
     digest = hashlib.file_digest(args.ipa.open('rb'), 'sha256').hexdigest()
     try:
         architecture = artifact_architecture(args.ipa)

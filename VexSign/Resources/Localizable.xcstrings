@@ -95616,17 +95616,6 @@
         }
       }
     },
-    "3 apps / 7 days · Weekly refresh" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3 apps / 7 days · Weekly refresh"
-          }
-        }
-      }
-    },
     "3. Review" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -104445,6 +104434,83 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preparing guest import…"
+          }
+        }
+      }
+    },
+    "The archive uses the same path as both a file and a folder: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive uses the same path as both a file and a folder: %@"
+          }
+        }
+      }
+    },
+    "Certificate expired %@ — iOS will refuse to install what it signs." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate expired %@ — iOS will refuse to install what it signs."
+          }
+        }
+      }
+    },
+    "No certificate selected. Choose one in Settings → Certificates, or sign with Modify." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No certificate selected. Choose one in Settings → Certificates, or sign with Modify."
+          }
+        }
+      }
+    },
+    "The selected certificate has been revoked, so anything it signs will be rejected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected certificate has been revoked, so anything it signs will be rejected."
+          }
+        }
+      }
+    },
+    "The signing certificate expired on %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing certificate expired on %@."
+          }
+        }
+      }
+    },
+    "The signing identity cannot be used." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing identity cannot be used."
+          }
+        }
+      }
+    },
+    "3 apps / 7 days · Renew by hand each week" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 apps / 7 days · Renew by hand each week"
           }
         }
       }

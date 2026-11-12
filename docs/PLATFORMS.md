@@ -22,6 +22,7 @@ membership-exception mechanism the widget extension already uses:
 | `CompanionModels.swift` (wire format) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `CompanionClient.swift` (Web Manager reader) | ✅ | ✅ | ✅ | — | — |
 | `CompanionStore.swift` (view model) | ✅ | ✅ | ✅ | — | — |
+| `CompanionSecretStore.swift` (Keychain for password/token) | ✅ | ✅ | ✅ | — | — |
 | `WatchSnapshotStore.swift` (app-group hand-off) | — | — | — | ✅ | ✅ |
 
 These files import Foundation (plus SwiftUI/Combine in the store) and nothing
@@ -51,6 +52,24 @@ for the companions.
 **Refresh:** on appear, on demand, and every 30 seconds by default
 (`autoRefreshInterval`, settable in the store). A failed refresh keeps the last
 good snapshot on screen instead of blanking.
+
+**Transport.** The companion client speaks HTTPS. An address typed without a
+scheme gets `https://`, and a `http://` address is refused unless
+**Allow HTTP on this network** is on *and* the host is a local-network address
+(private IPv4, IPv6 link-local/unique-local, `*.local` or loopback). Plain HTTP is
+the case where the password and API token travel in cleartext, so it is an
+explicit choice for a home network — never a fallback for a failed HTTPS
+connection, and never valid for a public host. Redirects are refused outright,
+because `URLSession` forwards request headers (including `Authorization`) when it
+follows one.
+
+**Credential storage.** The password and API token live in the Keychain
+(`CompanionSecretStore`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), not
+in `UserDefaults`. Values written by an earlier build are migrated on first launch
+and the plaintext copy is removed only after the Keychain write succeeds, so a
+locked Keychain leaves a working credential instead of losing it. A Keychain
+failure is shown in the connect screen; it is never logged and never silently
+treated as an empty password.
 
 ## Apple Vision Pro
 
@@ -134,6 +153,11 @@ the watch pair with it.
 - **The TV/vision companions need the Web Manager running.** iOS suspends the
   server when the phone locks unless *Keep alive* is on; a companion then shows
   the last snapshot and a staleness indicator rather than fresh data.
+- **The Web Manager itself serves HTTP.** It is a Vapor HTTP listener (`transport:
+  .http`), so a companion reaching it over HTTP has no server-side TLS to negotiate;
+  the HTTPS path is the one the local install server provides. Treat the pairing
+  credentials as readable by anyone on the network that can sniff it, which is why
+  the HTTP opt-in is local-only and off by default.
 - **Watch reachability is Apple's call.** Commands may take until the next
   in-range moment; the UI says so instead of pretending they ran.
 - **Not device-tested here.** These targets compile in CI (macOS runners) but the

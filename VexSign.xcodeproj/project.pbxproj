@@ -140,6 +140,7 @@
 			membershipExceptions = (
 				Companion/CompanionModels.swift,
 				Companion/CompanionClient.swift,
+				Companion/CompanionSecretStore.swift,
 				Companion/CompanionStore.swift,
 			);
 			target = C0FFEE000000000000000006 /* VexSignTV */;
@@ -149,6 +150,7 @@
 			membershipExceptions = (
 				Companion/CompanionModels.swift,
 				Companion/CompanionClient.swift,
+				Companion/CompanionSecretStore.swift,
 				Companion/CompanionStore.swift,
 			);
 			target = C0FFEE000000000000000012 /* VexSignVision */;

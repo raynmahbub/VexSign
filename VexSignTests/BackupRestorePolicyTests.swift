@@ -166,6 +166,23 @@ final class BackupRestorePolicyTests: XCTestCase {
 	}
 
 	@MainActor
+	func testCompanionCredentialsNeverLeaveInABackup() {
+		// Both keys were once plaintext in `UserDefaults` (the companions' store wrote them on
+		// every edit). They are Keychain-only now, but an install that upgraded from an older
+		// build can still hold the plaintext copy, and a backup written then must not carry it.
+		XCTAssertTrue(BackupManager.isCredentialSettingKey("VexSign.companion.password"))
+		XCTAssertTrue(BackupManager.isCredentialSettingKey("VexSign.companion.token"))
+		XCTAssertFalse(BackupManager.isBackupableSettingKey("VexSign.companion.password"))
+		XCTAssertFalse(BackupManager.isBackupableSettingKey("VexSign.companion.token"))
+
+		// The non-secret pairing settings are ordinary preferences and do travel.
+		for key in ["VexSign.companion.address", "VexSign.companion.username"] {
+			XCTAssertFalse(BackupManager.isCredentialSettingKey(key), key)
+			XCTAssertTrue(BackupManager.isBackupableSettingKey(key), key)
+		}
+	}
+
+	@MainActor
 	func testCredentialShapedNamesAreExcluded() {
 		for key in [
 			"VexSign.someService.apiKey",

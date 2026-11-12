@@ -175,6 +175,161 @@ final class CompanionAndWidgetTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Companion transport policy
+
+	/// The companion sends a Web Manager password and API token, so plaintext HTTP has to be
+	/// a deliberate local-network choice rather than the default. These drive the pure policy
+	/// function; no request is made.
+	func testCompanionTransportDefaultsToHTTPS() throws {
+		// A typed host with no scheme used to become `http://` silently.
+		let bare = try CompanionClient.transport(for: "192.168.1.20:8080", allowInsecureHTTP: false)
+		XCTAssertEqual(bare.scheme, "https")
+		XCTAssertEqual(bare.host, "192.168.1.20")
+		XCTAssertEqual(bare.port, 8080)
+
+		let explicit = try CompanionClient.transport(for: "https://example.com/", allowInsecureHTTP: false)
+		XCTAssertEqual(explicit.scheme, "https")
+	}
+
+	func testCompanionTransportRefusesPlainHTTPUnlessOptedIn() {
+		XCTAssertThrowsError(try CompanionClient.transport(for: "http://192.168.1.20:8080", allowInsecureHTTP: false)) {
+			XCTAssertEqual($0 as? CompanionClientError, .insecureTransport)
+		}
+	}
+
+	func testCompanionTransportAllowsHTTPOnlyOnALocalNetworkOnceOptedIn() throws {
+		for address in ["http://192.168.1.20:8080", "http://10.0.0.5:8080", "http://172.16.4.2:8080",
+						"http://127.0.0.1:8080", "http://169.254.10.2:8080", "http://iphone.local:8080",
+						"http://[fd00::1]:8080"] {
+			XCTAssertNoThrow(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address)
+		}
+
+		// The opt-in covers a LAN, not the public internet: a plaintext credential sent to a
+		// public host is not made safer by a switch meant for a home network.
+		for address in ["http://vexsign.example.com:8080", "http://8.8.8.8:8080", "http://172.32.0.1:8080"] {
+			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address) {
+				XCTAssertEqual($0 as? CompanionClientError, .insecureTransport)
+			}
+		}
+	}
+
+	func testLocalNetworkClassification() {
+		let local = ["localhost", "::1", "iphone.local", "192.168.0.1", "10.255.255.254",
+					 "172.16.0.1", "172.31.255.254", "127.0.0.1", "169.254.1.1", "fe80::1", "fd12::1"]
+		for host in local {
+			XCTAssertTrue(CompanionClient.isLocalNetworkHost(host), host)
+		}
+
+		let remote = ["example.com", "8.8.8.8", "172.15.0.1", "172.32.0.1", "192.169.0.1",
+					  "11.0.0.1", "2001:4860:4860::8888", "192.168.1", "192.168.1.300"]
+		for host in remote {
+			XCTAssertFalse(CompanionClient.isLocalNetworkHost(host), host)
+		}
+	}
+
+	func testCompanionTransportRejectsEmbeddedCredentialsAndBadSchemes() {
+		for address in ["https://user:pass@192.168.1.20:8080", "ftp://192.168.1.20:8080",
+						"https://", "   "] {
+			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address)
+		}
+	}
+
+	func testAnHTTPSAddressIsNeverDowngradedToHTTP() {
+		// Whatever the opt-in says, an explicit https address stays https. A failed connection
+		// must not become a plaintext retry, which is how a downgrade attack looks.
+		for allow in [true, false] {
+			let url = try? CompanionClient.transport(for: "https://192.168.1.20:8080", allowInsecureHTTP: allow)
+			XCTAssertEqual(url?.scheme, "https")
+		}
+	}
+
+	// MARK: - Redirect and TLS-trust policy
+
+	/// `URLSession` copies request headers onto a redirect, so following one to another host
+	/// hands that host `Authorization` and `X-VexSign-Token`. Refusing is the whole point of the
+	/// delegate, not a side effect of it.
+	func testCompanionRefusesEveryRedirect() throws {
+		let delegate = SameOriginRedirects()
+		let original = URLRequest(url: try XCTUnwrap(URL(string: "https://192.168.1.20:8080/api/status")))
+		let targets = [
+			"https://192.168.1.20:8080/api/status/",                 // same host, trailing slash
+			"http://192.168.1.20:8080/api/status",                   // scheme downgrade
+			"https://evil.example.com/api/status",                   // cross-host
+			"https://192.168.1.20:9090/api/status",                  // same host, different port
+			"https://user:pass@192.168.1.20:8080/api/status"         // credentials in the URL
+		]
+		for target in targets {
+			var forwarded: URLRequest?
+			let response = try XCTUnwrap(HTTPURLResponse(
+				url: original.url!, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": target]))
+			let redirected = URLRequest(url: try XCTUnwrap(URL(string: target)))
+
+			delegate.urlSession(URLSession.shared, task: URLSession.shared.dataTask(with: original),
+								willPerformHTTPRedirection: response, newRequest: redirected) { request in
+				forwarded = request
+			}
+			XCTAssertNil(forwarded, "a redirect to \(target) must not be followed")
+		}
+	}
+
+	/// The companion relies on the system trust evaluation. A permissive `didReceive challenge`
+	/// handler or an ephemeral trust override would make "HTTPS" meaningless, so its absence is
+	/// asserted at the source level — it cannot be tested by connecting to a bad certificate here.
+	func testCompanionNeverOverridesTLSValidation() throws {
+		let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.appendingPathComponent("VexSign/Companion/CompanionClient.swift"))
+		for forbidden in ["serverTrust", "didReceive challenge", "URLAuthenticationChallenge",
+						  "SecTrustEvaluate", "SecTrustSetAnchorCertificates", "allowsAnyHTTPSCertificate"] {
+			XCTAssertFalse(source.contains(forbidden),
+						   "\(forbidden) would bypass certificate validation")
+		}
+		// A request-level delegate is present so redirects are controlled.
+		XCTAssertTrue(source.contains("URLSessionTaskDelegate"))
+	}
+
+	/// The credential headers exist only for the configured peer. Nothing may be added to a
+	/// redirect, and no second request may be made with the token to a different origin.
+	func testCompanionBuildsCredentialHeadersOnlyForTheConfiguredOrigin() throws {
+		let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.appendingPathComponent("VexSign/Companion/CompanionClient.swift"))
+		// One request construction site: headers cannot be re-attached somewhere else.
+		XCTAssertEqual(source.components(separatedBy: "URLRequest(url:").count - 1, 1)
+		XCTAssertEqual(source.components(separatedBy: "\"Authorization\"").count - 1, 1)
+		XCTAssertEqual(source.components(separatedBy: "\"X-VexSign-Token\"").count - 1, 1)
+	}
+
+	// MARK: - Companion credential storage
+
+	func testCompanionCredentialKeysAreNoLongerPreferenceBacked() throws {
+		// The store must not write the password or token back into UserDefaults. The source is
+		// the contract here: the values are Keychain accounts now.
+		let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
+			.deletingLastPathComponent()
+			.deletingLastPathComponent()
+			.appendingPathComponent("VexSign/Companion/CompanionStore.swift"))
+		XCTAssertTrue(source.contains("CompanionSecretStore"))
+		XCTAssertTrue(source.contains("credentialIssue"), "a failed Keychain write has to be reported")
+		for key in ["VexSign.companion.password", "VexSign.companion.token"] {
+			// Still named, so an upgrade can migrate them — but only through `migrate`.
+			XCTAssertTrue(source.contains(key), "\(key) must stay readable for migration")
+		}
+		// A `didSet` that stores the secret in preferences is exactly the defect.
+		XCTAssertFalse(source.contains("UserDefaults.standard.set(password,"))
+		XCTAssertFalse(source.contains("UserDefaults.standard.set(apiToken,"))
+	}
+
+	func testCompanionSecretAccountsAreDistinctAndStable() {
+		// A rename would orphan a stored credential; a collision would make the token
+		// overwrite the password.
+		XCTAssertNotEqual(CompanionSecretStore.Account.password, CompanionSecretStore.Account.apiToken)
+		XCTAssertEqual(CompanionSecretStore.Account.password, "webManager.password")
+		XCTAssertEqual(CompanionSecretStore.Account.apiToken, "webManager.apiToken")
+	}
+
 	// MARK: - App Intent entities
 
 	@available(iOS 17.0, *)
