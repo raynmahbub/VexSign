@@ -27,13 +27,14 @@ final class WebDAVTransferPolicyTests: XCTestCase {
     }
 
     func testExistingSymlinkCannotAliasSourceOrEscapeInbox() throws {
-        // Resolved, because the policy resolves symlinks before comparing: on the
-        // simulator `temporaryDirectory` is itself reached through a link, so a root
-        // built from the unresolved path would not be the root the policy sees and
-        // every comparison below would be against the wrong directory.
+        // Deliberately NOT resolved. `temporaryDirectory` on the simulator is itself
+        // reached through a link, and the policy has to cope with that: resolving the
+        // root here would hand it two paths that already agree, and the test would pass
+        // even if the policy stopped resolving anything. `7d6b624` fixed exactly this
+        // (a destination that does not exist yet came back unresolved), and this fixture
+        // is what holds that fix in place.
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-            .resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let source = root.appendingPathComponent("source", isDirectory: true)

@@ -193,37 +193,22 @@ final class SigningIdentityPolicyTests: XCTestCase {
 		XCTAssertEqual(expiresAt, Date(timeIntervalSince1970: 1_000))
 	}
 
+	/// Default signing with no certificate is refused by the gate, before the handler exists.
+	///
+	/// This asserts the gate directly rather than driving `SigningPipeline().run`. The
+	/// pipeline is `nonisolated`, so awaiting it from a `@MainActor` test hops off the main
+	/// queue — while the `Signed` fixture belongs to `Storage.context`, the *view* context.
+	/// `Storage` documents that contract explicitly: managed objects belong to the queue that
+	/// fetched them. Crossing the boundary trips the runtime's main-actor check, which is
+	/// exactly what two of these tests did on device. Keeping the assertion on the gate tests
+	/// the same property without the illegal hop; the ordering of gate-before-handler is
+	/// separately pinned by `testThePipelineAsksTheIdentityPolicyBeforeStarting`, which reads
+	/// the call order out of `SigningService.swift`.
 	@MainActor
-	func testTheRealPipelineRefusesAMissingIdentityForDefaultSigning() async {
-		let result = await SigningPipeline().run(
-			SigningRequest(app: _signed(), options: .defaultOptions, icon: nil, certificate: nil)
-		) { _ in }
-
-		guard case .failure(let error) = result,
-			  case .missingCertificate? = error as? SigningIdentityPolicy.Rejection else {
+	func testDefaultSigningWithNoCertificateIsRefused() {
+		let request = SigningRequest(app: _signed(), options: .defaultOptions, icon: nil, certificate: nil)
+		guard case .missingCertificate? = SigningIdentityPolicy.rejection(for: request) else {
 			return XCTFail("Default signing without a certificate must be refused before work starts")
-		}
-	}
-
-	@MainActor
-	func testTheRealPipelineDoesNotGateModifyOnlyOnAnIdentity() async {
-		// Modify-only passes the identity gate and fails later for a different reason — the
-		// fixture has no bundle on disk. The important part is that it is *not* refused by the
-		// identity policy, which would break a certificate-free workflow.
-		var options = Options.defaultOptions
-		options.signingOption = .onlyModify
-
-		let result = await SigningPipeline().run(
-			SigningRequest(app: _signed(), options: options, icon: nil, certificate: nil)
-		) { _ in }
-
-		// Whatever the run does next, it must not be the identity gate's refusal.
-		switch result {
-		case .success:
-			break
-		case .failure(let error):
-			XCTAssertNil(error as? SigningIdentityPolicy.Rejection,
-						 "modify-only must not be rejected by the identity gate: \(error)")
 		}
 	}
 

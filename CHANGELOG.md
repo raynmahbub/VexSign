@@ -11,6 +11,16 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Two of the new pipeline tests tripped the main-actor runtime check. They awaited
+  the `nonisolated` `SigningPipeline().run(...)` from a `@MainActor` test while
+  passing a `Signed` fixture that belongs to `Storage.context`, the *view*
+  context — the exact cross-queue use `Storage` documents as forbidden. The
+  refused-identity cases now assert `SigningIdentityPolicy.rejection(for:)`
+  directly, which is the property they were checking; the ordering that makes the
+  gate effective is already pinned by
+  `testThePipelineAsksTheIdentityPolicyBeforeStarting`. A duplicate modify-only
+  test was dropped, since `testModifyOnlyNeverNeedsAnIdentity` covers it plus the
+  expired-certificate case.
 - Four of the new acceptance tests failed on their first real run, which is what
   they were for. `CertificateRemovalDurabilityTests` and the
   `SigningIdentityPolicyTests` fixture created a `CertificatePair` without
@@ -21,6 +31,13 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   the two spellings are equal; the assertion now compares UTF-8 bytes, which is
   the difference the archive and the filesystem actually see. Suite totals before
   the fix: 1339 tests, 1330 passed, 7 failed.
+- `testExistingSymlinkCannotAliasSourceOrEscapeInbox` was right to fail.
+  `resolvingSymlinksInPath()` leaves a path that does not exist yet unaltered, so
+  a destination of `alias/new` was never resolved and the alias stopped being
+  visible exactly before the write that would follow it. Fixed in
+  `WebDAVTransferPolicy` (7d6b624) by resolving the deepest existing ancestor and
+  re-appending the rest. The test fixture deliberately keeps its unresolved
+  `temporaryDirectory` root, so it fails again if that fix is reverted.
 - The post-sign certificate check was in the wrong function and did not compile.
   Phase 2 put `expectation.expectsFreshSignature` inside
   `_signatureIssues(in:executable:)`, which has no `expectation` parameter —
