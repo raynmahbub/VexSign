@@ -107253,6 +107253,39 @@
           }
         }
       }
+    },
+    "%lld restored item(s) could not be verified. Reopen the app and check those components." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld restored item(s) could not be verified. Reopen the app and check those components."
+          }
+        }
+      }
+    },
+    "The backup could not be saved. No file was produced." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup could not be saved. No file was produced."
+          }
+        }
+      }
+    },
+    "The backup did not verify after it was written. Delete it and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup did not verify after it was written. Delete it and try again."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
