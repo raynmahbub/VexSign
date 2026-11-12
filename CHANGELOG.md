@@ -20,7 +20,10 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   gate effective is already pinned by
   `testThePipelineAsksTheIdentityPolicyBeforeStarting`. A duplicate modify-only
   test was dropped, since `testModifyOnlyNeverNeedsAnIdentity` covers it plus the
-  expired-certificate case.
+  expired-certificate case. The same fix applies to
+  `testTheRealPipelineRefusesAnExpiredIdentityBeforeTouchingTheBundle`, which was
+  the last test still taking that illegal hop; it now asserts the gate reports the
+  certificate's own expiry.
 - Four of the new acceptance tests failed on their first real run, which is what
   they were for. `CertificateRemovalDurabilityTests` and the
   `SigningIdentityPolicyTests` fixture created a `CertificatePair` without
