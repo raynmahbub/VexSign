@@ -27,11 +27,12 @@ extension UnifiedTaskCenter {
     func _syncMirrored(downloads: [Download]) {
         let activeIDs = Set(downloads.map { $0.id })
 
-        // Drop mirrors whose download disappeared without a terminal phase.
+        // A download row disappears on every path that did not finish, so its absence is not
+        // a success signal; the verdict comes from `TaskMirrorPolicy`, and it is terminal.
         for (downloadID, task) in downloadMirrors where !activeIDs.contains(downloadID) {
-            if !task.phase.isTerminal {
-                task.phase = .completed
-                _finalize(task)
+            if let verdict = TaskMirrorPolicy.vanished(task.phase) {
+                task.context?.confirmationReason = "download-ended-before-completion"
+                transition(task, to: verdict)
             }
             downloadMirrors.removeValue(forKey: downloadID)
         }

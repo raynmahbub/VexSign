@@ -97,3 +97,24 @@ enum TaskSubmissionPolicy {
         return match
     }
 }
+
+// MARK: - Mirroring
+
+enum TaskMirrorPolicy {
+    /// The verdict for a mirrored download whose `Download` row has disappeared.
+    ///
+    /// `DownloadManager` drops the row on every path that did *not* finish: a non-recoverable
+    /// transfer error, a package over the 8 GiB safety limit, and the user stopping the
+    /// transfer. `Download` has no failure phase, so the absence of a row is the only signal the
+    /// mirror receives — and it is not a success signal.
+    ///
+    /// The mirror used to read it as `.completed`, which put a green "Completed" in the Task
+    /// Center and the Dynamic Island for a download that had just failed or been stopped, and
+    /// released the retry handler on the way out. `interrupted` is what this side of the seam
+    /// can defend: the transfer did not finish, and which of the three paths ended it is not
+    /// recoverable from a missing row. A mirror that already reached a terminal phase keeps its
+    /// verdict (returns `nil`), so a finished download is never relabelled by its own removal.
+    static func vanished(_ phase: UnifiedTaskPhase) -> UnifiedTaskPhase? {
+        phase.isTerminal ? nil : .interrupted
+    }
+}
