@@ -25,24 +25,24 @@ final class RecoveryAndResourceTests: XCTestCase {
 
     func testSharedOwnershipBlocksConflictsButNotOtherApps() async throws {
         let registry = AppOperationRegistry()
-        var lease: AppOperationRegistry.Lease? = try await registry.acquire("signed:one")
+        var lease: AppOperationRegistry.Lease? = try registry.acquire("signed:one")
         XCTAssertTrue(registry.isBusy("signed:one"))
-        await XCTAssertThrowsError(try await registry.acquire("signed:one"))
-        let unrelated = try await registry.acquire("signed:two")
+        XCTAssertThrowsError(try registry.acquire("signed:one"))
+        let unrelated = try registry.acquire("signed:two")
         XCTAssertTrue(registry.isBusy("signed:two"))
         XCTAssertNotNil(lease)
         lease = nil
         XCTAssertFalse(registry.isBusy("signed:one"))
-        let retry = try await registry.acquire("signed:one")
+        let retry = try registry.acquire("signed:one")
         withExtendedLifetime([unrelated, retry]) {}
     }
 
     func testWorkerReferenceRetainsLeaseAfterOwnerStops() async throws {
         let registry = AppOperationRegistry()
-        var owner: AppOperationRegistry.Lease? = try await registry.acquire("app")
+        var owner: AppOperationRegistry.Lease? = try registry.acquire("app")
         var worker = owner
         owner = nil
-        await XCTAssertThrowsError(try await registry.acquire("app"))
+        XCTAssertThrowsError(try registry.acquire("app"))
         XCTAssertNotNil(worker)
         worker = nil
         XCTAssertFalse(registry.isBusy("app"))

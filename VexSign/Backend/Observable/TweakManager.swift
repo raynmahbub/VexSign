@@ -182,7 +182,7 @@ final class TweakManager: ObservableObject {
 	/// place entries under `tweaks`, `packages`, or `items`.
 	@MainActor
 	func addRepository(_ url: URL) async throws -> Int {
-        let workLease = try await AppOperationRegistry.shared.acquireTemporaryWork()
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
         defer { withExtendedLifetime(workLease) {} }
 		guard !_isImportingRepository else { throw RepositoryError.invalid("Another tweak repository import is already running.") }
 		_isImportingRepository = true

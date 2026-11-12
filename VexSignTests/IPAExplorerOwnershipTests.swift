@@ -25,7 +25,7 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         try Data("replacement".utf8).write(to: replacement)
         let entry = IPAFileEntry(url: file, name: "original.txt", isDirectory: false,
                                  size: 8, date: Date(), kind: .text, childCount: 0)
-        let lease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row))
+        let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row))
         defer { withExtendedLifetime((storage, lease)) {} }
         await XCTAssertThrowsError(try await workspace.acquireEditingLease())
         XCTAssertNil(await IPAExplorerActions.createFolder(named: "blocked", in: workspace.appURL, workspace: workspace))
@@ -61,7 +61,7 @@ final class IPAExplorerOwnershipTests: XCTestCase {
             defer { withExtendedLifetime(lease) {} }
             XCTAssertFalse(storage.deleteApps([row]))
             XCTAssertFalse(row.isDeleted)
-            await XCTAssertThrowsError(try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row)))
+            XCTAssertThrowsError(try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row)))
         }
         XCTAssertFalse(AppOperationRegistry.shared.isBusy(AppOperationRegistry.key(row)))
         XCTAssertNotNil(await IPAExplorerActions.createFolder(named: "allowed", in: workspace.appURL, workspace: workspace))

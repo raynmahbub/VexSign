@@ -151,7 +151,7 @@ extension WebManagerServer {
 			}
 
 let workLease: AppOperationRegistry.Lease
-            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
             error {
                 return req.eventLoop.makeSucceededFuture(Response(status: .serviceUnavailable,
                     body: .init(string: "Cleanup is in progress. Retry the upload.")))

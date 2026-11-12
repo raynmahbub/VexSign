@@ -81,7 +81,7 @@ final class AppInstaller: ObservableObject {
     /// Packaging only: never starts a server, opens an install URL or reports success.
     func prepareForQueuedOTA() {
         guard !_isSharing, _installationMethod == 0, !_hasFinished, _preparedPackage == nil else { return }
-        do { if _sourceLease == nil { _sourceLease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
+        do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
         error { return }
         _preparedPackage = Task { try await _createPackage() }
     }
@@ -174,7 +174,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             _finish(.failure(_routingError))
             return
         }
-        do { if _sourceLease == nil { _sourceLease = try await AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
+        do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
         error { _finish(.failure(error)); return }
 
 		guard _isSharing || app.identifier != Bundle.main.bundleIdentifier || _installationMethod == 1 else {

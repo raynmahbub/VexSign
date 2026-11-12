@@ -143,17 +143,17 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         withExtendedLifetime(importClaim) {}
         
         // Sign acquires ownership
-        let signLease = try await registry.acquire("signed:\(testUUID)")
-        XCTAssertTrue(await registry.isBusy("signed:\(testUUID)"))
+        let signLease = try registry.acquire("signed:\(testUUID)")
+        XCTAssertTrue(registry.isBusy("signed:\(testUUID)"))
         withExtendedLifetime(signLease) {}
         
         // Install acquires ownership (different key)
-        let installLease = try await registry.acquire("signed:\(testUUID)")
-        XCTAssertTrue(await registry.isBusy("signed:\(testUUID)"))
+        let installLease = try registry.acquire("signed:\(testUUID)")
+        XCTAssertTrue(registry.isBusy("signed:\(testUUID)"))
         withExtendedLifetime(installLease) {}
         
         // Cleanup can only run when all operations complete
-        XCTAssertNil(await registry.acquireCleanup())
+        XCTAssertNil(registry.acquireCleanup())
         
         // After releasing, cleanup can proceed
         // (leases released via deinit)

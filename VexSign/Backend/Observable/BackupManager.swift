@@ -288,7 +288,7 @@ final class BackupManager {
 	}
 
 	func makeBackup(password: String, components: BackupComponents) async throws -> URL {
-        let workLease = try await AppOperationRegistry.shared.acquireTemporaryWork()
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
         defer { withExtendedLifetime(workLease) {} }
 		// A backup with certificates carries private keys and their passwords, so
 		// it never leaves this app without a password of the user's choosing.
@@ -447,7 +447,7 @@ final class BackupManager {
 	}
 
 	func open(_ url: URL, password: String) async throws -> BackupArchive {
-        let workLease = try await AppOperationRegistry.shared.acquireTemporaryWork()
+        let workLease = try AppOperationRegistry.shared.acquireTemporaryWork()
 		let work = _fm.uniqueTemporaryDirectory("VexRestore")
 		try _fm.createDirectory(at: work, withIntermediateDirectories: true)
 

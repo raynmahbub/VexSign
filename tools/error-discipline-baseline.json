@@ -46,7 +46,6 @@
   "VexSign/Utilities/CertificateAutoImporter.swift": 4,
   "VexSign/Utilities/CertificateExpiryMonitor.swift": 2,
   "VexSign/Utilities/DiagnosticBundleExporter.swift": 8,
-  "VexSign/Utilities/FR.swift": 4,
   "VexSign/Utilities/FileExporter.swift": 1,
   "VexSign/Utilities/FileIntegrity.swift": 1,
   "VexSign/Utilities/FileLogger.swift": 9,

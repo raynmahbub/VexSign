@@ -152,7 +152,7 @@ final class StorageManager: ObservableObject {
 	@discardableResult
 	func delete(_ items: [StorageEntry], category: StorageCategory) -> Bool {
         let guarded = category == .temporary || category == .leftovers
-        let lease = guarded ? await AppOperationRegistry.shared.acquireCleanup() : nil
+        let lease = guarded ? AppOperationRegistry.shared.acquireCleanup() : nil
         if guarded && lease == nil { return false }
         defer { withExtendedLifetime(lease) {} }
         // Entries can outlive the scan that produced them. Re-evaluate leftovers while
@@ -194,7 +194,7 @@ final class StorageManager: ObservableObject {
 	@discardableResult
 	func clear(_ categories: [StorageCategory]) async -> [StorageCategory] {
         let guarded = categories.filter { $0 == .temporary || $0 == .leftovers }
-        let lease = guarded.isEmpty ? nil : await AppOperationRegistry.shared.acquireCleanup()
+        let lease = guarded.isEmpty ? nil : AppOperationRegistry.shared.acquireCleanup()
         let deferred = lease == nil ? guarded : []
         let allowed = categories.filter { !deferred.contains($0) }
 		let library = _librarySnapshot()
@@ -260,13 +260,13 @@ extension StorageManager {
 	}
 
 nonisolated static func purgeTemporary() {
-        guard let lease = await AppOperationRegistry.shared.acquireCleanup() else { return }
+        guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
         defer { withExtendedLifetime(lease) {} }
         StorageScanner.purgeTemporary()
     }
 
     nonisolated static func purgeStaleTemporary() {
-        guard let lease = await AppOperationRegistry.shared.acquireCleanup() else { return }
+        guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
         defer { withExtendedLifetime(lease) {} }
 		let fm = FileManager.default
 		let items: [URL]
@@ -323,7 +323,7 @@ extension StorageManager {
 	@discardableResult
 	func purge(_ category: StorageCategory, cleanupLease: AppOperationRegistry.Lease? = nil) -> Int64 {
         let guarded = category == .temporary || category == .leftovers
-        let lease = cleanupLease ?? (guarded ? await AppOperationRegistry.shared.acquireCleanup() : nil)
+        let lease = cleanupLease ?? (guarded ? AppOperationRegistry.shared.acquireCleanup() : nil)
         if guarded && lease == nil { return 0 }
         defer { withExtendedLifetime(lease) {} }
 		let library = _librarySnapshot()

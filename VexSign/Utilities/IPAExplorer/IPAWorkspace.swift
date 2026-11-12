@@ -228,7 +228,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
         case .archive:
             key = "workspace:\(id)"
         }
-        let lease = try await AppOperationRegistry.shared.acquire(key)
+        let lease = try AppOperationRegistry.shared.acquire(key)
         // A workspace can outlive a deletion. Never recreate a deleted library copy.
         var isDirectory: ObjCBool = false
         guard _fileManager.fileExists(atPath: appURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {

@@ -161,7 +161,7 @@ enum TaskRecoveryGuide: Equatable {
 /// A single task. Reference type so in-place progress updates publish
 /// through the center without diffing the whole list.
 ///
-/// `@unchecked Sendable` mirrors the existing `Download` model: instances
+/// The unchecked conformance mirrors the existing `Download` model: instances
 /// are created and mutated on the main actor, but references are handed
 /// across actor boundaries by signing/install flows running off-main.
 final class UnifiedTask: Identifiable, @unchecked Sendable {

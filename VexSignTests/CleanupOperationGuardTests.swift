@@ -22,42 +22,42 @@ final class CleanupOperationGuardTests: XCTestCase {
 	// MARK: - Is anything running?
 
 func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
-        XCTAssertFalse(await AppOperationRegistry().hasActiveOperations)
+        XCTAssertFalse(AppOperationRegistry().hasActiveOperations)
     }
 
     func testTheRegistryStaysActiveUntilTheLastLeaseIsReleased() async throws {
         let registry = AppOperationRegistry()
-        var signing: AppOperationRegistry.Lease? = try await registry.acquire("imported:one")
-        var installing: AppOperationRegistry.Lease? = try await registry.acquire("signed:two")
-        XCTAssertTrue(await registry.hasActiveOperations)
+        var signing: AppOperationRegistry.Lease? = try registry.acquire("imported:one")
+        var installing: AppOperationRegistry.Lease? = try registry.acquire("signed:two")
+        XCTAssertTrue(registry.hasActiveOperations)
 
         XCTAssertNotNil(signing)
         signing = nil
-        XCTAssertTrue(await registry.hasActiveOperations, "One operation finishing does not free the directory for the other")
+        XCTAssertTrue(registry.hasActiveOperations, "One operation finishing does not free the directory for the other")
 
         XCTAssertNotNil(installing)
         installing = nil
-        XCTAssertFalse(await registry.hasActiveOperations)
+        XCTAssertFalse(registry.hasActiveOperations)
     }
 
     func testAnOperationWithoutAStoredCopyStillCounts() async throws {
         let registry = AppOperationRegistry()
-        var anonymous: AppOperationRegistry.Lease? = try await registry.acquire(nil)
-        XCTAssertTrue(await registry.hasActiveOperations)
+        var anonymous: AppOperationRegistry.Lease? = try registry.acquire(nil)
+        XCTAssertTrue(registry.hasActiveOperations)
 
         XCTAssertNotNil(anonymous)
         anonymous = nil
-        XCTAssertFalse(await registry.hasActiveOperations)
+        XCTAssertFalse(registry.hasActiveOperations)
     }
 
     func testARefusedAcquireLeavesNothingBehind() async throws {
         let registry = AppOperationRegistry()
-        var owner: AppOperationRegistry.Lease? = try await registry.acquire("signed:one")
-        await XCTAssertThrowsError(try await registry.acquire("signed:one"))
+        var owner: AppOperationRegistry.Lease? = try registry.acquire("signed:one")
+        XCTAssertThrowsError(try registry.acquire("signed:one"))
 
         XCTAssertNotNil(owner)
         owner = nil
-        XCTAssertFalse(await registry.hasActiveOperations, "A refused request must not look like a running operation")
+        XCTAssertFalse(registry.hasActiveOperations, "A refused request must not look like a running operation")
     }
 
     @MainActor
@@ -71,29 +71,29 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
 
     func testTemporaryWorkerBlocksCleanupAndCannotStartDuringCleanup() async throws {
         let registry = AppOperationRegistry()
-        var worker: AppOperationRegistry.Lease? = try await registry.acquireTemporaryWork()
-        XCTAssertNil(await registry.acquireCleanup())
+        var worker: AppOperationRegistry.Lease? = try registry.acquireTemporaryWork()
+        XCTAssertNil(registry.acquireCleanup())
         XCTAssertNotNil(worker)
         worker = nil
-        var cleanup = await registry.acquireCleanup()
+        var cleanup = registry.acquireCleanup()
         XCTAssertNotNil(cleanup)
-        await XCTAssertThrowsError(try await registry.acquireTemporaryWork())
+        XCTAssertThrowsError(try registry.acquireTemporaryWork())
         cleanup = nil
-        XCTAssertNoThrow(try await registry.acquireTemporaryWork())
+        XCTAssertNoThrow(try registry.acquireTemporaryWork())
     }
 
     func testCleanupAndOperationsExcludeEachOtherUntilTheirLeasesEnd() async throws {
         let registry = AppOperationRegistry()
-        var operation: AppOperationRegistry.Lease? = try await registry.acquire("one")
-        XCTAssertNil(await registry.acquireCleanup())
+        var operation: AppOperationRegistry.Lease? = try registry.acquire("one")
+        XCTAssertNil(registry.acquireCleanup())
         XCTAssertNotNil(operation)
         operation = nil
-        var cleanup = await registry.acquireCleanup()
+        var cleanup = registry.acquireCleanup()
         XCTAssertNotNil(cleanup)
-        XCTAssertNil(await registry.acquireCleanup())
-        await XCTAssertThrowsError(try await registry.acquire("two"))
+        XCTAssertNil(registry.acquireCleanup())
+        XCTAssertThrowsError(try registry.acquire("two"))
         cleanup = nil
-        XCTAssertNoThrow(try await registry.acquire("two"))
+        XCTAssertNoThrow(try registry.acquire("two"))
     }
 
 // MARK: - What is being produced?
@@ -154,16 +154,16 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
         let claim = registry.claimProduction(of: "new-copy")
         registry.confirmProduction(of: "new-copy")
 
-        XCTAssertFalse(await registry.hasActiveOperations, "Producing a copy does not hold up a cleanup pass by itself")
+        XCTAssertFalse(registry.hasActiveOperations, "Producing a copy does not hold up a cleanup pass by itself")
         XCTAssertFalse(registry.isBusy("signed:new-copy"))
         // Once the copy is registered, the next operation can own it straight away.
-        XCTAssertNoThrow(try await registry.acquire("signed:new-copy"))
+        XCTAssertNoThrow(try registry.acquire("signed:new-copy"))
         withExtendedLifetime(claim) {}
     }
 
     func testAnOperationOnAStoredCopyIsNotAClaim() async throws {
         let registry = AppOperationRegistry()
-        let lease = try await registry.acquire("signed:one")
+        let lease = try registry.acquire("signed:one")
 
         XCTAssertFalse(registry.knowsProduction(of: "one"), "Being signed from, installed or deleted is not being produced")
         withExtendedLifetime(lease) {}
@@ -246,7 +246,7 @@ final class TemporaryCleanupPolicyTests: XCTestCase {
             try fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: 1)], ofItemAtPath: item.path)
         }
         let registry = AppOperationRegistry()
-        var worker: AppOperationRegistry.Lease? = try await registry.acquireTemporaryWork()
+        var worker: AppOperationRegistry.Lease? = try registry.acquireTemporaryWork()
         XCTAssertEqual(TempStorageSweeper.sweep(maxAge: 1, temporaryRoot: root, registry: registry), 0)
         XCTAssertTrue(fm.fileExists(atPath: old.path))
         XCTAssertNotNil(worker)

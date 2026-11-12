@@ -27,7 +27,7 @@ extension FR {
                 return UnifiedTaskCenter.shared.begin(kind: .importIPA, title: .localized("Import IPA"), phase: .importing)
             }
             let workLease: AppOperationRegistry.Lease
-            do { workLease = try await AppOperationRegistry.shared.acquireTemporaryWork() }
+            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
             error {
                 await MainActor.run {
                     if let importRecord {
