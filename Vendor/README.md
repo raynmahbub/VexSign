@@ -67,4 +67,13 @@ worker. Native in-progress calls are not forcibly interruptible. Upstream MIT
 notices are retained. On refresh, reapply or retire this patch explicitly rather
 than assuming this file is byte-identical to the pinned upstream snapshot.
 
-Real AFC upload, transport failure and close behavior still require device tests.
+`manifest.json` records a second local patch, for
+`Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift`. Upstream
+`deleteApp(for:)` connected only through the direct provider, so it could not work
+on the RSD tunnel that `listApps()` supports, and it never freed the
+installation-proxy client. The patch makes it check the pairing file, connect the
+way `listApps()` does, and free the client on success and on error. Nothing else
+in the file is changed.
+
+Real AFC upload, transport failure, close behavior and app removal still require
+device tests.

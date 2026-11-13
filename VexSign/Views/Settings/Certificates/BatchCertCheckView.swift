@@ -59,6 +59,9 @@ struct BatchCertCheckView: View {
 				if summary.revoked > 0 {
 					_stat(String.localized("%lld revoked", arguments: summary.revoked), color: .red)
 				}
+				if _checker.notCheckedCount > 0 {
+					_stat(String.localized("%lld not checked", arguments: _checker.notCheckedCount), color: .secondary)
+				}
 			}
 
 			Toggle(isOn: $_checkOnline) {

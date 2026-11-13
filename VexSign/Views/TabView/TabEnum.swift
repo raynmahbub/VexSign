@@ -1,6 +1,6 @@
 //
 //  TabEnum.swift
-//  VexSign — Library · App Store · Home · Downloads · Settings
+//  VexSign — Home · Discover · Library · Tasks · Settings
 //  App Store merges Sources; single navigation bar per tab; Logs moved to Settings.
 //
 import SwiftUI
@@ -26,8 +26,8 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
         case .files:        return .localized("Files")
         case .library:      return .localized("Library")
         case .home:         return .localized("Home")
-        case .appStore:     return .localized("App Store")
-        case .downloads:    return .localized("Activity")
+        case .appStore:     return .localized("Discover")
+        case .downloads:    return .localized("Tasks")
         case .settings:     return .localized("Settings")
         // legacy titles (still localized if user has them hidden)
         case .sources:      return .localized("Sources")
@@ -84,8 +84,15 @@ enum TabEnum: String, CaseIterable, Hashable, Codable {
         }
     }
 
-    /// Familiar initial order, including the Home and Settings recovery tabs.
+    /// Initial order: Home, Discover, Library, Tasks, Settings. The raw values are the
+    /// older names (`appStore`, `downloads`) so stored preferences and deep links keep working.
     static var defaultTabs: [TabEnum] {
+        [.home, .appStore, .library, .downloads, .settings]
+    }
+
+    /// The initial order before Home moved to the front. Kept so a stored order that was
+    /// never changed can be told apart from one the user arranged.
+    static var previousDefaultTabs: [TabEnum] {
         [.library, .appStore, .home, .downloads, .settings]
     }
 

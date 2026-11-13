@@ -202,7 +202,7 @@ struct AppearanceView: View {
                 }
             }
 
-            NBSection(.localized("App Store"), systemName: "bag.fill") {
+            NBSection(.localized("Discover"), systemName: "bag.fill") {
                 Picker(.localized("Store Cell Appearance"), selection: $_storeCellAppearance) {
                     ForEach(0..<_storeCellAppearanceMethods.count, id: \.self) { index in
                         let method = _storeCellAppearanceMethods[index]

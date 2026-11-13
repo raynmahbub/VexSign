@@ -2,19 +2,24 @@ import Foundation
 import NimbleExtensions
 
 /// Validate untrusted picker/provider inputs before copying or native parsing.
-/// This is a container/header check, not a guarantee of injection compatibility.
+/// A single library is also checked against `TweakCompatibility`, so one that no app could
+/// load is refused here rather than at signing. Packages and bundles are checked when they
+/// are unpacked for injection. Passing is not a guarantee that a tweak works.
 enum TweakImportSupport {
     static let maximumBytes: Int64 = 512 * 1024 * 1024
     static let maximumEntries = 10_000
 
     enum Failure: LocalizedError {
         case unsupported, unsafe, tooLarge, invalidHeader
+        /// The library cannot be loaded by a sideloaded app; carries the reason.
+        case incompatible(String)
         var errorDescription: String? {
             switch self {
             case .unsupported: return String.localized("Choose a dylib, Debian package, framework, bundle or app extension.")
             case .unsafe: return String.localized("The tweak contains a missing, unreadable or unsafe file.")
             case .tooLarge: return String.localized("The tweak exceeds the safe import limit of 512 MiB or 10,000 files.")
             case .invalidHeader: return String.localized("The selected file is not a supported Mach-O library or Debian package.")
+            case .incompatible(let reason): return reason
             }
         }
     }
@@ -68,6 +73,11 @@ enum TweakImportSupport {
                 guard header.count >= 32,
                       thin == MachOReader.machO64 || thin == MachOReader.machO64Swapped ||
                       fat == MachOReader.fat || fat == MachOReader.fat64 else { throw Failure.invalidHeader }
+                // The same rules signing enforces. Advisory findings do not stop an import.
+                let findings = TweakCompatibility.evaluate(binary: MachOInspector.inspect(fileAt: source))
+                if let blocking = findings.first(where: \.isBlocking) {
+                    throw Failure.incompatible(blocking.message)
+                }
             }
         }
     }

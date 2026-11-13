@@ -162,9 +162,9 @@ enum VexSignSection: String, AppEnum {
 	static var caseDisplayRepresentations: [VexSignSection: DisplayRepresentation] = [
 		.home: "Home",
 		.library: "Library",
-		.appStore: "App Store",
+		.appStore: "Discover",
 		.files: "Files",
-		.downloads: "Downloads",
+		.downloads: "Tasks",
 		.settings: "Settings",
 		.ipaExplorer: "IPA Explorer"
 	]

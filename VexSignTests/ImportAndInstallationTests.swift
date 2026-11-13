@@ -483,9 +483,9 @@ final class ImportAndInstallationTests: XCTestCase {
     }
 
     func testHomeIsAvailableInDefaultNavigation() {
-        // The default order stays familiar; Home and Settings remain visible
-        // so the user can always recover the navigation configuration.
-        XCTAssertEqual(TabEnum.defaultTabs, [.library, .appStore, .home, .downloads, .settings])
+        // Home and Settings remain visible so the user can always recover the
+        // navigation configuration.
+        XCTAssertEqual(TabEnum.defaultTabs, [.home, .appStore, .library, .downloads, .settings])
         XCTAssertTrue(TabEnum.defaultTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.settings))

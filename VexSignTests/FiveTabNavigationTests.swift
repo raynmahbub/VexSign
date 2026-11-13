@@ -1,10 +1,52 @@
 import XCTest
+import NimbleExtensions
 @testable import VexSign
 
 final class FiveTabNavigationTests: XCTestCase {
-    func testHomeIsMiddlePrimaryTab() {
-        XCTAssertEqual(TabEnum.defaultTabs.count, 5)
-        XCTAssertEqual(TabEnum.defaultTabs[2], .home)
+    func testDefaultTabsAreHomeDiscoverLibraryTasksSettings() {
+        XCTAssertEqual(TabEnum.defaultTabs, [.home, .appStore, .library, .downloads, .settings])
+        XCTAssertEqual(
+            TabEnum.defaultTabs.map(\.title),
+            ["Home", "Discover", "Library", "Tasks", "Settings"].map { String.localized($0) }
+        )
+    }
+
+    private func storedPreferences(_ json: String) throws -> TabBarPreferences {
+        let name = "VexSignTabsMigration.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        defaults.set(Data(json.utf8), forKey: "VexSign.tabBarPreferences")
+        return TabBarPreferences(defaults: defaults)
+    }
+
+    func testAnUntouchedStoredOrderFollowsTheNewDefault() throws {
+        let stored = #"{"version":4,"order":["library","appStore","home","downloads","settings","files","sources","logs","tweaks","certificates"],"hidden":["files","sources","logs","tweaks","certificates"],"defaultLaunch":"library","minimal":false,"showLabels":false}"#
+        let preferences = try storedPreferences(stored)
+
+        XCTAssertEqual(preferences.visibleTabs, [.home, .appStore, .library, .downloads, .settings])
+        XCTAssertEqual(preferences.defaultLaunch, .library, "The launch tab is a choice and is kept")
+        XCTAssertFalse(preferences.showLabels)
+    }
+
+    func testAnOrderTheUserArrangedIsKeptExactly() throws {
+        let stored = #"{"version":4,"order":["settings","files","library","appStore","home","downloads","sources","logs","tweaks","certificates"],"hidden":["sources","logs","downloads"],"defaultLaunch":"home","minimal":false,"showLabels":true}"#
+        let preferences = try storedPreferences(stored)
+
+        XCTAssertEqual(
+            preferences.orderedTabs,
+            [.settings, .files, .library, .appStore, .home, .downloads, .sources, .logs, .tweaks, .certificates]
+        )
+        XCTAssertEqual(preferences.visibleTabs, [.settings, .files, .library, .appStore, .home, .tweaks, .certificates])
+    }
+
+    func testAnOrderSavedAfterTheChangeIsNeverMigratedAgain() {
+        // Someone who puts Library first again after the change has made a choice.
+        let previous = TabEnum.previousDefaultTabs + TabBarPreferences.secondaryTabs
+        XCTAssertEqual(TabBarPreferences.migratedOrder(previous, storedVersion: 5), previous)
+        XCTAssertEqual(
+            TabBarPreferences.migratedOrder(previous, storedVersion: 4),
+            TabEnum.defaultTabs + TabBarPreferences.secondaryTabs
+        )
     }
 
     @MainActor
@@ -129,7 +171,7 @@ final class FiveTabNavigationTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let preferences = TabBarPreferences(defaults: defaults)
-        XCTAssertEqual(preferences.visibleTabs, [.library, .appStore, .home, .downloads, .settings])
+        XCTAssertEqual(preferences.visibleTabs, [.home, .appStore, .library, .downloads, .settings])
         XCTAssertEqual(preferences.resolvedLaunchTab, .home)
         XCTAssertTrue(preferences.isHidden(.files))
         XCTAssertTrue(preferences.showLabels)

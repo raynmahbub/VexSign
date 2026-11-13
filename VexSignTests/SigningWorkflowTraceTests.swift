@@ -465,4 +465,24 @@ private final class _VerificationWork: SigningWork {
 		}.value
 		return .success(signed)
 	}
+
+	// MARK: - Observed stages
+
+	func testOnlyReportedStagesAreListedUnderTheirStep() {
+		let snapshot = SigningWorkflowSnapshot(reached: [.copying, .modifying, .signing, .verifying], current: .verifying, running: true)
+
+		XCTAssertEqual(snapshot.observedStages(in: .prepare), [.copying])
+		XCTAssertEqual(snapshot.observedStages(in: .customize), [.modifying], "Thinning and injecting were not reported, so they are not listed")
+		XCTAssertEqual(snapshot.observedStages(in: .sign), [.signing])
+		XCTAssertEqual(snapshot.observedStages(in: .verify), [.verifying])
+	}
+
+	func testObservedStagesFollowRunOrderAndInstallNeverHasAny() {
+		let snapshot = SigningWorkflowSnapshot(reached: Set(SigningStage.allCases), succeeded: true, verified: true)
+
+		XCTAssertEqual(snapshot.observedStages(in: .customize), [.modifying, .thinning, .injecting])
+		XCTAssertEqual(snapshot.observedStages(in: .verify), [.verifying, .registering])
+		XCTAssertEqual(snapshot.observedStages(in: .install), [], "Signing reports nothing about installation")
+		XCTAssertEqual(SigningWorkflowSnapshot().observedStages(in: .prepare), [])
+	}
 }

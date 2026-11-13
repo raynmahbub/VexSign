@@ -31,6 +31,7 @@ struct VexHomeDashboard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject private var tasks = UnifiedTaskCenter.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var certificateStatus = CertificateStatusManager.shared
 
     @State private var urlText = ""
     @State private var isDropTargeted = false
@@ -40,9 +41,15 @@ struct VexHomeDashboard: View {
         tasks.tasks.first { $0.phase.isInProgress }
     }
 
+    /// The same assessment the certificate list shows, so Home cannot call a certificate
+    /// ready that the list calls expired or revoked.
+    private var assessment: CertificateStatusAssessment? {
+        certificate.map { certificateStatus.assessment(for: $0) }
+    }
+
     private var isSigningReady: Bool {
-        guard let certificate, !certificate.revoked else { return false }
-        return certificate.expiration.map { $0 > Date() } ?? true
+        guard let assessment else { return false }
+        return !assessment.status.blocksSigning
     }
 
     private var signingActionTitle: String {
@@ -239,8 +246,15 @@ struct VexHomeDashboard: View {
         guard let certificate else {
             return (certificateCount == 0 ? .localized("Set up signing") : .localized("Select certificate"), "exclamationmark.shield")
         }
-        if certificate.revoked {
+        switch assessment?.status {
+        case .revoked:
             return (.localized("Certificate revoked"), "xmark.shield")
+        case .expired:
+            // Covers the signing certificate's own end date, which can fall before the
+            // profile's and is not on the stored row.
+            return (.localized("Certificate expired"), "xmark.shield")
+        default:
+            break
         }
         guard let expiry = certificate.expiration else {
             return (.localized("Expiration unknown"), "questionmark.shield")

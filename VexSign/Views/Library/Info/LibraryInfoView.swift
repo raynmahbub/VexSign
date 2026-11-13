@@ -59,6 +59,14 @@ struct LibraryInfoView: View {
                 }
 				_appStoreSection()
 
+				// Only a signed copy can have been installed by VexSign under this identifier.
+				if app.isSigned, let identifier = app.identifier, !identifier.isEmpty {
+					DeviceAppRemovalSection(
+						bundleIdentifier: identifier,
+						name: app.name ?? identifier
+					)
+				}
+
 				Section {
 					_linksSection(for: app)
 					Button(.localized("Open in Files"), systemImage: "folder") {

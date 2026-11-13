@@ -86,3 +86,35 @@ tracking, notifications, source persistence and replacement identity logic are n
 included. No upstream binaries, credentials or additional dependencies are imported.
 Apple build/test and device acceptance remain pending; see the
 [integration assessment](research/public-signer-integration-assessment.md).
+
+## Tweak load-time compatibility gate
+
+- **Feature references:** [faroukbmiled/RyukSign](https://github.com/faroukbmiled/RyukSign)
+  at `46c6d15` (`RyukSign/Utilities/Handlers/TweakAnalyzer.swift`, `TweakHandler.swift`) and
+  [Mesutcydev/ForgeSign-iOS](https://github.com/Mesutcydev/ForgeSign-iOS) at `a08e679`
+  (`App/Services/DylibInjectionService.swift`, `IPAPreflight.swift`).
+- **License:** RyukSign is GPL-3.0. ForgeSign-iOS publishes no license, so nothing from it
+  may be copied; it was read for the idea of a preflight step only.
+- **VexSign locations:** `Utilities/Handlers/TweakCompatibility.swift`, and its callers in
+  `TweakHandler.swift` and `TweakAnalyzer.swift`.
+
+Concept only: inspect, check compatibility, then inject, as separate steps. The rules, the
+layout resolution and the Mach-O reading are VexSign's own, built on the existing
+`MachOInspector`. No source text from either project is included.
+
+## Typed certificate status
+
+- **Feature references:** [NexSideloading/NexStore](https://github.com/NexSideloading/NexStore)
+  at `d4c7fc1` (`NexStore/Backend/Observable/CertificateStatusManager.swift`) and
+  [raynmahbub/Odysseus](https://github.com/raynmahbub/Odysseus) at `ab74059`
+  (`Feather/Backend/Certificates/ODOCSPCore.swift`, `ODCertificateStatusStore.swift`), read as
+  an on-device comparison; its responder status is also good/revoked/unknown.
+- **License:** GPL-3.0 for both.
+- **VexSign locations:** `Utilities/Signing/CertificateStatusAssessment.swift`,
+  `Backend/Observable/CertificateStatusManager.swift`, `CertificateDashboard/CertificateInspector.swift`.
+
+Concept only. NexStore's manager has the same three states VexSign already had
+(signed/revoked/unknown) and obtains them by uploading the `.p12` and its password to a
+third-party checker (`certchecker.novadev.vip`). That mechanism is rejected: VexSign keeps
+its on-device trust evaluation and sends no key material anywhere. The additional states
+(expired, check unavailable, check unsupported) and the evidence-age rule are VexSign's own.

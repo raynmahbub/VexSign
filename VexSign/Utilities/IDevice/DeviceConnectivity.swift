@@ -313,9 +313,7 @@ enum PairingRecordInspector {
 
 /// The device-side operations VexSign actually has code for.
 ///
-/// Uninstall is in the list on purpose: the honest answer — the linked installation proxy
-/// exposes `install(at:suspend:)` and no removal call — is a capability result, not a missing
-/// button someone will add later by guessing.
+/// Uninstall goes through `DeviceAppRemoval`, over the same session as a paired install.
 enum DeviceOperation: String, CaseIterable, Identifiable, Sendable {
 	case pairedInstall
 	case otaInstall
@@ -493,18 +491,18 @@ enum DeviceCapabilityResolver {
 		)
 	}
 
-	/// Removal is a VexSign gap, not a platform gap — and the difference matters.
-	///
-	/// The linked `IDeviceSwift` package does expose `InstallationAppProxy.deleteApp(for:)` and
-	/// `listApps()`. Neither is referenced from VexSign, so this build has no removal path: no
-	/// confirmation, no inventory reconciliation, no verification of the result. Reporting
-	/// `unsupported` here means "VexSign does not do this yet", which is why the sentence names
-	/// the missing orchestration instead of blaming iOS.
+	/// Removal rides the same pairing session as a paired install, so it has the same
+	/// prerequisites and reports the same missing one. `DeviceAppRemoval` owns the sequence:
+	/// confirm, ask the device, read the device back.
 	private static func uninstall(in context: DeviceCapabilityContext) -> DeviceCapability {
-		.init(
+		let session = pairedInstall(in: context)
+		guard session.status == .supported else {
+			return .init(operation: .uninstall, status: session.status, detail: session.detail)
+		}
+		return .init(
 			operation: .uninstall,
-			status: .unsupported,
-			detail: .localized("VexSign has no removal path yet: the linked installation service can uninstall, but nothing in this build uses it, and removal needs its own confirmation and verification. Uninstall from the device's Home Screen or a paired computer.")
+			status: .supported,
+			detail: .localized("Removes an app through the pairing session after you confirm it, then reads the device back. If the device cannot be read, the removal is reported as requested, not as done.")
 		)
 	}
 }

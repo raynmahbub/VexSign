@@ -75,14 +75,14 @@ verification, not capability.
 | Profile management | implemented | Stored beside the identity, decoded lazily |
 | Device registration | implemented | `NativeSigning` device registration path |
 | Expiry monitoring | implemented | `CertificateExpiryMonitor`, `BatchCertChecker` |
-| Renewal | implemented (partial) | `RenewalReadiness` + `BackgroundAutomation`; the scoped unattended grant is explicitly not implemented (`SigningMethod.swift`) |
+| Renewal | implemented (partial) | `RenewalReadiness` + `BackgroundAutomation`; background signing needs a user-issued `UnattendedSigningGrant` (certificate-bound, at most 30 days, revocable); unattended **profile renewal** is not implemented (`SigningMethod.swift`) |
 | Identity compatibility | implemented | `ProfileCompatibility`, `SigningIdentityPolicy` |
 | Secure backup/restore | implemented | `BackupVerification`, secrets excluded by policy |
 
-**Top gap: the scoped unattended-renewal grant.** `SigningMethod.swift` states the refresh runs
-behind a grant that does not exist. It is security-sensitive new behaviour (an explicit grant
-with scope, expiry, revocation and cancellation), so it needs its own design review; it must not
-be bolted onto this pass. Complexity: high. Value: high (it is the difference between "remind me
+**Top gap: unattended profile renewal.** `UnattendedSigningGrant` now gates background signing
+with an existing certificate (scope, certificate, expiry, revocation). Renewing a free Apple ID
+profile in the background is a different thing: an account operation, security-sensitive, and
+still in need of its own design review. The grant does not authorise it and nothing performs it. Complexity: high. Value: high (it is the difference between "remind me
 to re-sign" and "keeps working").
 
 ## C. Application customisation
@@ -95,7 +95,7 @@ to re-sign" and "keeps working").
 | Plist modification | implemented | `PlistDiff`, `InfoPlistPlan` |
 | Entitlement editing/validation | implemented | `EntitlementsManager` + profile check before signing |
 | Dylib injection | implemented | `TweakManager`, `TweakInjectionDefaults` |
-| Tweak compatibility | implemented | `TweakRepository`, `TweakModels` |
+| Tweak compatibility | implemented | `TweakRepository`, `TweakModels`; load-time gate in `TweakCompatibility` (architecture, platform, encryption, load paths, rootful/rootless/roothide layout), enforced by `TweakHandler` before anything is placed. Dependencies between packages are not resolved. |
 | Cloning | implemented | `CloneWizard` |
 | Duplicate bundle management | implemented | `CloneWizard` + `ImportDuplicateReview` (metadata match, keep-both) |
 | Nested bundle handling | implemented | `NestedBundleAudit`, `AppExtensionEnumerator` |
@@ -112,7 +112,7 @@ to re-sign" and "keeps working").
 | USB / wireless | implemented (platform-limited) | Requires a pairing file and, for idevice transports, a running tunnel |
 | Installation | implemented | `AppInstaller`, OTA + paired transport, `InstallEvidenceReporting` |
 | Inventory | implemented | `InstalledAppProbe` (local LaunchServices) |
-| **Uninstallation** | **missing** | `DeviceConnectivity.uninstall` reports it as a VexSign gap: the linked `InstallationAppProxy.deleteApp(for:)` exists, nothing in the app uses it, and removal needs confirmation + verification |
+| Uninstallation | implemented (not device-tested) | `DeviceAppRemoval` over the pairing session: refuses VexSign itself and `com.apple.` apps, confirms, then reads the device back. Reports "Removed" only when absence is observed |
 | Refresh / re-signing | implemented (partial) | See B: no unattended grant |
 | Multiple devices | implemented (partial) | One paired device at a time; the transport is single-session |
 | Device-specific provisioning | implemented | `ProfileCompatibility` device check (needs a known UDID — see below) |
@@ -120,11 +120,11 @@ to re-sign" and "keeps working").
 
 Two verified sub-gaps in this domain, both read from source:
 
-1. **No removal path.** The vendor API is not usable as-is: `InstallationAppProxy.deleteApp(for:)`
-   never calls `installation_proxy_client_free` (a leak per call), and unlike `listApps` it does
-   not connect through the RSD tunnel, so it cannot work on the transports `listApps` supports.
-   A correct removal path is: list → confirm → uninstall → re-list → reconcile, with the vendor
-   defects fixed first.
+1. **Removal is unverified on hardware.** The vendored `InstallationAppProxy.deleteApp(for:)`
+   leaked its client and could not use the RSD tunnel; both are patched locally (see
+   `Vendor/manifest.json`). The path is confirm → uninstall → read back → reconcile. The
+   read-back uses the local probe, which often cannot tell, so the usual result is
+   "Removal requested" rather than "Removed". No part of it has run on a device.
 2. **`deviceUDID` is practically always nil.** `ProfileCompatibility`'s device check only runs
    when a caller supplies a UDID, and a jailed app cannot read its own. The check exists and is
    correct; it is rarely reachable.

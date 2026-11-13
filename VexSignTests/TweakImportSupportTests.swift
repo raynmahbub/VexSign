@@ -11,9 +11,36 @@ final class TweakImportSupportTests: XCTestCase {
     }
 
     private func libraryHeader() -> Data {
+        libraryHeader(cpuType: [0x0c, 0x00, 0x00, 0x01], cpuSubtype: [0, 0, 0, 0])
+    }
+
+    /// A 64-bit Mach-O header with no load commands. arm64 by default, since that is the
+    /// only kind of library an app can load.
+    private func libraryHeader(cpuType: [UInt8], cpuSubtype: [UInt8]) -> Data {
         var bytes = Data(repeating: 0, count: 32)
         bytes.replaceSubrange(0..<4, with: [0xcf, 0xfa, 0xed, 0xfe])
+        bytes.replaceSubrange(4..<8, with: cpuType)
+        bytes.replaceSubrange(8..<12, with: cpuSubtype)
         return bytes
+    }
+
+    func testRejectsALibraryNoAppCouldLoad() throws {
+        try withDirectory { root in
+            let fixtures: [(String, [UInt8], [UInt8])] = [
+                ("Intel.dylib", [0x07, 0x00, 0x00, 0x01], [3, 0, 0, 0]),
+                ("PointerAuth.dylib", [0x0c, 0x00, 0x00, 0x01], [2, 0, 0, 0x80]),
+            ]
+            for (name, cpuType, cpuSubtype) in fixtures {
+                let url = root.appendingPathComponent(name)
+                try libraryHeader(cpuType: cpuType, cpuSubtype: cpuSubtype).write(to: url)
+                XCTAssertThrowsError(try TweakImportSupport.validate(url), name) { error in
+                    guard case TweakImportSupport.Failure.incompatible(let reason) = error else {
+                        return XCTFail("\(name): expected an incompatibility, got \(error)")
+                    }
+                    XCTAssertFalse(reason.isEmpty)
+                }
+            }
+        }
     }
 
     func testAcceptsMachOAndDebHeaders() throws {

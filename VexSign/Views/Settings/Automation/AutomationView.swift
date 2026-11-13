@@ -39,6 +39,9 @@ struct AutomationView: View {
             }
 			_enabledSection
 			_policySection
+			if _policyRaw == BackgroundAutomationPolicy.signAndQueue.rawValue {
+				UnattendedSigningGrantSection()
+			}
             Section {
                 NavigationLink(destination: AutomationPreviewView()) {
                     Label(.localized("Automation Preview"), systemImage: "list.bullet.clipboard")
