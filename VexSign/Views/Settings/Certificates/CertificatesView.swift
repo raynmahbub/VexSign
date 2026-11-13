@@ -28,6 +28,10 @@ struct CertificatesView: View {
 	@State private var _newNickname: String = ""
 	@State private var _isBatchChecking = false
 	@State private var _isBatchCheckPresenting = false
+	/// The certificate a delete was requested for. Nothing is removed until it is confirmed:
+	/// the private key goes with it and cannot be recovered from VexSign afterwards.
+	@State private var _certPendingDeletion: CertificatePair?
+	@State private var _isDeleteConfirmationPresenting = false
 
 	// MARK: Fetch
 	@FetchRequest(
@@ -110,8 +114,25 @@ struct CertificatesView: View {
 		.sheet(isPresented: $_isBatchCheckPresenting) {
 			BatchCertCheckView()
 		}
+		.undoableRemovalBanner()
 		.sheet(item: $_addSheet) { sheet in
 			_addSheetView(for: sheet)
+		}
+		.confirmationDialog(
+			.localized("Delete this certificate?"),
+			isPresented: $_isDeleteConfirmationPresenting,
+			titleVisibility: .visible,
+			presenting: _certPendingDeletion
+		) { cert in
+			Button(.localized("Delete Certificate"), role: .destructive) {
+				// The dialog is dismissed by the tap, so a second tap cannot arrive; the
+				// pending value is cleared as well so nothing can replay it.
+				_certPendingDeletion = nil
+				CertificateRemoval.delete(cert)
+			}
+			Button(.localized("Cancel"), role: .cancel) { _certPendingDeletion = nil }
+		} message: { _ in
+			Text(.localized("The certificate, its private key and its provisioning profile are removed from VexSign. It is not revoked with Apple, and apps already signed with it are not changed. Saved signing settings that use it will fall back to the selected certificate, and any automatic signing approved for it stops."))
 		}
 		.alert(.localized("Change Nickname"), isPresented: $_isRenamingPresenting, presenting: _certToRename) { cert in
 			TextField(.localized("Nickname"), text: $_newNickname)
@@ -223,12 +244,22 @@ extension CertificatesView {
 			}
 		}
 		.buttonStyle(.plain)
+		// Cards are not List rows, so the card swipe the Library grid uses reveals Delete.
+		// It only asks: the confirmation below is what removes anything.
+		.modifier(LibraryGridSwipeDelete(enabled: true) {
+			_certPendingDeletion = cert
+			_isDeleteConfirmationPresenting = true
+		})
+		.clipShape(RoundedRectangle(cornerRadius: cornerRadius))
 	}
 	
 	@ViewBuilder
 	private func _actions(for cert: CertificatePair) -> some View {
 		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
-			Storage.shared.deleteCertificate(for: cert)
+			Presentation.afterDismiss {
+				_certPendingDeletion = cert
+				_isDeleteConfirmationPresenting = true
+			}
 		}
 	}
 	

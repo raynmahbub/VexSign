@@ -42,9 +42,9 @@ final class SigningHandler: NSObject {
 	/// What the post-sign inspection found. Written before the bundle is moved into the
 	/// library, so it describes the bytes that are actually kept.
 	private(set) var verification: SignatureVerifier.Report?
-	/// True when the run was started from the preflight sheet's "Sign Anyway". The blocking
-    /// profile/entitlement compatibility risks may be accepted again post-sign;
-    /// structural failures always reject the output.
+	/// True when the run was started from the preflight sheet's "Sign Anyway". That accepts
+    /// the preflight findings the sheet allows past; it does not relax the nested-bundle
+    /// audit or the post-sign check, which reject the output on any failure.
 	var overridesBlockingPreflightIssues = false
 	/// Called as each stage begins. Synchronous on purpose: it is delivered to
 	/// `SigningService`'s event queue, which preserves order.
@@ -232,7 +232,12 @@ final class SigningHandler: NSObject {
 			// `_verifySignedBundle` throws when the report is unacceptable, so returning from
 			// it is the engine's own evidence that verification passed. Reported here and only
 			// here: a "modify without signing" run never reaches this line.
-			onSignatureVerified?()
+			// Only a complete check is reported as verified. When part of the evidence could
+			// not be read the copy is kept, because nothing failed, but it is not described
+			// as verified.
+			if verification?.verdict.isVerified == true {
+				onSignatureVerified?()
+			}
 		}
 
 		// Past this point the run is either registered or cleaned up by `clean()`; a cancel here
@@ -251,8 +256,9 @@ final class SigningHandler: NSObject {
         if injectedCount > 0 { await AnalyticsStore.shared.record(.tweaksInjected, count: injectedCount) }
     }
 	
-    /// Definite structural failures stop before library registration or success events —
-    /// unless the user signed through the blocking preflight issues that predict them.
+    /// The final check on what was produced. Any failure stops the run before library
+    /// registration or a success event: a bundle that failed here cannot be installed, so it
+    /// is not kept, whether or not the preflight sheet was confirmed.
 	private func _verifySignedBundle(at path: URL) throws {
 		var expectation = SignatureVerifier.Expectation.freshlySigned
 		expectation.declaredBundleIdentifier = _options.effectiveAppIdentifier
@@ -261,27 +267,21 @@ final class SigningHandler: NSObject {
 		let report = SignatureVerifier.verify(bundleAt: path, expectation: expectation)
 		verification = report
 
-		let overriding = overridesBlockingPreflightIssues && !report.failures.isEmpty && !report.stopsRun(overridingBlockingIssues: true)
 		for issue in report.failures {
-			if overriding {
-				SigningLog.shared.warn(.localized("Signature check (signed through): %@", arguments: issue.detail))
-			} else {
-				SigningLog.shared.error(.localized("Signature check: %@", arguments: issue.detail))
-			}
+			SigningLog.shared.error(.localized("Signature check: %@", arguments: issue.detail))
 		}
 		for issue in report.warnings {
 			SigningLog.shared.warn(.localized("Signature check: %@", arguments: issue.detail))
 		}
 
-		if report.isAcceptable {
+		switch report.verdict {
+		case .valid:
 			SigningLog.shared.success(report.summary)
-		} else if overriding {
-			// The bundle is kept: say so, because the summary reads like a failure otherwise.
+		case .incomplete:
+			// Kept, because nothing failed, but not described as fully checked.
 			SigningLog.shared.warn(report.summary)
-			SigningLog.shared.warn(
-				.localized("Continuing because you chose to sign despite the preflight issues above.")
-			)
-		} else {
+			SigningLog.shared.warn(.localized("Some signing evidence could not be read, so the checks that depend on it did not run."))
+		case .invalid, .unsupported:
             SigningLog.shared.error(report.summary)
         }
         try report.requireAcceptable(overridingBlockingIssues: overridesBlockingPreflightIssues)
@@ -624,6 +624,7 @@ extension SigningHandler {
 		let removed = try NestedBundleAudit.removeUncoveredBundles(
 			in: app,
 			profilePattern: pattern,
+			additionalPatterns: AdditionalProfiles.patterns(for: appCertificate),
 			fileManager: _fileManager
 		)
 		guard !removed.isEmpty else { return }
@@ -647,7 +648,11 @@ extension SigningHandler {
 		guard _options.signingOption == .default else { return }
 
 		let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
-		let report = NestedBundleAudit.report(appBundle: app, profilePattern: pattern)
+		let report = NestedBundleAudit.report(
+			appBundle: app,
+			profilePattern: pattern,
+			additionalPatterns: AdditionalProfiles.patterns(for: certificate)
+		)
 		guard !report.isEmpty else { return }
 
 		for warning in report.warnings {
@@ -660,10 +665,7 @@ extension SigningHandler {
 				SigningLog.shared.warn(summary)
 			}
         }
-		if !report.uncovered.isEmpty, overridesBlockingPreflightIssues {
-			SigningLog.shared.warn(.localized("Signing anyway: retained extensions the profile does not cover may not work after installation."))
-		}
-		try report.requireCompatibleProfile(overridingBlockingIssues: overridesBlockingPreflightIssues)
+		try report.requireCompatibleProfile()
 	}
 
 	private func _removePresetFiles(for app: URL) async throws {

@@ -58,6 +58,8 @@ public enum Zsign {
 	///   - customVersion: Custom version for the app bundle
 	///   - adhoc: If the app bundle should be signed using Adhoc (no signing identity)
 	///   - removeProvision: If `embedded.mobileprovision` should be excluded when signing
+	///   - nestedProvisions: Provisioning profile paths for individual nested bundles, keyed by
+	///     the nested bundle's identifier. Bundles not listed are signed with `provisionPath`.
 	/// - Returns: True if its successful
 	static public func sign(
 		appPath: String = "",
@@ -70,9 +72,10 @@ public enum Zsign {
 		customVersion: String = "",
 		adhoc: Bool = false,
 		removeProvision: Bool = false,
+		nestedProvisions: [String: String] = [:],
 		completion: ((Bool, Error?) -> Void)? = nil
 	) -> Bool {
-		if zsign(
+		if zsignWithNestedProvisions(
 			appPath,
 			provisionPath,
 			p12Path,
@@ -83,6 +86,7 @@ public enum Zsign {
 			customVersion,
 			adhoc,
 			removeProvision,
+			nestedProvisions,
 			completion.map { callback in
 				{ success, error in
 					callback(success, error)

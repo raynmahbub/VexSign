@@ -90,8 +90,9 @@ final class SigningIdentityPolicyTests: XCTestCase {
 
 	@MainActor
 	func testOverridingPreflightDoesNotExcuseAnInvalidIdentity() {
-		// "Sign Anyway" on the preflight sheet covers profile/entitlement compatibility, which
-		// can still install. It must not cover an identity that is invalid on its face.
+		// "Sign Anyway" on the preflight sheet covers only issues that can still install (a
+		// team or signer mismatch, an unlisted device). It must not cover an identity that is
+		// invalid on its face.
 		let expired = _certificate(expiration: Date(timeIntervalSince1970: 1_000))
 		let request = SigningRequest(
 			app: _signed(),

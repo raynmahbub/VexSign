@@ -57,6 +57,7 @@ struct FilesTabView: View {
             .onChange(of: query) { _, newQuery in vm.query = newQuery }
             .onChange(of: showHidden) { _, newValue in vm.showsHidden = newValue; vm.reload() }
             .toolbar { toolbar }
+            .undoableRemovalBanner()
             .scrollIndicators(.hidden)
             .refreshable { vm.reload() }
             .onAppear { vm.reload() }
@@ -273,8 +274,7 @@ struct FilesTabView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
-                            FileManagerActions.delete([entry.url])
-                            vm.reload()
+                            _delete(entry)
                         } label: {
                             Label(.localized("Delete"), systemImage: "trash")
                         }
@@ -362,8 +362,7 @@ struct FilesTabView: View {
         Divider()
 
         Button(role: .destructive) {
-            FileManagerActions.delete([entry.url])
-            vm.reload()
+            _delete(entry)
         } label: {
             Label(.localized("Delete"), systemImage: "trash")
         }
@@ -377,6 +376,23 @@ struct FilesTabView: View {
             }
             .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// Plain files are moved aside and can be put back with Undo. Anything VexSign manages
+    /// (a Library app, a certificate, or a file inside one) is asked about first, because
+    /// removing it also removes its Library or Certificates entry and cannot be undone.
+    private func _delete(_ entry: IPAFileEntry) {
+        guard let warning = FileManagerActions.deletionWarning(for: [entry.url]) else {
+            RecoverableFileRemoval.removeOfferingUndo(entry.url) { vm.reload() }
+            return
+        }
+        DestructiveConfirm.present(
+            title: .localized("Delete %@?", arguments: entry.name),
+            message: warning
+        ) {
+            FileManagerActions.delete([entry.url])
+            vm.reload()
         }
     }
 }

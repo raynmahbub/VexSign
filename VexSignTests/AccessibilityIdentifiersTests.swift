@@ -54,6 +54,7 @@ final class AccessibilityIdentifiersTests: XCTestCase {
 			A11y.Signing.console,
 			A11y.Signing.workflow,
 			A11y.Signing.attemptWorkflow,
+			A11y.Signing.preflightCannotSign,
 			A11y.Install.start,
 			A11y.Install.progress,
 			A11y.Install.appName,

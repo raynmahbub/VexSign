@@ -133,7 +133,7 @@ struct DownloadItemCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if download.canCancel {
                 Button(role: .destructive) {
                     DownloadManager.shared.cancelDownload(download)

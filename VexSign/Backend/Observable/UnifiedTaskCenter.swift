@@ -253,6 +253,58 @@ final class UnifiedTaskCenter: ObservableObject {
 		}
 	}
 
+	/// Removes one finished record from the history.
+	///
+	/// Only a record that has stopped can be removed: a running task is in `tasks`, not in
+	/// `history`, and is never touched here, so removing a row cannot cancel or lose work
+	/// that is still going. The operation the record describes is not undone either; a
+	/// signed copy or an installed app stays where it is. Returns false when nothing was
+	/// removed.
+	@discardableResult
+	func removeFromHistory(id: String) -> Bool {
+		// A history that has not been read yet must not be replaced by a shorter one.
+		guard historyLoaded, let remaining = Self.history(history, removing: id) else { return false }
+		history = remaining
+		retryHandlers.removeValue(forKey: id)
+		_persistHistory()
+		objectWillChange.send()
+		return true
+	}
+
+	/// Puts back a record that `removeFromHistory` took out, for Undo.
+	///
+	/// The same record returns, with its identifier, report and stage history, at the place
+	/// its date gives it. Returns false when a record with that identifier is already there.
+	@discardableResult
+	func restoreToHistory(_ task: UnifiedTask) -> Bool {
+		guard historyLoaded, let restored = Self.history(history, restoring: task) else { return false }
+		history = restored
+		_persistHistory()
+		objectWillChange.send()
+		return true
+	}
+
+	/// `records` with `task` put back in newest-first order, or nil when it must not be:
+	/// it has not stopped, or a record with its identifier is already present.
+	nonisolated static func history(_ records: [UnifiedTask], restoring task: UnifiedTask) -> [UnifiedTask]? {
+		guard task.phase.isTerminal, !records.contains(where: { $0.id == task.id }) else { return nil }
+		var restored = records
+		let index = restored.firstIndex(where: { $0.updatedAt < task.updatedAt }) ?? restored.endIndex
+		restored.insert(task, at: index)
+		return restored
+	}
+
+	/// `records` without the stopped record that has `id`, or nil when there is no such
+	/// record or it has not stopped. Matched by identifier, never by position, so a list
+	/// that was re-sorted or filtered while the row was on screen removes the right one.
+	nonisolated static func history(_ records: [UnifiedTask], removing id: String) -> [UnifiedTask]? {
+		guard let index = records.firstIndex(where: { $0.id == id }),
+			  records[index].phase.isTerminal else { return nil }
+		var remaining = records
+		remaining.remove(at: index)
+		return remaining
+	}
+
 	/// Clears the persisted history (Settings → Diagnostics).
 	func clearHistory() {
         clearHistoryRequested = !historyLoaded

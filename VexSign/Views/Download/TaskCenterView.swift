@@ -20,6 +20,8 @@ struct TaskCenterView: View {
     @ObservedObject private var recovery = DownloadManager.shared
 	@State private var filter: TaskFilter = .active
     @State private var confirmClear = false
+    /// The record a swipe just removed, kept so the removal can be undone for a few seconds.
+    @State private var lastRemoved: UnifiedTask?
     @State private var query = ""
     @State private var sort: TaskHistorySort = .latest
 
@@ -76,6 +78,25 @@ struct TaskCenterView: View {
 	var body: some View {
 		NBNavigationView(.localized("Task Center"), displayMode: .inline, ownsNavigationStack: ownsNavigationStack) {
 			List {
+                if let removed = lastRemoved {
+                    Section {
+                        HStack {
+                            Text(String.localized("Removed %@", arguments: removed.title))
+                                .font(.subheadline).lineLimit(1)
+                            Spacer()
+                            Button(.localized("Undo")) {
+                                center.restoreToHistory(removed)
+                                lastRemoved = nil
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        // Keyed by the record, so removing another one restarts the countdown.
+                        .task(id: removed.id) {
+                            do { try await Task.sleep(for: .seconds(6)) } catch { return }
+                            if lastRemoved?.id == removed.id { lastRemoved = nil }
+                        }
+                    }
+                }
                 if let warning = recovery.recoveryWarning {
                     Section { Text(warning).font(.caption).foregroundStyle(.orange) }
                 }
@@ -147,6 +168,18 @@ struct TaskCenterView: View {
 				} else {
 					ForEach(filteredTasks, id: \.id) { task in
 						TaskRow(task: task)
+							.swipeActions(edge: .trailing, allowsFullSwipe: false) {
+								// Only a stopped record can be removed. A running task has no
+								// action here: removing its row would not stop the work, and
+								// a button that only hid it would say otherwise.
+								if center.history.contains(where: { $0.id == task.id }) {
+									Button(role: .destructive) {
+										if center.removeFromHistory(id: task.id) { lastRemoved = task }
+									} label: {
+										Label(.localized("Remove"), systemImage: "trash")
+									}
+								}
+							}
 					}
 				}
 
@@ -179,6 +212,17 @@ private struct TaskRow: View {
     @ObservedObject private var recovery = DownloadManager.shared
 	let task: UnifiedTask
     @State private var expanded = false
+    @State private var confirmRetry = false
+
+    /// Starting again is the user's decision, and when the last attempt reached iOS without
+    /// an answer they are told the app may already be there before it is taken.
+    private func requestRetry() {
+        if task.kind == .install, TaskReceipt.evidence(for: task).isOutcomeUnknown {
+            confirmRetry = true
+        } else {
+            _ = center.retry(task)
+        }
+    }
 
 	var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -231,7 +275,7 @@ private struct TaskRow: View {
 
 			if center.canRetry(task) {
 				Button {
-					_ = center.retry(task)
+					requestRetry()
 				} label: {
 					Label(task.kind == .install ? String.localized("Retry Install") : String.localized("Retry"), systemImage: "arrow.clockwise")
 				}
@@ -276,6 +320,12 @@ private struct TaskRow: View {
         .font(.caption)
         }
         .padding(.vertical, 2)
+        .confirmationDialog(.localized("Install again?"), isPresented: $confirmRetry, titleVisibility: .visible) {
+            Button(.localized("Install Again")) { _ = center.retry(task) }
+            Button(.localized("Cancel"), role: .cancel) {}
+        } message: {
+            Text(.localized("The last attempt was handed to iOS and its result is unknown, so the app may already be installed. Check the Home Screen first."))
+        }
 	}
 
     @ViewBuilder

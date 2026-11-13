@@ -16,6 +16,7 @@ struct TweaksView: View {
 	var body: some View {
 		NBNavigationView(.localized("Tweaks")) {
 			TweakLibraryList()
+				.undoableRemovalBanner()
 		}
 	}
 }
@@ -493,7 +494,7 @@ extension TweakLibraryList {
 		// against a shrinking array mid-animation (list-diff crash).
 		_selection.removeAll()
 		_isEditing = false
-		manager.deleteTweaks(ids)
+		manager.deleteTweaksOfferingUndo(ids)
 	}
 
 	private func _exportable(_ tweak: ManagedTweak) -> URL? {
@@ -574,7 +575,7 @@ extension TweakLibraryList {
 				onShare: { _share(tweak) },
 				onExport: { _exportToFiles(tweak) },
 				onMove: { _show(.move([tweak.id])) },
-				onDelete: { manager.deleteTweak(tweak.id) }
+				onDelete: { manager.deleteTweaksOfferingUndo([tweak.id]) }
 			)
 		}
 	}

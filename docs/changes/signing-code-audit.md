@@ -24,9 +24,11 @@ successful Xcode build, native-engine execution or device installation.
   cached Bundle identifier.
 - Post-sign executable checks use the same containment validator as native input.
   CodeResources must be a readable regular file, not a directory or symlink.
-- Sign Anyway no longer bypasses every verification failure. Only profile expiry,
+- Sign Anyway no longer bypasses every verification failure. *Superseded:* it now
+  bypasses none of the failures that make an app uninstallable. Profile expiry,
   profile/app identifier incompatibility, uncovered nested identifiers and
-  entitlement incompatibility may be explicitly accepted. Missing structural
+  entitlement incompatibility are refused, with no override
+  ([`signing-compatibility-and-removal-ux.md`](signing-compatibility-and-removal-ux.md)). Missing structural
   evidence and a requested identifier that was not applied remain blocking.
   Compatibility risks remain in the report; accepting them does not prove that
   iOS will accept the app.
@@ -64,8 +66,10 @@ these edits.
 5. Cancel during copy, while queued for native execution, and after native signing
    but before registration; retry. Ensure the original remains intact, no duplicate
    rows appear and later jobs do not get stuck waiting for the gate.
-6. Test Sign Anyway separately. Structural failures must still reject output;
-   accepted profile risks must remain visible and can still fail installation.
+6. Test Sign Anyway separately. It must be offered only for overridable issues
+   (team mismatch, certificate not named by the profile, device not provisioned,
+   signer mismatch, low storage); mandatory failures must show no override.
+   Structural failures must still reject output.
 7. Relaunch VexSign and verify the resulting library record, identifier, certificate
    association and exported IPA remain consistent.
 

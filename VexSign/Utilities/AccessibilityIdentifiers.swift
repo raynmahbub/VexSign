@@ -29,6 +29,9 @@ enum A11y {
 		/// The same trace for a later attempt that did not replace the copy on screen. Library
 		/// details can show both, and two views must not share an identifier.
 		static let attemptWorkflow = "vexsign.signing.attemptworkflow"
+		/// Shown in place of the sign button when the preflight found a requirement that
+		/// cannot be signed through.
+		static let preflightCannotSign = "vexsign.signing.preflight.cannotsign"
 	}
 
 	/// The queue that installs a signed bundle.
@@ -64,7 +67,7 @@ enum A11y {
 	static var all: [String] {
 		[
 			Signing.start, Signing.stop, Signing.progress, Signing.console, Signing.workflow,
-			Signing.attemptWorkflow,
+			Signing.attemptWorkflow, Signing.preflightCannotSign,
 			Install.start, Install.progress, Install.appName, Install.status,
 			Home.search, Home.importPackages,
 			Library.installedBadge, Library.guestBadge, Library.updateBadge, Library.lockBadge,

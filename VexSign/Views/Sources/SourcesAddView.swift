@@ -221,7 +221,7 @@ struct SourcesAddView: View {
 							.foregroundColor(.green)
 					}
 				}
-				.swipeActions(edge: .trailing) {
+				.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 					Button("Reset", role: .destructive) {
 						_showResetConfirmation = true
 					}

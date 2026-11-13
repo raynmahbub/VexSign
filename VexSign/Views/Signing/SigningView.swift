@@ -491,7 +491,13 @@ extension SigningView {
 				_isSigning = false
                 _signingSucceeded = true
                 if _compatibilityRemovedComponents.isEmpty {
-                    Toast.success(.localized("Signed successfully"), systemImage: "checkmark.seal.fill")
+                    // "Verified" is said only when the engine reported its own check passed.
+                    Toast.success(
+                        _signatureVerified
+                            ? .localized("Signature verified and ready for installation")
+                            : .localized("Signed successfully"),
+                        systemImage: "checkmark.seal.fill"
+                    )
                 } else {
                     let components = _compatibilityRemovedComponents.joined(separator: ", ")
                     Toast.success(

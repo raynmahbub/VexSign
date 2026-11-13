@@ -132,10 +132,10 @@ private extension StorageDetailView {
 			NavigationLink(destination: StorageDetailView(directory: entry.url, category: category)) {
 				StorageEntryLabel(entry: entry)
 			}
-			.swipeActions(edge: .trailing) { _deleteAction(entry) }
+			.swipeActions(edge: .trailing, allowsFullSwipe: false) { _deleteAction(entry) }
 		} else {
 			StorageEntryLabel(entry: entry)
-				.swipeActions(edge: .trailing) { _deleteAction(entry) }
+				.swipeActions(edge: .trailing, allowsFullSwipe: false) { _deleteAction(entry) }
 		}
 	}
 

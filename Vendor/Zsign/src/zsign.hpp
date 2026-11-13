@@ -35,6 +35,25 @@ int zsign(
 	void(^completionHandler)(BOOL success, NSError *error)
 );
 
+/// The same as `zsign`, with provisioning profiles for individual nested bundles.
+/// `nestedProvisions` maps the bundle identifier of an app extension or watch app to the
+/// path of the profile it is signed with. A nested bundle that is not listed is signed
+/// with the outer profile, as `zsign` does. Nil or empty behaves exactly like `zsign`.
+int zsignWithNestedProvisions(
+	NSString *app,
+	NSString *prov,
+	NSString *key,
+	NSString *pass,
+	NSString *entitlement,
+	NSString *bundleid,
+	NSString *displayname,
+	NSString *bundleversion,
+	bool adhoc,
+	bool dontGenerateEmbeddedMobileProvision,
+	NSDictionary<NSString *, NSString *> *nestedProvisions,
+	void(^completionHandler)(BOOL success, NSError *error)
+);
+
 int checkCert(
 	NSString *prov,
 	NSString *key,

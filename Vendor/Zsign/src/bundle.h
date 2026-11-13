@@ -3,6 +3,7 @@
 #include "json.h"
 #include "openssl.h"
 #include <vector>
+#include <map>
 
 class ZBundle
 {
@@ -45,4 +46,11 @@ private:
 public:
 	string			m_strAppFolder;
 	string signFailedFiles;
+	// Nested bundles (app extensions, watch apps) that are signed with a provisioning
+	// profile of their own, keyed by the bundle identifier the nested bundle carries when
+	// it is signed. Empty by default, which leaves every nested bundle on the outer asset
+	// exactly as before. The assets are owned by the caller and must outlive SignFolder.
+	map<string, ZSignAsset*>	m_mapNestedAssets;
+	// Whether a nested bundle signed with its own asset also carries that profile.
+	bool						m_bEmbedNestedProvisions = true;
 };

@@ -167,8 +167,9 @@ final class ProfileCompatibilityTests: XCTestCase {
 
 	/// Blocks, because `SignatureVerifier` fails the finished bundle for the same condition: a
 	/// preflight that warns and then a run that fails a stage after the tap is worse than one
-	/// that says so up front and offers "Sign Anyway".
-	func testUncoveredExtensionBlocksSoTheSheetCanOfferTheOverride() {
+	/// that says so up front. It is a mandatory failure: the sheet refuses and offers no
+	/// "Sign Anyway", because the result would not install.
+	func testUncoveredExtensionBlocksUpFront() {
 		let evaluation = ProfileCompatibility.evaluate(
 			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
 			target: _target("com.example.app", nested: ["com.example.app.widget"])
@@ -235,6 +236,21 @@ final class ProfileCompatibilityTests: XCTestCase {
 
 		XCTAssertTrue(evaluation.blockingIssues.contains { $0.code == .appIdentifierMismatch })
 		XCTAssertTrue(evaluation.issues.contains { $0.code == .extensionNotCovered && $0.severity == .warning })
+	}
+
+	/// An extension with a profile of its own is signed with that profile, so the main
+	/// profile not covering it is no longer a reason to refuse.
+	func testAnAdditionalProfileCoversAnExtensionTheMainProfileDoesNot() {
+		var target = _target("com.example.app", nested: ["com.example.app.widget", "com.example.app.share"])
+		target.additionalProfilePatterns = ["TEAM12345.com.example.app.widget"]
+
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
+			target: target
+		)
+		let uncovered = evaluation.issues.filter { $0.code == .extensionNotCovered }
+		XCTAssertEqual(uncovered.count, 1, _describe(evaluation))
+		XCTAssertTrue(uncovered.first?.detail.contains("com.example.app.share") == true, _describe(evaluation))
 	}
 
 	// MARK: - Certificate

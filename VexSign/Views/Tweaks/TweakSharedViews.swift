@@ -147,7 +147,7 @@ struct TweakLibraryRow: View {
 		} label: {
 			TweakRowLabel(tweak: tweak)
 		}
-		.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			Button(role: .destructive, action: onDelete) {
 				Label(.localized("Delete"), systemImage: "trash")
 			}

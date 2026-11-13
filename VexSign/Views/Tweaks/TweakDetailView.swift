@@ -195,7 +195,7 @@ extension TweakDetailView {
 					.foregroundStyle(.tint)
 			}
 		}
-		.swipeActions(edge: .trailing) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			Button(role: .destructive) {
 				manager.deleteVersion(version.id, from: tweakId)
 			} label: {
@@ -358,7 +358,7 @@ extension TweakDetailView {
 		NBSection(tweak.injectByDefault ? .localized("Excluded Bundle IDs") : .localized("Bundle ID Rules")) {
 			ForEach(tweak.autoInjectBundleIds, id: \.self) { id in
 				Text(id)
-					.swipeActions(edge: .trailing) {
+					.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 						Button(role: .destructive) {
 							manager.mutate(tweakId) { $0.autoInjectBundleIds.removeAll { $0 == id } }
 						} label: {

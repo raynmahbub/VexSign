@@ -478,6 +478,63 @@ final class TweakManager: ObservableObject {
 		_save()
 	}
 
+	/// Deletes tweaks and offers Undo. Each tweak's files are moved aside rather than
+	/// erased, and the tweak is put back at its old position if the user undoes it. A tweak
+	/// whose files cannot be set aside is still deleted, just without being restorable.
+	func deleteTweaksOfferingUndo(_ ids: Set<UUID>) {
+		let removed = tweaks.enumerated().filter { ids.contains($0.element.id) }
+		guard !removed.isEmpty else { return }
+
+		var tokens: [UUID: RecoverableFileRemoval.Token] = [:]
+		var restorable: [(offset: Int, tweak: ManagedTweak)] = []
+		for (offset, tweak) in removed {
+			let folder = _fm.tweaksLibrary(tweak.id.uuidString)
+			if _fm.fileExists(atPath: folder.path) {
+				do {
+					tokens[tweak.id] = try RecoverableFileRemoval.remove(folder)
+				} catch {
+					Logger.misc.error("Tweak files could not be set aside; deleting without Undo.")
+					continue
+				}
+			}
+			restorable.append((offset, tweak))
+		}
+
+		deleteTweaks(ids)
+		guard let first = restorable.first else { return }
+
+		UndoableRemoval.announce(UndoableRemoval(
+			title: restorable.count == 1 ? first.tweak.name : String.localized("%lld tweaks", arguments: restorable.count),
+			restore: { [weak self] in
+				guard let self else { return false }
+				return self._restoreTweaks(restorable, tokens: tokens)
+			},
+			discard: { tokens.values.forEach { RecoverableFileRemoval.discard($0) } }
+		))
+	}
+
+	private func _restoreTweaks(
+		_ removed: [(offset: Int, tweak: ManagedTweak)],
+		tokens: [UUID: RecoverableFileRemoval.Token]
+	) -> Bool {
+		var restoredAny = false
+		for (offset, tweak) in removed.sorted(by: { $0.offset < $1.offset }) {
+			guard !tweaks.contains(where: { $0.id == tweak.id }) else { continue }
+			if let token = tokens[tweak.id] {
+				do {
+					try RecoverableFileRemoval.restore(token)
+				} catch {
+					Toast.error(error.localizedDescription)
+					continue
+				}
+			}
+			tweaks.insert(tweak, at: min(offset, tweaks.count))
+			restoredAny = true
+		}
+		if restoredAny { _save() }
+		return restoredAny
+	}
+
 	/// Each manifest commits separately. A failure may leave earlier folders restored.
 	@discardableResult
 	func mergeFromBackup(tweaksDir: URL) throws -> Int {

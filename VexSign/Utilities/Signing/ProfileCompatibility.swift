@@ -43,6 +43,9 @@ enum ProfileCompatibility {
 		/// The device this build is for, when it is known. A jailed app cannot read its own
 		/// UDID, so this is nil unless a caller has one.
 		let deviceUDID: String?
+		/// App ID patterns of the certificate's additional (per-bundle) profiles. A nested
+		/// bundle one of them covers is signed with that profile, so it is not "uncovered".
+		var additionalProfilePatterns: [String] = []
 
 		init(
 			bundleIdentifier: String?,
@@ -68,7 +71,8 @@ enum ProfileCompatibility {
 			app: AppInfoPresentable,
 			options: Options,
 			nestedBundleIdentifiers: [String] = [],
-			removableExtensionIdentifiers: Set<String>? = nil
+			removableExtensionIdentifiers: Set<String>? = nil,
+			additionalProfilePatterns: [String] = []
 		) {
 			let requested = ProfileCompatibility.entitlements(at: options.appEntitlementsFile)
 			let effectiveOverride = options.effectiveAppIdentifier
@@ -89,6 +93,7 @@ enum ProfileCompatibility {
 				requestedEntitlements: requested,
 				teamIdentifier: ProfileCompatibility.teamIdentifier(in: requested)
 			)
+			self.additionalProfilePatterns = additionalProfilePatterns
 		}
 	}
 
@@ -197,7 +202,25 @@ enum ProfileCompatibility {
 
 		// 2. Does the profile cover the app identifier?
 		let covered = pattern.map { SignatureVerifier.coverage(of: $0, includes: target.bundleIdentifier ?? "") } ?? false
-		if let pattern, let identifier = target.bundleIdentifier, !identifier.isEmpty, !covered {
+		let malformation: ProfileApplicationIdentifierMatcher.Malformation? = pattern.flatMap {
+			// A value with no prefix is compared literally by `coverage`, as it always was.
+			guard $0.contains("."), case .failure(let reason) = ProfileApplicationIdentifierMatcher.parse($0) else { return nil }
+			return reason
+		}
+		if let pattern, let malformation, let identifier = target.bundleIdentifier, !identifier.isEmpty, !covered {
+			// The profile's own App ID cannot be read as one, so it authorizes nothing and
+			// there is no identifier to suggest.
+			issues.append(
+				Issue(
+					code: .appIdentifierMismatch,
+					severity: .blocking,
+					detail: .localized(
+						"The profile's App ID (%@) is not a valid App ID (%@), so it cannot authorize %@.",
+						arguments: pattern, malformation.rawValue, identifier
+					)
+				)
+			)
+		} else if let pattern, let identifier = target.bundleIdentifier, !identifier.isEmpty, !covered {
 			let suggestion = SignatureVerifier.isWildcard(pattern)
 				? nil
 				: pattern.split(separator: ".", maxSplits: 1).last.map(String.init)
@@ -223,14 +246,16 @@ enum ProfileCompatibility {
 		// uses the outer asset for every nested bundle; compatibility mode instead warns because
 		// the handler will remove only the known-uncovered bundles before signing.
 		if let pattern {
-			for nested in target.nestedBundleIdentifiers where !SignatureVerifier.coverage(of: pattern, includes: nested) {
+			for nested in target.nestedBundleIdentifiers
+			where !SignatureVerifier.coverage(of: pattern, includes: nested)
+				&& !AdditionalProfiles.covers(nested, patterns: target.additionalProfilePatterns) {
 				issues.append(
 					Issue(
 						code: .extensionNotCovered,
 						severity: target.automaticallyRemoveUncoveredExtensions && target.removableExtensionIdentifiers.contains(nested) ? .warning : .blocking,
 						detail: target.automaticallyRemoveUncoveredExtensions && target.removableExtensionIdentifiers.contains(nested)
 							? .localized("%@ is not covered by this profile and will be removed in compatibility mode. The main app and covered extensions will still be signed.", arguments: nested)
-							: .localized("%@ is not covered by this profile, so it cannot be signed correctly. Use a wildcard profile, enable compatibility mode, or sign anyway.", arguments: nested)
+							: .localized("%@ is not covered by this profile, so it cannot be signed correctly. Use a profile that includes it, or enable compatibility mode to remove it.", arguments: nested)
 					)
 				)
 			}
@@ -285,7 +310,11 @@ enum ProfileCompatibility {
 		if
 			let expectedTeam = target.teamIdentifier,
 			let profileTeam = profile.TeamIdentifier.first,
-			expectedTeam != profileTeam {
+			!Self.prefixBelongsToProfile(
+				expectedTeam,
+				teamIdentifiers: profile.TeamIdentifier,
+				applicationIdentifierPrefixes: profile.ApplicationIdentifierPrefix ?? []
+			) {
 			issues.append(
 				Issue(
 					code: .teamMismatch,
@@ -329,6 +358,20 @@ enum ProfileCompatibility {
 			)
 		}
 
+		// 8. Profile type. A profile with no device list that is neither In-House nor a
+		// development profile is an App Store distribution profile, and iOS installs apps
+		// signed with one only through the App Store or TestFlight. Advisory, because the
+		// type is inferred from which keys are present rather than stated by the profile.
+		if profile.profileType == .distribution {
+			issues.append(
+				Issue(
+					code: .deviceNotProvisioned,
+					severity: .warning,
+					detail: .localized("This profile lists no devices and is not an In-House profile, so it appears to be an App Store distribution profile. An app signed with it will not install directly on a device.")
+				)
+			)
+		}
+
 		let verdict: Verdict
 		if issues.contains(where: \.isBlocking) {
 			verdict = .unusable
@@ -343,7 +386,7 @@ enum ProfileCompatibility {
 		return Evaluation(
 			verdict: verdict,
 			issues: issues,
-			suggestedBundleIdentifier: verdict == .unusable
+			suggestedBundleIdentifier: verdict == .unusable && malformation == nil
 				? pattern.flatMap { SignatureVerifier.isWildcard($0) ? nil : $0.split(separator: ".", maxSplits: 1).last.map(String.init) }
 				: nil
 		)
@@ -362,7 +405,23 @@ enum ProfileCompatibility {
 		return dictionary
 	}
 
-	/// Team ID carried by an `application-identifier`, when one is present.
+	/// Whether the prefix on an app's `application-identifier` is one this profile uses.
+	///
+	/// That prefix is an App ID prefix. For current accounts it equals the Team ID, but
+	/// App IDs created under older accounts keep a prefix of their own, so a profile is
+	/// only for another team when the prefix matches neither its Team ID nor any App ID
+	/// prefix it lists. Comparing with the Team ID alone reported those profiles as a
+	/// team mismatch.
+	static func prefixBelongsToProfile(
+		_ prefix: String,
+		teamIdentifiers: [String],
+		applicationIdentifierPrefixes: [String]
+	) -> Bool {
+		teamIdentifiers.contains(prefix) || applicationIdentifierPrefixes.contains(prefix)
+	}
+
+	/// The prefix carried by an `application-identifier`, when one is present. Usually the
+	/// Team ID; see `prefixBelongsToProfile`.
 	static func teamIdentifier(in entitlements: [String: Any]) -> String? {
 		guard
 			let identifier = entitlements["application-identifier"] as? String,

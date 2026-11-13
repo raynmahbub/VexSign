@@ -70,15 +70,26 @@ struct SigningPreflightReviewView: View {
                     .keyboardShortcut(.cancelAction)
             } header: { Text(.localized("Preflight checks")) }
             Section {
-                Button {
-                    if result.hasBlocking { confirmOverride = true } else { sign(false) }
-                } label: {
-                    Label(result.hasBlocking ? String.localized("Sign Anyway") : String.localized("Start Signing"),
-                          systemImage: result.hasBlocking ? "exclamationmark.triangle" : "signature")
-                        .frame(minHeight: 44)
+                if result.hasMandatoryFailure {
+                    // iOS enforces these at install, so there is nothing to sign through:
+                    // the result would be a signed copy that cannot be installed.
+                    Label(.localized("This app cannot be signed with the current certificate and profile."),
+                          systemImage: "xmark.octagon")
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier(A11y.Signing.preflightCannotSign)
+                    Text(.localized("Resolve the issues marked above, then review again. Changing the certificate, the bundle identifier or the extension options are the usual fixes."))
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Button {
+                        if result.canSignAnyway { confirmOverride = true } else { sign(false) }
+                    } label: {
+                        Label(result.canSignAnyway ? String.localized("Sign Anyway") : String.localized("Start Signing"),
+                              systemImage: result.canSignAnyway ? "exclamationmark.triangle" : "signature")
+                            .frame(minHeight: 44)
+                    }
+                    .foregroundStyle(result.canSignAnyway ? Color.red : Theme.tint)
+                    .disabled(isAuditing || auditFailure != nil || executableFindings.contains(where: { $0.isBlocking }))
                 }
-                .foregroundStyle(result.hasBlocking ? Color.red : Theme.tint)
-                .disabled(isAuditing || auditFailure != nil || executableFindings.contains(where: { $0.isBlocking }))
             }
         }
         .task { await inspectExecutables() }
@@ -90,6 +101,8 @@ struct SigningPreflightReviewView: View {
         .confirmationDialog(.localized("Continue despite blocking preflight issues?"), isPresented: $confirmOverride, titleVisibility: .visible) {
             Button(.localized("Sign Anyway"), role: .destructive) { sign(true) }
             Button(.localized("Cancel"), role: .cancel) {}
+        } message: {
+            Text(.localized("The signed copy may not install or launch. The final signature check still applies and can reject the result."))
         }
     }
     @MainActor
@@ -105,7 +118,7 @@ struct SigningPreflightReviewView: View {
             excluded = Set(NestedBundleAudit.bundles(in: directory).filter { $0.kind == .appExtension }.map(\.path))
         } else if options.autoRemoveUnsupportedExtensions, options.signingOption == .default,
                   let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String {
-            excluded = Set(NestedBundleAudit.report(appBundle: directory, profilePattern: pattern).uncovered
+            excluded = Set(NestedBundleAudit.report(appBundle: directory, profilePattern: pattern, additionalPatterns: AdditionalProfiles.patterns(for: certificate)).uncovered
                 .filter { $0.bundle.kind == .appExtension }.map { $0.bundle.path })
         }
         let excludedPaths = excluded

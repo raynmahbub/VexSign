@@ -172,10 +172,10 @@ final class ExtensionSigningRegressionTests: XCTestCase {
 		XCTAssertTrue(evaluation.issues.contains { $0.code == .extensionNotCovered && $0.isBlocking })
 	}
 
-	// MARK: - 2. "Sign Anyway" is honoured
+	// MARK: - 2. "Sign Anyway" does not excuse an extension the profile does not include
 
-	func testUncoveredExtensionStillBlocksWithoutAnOverride() throws {
-		let report = NestedBundleAudit.Report(
+	private var _uncoveredWidgetReport: NestedBundleAudit.Report {
+		NestedBundleAudit.Report(
 			entries: [
 				NestedBundleAudit.Entry(
 					bundle: NestedBundle(path: "PlugIns/Widget.appex", identifier: "com.other.widget", kind: .appExtension),
@@ -185,30 +185,27 @@ final class ExtensionSigningRegressionTests: XCTestCase {
 			],
 			profilePattern: "TEAM12345.com.me.app"
 		)
+	}
+
+	/// The engine signs a retained extension with the selected profile. When that profile
+	/// does not include the extension, the result cannot be installed, so no confirmation
+	/// lets it through; removing the extension is the supported way past.
+	func testUncoveredExtensionBlocksWithOrWithoutAnOverride() throws {
+		let report = _uncoveredWidgetReport
 
 		XCTAssertFalse(report.isClean)
 		XCTAssertThrowsError(try report.requireCompatibleProfile())
 		XCTAssertThrowsError(try report.requireCompatibleProfile(overridingBlockingIssues: false))
-		XCTAssertNoThrow(
-			try report.requireCompatibleProfile(overridingBlockingIssues: true),
-			"the preflight sheet offers Sign Anyway; the audit must not veto it"
-		)
+		XCTAssertThrowsError(try report.requireCompatibleProfile(overridingBlockingIssues: true))
 	}
 
-	func testOverrideDoesNotSilenceTheWarnings() {
-		let report = NestedBundleAudit.Report(
-			entries: [
-				NestedBundleAudit.Entry(
-					bundle: NestedBundle(path: "PlugIns/Widget.appex", identifier: "com.other.widget", kind: .appExtension),
-					coverage: .notCovered(pattern: "TEAM12345.com.me.app"),
-					shippedProfileIdentifier: nil
-				)
-			],
-			profilePattern: "TEAM12345.com.me.app"
-		)
-		XCTAssertNoThrow(try report.requireCompatibleProfile(overridingBlockingIssues: true))
-		XCTAssertFalse(report.warnings.isEmpty, "overriding changes the verdict, not the report")
+	func testTheRefusalNamesTheExtension() {
+		let report = _uncoveredWidgetReport
+		XCTAssertFalse(report.warnings.isEmpty)
 		XCTAssertTrue(report.warnings[0].contains("Widget.appex"))
+		XCTAssertThrowsError(try report.requireCompatibleProfile(overridingBlockingIssues: true)) { error in
+			XCTAssertTrue(error.localizedDescription.contains("Widget.appex"), error.localizedDescription)
+		}
 	}
 
 	func testACleanReportIsUnaffectedByTheOverride() {

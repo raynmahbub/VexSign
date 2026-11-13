@@ -83,6 +83,7 @@ struct TweakFolderView: View {
 			}
 		}
 		.navigationTitle(_navTitle)
+		.undoableRemovalBanner()
 		.toolbar { _toolbar }
 		.selectionActionBar(isActive: _isEditing, actions: _selectionActions)
 		.sheet(item: $_sheet) { sheet in _sheetView(sheet) }
@@ -116,7 +117,7 @@ struct TweakFolderView: View {
 			Button(String.localized("Delete %lld", arguments: ids.count), role: .destructive) {
 				_selection.removeAll()
 				_isEditing = false
-				manager.deleteTweaks(ids)
+				manager.deleteTweaksOfferingUndo(ids)
 			}
 		}
 	}
@@ -192,7 +193,7 @@ struct TweakFolderView: View {
 				onShare: { _share(tweak) },
 				onExport: { _exportToFiles(tweak) },
 				onMove: { _show(.move([tweak.id])) },
-				onDelete: { manager.deleteTweak(tweak.id) }
+				onDelete: { manager.deleteTweaksOfferingUndo([tweak.id]) }
 			)
 		}
 	}

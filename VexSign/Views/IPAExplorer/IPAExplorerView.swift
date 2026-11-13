@@ -224,7 +224,7 @@ extension IPAExplorerView {
 			} label: {
 				IPAFileRow(entry: entry)
 			}
-			.swipeActions(edge: .trailing) { _actions(entry) }
+			.swipeActions(edge: .trailing, allowsFullSwipe: false) { _actions(entry) }
 			.contextMenu { _menu(entry) }
 		} else {
 			NavigationLink {
@@ -232,7 +232,7 @@ extension IPAExplorerView {
 			} label: {
 				IPAFileRow(entry: entry)
 			}
-			.swipeActions(edge: .trailing) { _actions(entry) }
+			.swipeActions(edge: .trailing, allowsFullSwipe: false) { _actions(entry) }
 			.contextMenu { _menu(entry) }
 		}
 	}

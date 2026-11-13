@@ -314,6 +314,23 @@ bool ZBundle::SignNode(jvalue& jvNode)
 		strBaseFolder += strFolder;
 	}
 
+	// A nested bundle with a profile of its own is signed with that profile's entitlements
+	// and carries that profile. It is written before CodeResources is generated: the seal
+	// hashes every file in the bundle, so a profile added afterwards would break it.
+	ZSignAsset* pNodeAsset = m_pSignAsset;
+	if ("/" != strFolder) {
+		map<string, ZSignAsset*>::iterator itAsset = m_mapNestedAssets.find(strBundleId);
+		if (itAsset != m_mapNestedAssets.end() && NULL != itAsset->second) {
+			pNodeAsset = itAsset->second;
+			if (m_bEmbedNestedProvisions && !pNodeAsset->m_strProvData.empty()) {
+				if (!ZFile::WriteFileV(pNodeAsset->m_strProvData, "%s/embedded.mobileprovision", strBaseFolder.c_str())) {
+					ZLog::ErrorV(">>> Can't write embedded.mobileprovision! %s\n", strFolder.c_str());
+					return false;
+				}
+			}
+		}
+	}
+
 	string strExePath = strBaseFolder + "/" + strBundleExe;
 	ZLog::PrintV(">>> SignFolder: %s, (%s)\n", ("/" == strFolder) ? ZUtil::GetBaseName(m_strAppFolder.c_str()) : strFolder.c_str(), strBundleExe.c_str());
 
@@ -380,7 +397,7 @@ bool ZBundle::SignNode(jvalue& jvNode)
 		}
 	}
 
-	if (!macho.Sign(m_pSignAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData)) {
+	if (!macho.Sign(pNodeAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData)) {
 		return false;
 	}
 

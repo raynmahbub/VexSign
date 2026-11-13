@@ -154,7 +154,7 @@ struct FileManagerView: View {
 			} label: {
 				_label(for: entry)
 			}
-			.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+			.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 				Button(role: .destructive) {
 					_confirmDelete(entry)
 				} label: {
@@ -168,7 +168,7 @@ struct FileManagerView: View {
 			} label: {
 				_label(for: entry)
 			}
-			.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+			.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 				Button(role: .destructive) {
 					_confirmDelete(entry)
 				} label: {

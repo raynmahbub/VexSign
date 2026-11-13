@@ -80,7 +80,7 @@ private struct ImportFolderCellView: View {
 					.truncationMode(.middle)
 			}
 		}
-		.swipeActions(edge: .trailing) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			if name != nil {
 				Button(role: .destructive, action: onClear) {
 					Label(.localized("Clear"), systemImage: "xmark.circle")

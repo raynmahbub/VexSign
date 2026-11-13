@@ -64,15 +64,23 @@ extension FR {
             }
 
             // One report for every path that signs, including the ones that never show a sheet.
-            // It is logged rather than enforced here: the sheet asks the same question before it
-            // offers Sign, and the identity rule that must never be excused is enforced by the
-            // pipeline. Profile and entitlement findings that can still install are exactly what
-            // "Sign Anyway" exists for, so turning this into a hard stop would remove that choice.
+            // Findings the user may accept are logged; the ones that make the result
+            // uninstallable stop the run just below.
             let capability = SigningService.shared.capability(for: request)
             if !capability.issues.isEmpty {
                 for line in capability.logLines {
                     log.warn(line)
                 }
+            }
+
+            // Requirements iOS enforces at install are refused here, before a task record,
+            // a Live Activity or a working copy exists. Every caller comes through this
+            // function, so batch, Update All, Shortcuts and automation get the same answer
+            // as the sheet, and get it before the long sign instead of after it.
+            if let refusal = capability.refusal {
+                log.error(refusal.localizedDescription)
+                completion(.failure(refusal))
+                return
             }
 
             SigningLiveActivityManager.shared.start(appName: request.name)
