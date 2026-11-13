@@ -162,7 +162,9 @@ final class CloudUploadBodyTests: XCTestCase {
 		XCTAssertEqual(components.queryItems, [URLQueryItem(name: "kind", value: "ipa")])
 		XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "multipart/form-data; boundary=B")
 		XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer token")
-		XCTAssertEqual(request.value(forHTTPHeaderField: "x-api-key"), "token")
+		// One credential header only. The service verifies `Authorization` and redacts it; it
+		// ignores `x-api-key` and would log it.
+		XCTAssertNil(request.value(forHTTPHeaderField: "x-api-key"))
 	}
 
 	func testABasePathIsKeptAndTheRequestCarriesNoTokenWithoutOne() throws {
