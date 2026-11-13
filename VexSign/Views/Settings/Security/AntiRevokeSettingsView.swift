@@ -8,25 +8,17 @@ import NimbleViews
 import NimbleExtensions
 
 struct AntiRevokeSettingsView: View {
-    @AppStorage("VexSign.antirevoke.enabled") private var isShieldEnabled = true
-    @AppStorage("VexSign.antirevoke.offlineBypass") private var offlineBypass = false
-    @State private var isCheckingRevocation = false
-    @State private var revokeStatusText: String? = nil
+    @AppStorage("VexSign.useNovaDNSDynamic") private var useNovaDNSDynamic = false
+    @ObservedObject private var checker = BatchCertChecker.shared
 
-    private let blockedDomains = [
-        "ocsp.apple.com",
-        "ppq.apple.com",
-        "ocsp2.apple.com",
-        "valid.apple.com",
-        "crl.apple.com",
-        "world-gen.g.aaplimg.com"
-    ]
+    @State private var confirmOnlineOCSP = false
+    @State private var revocationHosts: [String] = AntiRevokeManager.revocationHosts
+    @State private var hasGeneratedProfile: Bool = AntiRevokeManager.shared.profileURL != nil
+    @State private var lastRulesUpdated: String? = NovaDNSDynamic.loadCachedRules().lastUpdated
 
-    private let dnsProfiles = [
-        (name: "NextDNS Anti-Revoke", subtitle: "Blocks OCSP & Apple verification checks", url: "https://apple.nextdns.io"),
-        (name: "AdGuard Anti-Revoke", subtitle: "Encrypted DNS profile with PPQ filtering", url: "https://adguard-dns.io/en/public-dns.html"),
-        (name: "Khoindvn DNS Shield", subtitle: "Community anti-revoke profile for enterprise certs", url: "https://khoindvn.bio.link"),
-        (name: "Sideload DNS Profile", subtitle: "Curated blocklist for on-device app preservation", url: "https://raw.githubusercontent.com/gliddd4/MyHub/main/DNS/antirevoke.mobileconfig")
+    private let dnsProfiles: [(name: String, subtitle: String, url: String)] = [
+        (name: "NextDNS Apple Profile", subtitle: "Custom DoH configuration profile builder", url: "https://apple.nextdns.io"),
+        (name: "AdGuard DNS Profile", subtitle: "Encrypted DNS configuration generator", url: "https://adguard-dns.io/en/public-dns.html")
     ]
 
     var body: some View {
@@ -35,53 +27,80 @@ struct AntiRevokeSettingsView: View {
 
             dnsProfilesSection
 
-            blockedEndpointsSection
+            targetEndpointsSection
 
             revokeCheckSection
+        }
+        .onAppear {
+            clearLegacyFakePreferences()
+            refreshLocalState()
+        }
+        .confirmationDialog(.localized("Ask Apple about certificate revocation?"), isPresented: $confirmOnlineOCSP, titleVisibility: .visible) {
+            Button(.localized("Ask Apple (OCSP)")) {
+                Task { await checker.checkAll(online: true) }
+            }
+            Button(.localized("Cancel"), role: .cancel) {}
+        } message: {
+            Text(.localized("Sends each certificate's public serial number and issuer details to Apple's OCSP responder to check revocation status. Private .p12 keys and passwords never leave your device."))
         }
     }
 
     private var statusSection: some View {
-        NBSection(.localized("Protection Status")) {
+        NBSection(.localized("DNS Profile Status")) {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill((isShieldEnabled ? Color.green : Color.secondary).opacity(0.15))
+                        .fill((hasGeneratedProfile ? Color.green : Color.secondary).opacity(0.15))
                         .frame(width: 44, height: 44)
-                    Image(systemName: isShieldEnabled ? "checkmark.shield.fill" : "shield.slash.fill")
+                    Image(systemName: hasGeneratedProfile ? "doc.badge.gearshape.fill" : "shield.slash.fill")
                         .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(isShieldEnabled ? Color.green : Color.secondary)
+                        .foregroundStyle(hasGeneratedProfile ? Color.green : Color.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text(.localized("Anti-Revoke Shield"))
+                        Text(.localized("Local DoH Profile"))
                             .font(.headline)
-                        Text(isShieldEnabled ? .localized("ACTIVE") : .localized("DISABLED"))
+                        Text(hasGeneratedProfile ? String.localized("GENERATED") : String.localized("NOT BUILT"))
                             .font(.caption2.weight(.bold))
                             .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background(isShieldEnabled ? Color.green : Color.secondary, in: Capsule())
+                            .background(hasGeneratedProfile ? Color.green : Color.secondary, in: Capsule())
                             .foregroundStyle(.white)
                     }
-                    Text(isShieldEnabled ? .localized("Traffic to Apple OCSP & PPQ verification endpoints is actively intercepted.") : .localized("Anti-revoke shield is off. Certificates may be revoked by Apple."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        hasGeneratedProfile
+                            ? String.localized("A .mobileconfig DoH profile is saved. iOS only applies DNS rules after you install it in Settings → VPN & Device Management.")
+                            : String.localized("No local DoH profile built yet. Stock iOS cannot block Apple revocation checks inside an app without an installed DNS profile.")
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
             .padding(.vertical, 4)
 
-            Toggle(.localized("Enable Anti-Revoke Protection"), isOn: $isShieldEnabled)
-                .tint(Color.green)
+            NavigationLink(destination: AntiRevokeView()) {
+                Label(.localized("Build DoH Profile & NovaDNS Rules"), systemImage: "shield.lefthalf.filled")
+            }
 
-            Toggle(.localized("Offline Verification Bypass"), isOn: $offlineBypass)
-                .tint(Color.userTint)
+            if let profileURL = AntiRevokeManager.shared.profileURL {
+                Button {
+                    AntiRevokeManager.shareProfile(profileURL)
+                } label: {
+                    Label(.localized("Share Generated .mobileconfig Profile"), systemImage: "square.and.arrow.up")
+                }
+            }
+
+            LabeledContent(
+                .localized("NovaDNS Dynamic"),
+                value: useNovaDNSDynamic ? String.localized("Enabled") : String.localized("Off (Default)")
+            )
         } footer: {
-            Text(.localized("When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are filtered according to your active DNS rules."))
+            Text(.localized("VexSign cannot detect from inside the app sandbox whether you installed a DNS profile in iOS Settings, and no DNS rule can restore a certificate Apple already revoked."))
         }
     }
 
     private var dnsProfilesSection: some View {
-        NBSection(.localized("DNS Profiles (1-Tap Install)")) {
+        NBSection(.localized("External DNS Generators")) {
             ForEach(dnsProfiles, id: \.name) { item in
                 Button {
                     if let url = URL(string: item.url) {
@@ -112,36 +131,50 @@ struct AntiRevokeSettingsView: View {
                 .buttonStyle(.plain)
             }
         } footer: {
-            Text(.localized("Installing an Anti-Revoke DNS configuration profile in iOS Settings blocks revocation domains system-wide across all cellular and Wi-Fi networks."))
+            Text(.localized("Opens external DNS profile tools in Safari. Only install configuration profiles from resolvers you trust."))
         }
     }
 
-    private var blockedEndpointsSection: some View {
-        NBSection(.localized("Intercepted Endpoints")) {
-            ForEach(blockedDomains, id: \.self) { domain in
+    private var targetEndpointsSection: some View {
+        NBSection(.localized("Apple Revocation Hosts (Profile Targets)")) {
+            ForEach(revocationHosts, id: \.self) { domain in
                 HStack(spacing: 10) {
                     Circle()
-                        .fill(isShieldEnabled ? Color.green : Color.secondary.opacity(0.4))
+                        .fill(hasGeneratedProfile ? Color.userTint : Color.secondary.opacity(0.4))
                         .frame(width: 8, height: 8)
                     Text(domain)
                         .font(.footnote.monospaced())
                     Spacer()
-                    Text(isShieldEnabled ? .localized("Blocked") : .localized("Allowed"))
+                    Text(.localized("DoH target"))
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(isShieldEnabled ? Color.green : Color.secondary)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
             }
+
+            if let lastRulesUpdated {
+                LabeledContent(.localized("Rule Snapshot"), value: lastRulesUpdated)
+                    .font(.caption)
+            }
+        } footer: {
+            Text(.localized("Synced host list from NovaDNSDynamic rules. Filtering only takes effect when your installed DoH server refuses or sinkholes these hosts."))
         }
     }
 
     private var revokeCheckSection: some View {
-        NBSection(.localized("Live Revoke Checker")) {
+        NBSection(.localized("Real Certificate & OCSP Check")) {
             Button {
-                checkRevocationStatus()
+                Task { await checker.checkAll(online: false) }
+            } label: {
+                Label(.localized("Verify Local Expiry & Integrity"), systemImage: "checkmark.shield")
+            }
+            .disabled(checker.isRunning)
+
+            Button {
+                confirmOnlineOCSP = true
             } label: {
                 HStack {
-                    if isCheckingRevocation {
+                    if checker.isRunning {
                         ProgressView()
                             .scaleEffect(0.9)
                             .padding(.trailing, 6)
@@ -149,40 +182,59 @@ struct AntiRevokeSettingsView: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .foregroundStyle(Color.userTint)
                     }
-                    Text(isCheckingRevocation ? .localized("Checking Certificates...") : .localized("Check Certificate Revocation Status"))
-                        .font(.subheadline.weight(.medium))
+                    Text(
+                        checker.isRunning
+                            ? String.localized("Checking %lld of %lld…", arguments: checker.checkedCount, checker.totalCount)
+                            : String.localized("Ask Apple (OCSP) — Check Revocation")
+                    )
+                    .font(.subheadline.weight(.medium))
                 }
             }
-            .disabled(isCheckingRevocation)
+            .disabled(checker.isRunning)
 
-            if let text = revokeStatusText {
-                HStack(spacing: 8) {
-                    Image(systemName: text.contains("Valid") ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(text.contains("Valid") ? Color.green : Color.orange)
-                    Text(text)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            if checker.results.isEmpty {
+                Text(
+                    Storage.shared.getAllCertificates().isEmpty
+                        ? String.localized("No certificates installed in VexSign.")
+                        : String.localized("Run a check above to inspect installed certificates against local expiry or Apple OCSP.")
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } else {
+                ForEach(checker.results) { result in
+                    HStack(spacing: 10) {
+                        Image(systemName: result.statusIcon)
+                            .foregroundStyle(result.statusColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(result.name)
+                                .font(.subheadline.weight(.medium))
+                            if !result.detail.isEmpty {
+                                Text(result.detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Text(result.statusTitle)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(result.statusColor)
+                    }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
             }
         } footer: {
-            Text(.localized("Performs a secure OCSP responder handshake to verify if installed certificates are still officially recognized by Apple."))
+            Text(.localized("Uses Apple's Security framework (`SecPolicyCreateRevocation`) via BatchCertChecker. For full per-certificate details and profile capabilities, open Settings → Certificates → Certificate Health."))
         }
     }
 
-    private func checkRevocationStatus() {
-        isCheckingRevocation = true
-        revokeStatusText = nil
-        Task {
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            isCheckingRevocation = false
-            let certs = Storage.shared.getAllCertificates()
-            if certs.isEmpty {
-                revokeStatusText = String.localized("No certificates installed to verify.")
-            } else {
-                revokeStatusText = String.localized("%lld certificate(s) checked: All active & valid.", arguments: certs.count)
-                Toast.success(.localized("Certificates are valid"), systemImage: "checkmark.seal.fill")
-            }
-        }
+    private func refreshLocalState() {
+        revocationHosts = AntiRevokeManager.revocationHosts
+        hasGeneratedProfile = AntiRevokeManager.shared.profileURL != nil
+        lastRulesUpdated = NovaDNSDynamic.loadCachedRules().lastUpdated
+    }
+
+    private func clearLegacyFakePreferences() {
+        UserDefaults.standard.removeObject(forKey: "VexSign.antirevoke.enabled")
+        UserDefaults.standard.removeObject(forKey: "VexSign.antirevoke.offlineBypass")
     }
 }
