@@ -65,6 +65,25 @@ enum DownloadPreferences {
 		if seconds < 3600 { return String.localized("%lldm left", arguments: Int((seconds / 60).rounded())) }
 		return String.localized("%lldh left", arguments: Int((seconds / 3600).rounded()))
 	}
+
+	/// Migrates legacy disconnected keys written by older `RefreshAndDownloadsSettingsView`
+	/// builds into the active `DownloadPreferences` store, then clears those unused keys.
+	static func migrateLegacyRefreshPreferences(defaults: UserDefaults = .standard) {
+		if defaults.object(forKey: wifiOnlyKey) == nil,
+		   let legacyDownloads = defaults.string(forKey: "VexSign.downloadsNetworkOption") {
+			defaults.set(legacyDownloads == "Wi-Fi", forKey: wifiOnlyKey)
+		}
+
+		for legacyKey in [
+			"VexSign.bgRefreshEnabled",
+			"VexSign.autoCheckAppUpdates",
+			"VexSign.refreshIntervalString",
+			"VexSign.refreshNetworkOption",
+			"VexSign.downloadsNetworkOption"
+		] {
+			defaults.removeObject(forKey: legacyKey)
+		}
+	}
 }
 
 /// Shared NWPathMonitor so we do not spin one up per download.

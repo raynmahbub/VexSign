@@ -427,6 +427,36 @@ final class MissingFeatureTests: XCTestCase {
 		XCTAssertFalse(preferences.visibleTabs.contains(.sources))
 	}
 
+	// MARK: - Live Activity & Legacy Refresh Migrations
+
+	func testMigrateLegacyRefreshPreferencesPromotesWifiSettingOnceAndClearsDeadKeys() throws {
+		let name = "VexSignLegacyRefreshTests.\(UUID().uuidString)"
+		let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+		defer { defaults.removePersistentDomain(forName: name) }
+
+		defaults.set("Wi-Fi", forKey: "VexSign.downloadsNetworkOption")
+		defaults.set(false, forKey: "VexSign.bgRefreshEnabled")
+		defaults.set(false, forKey: "VexSign.autoCheckAppUpdates")
+		defaults.set("15m", forKey: "VexSign.refreshIntervalString")
+		defaults.set("Wi-Fi", forKey: "VexSign.refreshNetworkOption")
+
+		DownloadPreferences.migrateLegacyRefreshPreferences(defaults: defaults)
+
+		XCTAssertTrue(defaults.bool(forKey: DownloadPreferences.wifiOnlyKey))
+		XCTAssertNil(defaults.object(forKey: "VexSign.downloadsNetworkOption"))
+		XCTAssertNil(defaults.object(forKey: "VexSign.bgRefreshEnabled"))
+		XCTAssertNil(defaults.object(forKey: "VexSign.autoCheckAppUpdates"))
+		XCTAssertNil(defaults.object(forKey: "VexSign.refreshIntervalString"))
+		XCTAssertNil(defaults.object(forKey: "VexSign.refreshNetworkOption"))
+
+		// Must not overwrite an explicit user preference once set.
+		defaults.set(false, forKey: DownloadPreferences.wifiOnlyKey)
+		defaults.set("Wi-Fi", forKey: "VexSign.downloadsNetworkOption")
+		DownloadPreferences.migrateLegacyRefreshPreferences(defaults: defaults)
+		XCTAssertFalse(defaults.bool(forKey: DownloadPreferences.wifiOnlyKey))
+		XCTAssertNil(defaults.object(forKey: "VexSign.downloadsNetworkOption"))
+	}
+
 	// MARK: - Fixtures
 
 	private struct _TestApp: AppInfoPresentable {
