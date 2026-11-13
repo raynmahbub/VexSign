@@ -222,6 +222,15 @@ Since then, CI run 422 on `main` at `ffceb89` compiled this work for the first t
 
 That is simulator and build evidence only. Nothing here has run on a device.
 
+A later run on the working branch (CI run 43429740406, commit `f2c5bd5`) completed with the
+quick check, the iOS device build, the concurrency report and the simulator test job all
+successful. The tvOS and visionOS targets were not built by that run: the platform workflow
+starts only for a pull request or a push to `main`, so the membership fix for those targets
+is still unbuilt. `InstallConfirmationTests.testWatcherAcceptsNewAppearanceWithoutProgressCounter`
+failed in the previous run and passed in this one with no change to it or to the watcher; it
+reads the probe through a one-second real-clock timeout and should be treated as
+timing-sensitive until it is given an injected timeout.
+
 ## Device acceptance for this change
 
 1. Inject a rootful `.deb` and a rootless `.deb`; each should sign and the app should launch.
