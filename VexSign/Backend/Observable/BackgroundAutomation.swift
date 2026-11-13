@@ -149,7 +149,9 @@ final class AutomationHistoryStore: ObservableObject {
 // MARK: - Runner
 @MainActor
 enum BackgroundAutomation {
-    private static var isRunning = false
+    /// Read by `UpdateAllIntent` so a Shortcut can say why a pass did not start instead of
+    /// reporting "Everything is up to date" for a run that never happened.
+    static private(set) var isRunning = false
 	/// One full maintenance pass. `fromBackground` keeps it quiet (no toasts).
 	static func run(fromBackground: Bool = false) async -> AutomationRunResult? {
 		guard BackgroundAutomationPreferences.isEnabled else {

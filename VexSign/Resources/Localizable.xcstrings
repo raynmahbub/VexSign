@@ -107385,6 +107385,61 @@
           }
         }
       }
+    },
+    "%lld operations could not be completed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld operations could not be completed."
+          }
+        }
+      }
+    },
+    "Another automation pass is already running. Nothing was started twice." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another automation pass is already running. Nothing was started twice."
+          }
+        }
+      }
+    },
+    "Automation is turned off. Turn it on in Settings → Automation before running this from Shortcuts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automation is turned off. Turn it on in Settings → Automation before running this from Shortcuts."
+          }
+        }
+      }
+    },
+    "Game Mode is on, so update checks are paused. Turn Game Mode off to run this." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game Mode is on, so update checks are paused. Turn Game Mode off to run this."
+          }
+        }
+      }
+    },
+    "The automation pass did not finish, so nothing is reported as updated. Open VexSign to see what it did." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The automation pass did not finish, so nothing is reported as updated. Open VexSign to see what it did."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
