@@ -93,8 +93,8 @@ final class SigningCapabilityTests: XCTestCase {
 	func testWorstIssueDecidesTheStatus() {
 		let report = SigningCapability(issues: [
 			_advisory(.signerMismatch),
-			.blocking(.certificateExpired, status: .expired),
-			.blocking(.extensionNotCovered, status: .incompatible)
+			_blocking(.certificateExpired, status: .expired),
+			_blocking(.extensionNotCovered, status: .incompatible)
 		])
 
 		XCTAssertEqual(report.status, .expired)
@@ -103,10 +103,10 @@ final class SigningCapabilityTests: XCTestCase {
 	func testLogLinesAreOrderedWorstFirstThenByCode() {
 		let report = SigningCapability(issues: [
 			_advisory(.signerMismatch),
-			.blocking(.certificateExpired, status: .expired),
-			.blocking(.bundleIdentifierMissing, status: .invalid),
+			_blocking(.certificateExpired, status: .expired),
+			_blocking(.bundleIdentifierMissing, status: .invalid),
 			// Same status as the line above; the code breaks the tie so the order is stable.
-			.blocking(.appIdentifierMismatch, status: .invalid)
+			_blocking(.appIdentifierMismatch, status: .invalid)
 		])
 
 		let lines = report.logLines
@@ -182,10 +182,73 @@ final class SigningCapabilityTests: XCTestCase {
 		XCTAssertTrue(plan.validationIssues().isEmpty, "a well-formed bundle must not be blocked")
 	}
 
+	func testPlanCompletenessTreatsDylibsAsCodeRatherThanBundles() {
+		let dylib = SigningPlan.Component(path: "Library.dylib", kind: .dylib, identifier: nil, hasExecutable: true)
+		let missingDylib = SigningPlan.Component(path: "Missing.dylib", kind: .dylib, identifier: nil, hasExecutable: false)
+		let unidentifiedBundle = SigningPlan.Component(
+			path: "Widget.appex", kind: .appExtension, identifier: nil, hasExecutable: true
+		)
+		let completeBundle = SigningPlan.Component(
+			path: "Widget.appex", kind: .appExtension, identifier: "com.example.widget", hasExecutable: true
+		)
+
+		XCTAssertTrue(dylib.isStructurallyComplete)
+		XCTAssertFalse(missingDylib.isStructurallyComplete)
+		XCTAssertFalse(unidentifiedBundle.isStructurallyComplete)
+		XCTAssertTrue(completeBundle.isStructurallyComplete)
+	}
+
+	func testPlanRecognizesLooseAndNestedDylibFilesAsTheirOwnExecutables() throws {
+		let app = try _makeApp()
+		try _makeFile(at: app, path: "Loose.DYLIB", executable: true)
+		try _makeFile(at: app, path: "Frameworks/Nested.DyLiB", executable: true)
+		try _makeFile(at: app, path: "Notes.txt", executable: true)
+
+		let plan = SigningPlan.make(appBundle: app)
+		XCTAssertEqual(plan.components.map(\.path), ["Frameworks/Nested.DyLiB", "Loose.DYLIB"])
+		XCTAssertTrue(plan.components.allSatisfy {
+			$0.kind == .dylib && $0.hasExecutable && $0.isStructurallyComplete
+		})
+		XCTAssertTrue(plan.profileBoundComponents.isEmpty)
+		XCTAssertTrue(plan.validationIssues().isEmpty)
+	}
+
+	func testPlanSkipsLinkedDylibsAndDirectoriesNamedDylib() throws {
+		let app = try _makeApp()
+		try _makeFile(at: app, path: "Real.dylib", executable: true)
+		let manager = FileManager.default
+		let frameworks = app.appendingPathComponent("Frameworks", isDirectory: true)
+		try manager.createDirectory(at: frameworks, withIntermediateDirectories: true)
+		let target = app.appendingPathComponent("Real.dylib")
+		try manager.createSymbolicLink(at: app.appendingPathComponent("Linked.dylib"), withDestinationURL: target)
+		try manager.createSymbolicLink(at: frameworks.appendingPathComponent("Linked.dylib"), withDestinationURL: target)
+		try manager.createDirectory(at: app.appendingPathComponent("Folder.dylib"), withIntermediateDirectories: true)
+		try manager.createDirectory(at: frameworks.appendingPathComponent("Folder.dylib"), withIntermediateDirectories: true)
+
+		let plan = SigningPlan.make(appBundle: app)
+		XCTAssertEqual(plan.components.map(\.path), ["Real.dylib"])
+		XCTAssertTrue(plan.validationIssues().isEmpty)
+	}
+
+	func testPlanAdvisesWhenADylibIsNotExecutable() throws {
+		let app = try _makeApp()
+		try _makeFile(at: app, path: "NotExecutable.dylib", executable: false)
+
+		let plan = SigningPlan.make(appBundle: app)
+		let component = try XCTUnwrap(plan.components.first)
+		XCTAssertEqual(component.kind, .dylib)
+		XCTAssertFalse(component.hasExecutable)
+		XCTAssertFalse(component.isStructurallyComplete)
+		let issue = try XCTUnwrap(plan.validationIssues().first)
+		XCTAssertEqual(issue.code, .nestedComponentInvalid)
+		XCTAssertEqual(issue.severity, .advisory)
+	}
+
 	func testPlanIsSignedDeepestFirstAndStableBetweenRuns() throws {
 		let app = try _makeApp()
 		try _makeBundle(at: app, path: "PlugIns/Widget.appex", identifier: "com.example.app.widget", executable: "Widget")
 		try _makeBundle(at: app, path: "Frameworks/Kit.framework", identifier: "com.example.kit", executable: "Kit")
+		try _makeBundle(at: app, path: "Watch/App.app", identifier: "com.example.app.watchkitapp", executable: "App")
 		try _makeBundle(
 			at: app,
 			path: "Watch/App.app/PlugIns/WatchWidget.appex",
@@ -201,6 +264,7 @@ final class SigningCapabilityTests: XCTestCase {
 				"Watch/App.app/PlugIns/WatchWidget.appex",
 				"Frameworks/Kit.framework",
 				"PlugIns/Widget.appex",
+				"Watch/App.app",
 				"Injected.dylib"
 			]
 		)
@@ -224,6 +288,23 @@ final class SigningCapabilityTests: XCTestCase {
 
 		let plan = SigningPlan.make(appBundle: app)
 		XCTAssertTrue(plan.isEmpty, "a symlinked bundle would be signed twice under two paths")
+	}
+
+	func testPlanDoesNotFollowSymlinkedDiscoveryRoots() throws {
+		let app = try _makeApp()
+		let manager = FileManager.default
+		let outside = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+		try manager.createDirectory(at: outside, withIntermediateDirectories: true)
+		defer { try? manager.removeItem(at: outside) }
+		try _makeBundle(at: outside, path: "Widget.appex", identifier: "com.example.widget", executable: "Widget")
+		try _makeBundle(at: outside, path: "Kit.framework", identifier: "com.example.kit", executable: "Kit")
+		try _makeBundle(at: outside, path: "Frameworks/Kit.framework", identifier: "com.example.kit", executable: "Kit")
+		try manager.createSymbolicLink(at: app.appendingPathComponent("PlugIns"), withDestinationURL: outside)
+		try manager.createSymbolicLink(at: app.appendingPathComponent("Frameworks"), withDestinationURL: outside)
+		try manager.createSymbolicLink(at: app.appendingPathComponent("Library"), withDestinationURL: outside)
+
+		let plan = SigningPlan.make(appBundle: app)
+		XCTAssertTrue(plan.isEmpty, "discovery roots and intermediate directories must not follow symlinks")
 	}
 
 	func testPlanBlocksAnExtensionWithoutAnIdentifier() throws {
