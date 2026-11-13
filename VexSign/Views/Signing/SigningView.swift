@@ -124,13 +124,42 @@ struct SigningView: View {
 		return SigningWorkflowSnapshot(trace: trace)
 	}
 
+	/// The ten-step checklist: the two checks this screen makes, plus the run.
+	private var _checklistEvidence: SigningChecklistEvidence {
+		let identity: SigningChecklistEvidence.Check
+		if _temporaryOptions.signingOption != .default {
+			identity = .notNeeded
+		} else if let certificate = _selectedCert() {
+			if let rejection = SigningIdentityPolicy.rejection(for: certificate) {
+				identity = .failed(rejection.message)
+			} else {
+				identity = .passed
+			}
+		} else {
+			identity = .failed(SigningIdentityPolicy.Rejection.missingCertificate.message)
+		}
+
+		let preflight: SigningChecklistEvidence.Check
+		if let result = _preflightResult {
+			if let blocking = result.issues.first(where: { $0.severity == .blocking }) {
+				preflight = .failed(blocking.title)
+			} else {
+				preflight = result.isEmpty ? .passed : .passedWithWarnings(result.issues.count)
+			}
+		} else {
+			preflight = .notRun
+		}
+
+		return SigningChecklistEvidence(identity: identity, preflight: preflight, run: _workflowSnapshot)
+	}
+
 	// MARK: Body
     var body: some View {
 		NBNavigationView(.localized("Signing"), displayMode: .inline) {
 			ScrollViewReader { proxy in
                 Form {
                     Section {
-                        SigningWorkflowView(snapshot: _workflowSnapshot)
+                        SigningChecklistView(evidence: _checklistEvidence)
                     }
                     if let error = _signingError {
                         Section {

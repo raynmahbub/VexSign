@@ -35,6 +35,9 @@ final class TabBarPreferences: ObservableObject {
     private let defaults: UserDefaults
 
     private struct Stored: Codable {
+        /// 5: the default order became Home, Discover, Library, Tasks, Settings.
+        static let currentVersion = 5
+
         var version: Int
         var order: [String]
         var hidden: [String]
@@ -43,7 +46,7 @@ final class TabBarPreferences: ObservableObject {
         var showLabels: Bool
 
         init(order: [String], hidden: [String], defaultLaunch: String, minimal: Bool, showLabels: Bool) {
-            self.version = 4
+            self.version = Self.currentVersion
             self.order = order
             self.hidden = hidden
             self.defaultLaunch = defaultLaunch
@@ -75,7 +78,10 @@ final class TabBarPreferences: ObservableObject {
             loadedLaunch = Self.migratedLaunchTab(stored.defaultLaunch)
 
             if stored.version >= 4 {
-                loadedOrder = Self.sanitizedOrder(stored.order.compactMap { TabEnum(rawValue: $0) })
+                loadedOrder = Self.migratedOrder(
+                    stored.order.compactMap { TabEnum(rawValue: $0) },
+                    storedVersion: stored.version
+                )
                 loadedHidden = Set(stored.hidden.compactMap { TabEnum(rawValue: $0) })
                     .intersection(Self.hideableTabs)
             } else {
@@ -181,6 +187,18 @@ final class TabBarPreferences: ObservableObject {
             result.append(tab)
         }
         return result
+    }
+
+    /// Carries a stored order across the change of default order.
+    ///
+    /// An order the user arranged is theirs and is kept exactly. An order that still equals
+    /// the previous default was never a choice, so it follows the default to its new shape.
+    /// Hidden tabs and the launch tab are not touched either way.
+    static func migratedOrder(_ stored: [TabEnum], storedVersion: Int) -> [TabEnum] {
+        let order = sanitizedOrder(stored)
+        guard storedVersion < Stored.currentVersion else { return order }
+        let previousDefault = TabEnum.previousDefaultTabs + secondaryTabs
+        return order == previousDefault ? defaultOrder : order
     }
 
     private static func migratedLaunchTab(_ rawValue: String) -> TabEnum {

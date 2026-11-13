@@ -57,7 +57,9 @@ enum MachOInspector {
 
         static func cpuType(_ cpu: UInt32, subtype: UInt32) -> Architecture {
             switch cpu {
-            case 0x0100000c: return subtype == 2 ? .arm64e : .arm64
+            // The high byte carries capability flags, not the subtype: every arm64e image
+            // a current toolchain writes is `0x8000_0002` (pointer-authentication ABI).
+            case 0x0100000c: return subtype & 0x00ff_ffff == 2 ? .arm64e : .arm64
             case 0x0200000c: return .arm64_32
             case 12: return .armv7
             case 11: return .armv7s

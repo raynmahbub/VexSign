@@ -2,7 +2,7 @@
   "VexSign/Analytics/AnalyticsView.swift": 1,
   "VexSign/Backend/AppIntents/VexSignEntities.swift": 2,
   "VexSign/Backend/Observable/BackupManager.swift": 7,
-  "VexSign/Backend/Observable/CertificateStatusManager.swift": 3,
+  "VexSign/Backend/Observable/CertificateStatusManager.swift": 2,
   "VexSign/Backend/Observable/CleanupHistory.swift": 2,
   "VexSign/Backend/Observable/CleanupManager.swift": 1,
   "VexSign/Backend/Observable/DownloadManager.swift": 1,

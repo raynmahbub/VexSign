@@ -335,7 +335,7 @@ struct AppStoreView: View {
     // MARK: - Body
     var body: some View {
         // ONE navigation bar — NBNavigationView is the only NavigationStack in this tab
-        NBNavigationView(.localized("App Store"), displayMode: .large) {
+        NBNavigationView(.localized("Discover"), displayMode: .large) {
             ScrollView {
                 VStack(spacing: 20) {
                     // Apple official header styling

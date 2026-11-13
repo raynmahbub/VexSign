@@ -205,6 +205,17 @@ final class MissingFeatureTests: XCTestCase {
 		let unreadable = CertCheckResult.make(id: "e", name: "E", teamID: "T", expiryDate: nil,
 											  isRevoked: false, isPPQLess: false, revocationKnown: false)
 		XCTAssertEqual(unreadable.status, .unreadable)
+
+		// In date with no revocation answer is not a checked certificate.
+		let notChecked = CertCheckResult.make(id: "f", name: "F", teamID: "T", expiryDate: now.addingTimeInterval(86_400 * 90),
+											  isRevoked: false, isPPQLess: false, revocationKnown: false)
+		XCTAssertEqual(notChecked.status, .notChecked)
+		XCTAssertNotEqual(notChecked.statusTitle, valid.statusTitle)
+
+		// A date problem is still reported when revocation is unknown.
+		let expiredUnchecked = CertCheckResult.make(id: "g", name: "G", teamID: "T", expiryDate: now.addingTimeInterval(-60),
+													isRevoked: false, isPPQLess: false, revocationKnown: false)
+		XCTAssertEqual(expiredUnchecked.status, .expired)
 	}
 
 	// MARK: - Direct install
@@ -373,7 +384,7 @@ final class MissingFeatureTests: XCTestCase {
 		defer { defaults.removePersistentDomain(forName: name) }
 		let preferences = TabBarPreferences(defaults: defaults)
 
-		XCTAssertEqual(preferences.visibleTabs, [.library, .appStore, .home, .downloads, .settings])
+		XCTAssertEqual(preferences.visibleTabs, [.home, .appStore, .library, .downloads, .settings])
 		XCTAssertEqual(TabBarPreferences.requiredTabs, [.home, .settings])
 		XCTAssertTrue(TabBarPreferences.secondaryTabs.contains(.sources))
 

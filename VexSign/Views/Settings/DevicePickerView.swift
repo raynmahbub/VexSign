@@ -19,6 +19,9 @@ struct DevicePickerView: View {
     @State private var pairedDevices: [PairedDeviceRecord] = []
     @State private var pairing: DevicePairingState = .absent
     @State private var isLoading = false
+    /// Whether the pairing session's socket answered when this sheet opened. Observed, not
+    /// assumed: it stays false until the probe says otherwise.
+    @State private var pairingTransportAvailable = false
     @State private var selectedUDID: String?
 
     var body: some View {
@@ -92,6 +95,10 @@ struct DevicePickerView: View {
         }
         .task {
             await loadPairedDevices()
+            // The probe blocks for up to its timeout, so it runs off the main actor.
+            pairingTransportAvailable = await Task.detached(priority: .userInitiated) {
+                HeartbeatManager.shared.checkSocketConnection().isConnected
+            }.value
         }
         .presentationDetents([.medium, .large])
     }
@@ -186,7 +193,7 @@ struct DevicePickerView: View {
                 pairing: pairing,
                 presence: pairedDevices.first?.presence ?? .disconnected,
                 trust: pairedDevices.first?.trust ?? .unknown,
-                pairingTransportAvailable: false,
+                pairingTransportAvailable: pairingTransportAvailable,
                 companionAvailable: LocalTLSIdentity.current() != nil && LocalTLSIdentity.isSystemTrusted()
             )
         )

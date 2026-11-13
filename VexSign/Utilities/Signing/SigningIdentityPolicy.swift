@@ -95,6 +95,16 @@ enum SigningIdentityPolicy {
 		return nil
 	}
 
+	/// The signing certificate's own end date, when a status check has read it.
+	///
+	/// The row stores the profile's expiry. The certificate inside the `.p12` can end
+	/// earlier, and then everything it signs is refused at install. `nil` means the date
+	/// has not been read, which is not a reason to refuse.
+	static func rejection(certificateExpiry: Date?, now: Date = Date()) -> Rejection? {
+		guard let certificateExpiry, certificateExpiry <= now else { return nil }
+		return .certificateExpired(expiresAt: certificateExpiry)
+	}
+
 	/// A sentence for the run's log, so the refusal is visible in the console the user is
 	/// already looking at — not only in the alert.
 	static func logLine(for rejection: Rejection) -> String {

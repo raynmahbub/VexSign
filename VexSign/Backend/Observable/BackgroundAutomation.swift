@@ -197,8 +197,23 @@ enum BackgroundAutomation {
             return nil
         }
 
-		let policy = BackgroundAutomationPreferences.policy
 		let storage = Storage.shared
+		var policy = BackgroundAutomationPreferences.policy
+		// A scheduled pass signs only under an active grant for the selected certificate. A
+		// pass the user started is attended, so the preference alone decides it. Without a
+		// grant the pass still refreshes, matches and notifies; it does not sign.
+		if fromBackground, policy == .signAndQueue {
+			let certificateUUID = storage.getCertificate(
+				for: UserDefaults.standard.integer(forKey: "vexsign.selectedCert")
+			)?.uuid
+			let decision = UnattendedSigningGrantStore.decision(
+				scope: .signAndQueueUpdates, certificateUUID: certificateUUID
+			)
+			policy = effectivePolicy(preferred: policy, fromBackground: fromBackground, decision: decision)
+			if policy != .signAndQueue {
+				FileLogger.log("Scheduled signing skipped: \(decision.explanation)", category: "update")
+			}
+		}
 		let sources = storage.getSources()
 
 		// 1. Refresh repositories.
@@ -300,6 +315,19 @@ enum BackgroundAutomation {
 
 		AutomationHistoryStore.shared.record(result.failed > 0 ? "partialFailure" : "completed", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
 		return result
+	}
+
+	/// The policy a pass actually runs with.
+	///
+	/// Only an unattended pass that wants to sign is affected: without an authorizing grant
+	/// it falls back to notifying. Nothing here can turn a notify-only pass into a signing one.
+	nonisolated static func effectivePolicy(
+		preferred: BackgroundAutomationPolicy,
+		fromBackground: Bool,
+		decision: UnattendedSigningGrant.Decision
+	) -> BackgroundAutomationPolicy {
+		guard preferred == .signAndQueue, fromBackground else { return preferred }
+		return decision.isAuthorized ? .signAndQueue : .notifyOnly
 	}
 
 	/// Refreshes the expiring-profile *list* for a free Apple ID session.

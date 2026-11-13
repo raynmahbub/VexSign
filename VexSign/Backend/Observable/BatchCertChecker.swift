@@ -23,6 +23,9 @@ struct CertCheckResult: Identifiable, Equatable {
 		case expired
 		case revoked
 		case unreadable
+		/// In date and not marked revoked, but no revocation answer was obtained. Kept apart
+		/// from `valid`, which is a claim that the certificate was checked.
+		case notChecked
 	}
 
 	let id: String
@@ -57,6 +60,8 @@ struct CertCheckResult: Identifiable, Equatable {
 			status = .expiringSoon
 		} else if expiryDate == nil, !revocationKnown {
 			status = .unreadable
+		} else if !revocationKnown {
+			status = .notChecked
 		} else {
 			status = .valid
 		}
@@ -82,6 +87,7 @@ struct CertCheckResult: Identifiable, Equatable {
 		case .expired: String.localized("Expired")
 		case .revoked: String.localized("Revoked")
 		case .unreadable: String.localized("Unreadable")
+		case .notChecked: String.localized("Not Checked")
 		}
 	}
 
@@ -92,6 +98,7 @@ struct CertCheckResult: Identifiable, Equatable {
 		case .expired: .red
 		case .revoked: .red
 		case .unreadable: .secondary
+		case .notChecked: .secondary
 		}
 	}
 
@@ -102,6 +109,7 @@ struct CertCheckResult: Identifiable, Equatable {
 		case .expired: "xmark.seal.fill"
 		case .revoked: "xmark.octagon.fill"
 		case .unreadable: "questionmark.circle"
+		case .notChecked: "questionmark.circle"
 		}
 	}
 }
@@ -144,6 +152,11 @@ final class BatchCertChecker: ObservableObject {
 			results.filter { $0.status == .expired }.count,
 			results.filter { $0.status == .revoked }.count
 		)
+	}
+
+	/// Certificates that are in date but whose revocation was not established.
+	var notCheckedCount: Int {
+		results.filter { $0.status == .notChecked }.count
 	}
 
 	/// Validates every certificate in the library.
@@ -255,7 +268,9 @@ final class BatchCertChecker: ObservableObject {
 				id: snapshot.uuid,
 				name: health.name,
 				teamID: health.teamID,
-				expiryDate: health.expires,
+				// The certificate can run out before its profile; whichever ends first is when
+				// signing stops, and it is the date the certificate list and Home report.
+				expiryDate: health.certificateExpires.map { min($0, health.expires) } ?? health.expires,
 				isRevoked: snapshot.isRevoked || health.revocation == .revoked,
 				isPPQLess: snapshot.isPPQLess,
 				revocationKnown: health.revocation != .unknown,

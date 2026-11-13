@@ -38,11 +38,6 @@ enum CertificateStatusValue: String, Codable {
 		}
 	}
 
-	/// What the stored row says, used when no OCSP result exists yet.
-	static func deviceStatus(for cert: CertificatePair) -> CertificateStatusValue {
-		cert.revoked == true ? .revoked : .unknown
-	}
-
 	var title: String {
 		switch self {
 		case .signed:
@@ -77,6 +72,19 @@ enum CertificateStatusValue: String, Codable {
 	}
 }
 
+// MARK: - Status colour
+
+extension CertificateStatus {
+	var color: Color {
+		switch self {
+		case .valid: .green
+		case .expired, .revoked: .red
+		case .networkUnavailable: .orange
+		case .unknown, .unsupported: .secondary
+		}
+	}
+}
+
 // MARK: - Snapshot
 
 /// The cached result of one OCSP check.
@@ -84,10 +92,81 @@ struct CertificateRevocationSnapshot: Codable, Equatable {
 	/// How long a verdict is trusted before it is fetched again.
 	static let defaultMaxAge: TimeInterval = 30 * 60
 
+	/// Why a check produced no verdict, when the reason is known. Stored beside the
+	/// verdict so "the responder did not answer" is not flattened into plain `unknown`.
+	enum Gap: String, Codable, Sendable {
+		case responderUnreachable
+		case unsupported
+	}
+
 	let status: CertificateStatusValue
 	/// The inspector's explanation of how the verdict was reached.
 	let detail: String
 	let checkedAt: Date
+	/// Absent for a verdict, and in snapshots written before the reason was recorded.
+	let gap: Gap?
+	/// The signing certificate's own end date, which can fall before the profile's. A
+	/// date only: nothing here can reconstruct the certificate.
+	let certificateExpires: Date?
+
+	init(
+		status: CertificateStatusValue,
+		detail: String,
+		checkedAt: Date,
+		gap: Gap? = nil,
+		certificateExpires: Date? = nil
+	) {
+		self.status = status
+		self.detail = detail
+		self.checkedAt = checkedAt
+		self.gap = gap
+		self.certificateExpires = certificateExpires
+	}
+
+	init(health: CertificateHealth) {
+		let gap: Gap?
+		switch health.revocationEvidence {
+		case .responderUnreachable: gap = .responderUnreachable
+		case .unsupported: gap = .unsupported
+		case .good, .revoked, .notChecked, .inconclusive: gap = nil
+		}
+		self.init(
+			status: CertificateStatusValue(revocation: health.revocation),
+			detail: health.detail,
+			checkedAt: health.checkedAt,
+			gap: gap,
+			certificateExpires: health.certificateExpires
+		)
+	}
+
+	/// Where the snapshots are persisted, keyed by certificate UUID.
+	static let storageKey = "VexSign.certificate.revocationSnapshots"
+
+	/// The persisted snapshot for one certificate, readable off the main actor. The signing
+	/// run uses it to learn the certificate's own end date without touching the manager.
+	static func stored(forCertificateUUID uuid: String, defaults: UserDefaults = .standard) -> CertificateRevocationSnapshot? {
+		guard let data = defaults.data(forKey: storageKey) else { return nil }
+		do {
+			return try JSONDecoder().decode([String: CertificateRevocationSnapshot].self, from: data)[uuid]
+		} catch {
+			// An unreadable cache is no evidence; the status check rewrites it.
+			return nil
+		}
+	}
+
+	/// The stored verdict as evidence for `CertificateStatusAssessment`.
+	var evidence: CertificateRevocationEvidence {
+		switch status {
+		case .signed: return .good(checkedAt: checkedAt)
+		case .revoked: return .revoked
+		case .unknown:
+			switch gap {
+			case .responderUnreachable: return .responderUnreachable
+			case .unsupported: return .unsupported
+			case nil: return .inconclusive
+			}
+		}
+	}
 
 	/// The cache rule, split out so it can be unit tested without a server or a
 	/// certificate.
@@ -115,7 +194,7 @@ final class CertificateStatusManager: ObservableObject {
 	@Published private(set) var refreshingRevocationIDs: Set<String> = []
 	@Published private(set) var refreshingDeviceStatusIDs: Set<String> = []
 
-	private static let storageKey = "VexSign.certificate.revocationSnapshots"
+	private static let storageKey = CertificateRevocationSnapshot.storageKey
 	/// Written by the removed third-party checker. Deleted on launch and never
 	/// read: those verdicts were produced from an uploaded p12, so they are not
 	/// evidence this app can stand behind.
@@ -141,20 +220,23 @@ final class CertificateStatusManager: ObservableObject {
 		return revocationSnapshots[uuid]
 	}
 
-	func effectiveStatus(for cert: CertificatePair) -> CertificateStatusValue {
-		guard let snapshot = revocationSnapshot(for: cert), snapshot.status != .unknown else {
-			return CertificateStatusValue.deviceStatus(for: cert)
-		}
-
-		return snapshot.status
-	}
-
-	func effectiveStatusTitle(for cert: CertificatePair) -> String {
-		guard let snapshot = revocationSnapshot(for: cert), snapshot.status != .unknown else {
-			return CertificateStatusValue.deviceStatus(for: cert).title
-		}
-
-		return snapshot.displayTitle
+	/// The one status a certificate is shown with.
+	///
+	/// It replaces reading the cached verdict directly, which showed a certificate as
+	/// verified for as long as the cache entry existed — after it expired, and however long
+	/// ago the check ran. The assessment weighs expiry, the stored revocation flag and the
+	/// age of the evidence together; see `CertificateStatusAssessment`.
+	func assessment(for cert: CertificatePair, now: Date = Date()) -> CertificateStatusAssessment {
+		let snapshot = revocationSnapshot(for: cert)
+		return CertificateStatusAssessment.assess(
+			.init(
+				certificateExpiry: snapshot?.certificateExpires,
+				profileExpiry: cert.expiration,
+				revokedOnRecord: cert.revoked == true,
+				evidence: snapshot?.evidence ?? .notChecked
+			),
+			now: now
+		)
 	}
 
 	func hasFreshStatus(for cert: CertificatePair) -> Bool {
@@ -207,14 +289,20 @@ final class CertificateStatusManager: ObservableObject {
 		Task {
 			defer { refreshingRevocationIDs.remove(uuid) }
 
-			guard let health = try? await CertificateInspector.inspect(
-				id: uuid,
-				name: name,
-				p12: p12URL,
-				password: password,
-				profile: profileURL,
-				online: true
-			) else {
+			let health: CertificateHealth
+			do {
+				health = try await CertificateInspector.inspect(
+					id: uuid,
+					name: name,
+					p12: p12URL,
+					password: password,
+					profile: profileURL,
+					online: true
+				)
+			} catch {
+				// The files could not be read, so nothing was learned. The previous snapshot
+				// stays; its age is what keeps it from being shown as current.
+				FileLogger.log("Certificate status check could not complete: \(error)", category: "certificate")
 				return
 			}
 
@@ -223,11 +311,7 @@ final class CertificateStatusManager: ObservableObject {
                 cert.revoked = true
                 Storage.shared.saveContext()
             }
-			revocationSnapshots[uuid] = CertificateRevocationSnapshot(
-				status: CertificateStatusValue(revocation: health.revocation),
-				detail: health.detail,
-				checkedAt: health.checkedAt
-			)
+			revocationSnapshots[uuid] = CertificateRevocationSnapshot(health: health)
 			_persist()
 		}
 	}
