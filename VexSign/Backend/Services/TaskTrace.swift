@@ -143,6 +143,48 @@ struct TaskContext: Codable, Equatable {
     var clientVersion: String = BuildIdentity.version
     var sourceCommit: String = BuildIdentity.commit
 
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case appVersion, appBuild, installationMethod, expectedBundleIdentifier
+        case handoffAt, lastReconciliationAt, monitoringActive
+        case certificateReference, optionsFingerprint, artifactID
+        case signingTaskID, importTaskID, confirmationReason, verificationAttempts
+        case errorCategory, errorCode, signingTrace
+        case clientVersion, sourceCommit
+    }
+
+    /// Decoded field by field, because a synthesized `Decodable` demands a key for every
+    /// non-optional property even when that property has a default value.
+    ///
+    /// `clientVersion` and `sourceCommit` were added after the journal existed, so a history
+    /// written before them lost `clientVersion` on read and threw — and a throw here takes the
+    /// whole `[UnifiedTask.Snapshot]` array with it, which is the same loss the lenient trace
+    /// decode above fixed one level down. An absent value stays empty, and the receipt renders
+    /// empty as "unavailable" instead of attributing an old record to whichever build reads it.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        appVersion = try container.decodeIfPresent(String.self, forKey: .appVersion)
+        appBuild = try container.decodeIfPresent(String.self, forKey: .appBuild)
+        installationMethod = try container.decodeIfPresent(String.self, forKey: .installationMethod)
+        expectedBundleIdentifier = try container.decodeIfPresent(String.self, forKey: .expectedBundleIdentifier)
+        handoffAt = try container.decodeIfPresent(Date.self, forKey: .handoffAt)
+        lastReconciliationAt = try container.decodeIfPresent(Date.self, forKey: .lastReconciliationAt)
+        monitoringActive = try container.decodeIfPresent(Bool.self, forKey: .monitoringActive)
+        certificateReference = try container.decodeIfPresent(String.self, forKey: .certificateReference)
+        optionsFingerprint = try container.decodeIfPresent(String.self, forKey: .optionsFingerprint)
+        artifactID = try container.decodeIfPresent(String.self, forKey: .artifactID)
+        signingTaskID = try container.decodeIfPresent(String.self, forKey: .signingTaskID)
+        importTaskID = try container.decodeIfPresent(String.self, forKey: .importTaskID)
+        confirmationReason = try container.decodeIfPresent(String.self, forKey: .confirmationReason)
+        verificationAttempts = try container.decodeIfPresent(Int.self, forKey: .verificationAttempts)
+        errorCategory = try container.decodeIfPresent(String.self, forKey: .errorCategory)
+        errorCode = try container.decodeIfPresent(Int.self, forKey: .errorCode)
+        signingTrace = try container.decodeIfPresent(TaskSigningTrace.self, forKey: .signingTrace)
+        clientVersion = try container.decodeIfPresent(String.self, forKey: .clientVersion) ?? ""
+        sourceCommit = try container.decodeIfPresent(String.self, forKey: .sourceCommit) ?? ""
+    }
+
     static func fingerprint(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

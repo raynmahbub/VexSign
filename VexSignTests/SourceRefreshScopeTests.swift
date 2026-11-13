@@ -29,9 +29,11 @@ final class SourceRefreshScopeTests: XCTestCase {
         let firstID = "test.refresh.first.\(UUID().uuidString)"
         let secondID = "test.refresh.second.\(UUID().uuidString)"
         let first = AltSource(context: storage.context)
+        first.date = Date()
         first.identifier = firstID
         first.sourceURL = URL(string: "https://example.com/first.json")!
         let second = AltSource(context: storage.context)
+        second.date = Date()
         second.identifier = secondID
         second.sourceURL = URL(string: "https://example.com/second.json")!
         defer {
@@ -67,6 +69,7 @@ final class SourceRefreshScopeTests: XCTestCase {
         let storage = Storage(inMemory: true)
         let id = "test.refresh.cancel.\(UUID().uuidString)"
         let source = AltSource(context: storage.context)
+        source.date = Date()
         source.identifier = id
         source.sourceURL = URL(string: "https://example.com/cancel.json")!
         defer {
@@ -93,6 +96,7 @@ final class SourceRefreshScopeTests: XCTestCase {
         let storage = Storage(inMemory: true)
         let id = "test.refresh.deleted.\(UUID().uuidString)"
         let source = AltSource(context: storage.context)
+        source.date = Date()
         source.identifier = id
         source.sourceURL = URL(string: "https://example.com/deleted.json")!
         try storage.context.save()
