@@ -6,7 +6,6 @@
 import SwiftUI
 import NimbleViews
 import UIKit
-import Darwin
 import NimbleExtensions
 
 struct SettingsView: View {

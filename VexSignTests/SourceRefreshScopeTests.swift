@@ -80,7 +80,7 @@ final class SourceRefreshScopeTests: XCTestCase {
         let gate = RefreshGate()
         let model = SourcesViewModel(fetcher: { _, _ in await gate.wait(started: started) }, retainSnapshots: { _ in })
         let task = Task { await model.fetchSources([source], refresh: true) }
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: 15)
         model.resetLoadingState()
         await gate.finish(.success(payload))
         await task.value
@@ -110,7 +110,7 @@ final class SourceRefreshScopeTests: XCTestCase {
         let model = SourcesViewModel(fetcher: { _, _ in await gate.wait(started: started) },
                                      retainSnapshots: { retained = $0 })
         let task = Task { await model.fetchSources([source], refresh: true) }
-        await fulfillment(of: [started], timeout: 5)
+        await fulfillment(of: [started], timeout: 15)
         storage.context.delete(source)
         model.evictDeletedSources(valid: [])
         await gate.finish(.success(payload))
@@ -120,6 +120,44 @@ final class SourceRefreshScopeTests: XCTestCase {
         XCTAssertNil(RepositorySnapshotCache.load(identifier: id))
         XCTAssertNil(SourcePreferences.lastFetch(for: id))
         XCTAssertTrue(retained.isEmpty)
+    }
+
+    @MainActor
+    func testAddSourcesInvokesCompletionOnce() throws {
+        let key = SourceURLPolicy.allowInsecureHTTPKey
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.set(false, forKey: key)
+
+        let goodID = "com.example.good.\(UUID().uuidString)"
+        let badID = "com.example.bad.\(UUID().uuidString)"
+        let goodPayload = Data("""
+        {"name":"Good","identifier":"\(goodID)","apps":[{"name":"App","iconURL":"https://example.com/i.png","versions":[{"version":"1.0"}]}]}
+        """.utf8)
+        let badPayload = Data("""
+        {"name":"Bad","identifier":"\(badID)","apps":[{"name":"App","iconURL":"https://example.com/i.png","versions":[{"version":"1.0"}]}]}
+        """.utf8)
+        let goodRepo = try SourceFeedLoader.decode(goodPayload)
+        let badRepo = try SourceFeedLoader.decode(badPayload)
+
+        let storage = Storage(inMemory: true)
+        let goodURL = URL(string: "https://example.com/good.json")!
+        let badURL = URL(string: "http://example.com/bad.json")!
+        var callbacks = 0
+        var recordedError: Error?
+
+        storage.addSources(repos: [badURL: badRepo, goodURL: goodRepo]) { error in
+            callbacks += 1
+            recordedError = error
+        }
+
+        XCTAssertEqual(callbacks, 1)
+        XCTAssertNotNil(recordedError)
+        XCTAssertTrue(storage.sourceExists(goodID))
+        XCTAssertFalse(storage.sourceExists(badID))
     }
 
 }

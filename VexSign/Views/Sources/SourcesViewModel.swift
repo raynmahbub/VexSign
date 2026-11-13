@@ -18,10 +18,16 @@ final class SourcesViewModel: ObservableObject {
 
 	private let fetcher: SourceFeedLoader.Fetcher
 	private let retainSnapshots: (Set<String>) -> Void
+	private let usesBackgroundTask: Bool
 
-	init(fetcher: SourceFeedLoader.Fetcher? = nil, retainSnapshots: @escaping (Set<String>) -> Void = RepositorySnapshotCache.retainOnly) {
+	init(
+		fetcher: SourceFeedLoader.Fetcher? = nil,
+		retainSnapshots: @escaping (Set<String>) -> Void = RepositorySnapshotCache.retainOnly,
+		usesBackgroundTask: Bool? = nil
+	) {
 		self.fetcher = fetcher ?? Self._fetcher()
 		self.retainSnapshots = retainSnapshots
+		self.usesBackgroundTask = usesBackgroundTask ?? (fetcher == nil)
 	}
 
 	/// `true` when no load is in progress (idle).
@@ -50,7 +56,7 @@ final class SourcesViewModel: ObservableObject {
 	private static func _cachedRepositories(for identifiers: Set<String>) async -> [String: ASRepository] {
 		guard !identifiers.isEmpty else { return [:] }
 
-		return await Task.detached(priority: .utility) {
+		return await Task.detached(priority: .userInitiated) {
 			var decoded: [String: ASRepository] = [:]
 			for identifier in identifiers {
 				if let cached = RepositorySnapshotCache.load(identifier: identifier) {
@@ -165,7 +171,7 @@ final class SourcesViewModel: ObservableObject {
 	private func _performFetch(_ sourcesArray: [AltSource], targets: Set<AltSource>, key: Set<String>, batchSize: Int, generation: Int, isFullRefresh: Bool) async {
 		isFinished = false
 
-		if backgroundTaskManager == nil {
+		if usesBackgroundTask && backgroundTaskManager == nil {
 			backgroundTaskManager = BackgroundTaskManager(
 				taskName: "SourcesViewModel",
 				expirationTitle: "Loading repositories",

@@ -326,4 +326,14 @@ final class WebDAVFileTransactionTests: XCTestCase {
             XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("file")), Data([2]))
         }
     }
+
+    func testGeneratedTokenIsURLSafeAndDistinct() {
+        let first = WebManagerAccessPolicy.generateToken()
+        let second = WebManagerAccessPolicy.generateToken()
+        XCTAssertGreaterThanOrEqual(first.count, 32)
+        XCTAssertNotEqual(first, second)
+        XCTAssertFalse(first.contains("+"))
+        XCTAssertFalse(first.contains("/"))
+        XCTAssertFalse(first.contains("="))
+    }
 }

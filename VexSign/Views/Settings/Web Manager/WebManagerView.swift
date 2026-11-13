@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Security
 import NimbleViews
 import NimbleExtensions
 import CoreImage.CIFilterBuiltins
@@ -245,7 +244,7 @@ extension WebManagerView {
 			}
 
 			Button {
-				manager.apiToken = Self._randomToken()
+				manager.apiToken = WebManagerAccessPolicy.generateToken()
 				manager.restartIfRunning()
 			} label: {
 				Label(.localized("Generate Token"), systemImage: "dice")
@@ -345,19 +344,6 @@ extension WebManagerView {
 		if n.hasSuffix(".dylib") { return "doc.badge.gearshape" }
 		if n.hasSuffix(".deb") { return "shippingbox" }
 		return "doc"
-	}
-
-	/// 24 random bytes, URL-safe. Long enough that guessing is not a thing.
-	private static func _randomToken() -> String {
-		var bytes = [UInt8](repeating: 0, count: 24)
-		guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
-			return UUID().uuidString.replacingOccurrences(of: "-", with: "")
-		}
-		return Data(bytes)
-			.base64EncodedString()
-			.replacingOccurrences(of: "+", with: "-")
-			.replacingOccurrences(of: "/", with: "_")
-			.replacingOccurrences(of: "=", with: "")
 	}
 }
 

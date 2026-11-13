@@ -84,29 +84,53 @@ extension FR {
         }
     }
 
-    /// Applies premium auth and catalog filtering to the sources that need it.
+    /// Filters repository URLs through `SourceURLPolicy` so batch imports
+    /// cannot bypass the transport rules enforced by `FR.handleSource`.
+    static func validatedRepositoryURLs(_ urls: [URL]) -> [URL] {
+        urls.filter { url in
+            do {
+                try SourceURLPolicy.validate(url)
+                return true
+            } catch {
+                Logger.security.warning("Skipping insecure repository: \(url.absoluteString, privacy: .public)")
+                return false
+            }
+        }
+    }
+
+    /// Applies premium auth, transport policy, and provenance checks to fetched sources.
     static func fetchRepositories(from urls: [URL]) async -> [(url: URL, data: ASRepository)] {
-        let requests: [(url: URL, request: URL, headers: [String: String])] = await MainActor.run {
-            urls.map { ($0, VexSignAPI.catalogURL(for: $0), VexSignAPI.authHeaders(for: $0)) }
+        let allowed = validatedRepositoryURLs(urls)
+        let requests: [(url: URL, identifier: String, headers: [String: String])] = await MainActor.run {
+            allowed.map { url in
+                let isGitHub = GitHubReleaseSource.isGitHubRepositoryURL(url)
+                return (
+                    url,
+                    url.absoluteString,
+                    isGitHub ? [:] : VexSignAPI.authHeaders(for: url)
+                )
+            }
         }
 
-        let service = NBFetchService()
+        let loader = SourceFeedLoader(fetcher: { url, headers in
+            let service = NBFetchService()
+            return await withCheckedContinuation { continuation in
+                service.fetchRaw(from: url, headers: headers) { result in
+                    continuation.resume(returning: result)
+                }
+            }
+        })
 
         return await withTaskGroup(of: (URL, ASRepository?).self) { group in
             for item in requests {
                 group.addTask {
-                    let repository: ASRepository? = await withCheckedContinuation { continuation in
-                        service.fetch(from: item.request, headers: item.headers) { (result: Result<ASRepository, Error>) in
-                            switch result {
-                            case .success(let repository):
-                                continuation.resume(returning: repository)
-                            case .failure(let error):
-                                Logger.misc.error("Failed to fetch \(item.url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                                continuation.resume(returning: nil)
-                            }
-                        }
+                    let result = await loader.load(url: item.url, headers: item.headers, identifier: item.identifier)
+                    switch result.outcome {
+                    case .decoded(let repository, _):
+                        return (item.url, repository)
+                    case .invalid, .failed:
+                        return (item.url, nil)
                     }
-                    return (item.url, repository)
                 }
             }
 

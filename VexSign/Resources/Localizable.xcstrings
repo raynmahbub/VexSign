@@ -48879,85 +48879,85 @@
         }
       }
     },
-    "Open an [issue](https://github.com/claration/VexSign/issues) on GitHub if you want your source to be featured." : {
+    "Open an [issue](https://github.com/raynmahbub/VexSign/issues) on GitHub if you want your source to be featured." : {
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "افتح [issues](https://github.com/claration/VexSign/issues) على GitHub إذا كنت تريد أن يتم تمييز مصدرك."
+            "value" : "افتح [issues](https://github.com/raynmahbub/VexSign/issues) على GitHub إذا كنت تريد أن يتم تمييز مصدرك."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otevřete [issue](https://github.com/claration/VexSign/issues) na GitHubu, pokud chcete, aby byl váš zdroj doporučen."
+            "value" : "Otevřete [issue](https://github.com/raynmahbub/VexSign/issues) na GitHubu, pokud chcete, aby byl váš zdroj doporučen."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Öffne ein [Issue](https://github.com/claration/VexSign/issues) auf GitHub wenn du deine Quelle aufgelistet haben möchtest."
+            "value" : "Öffne ein [Issue](https://github.com/raynmahbub/VexSign/issues) auf GitHub wenn du deine Quelle aufgelistet haben möchtest."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open an [issue](https://github.com/claration/VexSign/issues) on GitHub if you want your source to be featured."
+            "value" : "Open an [issue](https://github.com/raynmahbub/VexSign/issues) on GitHub if you want your source to be featured."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre una [incidencia](https://github.com/claration/VexSign/issues) en GitHub si quieres que tu fuente aparezca destacada."
+            "value" : "Abre una [incidencia](https://github.com/raynmahbub/VexSign/issues) en GitHub si quieres que tu fuente aparezca destacada."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrez un [issue](https://github.com/claration/VexSign/issues) sur GitHub si vous souhaitez que votre source soit mise en avant."
+            "value" : "Ouvrez un [issue](https://github.com/raynmahbub/VexSign/issues) sur GitHub si vous souhaitez que votre source soit mise en avant."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buka [issue](https://github.com/claration/VexSign/issues) di GitHub jika Anda ingin sumber Anda ditampilkan."
+            "value" : "Buka [issue](https://github.com/raynmahbub/VexSign/issues) di GitHub jika Anda ingin sumber Anda ditampilkan."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apri un [problema](https://github.com/claration/VexSign/issues) su GitHub se vuoi che la tua fonte sia consigliata."
+            "value" : "Apri un [problema](https://github.com/raynmahbub/VexSign/issues) su GitHub se vuoi che la tua fonte sia consigliata."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otwórz [issue](https://github.com/claration/VexSign/issues) na GitHubie, jeśli chcesz, aby Twoje źródło zostało wyróżnione."
+            "value" : "Otwórz [issue](https://github.com/raynmahbub/VexSign/issues) na GitHubie, jeśli chcesz, aby Twoje źródło zostało wyróżnione."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Откройте [issue](https://github.com/claration/VexSign/issues) на GitHub, если хотите, чтобы ваш источник был в рекомендуемых."
+            "value" : "Откройте [issue](https://github.com/raynmahbub/VexSign/issues) на GitHub, если хотите, чтобы ваш источник был в рекомендуемых."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kaynağınızın öne çıkarılmasını istiyorsanız GitHub’da bir [sorun kaydı](https://github.com/claration/VexSign/issues) açın."
+            "value" : "Kaynağınızın öne çıkarılmasını istiyorsanız GitHub’da bir [sorun kaydı](https://github.com/raynmahbub/VexSign/issues) açın."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mở [issue](https://github.com/claration/VexSign/issues) trên GitHub nếu bạn muốn nguồn của mình được giới thiệu."
+            "value" : "Mở [issue](https://github.com/raynmahbub/VexSign/issues) trên GitHub nếu bạn muốn nguồn của mình được giới thiệu."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启一个[issue](https://github.com/claration/VexSign/issues)"
+            "value" : "开启一个[issue](https://github.com/raynmahbub/VexSign/issues)"
           }
         }
       }

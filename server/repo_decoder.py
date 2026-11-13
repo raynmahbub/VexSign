@@ -16,9 +16,9 @@ then lints the result with `repo_creator.validate_draft` — the same validator 
 Repository Creator uses, so a feed that decodes cleanly here also exports
 cleanly there.
 
-Fetch policy: public feeds are the point (AltStore sources are public), so no
-private-address restriction — but the response is capped at 4 MiB, redirects are
-followed only as http(s), and nothing is stored.
+Fetch policy: public feeds only — private, loopback, link-local, CGNAT, and
+internal hostnames are blocked on both initial URLs and redirects, the response
+is capped at 4 MiB, redirects are followed only as http(s), and nothing is stored.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import xml.etree.ElementTree as ET
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -34,12 +34,15 @@ from pydantic import BaseModel
 
 import repo_creator
 from repo_creator import RepoApp, RepoDraft, build_export, validate_draft
+from url_guard import public_url_error, should_resolve_dns
 from web_chrome import page
 
 router = APIRouter()
 
 MAX_FETCH_BYTES = 4 * 1024 * 1024
 FETCH_TIMEOUT_SECONDS = 20.0
+MAX_REDIRECTS = 5
+REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 
 # Canonical key -> every spelling seen in the wild. First match wins, so order
 # the most specific alias first.
@@ -115,36 +118,51 @@ class ConvertBody(DecodeBody):
 
 def _make_client() -> httpx.Client:
     """Factory so tests can substitute an httpx.MockTransport."""
-    return httpx.Client(timeout=FETCH_TIMEOUT_SECONDS, follow_redirects=True)
+    return httpx.Client(timeout=FETCH_TIMEOUT_SECONDS, follow_redirects=False)
 
 
 def fetch_text(url: str) -> str:
     stripped = url.strip()
-    parsed = urlparse(stripped)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(status_code=422, detail="Give an http:// or https:// feed URL.")
+    if refusal := public_url_error(stripped, resolve_dns=False):
+        raise HTTPException(status_code=422, detail=refusal)
 
     chunks: list[bytes] = []
     total = 0
     try:
         with _make_client() as client:
-            with client.stream("GET", stripped, headers={"User-Agent": "VexSign-RepoDecoder/1.0"}) as response:
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"{stripped} returned {response.status_code}.",
-                    )
-                final = urlparse(str(response.url))
-                if final.scheme not in ("http", "https"):
-                    raise HTTPException(status_code=422, detail="That URL redirected somewhere unexpected.")
-                for chunk in response.iter_bytes(65_536):
-                    total += len(chunk)
-                    if total > MAX_FETCH_BYTES:
+            resolve_dns = should_resolve_dns(client)
+            current_url = stripped
+            for hop in range(MAX_REDIRECTS + 1):
+                if refusal := public_url_error(current_url, resolve_dns=resolve_dns):
+                    raise HTTPException(status_code=422, detail=refusal)
+                with client.stream(
+                    "GET",
+                    current_url,
+                    headers={"User-Agent": "VexSign-RepoDecoder/1.0"},
+                    follow_redirects=False,
+                ) as response:
+                    if response.status_code in REDIRECT_STATUSES and response.headers.get("location"):
+                        if hop >= MAX_REDIRECTS:
+                            raise HTTPException(status_code=422, detail="Too many redirects.")
+                        current_url = urljoin(current_url, response.headers["location"].strip())
+                        continue
+                    if response.status_code != 200:
                         raise HTTPException(
-                            status_code=413,
-                            detail=f"Feed is larger than {MAX_FETCH_BYTES // (1024 * 1024)} MiB; paste it instead.",
+                            status_code=502,
+                            detail=f"{stripped} returned {response.status_code}.",
                         )
-                    chunks.append(chunk)
+                    final = urlparse(str(response.url))
+                    if final.scheme not in ("http", "https"):
+                        raise HTTPException(status_code=422, detail="That URL redirected somewhere unexpected.")
+                    for chunk in response.iter_bytes(65_536):
+                        total += len(chunk)
+                        if total > MAX_FETCH_BYTES:
+                            raise HTTPException(
+                                status_code=413,
+                                detail=f"Feed is larger than {MAX_FETCH_BYTES // (1024 * 1024)} MiB; paste it instead.",
+                            )
+                        chunks.append(chunk)
+                    break
     except httpx.HTTPError as error:
         raise HTTPException(status_code=502, detail=f"Could not fetch {stripped}: {error}")
 

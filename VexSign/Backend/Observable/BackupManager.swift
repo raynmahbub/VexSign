@@ -273,7 +273,7 @@ final class BackupManager {
 
 	/// Backs up any key in the app's namespaces; device/install-specific and credential keys are
 	/// excluded.
-	private static let _settingPrefixes = ["VexSign.", "vexsign.", "VexSign.", "signing_options"]
+	private static let _settingPrefixes = ["VexSign.", "vexsign.", "signing_options"]
 	private static let _settingDenylist: Set<String> = [
 		"vexsign.selectedCert",              // restored by uuid remap, not by raw index
 		"VexSign.premiumSourceHosts",       // premium activation is install-bound

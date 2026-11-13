@@ -25,13 +25,14 @@ from __future__ import annotations
 
 import plistlib
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from repo_creator import RepoApp, build_manifest, install_link
+from url_guard import public_url_error, should_resolve_dns
 from web_chrome import page
 
 router = APIRouter()
@@ -39,6 +40,8 @@ router = APIRouter()
 PROBE_TIMEOUT_SECONDS = 20.0
 # Only headers are wanted; a ranged GET is used when HEAD is refused.
 PROBE_RANGE_BYTES = 4096
+MAX_REDIRECTS = 5
+REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 
 INSTALLABLE_CONTENT_TYPES = (
     "application/octet-stream",
@@ -70,7 +73,48 @@ class ProbeBody(BaseModel):
 
 def _make_client() -> httpx.Client:
     """Factory so tests can substitute an httpx.MockTransport."""
-    return httpx.Client(timeout=PROBE_TIMEOUT_SECONDS, follow_redirects=True)
+    return httpx.Client(timeout=PROBE_TIMEOUT_SECONDS, follow_redirects=False)
+
+
+class UnsafeTargetError(ValueError):
+    """Raised when an initial or redirected URL resolves to a blocked target."""
+
+
+def _request_with_safe_redirects(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+) -> tuple[httpx.Response, list[str]]:
+    """Follow redirects one hop at a time, blocking non-public targets before sending."""
+    resolve_dns = should_resolve_dns(client)
+    current_url = url
+    current_method = method
+    redirects: list[str] = []
+
+    for _ in range(MAX_REDIRECTS + 1):
+        refusal = public_url_error(current_url, resolve_dns=resolve_dns)
+        if refusal:
+            raise UnsafeTargetError(refusal)
+        response = client.request(
+            current_method,
+            current_url,
+            headers=headers,
+            follow_redirects=False,
+        )
+        if response.status_code in REDIRECT_STATUSES and response.headers.get("location"):
+            if len(redirects) >= MAX_REDIRECTS:
+                raise ValueError(f"Too many redirects (more than {MAX_REDIRECTS}).")
+            redirects.append(current_url)
+            next_url = urljoin(current_url, response.headers["location"].strip())
+            if response.status_code == 303:
+                current_method = "GET"
+            current_url = next_url
+            continue
+        return response, redirects
+
+    raise ValueError(f"Too many redirects (more than {MAX_REDIRECTS}).")
 
 
 def _issue(severity: str, message: str, suggestion: str = "") -> dict[str, str]:
@@ -108,18 +152,32 @@ def probe_url(url: str) -> dict[str, Any]:
 
     try:
         with _make_client() as client:
-            response = client.head(url)
+            if refusal := public_url_error(url, resolve_dns=should_resolve_dns(client)):
+                result["issues"].append(_issue("error", refusal))
+                return result
+
+            response, redirects = _request_with_safe_redirects(client, "HEAD", url)
             if response.status_code in (403, 405, 501):
                 # Plenty of static hosts reject HEAD; a ranged GET says the same thing.
                 result["method"] = "GET"
-                response = client.get(url, headers={"Range": f"bytes=0-{PROBE_RANGE_BYTES - 1}"})
+                response, redirects = _request_with_safe_redirects(
+                    client,
+                    "GET",
+                    url,
+                    headers={"Range": f"bytes=0-{PROBE_RANGE_BYTES - 1}"},
+                )
             result["status"] = response.status_code
             result["contentType"] = response.headers.get("content-type", "").split(";")[0].strip()
             result["effectiveURL"] = str(response.url)
-            result["redirects"] = [str(item.url) for item in response.history]
+            result["redirects"] = redirects
             length = response.headers.get("content-length")
             if length and length.isdigit():
                 result["contentLength"] = int(length)
+    except UnsafeTargetError:
+        raise
+    except ValueError as error:
+        result["issues"].append(_issue("error", str(error)))
+        return result
     except httpx.HTTPError as error:
         result["issues"].append(_issue("error", f"Could not reach the IPA: {error}"))
         return result
@@ -169,7 +227,12 @@ def api_probe(body: ProbeBody) -> dict[str, Any]:
     url = body.ipaURL.strip()
     if not url:
         raise HTTPException(status_code=422, detail="Give the IPA URL to check.")
-    return probe_url(url)
+    if refusal := public_url_error(url, resolve_dns=False):
+        raise HTTPException(status_code=422, detail=refusal)
+    try:
+        return probe_url(url)
+    except UnsafeTargetError as error:
+        raise HTTPException(status_code=422, detail=str(error))
 
 
 @router.post("/api/tools/install/manifest")
@@ -178,6 +241,9 @@ def api_manifest(body: ManifestBody) -> dict[str, Any]:
     manifest_url = body.manifestURL.strip()
     if not ipa:
         raise HTTPException(status_code=422, detail="Give the https URL of the IPA.")
+    if body.probe:
+        if refusal := public_url_error(ipa, resolve_dns=False):
+            raise HTTPException(status_code=422, detail=refusal)
 
     issues = _require_https(ipa, "IPA URL") + _require_https(manifest_url, "manifest URL")
     if any(issue["severity"] == "error" for issue in issues):
@@ -186,7 +252,10 @@ def api_manifest(body: ManifestBody) -> dict[str, Any]:
     probe: dict[str, Any] | None = None
     size = body.size
     if body.probe:
-        probe = probe_url(ipa)
+        try:
+            probe = probe_url(ipa)
+        except UnsafeTargetError as error:
+            raise HTTPException(status_code=422, detail=str(error))
         issues.extend(probe["issues"])
         if not size and probe.get("contentLength"):
             size = probe["contentLength"]

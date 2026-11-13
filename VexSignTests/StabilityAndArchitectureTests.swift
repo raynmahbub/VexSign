@@ -194,6 +194,14 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		}
 
 		UserDefaults.standard.set(false, forKey: key)
+		let filtered = FR.validatedRepositoryURLs([
+			URL(string: "https://example.com/apps.json")!,
+			URL(string: "http://example.com/apps.json")!,
+			URL(string: "file:///tmp/apps.json")!,
+			URL(string: "https://user:secret@example.com/apps.json")!
+		])
+		XCTAssertEqual(filtered, [URL(string: "https://example.com/apps.json")!])
+
 		try PackageDownloadURLPolicy.validateInitialURL(URL(string: "https://cdn.example.com/app.ipa")!)
 		XCTAssertThrowsError(try PackageDownloadURLPolicy.validateInitialURL(URL(string: "http://cdn.example.com/app.ipa")!))
 		XCTAssertThrowsError(try PackageDownloadURLPolicy.validateInitialURL(URL(string: "file:///tmp/app.ipa")!))
