@@ -183,6 +183,11 @@ struct SigningPlan: Equatable {
 			options: [.skipsHiddenFiles]
 		) {
 			for url in contents where url.pathExtension.lowercased() == "dylib" {
+				// Same rule as the nested walk: only a regular file is a library. A symlink
+				// would be signed through to its target a second time, and a directory that
+				// happens to be named `.dylib` is not code.
+				let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) // try? ok: unreadable entry is skipped
+				guard values?.isSymbolicLink == false, values?.isRegularFile == true else { continue }
 				add(url, kind: .dylib)
 			}
 		}

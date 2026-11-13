@@ -213,7 +213,8 @@ final class MachOInspectorTests: XCTestCase {
         let inspection = MachOInspector.inspect(data)
         XCTAssertEqual(inspection.slices.first?.architecture, .armv7)
         XCTAssertEqual(inspection.slices.first?.is64Bit, false)
-        XCTAssertEqual(inspection.issues, [.missingCodeSignature("armv7")])
+        // Parsed, and reported for what it is: no supported iOS runs a 32-bit slice.
+        XCTAssertEqual(inspection.issues, [.unsupportedArchitecture("armv7"), .missingCodeSignature("armv7")])
     }
 
     func testVersionMinCommandSuppliesSystemAndPlatform() {

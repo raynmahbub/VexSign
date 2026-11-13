@@ -57,8 +57,8 @@ struct RuntimeCapabilityReport: Equatable {
         /// Guest keychain isolation hooks. Only the guest prototype installs these; the
         /// native-primary layout deliberately keeps the host application identity.
         case guestKeychainHooks
-        /// Background tasks registered by this build. The guest prototype cannot register
-        /// the host's handlers, so scheduled work is limited to the native-primary layout.
+        /// Background tasks registered by this build. Available in the ordinary app and in
+        /// the native-primary layout; the guest prototype cannot register the handlers.
         case scheduledGuestTasks
         /// Handoff to a separately installed runtime application. Never available: VexSign
         /// reaches the runtime it was built with, and a detected URL handler is not evidence
@@ -145,6 +145,13 @@ struct RuntimeCapabilityReport: Equatable {
         // Reachability of the host entry point gates everything except the one operation
         // VexSign does not implement at all.
         guard operation != .externalAppHandoff else { return .unavailable(.unsupportedByDesign) }
+        // Background tasks belong to this app, not to the embedded runtime, so they do not
+        // depend on the runtime being loaded. Only the guest prototype loses them, because
+        // its entry point is not the one that registers the handlers. Gating this on the
+        // runtime left the ordinary app registering no background tasks at all.
+        if operation == .scheduledGuestTasks {
+            return environment == .combinedGuestPrototype ? .unavailable(.notPartOfThisLayout) : .available
+        }
         guard facts.runtimeLoaded, environment != .standalone else {
             return .unavailable(.runtimeNotLoaded)
         }

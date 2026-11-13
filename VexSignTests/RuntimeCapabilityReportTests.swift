@@ -43,10 +43,21 @@ final class RuntimeCapabilityReportTests: XCTestCase {
     func testTheOrdinaryAppReachesNoRuntimeOperation() {
         let report = report(loaded: false)
         XCTAssertEqual(report.environment, .standalone)
-        for operation in RuntimeCapabilityReport.Operation.allCases where operation != .externalAppHandoff {
+        let runtimeOperations = RuntimeCapabilityReport.Operation.allCases.filter {
+            $0 != .externalAppHandoff && $0 != .scheduledGuestTasks
+        }
+        for operation in runtimeOperations {
             XCTAssertFalse(report.isAvailable(operation), "\(operation) must not be reachable from the ordinary app")
             XCTAssertEqual(report.reason(for: operation), .runtimeNotLoaded)
         }
+    }
+
+    func testTheOrdinaryAppRegistersItsOwnBackgroundTasks() {
+        // These are the app's tasks, not the runtime's. Without them the ordinary build
+        // would run no scheduled work at all.
+        let report = report(loaded: false)
+        XCTAssertTrue(report.isAvailable(.scheduledGuestTasks))
+        XCTAssertNil(report.reason(for: .scheduledGuestTasks))
     }
 
     func testExternalHandoffIsUnsupportedInEveryLayout() {
@@ -100,9 +111,11 @@ final class RuntimeCapabilityReportTests: XCTestCase {
         for guest in [false, true] {
             for primary in [false, true] {
                 let report = report(guest: guest, primary: primary, loaded: false)
-                for operation in RuntimeCapabilityReport.Operation.allCases {
+                // Background tasks are the app's own and are covered separately.
+                for operation in RuntimeCapabilityReport.Operation.allCases where operation != .scheduledGuestTasks {
                     XCTAssertFalse(report.isAvailable(operation), "\(operation) claimed without a loaded runtime")
                 }
+                XCTAssertEqual(report.isAvailable(.scheduledGuestTasks), !guest)
             }
         }
     }
