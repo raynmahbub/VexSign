@@ -107451,6 +107451,17 @@
           }
         }
       }
+    },
+    "Requested refresh for %lld repositories. Check repository health for results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requested refresh for %lld repositories. Check repository health for results."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
