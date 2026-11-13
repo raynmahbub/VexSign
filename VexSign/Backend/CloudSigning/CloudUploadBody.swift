@@ -102,8 +102,10 @@ enum CloudUploadBody {
 		return written
 	}
 
-	/// The upload request: `kind` belongs in the query string, and the token in both headers the
-	/// service accepts.
+	/// The upload request: `kind` belongs in the query string, and the token in `Authorization` —
+	/// the only header the service verifies and the only one it redacts from its access log.
+	/// The same token used to be sent a second time as `x-api-key`, which the service ignores and
+	/// does not redact, so the credential was written to its logs in clear text.
 	static func request(base: URL, kind: CloudArtifactKind, apiKey: String, boundary: String) throws -> URLRequest {
 		var components = URLComponents(
 			url: base.appendingPathComponent("api/upload"),
@@ -117,7 +119,6 @@ enum CloudUploadBody {
 		request.setValue(contentType(boundary: boundary), forHTTPHeaderField: "Content-Type")
 		if !apiKey.isEmpty {
 			request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-			request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
 		}
 		return request
 	}

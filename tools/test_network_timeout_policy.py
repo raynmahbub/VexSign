@@ -75,16 +75,29 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                     )
 
     def test_cloud_signing_requests_that_are_reachable_are_bounded(self) -> None:
-        # `signRemotely` is disabled (private-key upload refused), so the two request builders
-        # that only it can reach are exempt. `checkHealth` is what the connection test uses and
-        # it already carries a timeout; this keeps a future edit from dropping it.
+        # `signRemotely` is disabled (private-key upload refused), but `checkHealth` and `upload`
+        # are reachable. Both are bounded: the JSON builder sets `timeoutInterval` on every
+        # request it makes, and the upload session carries a resource timeout for a 2 GiB body.
+        # The requests used to be assembled inline here, which is why this test looked for the
+        # property inside the method; it now follows it to the builder instead.
         source = (ROOT / "VexSign/Backend/CloudSigning/CloudSigningClient.swift").read_text()
         start = source.find("func checkHealth()")
         self.assertNotEqual(start, -1, "checkHealth is the reachable cloud request")
         health = source[start:]
         end = health.find("\n\tfunc ", 10)   # the next method, not this declaration
         health = health[:end] if end != -1 else health
-        self.assertIn("timeoutInterval", health, "the cloud connection test must be bounded")
+        self.assertRegex(health, r"timeout:\s*\d", "the cloud connection test must set its own bound")
+
+        builder = source[source.find("private func _request("):]
+        self.assertIn("request.timeoutInterval = timeout", builder,
+                      "every cloud JSON request must carry the bound it was given")
+
+        upload = source[source.find("func upload(fileURL:"):]
+        upload = upload[:upload.find("\n\tfunc ", 10)]
+        self.assertIn("timeoutIntervalForResource", source,
+                      "a large upload needs a resource timeout, not just a request one")
+        self.assertIn("uploadSession.upload", upload, "the upload must use the bounded session")
+
         self.assertIn("privateKeyUploadDisabled", source,
                       "if upload becomes enabled, its requests need timeouts too")
 

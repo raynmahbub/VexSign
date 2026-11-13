@@ -16,6 +16,30 @@ export const artifactMetadata = z.object({
   screenshotURLs: z.array(z.url().refine(v => new URL(v).protocol === 'https:')).max(10).default([]),
 }).strict();
 export type ArtifactMetadata = z.infer<typeof artifactMetadata>;
+export const jobState = z.enum(['queued', 'running', 'completed', 'failed']);
+/**
+ * The `GET /api/jobs/{id}` body. It used to be an undocumented row shape, so the iOS client
+ * guessed (`status`, `error`, `installUrl`) and could never decode it. Naming follows the
+ * database row on purpose: the wire format is snake_case, and renaming it would break whatever
+ * already reads it without making anything safer.
+ *
+ * `output_sha256` is included so a client can verify a downloaded artifact. It is null until a
+ * signing job completes.
+ */
+export const jobView = z.object({
+  id: uuid,
+  kind: z.enum(['sign', 'check-cert']),
+  state: jobState,
+  result: z.record(z.string(), z.unknown()).nullable(),
+  error_code: z.string().max(200).nullable(),
+  output_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+  created_at: z.iso.datetime(),
+  finished_at: z.iso.datetime().nullable(),
+  installURL: z.url().optional(),
+}).strict();
+export const queueCounts = z.object({
+  counts: z.array(z.object({ state: jobState, count: z.number().int().nonnegative() }).strict()),
+}).strict();
 export const certificateResult = z.object({
   status: z.enum(['good', 'revoked', 'unknown']),
   checkedAt: z.iso.datetime(), teamID: z.string().max(100), teamName: z.string().max(300),
