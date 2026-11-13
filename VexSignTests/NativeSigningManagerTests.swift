@@ -139,11 +139,15 @@ struct NativeSigningManagerTests {
 
     // MARK: - Availability Tests
 
-    @Test("Availability reports a reason exactly when the method is unavailable")
+    @Test("An unavailable method always reports a reason")
     func testAvailabilityReasonMatchesAvailability() {
         for method in SigningMethod.allCases {
             let availability = SigningMethodAvailability.current(for: method)
-            #expect(availability.isAvailable == (availability.availabilityReason == nil))
+            // The reason doubles as a caveat for a method that is selectable but limited, so
+            // only one direction holds: an unavailable method always says why.
+            if !availability.isAvailable {
+                #expect(availability.availabilityReason != nil)
+            }
         }
     }
 
@@ -154,7 +158,10 @@ struct NativeSigningManagerTests {
         // be greyed out because no session exists yet.
         let availability = SigningMethodAvailability.current(for: .freeAppleID)
         #expect(availability.isAvailable)
-        #expect(availability.availabilityReason == nil)
+        // While the native account adapter is not wired into signing, the row carries the
+        // "experimental" caveat. It is a caveat, not a reason the row is disabled.
+        let integrated = SigningMethodCapabilities.current.nativeAppleAccountSigning != .notIntegrated
+        #expect((availability.availabilityReason == nil) == integrated)
     }
 
     @Test("Paid certificate availability mirrors imported certificates")

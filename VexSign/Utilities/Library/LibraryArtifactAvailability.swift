@@ -102,8 +102,8 @@ enum LibraryArtifactInspector {
 
     /// The one place that touches the disk.
     ///
-    /// The size is only asked for when the cheaper checks pass, so a healthy row costs three
-    /// `stat` calls and a damaged one costs fewer.
+    /// The size is only asked for when the cheaper checks pass, so a damaged row costs less
+    /// than a healthy one.
     static func facts(of bundleURL: URL, executableName: String? = nil) -> Facts {
         let manager = FileManager.default
         var isDirectory: ObjCBool = false
@@ -116,19 +116,40 @@ enum LibraryArtifactInspector {
             return Facts(bundleDirectoryExists: true, infoPlistExists: false)
         }
 
-        let executable = executableName.flatMap { name -> Bool? in
-            guard !name.isEmpty else { return nil }
-            return manager.fileExists(atPath: bundleURL.appendingPathComponent(name).path)
+        // Without a name from the record, the bundle's own Info.plist says which file is the
+        // executable. Callers pass no name today, so without this the executable was never
+        // looked for. A plist that does not name one leaves the question open; it is not
+        // treated as a missing executable.
+        let resolvedName = executableName.flatMap { $0.isEmpty ? nil : $0 }
+            ?? declaredExecutableName(in: bundleURL)
+
+        let executable = resolvedName.map { name in
+            manager.fileExists(atPath: bundleURL.appendingPathComponent(name).path)
         } ?? true
 
         guard executable else {
             return Facts(bundleDirectoryExists: true, infoPlistExists: true,
-                         executableName: executableName, executableExists: false)
+                         executableName: resolvedName, executableExists: false)
         }
 
         let bytes = directorySize(bundleURL)
         return Facts(bundleDirectoryExists: true, infoPlistExists: true,
-                     executableName: executableName, executableExists: true, byteCount: bytes)
+                     executableName: resolvedName, executableExists: true, byteCount: bytes)
+    }
+
+    /// `CFBundleExecutable` from the bundle's Info.plist, when it is a plain file name.
+    ///
+    /// The size bound keeps a damaged or hostile plist from being loaded whole, and a value
+    /// containing a path separator is ignored so the check cannot be pointed outside the bundle.
+    private static func declaredExecutableName(in bundleURL: URL) -> String? {
+        let plistURL = bundleURL.appendingPathComponent("Info.plist")
+        guard let size = (try? plistURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, // try? ok: an unreadable plist leaves the executable question open
+              size > 0, size <= 4 * 1024 * 1024,
+              let data = try? Data(contentsOf: plistURL), // try? ok: an unreadable plist leaves the executable question open
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any], // try? ok: an unparseable plist leaves the executable question open
+              let name = plist["CFBundleExecutable"] as? String,
+              !name.isEmpty, !name.contains("/"), name != ".", name != ".." else { return nil }
+        return name
     }
 
     /// Recursive byte count, bounded so a large bundle cannot stall a library row.

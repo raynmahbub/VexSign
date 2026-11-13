@@ -143,6 +143,29 @@ struct TaskContext: Codable, Equatable {
     var clientVersion: String = BuildIdentity.version
     var sourceCommit: String = BuildIdentity.commit
 
+    // Written out so `init(from:)` below can read the two build fields leniently.
+    private enum CodingKeys: String, CodingKey {
+        case appVersion
+        case appBuild
+        case installationMethod
+        case expectedBundleIdentifier
+        case handoffAt
+        case lastReconciliationAt
+        case monitoringActive
+        case certificateReference
+        case optionsFingerprint
+        case artifactID
+        case signingTaskID
+        case importTaskID
+        case confirmationReason
+        case verificationAttempts
+        case errorCategory
+        case errorCode
+        case signingTrace
+        case clientVersion
+        case sourceCommit
+    }
+
     static func fingerprint(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
@@ -151,6 +174,37 @@ struct TaskContext: Codable, Equatable {
         guard let raw, !raw.isEmpty, raw.count <= 64, raw.first?.isNumber == true,
               raw.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-_+").contains($0) }) else { return nil }
         return raw
+    }
+}
+
+extension TaskContext {
+    /// History written before the build fields existed has neither key. The synthesized
+    /// decoder treats a defaulted, non-optional property as required, so one such record
+    /// failed the whole history array. A record that does not say which build wrote it is
+    /// read as "unknown", never as this build.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
+        appVersion = try container.decodeIfPresent(String.self, forKey: .appVersion)
+        appBuild = try container.decodeIfPresent(String.self, forKey: .appBuild)
+        installationMethod = try container.decodeIfPresent(String.self, forKey: .installationMethod)
+        expectedBundleIdentifier = try container.decodeIfPresent(String.self, forKey: .expectedBundleIdentifier)
+        handoffAt = try container.decodeIfPresent(Date.self, forKey: .handoffAt)
+        lastReconciliationAt = try container.decodeIfPresent(Date.self, forKey: .lastReconciliationAt)
+        monitoringActive = try container.decodeIfPresent(Bool.self, forKey: .monitoringActive)
+        certificateReference = try container.decodeIfPresent(String.self, forKey: .certificateReference)
+        optionsFingerprint = try container.decodeIfPresent(String.self, forKey: .optionsFingerprint)
+        artifactID = try container.decodeIfPresent(String.self, forKey: .artifactID)
+        signingTaskID = try container.decodeIfPresent(String.self, forKey: .signingTaskID)
+        importTaskID = try container.decodeIfPresent(String.self, forKey: .importTaskID)
+        confirmationReason = try container.decodeIfPresent(String.self, forKey: .confirmationReason)
+        verificationAttempts = try container.decodeIfPresent(Int.self, forKey: .verificationAttempts)
+        errorCategory = try container.decodeIfPresent(String.self, forKey: .errorCategory)
+        errorCode = try container.decodeIfPresent(Int.self, forKey: .errorCode)
+        signingTrace = try container.decodeIfPresent(TaskSigningTrace.self, forKey: .signingTrace)
+        clientVersion = try container.decodeIfPresent(String.self, forKey: .clientVersion) ?? "unknown"
+        sourceCommit = try container.decodeIfPresent(String.self, forKey: .sourceCommit)
+            ?? BuildIdentity.validatedCommit(nil)
     }
 }
 

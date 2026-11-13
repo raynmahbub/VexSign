@@ -127,8 +127,14 @@ final class UpdateAllManager: ObservableObject {
 	// MARK: Running
 
 	/// Runs a prepared queue. Returns when every item finished, failed or was skipped.
-	func run(tasks prepared: [UpdateTask], automatic: Bool = false) async {
+	///
+	/// `unattended` marks a run nobody is present for. Each item is then signed only if the
+	/// background-signing permission covers the certificate that item resolves to, checked
+	/// when the item is signed, so a per-app pinned certificate cannot widen the permission
+	/// and turning it off stops the rest of the queue.
+	func run(tasks prepared: [UpdateTask], automatic: Bool = false, unattended: Bool = false) async {
 		guard !isRunning, !prepared.isEmpty else { return }
+		_unattended = unattended
 
 		// Game Mode: updating apps means downloading them. Say so rather than silently
 		// doing nothing, since this is a deliberate tap.
@@ -302,6 +308,9 @@ final class UpdateAllManager: ObservableObject {
 		}
 	}
 
+	/// Set for the duration of one `run`; read on the main actor only.
+	private var _unattended = false
+
 	private func _sign(_ app: AppInfoPresentable, automatic: Bool) async -> Result<Void, Error> {
 		let profile = SigningProfileStore.shared.profile(forBundleID: app.identifier)
 		let rule = PerAppUpdateRulesStore.persisted[app.identifier ?? ""] ?? PerAppUpdateRule()
@@ -313,6 +322,15 @@ final class UpdateAllManager: ObservableObject {
 
 		guard options.signingOption != .default || certificate != nil else {
 			return .failure(Self.error(.localized("No certificate. Import one in Settings → Certificates, or set the default signing option.")))
+		}
+
+		if _unattended {
+			let decision = UnattendedSigningGrantStore.decision(
+				scope: .signAndQueueUpdates, certificateUUID: certificate?.uuid
+			)
+			guard decision.isAuthorized else {
+				return .failure(Self.error(decision.explanation))
+			}
 		}
 
 		// An updated copy is a new bundle: a tweak file that was added for one earlier sign is

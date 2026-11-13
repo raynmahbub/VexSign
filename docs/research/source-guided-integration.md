@@ -211,6 +211,17 @@ Run locally on 2026-11-13 after the change, all passing:
 Not run: Swift compilation, XCTest (including the five new test files), simulator tests,
 the strict-concurrency report, any GitHub Actions workflow, anything on a device.
 
+Since then, CI run 422 on `main` at `ffceb89` compiled this work for the first time:
+
+- `build · VexSign Debug (unsigned)`, scheme `VexSign`, `generic/platform=iOS`: passed.
+- `tests · VexSignTests (simulator)`, scheme `VexSignTests`: the test target compiled;
+  1701 tests ran, 1687 passed, 12 failed, 2 skipped. The run before this work
+  (419, `a4e6035`) had 1606 tests and the same 12 failures.
+- Platform check 180: watchOS passed; tvOS and visionOS failed to build, as they did
+  before this work.
+
+That is simulator and build evidence only. Nothing here has run on a device.
+
 ## Device acceptance for this change
 
 1. Inject a rootful `.deb` and a rootless `.deb`; each should sign and the app should launch.

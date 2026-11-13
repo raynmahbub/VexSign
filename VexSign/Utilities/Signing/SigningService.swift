@@ -194,7 +194,7 @@ struct SigningPipeline: SigningWork {
 		if request.options.signingOption == .default,
 		   let uuid = request.certificate?.uuid,
 		   let rejection = SigningIdentityPolicy.rejection(
-			certificateExpiry: CertificateRevocationSnapshot.stored(forCertificateUUID: uuid)?.certificateExpires
+			storedSnapshot: CertificateRevocationSnapshot.stored(forCertificateUUID: uuid)
 		   ) {
 			log.error(SigningIdentityPolicy.logLine(for: rejection))
 			return .failure(rejection)

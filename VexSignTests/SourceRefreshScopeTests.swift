@@ -95,6 +95,8 @@ final class SourceRefreshScopeTests: XCTestCase {
         let source = AltSource(context: storage.context)
         source.identifier = id
         source.sourceURL = URL(string: "https://example.com/deleted.json")!
+        // `date` is required by the model; this is the one fixture here that is saved.
+        source.date = Date()
         try storage.context.save()
         defer {
             RepositorySnapshotCache.remove(identifier: id)

@@ -116,6 +116,19 @@ def summary_lines(summary_path: str, tests_path: str) -> list[str]:
 
         named = summary.get("testFailures") or []
         lines.append(f"failing tests: {len(named)}")
+        # Every failing name in as few annotations as possible. The per-test
+        # annotations below are capped, and without this a run with more
+        # failures than the cap hides the rest from anyone who can only read
+        # annotations.
+        names = sorted({str(f.get("testName") or "?")[:120] for f in named})
+        chunk: list[str] = []
+        for name in names:
+            if chunk and len(", ".join(chunk + [name])) > 800:
+                lines.append("NAMES " + ", ".join(chunk))
+                chunk = []
+            chunk.append(name)
+        if chunk:
+            lines.append("NAMES " + ", ".join(chunk))
         for failure in named:
             title = str(failure.get("testName") or "?")[:200]
             location = (failure.get("sourceCodeContext") or {}).get("location") or {}
@@ -174,6 +187,8 @@ def emit(line: str) -> None:
         annotate(line[5:])
     elif line.startswith("SUMMARY "):
         annotate(line[8:])
+    elif line.startswith("NAMES "):
+        annotate("failing: " + line[6:])
     else:
         # FAILED/RAW stay out of the annotations: GitHub caps those at ten per
         # step, and the log is where the complete list has to live.

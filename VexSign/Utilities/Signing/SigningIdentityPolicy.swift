@@ -105,6 +105,17 @@ enum SigningIdentityPolicy {
 		return .certificateExpired(expiresAt: certificateExpiry)
 	}
 
+	/// What the last status check recorded for this certificate.
+	///
+	/// A recorded revocation refuses the run even if the certificate row was not updated;
+	/// the row and the snapshot are written separately. "No answer" and "not checked" are
+	/// not revocations and refuse nothing.
+	static func rejection(storedSnapshot snapshot: CertificateRevocationSnapshot?, now: Date = Date()) -> Rejection? {
+		guard let snapshot else { return nil }
+		if snapshot.status == .revoked { return .certificateRevoked }
+		return rejection(certificateExpiry: snapshot.certificateExpires, now: now)
+	}
+
 	/// A sentence for the run's log, so the refusal is visible in the console the user is
 	/// already looking at — not only in the alert.
 	static func logLine(for rejection: Rejection) -> String {
