@@ -277,8 +277,9 @@ final class SigningWorkflowTraceTests: XCTestCase {
 	func testContextWithoutBuildFieldsDecodesAndDoesNotClaimThisBuild() throws {
 		let context = try JSONDecoder().decode(TaskContext.self, from: Data(#"{"appVersion":"1.0"}"#.utf8))
 		XCTAssertEqual(context.appVersion, "1.0")
-		XCTAssertEqual(context.clientVersion, "unknown")
-		XCTAssertEqual(context.sourceCommit, "unavailable")
+		// Absent stays empty; the receipt renders empty as unavailable.
+		XCTAssertEqual(context.clientVersion, "")
+		XCTAssertEqual(context.sourceCommit, "")
 
 		// A record that does carry them keeps them through a round trip.
 		var written = TaskContext()
