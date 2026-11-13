@@ -8,6 +8,7 @@
 import SwiftUI
 import NimbleViews
 import NimbleExtensions
+import IDeviceSwift
 
 // MARK: - View
 struct BatchProgressView: View {

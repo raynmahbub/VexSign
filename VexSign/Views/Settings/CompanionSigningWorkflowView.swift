@@ -2,6 +2,7 @@ import SwiftUI
 import NimbleViews
 import NimbleExtensions
 import UIKit
+import IDeviceSwift
 
 import UniformTypeIdentifiers
 

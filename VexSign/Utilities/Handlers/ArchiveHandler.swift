@@ -8,6 +8,7 @@
 import Foundation
 import UIKit.UIApplication
 import SwiftUI
+import IDeviceSwift
 
 final class ArchiveHandler: NSObject {
 	let viewModel: InstallerStatusViewModel
