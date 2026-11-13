@@ -134,7 +134,6 @@ final class TaskHistoryJournalTests: XCTestCase {
         XCTAssertEqual(task.phase, .interrupted)
         XCTAssertEqual(task.failureStage, .signing)
     }
-}
 
     // MARK: - One unreadable record must not take the rest of the history with it
 
@@ -207,12 +206,14 @@ final class TaskHistoryJournalTests: XCTestCase {
         try original.write(to: url)
         let journal = TaskHistoryJournal(url: url)
 
-        guard case .loaded([], warning: .corruptPreserved) = await journal.load() else {
+        guard case .loaded(let snapshots, warning: .corruptPreserved) = await journal.load() else {
             return XCTFail("An object is not a history file; it must not be read as an empty history")
         }
+        XCTAssertTrue(snapshots.isEmpty, "a non-array document must not yield any records")
         let backup = try XCTUnwrap(
             FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
                 .first { $0.lastPathComponent.hasPrefix("TaskHistory-recovery-") }
         )
         XCTAssertEqual(try Data(contentsOf: backup), original)
     }
+}

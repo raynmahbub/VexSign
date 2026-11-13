@@ -108,12 +108,14 @@ final class CatalogIdentityTests: XCTestCase {
 
 	// MARK: - Discovery grouping
 
+	// `source` is last because every call site supplies it last: Swift argument lists are
+	// positional for the purpose of ordering, and the previous order did not compile.
 	private func app(
-		source: String = "https://example.com/repo.json",
 		bundleIdentifier: String = "com.example.app",
 		version: String = "1.0",
 		updated: Date? = Date(timeIntervalSince1970: 1_000),
-		name: String = "Example"
+		name: String = "Example",
+		source: String = "https://example.com/repo.json"
 	) -> DiscoveryApp {
 		DiscoveryApp(
 			id: CatalogIdentity.appID(source: source, bundleIdentifier: bundleIdentifier) ?? "invalid",
