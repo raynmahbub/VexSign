@@ -46,7 +46,12 @@ enum DiagnosticBundleExporter {
 			let optionsData = _buildOptionsSummaryJSON()
 			try optionsData.write(to: stagingDir.appendingPathComponent("signing_options.json"))
 
-			// 5. Compress into ZIP
+			// 5. Runtime execution layout and reachable operations. Environment and reason
+			//    codes only — no paths, guest names or bundle identifiers.
+			let runtimeData = _buildRuntimeJSON()
+			try runtimeData.write(to: stagingDir.appendingPathComponent("runtime.json"))
+
+			// 6. Compress into ZIP
 			let filesToZip = try fm.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
 			try Zip.zipFiles(paths: filesToZip, zipFilePath: zipURL, password: nil, progress: nil)
 
@@ -193,6 +198,14 @@ enum DiagnosticBundleExporter {
 		]
 
 		return (try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
+	}
+
+	private static func _buildRuntimeJSON() -> Data {
+		// `EmbeddedContainerRuntime.capabilityReport` reads `Bundle.main` flags and the host
+		// symbol; it is safe to call from the exporter and returns `standalone` in the
+		// ordinary build.
+		let report = EmbeddedContainerRuntime.capabilityReport
+		return (try? JSONSerialization.data(withJSONObject: report.jsonObject, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
 	}
 
 	@MainActor
