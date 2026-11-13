@@ -220,19 +220,22 @@ struct BackupRestoreSummary {
 	/// two disagree only when a write silently did not stick, and that is exactly the case a
 	/// success message must never hide.
 	var unverified: Int {
-		restored.reduce(0) { total, component in
-			total + max(0, (_added[component] ?? 0) - (_verified[component] ?? 0))
+		// Spelled out rather than one `reduce`: the untyped literal, the two dictionary
+		// subscripts, `max` and `-` in a single closure were enough for the type checker to
+		// give up on the whole property.
+		var total: Int = 0
+		for component in restored {
+			let added: Int = _added[component] ?? 0
+			let verified: Int = _verified[component] ?? 0
+			total += max(0, added - verified)
 		}
+		return total
 	}
 
 	var lines: [String] {
-		var result: [String] = BackupComponents.ordered.compactMap { component in
-			guard restored.contains(component) else { return nil }
-			let added = _added[component] ?? 0
-			let skipped = _skipped[component] ?? 0
-			return skipped > 0
-			? .localized("%@: %lld added, %lld skipped", arguments: component.title, added, skipped)
-			: .localized("%@: %lld added", arguments: component.title, added)
+		var result: [String] = []
+		for component in BackupComponents.ordered where restored.contains(component) {
+			result.append(line(for: component))
 		}
 		// Only a summary that actually ran the post-restore read can say something was not found.
 		// A caller that recorded counts without verifying is not silently accused of failing.
@@ -240,6 +243,18 @@ struct BackupRestoreSummary {
 			result.append(.localized("%lld restored item(s) could not be verified. Reopen the app and check those components.", arguments: unverified))
 		}
 		return result
+	}
+
+	/// One summary line, kept out of the loop body: the branch over a variadic
+	/// `localized(_:arguments:)` in a single expression was slow enough for the type
+	/// checker to give up on the whole property.
+	private func line(for component: BackupComponents) -> String {
+		let added = _added[component] ?? 0
+		let skipped = _skipped[component] ?? 0
+		if skipped > 0 {
+			return .localized("%@: %lld added, %lld skipped", arguments: component.title, added, skipped)
+		}
+		return .localized("%@: %lld added", arguments: component.title, added)
 	}
 }
 
