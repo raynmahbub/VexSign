@@ -335,18 +335,19 @@ final class SignatureVerifierTests: XCTestCase {
 
 	// MARK: - Override
 
-	/// A run started from the preflight sheet's "Sign Anyway" keeps the bundle it just signed:
-	/// the same profile problems are already in the report, and failing here would discard the
-	/// result one stage after the tap. The issues are not hidden — they stay in `failures`.
-	func testAProfileMismatchCanBeExplicitlySignedThrough() throws {
+	/// "Sign Anyway" used to keep a bundle whose profile is for another app. iOS refuses to
+	/// install that bundle, so the result was a signed copy that could not be installed. The
+	/// override no longer changes what the final check accepts.
+	func testAProfileMismatchIsNotSignedThroughByAnOverride() throws {
         let bundle = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.com.other.app"])
 		let report = SignatureVerifier.verify(bundleAt: bundle)
 
 		XCTAssertFalse(report.failures.isEmpty, _describe(report))
+		XCTAssertEqual(report.verdict, .invalid)
 		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false))
-		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true), "the user already accepted these issues")
+		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true))
 		XCTAssertThrowsError(try report.requireAcceptable())
-		XCTAssertNoThrow(try report.requireAcceptable(overridingBlockingIssues: true))
+		XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
 	}
 
 	/// The override is not a blanket "ignore verification": a directory with no bundle has
@@ -391,16 +392,43 @@ final class SignatureVerifierTests: XCTestCase {
         }
     }
 
-    func testOnlyCompatibilityFailuresCanBeOverridden() {
+    /// The four codes the override used to excuse. Each one describes a bundle iOS will not
+    /// install, so each one now stops the run like every other failure.
+    func testCompatibilityFailuresCannotBeOverridden() {
         let codes: [SignatureVerifier.Issue.Code] = [.profileExpired, .bundleIdentifierMismatch,
             .nestedIdentifierUncovered, .entitlementNotGranted]
         for code in codes {
             let report = SignatureVerifier.Report(bundlePath: "/test.app",
                 issues: [.init(code: code, severity: .failure, detail: code.rawValue)], duration: 0)
-            XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false))
-            XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true))
-            XCTAssertNoThrow(try report.requireAcceptable(overridingBlockingIssues: true))
+            XCTAssertEqual(report.verdict, .invalid, code.rawValue)
+            XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false), code.rawValue)
+            XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true), code.rawValue)
+            XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true), code.rawValue)
         }
+    }
+
+    func testTheVerdictSeparatesVerifiedFromMerelyNotFailed() {
+        let clean = SignatureVerifier.Report(bundlePath: "/test.app", issues: [], duration: 0)
+        XCTAssertEqual(clean.verdict, .valid)
+        XCTAssertTrue(clean.verdict.isVerified)
+
+        // An advisory that is not a gap in the evidence leaves the result verified.
+        let advisory = SignatureVerifier.Report(bundlePath: "/test.app",
+            issues: [.init(code: .unsignedNestedBundle, severity: .warning, detail: "")], duration: 0)
+        XCTAssertEqual(advisory.verdict, .valid)
+
+        // Evidence that could not be read means the checks that need it did not run.
+        for code in [SignatureVerifier.Issue.Code.profileUnreadable, .profileIdentifierUnknown, .entitlementUnreadable] {
+            let report = SignatureVerifier.Report(bundlePath: "/test.app",
+                issues: [.init(code: code, severity: .warning, detail: "")], duration: 0)
+            XCTAssertEqual(report.verdict, .incomplete, code.rawValue)
+            XCTAssertFalse(report.verdict.isVerified, code.rawValue)
+            XCTAssertFalse(report.stopsRun(overridingBlockingIssues: false), "nothing failed, so the copy is kept")
+        }
+
+        let missing = SignatureVerifier.Report(bundlePath: nil, issues: [], duration: 0)
+        XCTAssertEqual(missing.verdict, .unsupported)
+        XCTAssertTrue(missing.stopsRun(overridingBlockingIssues: true))
     }
 
     func testMixedCompatibilityAndStructuralFailuresStillStop() {

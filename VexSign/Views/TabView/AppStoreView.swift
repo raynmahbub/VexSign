@@ -376,6 +376,7 @@ struct AppStoreView: View {
             }
             .background(Theme.background)
             .scrollIndicators(.hidden)
+            .undoableRemovalBanner()
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: Text(.localized("Search Apps & Sources")))
             .onReceive(TabSelectionObserver.shared.$searchRequest) { request in
                 guard let request, request.tab == .appStore else { return }

@@ -344,10 +344,30 @@ final class InstallQueue: ObservableObject {
 
 	/// Retries the app at `index` (or the current one) by reinstating it and advancing back.
 	func retryCurrent(useLocalhost: Bool = false) {
+		guard apps.indices.contains(index) else { return }
+        // Checked before anything is torn down, so a refused retry leaves the failed attempt
+        // and its report exactly as they were. The retiring installer is this queue's own,
+        // so it is not a duplicate; one for the same copy elsewhere would be.
+        let entry = apps[index]
+        let directory = Storage.shared.getAppDirectory(for: entry.base)
+        let present = directory.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        let duplicate = (UnifiedTaskCenter.shared.tasks).contains {
+            $0.kind == .install && $0.phase.isInProgress && $0.subjectID == entry.base.uuid
+                && entry.base.uuid != nil && $0.id != unifiedTask?.id
+        }
+        switch InstallRetryPolicy.refusal(signedCopyPresent: present, duplicateInFlight: duplicate) {
+        case .signedCopyMissing:
+            Toast.error(.localized("The signed copy is no longer in the library, so it cannot be installed again. Sign the app again first."))
+            return
+        case .alreadyInstalling:
+            Toast.info(.localized("This app is already being installed."))
+            return
+        case nil:
+            break
+        }
         NBHaptic.tap()
         advanceScheduler.cancel()
         failurePresentation = nil
-		guard apps.indices.contains(index) else { return }
 		_teardownInstaller()
 		outcomes[apps[index].id] = .pending
 		isPaused = false

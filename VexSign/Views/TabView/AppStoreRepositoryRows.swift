@@ -113,7 +113,7 @@ struct RepositoryRow: View {
                 }
             }
             Button(role: .destructive) {
-                Storage.shared.deleteSource(for: source)
+                SourceRemoval.delete([source])
             } label: {
                 Label(.localized("Delete"), systemImage: "trash")
             }

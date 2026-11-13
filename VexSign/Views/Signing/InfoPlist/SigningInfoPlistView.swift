@@ -262,7 +262,7 @@ extension SigningInfoPlistView {
 				_editableRow(key: key, value: value, status: status)
 			}
 		}
-		.swipeActions(edge: .trailing) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			if status != .removed {
 				Button(role: .destructive) {
 					_remove(key)

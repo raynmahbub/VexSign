@@ -72,7 +72,7 @@ struct SettingsView: View {
                         Label(.localized("Signing Profiles"), systemImage: "person.crop.rectangle.stack.fill")
                     }
                     NavigationLink {
-                        TweakLibraryList().navigationTitle(.localized("Tweaks"))
+                        TweakLibraryList().undoableRemovalBanner().navigationTitle(.localized("Tweaks"))
                     } label: {
                         Label(.localized("Tweaks & Dylibs"), systemImage: "wrench.and.screwdriver.fill")
                     }
@@ -480,7 +480,7 @@ private extension SettingsView {
         case .featureStatus: FeatureStatusView()
         case .companionSigning: CompanionSigningWorkflowView()
         case .companionDiagnostics: CompanionSetupDiagnosticsView()
-        case .tweaks: TweakLibraryList().navigationTitle(.localized("Tweaks"))
+        case .tweaks: TweakLibraryList().undoableRemovalBanner().navigationTitle(.localized("Tweaks"))
         }
     }
 

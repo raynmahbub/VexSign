@@ -108364,6 +108364,435 @@
           }
         }
       }
+    },
+    "%@ is not covered by this profile, so it cannot be signed correctly. Use a profile that includes it, or enable compatibility mode to remove it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not covered by this profile, so it cannot be signed correctly. Use a profile that includes it, or enable compatibility mode to remove it."
+          }
+        }
+      }
+    },
+    "Delete Certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Certificate"
+          }
+        }
+      }
+    },
+    "Delete this certificate?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this certificate?"
+          }
+        }
+      }
+    },
+    "Install Again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install Again"
+          }
+        }
+      }
+    },
+    "Install again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install again?"
+          }
+        }
+      }
+    },
+    "Resolve the issues marked above, then review again. Changing the certificate, the bundle identifier or the extension options are the usual fixes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolve the issues marked above, then review again. Changing the certificate, the bundle identifier or the extension options are the usual fixes."
+          }
+        }
+      }
+    },
+    "Signing was not started. %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing was not started. %@"
+          }
+        }
+      }
+    },
+    "Some signing evidence could not be read, so the checks that depend on it did not run." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some signing evidence could not be read, so the checks that depend on it did not run."
+          }
+        }
+      }
+    },
+    "The certificate, its private key and its provisioning profile are removed from VexSign. It is not revoked with Apple, and apps already signed with it are not changed. Saved signing settings that use it will fall back to the selected certificate, and any automatic signing approved for it stops." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate, its private key and its provisioning profile are removed from VexSign. It is not revoked with Apple, and apps already signed with it are not changed. Saved signing settings that use it will fall back to the selected certificate, and any automatic signing approved for it stops."
+          }
+        }
+      }
+    },
+    "The last attempt was handed to iOS and its result is unknown, so the app may already be installed. Check the Home Screen first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last attempt was handed to iOS and its result is unknown, so the app may already be installed. Check the Home Screen first."
+          }
+        }
+      }
+    },
+    "The package was handed to iOS, but iOS gives an app no way to read the result of an over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. The pairing-file installation method reports the device's own result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package was handed to iOS, but iOS gives an app no way to read the result of an over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. The pairing-file installation method reports the device's own result."
+          }
+        }
+      }
+    },
+    "The profile's App ID (%@) is not a valid App ID (%@), so it cannot authorize %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The profile's App ID (%@) is not a valid App ID (%@), so it cannot authorize %@."
+          }
+        }
+      }
+    },
+    "The selected profile cannot sign all retained extensions. Choose a profile that includes them, enable automatic compatibility mode, or enable Remove App Extensions. %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected profile cannot sign all retained extensions. Choose a profile that includes them, enable automatic compatibility mode, or enable Remove App Extensions. %@"
+          }
+        }
+      }
+    },
+    "The signed copy may not install or launch. The final signature check still applies and can reject the result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy may not install or launch. The final signature check still applies and can reject the result."
+          }
+        }
+      }
+    },
+    "This app cannot be signed with the current certificate and profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app cannot be signed with the current certificate and profile."
+          }
+        }
+      }
+    },
+    "This app cannot be signed with the saved certificate and profile. Open Sign to change them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app cannot be signed with the saved certificate and profile. Open Sign to change them."
+          }
+        }
+      }
+    },
+    "Signature verified and ready for installation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature verified and ready for installation"
+          }
+        }
+      }
+    },
+    "The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. The pairing-file installation method reports the device's own result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. The pairing-file installation method reports the device's own result."
+          }
+        }
+      }
+    },
+    "Removed %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed %@"
+          }
+        }
+      }
+    },
+    "The signed copy is no longer in the library, so it cannot be installed again. Sign the app again first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy is no longer in the library, so it cannot be installed again. Sign the app again first."
+          }
+        }
+      }
+    },
+    "This app is already being installed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is already being installed."
+          }
+        }
+      }
+    },
+    "This profile lists no devices and is not an In-House profile, so it appears to be an App Store distribution profile. An app signed with it will not install directly on a device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This profile lists no devices and is not an In-House profile, so it appears to be an App Store distribution profile. An app signed with it will not install directly on a device."
+          }
+        }
+      }
+    },
+    "%@ will be signed with its own profile (%@)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ will be signed with its own profile (%@)."
+          }
+        }
+      }
+    },
+    "%lld sources" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sources"
+          }
+        }
+      }
+    },
+    "A profile for this app identifier has already been added." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A profile for this app identifier has already been added."
+          }
+        }
+      }
+    },
+    "Add Extension Profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Extension Profile"
+          }
+        }
+      }
+    },
+    "An app extension with its own App ID needs its own provisioning profile. Profiles added here are used for the extensions they cover; everything else is signed with the certificate's main profile. They must be issued for this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An app extension with its own App ID needs its own provisioning profile. Profiles added here are used for the extensions they cover; everything else is signed with the certificate's main profile. They must be issued for this certificate."
+          }
+        }
+      }
+    },
+    "Extension Profiles" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extension Profiles"
+          }
+        }
+      }
+    },
+    "Extension profile added" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extension profile added"
+          }
+        }
+      }
+    },
+    "Extensions that relied on this profile will no longer be covered. The profile file is deleted from this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extensions that relied on this profile will no longer be covered. The profile file is deleted from this certificate."
+          }
+        }
+      }
+    },
+    "Remove this profile?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove this profile?"
+          }
+        }
+      }
+    },
+    "The certificate's folder is unavailable." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate's folder is unavailable."
+          }
+        }
+      }
+    },
+    "This file could not be read as a provisioning profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be read as a provisioning profile."
+          }
+        }
+      }
+    },
+    "This profile belongs to a different team than the certificate's profile, so it cannot be used with this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This profile belongs to a different team than the certificate's profile, so it cannot be used with this certificate."
+          }
+        }
+      }
+    },
+    "This profile does not state which app identifier it covers." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This profile does not state which app identifier it covers."
+          }
+        }
+      }
+    },
+    "This profile has expired." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This profile has expired."
+          }
+        }
+      }
+    },
+    "The certificate could not be restored." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate could not be restored."
+          }
+        }
+      }
+    },
+    "The extension profile for %@ cannot be used with this certificate. %@ Remove it under Settings → Certificates → Extension Profiles, or add one issued for this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The extension profile for %@ cannot be used with this certificate. %@ Remove it under Settings → Certificates → Extension Profiles, or add one issued for this certificate."
+          }
+        }
+      }
+    },
+    "This profile was not issued for this certificate, so the signing engine would refuse it. Add a profile that includes this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This profile was not issued for this certificate, so the signing engine would refuse it. Add a profile that includes this certificate."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

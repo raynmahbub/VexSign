@@ -58,6 +58,7 @@ final class ZsignHandler {
 		request.p12Password = try cert.requireSigningPassword()
 		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
 		request.removeProvisioning = _options.removeProvisioning
+		request.nestedProvisionPaths = try _nestedProvisionPaths(for: cert, p12Path: request.p12Path)
 
 		try _rejectRefusedIdentity(for: cert, provisionPath: request.provisionPath, p12Path: request.p12Path)
         try await _runExclusively(request)
@@ -104,6 +105,47 @@ final class ZsignHandler {
             try self.run(request)
         }
     }
+
+	// MARK: - Nested profiles
+
+	/// The additional profile each nested bundle is signed with, read from the tree as it is
+	/// now — after identifier rewrites and extension removal — so the keys are the
+	/// identifiers the engine will see.
+	private func _nestedProvisionPaths(for cert: CertificatePair, p12Path: String) throws -> [String: String] {
+		let profiles = AdditionalProfiles.entries(for: cert)
+			.filter { !$0.isExpired }
+			.map { (pattern: $0.pattern, value: $0.url.path) }
+		guard !profiles.isEmpty else { return [:] }
+
+		let assigned = AdditionalProfiles.assignments(
+			nestedIdentifiers: NestedBundleAudit.bundles(in: _appUrl).compactMap(\.identifier),
+			mainPattern: cert.decodedProfile?.Entitlements?["application-identifier"]?.value as? String,
+			profiles: profiles
+		)
+		for (identifier, path) in assigned.sorted(by: { $0.key < $1.key }) {
+			// The engine refuses a profile that was not issued for this .p12 and says only
+			// "failed". Ask the same question first, per profile, so the failure names the
+			// extension and the reason.
+			if let problem = ZsignEngine.identityProblem(
+				provisioningProfile: _data(at: path),
+				certificate: _data(at: p12Path),
+				leafCertificate: cert.appliedCertificateDER,
+				profile: CertificateReader(URL(fileURLWithPath: path)).decoded
+			) {
+				let message = String.localized(
+					"The extension profile for %@ cannot be used with this certificate. %@ Remove it under Settings → Certificates → Extension Profiles, or add one issued for this certificate.",
+					arguments: identifier, problem.message
+				)
+				SigningLog.shared.error(message)
+				throw SigningFileHandlerError.identityRejected(message)
+			}
+			SigningLog.shared.info(.localized(
+				"%@ will be signed with its own profile (%@).",
+				arguments: identifier, URL(fileURLWithPath: path).lastPathComponent
+			))
+		}
+		return assigned
+	}
 
 	// MARK: - Identity
 

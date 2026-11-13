@@ -101,7 +101,9 @@ extension CertificatesCellView {
 		}
 
 		// "Can this sign this app?" — only answerable while picking a certificate for an app.
-		if let target, let data {
+		if var target, let data {
+			// Additional profiles belong to a certificate, so they are filled in per cell.
+			target.additionalProfilePatterns = AdditionalProfiles.patterns(for: cert)
 			let verdict = ProfileCompatibility.verdict(profile: data, target: target)
 			pills.append(NBPillItem(
 				title: verdict.title,

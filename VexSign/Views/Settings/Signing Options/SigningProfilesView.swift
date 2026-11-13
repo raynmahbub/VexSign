@@ -61,7 +61,7 @@ struct SigningProfilesView: View {
 								.font(.caption)
 								.foregroundStyle(.secondary)
 						}
-						.swipeActions {
+						.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 							Button(role: .destructive) {
 								store.remove(id: profile.id)
 							} label: {

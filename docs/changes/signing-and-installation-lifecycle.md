@@ -634,6 +634,10 @@ files disappear:
    `AutoSignManager.sign(app)`, which had no way to say the issues were accepted. The run stayed in
    strict mode, and the nested-bundle audit — or, for other issues, the post-sign verifier — stopped
    it on the issue the user had just confirmed.
+
+   > **Superseded in part.** The override is still forwarded, but it now exists only for issues
+   > that do not make the result uninstallable. Mandatory failures are refused outright; see
+   > [`signing-compatibility-and-removal-ux.md`](signing-compatibility-and-removal-ux.md).
 3. **A signing refusal was reported as a customization failure.** `SigningHandler.modify()` reported
    `.signing` only when the engine started. The nested-bundle audit (a profile that does not cover a
    retained extension) and the missing-certificate check both ran before that, so they failed while
@@ -669,7 +673,8 @@ files disappear:
   `UpdateAllManager` use them to say which one-time files a replay left out; the "Review repeat
   signing" alert lists the same sentence.
 - `AutoSignManager.sign(_:overridingBlockingIssues:)` forwards the accepted override, and Library
-  details passes `checks.hasBlocking` when the user chose **Sign Anyway**. Every caller that shows no
+  details passes `checks.canSignAnyway` when the user chose **Sign Anyway** (it was
+  `checks.hasBlocking` until mandatory failures stopped being overridable). Every caller that shows no
   review leaves it `false` and keeps the strict behaviour.
 - `SigningHandler.modify()` reports `.signing` as soon as customization ends, for runs that sign.
   `disinject()` moved ahead of the nested-bundle audit so that it stays on the Customize side; it
@@ -1152,9 +1157,10 @@ These continue the list above. None of them has been performed.
 26. Save a named preset from a sheet that has a one-time tweak file, export it, and import it on a
     second device. Applying it must not fail on a missing file.
 27. With a profile that does not cover a retained extension, use **Re-sign with last settings** in
-    Library details and choose **Sign Anyway**. The run must proceed past the audit. Started from
-    the row instead — its actions show no review and so carry no override — the same run must stop,
-    and the copy's details must then show the attempt with **Sign: Failed**, not Customize.
+    Library details. The review must say the app cannot be signed and offer no **Sign Anyway**;
+    started from the row, the same run must be refused before a task record is created. Then add
+    an extension profile for that extension to the certificate (Settings → Certificates → the
+    certificate → Extension Profiles) and repeat: the review must be clean and the run must sign.
 28. With Update All and preserved signing options, update an app whose saved settings had a
     one-time tweak file. The update must sign, and the log must say the file was left out.
 29. With Auto Cleanup and "Clear Temporary Files" on, sign a large app while another app is

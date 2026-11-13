@@ -57,6 +57,9 @@ enum ZsignEngine {
 		var isAdHoc: Bool = false
 		/// User intent, straight from `Options.removeProvisioning`: leave no profile behind.
 		var removeProvisioning: Bool = false
+		/// Profiles for individual nested bundles: bundle identifier → profile path. A nested
+		/// bundle that is not listed is signed with `provisionPath`, as before.
+		var nestedProvisionPaths: [String: String] = [:]
 
 		/// The value the pinned engine expects for `removeProvisioning`.
 		///
@@ -172,6 +175,7 @@ enum ZsignEngine {
 			customVersion: request.customVersion,
 			adhoc: request.isAdHoc,
 			removeProvision: request.engineEmbedProvision,
+			nestedProvisions: request.isAdHoc ? [:] : request.nestedProvisionPaths,
 			completion: { _, error in
 				engineError = error
 			}

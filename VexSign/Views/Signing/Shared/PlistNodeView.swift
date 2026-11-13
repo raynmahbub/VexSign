@@ -123,7 +123,7 @@ extension PlistNodeView {
 				CertificatesInfoEntitlementCellView(key: label, value: value)
 			}
 		}
-		.swipeActions(edge: .trailing) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			Button(role: .destructive, action: delete) {
 				Label(.localized("Delete"), systemImage: "trash")
 			}

@@ -324,15 +324,23 @@ extension LibraryInfoView {
         // run does another. It used to say the copy is replaced; whether it is now depends on
         // Auto Cleanup's "Delete Signed App".
         lines.append(PostSignArtifacts.repeatSigningNotice(settings: .stored()))
-        // "Sign Anyway" is only offered when the review above listed blocking issues, and
-        // choosing it is the user accepting them. The run has to be told: without this it stayed
+        // "Sign Anyway" is only offered when the review above listed blocking issues that may
+        // be accepted, and choosing it is the user accepting them. The run has to be told: without this it stayed
         // in strict mode and stopped on the issue that had just been confirmed.
-        let overridesBlockingIssues = checks.hasBlocking
+        let overridesBlockingIssues = checks.canSignAnyway
+        // Requirements iOS enforces at install leave nothing to confirm: the run would be
+        // refused before it started, so the review offers no action that starts it.
+        guard !checks.hasMandatoryFailure else {
+            lines.append(.localized("This app cannot be signed with the saved certificate and profile. Open Sign to change them."))
+            UIAlertController.showAlertWithOk(
+                title: .localized("Review repeat signing"), message: lines.joined(separator: "\n"))
+            return
+        }
         UIAlertController.showAlertWithOptions(
             title: .localized("Review repeat signing"), message: lines.joined(separator: "\n"),
             actions: [
                 (.localized("Cancel"), .cancel, nil),
-                (checks.hasBlocking ? .localized("Sign Anyway") : .localized("Sign Again"), checks.hasBlocking ? .destructive : .default, {
+                (checks.canSignAnyway ? .localized("Sign Anyway") : .localized("Sign Again"), checks.canSignAnyway ? .destructive : .default, {
                     guard !_isResigning else { return }
                     _isResigning = true
                     Task {

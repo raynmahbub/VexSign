@@ -119,7 +119,7 @@ extension SigningTweaksView {
 				}
 			}
 		}
-		.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			Button(role: .destructive) {
 				options.tweakInjections?.removeAll { $0.id == spec.wrappedValue.id }
 			} label: {
@@ -174,7 +174,7 @@ extension SigningTweaksView {
 		Label(tweak.lastPathComponent, systemImage: "folder.fill")
 			.lineLimit(2)
 			.frame(maxWidth: .infinity, alignment: .leading)
-			.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+			.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 				_fileActions(tweak: tweak)
 			}
 			.contextMenu {

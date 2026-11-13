@@ -78,30 +78,51 @@ enum SignatureVerifier {
             let errorDescription: String?
         }
 
-        /// Sign Anyway accepts only profile/entitlement compatibility risks. It
-        /// cannot excuse missing signatures, unsafe executables or ignored options.
+        /// Every failure stops the run, whether or not the user chose "Sign Anyway".
+        ///
+        /// The override used to excuse an expired profile, an App ID that does not include
+        /// the bundle, an uncovered nested bundle and an entitlement the profile does not
+        /// grant. iOS refuses to install a bundle in any of those states, so keeping it
+        /// registered a signed copy that could not be installed. "Sign Anyway" now applies
+        /// only to preflight findings that do not invalidate the result; the parameter
+        /// stays so callers keep one spelling for both stages.
         func stopsRun(overridingBlockingIssues: Bool) -> Bool {
             guard bundlePath != nil else { return true }
-            return failures.contains { issue in
-                guard overridingBlockingIssues else { return true }
-                switch issue.code {
-                // Deliberately *not* listed: `certificateExpired`. An expired signing
-                // certificate cannot produce an installable app, so "Sign Anyway" — which
-                // exists to let the user accept profile and entitlement risk — must not
-                // talk them past it.
-                case .profileExpired, .bundleIdentifierMismatch,
-                     .nestedIdentifierUncovered, .entitlementNotGranted:
-                    return false
-                default:
-                    return true
-                }
-            }
+            return !failures.isEmpty
         }
 
         func requireAcceptable(overridingBlockingIssues: Bool = false) throws {
             guard stopsRun(overridingBlockingIssues: overridingBlockingIssues) else { return }
             throw Rejection(errorDescription: summary)
         }
+
+		/// The result as one of a fixed set of answers, for a caller that has to decide
+		/// what it may say about the bundle.
+		enum Verdict: String, Equatable {
+			/// Every check ran and none failed.
+			case valid
+			/// At least one check failed. The bundle is not kept.
+			case invalid
+			/// Nothing failed, but part of the evidence could not be read, so the checks
+			/// that depend on it did not run.
+			case incomplete
+			/// There was no bundle to inspect.
+			case unsupported
+
+			/// Only `valid` may be described as verified.
+			var isVerified: Bool { self == .valid }
+		}
+
+		/// Codes that mean "this could not be read", as opposed to "this is wrong".
+		private static let evidenceGaps: Set<Issue.Code> = [
+			.profileUnreadable, .profileIdentifierUnknown, .entitlementUnreadable
+		]
+
+		var verdict: Verdict {
+			guard bundlePath != nil else { return .unsupported }
+			if !failures.isEmpty { return .invalid }
+			return warnings.contains { Self.evidenceGaps.contains($0.code) } ? .incomplete : .valid
+		}
 
 		var failures: [Issue] {
 			issues.filter { $0.severity == .failure }
@@ -459,6 +480,12 @@ enum SignatureVerifier {
 				!coverage(of: pattern, includes: identifier)
 			else { continue }
 
+			// A nested bundle signed with a profile of its own carries that profile; what
+			// matters then is that *its* profile covers it, not the app's.
+			if let own = NestedBundleAudit.shippedProfileIdentifier(at: nested), coverage(of: own, includes: identifier) {
+				continue
+			}
+
 			issues.append(
 				Issue(
 					code: .nestedIdentifierUncovered,
@@ -564,26 +591,25 @@ enum SignatureVerifier {
 	/// both shapes are accepted. Team identity is a separate question — see
 	/// `ProfileCompatibility`, which compares team IDs directly.
 	static func coverage(of pattern: String, includes identifier: String) -> Bool {
-		guard let dot = pattern.firstIndex(of: ".") else { return pattern == identifier }
+		// A value with no prefix is not an App ID; it is compared literally, as before.
+		guard pattern.contains(".") else { return pattern == identifier }
 
-		let team = String(pattern[..<dot])
-		let suffix = String(pattern[pattern.index(after: dot)...])
-		let bare = identifier.hasPrefix(team + ".") ? String(identifier.dropFirst(team.count + 1)) : identifier
-
-		if suffix == "*" {
+		if ProfileApplicationIdentifierMatcher.match(
+			applicationIdentifier: pattern, bundleIdentifier: identifier
+		).isAuthorized {
 			return true
 		}
-		if suffix.hasSuffix("*") {
-			return bare.hasPrefix(String(suffix.dropLast()))
-		}
-		return bare == suffix
+		// The same question asked with a signed entitlement value, which carries the prefix.
+		return ProfileApplicationIdentifierMatcher.match(
+			applicationIdentifier: pattern, entitlementValue: identifier
+		).isAuthorized
 	}
 
-	/// True when a profile's `application-identifier` covers everything under its team rather
-	/// than one app.
+	/// True when a profile's `application-identifier` is a wildcard App ID rather than one
+	/// app. A malformed value is not a wildcard.
 	static func isWildcard(_ pattern: String) -> Bool {
-		guard let dot = pattern.firstIndex(of: ".") else { return false }
-		return pattern[pattern.index(after: dot)...].contains("*")
+		guard case .success(let authorized) = ProfileApplicationIdentifierMatcher.parse(pattern) else { return false }
+		return authorized.isWildcard
 	}
 
 	// MARK: File system

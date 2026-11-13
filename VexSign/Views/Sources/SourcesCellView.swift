@@ -73,7 +73,7 @@ struct SourcesCellView: View {
 			cellContent
 		} else {
 			cellContent
-				.swipeActions {
+				.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 					if !_isPremiumSource {
 						_actions(for: source)
 					}
@@ -97,7 +97,7 @@ extension SourcesCellView {
 	@ViewBuilder
 	private func _actions(for source: AltSource) -> some View {
 		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
-			Storage.shared.deleteSource(for: source)
+			SourceRemoval.delete([source])
 		}
 	}
 

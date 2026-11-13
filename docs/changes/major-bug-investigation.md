@@ -245,6 +245,9 @@ play, an uncovered or unsigned watch companion produced a clean verification rep
 on the device with nothing in the log to explain it. The audit had been checking that bundle all
 along; the verifier that runs *after* the sign could not see it.
 
+> **Superseded.** An uncovered nested bundle is now a mandatory failure: preflight refuses it and no
+> longer offers "Sign Anyway" for it. See [`signing-compatibility-and-removal-ux.md`](signing-compatibility-and-removal-ux.md).
+
 Call order was verified as correct, since it is what makes the audit's comparison valid:
 `_modifyPluginIdentifiers` (line 119) runs before `_removeUnsupportedNestedBundlesIfNeeded` (148)
 and `_auditNestedBundles` (192), so coverage is judged on post-rename identifiers as
@@ -687,8 +690,9 @@ These extend the 20 acceptance steps in the first report. None of them has been 
    and must not crash. This cannot be forced on a current device; it is the behaviour to confirm if
    it ever appears.
 3. **Area 4 — watch companion.** Sign an IPA that contains `Watch/<App>.app` with an Info.plist and
-   a profile that does not cover its identifier. Preflight must refuse it. Press **Sign Anyway**,
-   and the verification report must now name the watch app as uncovered instead of passing clean.
+   a profile that does not cover its identifier. Preflight must refuse it, name the watch app as
+   uncovered, and offer no **Sign Anyway** — an uncovered nested bundle is a mandatory failure
+   (see [`signing-compatibility-and-removal-ux.md`](signing-compatibility-and-removal-ux.md)).
    Repeat with a team-wildcard profile: it must sign and verify clean.
 4. **Area 7 — conflicting archive.** Unzip a tweak/IPA whose archive contains the same path twice
    (for example `Payload/App.app/Info.plist` and `Payload//App.app/Info.plist`). It must be rejected

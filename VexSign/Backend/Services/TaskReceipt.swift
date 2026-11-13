@@ -28,6 +28,14 @@ enum TaskReceipt {
                        "device-reports-other-version", "device-did-not-report-installed-app", "install-start-not-observed",
                        "installation-evidence-unavailable", "installation-monitoring-deadline", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue", "process-exit-installation-unconfirmed", "supported-installation-inventory-unavailable", "ota-completion-not-authoritative"]
         if let reason = context?.confirmationReason, reasons.contains(reason) { lines.append("Result evidence: " + reason) }
+        // Delivery, handoff and confirmation as separate lines, so a delivered package is
+        // not read as an installed app. Written once the attempt has stopped.
+        if task.kind == .install, task.phase.isTerminal {
+            lines.append(contentsOf: evidence(for: task).receiptLines)
+            if let checked = context?.lastReconciliationAt {
+                lines.append("Last verification attempt: " + checked.ISO8601Format())
+            }
+        }
         // How many times the device was asked, so a receipt for an install that waited on
         // verification shows it was being checked rather than merely left open.
         if task.kind == .install, let checks = context?.verificationAttempts, (1...100_000).contains(checks) {
@@ -63,9 +71,22 @@ enum TaskReceipt {
         return lines.joined(separator: "\n")
     }
 
+    /// The separated install evidence for a task record.
+    static func evidence(for task: UnifiedTask) -> InstallEvidenceSummary {
+        InstallEvidenceSummary.resolve(
+            method: task.context?.installationMethod,
+            reason: task.context?.confirmationReason,
+            handedOff: task.context?.handoffAt != nil
+        )
+    }
+
     static func outcome(for task: UnifiedTask) -> String {
         if task.kind == .install && task.phase == .cancelled {
             return .localized("VexSign stopped its work and monitoring. An installation already accepted by iOS may continue; this report does not claim that iOS cancelled it.")
+        }
+        if task.phase == .unconfirmed, task.kind == .install, evidence(for: task).transport == .overTheAir {
+            // Say what is and is not known, and which method does give an answer.
+            return .localized("The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. The pairing-file installation method reports the device's own result.")
         }
         if task.phase == .unconfirmed {
             return .localized("VexSign finished, but iOS did not expose installation status, so this receipt cannot say whether the app was installed. Check the Home Screen and the app details in Library before installing again. No reinstall was started.")

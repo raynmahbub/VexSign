@@ -122,6 +122,29 @@ struct SigningCapability: Equatable {
 			/// A reason that predates the coded set. It is still reported; it is simply not
 			/// classified yet, and treating it as generic is honest about that.
 			case general
+
+			/// Whether a blocking issue with this code is a requirement iOS enforces at
+			/// install, so no confirmation can make the result installable.
+			///
+			/// These are refused before signing starts on every path, and the preflight
+			/// sheet does not offer "Sign Anyway" for them. A blocking issue with any
+			/// other code is a risk the user may accept.
+			///
+			/// `certificateNotInProfile` is deliberately not listed. It compares the first
+			/// identity in the stored p12 with the profile, and a p12 that carries several
+			/// identities can be reported when the engine would have used a matching one.
+			/// It stays blocking and visible, and the post-sign check still judges the
+			/// signer that was actually used.
+			var isMandatory: Bool {
+				switch self {
+				case .certificateMissing, .certificateExpired, .certificateRevoked,
+					 .profileExpired, .appIdentifierMismatch, .extensionNotCovered,
+					 .entitlementNotGranted:
+					true
+				default:
+					false
+				}
+			}
 		}
 
 		let code: Code
@@ -168,6 +191,30 @@ struct SigningCapability: Equatable {
 	/// Whether the run may start. This is the only thing a caller should branch on when it
 	/// needs a Bool; everything else is for explaining the answer.
 	var canProceed: Bool { blocking.isEmpty }
+
+	/// Blocking issues that no confirmation can excuse. See `Issue.Code.isMandatory`.
+	var mandatoryFailures: [Issue] { blocking.filter(\.code.isMandatory) }
+
+	/// The refusal for a run that must not start, or nil when it may.
+	var refusal: Refusal? {
+		let failures = mandatoryFailures
+		guard !failures.isEmpty else { return nil }
+		return Refusal(issues: failures)
+	}
+
+	/// A run stopped before any file was copied, with the reasons that stopped it.
+	struct Refusal: LocalizedError, Equatable {
+		let issues: [Issue]
+
+		var codes: [Issue.Code] { issues.map(\.code) }
+
+		var errorDescription: String? {
+			let reasons = issues.map { issue in
+				issue.remediation.map { "\(issue.detail) \($0)" } ?? issue.detail
+			}
+			return .localized("Signing was not started. %@", arguments: reasons.joined(separator: " "))
+		}
+	}
 
 	/// The sentence to put in front of the user when the run cannot start.
 	var summary: String {

@@ -86,6 +86,7 @@ struct DownloadsTabView: View {
             .animation(.snappy, value: downloadedFiles.count)
             .scrollIndicators(.hidden)
             .toolbar { toolbar }
+            .undoableRemovalBanner()
             .refreshable {
                 loadDownloadedFiles()
             }
@@ -241,7 +242,7 @@ struct DownloadsTabView: View {
             ForEach(filteredDownloads, id: \.id) { dl in
                 DownloadRow(download: dl)
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if dl.canCancel {
                             Button(role: .destructive) { DownloadManager.shared.cancelDownload(dl) } label: { Label(.localized("Cancel"), systemImage: "xmark") }
                         }
@@ -318,9 +319,7 @@ struct DownloadsTabView: View {
                         Divider()
 
                         Button(role: .destructive) {
-                            try? FileManager.default.removeItem(at: item.url)
-                            loadDownloadedFiles()
-                            Toast.success(.localized("Deleted"), systemImage: "trash")
+                            RecoverableFileRemoval.removeOfferingUndo(item.url) { loadDownloadedFiles() }
                         } label: {
                             Label(.localized("Delete"), systemImage: "trash")
                         }
@@ -331,10 +330,9 @@ struct DownloadsTabView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                .swipeActions(edge: .trailing) {
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
-                        try? FileManager.default.removeItem(at: item.url)
-                        loadDownloadedFiles()
+                        RecoverableFileRemoval.removeOfferingUndo(item.url) { loadDownloadedFiles() }
                     } label: {
                         Label(.localized("Delete"), systemImage: "trash")
                     }

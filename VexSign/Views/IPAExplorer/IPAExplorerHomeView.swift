@@ -104,6 +104,7 @@ struct IPAExplorerHomeView: View {
 			Text(_error ?? "")
 		}
 		.onAppear(perform: _loadRecents)
+		.undoableRemovalBanner()
 	}
 }
 
@@ -139,10 +140,9 @@ extension IPAExplorerHomeView {
 								.foregroundStyle(.tertiary)
 						}
 					}
-					.swipeActions(edge: .trailing) {
+					.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 						Button(role: .destructive) {
-							try? FileManager.default.removeItem(at: record.url)
-							_loadRecents()
+							RecoverableFileRemoval.removeOfferingUndo(record.url) { _loadRecents() }
 						} label: {
 							Label(.localized("Delete"), systemImage: "trash")
 						}

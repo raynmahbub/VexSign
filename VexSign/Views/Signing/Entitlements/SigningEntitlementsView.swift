@@ -124,7 +124,7 @@ extension SigningEntitlementsView {
 			.accessibilityLabel(.localized("Entitlements file actions"))
 		}
 		.badge(PlistDiff.flaggedCount(in: _manager.load(file), against: _grantedEntitlements))
-		.swipeActions(edge: .trailing) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			Button(role: .destructive) {
 				_fileToDelete = file
 				_isDeleteConfirming = true

@@ -115,6 +115,7 @@ struct SourcesView: View {
 	var body: some View {
 		NBNavigationView(.localized("Sources")) {
             mainContent
+                .undoableRemovalBanner()
                 .navigationDestination(isPresented: $_shouldNavigateToAllRepos) {
                     SourceAppsView(object: _nonExcludedSources, viewModel: viewModel, onRefresh: {
                         await viewModel.fetchSources(_sources, refresh: true)
@@ -511,13 +512,10 @@ struct SourcesView: View {
 
 	private func deleteSelectedSources() {
 		withAnimation {
-			for source in _selectedSources {
-				// Skip premium sources — they can only be removed via Reset Premium
-				if let url = source.sourceURL, VexSignAPI.isPremiumSource(url) {
-					continue
-				}
-				Storage.shared.deleteSource(for: source)
-			}
+			// Skip premium sources — they can only be removed via Reset Premium
+			SourceRemoval.delete(_selectedSources.filter { source in
+				!(source.sourceURL.map { VexSignAPI.isPremiumSource($0) } ?? false)
+			})
 			_selectedSources.removeAll()
 			_isEditMode = false
 		}

@@ -83,17 +83,20 @@ enum NestedBundleAudit {
         struct IncompatibleProfile: LocalizedError {
             let details: String
             var errorDescription: String? {
-					.localized("The selected profile cannot sign all retained extensions. Choose a compatible profile, enable automatic compatibility mode, explicitly enable Remove App Extensions, or sign anyway. %@", arguments: details)
+					.localized("The selected profile cannot sign all retained extensions. Choose a profile that includes them, enable automatic compatibility mode, or enable Remove App Extensions. %@", arguments: details)
             }
         }
 
-        /// Stops the run when a retained extension is known not to be covered.
+        /// Stops the run when a retained nested bundle is known not to be covered.
         ///
-        /// `overridingBlockingIssues` is the user's explicit "Sign Anyway" from the preflight
-        /// sheet. The post-sign verifier already honours it; this audit used to ignore it, so
-        /// confirming the override still aborted the sign with no way through (#137).
+        /// The engine signs every nested bundle with the selected profile, so an extension
+        /// that profile does not include is signed with an App ID that is not its own and
+        /// iOS rejects the install. That is not a risk the user can accept on the preflight
+        /// sheet: the ways through are a profile that includes the bundle, or removing the
+        /// extension, which compatibility mode and Remove App Extensions both do before
+        /// this check runs. `overridingBlockingIssues` is kept for source compatibility and
+        /// no longer changes the answer.
         func requireCompatibleProfile(overridingBlockingIssues: Bool = false) throws {
-            guard !overridingBlockingIssues else { return }
             guard uncovered.isEmpty else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
         }
 
@@ -192,8 +195,13 @@ enum NestedBundleAudit {
 	// MARK: Reporting
 
 	/// Audits an app against the selected profile, reading each nested bundle's own profile.
-	static func report(appBundle: URL, profilePattern: String?) -> Report {
-		report(appBundle: appBundle, profilePattern: profilePattern, shippedProfile: shippedProfileIdentifier(at:))
+	static func report(appBundle: URL, profilePattern: String?, additionalPatterns: [String] = []) -> Report {
+		report(
+			appBundle: appBundle,
+			profilePattern: profilePattern,
+			additionalPatterns: additionalPatterns,
+			shippedProfile: shippedProfileIdentifier(at:)
+		)
 	}
 
 	/// Removes only app extensions whose identifiers are positively known not to be covered.
@@ -203,9 +211,10 @@ enum NestedBundleAudit {
 	static func removeUncoveredBundles(
 		in appBundle: URL,
 		profilePattern: String,
+		additionalPatterns: [String] = [],
 		fileManager: FileManager = .default
 	) throws -> [Entry] {
-		let uncovered = report(appBundle: appBundle, profilePattern: profilePattern).uncovered
+		let uncovered = report(appBundle: appBundle, profilePattern: profilePattern, additionalPatterns: additionalPatterns).uncovered
 			.filter { $0.bundle.kind == .appExtension }
 		for entry in uncovered {
 			try fileManager.removeItem(at: appBundle.appendingPathComponent(entry.bundle.path))
@@ -217,6 +226,7 @@ enum NestedBundleAudit {
 	static func report(
 		appBundle: URL,
 		profilePattern: String?,
+		additionalPatterns: [String] = [],
 		shippedProfile: (URL) -> String?
 	) -> Report {
 		let trimmed = profilePattern?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -225,9 +235,16 @@ enum NestedBundleAudit {
 		let entries = bundles(in: appBundle).map { bundle -> Entry in
 			let coverage: Coverage
 			if let usablePattern, let identifier = bundle.identifier {
-				coverage = SignatureVerifier.coverage(of: usablePattern, includes: identifier)
-					? .covered(pattern: usablePattern)
-					: .notCovered(pattern: usablePattern)
+				// A bundle the main profile misses is still covered when one of the
+				// certificate's additional profiles was issued for it; the engine signs
+				// that bundle with that profile.
+				if SignatureVerifier.coverage(of: usablePattern, includes: identifier) {
+					coverage = .covered(pattern: usablePattern)
+				} else if let own = additionalPatterns.first(where: { SignatureVerifier.coverage(of: $0, includes: identifier) }) {
+					coverage = .covered(pattern: own)
+				} else {
+					coverage = .notCovered(pattern: usablePattern)
+				}
 			} else {
 				coverage = .unknown
 			}

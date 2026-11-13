@@ -545,6 +545,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 		// thread that creates the container.
 		_ = Storage.shared
 
+		// Anything still held from an "Undo" offer in an earlier session was never undone.
+		RecoverableFileRemoval.sweep()
+
 		_createPipeline()
 		_createDocumentsDirectories()
 		StorageManager.purgeStaleTemporary()

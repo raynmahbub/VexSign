@@ -14,6 +14,7 @@
 #include "timer.h"
 #include "archive.h"
 
+#include <list>
 #include <openssl/ocsp.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
@@ -176,6 +177,24 @@ int zsign(
 	bool excludeprovion,
 	void(^completionHandler)(BOOL success, NSError *error)
 ) {
+	return zsignWithNestedProvisions(app, prov, key, pass, entitlement, bundleid, displayname,
+									 bundleversion, adhoc, excludeprovion, nil, completionHandler);
+}
+
+int zsignWithNestedProvisions(
+	NSString *app,
+	NSString *prov,
+	NSString *key,
+	NSString *pass,
+	NSString *entitlement,
+	NSString *bundleid,
+	NSString *displayname,
+	NSString *bundleversion,
+	bool adhoc,
+	bool excludeprovion,
+	NSDictionary<NSString *, NSString *> *nestedProvisions,
+	void(^completionHandler)(BOOL success, NSError *error)
+) {
 	ZTimer atimer;
 	ZTimer gtimer;
 	
@@ -220,6 +239,33 @@ int zsign(
 	
 	atimer.Reset();
 	ZBundle bundle;
+
+	// One asset per nested profile, built from the same key as the outer one. Each uses
+	// the entitlements its own profile grants; the entitlements file belongs to the main
+	// app. A profile that cannot be used stops the run: signing that bundle with the outer
+	// profile instead would produce exactly the bundle the caller asked not to get.
+	// std::list keeps element addresses stable while it grows.
+	list<ZSignAsset> nestedAssets;
+	// The outer flag is named for the option but is true when the profile is embedded.
+	bundle.m_bEmbedNestedProvisions = excludeprovion;
+	if (!bAdhoc) {
+		for (NSString *nestedBundleId in nestedProvisions) {
+			NSString *nestedProv = nestedProvisions[nestedBundleId];
+			const char *szNestedId = [nestedBundleId cStringUsingEncoding:NSUTF8StringEncoding];
+			const char *szNestedProv = [nestedProv cStringUsingEncoding:NSUTF8StringEncoding];
+			if (NULL == szNestedId || NULL == szNestedProv) {
+				ZLog::ErrorV(">>> Invalid nested provisioning entry!\n");
+				return -1;
+			}
+			nestedAssets.emplace_back();
+			if (!nestedAssets.back().Init(strCertFile, strPKeyFile, string(szNestedProv), string(), strPassword, false, bSHA256Only, false)) {
+				ZLog::ErrorV(">>> Can't use the provisioning profile for %s\n", szNestedId);
+				return -1;
+			}
+			bundle.m_mapNestedAssets[string(szNestedId)] = &nestedAssets.back();
+		}
+	}
+
 	bool bRet = bundle.SignFolder(&zsa, strFolder, strBundleId, strBundleVersion, strDisplayName, arrDylibFiles, bForce, bWeakInject, bEnableCache, excludeprovion);
 	ZLog::PrintV(">>> Signing:\t%s %s\n", strPath.c_str(), (bAdhoc ? " (Ad-hoc)" : ""));
 	atimer.PrintResult(bRet, ">>> Signed %s!", bRet ? "OK" : "Failed");

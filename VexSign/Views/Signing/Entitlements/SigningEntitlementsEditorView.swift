@@ -398,7 +398,7 @@ extension SigningEntitlementsEditorView {
 			.accessibilityLabel(.localized("Delete"))
 			.accessibilityIdentifier("Entitlements.delete.\(key)")
 		}
-		.swipeActions(edge: .trailing) {
+		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 			Button(role: .destructive) {
 				_delete([key])
 			} label: {

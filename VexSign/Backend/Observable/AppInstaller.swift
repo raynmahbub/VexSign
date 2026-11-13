@@ -123,7 +123,7 @@ final class AppInstaller: ObservableObject {
 		app: AppInfoPresentable,
 		isSharing: Bool = false,
 		useLocalhost: Bool = false,
-		probe: InstalledAppProbing = UnavailableInstallationProbe()
+		probe: InstalledAppProbing = InstalledAppProbe()
 	) {
         if isSharing {
             _pipeline = nil
@@ -494,6 +494,21 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
         case .installing:
             onWorkflowStage?(installationPhase == .verifying ? .verifying : .installing)
 		case .completed(let result):
+            // The server finishing an over-the-air transfer means the package was delivered,
+            // not that iOS installed it. When the device can be asked, the watcher that is
+            // already running keeps asking, bounded by its own limits and the monitoring
+            // backstop, and its verdict ends the attempt. Stopping here ended every
+            // over-the-air install as unconfirmed seconds after the download.
+            if _installationMethod == 0, !_didAttemptIdeviceFallback, case .success = result,
+               !(_probe is UnavailableInstallationProbe) {
+                // A confirmed install publishes "completed" itself; that must not restart
+                // the watcher for an attempt that already has its answer.
+                guard !_hasFinished else { return }
+                _hasServedPayload = true
+                _armMonitoringBackstop()
+                _startProgressPolling()
+                return
+            }
 			_progressTask?.cancel()
 			_progressTask = nil
 			// The IDevice path trusts installd's own phases; corroborate them with the device

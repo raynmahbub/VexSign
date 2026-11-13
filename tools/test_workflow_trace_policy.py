@@ -100,7 +100,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         manager = self.text('VexSign/Backend/Observable/AutoSignManager.swift')
         self.assertIn('overridesBlockingPreflightIssues: overridingBlockingIssues', manager)
         details = self.text('VexSign/Views/Library/Info/LibraryInfoView.swift')
-        self.assertIn('let overridesBlockingIssues = checks.hasBlocking', details)
+        self.assertIn('let overridesBlockingIssues = checks.canSignAnyway', details)
         self.assertIn('AutoSignManager.shared.sign(app, overridingBlockingIssues: overridesBlockingIssues)', details)
 
     def test_library_details_describe_the_copy_not_the_last_run_started_from_it(self):
