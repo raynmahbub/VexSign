@@ -35,7 +35,6 @@ struct SourcesAddView: View {
 	@State var recommendedSourcesData: [(url: URL, data: ASRepository)] = []
 	let recommendedSources: [URL] = [
 		"https://raw.githubusercontent.com/raynmahbub/VexSign/refs/heads/main/app-repo.json",
-		"https://raw.githubusercontent.com/claration/VexSign/refs/heads/main/app-repo.json",
 		"https://raw.githubusercontent.com/Aidoku/Aidoku/altstore/apps.json",
 		"https://github.com/chachillie/Flycast-iOS/raw/main/flycast-ios.json",
 		"https://xitrix.github.io/iTorrent/AltStore.json",
@@ -51,7 +50,7 @@ struct SourcesAddView: View {
 		"https://apps.manicemu.site/altstore",
 		"https://alt.crystall1ne.dev",
 		"https://mikevillarroel.github.io/mikebuilds-source/originals.json"
-	].map { URL(string: $0)! }
+	].compactMap { URL(string: $0) }
 
 	// MARK: - Vex Repos Collection
 	@State var vexRepos: [URL] = []
@@ -389,7 +388,7 @@ struct SourcesAddView: View {
 					}
 				}
 			} footer: {
-				Text(.localized("Open an [issue](https://github.com/claration/VexSign/issues) on GitHub if you want your source to be featured."))
+				Text(.localized("Open an [issue](https://github.com/raynmahbub/VexSign/issues) on GitHub if you want your source to be featured."))
 			}
 		}
 	}

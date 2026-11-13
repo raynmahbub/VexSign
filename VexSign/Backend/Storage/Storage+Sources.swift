@@ -92,22 +92,31 @@ extension Storage {
 		completion: @escaping (Error?) -> Void
 	) {
 		StorageConcurrency.requireMainQueue()
+		var firstError: Error?
+		var addedAny = false
 		for (url, repo) in repos {
+			let id = repo.id ?? url.absoluteString
+			let existed = sourceExists(id)
 			addSource(
 				url,
 				repository: repo,
 				deferSave: true,
 				completion: { error in
 					if let error {
-						completion(error)
+						if firstError == nil { firstError = error }
+					} else if !existed {
+						addedAny = true
 					}
 				}
 			)
 		}
 		
 		saveContext()
-		Task { @MainActor in Haptics.lightImpact() }
-		completion(nil)
+		if addedAny {
+			Task { await AnalyticsStore.shared.record(.repositoriesAdded) }
+			Task { @MainActor in Haptics.lightImpact() }
+		}
+		completion(firstError)
 	}
 
 	func deleteSource(for source: AltSource) {

@@ -104,40 +104,64 @@ extension FR {
         }
         #endif
 
-        NBFetchService().fetch(from: url, headers: headers) { (result: Result<ASRepository, Error>) in
+        NBFetchService().fetchRaw(from: url, headers: headers) { (result: Result<Data, Error>) in
             switch result {
-            case .success(let data):
+            case .success(let payload):
+                guard !payload.isEmpty else {
+                    let error = NSError(domain: "VexSign", code: 2, userInfo: [NSLocalizedDescriptionKey: String.localized("Couldn't load this source")])
+                    if showAlerts {
+                        DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
+                    }
+                    competion(.failure(error))
+                    return
+                }
+
+                let provenance = SourceProvenanceVerifier.evaluate(payload)
+                SourceProvenanceStore.record(provenance, for: url)
+                if case .claimedButInvalid(let reason) = provenance {
+                    let error = NSError(domain: "VexSign", code: 3, userInfo: [NSLocalizedDescriptionKey: reason])
+                    if showAlerts {
+                        DispatchQueue.main.async { Toast.error(reason, duration: .sticky) }
+                    }
+                    competion(.failure(error))
+                    return
+                }
+
+                let data: ASRepository
+                do {
+                    data = try SourceFeedLoader.decode(payload)
+                } catch {
+                    if showAlerts {
+                        DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
+                    }
+                    competion(.failure(error))
+                    return
+                }
+
                 let id = data.id ?? url.absoluteString
 
                 // `NBFetchService` calls back on a global queue, and the source row is
-                // a view-context insert: it has to happen on the main queue.
-                var addError: Error?
-                var alreadyAdded = false
-                let addOnMain = {
+                // a view-context insert: hop asynchronously to the main queue instead of
+                // blocking a worker thread with `DispatchQueue.main.sync`.
+                DispatchQueue.main.async {
                     if Storage.shared.sourceExists(id) {
-                        alreadyAdded = true
-                    } else {
-                        Storage.shared.addSource(url, repository: data, id: id) { addError = $0 }
-                    }
-                }
-                if Thread.isMainThread {
-                    addOnMain()
-                } else {
-                    DispatchQueue.main.sync(execute: addOnMain)
-                }
-
-                if let addError {
-                    competion(.failure(addError))
-                } else if !alreadyAdded {
-                    competion(.success(data.name ?? url.absoluteString))
-                } else {
-                    let error = NSError(domain: "VexSign", code: 1, userInfo: [NSLocalizedDescriptionKey: "Repository already added."])
-                    if showAlerts {
-                        DispatchQueue.main.async {
+                        let error = NSError(domain: "VexSign", code: 1, userInfo: [NSLocalizedDescriptionKey: "Repository already added."])
+                        if showAlerts {
                             Toast.error(.localized("Repository already added."), duration: .sticky)
                         }
+                        competion(.failure(error))
+                    } else {
+                        Storage.shared.addSource(url, repository: data, id: id) { addError in
+                            if let addError {
+                                if showAlerts {
+                                    Toast.error(addError.localizedDescription, duration: .sticky)
+                                }
+                                competion(.failure(addError))
+                            } else {
+                                competion(.success(data.name ?? url.absoluteString))
+                            }
+                        }
                     }
-                    competion(.failure(error))
                 }
             case .failure(let error):
                 if showAlerts {
@@ -169,8 +193,17 @@ extension FR {
                 guard let response = response as? HTTPURLResponse else {
                     throw GitHubReleaseSource.Failure.malformedRelease
                 }
+                guard let finalURL = response.url,
+                      finalURL.scheme?.lowercased() == "https",
+                      finalURL.user == nil,
+                      finalURL.password == nil else {
+                    throw SourceURLPolicy.Failure.notHTTPS
+                }
                 guard (200..<300).contains(response.statusCode) else {
                     throw GitHubReleaseSource.Failure.httpStatus(response.statusCode)
+                }
+                guard data.count <= 16 * 1024 * 1024 else {
+                    throw GitHubReleaseSource.Failure.malformedRelease
                 }
                 let repository = try GitHubReleaseSource.repository(from: data, sourceURL: sourceURL)
                 await MainActor.run {
