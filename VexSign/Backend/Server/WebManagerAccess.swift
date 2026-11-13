@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import Security
 import NimbleExtensions
 
 // MARK: - Bind mode
@@ -118,6 +119,19 @@ enum WebManagerAccessPolicy {
 	/// Hostname for `effectiveBindMode`, spelled out so the UI and the server
 	/// cannot disagree about what is being exposed.
 	static func bindHost(_ mode: WebManagerBindMode) -> String { mode.hostname }
+
+	/// 24 random bytes encoded as URL-safe base64 without padding.
+	static func generateToken() -> String {
+		var bytes = [UInt8](repeating: 0, count: 24)
+		guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+			return UUID().uuidString.replacingOccurrences(of: "-", with: "")
+		}
+		return Data(bytes)
+			.base64EncodedString()
+			.replacingOccurrences(of: "+", with: "-")
+			.replacingOccurrences(of: "/", with: "_")
+			.replacingOccurrences(of: "=", with: "")
+	}
 }
 
 // MARK: - Settings migration
