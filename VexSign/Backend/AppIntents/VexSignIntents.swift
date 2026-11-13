@@ -20,18 +20,28 @@ struct UpdateAllIntent: AppIntent {
 
 	@MainActor
 	func perform() async throws -> some IntentResult & ProvidesDialog {
-		let result: AutomationRunResult? = await BackgroundAutomation.run(fromBackground: true)
-
-		let signed = result?.signed ?? 0
-		let found = result?.foundUpdates ?? 0
-
-		if found == 0 {
-			return .result(dialog: IntentDialog(stringLiteral: .localized("Everything is up to date.")))
-		} else if signed == 0 {
-			return .result(dialog: IntentDialog(stringLiteral: String.localized("%lld updates found. Enable “Sign & queue” in Settings → Automation to sign them automatically.", arguments: found)))
-		} else {
-			return .result(dialog: IntentDialog(stringLiteral: String.localized("%lld apps signed and queued for install.", arguments: signed)))
+		// `run` returns nil for a pass that never started (off, busy, Game Mode) and for one
+		// that was cancelled. Both used to read as "Everything is up to date", which was true
+		// of neither: nothing had been compared. Ask first, then report what happened.
+		if let blocker = AutomationAvailability.blocker(
+			enabled: BackgroundAutomationPreferences.isEnabled,
+			running: BackgroundAutomation.isRunning,
+			gameMode: GameMode.isEnabled,
+			updateAllRunning: UpdateAllManager.shared.isRunning
+		) {
+			return .result(dialog: IntentDialog(stringLiteral: AutomationAvailability.message(for: blocker)))
 		}
+
+		let result: AutomationRunResult? = await BackgroundAutomation.run(fromBackground: true)
+		guard let result else {
+			return .result(dialog: IntentDialog(stringLiteral: AutomationDialogue.unfinished))
+		}
+
+		return .result(dialog: IntentDialog(stringLiteral: AutomationDialogue.message(
+			found: result.foundUpdates,
+			signed: result.signed,
+			failed: result.failed
+		)))
 	}
 }
 
