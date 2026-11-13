@@ -2,7 +2,7 @@
 //  UIApplication+exitAndSuspend.swift
 //  Loader
 //
-//  Created by VexSign TeamSign Team on 13.03.2025.
+//  Created by VexSign Contributors on 13.03.2025.
 //
 
 import UIKit.UIApplication

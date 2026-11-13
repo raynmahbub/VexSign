@@ -1,106 +1,117 @@
 //
 //  DownloadsTabView.swift
-//  VexSign — Downloads tab with proper functionality. Single nav bar.
-//  Active downloads tracking + Finished IPAs management (Ksign style).
+//  VexSign — Downloads Management View
 //
 
 import SwiftUI
 import NimbleViews
-import NimbleExtensions
 import UniformTypeIdentifiers
+import NimbleExtensions
 
 struct DownloadsTabView: View {
-    /// False when embedded in a workspace or pushed from another navigation stack.
     var ownsNavigationStack: Bool = true
-    @StateObject private var downloadManager = DownloadManager.shared
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appContainer) private var appContainer
+    @State private var viewModel: DownloadsTabViewModel?
+
+    init(ownsNavigationStack: Bool = true, viewModel: DownloadsTabViewModel? = nil) {
+        self.ownsNavigationStack = ownsNavigationStack
+        self._viewModel = State(initialValue: viewModel)
+    }
+
+    var body: some View {
+        Group {
+            if let viewModel {
+                DownloadsTabContent(ownsNavigationStack: ownsNavigationStack, viewModel: viewModel)
+            } else {
+                ProgressView()
+                    .onAppear {
+                        let container = appContainer ?? AppContainer.live()
+                        viewModel = container.makeDownloadsTabViewModel()
+                    }
+            }
+        }
+    }
+}
+
+private struct DownloadsTabContent: View {
+    let ownsNavigationStack: Bool
+    @ObservedObject var viewModel: DownloadsTabViewModel
+    @ObservedObject var downloadManager = DownloadManager.shared
     @State private var filter: Filter = .all
     @State private var showAddSheet = false
     @State private var addURLText = ""
     @State private var showImportPicker = false
-    @State private var downloadedFiles: [DownloadedFile] = []
-
-    struct DownloadedFile: Identifiable, Hashable {
-        var id: String { url.path }
-        let name: String
-        let url: URL
-        let size: Int64
-        let date: Date
-
-        var formattedSize: String {
-            size.formattedByteCount
-        }
-    }
 
     enum Filter: String, CaseIterable, Identifiable {
-        case all = "All"
-        case active = "Active"
-        case paused = "Paused"
-        case completed = "Done"
+        case all = "All", active = "Active", paused = "Paused", completed = "Completed"
         var id: String { rawValue }
-        func matches(_ dl: Download) -> Bool {
-            switch self {
-            case .all: return true
-            case .active: return dl.isActive && !dl.isPaused && dl.phase != .completed
-            case .paused: return dl.isPaused
-            case .completed: return dl.phase == .completed
-            }
-        }
+    }
+
+    private var activeCount: Int {
+        downloadManager.downloads.filter { $0.isActive && !$0.isPaused && $0.phase != .completed }.count
+    }
+
+    private var pausedCount: Int {
+        downloadManager.downloads.filter { $0.isPaused }.count
+    }
+
+    private var completedCount: Int {
+        downloadManager.downloads.filter { $0.phase == .completed }.count + viewModel.downloadedFiles.count
     }
 
     private var filteredDownloads: [Download] {
-        let list = downloadManager.downloads.filter(filter.matches)
-        return list.reversed()
-    }
-
-    private var activeCount: Int { downloadManager.downloads.filter { $0.isActive && !$0.isPaused }.count }
-    private var pausedCount: Int { downloadManager.downloads.filter { $0.isPaused }.count }
-    private var completedCount: Int {
-        downloadManager.downloads.filter { $0.phase == .completed }.count + downloadedFiles.count
+        switch filter {
+        case .all: return downloadManager.downloads
+        case .active: return downloadManager.downloads.filter { $0.isActive && !$0.isPaused && $0.phase != .completed }
+        case .paused: return downloadManager.downloads.filter { $0.isPaused }
+        case .completed: return downloadManager.downloads.filter { $0.phase == .completed }
+        }
     }
 
     var body: some View {
-        // ONE navigation bar — NBNavigationView is the only NavigationStack in this tab
-        NBNavigationView(.localized("Downloads"), displayMode: .large, ownsNavigationStack: ownsNavigationStack) {
-            List {
-                header
-                filterPills
-
-                if filteredDownloads.isEmpty && (filter != .all && filter != .completed || downloadedFiles.isEmpty) {
-                    emptyState
-                } else {
-                    if !filteredDownloads.isEmpty {
-                        activeDownloadsSection
-                    }
-
-                    if (filter == .all || filter == .completed) && !downloadedFiles.isEmpty {
-                        downloadedFilesSection
-                    }
+        Group {
+            if ownsNavigationStack {
+                NBNavigationView(.localized("Downloads"), displayMode: .large) {
+                    listContent
+                        .toolbar { toolbar }
                 }
+            } else {
+                listContent
+                    .navigationTitle(.localized("Downloads"))
+                    .navigationBarTitleDisplayMode(.large)
+                    .toolbar { toolbar }
+            }
+        }
+        .sheet(isPresented: $showAddSheet) { addSheet }
+        .sheet(isPresented: $showImportPicker) {
+            FileImporterRepresentableView(
+                allowedContentTypes: [.ipa, .tipa, .zip, .data],
+                allowsMultipleSelection: true
+            ) { urls in
+                viewModel.importIntoStaging(urls)
+            }
+        }
+        .onAppear { viewModel.refreshStagedFiles() }
+        .onChange(of: downloadManager.downloads.count) { _ in viewModel.refreshStagedFiles() }
+        .undoableRemovalBanner()
+    }
 
-                actionsSection
+    private var listContent: some View {
+        List {
+            header
+            filterPills
+            if !filteredDownloads.isEmpty { activeDownloadsSection }
+            if (filter == .all || filter == .completed) && !viewModel.downloadedFiles.isEmpty {
+                downloadedFilesSection
             }
-            .listStyle(.insetGrouped)
-            .animation(.snappy, value: downloadManager.downloads.count)
-            .animation(.snappy, value: filter)
-            .animation(.snappy, value: downloadedFiles.count)
-            .scrollIndicators(.hidden)
-            .toolbar { toolbar }
-            .undoableRemovalBanner()
-            .refreshable {
-                loadDownloadedFiles()
+            if filteredDownloads.isEmpty && ((filter != .all && filter != .completed) || viewModel.downloadedFiles.isEmpty) {
+                emptyState
             }
-            .onAppear {
-                loadDownloadedFiles()
-            }
-            .sheet(isPresented: $showAddSheet) { addSheet }
-            .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
-                if case .success(let urls) = result {
-                    let count = FileManagerActions.importFiles(urls, into: FileManager.default.downloadStaging)
-                    Toast.success(.localized("%lld file(s) imported", arguments: count), systemImage: "tray.and.arrow.down")
-                    loadDownloadedFiles()
-                }
-            }
+            actionsSection
+        }
+        .listStyle(.insetGrouped)
+        .refreshable {
+            viewModel.refreshStagedFiles()
         }
     }
 
@@ -117,12 +128,14 @@ struct DownloadsTabView: View {
             Menu {
                 Button(.localized("Download from URL…"), systemImage: "link") { showAddSheet = true }
                 Button(.localized("Import from Files…"), systemImage: "square.and.arrow.down") { showImportPicker = true }
-                if !downloadManager.downloads.isEmpty || !downloadedFiles.isEmpty {
+                if !downloadManager.downloads.isEmpty || !viewModel.downloadedFiles.isEmpty {
                     Divider()
                     Button(.localized("Pause All"), systemImage: "pause.fill") { downloadManager.pauseAllDownloads() }
                     Button(.localized("Resume All"), systemImage: "play.fill") { downloadManager.resumeAllDownloads() }
                     Divider()
-                    Button(.localized("Clear Completed"), systemImage: "trash", role: .destructive) { clearCompleted() }
+                    Button(.localized("Clear Completed"), systemImage: "trash", role: .destructive) {
+                        viewModel.clearCompleted(in: downloadManager)
+                    }
                 }
             } label: { Image(systemName: "ellipsis.circle") }
         }
@@ -147,7 +160,7 @@ struct DownloadsTabView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(.localized("Downloads")).font(.headline)
-                        Text(verbatim: downloadManager.downloads.isEmpty && downloadedFiles.isEmpty ? String.localized("No downloads yet") : String.localized("%lld active • %lld completed", arguments: activeCount, completedCount))
+                        Text(verbatim: downloadManager.downloads.isEmpty && viewModel.downloadedFiles.isEmpty ? String.localized("No downloads yet") : String.localized("%lld active • %lld completed", arguments: activeCount, completedCount))
                             .font(.caption).foregroundStyle(.secondary)
                         if downloadManager.currentDownloadSpeed > 0 {
                             Text(verbatim: downloadManager.currentDownloadSpeed.formattedByteCount + "/s")
@@ -155,7 +168,7 @@ struct DownloadsTabView: View {
                         }
                     }
                     Spacer()
-                    let totalCount = downloadManager.downloads.count + downloadedFiles.count
+                    let totalCount = downloadManager.downloads.count + viewModel.downloadedFiles.count
                     if totalCount > 0 {
                         VStack(spacing: 4) {
                             Text("\(totalCount)").font(.title3.bold()).monospacedDigit().foregroundStyle(.primary)
@@ -197,7 +210,7 @@ struct DownloadsTabView: View {
                                 Text(.localized(f.rawValue)).font(.caption.weight(selected ? .semibold : .regular))
                                 let count: Int = {
                                     switch f {
-                                    case .all: return downloadManager.downloads.count + downloadedFiles.count
+                                    case .all: return downloadManager.downloads.count + viewModel.downloadedFiles.count
                                     case .active: return activeCount
                                     case .paused: return pausedCount
                                     case .completed: return completedCount
@@ -240,7 +253,7 @@ struct DownloadsTabView: View {
     private var activeDownloadsSection: some View {
         Section {
             ForEach(filteredDownloads, id: \.id) { dl in
-                DownloadRow(download: dl)
+                DownloadRow(download: dl, onOpenStaging: { viewModel.openInFiles(viewModel.stagingDirectoryURL) })
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if dl.canCancel {
@@ -263,10 +276,10 @@ struct DownloadsTabView: View {
         .headerProminence(.increased)
     }
 
-    // MARK: - Downloaded / Finished IPAs (Ksign Downloader Style)
+    // MARK: - Downloaded / Finished IPAs
     private var downloadedFilesSection: some View {
         Section {
-            ForEach(downloadedFiles) { item in
+            ForEach(viewModel.downloadedFiles) { item in
                 HStack(spacing: 12) {
                     Image(systemName: "doc.zipper")
                         .font(.title2)
@@ -298,8 +311,7 @@ struct DownloadsTabView: View {
 
                     Menu {
                         Button {
-                            _ = FileManagerActions.importFiles([item.url], into: FileManager.default.unsigned)
-                            Toast.success(.localized("Imported to Library"), systemImage: "tray.and.arrow.down")
+                            viewModel.importToLibrary(item)
                         } label: {
                             Label(.localized("Import to Library"), systemImage: "square.grid.2x2.fill")
                         }
@@ -311,7 +323,7 @@ struct DownloadsTabView: View {
                         }
 
                         Button {
-                            if let shared = item.url.toSharedDocumentsURL() { UIApplication.open(shared) }
+                            viewModel.openInFiles(item.url)
                         } label: {
                             Label(.localized("Open in Files"), systemImage: "folder")
                         }
@@ -319,7 +331,7 @@ struct DownloadsTabView: View {
                         Divider()
 
                         Button(role: .destructive) {
-                            RecoverableFileRemoval.removeOfferingUndo(item.url) { loadDownloadedFiles() }
+                            RecoverableFileRemoval.removeOfferingUndo(item.url) { viewModel.refreshStagedFiles() }
                         } label: {
                             Label(.localized("Delete"), systemImage: "trash")
                         }
@@ -332,15 +344,14 @@ struct DownloadsTabView: View {
                 .padding(.vertical, 4)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
-                        RecoverableFileRemoval.removeOfferingUndo(item.url) { loadDownloadedFiles() }
+                        RecoverableFileRemoval.removeOfferingUndo(item.url) { viewModel.refreshStagedFiles() }
                     } label: {
                         Label(.localized("Delete"), systemImage: "trash")
                     }
                 }
                 .swipeActions(edge: .leading) {
                     Button {
-                        _ = FileManagerActions.importFiles([item.url], into: FileManager.default.unsigned)
-                        Toast.success(.localized("Imported to Library"), systemImage: "tray.and.arrow.down")
+                        viewModel.importToLibrary(item)
                     } label: {
                         Label(.localized("Import"), systemImage: "square.grid.2x2.fill")
                     }
@@ -353,7 +364,7 @@ struct DownloadsTabView: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(downloadedFiles.count)")
+                Text("\(viewModel.downloadedFiles.count)")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -382,15 +393,17 @@ struct DownloadsTabView: View {
     // MARK: - Actions
     private var actionsSection: some View {
         Section {
-            NavigationLink(destination: FileManagerView(directory: FileManager.default.downloadStaging)) {
+            NavigationLink(destination: FileManagerView(directory: viewModel.stagingDirectoryURL)) {
                 Label(.localized("Downloads Folder"), systemImage: "folder")
             }
             // Single back navigation bar: inNavigationStack: false
             NavigationLink(destination: LogsHistoryView(inNavigationStack: false)) {
                 Label(.localized("Activity Logs"), systemImage: "text.alignleft")
             }
-            if !downloadManager.downloads.isEmpty || !downloadedFiles.isEmpty {
-                Button(.localized("Clear Completed"), systemImage: "trash", role: .destructive) { clearCompleted() }
+            if !downloadManager.downloads.isEmpty || !viewModel.downloadedFiles.isEmpty {
+                Button(.localized("Clear Completed"), systemImage: "trash", role: .destructive) {
+                    viewModel.clearCompleted(in: downloadManager)
+                }
             }
         } header: {
             Label(.localized("Manage"), systemImage: "gearshape").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -409,9 +422,10 @@ struct DownloadsTabView: View {
                             .autocorrectionDisabled()
                             .keyboardType(.URL)
 
-                        if let clip = UIPasteboard.general.string, clip.hasPrefix("http") {
+                        let pasted = viewModel.initialURLFromPasteboard(currentText: "")
+                        if !pasted.isEmpty {
                             Button {
-                                addURLText = clip.trimmingCharacters(in: .whitespacesAndNewlines)
+                                addURLText = pasted
                             } label: {
                                 Image(systemName: "doc.on.clipboard")
                                     .foregroundStyle(Color.userTint)
@@ -427,12 +441,10 @@ struct DownloadsTabView: View {
 
                 Section {
                     Button(.localized("Download")) {
-                        guard let url = URL(string: addURLText.trimmingCharacters(in: .whitespacesAndNewlines)), url.scheme != nil else {
-                            Toast.error(.localized("Invalid URL")); return
+                        if viewModel.startDownload(fromRawURL: addURLText) {
+                            addURLText = ""
+                            showAddSheet = false
                         }
-                        _ = DownloadManager.shared.startDownload(from: url)
-                        Toast.info(.localized("Download started"), systemImage: "arrow.down.circle")
-                        addURLText = ""; showAddSheet = false
                     }
                     .disabled(addURLText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -443,40 +455,10 @@ struct DownloadsTabView: View {
                 ToolbarItem(placement: .cancellationAction) { Button(.localized("Cancel")) { showAddSheet = false } }
             }
             .onAppear {
-                if addURLText.isEmpty, let clip = UIPasteboard.general.string, clip.hasPrefix("http") {
-                    addURLText = clip.trimmingCharacters(in: .whitespacesAndNewlines)
-                }
+                addURLText = viewModel.initialURLFromPasteboard(currentText: addURLText)
             }
         }
         .presentationDetents([.medium])
-    }
-
-    private func loadDownloadedFiles() {
-        let staging = FileManager.default.downloadStaging
-        do {
-            try FileManager.default.createDirectoryIfNeeded(at: staging)
-            let urls = try FileManager.default.contentsOfDirectory(
-                at: staging,
-                includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
-            )
-            let files: [DownloadedFile] = urls.compactMap { url in
-                guard ["ipa", "zip", "deb"].contains(url.pathExtension.lowercased()) else { return nil }
-                let vals = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-                let size = Int64(vals?.fileSize ?? 0)
-                let date = vals?.contentModificationDate ?? Date()
-                return DownloadedFile(name: url.lastPathComponent, url: url, size: size, date: date)
-            }
-            downloadedFiles = files.sorted { $0.date > $1.date }
-        } catch {
-            downloadedFiles = []
-        }
-    }
-
-    private func clearCompleted() {
-        let completed = downloadManager.downloads.filter { $0.phase == .completed }
-        for dl in completed { DownloadManager.shared.cancelDownload(dl) }
-        loadDownloadedFiles()
-        Toast.success(.localized("Cleared completed downloads"), systemImage: "trash")
     }
 }
 
@@ -484,6 +466,7 @@ struct DownloadsTabView: View {
 
 private struct DownloadRow: View {
     let download: Download
+    let onOpenStaging: () -> Void
     @StateObject private var model = DownloadProgressModel()
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -504,7 +487,7 @@ private struct DownloadRow: View {
                 Spacer()
                 if model.phase == .completed {
                     Button {
-                        if let url = FileManager.default.downloadStaging.toSharedDocumentsURL() { UIApplication.open(url) }
+                        onOpenStaging()
                         Toast.info(.localized("Opened staging folder"), systemImage: "folder")
                     } label: {
                         Label(.localized("Open"), systemImage: "folder.fill").font(.caption.weight(.semibold))

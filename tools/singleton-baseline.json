@@ -55,7 +55,7 @@
   "VexSign/Utilities/P12Cracker.swift": 1,
   "VexSign/Utilities/Signing/SigningService.swift": 1,
   "VexSign/Utilities/StdoutCapture.swift": 1,
-  "VexSign/Views/Common/FRAppIconView.swift": 1,
+  "VexSign/Views/Common/VexAppIconView.swift": 1,
   "VexSign/Views/Common/SelectionActionBar.swift": 1,
   "VexSign/Views/Common/Toast.swift": 2,
   "VexSign/Views/Library/Install/InstallQueueWindow.swift": 1,

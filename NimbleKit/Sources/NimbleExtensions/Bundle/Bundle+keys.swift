@@ -2,7 +2,7 @@
 //  Bundle+versions.swift
 //  Loader
 //
-//  Created by VexSign TeamSign Team on 18.03.2025.
+//  Created by VexSign Contributors on 18.03.2025.
 //
 
 import Foundation.NSBundle

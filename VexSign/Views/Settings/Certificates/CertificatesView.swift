@@ -2,7 +2,7 @@
 //  CertificatesView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 15.04.2025.
+//  Created by VexSign Contributors on 15.04.2025.
 //
 
 import SwiftUI
@@ -18,9 +18,11 @@ private enum CertificateAddSheet: String, Identifiable {
 
 // MARK: - View
 struct CertificatesView: View {
+	@Environment(\.appContainer) private var appContainer
     @ObservedObject private var migration = CredentialMigrationDiagnostics.shared
 	@AppStorage("vexsign.selectedCert") private var _storedSelectedCert: Int = 0
-	
+	@State private var _coordinator: CertificatesViewCoordinator?
+
 	@State private var _addSheet: CertificateAddSheet?
 	@State private var _isRenamingPresenting = false
 	@State private var _isSelectedInfoPresenting: CertificatePair?
@@ -46,12 +48,16 @@ struct CertificatesView: View {
 	private var _selectedCertBinding: Binding<Int> {
 		_bindingSelectedCert ?? $_storedSelectedCert
 	}
-	
+
+	private var coordinator: CertificatesViewCoordinator {
+		_coordinator ?? (appContainer ?? AppContainer.live()).makeCertificatesCoordinator()
+	}
+
 	init(selectedCert: Binding<Int>? = nil, target: ProfileCompatibility.Target? = nil) {
 		self._bindingSelectedCert = selectedCert
 		self._target = target
 	}
-	
+
 	// MARK: Body
 	var body: some View {
 		NBGrid {
@@ -69,6 +75,11 @@ struct CertificatesView: View {
 			}
 		}
 		.navigationTitle(.localized("Certificates"))
+		.onAppear {
+			if _coordinator == nil {
+				_coordinator = (appContainer ?? AppContainer.live()).makeCertificatesCoordinator()
+			}
+		}
 		.overlay {
 			if _certificates.isEmpty && migration.warnings.isEmpty {
 				NBContentUnavailable(
@@ -128,7 +139,7 @@ struct CertificatesView: View {
 				// The dialog is dismissed by the tap, so a second tap cannot arrive; the
 				// pending value is cleared as well so nothing can replay it.
 				_certPendingDeletion = nil
-				CertificateRemoval.delete(cert)
+				coordinator.deleteCertificate(cert)
 			}
 			Button(.localized("Cancel"), role: .cancel) { _certPendingDeletion = nil }
 		} message: { _ in
@@ -138,8 +149,7 @@ struct CertificatesView: View {
 			TextField(.localized("Nickname"), text: $_newNickname)
 			Button(.localized("Cancel"), role: .cancel) { }
 			Button(.localized("OK")) {
-				cert.nickname = _newNickname.isEmpty ? nil : _newNickname
-				Storage.shared.saveContext()
+				coordinator.renameCertificate(cert, to: _newNickname)
 			}
 		}
 	}
@@ -178,7 +188,7 @@ extension CertificatesView {
 			guard let date = $0.expiration else { return false }
 			return date.timeIntervalSinceNow > 0 && date.timeIntervalSinceNow < 7 * 24 * 3600
 		}.count
-		let apps = Storage.shared.getAllApps().filter(\.isSigned).count
+		let apps = coordinator.signedAppsCount()
 
 		VStack(alignment: .leading, spacing: 8) {
 			Text(.localized("Certificate Health"))
@@ -192,8 +202,7 @@ extension CertificatesView {
 				.font(.caption)
 				.foregroundStyle(.secondary)
 			Button(.localized("Check Revokage")) {
-				for cert in certs { Storage.shared.revokagedCertificate(for: cert) }
-				Toast.info(.localized("Checking certificates…"), systemImage: "person.text.rectangle")
+				coordinator.checkRevokage(for: certs)
 			}
 			.font(.subheadline.weight(.semibold))
 		}
@@ -252,7 +261,7 @@ extension CertificatesView {
 		})
 		.clipShape(RoundedRectangle(cornerRadius: cornerRadius))
 	}
-	
+
 	@ViewBuilder
 	private func _actions(for cert: CertificatePair) -> some View {
 		Button(.localized("Delete"), systemImage: "trash", role: .destructive) {
@@ -262,7 +271,7 @@ extension CertificatesView {
 			}
 		}
 	}
-	
+
 	@ViewBuilder
 	private func _contextActions(for cert: CertificatePair) -> some View {
 		Button(.localized("Get Info"), systemImage: "info.circle") {
@@ -274,38 +283,14 @@ extension CertificatesView {
 			Presentation.afterDismiss { _isRenamingPresenting = true }
 		}
 		Button(.localized("Export Certificate"), systemImage: "square.and.arrow.up") {
-            let workLease: AppOperationRegistry.Lease
-            do { workLease = try AppOperationRegistry.shared.acquireTemporaryWork() }
-            catch { Toast.error(error.localizedDescription); return }
-            guard let zip = CertificateExporter.makeZip(for: cert) else {
-                Toast.error(.localized("Couldn't export certificate"))
-                return
-            }
-            guard let presenter = UIApplication.topViewController() else {
-                do { try FileManager.default.removeItem(at: zip.deletingLastPathComponent()) }
-                catch { FileLogger.error("Could not remove certificate export: \(error.localizedDescription)", category: "certificates") }
-                Toast.error(.localized("Couldn't export certificate"))
-                return
-            }
-            let controller = UIActivityViewController(activityItems: [zip], applicationActivities: nil)
-            controller.completionWithItemsHandler = { _, _, _, _ in
-                defer { withExtendedLifetime(workLease) {} }
-                do { try FileManager.default.removeItem(at: zip.deletingLastPathComponent()) }
-                catch { FileLogger.error("Could not remove certificate export: \(error.localizedDescription)", category: "certificates") }
-            }
-            if let popover = controller.popoverPresentationController {
-                popover.sourceView = presenter.view
-                popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
-                popover.permittedArrowDirections = []
-            }
-            presenter.present(controller, animated: true)
+			coordinator.exportCertificate(cert)
 		}
 		Divider()
 		Button(.localized("Check Revocation (OCSP)"), systemImage: "checkmark.shield") {
-			CertificateStatusManager.shared.refreshStatus(for: cert)
+			coordinator.refreshOCSPStatus(for: cert)
 		}
 		Button(.localized("Check Revokage"), systemImage: "person.text.rectangle") {
-			Storage.shared.revokagedCertificate(for: cert)
+			coordinator.checkRevokage(for: cert)
 		}
 	}
 
@@ -313,19 +298,11 @@ extension CertificatesView {
 	private func _batchCheckCertificates() {
 		guard !_isBatchChecking, !_certificates.isEmpty else { return }
 		_isBatchChecking = true
-		_isBatchCheckPresenting = true
-
-		Task {
-			await BatchCertChecker.shared.checkAll()
-
-			let checked = BatchCertChecker.shared.results.count
-			let valid = BatchCertChecker.shared.summary.valid
+		Task { @MainActor in
+			await coordinator.runBatchCheckAsync {
+				_isBatchCheckPresenting = true
+			}
 			_isBatchChecking = false
-
-			Toast.success(
-				String.localized("Checked %lld certificates — %lld valid", arguments: Int64(checked), Int64(valid)),
-				systemImage: "checkmark.seal"
-			)
 		}
 	}
 }

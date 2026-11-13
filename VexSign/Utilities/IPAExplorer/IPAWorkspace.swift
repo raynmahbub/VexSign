@@ -354,7 +354,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 		let ipa = try await rebuild()
 
 		return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AppInfoPresentable, Error>) in
-			FR.handlePackageFile(ipa) { result in
+			PackageImportService.importPackage(ipa) { result in
 				continuation.resume(with: result)
 			}
 		}
@@ -394,7 +394,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 		let signed: Signed
 		do {
 			signed = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Signed, Error>) in
-				FR.signPackageFile(target, using: options, icon: nil, certificate: certificate) { result in
+				PackageSigningCoordinator.signPackage(target, using: options, icon: nil, certificate: certificate) { result in
 					continuation.resume(with: result)
 				}
 			}

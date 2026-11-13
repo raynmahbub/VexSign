@@ -154,17 +154,17 @@ final class SigningIdentityPolicyTests: XCTestCase {
 
 	@MainActor
 	func testEveryNonUIPathReachesTheGateThroughTheAdapter() throws {
-		// Batch, AutoSign, Shortcuts and self-update all funnel through `FR.signPackageFile`,
+		// Batch, AutoSign, Shortcuts and self-update all funnel through `PackageSigningCoordinator.signPackage`,
 		// which builds a `SigningRequest` for `SigningService`. If that stops being true, the
 		// gate is no longer on those paths and this test should fail.
 		let sources = ["VexSign/Backend/Observable/BatchJobRunner.swift",
 					   "VexSign/Backend/Observable/AutoSignManager.swift",
-					   "VexSign/Utilities/FR+Signing.swift"]
+					   "VexSign/Utilities/Services/PackageSigningCoordinator.swift"]
 		for path in sources {
 			let source = try String(contentsOf: URL(fileURLWithPath: #filePath)
 				.deletingLastPathComponent().deletingLastPathComponent()
 				.appendingPathComponent(path))
-			XCTAssertTrue(source.contains("FR.signPackageFile(") || source.contains("SigningRequest("), path)
+			XCTAssertTrue(source.contains("PackageSigningCoordinator.signPackage(") || source.contains("SigningRequest("), path)
 		}
 	}
 

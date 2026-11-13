@@ -1,20 +1,20 @@
 //
-//  FRAppIconView.swift
+//  VexAppIconView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 18.04.2025.
+//  Created by VexSign Contributors on 18.04.2025.
 //
 
 import SwiftUI
 
-enum FRIconAppearance: Int {
+enum VexIconAppearance: Int {
 	case light = 0
 	case dark = 1
 }
 
 @MainActor
-final class FRIconCache {
-	static let shared = FRIconCache()
+final class VexIconCache {
+	static let shared = VexIconCache()
 	private init() {}
 
 	private let cache = NSCache<NSString, UIImage>()
@@ -25,11 +25,11 @@ final class FRIconCache {
 	private var _pinnedOrder: [NSString] = []
 	private let _pinnedLimit = 24
 
-	private func key(url: URL, appearance: FRIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) -> NSString {
+	private func key(url: URL, appearance: VexIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) -> NSString {
 		"\(url.path)#\(appearance.rawValue)#\(tint)#\(isTinted)#\(dynamic)" as NSString
 	}
 
-	func image(for url: URL, appearance: FRIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) -> UIImage? {
+	func image(for url: URL, appearance: VexIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) -> UIImage? {
 		let k = key(url: url, appearance: appearance, tint: tint, isTinted: isTinted, dynamic: dynamic)
 		if let img = cache.object(forKey: k) { return img }
 		if let img = _pinned[k] {
@@ -44,7 +44,7 @@ final class FRIconCache {
 		return nil
 	}
 
-	func insert(_ image: UIImage, for url: URL, appearance: FRIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) {
+	func insert(_ image: UIImage, for url: URL, appearance: VexIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) {
 		let k = key(url: url, appearance: appearance, tint: tint, isTinted: isTinted, dynamic: dynamic)
 		cache.setObject(image, forKey: k)
 
@@ -68,12 +68,12 @@ final class FRIconCache {
 }
 
 @MainActor
-final class FRAppIconLoader: ObservableObject {
+final class VexAppIconLoader: ObservableObject {
 	@Published var image: UIImage?
 	private var task: Task<Void, Never>?
 
-	func load(bundleURL: URL, appearance: FRIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) {
-		if let cached = FRIconCache.shared.image(for: bundleURL, appearance: appearance, tint: tint, isTinted: isTinted, dynamic: dynamic) {
+	func load(bundleURL: URL, appearance: VexIconAppearance, tint: String, isTinted: Bool, dynamic: Bool) {
+		if let cached = VexIconCache.shared.image(for: bundleURL, appearance: appearance, tint: tint, isTinted: isTinted, dynamic: dynamic) {
 			self.image = cached
 			return
 		}
@@ -87,7 +87,7 @@ final class FRAppIconLoader: ObservableObject {
 			guard !Task.isCancelled else { return }
 
 			if let generated {
-				FRIconCache.shared.insert(generated, for: bundleURL, appearance: appearance, tint: tint, isTinted: isTinted, dynamic: dynamic)
+				VexIconCache.shared.insert(generated, for: bundleURL, appearance: appearance, tint: tint, isTinted: isTinted, dynamic: dynamic)
 				self.image = generated
 			}
 		}
@@ -98,12 +98,14 @@ final class FRAppIconLoader: ObservableObject {
 	}
 }
 
-struct FRAppIconView: View {
+struct VexAppIconView: View {
 	private let app: AppInfoPresentable?
+	private let explicitBundleURL: URL?
+	private let showsUnknownPlaceholderWhenNil: Bool
 	private let size: CGFloat
 
 	@Environment(\.colorScheme) private var colorScheme
-	@StateObject private var loader = FRAppIconLoader()
+	@StateObject private var loader = VexAppIconLoader()
 
 	@AppStorage("VexSign.userTintColor") private var selectedColorHex: String = "#848ef9"
 	@AppStorage("VexSign.shouldTintIcons") private var shouldTintIcons: Bool = false
@@ -111,15 +113,26 @@ struct FRAppIconView: View {
 
 	init(app: AppInfoPresentable? = nil, size: CGFloat = 87) {
 		self.app = app
+		self.explicitBundleURL = nil
+		self.showsUnknownPlaceholderWhenNil = false
 		self.size = size
 	}
 
-	private var appearance: FRIconAppearance {
+	init(bundleURL: URL?, size: CGFloat = 87) {
+		self.app = nil
+		self.explicitBundleURL = bundleURL
+		self.showsUnknownPlaceholderWhenNil = true
+		self.size = size
+	}
+
+	private var appearance: VexIconAppearance {
 		colorScheme == .dark ? .dark : .light
 	}
 
 	private var _bundleURL: URL? {
-		if let app {
+		if let explicitBundleURL {
+			return explicitBundleURL
+		} else if let app {
 			return Storage.shared.getAppDirectory(for: app)
 		} else {
 			return Bundle.main.bundleURL
@@ -130,7 +143,7 @@ struct FRAppIconView: View {
 	/// synchronously here shows an already-cached icon without a placeholder flash.
 	private var _cachedImage: UIImage? {
 		guard let bundleURL = _bundleURL else { return nil }
-		return FRIconCache.shared.image(
+		return VexIconCache.shared.image(
 			for: bundleURL,
 			appearance: appearance,
 			tint: selectedColorHex,
@@ -141,7 +154,7 @@ struct FRAppIconView: View {
 
 	var body: some View {
 		Group {
-			if app == nil {
+			if app == nil && explicitBundleURL == nil && !showsUnknownPlaceholderWhenNil {
                 VexBrandLogo()
                     .scaledToFit()
                     .frame(width: size, height: size)

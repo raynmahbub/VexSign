@@ -192,7 +192,7 @@ struct BatchSignView: View {
 				Image(uiImage: icon)
 					.appIconStyle(size: 44)
 			} else {
-				FRAppIconView(app: app, size: 44)
+				VexAppIconView(app: app, size: 44)
 			}
 
 			VStack(alignment: .leading, spacing: 2) {
@@ -341,7 +341,7 @@ struct BatchSignView: View {
 		VStack(spacing: 10) {
 			HStack(spacing: -14) {
 				ForEach(apps.prefix(5), id: \.uuid) { app in
-					FRAppIconView(app: app, size: 52)
+					VexAppIconView(app: app, size: 52)
 						.overlay(
 							RoundedRectangle(cornerRadius: 12, style: .continuous)
 								.stroke(Color(.systemBackground), lineWidth: 2)

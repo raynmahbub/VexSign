@@ -1,8 +1,8 @@
 //
-//  FR+Import.swift
+//  PackageImportService.swift
 //  VexSign
 //
-//  IPA import and package handling.
+//  Package import pipeline for IPA and TIPA archives.
 //
 
 import Foundation
@@ -15,8 +15,8 @@ import IDeviceSwift
 import OSLog
 import NimbleExtensions
 
-extension FR {
-    static func handlePackageFile(
+enum PackageImportService {
+    static func importPackage(
         _ ipa: URL,
         download: Download? = nil,
         completion: @escaping (Result<AppInfoPresentable, Error>) -> Void
@@ -42,7 +42,7 @@ extension FR {
             let scoped = ipa.startAccessingSecurityScopedResource()
             defer { if scoped { ipa.stopAccessingSecurityScopedResource() } }
             let handler = AppFileHandler(file: ipa, download: download)
-            
+
             do {
                 try await handler.copy()
                 try await handler.extract()

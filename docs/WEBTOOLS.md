@@ -66,7 +66,7 @@ file or URL, live validation, and export.
 The validation rules mirror `VexSign/RepositoryBuilder/RepositoryValidator.swift`
 (missing identifiers, non-http(s) URLs, unparseable dates, duplicate screenshots,
 duplicate bundle ids), so a feed that passes here imports cleanly in the app.
-`altstore` emits `versions[]` history, `flat` the Feather/ESign-style schema,
+`altstore` emits `versions[]` history, `flat` the legacy flat repository schema,
 `apps` the bare `apps.json` array.
 
 **The OTA endpoint refuses cleartext**: both the IPA URL and the manifest URL
@@ -89,7 +89,7 @@ and lints the result with the Repository Creator's own validator.
 | `POST /api/tools/repo/convert` | Same input plus `format` (`altstore` \| `flat` \| `apps`) → the re-exported feed |
 
 Understood dialects: AltStore v1 `source.json`, the SideStore variant with
-`versions[]`, the Feather/ESign flat schema (`bundleID`, `appDescription`,
+`versions[]`, the flat repository schema (`bundleID`, `appDescription`,
 `downloadUrl`), a bare `apps.json` array, and the legacy AltServer `appdata` XML
 that this repo's own server still emits at `/repo/appdata`.
 

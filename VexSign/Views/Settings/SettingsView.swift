@@ -9,6 +9,7 @@ import UIKit
 import NimbleExtensions
 
 struct SettingsView: View {
+    @Environment(\.appContainer) private var appContainer
     @AppStorage("vexsign.selectedCert") private var _storedSelectedCert: Int = 0
     @AppStorage(GameMode.enabledKey) private var _gameMode: Bool = false
     @State private var _settingsQuery = ""
@@ -28,7 +29,9 @@ struct SettingsView: View {
         return _certificates[_storedSelectedCert]
     }
 
-    private let _githubUrl = "https://github.com/raynmahbub/VexSign"
+    private var supportUseCase: WorkspaceSupportUseCase {
+        (appContainer ?? AppContainer.live()).makeWorkspaceSupportUseCase()
+    }
 
     var body: some View {
         NBNavigationView(.localized("Settings")) {
@@ -148,7 +151,7 @@ struct SettingsView: View {
                     Text(.localized("Customize themes, accent tints, home screen icon, the fixed tab shell, and Live Activities."))
                 }
 
-                // MARK: 3. Security, Privacy & LiveContainer Vault
+                // MARK: 3. Security, Privacy & Vault
                 NBSection(.localized("Security & Privacy"), systemName: "lock.shield.fill") {
                     NavigationLink(destination: AppLockSettingsView()) {
                         HStack {
@@ -470,7 +473,7 @@ private extension SettingsView {
         case .storage: StorageView()
         case .cleanup: CleanupView()
         case .backup: BackupView()
-        case .firmware: IPSWBrowserView()
+        case .firmware: IPSWBrowserView(inNavigationStack: false)
         case .deviceDiagnostics: DeviceDiagnosticsView()
         case .logs: LogsHistoryView()
         case .reset: ResetView()
@@ -494,27 +497,17 @@ private extension SettingsView {
                                     .foregroundStyle(.secondary)
                             }
                         } icon: {
-                            FRAppIconView(size: 26)
+                            VexAppIconView(size: 26)
                         }
                     }
                     NavigationLink(destination: FeatureStatusView()) {
                         Label(.localized("Feature Status"), systemImage: "checklist")
                     }
             Button(.localized("Submit Feedback"), systemImage: "safari") {
-                let bugAction: UIAlertAction = .init(title: .localized("Bug Report"), style: .default) { _ in
-                    UIApplication.open(_makeGitHubIssueURL(url: _githubUrl))
-                }
-                let chooseAction: UIAlertAction = .init(title: .localized("Other"), style: .default) { _ in
-                    UIApplication.open(URL(string: "\(_githubUrl)/issues/new/choose")!)
-                }
-                UIAlertController.showAlertWithCancel(
-                    title: .localized("Submit Feedback"),
-                    message: nil,
-                    actions: [bugAction, chooseAction]
-                )
+                supportUseCase.presentFeedbackSheet()
             }
             Button(.localized("GitHub Repository"), systemImage: "safari") {
-                UIApplication.open(_githubUrl)
+                supportUseCase.openRepository()
             }
         } footer: {
             Text(.localized("Report bugs or submit feedback to the development team on GitHub."))
@@ -528,66 +521,16 @@ private extension SettingsView {
                 Label(.localized("File Manager"), systemImage: "folder.badge.gearshape")
             }
             Button(.localized("Open Documents"), systemImage: "folder.fill") {
-                UIApplication.open(URL.documentsDirectory.toSharedDocumentsURL()!)
+                supportUseCase.openSharedDocuments()
             }
             Button(.localized("Open Archives"), systemImage: "archivebox.fill") {
-                UIApplication.open(FileManager.default.archives.toSharedDocumentsURL()!)
+                supportUseCase.openSharedArchives()
             }
             Button(.localized("Open Certificates"), systemImage: "checkmark.seal.fill") {
-                UIApplication.open(FileManager.default.certificates.toSharedDocumentsURL()!)
+                supportUseCase.openSharedCertificates()
             }
         } footer: {
             Text(.localized("File Manager browses everything VexSign stores, with editing and import built in. The buttons below hand the same folders to the Files app."))
         }
-    }
-
-    func _makeGitHubIssueURL(url: String) -> String {
-        var configurationSection = "### App Configuration:\n"
-        let modeManager = SigningModeManager.shared
-        configurationSection += "- App routing preference: `\(modeManager.preference.rawValue)`\n"
-        do {
-            switch try modeManager.pipeline() {
-            case .directPaid(.server):
-                let serverMethod = UserDefaults.standard.integer(forKey: "VexSign.serverMethod")
-                let ipFix = UserDefaults.standard.bool(forKey: "VexSign.ipFix")
-                let serverType = (serverMethod == 0) ? "Fully Local" : "Semi Local"
-                configurationSection += "- Install method: `Server`\n"
-                configurationSection += "  - Server type: `\(serverType)`\n"
-                configurationSection += "  - IP Fix: `\(ipFix)`\n"
-            case .directPaid(.idevice):
-                let pairingExists = PairingBridge.hasPairingFile
-                configurationSection += "- Install method: `idevice`\n"
-                configurationSection += "  - Pairing file: `\(pairingExists ? "Present" : "Not Present")`\n"
-            case .containerized:
-                configurationSection += "- Install method: `Embedded guest import`\n"
-            case .directPaid:
-                configurationSection += "- Install method: `Unsupported direct route`\n"
-            }
-        } catch {
-            configurationSection += "- Install method: `Unresolved`\n"
-        }
-        let body = """
-        ### Device Information
-        - Device: `\(MobileGestalt.physicalHardwareName ?? "Unknown")`
-        - iOS Version: `\(UIDevice.current.systemVersion)`
-        - App Version: `\(Bundle.main.version)`
-
-        \(configurationSection)
-
-        ### Issue Description
-        <!-- Describe your issue here -->
-
-        ### Steps to Reproduce
-        1. 
-        2. 
-        3. 
-
-        ### Expected Behavior
-
-        ### Actual Behavior
-        """
-        let encodedTitle = "[Bug] replace this with a descriptive title ".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return "\(url)/issues/new?template=bug.yml&title=\(encodedTitle)&text=\(encodedBody)"
     }
 }

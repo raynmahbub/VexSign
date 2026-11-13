@@ -3,8 +3,7 @@
 //  VexSign
 //
 //  Community certificate catalogue (NexCerts, hosted by sideloading.net).
-//  Imported from NexStore; contained in so that the source, the shared
-//  identity and its consequences are disclosed before anything is downloaded.
+//  Discloses the source, shared identity, and trust model before anything is downloaded.
 //
 
 import SwiftUI

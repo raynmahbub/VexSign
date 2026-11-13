@@ -1,6 +1,6 @@
 //
 //  FilesTabView.swift
-//  VexSign — Files like Ksign: storage ring + Quick Access with counts/sizes + context menus. Single nav bar + ViewModel.
+//  VexSign — Storage overview, quick access folders, and file browser.
 //
 
 import SwiftUI
@@ -125,7 +125,7 @@ struct FilesTabView: View {
         }
     }
 
-    // MARK: Storage header — Ksign storage gauge
+    // MARK: Storage header
     private var storageHeader: some View {
         Section {
             VStack(spacing: 12) {
@@ -178,7 +178,7 @@ struct FilesTabView: View {
         }
     }
 
-    // MARK: Quick Access Grid (Ksign Style)
+    // MARK: Quick Access Grid
     private var quickAccessSection: some View {
         Section {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -257,7 +257,7 @@ struct FilesTabView: View {
         }
     }
 
-    // MARK: Files List in Documents Root (Ksign Style)
+    // MARK: Files List in Documents Root
     private var filesListSection: some View {
         Section {
             ForEach(vm.visible) { entry in
@@ -333,7 +333,7 @@ struct FilesTabView: View {
     private func fileContextMenu(entry: IPAFileEntry) -> some View {
         let ext = entry.url.pathExtension.lowercased()
 
-        if ["ipa", "ksign", "zip"].contains(ext) {
+        if ["ipa", "tipa", "zip"].contains(ext) {
             Button(.localized("Import to Library"), systemImage: "square.grid.2x2.fill") {
                 _ = FileManagerActions.importFiles([entry.url], into: FileManager.default.unsigned)
                 Toast.success(.localized("Imported to Library"), systemImage: "tray.and.arrow.down")

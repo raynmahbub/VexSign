@@ -2,7 +2,7 @@
 //  Certificate.swift
 //  vexsign
 //
-//  Created by VexSign TeamSign Team on 5/18/24.
+//  Created by VexSign Contributors on 5/18/24.
 //  Copyright (c) 2026 VexSign Team
 //
 

@@ -2,7 +2,7 @@
 //  CertificatesInfoEntitlementView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 27.04.2025.
+//  Created by VexSign Contributors on 27.04.2025.
 //
 
 import SwiftUI

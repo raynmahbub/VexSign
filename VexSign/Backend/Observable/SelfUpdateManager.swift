@@ -611,7 +611,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 
 		phase = .importing
 		let imported = try await withCheckedThrowingContinuation { (c: CheckedContinuation<AppInfoPresentable, Error>) in
-			FR.handlePackageFile(ipa) { c.resume(with: $0) }
+			PackageImportService.importPackage(ipa) { c.resume(with: $0) }
 		}
 		try? FileManager.default.removeItem(at: ipa)
 
@@ -624,7 +624,7 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		options.appIdentifier = Bundle.main.bundleIdentifier
 		options.appVersion = release.version
 		let signed = try await withCheckedThrowingContinuation { (c: CheckedContinuation<Signed, Error>) in
-			FR.signPackageFile(imported, using: options, icon: nil, certificate: certificate) { result in
+			PackageSigningCoordinator.signPackage(imported, using: options, icon: nil, certificate: certificate) { result in
 				c.resume(with: result)
 			}
 		}

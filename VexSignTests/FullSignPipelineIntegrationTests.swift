@@ -22,7 +22,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         let importExpectation = XCTestExpectation(description: "IPA import completes")
         var importedApp: AppInfoPresentable?
 
-        FR.handlePackageFile(testIPA) { result in
+        PackageImportService.importPackage(testIPA) { result in
             switch result {
             case .success(let app):
                 importedApp = app
@@ -50,7 +50,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         let signExpectation = XCTestExpectation(description: "Signing completes")
         var signedApp: Signed?
 
-        FR.signPackageFile(
+        PackageSigningCoordinator.signPackage(
             app,
             using: OptionsManager.shared.options,
             icon: nil,

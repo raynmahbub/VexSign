@@ -71,7 +71,7 @@ final class AutoSignManager {
 		}
 
 		let result = await withCheckedContinuation { continuation in
-			FR.signPackageFile(
+			PackageSigningCoordinator.signPackage(
 				app,
 				using: options,
 				icon: nil,

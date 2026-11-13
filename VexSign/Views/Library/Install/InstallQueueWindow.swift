@@ -281,7 +281,7 @@ private struct InstallQueuePausedView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                FRAppIconView(app: app.base, size: 34)
+                VexAppIconView(app: app.base, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(.localized("Queue paused"))
                         .font(.headline)
@@ -334,7 +334,7 @@ struct InstallQueuePill: View {
 			queue.isSheetPresented = true
 		} label: {
 			HStack(spacing: 10) {
-				FRAppIconView(app: current.base, size: 26)
+				VexAppIconView(app: current.base, size: 26)
 
 				VStack(alignment: .leading, spacing: 1) {
 					Text(verbatim: current.base.name ?? String.localized("App"))

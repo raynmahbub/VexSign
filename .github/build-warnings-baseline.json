@@ -118,16 +118,6 @@
       "count": 4
     },
     {
-      "file": "VexSign/Utilities/FR.swift",
-      "message": "cannot explicitly specialize instance method 'fetch(from:headers:completion:)'",
-      "count": 1
-    },
-    {
-      "file": "VexSign/Utilities/FR.swift",
-      "message": "capture of 'signed' with non-Sendable type 'Signed' in a '@Sendable' closure; this is an error in the Swift 6 language mode",
-      "count": 1
-    },
-    {
       "file": "VexSign/Utilities/P12Cracker.swift",
       "message": "main actor-isolated static property 'commonPasswords' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode",
       "count": 2

@@ -4,8 +4,8 @@
 //
 //  Enhanced App Lock & Privacy Manager featuring:
 //  - Master App Lock (Face ID / Touch ID / Passcode)
-//  - Specific App Lock (Per-app biometric lock ported from LiveContainer / AppNest)
-//  - Hidden Apps Vault (Conceal apps with Face ID reveal from LiveContainer)
+//  - Specific App Lock (Per-app biometric protection)
+//  - Hidden Apps Vault (Conceal apps behind Face ID authentication)
 //
 
 import Foundation
@@ -27,7 +27,7 @@ final class AppLockManager: ObservableObject {
 	@Published private(set) var isAuthenticating = false
 	@Published private(set) var lastMessage: String?
 
-	// MARK: - LiveContainer: Specific App Lock & Hidden Apps
+	// MARK: - Specific App Lock & Hidden Apps Vault
 	@Published var lockedAppUUIDs: Set<String> {
 		didSet {
 			UserDefaults.standard.set(Array(lockedAppUUIDs), forKey: Self.lockedAppsKey)
@@ -121,7 +121,7 @@ final class AppLockManager: ObservableObject {
 		}
 	}
 
-	// MARK: - LiveContainer: Specific App Lock
+	// MARK: - Specific App Lock
 	func isAppLocked(_ uuid: String) -> Bool {
 		lockedAppUUIDs.contains(uuid)
 	}
@@ -174,7 +174,7 @@ final class AppLockManager: ObservableObject {
 		}
 	}
 
-	// MARK: - LiveContainer: Hidden Apps Vault
+	// MARK: - Hidden Apps Vault
 	func isAppHidden(_ uuid: String) -> Bool {
 		hiddenAppUUIDs.contains(uuid)
 	}

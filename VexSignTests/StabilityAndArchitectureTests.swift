@@ -194,7 +194,7 @@ final class StabilityAndArchitectureTests: XCTestCase {
 		}
 
 		UserDefaults.standard.set(false, forKey: key)
-		let filtered = FR.validatedRepositoryURLs([
+		let filtered = RepositoryCatalogService.validatedRepositoryURLs([
 			URL(string: "https://example.com/apps.json")!,
 			URL(string: "http://example.com/apps.json")!,
 			URL(string: "file:///tmp/apps.json")!,

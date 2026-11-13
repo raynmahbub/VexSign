@@ -217,7 +217,7 @@ extension WebManagerServer {
 				return Self.text("Could not save the uploaded files.", .internalServerError)
 			}
 
-			guard FR.checkPasswordForCertificate(for: p12URL, with: upload.password, using: provURL) else {
+			guard CertificateManagementService.validateCertificatePassword(for: p12URL, with: upload.password, using: provURL) else {
 				return Self.text("Wrong password, or the certificate and provisioning profile don't match.", .badRequest)
 			}
 
@@ -225,7 +225,7 @@ extension WebManagerServer {
 			do {
 				try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
 					DispatchQueue.main.async {
-						FR.handleCertificateFiles(p12URL: p12URL, provisionURL: provURL, p12Password: upload.password, certificateName: nickname) { error in
+						CertificateManagementService.importCertificateFiles(p12URL: p12URL, provisionURL: provURL, p12Password: upload.password, certificateName: nickname) { error in
 							if let error { cont.resume(throwing: error) } else { cont.resume() }
 						}
 					}

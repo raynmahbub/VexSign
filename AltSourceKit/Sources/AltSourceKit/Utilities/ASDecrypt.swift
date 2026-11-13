@@ -2,7 +2,7 @@
 //  ESignKey.swift
 //  vexsign
 //
-//  Created by VexSign TeamSign Team on 20.01.2025.
+//  Created by VexSign Contributors on 20.01.2025.
 //
 
 import Foundation

@@ -2,7 +2,7 @@
 //  URL+scheme.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 8.05.2025.
+//  Created by VexSign Contributors on 8.05.2025.
 //
 
 import Foundation.NSURL

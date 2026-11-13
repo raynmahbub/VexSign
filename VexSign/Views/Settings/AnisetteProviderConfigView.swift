@@ -7,6 +7,7 @@ import NimbleExtensions
 import NativeSigning
 
 struct AnisetteProviderConfigView: View {
+    @Environment(\.appContainer) private var appContainer
     @StateObject private var factory = AnisetteProviderFactory.shared
     @State private var showEndpointEditor = false
     @State private var endpointString = ""
@@ -21,6 +22,10 @@ struct AnisetteProviderConfigView: View {
     @State private var verifyBeforeSaving = false
     @State private var configurationTask: Task<Void, Never>?
     @State private var configurationRevision = 0
+
+    private var useCase: AnisetteProviderUseCase {
+        (appContainer ?? AppContainer.live()).makeAnisetteProviderUseCase()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -53,8 +58,7 @@ struct AnisetteProviderConfigView: View {
                         .buttonStyle(.bordered)
 
                         Button(role: .destructive) {
-                            factory.clearConfiguration()
-                            Task { await NativeSigningManager.shared.synchronizeProvider() }
+                            Task { await useCase.clearConfiguration() }
                         } label: {
                             Label(.localized("Remove"), systemImage: "trash")
                         }
@@ -131,7 +135,7 @@ struct AnisetteProviderConfigView: View {
         .background(Color(uiColor: .quaternarySystemFill))
         .cornerRadius(14)
         .task {
-            do { catalog = try AnisetteServerCatalog.bundled() }
+            do { catalog = try useCase.loadBundledCatalog() }
             catch { catalogError = error.localizedDescription }
         }
         .onDisappear { cancelConfiguration() }
@@ -154,21 +158,14 @@ struct AnisetteProviderConfigView: View {
                     configurationTask = Task { @MainActor in
                         defer { if configurationRevision == configurationID { isTesting = false } }
                         do {
-                            let url = try validateEndpoint(endpoint)
-                            if verifyBeforeSaving {
-                                let descriptor = try AnisetteProviderDescriptor(identifier: id,
-                                    displayName: name, policyRevision: revision, endpoint: url, protocolKind: protocolKind)
-                                if protocolKind == .v3 {
-                                    let provider = try NativeV3AnisetteProvider(descriptor: descriptor)
-                                    _ = try await provider.freshHeaders()
-                                } else {
-                                    let provider = try HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor: descriptor)
-                                    _ = try await provider.freshHeaders()
-                                }
-                            }
-                            try Task.checkCancellation()
-                            try factory.configureHTTPS(endpoint: url, identity: id, displayName: name, policyRevision: revision, protocolKind: protocolKind)
-                            await NativeSigningManager.shared.synchronizeProvider()
+                            try await useCase.saveConfiguration(
+                                endpoint: endpoint,
+                                identity: id,
+                                displayName: name,
+                                policyRevision: revision,
+                                protocolKind: protocolKind,
+                                verifyBeforeSaving: verifyBeforeSaving
+                            )
                             guard !Task.isCancelled, configurationRevision == configurationID else { return }
                             showEndpointEditor = false
                         } catch is CancellationError {
@@ -202,40 +199,18 @@ struct AnisetteProviderConfigView: View {
         protocolKind = descriptor.protocolKind
     }
 
-    private func validateEndpoint(_ string: String) throws -> URL {
-        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw URLError(.badURL) }
-        guard let url = URL(string: trimmed) else { throw URLError(.badURL) }
-        guard url.scheme?.lowercased() == "https" else {
-            throw NSError(domain: "VexSign", code: -1, userInfo: [NSLocalizedDescriptionKey: "Endpoint must use HTTPS"])
-        }
-        return url
-    }
-
     private func testProvider() {
-        guard let descriptor = factory.currentDescriptor else { return }
         isTesting = true
         testResult = nil
 
-        Task {
+        Task { @MainActor in
             do {
-                if descriptor.protocolKind == .v3 {
-                    let provider = try NativeV3AnisetteProvider(descriptor: descriptor)
-                    _ = try await provider.freshHeaders()
-                } else {
-                    let provider = try HTTPSAnisetteProvider<SystemAnisetteHeaderTransport>(descriptor: descriptor)
-                    _ = try await provider.freshHeaders()
-                }
-                await MainActor.run {
-                    testResult = "✅ Provider test successful"
-                    isTesting = false
-                }
+                try await useCase.testCurrentProvider()
+                testResult = "✅ Provider test successful"
             } catch {
-                await MainActor.run {
-                    testResult = "❌ \(error.localizedDescription)"
-                    isTesting = false
-                }
+                testResult = "❌ \(error.localizedDescription)"
             }
+            isTesting = false
         }
     }
 }

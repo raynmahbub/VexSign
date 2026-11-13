@@ -3,7 +3,7 @@
 //  VexSign
 //
 //  Created by NovaDev404 on 24.02.2026.
-//  Imported from NexStore for VexSign with dynamic rule fetching.
+//  Dynamic DNS rule fetcher for VexSign.
 //
 //  the endpoint is configurable and shown in Settings, the feature stays off by default,
 //  and every time it is used VexSign says so in the log. What it does not do — and cannot do — is

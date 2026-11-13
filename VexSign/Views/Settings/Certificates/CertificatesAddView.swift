@@ -2,7 +2,7 @@
 //  CertificatesAddView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 15.04.2025.
+//  Created by VexSign Contributors on 15.04.2025.
 //
 
 import SwiftUI
@@ -131,7 +131,7 @@ extension CertificatesAddView {
 		}
 
 		_isSaving = true
-		FR.handleCertificateFiles(
+		CertificateManagementService.importCertificateFiles(
 			p12URL: p12URL,
 			provisionURL: provisionURL,
 			p12Password: _p12Password,

@@ -2,9 +2,8 @@
 //  GuidesView.swift
 //  VexSign
 //
-//  Independent iOS/iPadOS step-by-step guides inspired by the guide coverage
-//  listed in FlareStore's changelog. They explain VexSign workflows without
-//  linking users to another app's implementation.
+//  Independent iOS/iPadOS step-by-step guides explaining VexSign's
+//  signing, installation, and troubleshooting workflows.
 //
 
 import SwiftUI

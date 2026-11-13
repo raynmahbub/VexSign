@@ -2,7 +2,7 @@
 //  SourcesCellView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 1.05.2025.
+//  Created by VexSign Contributors on 1.05.2025.
 //
 
 import SwiftUI
@@ -33,7 +33,7 @@ struct SourcesCellView: View {
 		let isRegular = horizontalSizeClass != .compact
 
 		let cellContent = HStack {
-		FRIconCellView(
+		VexIconCellView(
 			title: source.name ?? .localized("Unknown"),
 			subtitle: _subtitle,
 			iconUrl: source.iconURL

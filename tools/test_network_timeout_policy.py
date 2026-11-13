@@ -29,7 +29,7 @@ BOUNDED_REQUESTS = [
         "self-update release pages; the update screen waits on the first page",
     ),
     (
-        "VexSign/Utilities/FR+Repository.swift",
+        "VexSign/Utilities/Services/RepositoryCatalogService.swift",
         "X-GitHub-Api-Version",
         "resolving a GitHub release source while a repository is being added",
     ),

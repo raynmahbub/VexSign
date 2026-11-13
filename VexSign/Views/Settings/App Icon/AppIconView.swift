@@ -2,7 +2,7 @@
 //  AppIconView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 19.06.2025.
+//  Created by VexSign Contributors on 19.06.2025.
 //
 
 import SwiftUI
@@ -83,7 +83,7 @@ extension AppIconView {
                 Task { @MainActor in
                     if let error { Toast.error(error.localizedDescription); return }
                     UserDefaults.standard.set(icon.key ?? "", forKey: "VexSign.selectedAppIcon")
-                    FRIconCache.shared.invalidateAll()
+                    VexIconCache.shared.invalidateAll()
                     currentIcon = UIApplication.shared.alternateIconName
                 }
 			}

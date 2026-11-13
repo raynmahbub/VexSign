@@ -1,6 +1,6 @@
 //
 //  RefreshAndDownloadsSettingsView.swift
-//  VexSign — Refresh & Downloads Settings (Ported from screenshot)
+//  VexSign — Refresh & Downloads Settings
 //
 
 import SwiftUI

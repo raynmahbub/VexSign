@@ -373,7 +373,7 @@ final class ImportAndInstallationTests: XCTestCase {
         let samples: [[UInt8]] = [[0x30], [0x30, 0x82, 0xff, 0xff], [0x30, 0x03, 0x02, 0x01, 0x03]]
         for bytes in samples {
             let key = try temporaryFile(Data(bytes))
-            XCTAssertFalse(FR.checkPasswordForCertificate(for: key, with: "", using: profile))
+            XCTAssertFalse(CertificateManagementService.validateCertificatePassword(for: key, with: "", using: profile))
         }
     }
 
@@ -415,7 +415,7 @@ final class ImportAndInstallationTests: XCTestCase {
         let profile = try temporaryFile(profileData())
         for data in [Data(), Data("not a PKCS12 identity".utf8)] {
             let key = try temporaryFile(data)
-            XCTAssertFalse(FR.checkPasswordForCertificate(for: key, with: "wrong", using: profile))
+            XCTAssertFalse(CertificateManagementService.validateCertificatePassword(for: key, with: "wrong", using: profile))
         }
     }
 
@@ -423,7 +423,7 @@ final class ImportAndInstallationTests: XCTestCase {
         let completion = expectation(description: "Import reports failure")
         let key = try temporaryFile(Data("bad P12".utf8))
         let profile = try temporaryFile(profileData())
-        FR.handleCertificateFiles(p12URL: key, provisionURL: profile, p12Password: "") { error in
+        CertificateManagementService.importCertificateFiles(p12URL: key, provisionURL: profile, p12Password: "") { error in
             XCTAssertNotNil(error)
             XCTAssertTrue(Thread.isMainThread)
             completion.fulfill()

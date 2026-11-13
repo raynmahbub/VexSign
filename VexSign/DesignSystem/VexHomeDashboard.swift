@@ -607,7 +607,7 @@ struct VexHomeDashboard: View {
                     ForEach(recentApps) { item in
                         Button { onOpenTab(.library) } label: {
                             VStack(alignment: .leading, spacing: 10) {
-                                FRAppIconView(app: item.base, size: 46)
+                                VexAppIconView(app: item.base, size: 46)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.base.name ?? .localized("Application"))
                                         .font(.subheadline.weight(.semibold))

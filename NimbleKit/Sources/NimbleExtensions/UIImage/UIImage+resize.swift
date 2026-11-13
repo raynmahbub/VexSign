@@ -2,7 +2,7 @@
 //  UIImage+resize.swift
 //  vexsign
 //
-//  Created by VexSign TeamSign Team on 8/13/24.
+//  Created by VexSign Contributors on 8/13/24.
 //
 
 import UIKit.UIImage

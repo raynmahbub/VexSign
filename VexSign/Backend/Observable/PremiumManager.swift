@@ -202,7 +202,7 @@ final class PremiumManager: ObservableObject {
 	private func _activate(with urls: [URL]) async throws -> Int {
 		VexSignAPI.registerPremiumSources(urls)
 
-		let repositories = await FR.fetchRepositories(from: urls)
+		let repositories = await RepositoryCatalogService.fetchRepositories(from: urls)
 		guard !repositories.isEmpty else { throw PremiumError.empty }
 
 		VexSignAPI.isPremium = true

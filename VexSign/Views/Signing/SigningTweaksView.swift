@@ -2,7 +2,7 @@
 //  SigningTweaksView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 20.04.2025.
+//  Created by VexSign Contributors on 20.04.2025.
 //
 
 import SwiftUI

@@ -2,7 +2,7 @@
 //  HomeFlareComponents.swift
 //  VexSign
 //
-//  Flare-inspired presentation tokens and reusable tile/row components for HomeView.
+//  Grid presentation tokens and reusable tile/row components for HomeView.
 //
 
 import SwiftUI

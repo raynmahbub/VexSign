@@ -2,7 +2,7 @@
 //  UIApplication+open.swift
 //  NimbleKit
 //
-//  Created by VexSign TeamSign Team on 30.04.2025.
+//  Created by VexSign Contributors on 30.04.2025.
 //
 
 import UIKit.UIApplication

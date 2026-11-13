@@ -1,8 +1,8 @@
 //
-//  FRIconCellView.swift
+//  VexIconCellView.swift
 //  NimbleKit
 //
-//  Created by VexSign TeamSign Team on 3.05.2025.
+//  Created by VexSign Contributors on 3.05.2025.
 //
 
 import SwiftUI
@@ -10,7 +10,7 @@ import NukeUI
 import NimbleViews
 
 // MARK: - View
-struct FRIconCellView: View {
+struct VexIconCellView: View {
 	var title: String
 	var subtitle: String
 	var iconUrl: URL?

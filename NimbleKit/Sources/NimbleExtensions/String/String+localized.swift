@@ -2,7 +2,7 @@
 //  String+localized.swift
 //  NimbleKit
 //
-//  Created by VexSign TeamSign Team on 20.03.2025.
+//  Created by VexSign Contributors on 20.03.2025.
 //
 
 import Foundation.NSString

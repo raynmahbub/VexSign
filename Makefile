@@ -133,6 +133,7 @@ verify: docs-check
 	@python3 tools/test_cross_file_privacy.py
 	@python3 tools/test_signing_identity_policy.py
 	@python3 tools/test_integration_contracts.py
+	@python3 tools/test_architecture_boundaries.py
 	@python3 tools/test_performance_fixtures.py
 	@python3 tools/test_ci_repair_agent.py
 	@python3 tools/test_autopilot.py

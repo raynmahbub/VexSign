@@ -80,7 +80,7 @@ extension SourcesAddView {
 		}
 
 		Task {
-			let fetched = await FR.fetchRepositories(from: vexRepos)
+			let fetched = await RepositoryCatalogService.fetchRepositories(from: vexRepos)
 			let dict = Dictionary(fetched, uniquingKeysWith: { first, _ in first })
 
 			await MainActor.run {
@@ -100,7 +100,7 @@ extension SourcesAddView {
 	}
 
 	func _fetchRecommendedRepositories() async {
-		let fetched = await FR.fetchRepositories(from: recommendedSources)
+		let fetched = await RepositoryCatalogService.fetchRepositories(from: recommendedSources)
 		await MainActor.run {
 			recommendedSourcesData = fetched
 			_refreshFilteredRecommendedSourcesData()
@@ -124,7 +124,7 @@ extension SourcesAddView {
 		}
 
 		Task {
-			let fetched = await FR.fetchRepositories(from: repoUrls)
+			let fetched = await RepositoryCatalogService.fetchRepositories(from: repoUrls)
 
 			let dict = Dictionary(fetched, uniquingKeysWith: { first, _ in first })
 

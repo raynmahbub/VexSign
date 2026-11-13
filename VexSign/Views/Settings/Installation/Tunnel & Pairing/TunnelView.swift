@@ -2,7 +2,7 @@
 //  SettingsTunnelView.swift
 //  VexSign (idevice)
 //
-//  Created by VexSign TeamSign Team on 29.04.2025.
+//  Created by VexSign Contributors on 29.04.2025.
 //
 
 import SwiftUI
@@ -37,7 +37,7 @@ struct TunnelView: View {
 					DocumentPicker.open([.xmlPropertyList, .plist, .mobiledevicepairing], folder: .pairing) { urls in
 						guard let url = urls.first else { return }
 						do {
-							try FR.movePairing(url)
+							try CertificateManagementService.installPairingFile(from: url)
 							doesHavePairingFile = true
 						} catch {
 							UIAlertController.showAlertWithOk(title: .localized("Pairing import failed"), message: error.localizedDescription)
