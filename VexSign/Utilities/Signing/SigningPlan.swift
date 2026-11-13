@@ -173,7 +173,7 @@ struct SigningPlan: Equatable {
 			includingPropertiesForKeys: [.isRegularFileKey],
 			options: [.skipsHiddenFiles]
 		) {
-			for url in contents.where({ $0.pathExtension.lowercased() == "dylib" }) {
+			for url in contents where url.pathExtension.lowercased() == "dylib" {
 				add(url, kind: .dylib)
 			}
 		}
