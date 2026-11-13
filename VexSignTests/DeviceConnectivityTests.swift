@@ -240,7 +240,8 @@ struct DeviceConnectivityTests {
             InstallPreflightInputs(pairing: .absent)
         )
         guard case .missing(let missingMessage) = missing else {
-            return Issue.record("A missing record is not setup-complete")
+            _ = Issue.record("A missing record is not setup-complete")
+            return
         }
         #expect(missingMessage.localizedCaseInsensitiveContains("no pairing file"))
 
@@ -249,7 +250,8 @@ struct DeviceConnectivityTests {
             InstallPreflightInputs(pairing: .incomplete(["HostPrivateKey"]))
         )
         guard case .missing(let brokenMessage) = broken else {
-            return Issue.record("A record that cannot carry a session is not 'unknown'")
+            _ = Issue.record("A record that cannot carry a session is not 'unknown'")
+            return
         }
         #expect(brokenMessage.contains("HostPrivateKey"))
 
@@ -258,7 +260,8 @@ struct DeviceConnectivityTests {
             InstallPreflightInputs(pairing: .readable(udid: "AAAA"))
         )
         guard case .unknown = usable else {
-            return Issue.record("A readable record still has to prove trust at connect time")
+            _ = Issue.record("A readable record still has to prove trust at connect time")
+            return
         }
     }
 }

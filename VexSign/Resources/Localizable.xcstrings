@@ -107452,6 +107452,28 @@
         }
       }
     },
+    "Requested refresh for %lld repositories. Check repository health for results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requested refresh for %lld repositories. Check repository health for results."
+          }
+        }
+      }
+    },
+    "%1$@ was not added to the extension %2$@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ was not added to the extension %2$@"
+          }
+        }
+      }
+    },
     "%1$@ was not injected. %2$@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -107463,365 +107485,24 @@
         }
       }
     },
-    "A recent revocation check confirmed this certificate. This does not guarantee that a particular app will install." : {
+    "%lld in date, not checked for revocation." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A recent revocation check confirmed this certificate. This does not guarantee that a particular app will install."
+            "value" : "%lld in date, not checked for revocation."
           }
         }
       }
     },
-    "A revocation check could not be set up for this certificate on this device." : {
+    "%lld not checked" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A revocation check could not be set up for this certificate on this device."
-          }
-        }
-      }
-    },
-    "An earlier check found this certificate revoked. Revocation is permanent." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "An earlier check found this certificate revoked. Revocation is permanent."
-          }
-        }
-      }
-    },
-    "Check Unavailable" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check Unavailable"
-          }
-        }
-      }
-    },
-    "Check Unsupported" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check Unsupported"
-          }
-        }
-      }
-    },
-    "Mixed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mixed"
-          }
-        }
-      }
-    },
-    "Optionally loads %@, which only exists on a jailbroken device. It is skipped when missing." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Optionally loads %@, which only exists on a jailbroken device. It is skipped when missing."
-          }
-        }
-      }
-    },
-    "Package layout: %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Package layout: %@"
-          }
-        }
-      }
-    },
-    "Revocation has not been checked yet. Not having expired does not mean the certificate is valid." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Revocation has not been checked yet. Not having expired does not mean the certificate is valid."
-          }
-        }
-      }
-    },
-    "RootHide" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RootHide"
-          }
-        }
-      }
-    },
-    "Rootful" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rootful"
-          }
-        }
-      }
-    },
-    "Rootless" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rootless"
-          }
-        }
-      }
-    },
-    "The issuer reports this certificate as revoked. Apps signed with it will not install or open." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The issuer reports this certificate as revoked. Apps signed with it will not install or open."
-          }
-        }
-      }
-    },
-    "The last check ended without an answer about revocation." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The last check ended without an answer about revocation."
-          }
-        }
-      }
-    },
-    "The last successful revocation check is more than a day old, so the current status is not known." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The last successful revocation check is more than a day old, so the current status is not known."
-          }
-        }
-      }
-    },
-    "The package declares a %1$@ layout but its files use a %2$@ layout. The files are what gets injected." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The package declares a %1$@ layout but its files use a %2$@ layout. The files are what gets injected."
-          }
-        }
-      }
-    },
-    "The provisioning profile has passed its expiry date." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The provisioning profile has passed its expiry date."
-          }
-        }
-      }
-    },
-    "The revocation service could not be reached. This says nothing about the certificate; try again when online." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The revocation service could not be reached. This says nothing about the certificate; try again when online."
-          }
-        }
-      }
-    },
-    "The signing certificate has passed its expiry date." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The signing certificate has passed its expiry date."
-          }
-        }
-      }
-    },
-    "This file is not a Mach-O library, so it cannot be injected." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This file is not a Mach-O library, so it cannot be injected."
-          }
-        }
-      }
-    },
-    "This is a RootHide package. Its libraries are built for a relocated jailbreak root and may not work inside an app." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This is a RootHide package. Its libraries are built for a relocated jailbreak root and may not work inside an app."
-          }
-        }
-      }
-    },
-    "This library has no arm64 slice (found: %@), so an iOS app cannot load it." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library has no arm64 slice (found: %@), so an iOS app cannot load it."
-          }
-        }
-      }
-    },
-    "This library is still encrypted and cannot be re-signed." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library is still encrypted and cannot be re-signed."
-          }
-        }
-      }
-    },
-    "This library only has an arm64e slice. Sideloaded apps run as arm64 and cannot load it." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library only has an arm64e slice. Sideloaded apps run as arm64 and cannot load it."
-          }
-        }
-      }
-    },
-    "This library requires %@, which only exists on a jailbroken device. The app would not start." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library requires %@, which only exists on a jailbroken device. The app would not start."
-          }
-        }
-      }
-    },
-    "This library was built for %@, not iOS." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library was built for %@, not iOS."
-          }
-        }
-      }
-    },
-    "This library's load commands are damaged, so what it needs cannot be checked." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library's load commands are damaged, so what it needs cannot be checked."
-          }
-        }
-      }
-    },
-    "This package carries both a rootful and a rootless payload. VexSign will not guess which one to inject; use a package built for one layout." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This package carries both a rootful and a rootless payload. VexSign will not guess which one to inject; use a package built for one layout."
-          }
-        }
-      }
-    },
-    "none" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "none"
-          }
-        }
-      }
-    },
-    "Depends on %@, which is not part of this injection. Add it as well if the tweak does not work." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Depends on %@, which is not part of this injection. Add it as well if the tweak does not work."
-          }
-        }
-      }
-    },
-    "The app's executable could not be changed to load this library." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The app's executable could not be changed to load this library."
-          }
-        }
-      }
-    },
-    "This library still loads %@ after rewriting, so the app would not start." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This library still loads %@ after rewriting, so the app would not start."
-          }
-        }
-      }
-    },
-    "This tweak needs a hook runtime (Substrate or ElleKit), and VexSign's bundled ElleKit could not be found. The app would not start." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This tweak needs a hook runtime (Substrate or ElleKit), and VexSign's bundled ElleKit could not be found. The app would not start."
+            "value" : "%lld not checked"
           }
         }
       }
@@ -107870,6 +107551,28 @@
         }
       }
     },
+    "A recent revocation check confirmed this certificate. This does not guarantee that a particular app will install." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A recent revocation check confirmed this certificate. This does not guarantee that a particular app will install."
+          }
+        }
+      }
+    },
+    "A revocation check could not be set up for this certificate on this device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A revocation check could not be set up for this certificate on this device."
+          }
+        }
+      }
+    },
     "Allow again for…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -107914,6 +107617,17 @@
         }
       }
     },
+    "An earlier check found this certificate revoked. Revocation is permanent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An earlier check found this certificate revoked. Revocation is permanent."
+          }
+        }
+      }
+    },
     "Background Signing" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -107947,6 +107661,28 @@
         }
       }
     },
+    "Check Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Unavailable"
+          }
+        }
+      }
+    },
+    "Check Unsupported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Unsupported"
+          }
+        }
+      }
+    },
     "Check the certificate" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -107958,6 +107694,17 @@
         }
       }
     },
+    "Depends on %@, which is not part of this injection. Add it as well if the tweak does not work." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depends on %@, which is not part of this injection. Add it as well if the tweak does not work."
+          }
+        }
+      }
+    },
     "Lets scheduled checks sign found updates with the selected certificate while you are not using VexSign. It ends by itself, and you can turn it off at any time. Without it, scheduled checks only notify you. Runs you start yourself are not affected." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -107965,6 +107712,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lets scheduled checks sign found updates with the selected certificate while you are not using VexSign. It ends by itself, and you can turn it off at any time. Without it, scheduled checks only notify you. Runs you start yourself are not affected."
+          }
+        }
+      }
+    },
+    "Mixed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mixed"
+          }
+        }
+      }
+    },
+    "Not Checked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Checked"
           }
         }
       }
@@ -107998,6 +107767,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not removed"
+          }
+        }
+      }
+    },
+    "Optionally loads %@, which only exists on a jailbroken device. It is skipped when missing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optionally loads %@, which only exists on a jailbroken device. It is skipped when missing."
+          }
+        }
+      }
+    },
+    "Package layout: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Package layout: %@"
           }
         }
       }
@@ -108090,6 +107881,50 @@
         }
       }
     },
+    "Revocation has not been checked yet. Not having expired does not mean the certificate is valid." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revocation has not been checked yet. Not having expired does not mean the certificate is valid."
+          }
+        }
+      }
+    },
+    "RootHide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RootHide"
+          }
+        }
+      }
+    },
+    "Rootful" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rootful"
+          }
+        }
+      }
+    },
+    "Rootless" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rootless"
+          }
+        }
+      }
+    },
     "Select a certificate before allowing background signing." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -108119,6 +107954,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Still installed"
+          }
+        }
+      }
+    },
+    "The app's executable could not be changed to load this library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app's executable could not be changed to load this library."
           }
         }
       }
@@ -108167,6 +108013,50 @@
         }
       }
     },
+    "The issuer reports this certificate as revoked. Apps signed with it will not install or open." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The issuer reports this certificate as revoked. Apps signed with it will not install or open."
+          }
+        }
+      }
+    },
+    "The last check ended without an answer about revocation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last check ended without an answer about revocation."
+          }
+        }
+      }
+    },
+    "The last successful revocation check is more than a day old, so the current status is not known." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last successful revocation check is more than a day old, so the current status is not known."
+          }
+        }
+      }
+    },
+    "The package declares a %1$@ layout but its files use a %2$@ layout. The files are what gets injected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package declares a %1$@ layout but its files use a %2$@ layout. The files are what gets injected."
+          }
+        }
+      }
+    },
     "The permission does not cover this kind of background work." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -108200,6 +108090,39 @@
         }
       }
     },
+    "The provisioning profile has passed its expiry date." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile has passed its expiry date."
+          }
+        }
+      }
+    },
+    "The revocation service could not be reached. This says nothing about the certificate; try again when online." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The revocation service could not be reached. This says nothing about the certificate; try again when online."
+          }
+        }
+      }
+    },
+    "The signing certificate has passed its expiry date." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing certificate has passed its expiry date."
+          }
+        }
+      }
+    },
     "The stored permission is not valid and is ignored. Allow background signing again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -108229,6 +108152,127 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This deletes the installed app and everything it has stored, and cannot be undone. The copy in your Library is kept. Identifier: %@"
+          }
+        }
+      }
+    },
+    "This file is not a Mach-O library, so it cannot be injected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not a Mach-O library, so it cannot be injected."
+          }
+        }
+      }
+    },
+    "This is a RootHide package. Its libraries are built for a relocated jailbreak root and may not work inside an app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a RootHide package. Its libraries are built for a relocated jailbreak root and may not work inside an app."
+          }
+        }
+      }
+    },
+    "This library has no arm64 slice (found: %@), so an iOS app cannot load it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library has no arm64 slice (found: %@), so an iOS app cannot load it."
+          }
+        }
+      }
+    },
+    "This library is still encrypted and cannot be re-signed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library is still encrypted and cannot be re-signed."
+          }
+        }
+      }
+    },
+    "This library only has an arm64e slice. Sideloaded apps run as arm64 and cannot load it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library only has an arm64e slice. Sideloaded apps run as arm64 and cannot load it."
+          }
+        }
+      }
+    },
+    "This library requires %@, which only exists on a jailbroken device. The app would not start." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library requires %@, which only exists on a jailbroken device. The app would not start."
+          }
+        }
+      }
+    },
+    "This library still loads %@ after rewriting, so the app would not start." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library still loads %@ after rewriting, so the app would not start."
+          }
+        }
+      }
+    },
+    "This library was built for %@, not iOS." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library was built for %@, not iOS."
+          }
+        }
+      }
+    },
+    "This library's load commands are damaged, so what it needs cannot be checked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This library's load commands are damaged, so what it needs cannot be checked."
+          }
+        }
+      }
+    },
+    "This package carries both a rootful and a rootless payload. VexSign will not guess which one to inject; use a package built for one layout." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This package carries both a rootful and a rootless payload. VexSign will not guess which one to inject; use a package built for one layout."
+          }
+        }
+      }
+    },
+    "This tweak needs a hook runtime (Substrate or ElleKit), and VexSign's bundled ElleKit could not be found. The app would not start." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This tweak needs a hook runtime (Substrate or ElleKit), and VexSign's bundled ElleKit could not be found. The app would not start."
           }
         }
       }
@@ -108310,46 +108354,13 @@
         }
       }
     },
-    "%1$@ was not added to the extension %2$@" : {
+    "none" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ was not added to the extension %2$@"
-          }
-        }
-      }
-    },
-    "%lld in date, not checked for revocation." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld in date, not checked for revocation."
-          }
-        }
-      }
-    },
-    "%lld not checked" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld not checked"
-          }
-        }
-      }
-    },
-    "Not Checked" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not Checked"
+            "value" : "none"
           }
         }
       }
