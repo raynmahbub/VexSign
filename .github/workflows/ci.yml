@@ -218,6 +218,7 @@ jobs:
           python3 tools/test_network_timeout_policy.py
           python3 tools/test_cloud_signing_contract.py
           python3 tools/test_task_history_resilience.py
+          python3 tools/test_capability_disclosure.py
           python3 tools/test_logging_message_policy.py
           python3 tools/test_cross_file_privacy.py
           python3 tools/test_release_assets.py
