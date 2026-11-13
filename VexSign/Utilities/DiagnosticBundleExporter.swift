@@ -51,7 +51,11 @@ enum DiagnosticBundleExporter {
 			let runtimeData = _buildRuntimeJSON()
 			try runtimeData.write(to: stagingDir.appendingPathComponent("runtime.json"))
 
-			// 6. Compress into ZIP
+			// 6. Library integrity. Counts only — no names, identifiers or uuids.
+			let integrityData = _buildIntegrityJSON()
+			try integrityData.write(to: stagingDir.appendingPathComponent("integrity.json"))
+
+			// 7. Compress into ZIP
 			let filesToZip = try fm.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
 			try Zip.zipFiles(paths: filesToZip, zipFilePath: zipURL, password: nil, progress: nil)
 
@@ -205,6 +209,28 @@ enum DiagnosticBundleExporter {
 		// symbol; it is safe to call from the exporter and returns `standalone` in the
 		// ordinary build.
 		let report = EmbeddedContainerRuntime.capabilityReport
+		return (try? JSONSerialization.data(withJSONObject: report.jsonObject, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
+	}
+
+	/// Checks the invariants `Storage` does not enforce: a uuid per row, one row per uuid, an
+	/// artifact directory on disk, a bundle identifier, and — for a signed copy — an identity
+	/// that still exists. Read-only: nothing is repaired by exporting a bundle.
+	@MainActor
+	private static func _buildIntegrityJSON() -> Data {
+		let certificates = Set(Storage.shared.getAllCertificates().compactMap { $0.uuid?.lowercased() })
+		let fileManager = FileManager.default
+		let rows: [LibraryIntegrityAudit.Row] = Storage.shared.getAllApps().map { app in
+			let directory = Storage.shared.getUuidDirectory(for: app)
+			let exists = directory.map { fileManager.fileExists(atPath: $0.path) } ?? false
+			return LibraryIntegrityAudit.Row(
+				uuid: app.uuid,
+				identifier: app.identifier,
+				isSigned: app.isSigned,
+				certificateUUID: (app as? Signed)?.certificate?.uuid,
+				hasArtifactDirectory: exists
+			)
+		}
+		let report = LibraryIntegrityAudit.audit(rows: rows, certificateUUIDs: certificates)
 		return (try? JSONSerialization.data(withJSONObject: report.jsonObject, options: [.prettyPrinted])) ?? Data() // try? ok: serialization failure yields empty data
 	}
 
