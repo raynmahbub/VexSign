@@ -12,7 +12,6 @@
 
 import SwiftUI
 import Combine
-import CoreData
 import OSLog
 import NimbleExtensions
 
@@ -230,7 +229,7 @@ enum CertificateRemoval {
 		let revoked: Bool
 		let date: Date?
 		let password: String
-		let signedApps: [NSManagedObjectID]
+		let signedAppURIs: [URL]
 	}
 
 	static func delete(_ cert: CertificatePair) {
@@ -279,7 +278,7 @@ enum CertificateRemoval {
 				revoked: cert.revoked,
 				date: cert.date,
 				password: password,
-				signedApps: signed.map(\.objectID)
+				signedAppURIs: signed.map { $0.objectID.uriRepresentation() }
 			),
 			token
 		)
@@ -326,16 +325,7 @@ enum CertificateRemoval {
 		// revocation state, and the signed apps point at it again.
 		restored.date = snapshot.date
 		restored.revoked = snapshot.revoked
-		let context = Storage.shared.context
-		for id in snapshot.signedApps {
-			do {
-				if let app = try context.existingObject(with: id) as? Signed { app.certificate = restored }
-			} catch {
-				// The app was deleted during the offer; nothing to relink.
-				continue
-			}
-		}
-		Storage.shared.saveContext()
+		Storage.shared.relinkSignedApps(objectURIs: snapshot.signedAppURIs, to: restored)
 		return true
 	}
 }
