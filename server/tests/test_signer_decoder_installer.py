@@ -31,6 +31,7 @@ os.environ.pop("VEXSIGN_ALLOW_PUBLIC_TARGETS", None)
 import app_installer  # noqa: E402
 import main  # noqa: E402
 import repo_decoder  # noqa: E402
+import url_guard  # noqa: E402
 import web_signer  # noqa: E402
 
 
@@ -545,3 +546,73 @@ def test_hub_lists_all_six_tools(client):
     for name in ("Signer Console", "Repository Creator", "Repository Decoder",
                  "App Installer", "Certificate Status Checker", "UDID Grabber"):
         assert name in body
+
+
+# ---------------------------------------------------------------------------
+# SSRF guard (repository decoder & app installer)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "blocked_url",
+    [
+        "http://127.0.0.1:8080/feed.json",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://10.0.0.5/feed.json",
+        "http://192.168.1.10/feed.json",
+        "http://100.64.0.1/feed.json",
+        "http://[::1]/feed.json",
+        "https://[::ffff:127.0.0.1]/feed.json",
+        "http://localhost/feed.json",
+        "https://metadata.google.internal/computeMetadata/v1/",
+        "https://user:secret@example.com/feed.json",
+    ],
+)
+def test_decoder_and_probe_block_non_public_targets(client, blocked_url):
+    decode_resp = client.post("/api/tools/repo/decode", json={"source": blocked_url})
+    assert decode_resp.status_code == 422
+
+    probe_resp = client.post("/api/tools/install/probe", json={"ipaURL": blocked_url})
+    assert probe_resp.status_code == 422
+
+
+def test_decoder_blocks_redirect_to_metadata_before_connecting(client, monkeypatch):
+    seen: list[str] = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(302, headers={"location": "http://169.254.169.254/latest/meta-data/"})
+
+    monkeypatch.setattr(repo_decoder, "_make_client", mock_factory(handler))
+    response = client.post("/api/tools/repo/decode", json={"source": "https://example.com/feed.json"})
+    assert response.status_code == 422
+    assert seen == ["https://example.com/feed.json"]
+
+
+def test_probe_blocks_redirect_to_loopback_before_connecting(client, monkeypatch):
+    seen: list[str] = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(302, headers={"location": "http://127.0.0.1:9000/internal"})
+
+    monkeypatch.setattr(app_installer, "_make_client", mock_factory(handler))
+    response = client.post("/api/tools/install/probe", json={"ipaURL": "https://example.com/app.ipa"})
+    assert response.status_code == 422
+    assert seen == ["https://example.com/app.ipa"]
+
+
+def test_url_guard_blocks_dns_resolution_to_private_ip(client, monkeypatch):
+    import ipaddress
+
+    seen: list[str] = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(200, content=ALTSTORE_FEED.encode())
+
+    monkeypatch.setattr(repo_decoder, "_make_client", mock_factory(handler))
+    monkeypatch.setattr(url_guard, "_resolve_ips", lambda host, port: {ipaddress.ip_address("10.0.0.1")})
+    response = client.post("/api/tools/repo/decode", json={"source": "https://rebind.example/feed.json"})
+    assert response.status_code == 422
+    assert "not a public IP" in response.json()["detail"]
+    assert seen == []
