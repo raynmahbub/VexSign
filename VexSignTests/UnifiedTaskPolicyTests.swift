@@ -111,7 +111,7 @@ final class UnifiedTaskPolicyTests: XCTestCase {
 
     func testSignFlowAcceptsItsOwnOrderAndRejectsSkipping() {
         let task = task(kind: .sign, subject: "app", phase: .queued)
-        XCTAssertFalse(task.move(to: .install), "a sign task cannot jump to install")
+        XCTAssertFalse(task.move(to: .installing), "a sign task cannot jump to installation")
         XCTAssertTrue(task.move(to: .signing))
         XCTAssertTrue(task.move(to: .signed))
         XCTAssertTrue(task.move(to: .completed))
