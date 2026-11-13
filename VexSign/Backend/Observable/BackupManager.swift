@@ -7,7 +7,6 @@
 
 import Foundation
 import CryptoKit
-import Zip
 import NimbleExtensions
 
 /// What a backup archive may contain.
@@ -465,7 +464,7 @@ final class BackupManager {
         do {
             let worker = Task.detached(priority: .userInitiated) {
                 try Task.checkCancellation()
-                try Zip.zipFiles(paths: [staging], zipFilePath: packURL, password: nil, progress: nil)
+                try ArchiveEngine.zipDirectory(staging, to: packURL)
                 // Never emit a container our own safety policy would refuse to restore.
                 try ArchiveSafetyValidator.validate(packURL)
                 try Task.checkCancellation()
@@ -506,8 +505,8 @@ final class BackupManager {
                 let hash = try BackupCrypto.unsealFile(url, to: packURL, password: password)
                 try Task.checkCancellation()
                 try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
-                try ArchiveSafetyValidator.validate(packURL)
-                try Zip.unzipFile(packURL, destination: extractDir, overwrite: true, password: nil)
+                try ArchiveSafetyValidator.validate(packURL, destination: extractDir)
+                try IPAExtractor.extract(packURL, to: extractDir)
                 try Task.checkCancellation()
                 return hash
             }

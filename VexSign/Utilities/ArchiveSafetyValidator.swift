@@ -2,9 +2,9 @@
 //  ArchiveSafetyValidator.swift
 //  VexSign
 //
-//  Validates untrusted ZIP metadata before the extraction backends run. ZIP
+//  Validates untrusted ZIP metadata before archive extraction runs. ZIP
 //  archives can contain traversal paths, symlinks or extreme expansion ratios;
-//  rejecting those entries before Zip.unzipFile prevents them from writing
+//  rejecting those entries before extraction prevents them from writing
 //  outside the intended workspace.
 //
 //  One validation is not a guarantee for the whole extraction. `IPAExtractor`

@@ -234,7 +234,7 @@ extension WebManagerServer {
 		let output = staging.appendingPathComponent("signed.ipa")
 		do {
 			try await Task.detached(priority: .userInitiated) {
-				try AppArchiver.archive(appDir: directory, to: output, compression: .DefaultCompression)
+				try AppArchiver.archive(appDir: directory, to: output, compression: .defaultCompression)
 			}.value
 		} catch {
 			try? FileManager.default.removeItem(at: staging) // try? ok: the response already carries the real error; staging cleanup must not mask it

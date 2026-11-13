@@ -9,7 +9,6 @@
 
 import Foundation
 import NimbleExtensions
-import Zip
 import OSLog
 
 // MARK: - Models
@@ -721,7 +720,7 @@ final class TweakManager: ObservableObject {
 			// Directory bundle or multiple files → one zip named after the tweak.
 			let safeName = tweak.name.replacingOccurrences(of: "/", with: "_")
 			let zipURL = exportDir.appendingPathComponent("\(safeName.isEmpty ? "Tweak" : safeName).zip")
-			try Zip.zipFiles(paths: sources, zipFilePath: zipURL, password: nil, progress: nil)
+			try ArchiveEngine.zipItems(sources, to: zipURL)
 			return zipURL
 		} catch {
 			Logger.misc.error("TweakManager export failed: \(error.localizedDescription)")
@@ -753,7 +752,7 @@ final class TweakManager: ObservableObject {
 		let zipURL = exportDir.appendingPathComponent("\(safeName).zip")
 		do {
 			try _fm.createDirectoryIfNeeded(at: exportDir)
-			try Zip.zipFiles(paths: items, zipFilePath: zipURL, password: nil, progress: nil)
+			try ArchiveEngine.zipItems(items, to: zipURL)
 			return zipURL
 		} catch {
 			Logger.misc.error("TweakManager folder export failed: \(error.localizedDescription)")

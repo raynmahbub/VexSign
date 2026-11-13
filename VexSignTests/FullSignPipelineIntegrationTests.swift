@@ -204,7 +204,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         try "dummy".write(to: appDir.appendingPathComponent("TestApp"), atomically: true, encoding: .utf8)
         
         let ipaURL = tempDir.appendingPathComponent("TestApp.ipa")
-        try AppArchiver.zip(payload: payloadDir, to: ipaURL, compression: .DefaultCompression) { _ in }
+        try AppArchiver.zip(payload: payloadDir, to: ipaURL, compression: .defaultCompression) { _ in }
         
         return ipaURL
     }

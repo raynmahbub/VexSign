@@ -7,7 +7,6 @@
 
 import Foundation
 import NimbleExtensions
-import Zip
 import OSLog
 
 enum TweakFileType: String, Codable, Equatable {

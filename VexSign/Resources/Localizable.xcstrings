@@ -108826,6 +108826,17 @@
           }
         }
       }
+    },
+    "Compression level used when packaging signed apps and exports into IPA archives." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compression level used when packaging signed apps and exports into IPA archives."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

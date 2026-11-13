@@ -8,7 +8,6 @@
 
 import Foundation
 import SwiftUI
-import Zip
 import NimbleExtensions
 
 // MARK: - Errors
@@ -145,10 +144,6 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 			try await Task.detached(priority: .userInitiated) {
 				try FileManager.default.copyItem(at: url, to: localCopy)
 			}.value
-
-			let ext = url.pathExtension.lowercased()
-			if ext == "ipa" { Zip.addCustomFileExtension("ipa") }
-			if ext == "tipa" { Zip.addCustomFileExtension("tipa") }
 
 			let destination = workspaceRoot.appendingPathComponent("Extracted", isDirectory: true)
 			try fileManager.createDirectoryIfNeeded(at: destination)
@@ -322,7 +317,7 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 			progress = 0
 		}
 
-		let compression = ZipCompression.allCases[safe: ArchiveHandler.getCompressionLevel()] ?? .DefaultCompression
+		let compression = ArchiveCompression.allCases[safe: ArchiveHandler.getCompressionLevel()] ?? .defaultCompression
 
 		do {
 			try await Task.detached(priority: .userInitiated) {
@@ -519,15 +514,8 @@ final class IPAWorkspace: ObservableObject, Identifiable {
 
 	private static func unzip(_ archive: URL, to destination: URL) async throws {
 		try ArchiveSafetyValidator.validate(archive, destination: destination)
-		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-			DispatchQueue.global(qos: .userInitiated).async {
-				do {
-					try Zip.unzipFile(archive, destination: destination, overwrite: true, password: nil, progress: nil)
-					continuation.resume()
-				} catch {
-					continuation.resume(throwing: error)
-				}
-			}
-		}
+		try await Task.detached(priority: .userInitiated) {
+			try IPAExtractor.extract(archive, to: destination)
+		}.value
 	}
 }
