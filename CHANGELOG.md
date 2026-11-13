@@ -9,6 +9,85 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ## [Unreleased]
 
+### Added
+
+- The signing screen shows ten steps: identity, preflight, the seven stages the
+  engine reports, and install. A step is marked done only from recorded evidence;
+  stages a run did not need are shown as skipped, and install is shown as a
+  separate step.
+- Remove from Device, on a signed app's detail screen. It uses the pairing
+  session, refuses VexSign itself and Apple's apps, asks for confirmation, and
+  reports "Removed" only when the app is seen to be gone. Not yet tested on a
+  device.
+- Permission for background signing (Settings, Automation). You allow it for the
+  selected certificate for 1, 7 or 30 days and can turn it off at any time.
+
+### Fixed
+
+- The batch certificate check shows "Not Checked" for a certificate that is in
+  date but whose revocation was not established, instead of "Valid". The
+  Shortcuts action reports those separately.
+- The batch certificate check reports the certificate's own expiry when it ends
+  before the profile's, matching the certificate list and Home.
+- The device sheet tests the pairing session when it opens instead of always
+  reporting it as unavailable, so paired install and removal show their real
+  state.
+- When a tweak cannot be added to an app extension, the signing log now says
+  which extension is without it.
+- The Discover screen's header and its appearance setting are named Discover.
+
+### Changed
+
+- Scheduled "sign and queue" passes now sign only while that permission is
+  active. Without it they notify instead. If you already use "sign and queue",
+  allow background signing once to keep it; runs you start yourself are
+  unchanged.
+
+- Tweak injection now checks every library before it places any of them. A
+  library with no arm64 slice (including arm64e-only builds), built for another
+  platform, still encrypted, malformed, or hard-linked to a file outside the app
+  sandbox is refused with the reason named, and the app bundle is left as it was.
+  The tweak's info screen applies the same rules, so it previews that outcome.
+- A `.deb` is read from one tree only. Rootful and rootless (`var/jb/`) payloads
+  are no longer merged: the package's files decide the layout, the control
+  file's `Architecture` distinguishes rootful from roothide, and a package with
+  payload in both trees is refused.
+- Every absolute hook-runtime load path (`CydiaSubstrate`, `libsubstrate.dylib`,
+  `libellekit.dylib`, rootful or rootless) is redirected to the bundled ElleKit,
+  not only the one rootful Substrate spelling.
+- Certificates are shown with one assessed status: Valid, Expired, Revoked,
+  Unknown, Check Unavailable or Check Unsupported. Valid requires a positive
+  revocation answer less than a day old; an unreachable responder is reported as
+  such and is never shown as valid or revoked.
+
+- The default tab order is Home, Discover, Library, Tasks, Settings. "App Store"
+  is now "Discover" and "Activity" is now "Tasks". A tab order you arranged
+  yourself is kept; an order that was never changed follows the new default.
+- A tweak that needs a hook runtime is refused when the bundled ElleKit cannot be
+  found, instead of producing an app that stops at launch. A hook path that could
+  not be rewritten, or a load command that could not be added, also stops the run.
+- Package dependencies that nothing in the injection provides are named in the
+  signing log.
+- Home shows the same certificate status as the certificate list.
+- Signing stops before it starts when the signing certificate itself has expired,
+  even if the profile has not. The date comes from the last status check.
+- Importing a single tweak library refuses one that no app could load, and says
+  why, instead of accepting it and failing at signing.
+- The signing workflow lists the stages each run actually reported under its step.
+- Shortcuts call the sections Discover and Tasks, matching the tabs.
+
+### Fixed
+
+- arm64e Mach-O slices were reported as arm64. The subtype was compared without
+  masking the capability bits, and toolchains write arm64e as `0x80000002`, so
+  the comparison never matched. The bundled ElleKit's second slice is the case
+  in point.
+- A cached "verified" certificate status stayed on screen after the certificate
+  or profile expired, and for as long as the cache entry existed.
+- A certificate whose revocation policy could not be created made the whole
+  inspection fail, hiding its expiry dates. A status check that could not read
+  the certificate files returned silently; it is now logged.
+
 ### Fixed
 
 - Two of the new pipeline tests tripped the main-actor runtime check. They awaited

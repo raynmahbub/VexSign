@@ -137,10 +137,15 @@ struct CheckCertificatesIntent: AppIntent {
 			return .result(dialog: IntentDialog(stringLiteral: .localized("There are no certificates to check.")))
 		}
 
-		return .result(dialog: IntentDialog(stringLiteral: String.localized(
+		var message = String.localized(
 			"%lld certificates: %lld valid, %lld expiring soon, %lld expired, %lld revoked.",
 			arguments: total, summary.valid, summary.expiring, summary.expired, summary.revoked
-		)))
+		)
+		// In date but never checked for revocation is not "valid"; say so instead of dropping it.
+		if checker.notCheckedCount > 0 {
+			message += " " + String.localized("%lld in date, not checked for revocation.", arguments: checker.notCheckedCount)
+		}
+		return .result(dialog: IntentDialog(stringLiteral: message))
 	}
 }
 

@@ -26,7 +26,7 @@ extension AppStoreView {
                     .textCase(.uppercase)
 
                 HStack(spacing: 8) {
-                    Text(.localized("App Store"))
+                    Text(.localized("Discover"))
                         .font(.title2.weight(.bold))
                     Text("•")
                         .foregroundStyle(.tertiary)
@@ -47,9 +47,7 @@ extension AppStoreView {
     }
 
     private var todayDateFormatted: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, MMMM d"
-        return formatter.string(from: Date())
+        DiscoverHeaderDate.formatter.string(from: Date())
     }
 
     /// Banner shown while some repositories are being served from the offline
@@ -429,4 +427,15 @@ extension AppStoreView {
         }
         .buttonStyle(.plain)
     }
+}
+
+/// The header's date formatter, built once. The header is re-evaluated on every state change
+/// of the Discover screen, and constructing a `DateFormatter` each time is avoidable work.
+/// Read on the main thread only, by the view body.
+private enum DiscoverHeaderDate {
+    static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter
+    }()
 }

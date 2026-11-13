@@ -96,14 +96,36 @@ public class InstallationAppProxy: NSObject {
 		}
 	}
 	
+	// VexSign local patch (see Vendor/README.md): connects the same way `listApps` does, so
+	// removal works over the RSD tunnel too, and frees the client handle on every path.
 	static public func deleteApp(for id: String) async throws {
-		var installproxy: InstallationProxyClientHandle?
+		let heartbeat = HeartbeatManager.shared
 		
 		return try await Task.detached(priority: .userInitiated) {
-			let installation_proxy_connect_result = installation_proxy_connect(HeartbeatManager.shared.provider, &installproxy)
-			guard installation_proxy_connect_result == nil else {
-				throw IDeviceSwiftError(installation_proxy_connect_result)
+			var installproxy: InstallationProxyClientHandle?
+
+			guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else {
+				throw IDeviceSwiftError(message: "Missing Pairing")
 			}
+
+			if heartbeat.isRsd {
+				guard heartbeat.ensureRSDTunnel() else {
+					throw IDeviceSwiftError(message: "Missing Pairing")
+				}
+				let installation_proxy_connect_result = installation_proxy_connect_rsd(heartbeat.adapter, heartbeat.handshake, &installproxy)
+				guard installation_proxy_connect_result == nil else {
+					throw IDeviceSwiftError(installation_proxy_connect_result)
+				}
+			} else {
+				guard heartbeat.checkSocketConnection().isConnected else {
+					throw IDeviceSwiftError(message: "Missing Pairing")
+				}
+				let installation_proxy_connect_result = installation_proxy_connect(heartbeat.provider, &installproxy)
+				guard installation_proxy_connect_result == nil else {
+					throw IDeviceSwiftError(installation_proxy_connect_result)
+				}
+			}
+			defer { installation_proxy_client_free(installproxy) }
 			
 			let installation_proxy_uninstall_result = installation_proxy_uninstall(installproxy, id, nil)
 			guard installation_proxy_uninstall_result == nil else {

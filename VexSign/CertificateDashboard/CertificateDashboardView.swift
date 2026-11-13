@@ -46,6 +46,9 @@ struct CertificateDashboardView: View {
                         Text(.localized("Certificate Health")); Spacer()
                         Text("\(cert.score)/100").bold().foregroundStyle(cert.score >= 80 ? .green : cert.score >= 40 ? .yellow : .red)
                     }
+                    let assessment = cert.assessment()
+                    row(.localized("Status"), assessment.status.title)
+                    Text(assessment.explanation).font(.caption).foregroundStyle(.secondary)
                     row(.localized("OCSP"), cert.revocation.rawValue.capitalized)
                     row(.localized("Team ID"), cert.teamID); row(.localized("Team Name"), cert.teamName)
                     row(.localized("Profile Expiry"), cert.expires.formatted())

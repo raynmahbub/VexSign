@@ -189,6 +189,16 @@ struct SigningPipeline: SigningWork {
 			log.error(SigningIdentityPolicy.logLine(for: rejection))
 			return .failure(rejection)
 		}
+		// The certificate's own end date, recorded by the last status check. It is read from
+		// the stored snapshot, not fetched: a run must not wait on the network to start.
+		if request.options.signingOption == .default,
+		   let uuid = request.certificate?.uuid,
+		   let rejection = SigningIdentityPolicy.rejection(
+			certificateExpiry: CertificateRevocationSnapshot.stored(forCertificateUUID: uuid)?.certificateExpires
+		   ) {
+			log.error(SigningIdentityPolicy.logLine(for: rejection))
+			return .failure(rejection)
+		}
 
 		let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
 		handler.appCertificate = request.certificate

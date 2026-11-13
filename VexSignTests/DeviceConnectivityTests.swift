@@ -193,13 +193,23 @@ struct DeviceConnectivityTests {
         #expect(DeviceCapabilityResolver.report(DeviceCapabilityContext()).status(for: .inventoryRead) == .supported)
     }
 
-    @Test("Uninstall is reported unsupported rather than offered and failing")
-    func testUninstallIsUnsupported() {
-        let report = DeviceCapabilityResolver.report(
+    @Test("Uninstall needs exactly what a paired install needs")
+    func testUninstallFollowsThePairingSession() {
+        let ready = DeviceCapabilityResolver.report(
             DeviceCapabilityContext(pairing: .readable(udid: "AAAA"), pairingTransportAvailable: true)
         )
-        #expect(report.status(for: .uninstall) == .unsupported)
-        #expect(report.capability(for: .uninstall)?.detail.localizedCaseInsensitiveContains("no removal path") == true)
+        #expect(ready.status(for: .uninstall) == ready.status(for: .pairedInstall))
+
+        // Without the session it is not offered, and it names the same missing piece.
+        for context in [
+            DeviceCapabilityContext(),
+            DeviceCapabilityContext(pairing: .readable(udid: "AAAA"), pairingTransportAvailable: false)
+        ] {
+            let report = DeviceCapabilityResolver.report(context)
+            #expect(report.status(for: .uninstall) != .supported)
+            #expect(report.status(for: .uninstall) == report.status(for: .pairedInstall))
+            #expect(report.capability(for: .uninstall)?.detail == report.capability(for: .pairedInstall)?.detail)
+        }
     }
 
     @Test("Every operation gets exactly one answer")

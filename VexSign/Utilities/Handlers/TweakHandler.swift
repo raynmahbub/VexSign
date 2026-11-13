@@ -113,10 +113,17 @@ class TweakHandler {
 		let ellekitDylibPath = _app.appendingPathComponent("Frameworks").appendingPathComponent("ellekit.dylib")
 		let hasExistingHookFramework = _fileManager.fileExists(atPath: frameworksPath.path) || _fileManager.fileExists(atPath: ellekitDylibPath.path)
 
-		func addEllekit(reason: String) async throws {
+		func addEllekit(reason: String, required: Bool = false) async throws {
 			if let ellekitURL = _findEllekitURL() {
 				SigningLog.shared.info(.localized("Auto-injecting ElleKit (%@)", arguments: reason), category: "inject")
 				self._urls.insert(ellekitURL, at: 0)
+			} else if required {
+				// The tweak links the hook runtime. Without it dyld cannot resolve the library
+				// and the app stops at launch, so this is a refusal, not a warning.
+				throw TweakCompatibility.Rejected(
+					fileName: "ElleKit",
+					findings: [TweakCompatibility.Finding(code: .hookRuntimeUnavailable)]
+				)
 			} else {
 				SigningLog.shared.warn(.localized("Tweak requires Substrate/Substitute, but ellekit.deb was not found"), category: "inject")
 				Logger.misc.info("ellekit.deb not found in the app bundle or documents")
@@ -136,7 +143,7 @@ class TweakHandler {
 		} else {
 			let needsSubstrate = await _requiresSubstrateHooking()
 			if needsSubstrate {
-				try await addEllekit(reason: "detected Substrate/Substitute dependency")
+				try await addEllekit(reason: "detected Substrate/Substitute dependency", required: true)
 			} else if _hasAnyInjection {
 				try await addEllekit(reason: "bundle hook runtime")
 			}
@@ -296,7 +303,27 @@ class TweakHandler {
 		folder: Options.InjectFolder
 	) async throws -> [String] {
 		var collected: [String] = []
-		var directoriesToCheck: [URL] = []
+		var payloads: [DebPayload] = []
+
+		// Everything is checked before anything is placed: a refusal must leave the bundle as
+		// it was, not half-injected. Packages are unpacked first so their contents are part of
+		// the same check.
+		for url in urls where url.pathExtension.lowercased() == "deb" {
+			payloads.append(contentsOf: try await _handleDeb(at: url, baseTmpDir: baseTmpDir))
+		}
+		// Dependencies between packages are reported, not enforced: whether a missing library
+		// matters is only known at run time, and many tweaks list packages they never load.
+		let packaged = Set(payloads.compactMap(\.package))
+		for payload in payloads {
+			let unmet = TweakCompatibility.unmetDependencies(dependsField: payload.depends, available: packaged)
+			guard !unmet.isEmpty else { continue }
+			let finding = TweakCompatibility.Finding(code: .unmetDependencies(unmet))
+			SigningLog.shared.info("\(payload.fileName): \(finding.message)", category: "inject")
+		}
+		let extracted = try await _collectFromDirectories(payloads)
+		for url in urls + extracted {
+			try _requireInjectable(url)
+		}
 
 		for url in urls {
 			switch url.pathExtension.lowercased() {
@@ -305,7 +332,8 @@ class TweakHandler {
 					collected.append(name)
 				}
 			case "deb":
-				directoriesToCheck.append(contentsOf: try await _handleDeb(at: url, baseTmpDir: baseTmpDir))
+				// Unpacked above; its contents are injected after the direct inputs.
+				break
 			case "framework":
 				// Drop into Frameworks/, add load command; return load name for targeting.
 				let destinationURL = _app.appendingPathComponent("Frameworks").appendingPathComponent(url.lastPathComponent)
@@ -323,14 +351,91 @@ class TweakHandler {
 			}
 		}
 
-		if !directoriesToCheck.isEmpty {
-			let toInject = try await _collectFromDirectories(directoriesToCheck)
-			if !toInject.isEmpty {
-				collected.append(contentsOf: try await _handleExtractedContents(at: toInject, path: path, folder: folder))
-			}
+		if !extracted.isEmpty {
+			collected.append(contentsOf: try await _handleExtractedContents(at: extracted, path: path, folder: folder))
 		}
 
 		return collected
+	}
+
+	// MARK: - Compatibility gate
+
+	/// One unpacked package: the root of its data archive and the tree its payload is in.
+	private struct DebPayload {
+		let root: URL
+		let layout: TweakPackageLayout
+		/// The `.deb`'s file name, for messages.
+		let fileName: String
+		/// `Package` and `Depends` from the control file, when it had them.
+		let package: String?
+		let depends: String?
+	}
+
+	/// Refuses a library or framework that an arm64 app in the sandbox could not load.
+	///
+	/// The rules are `TweakCompatibility`'s, the same ones the tweak's info screen shows, so
+	/// a file is never injected with a problem the screen would have named. Other inputs
+	/// (packages, resource bundles) carry no code of their own and pass.
+	private func _requireInjectable(_ url: URL) throws {
+		let binary: URL
+		switch url.pathExtension.lowercased() {
+		case "dylib":
+			binary = url
+		case "framework":
+			guard let executable = Bundle(url: url)?.executableURL else {
+				throw TweakCompatibility.Rejected(
+					fileName: url.lastPathComponent,
+					findings: [TweakCompatibility.Finding(code: .notMachO)]
+				)
+			}
+			binary = executable
+		default:
+			return
+		}
+
+		let findings = TweakCompatibility.evaluate(binary: MachOInspector.inspect(fileAt: binary))
+		for finding in findings where !finding.isBlocking {
+			SigningLog.shared.info("\(url.lastPathComponent): \(finding.message)", category: "inject")
+		}
+		guard !findings.contains(where: \.isBlocking) else {
+			throw TweakCompatibility.Rejected(fileName: url.lastPathComponent, findings: findings)
+		}
+	}
+
+	/// Points every absolute hook-runtime path a library loads at the ElleKit copy inside the
+	/// bundle. Rootful, rootless and `libsubstrate`/`libellekit` spellings all name a file that
+	/// is absent without a jailbreak; left alone, any of them stops the app at launch.
+	///
+	/// The result is read back from the file rather than taken from the rewrite's return
+	/// value: what matters is whether an absolute path is still there.
+	private func _redirectHookRuntime(inBinaryAt binary: URL) throws {
+		let paths = TweakCompatibility.hookRuntimeLoadPaths(in: MachOInspector.inspect(fileAt: binary))
+		guard !paths.isEmpty else { return }
+		for old in paths {
+			_ = Zsign.changeDylibPath(
+				appExecutable: binary.path,
+				for: old,
+				with: TweakCompatibility.embeddedHookRuntimePath
+			)
+		}
+		let remaining = TweakCompatibility.hookRuntimeLoadPaths(in: MachOInspector.inspect(fileAt: binary))
+		if let left = remaining.first {
+			throw TweakCompatibility.Rejected(
+				fileName: binary.lastPathComponent,
+				findings: [TweakCompatibility.Finding(code: .hookRuntimeNotRedirected(left))]
+			)
+		}
+	}
+
+	/// Adds the load command for an injected library to the app's own executable. A failure
+	/// here would otherwise produce a signed app that silently lacks the tweak.
+	private func _addLoadCommand(_ loadPath: String, toExecutableAt executable: URL, for fileName: String) throws {
+		guard Zsign.injectDyLib(appExecutable: executable.path, with: loadPath) else {
+			throw TweakCompatibility.Rejected(
+				fileName: fileName,
+				findings: [TweakCompatibility.Finding(code: .loadCommandNotAdded)]
+			)
+		}
 	}
 
 	// MARK: - Inject (main binary)
@@ -366,15 +471,12 @@ class TweakHandler {
 		}
 
 		// change paths because some tweaks hardlink, which is not ideal.
-		_ = Zsign.changeDylibPath(
-			appExecutable: destinationURL.path,
-			for: "/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate",
-			with: "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
-		)
+		try _redirectHookRuntime(inBinaryAt: destinationURL)
 		// inject if there's a valid app main executable
-		_ = Zsign.injectDyLib(
-			appExecutable: appexe.path,
-			with: "\(path.rawValue)\(injectFolder.rawValue)\(destinationURL.lastPathComponent)"
+		try _addLoadCommand(
+			"\(path.rawValue)\(injectFolder.rawValue)\(destinationURL.lastPathComponent)",
+			toExecutableAt: appexe,
+			for: destinationURL.lastPathComponent
 		)
 
 		return destinationURL.lastPathComponent
@@ -389,14 +491,11 @@ class TweakHandler {
 			return
 		}
 
-		_ = Zsign.changeDylibPath(
-			appExecutable: fexe.path,
-			for: "/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate",
-			with: "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
-		)
-		_ = Zsign.injectDyLib(
-			appExecutable: appexe.path,
-			with: "@executable_path/Frameworks/\(framework.lastPathComponent)/\(fexe.lastPathComponent)"
+		try _redirectHookRuntime(inBinaryAt: fexe)
+		try _addLoadCommand(
+			"@executable_path/Frameworks/\(framework.lastPathComponent)/\(fexe.lastPathComponent)",
+			toExecutableAt: appexe,
+			for: framework.lastPathComponent
 		)
 	}
 
@@ -429,12 +528,13 @@ class TweakHandler {
 
 	// MARK: - deb extraction
 
-	// Extract imported deb file, returns the extracted data directories to scan.
-	private func _handleDeb(at url: URL, baseTmpDir: URL) async throws -> [URL] {
+	// Extract imported deb file, returns the extracted data trees and the layout each one uses.
+	private func _handleDeb(at url: URL, baseTmpDir: URL) async throws -> [DebPayload] {
 		let uniqueSubDir = baseTmpDir.appendingPathComponent(UUID().uuidString)
 		try _fileManager.createDirectoryIfNeeded(at: uniqueSubDir)
 
 		var directories: [URL] = []
+		var control: [String: String] = [:]
 
 		let handler = try AR(with: url)
 		let arFiles = try await handler.extract()
@@ -448,35 +548,70 @@ class TweakHandler {
 				try extractFile(at: &fileToProcess)
 				try extractFile(at: &fileToProcess)
 				directories.append(fileToProcess)
+			} else if arFile.name.hasPrefix("control.tar") {
+				control = TweakAnalyzer.readControl(fromTar: outputPath) ?? [:]
 			}
 		}
 
-		return directories
+		// Rootful, rootless and roothide packages are not interchangeable. The tree the
+		// package actually uses is the one read; a package with payload in both is refused
+		// rather than injected twice.
+		return try directories.map { root in
+			let resolution = TweakCompatibility.resolveLayout(
+				declaredArchitecture: control["architecture"],
+				hasRootPayload: _hasPayload(in: root, prefix: ""),
+				hasRootlessPayload: _hasPayload(in: root, prefix: TweakPackageLayout.rootlessPrefix)
+			)
+			for finding in resolution.findings where !finding.isBlocking {
+				SigningLog.shared.info("\(url.lastPathComponent): \(finding.message)", category: "inject")
+			}
+			guard !resolution.isBlocked else {
+				throw TweakCompatibility.Rejected(fileName: url.lastPathComponent, findings: resolution.findings)
+			}
+			return DebPayload(
+				root: root,
+				layout: resolution.layout,
+				fileName: url.lastPathComponent,
+				package: control["package"],
+				depends: control["depends"]
+			)
+		}
+	}
+
+	/// Whether a data tree has anything in the directories injection reads from.
+	private func _hasPayload(in root: URL, prefix: String) -> Bool {
+		TweakPackageLayout.payloadDirectories.contains { directory in
+			let url = root.appendingPathComponent(prefix + directory)
+			let names = (try? _fileManager.contentsOfDirectory(atPath: url.path)) ?? [] // try? ok: a missing or unreadable directory holds no payload
+			return names.contains { !$0.hasPrefix(".") }
+		}
 	}
 
 	// Read extracted deb directories, locate all necessary contents to copy over to the .app
-	private func _collectFromDirectories(_ urls: [URL]) async throws -> [URL] {
-		enum DirectoryType: String {
-			case frameworks = "Frameworks"
-			case dynamicLibraries = "MobileSubstrate/DynamicLibraries"
-			case applicationSupport = "Application Support"
-		}
+	private func _collectFromDirectories(_ payloads: [DebPayload]) async throws -> [URL] {
+		enum DirectoryType: CaseIterable {
+			case frameworks
+			case dynamicLibraries
+			case applicationSupport
 
-		let directoryPaths: [DirectoryType: [String]] = [
-			.frameworks: ["Library/Frameworks/", "var/jb/Library/Frameworks/"],
-			.dynamicLibraries: ["Library/MobileSubstrate/DynamicLibraries/", "var/jb/Library/MobileSubstrate/DynamicLibraries/"],
-			.applicationSupport: ["Library/Application Support/", "var/jb/Library/Application Support/"]
-		]
+			var path: String {
+				switch self {
+				case .frameworks: "Library/Frameworks/"
+				case .dynamicLibraries: "Library/MobileSubstrate/DynamicLibraries/"
+				case .applicationSupport: "Library/Application Support/"
+				}
+			}
+		}
 
 		var result: [URL] = []
 
-		for baseURL in urls {
-			for (directoryType, paths) in directoryPaths {
-				for path in paths {
-					let directoryURL = baseURL.appendingPathComponent(path)
+		for payload in payloads {
+			// Only the tree this package's layout uses — see `TweakPackageLayout.payloadPrefixes`.
+			for prefix in payload.layout.payloadPrefixes {
+				for directoryType in DirectoryType.allCases {
+					let directoryURL = payload.root.appendingPathComponent(prefix + directoryType.path)
 
 					guard _fileManager.fileExists(atPath: directoryURL.path) else {
-						Logger.misc.warning("Directory does not exist: \(directoryURL.path). Skipping.")
 						continue
 					}
 
@@ -547,6 +682,7 @@ class TweakHandler {
 			let extensionExecutable = extensionBundle.executableURL
 		else {
 			Logger.misc.warning("Skipping \(extensionURL.lastPathComponent): couldn't read bundle")
+			SigningLog.shared.error(.localized("%1$@ was not added to the extension %2$@", arguments: dylibName, extensionURL.lastPathComponent))
 			return
 		}
 
@@ -576,6 +712,9 @@ class TweakHandler {
 			Logger.misc.info("Injected \(dylibName) into extension: \(extensionURL.lastPathComponent)")
 		} else {
 			Logger.misc.warning("Failed to inject into extension: \(extensionURL.lastPathComponent)")
+			// The app itself is still signed with the tweak; say which extension is without it
+			// where the user reads the run, not only in the system log.
+			SigningLog.shared.error(.localized("%1$@ was not added to the extension %2$@", arguments: dylibName, extensionURL.lastPathComponent))
 		}
 	}
 }

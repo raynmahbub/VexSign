@@ -75,12 +75,13 @@ extension CertificatesCellView {
 	
 	private func _buildPills(from cert: CertificatePair) -> [NBPillItem] {
 		var pills: [NBPillItem] = []
-		let status = statusManager.effectiveStatus(for: cert)
-		let title = statusManager.effectiveStatusTitle(for: cert)
+		// Expiry, the revocation record and the age of the last check, weighed together: a
+		// cached "verified" must not outlive the certificate or the evidence behind it.
+		let status = statusManager.assessment(for: cert).status
 
 		pills.append(
 			NBPillItem(
-				title: title,
+				title: status.title,
 				icon: status.icon,
 				color: status.color
 			)

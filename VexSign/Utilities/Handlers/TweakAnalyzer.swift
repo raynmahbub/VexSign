@@ -51,6 +51,12 @@ struct TweakAnalysis: Equatable {
 	/// Soft hints ("good to know").
 	var notes: [String]
 
+	/// Where a `.deb` expects to be installed; nil for anything that is not a package.
+	var layout: TweakPackageLayout? = nil
+	/// True when `TweakCompatibility` found a reason this must not be injected. The signing
+	/// path applies the same rules and refuses the file, so this is a preview of that outcome.
+	var blocksInjection = false
+
 	/// True when there's a recommended path/folder the user can one-tap apply.
 	var hasRecommendation: Bool { recommendedPath != nil && recommendedFolder != nil }
 }
@@ -123,6 +129,11 @@ enum TweakAnalyzer {
 			warnings.append(.localized("Couldn't read this binary's load commands (it may be encrypted or not a Mach-O)."))
 		}
 
+		// The same rules the signing path enforces, so the screen and the signer agree.
+		let findings = TweakCompatibility.evaluate(binary: MachOInspector.inspect(fileAt: machoURL))
+		warnings.append(contentsOf: findings.filter(\.isBlocking).map(\.message))
+		notes.append(contentsOf: findings.filter { !$0.isBlocking }.map(\.message))
+
 		let kind = type == .framework ? String.localized("Framework") : String.localized("Dynamic library")
 		let summary = needsSubstrate
 			? String.localized("%@ that hooks via CydiaSubstrate.", arguments: kind)
@@ -142,7 +153,8 @@ enum TweakAnalyzer {
 			recommendedPath: recPath,
 			recommendedFolder: recFolder,
 			warnings: warnings,
-			notes: notes
+			notes: notes,
+			blocksInjection: findings.contains(where: \.isBlocking)
 		)
 	}
 
@@ -224,6 +236,8 @@ enum TweakAnalyzer {
 
 		var depends: [String] = []
 		var packageDesc = ""
+		var declaredArchitecture: String?
+		var binaryFindings: [(path: String, finding: TweakCompatibility.Finding)] = []
 		var installPaths: [String] = []
 		var dylibCount = 0, frameworkCount = 0, bundleCount = 0
 		var needsSubstrate = false
@@ -246,9 +260,10 @@ enum TweakAnalyzer {
 				}
 
 				if arFile.name.hasPrefix("control.tar") {
-					if let control = _readControl(fromTar: out) {
+					if let control = readControl(fromTar: out) {
 						depends = _parseList(control["depends"])
 						packageDesc = control["description"] ?? control["name"] ?? ""
+						declaredArchitecture = control["architecture"]
 					}
 				} else if arFile.name.hasPrefix("data.tar") {
 					var file = out
@@ -260,6 +275,13 @@ enum TweakAnalyzer {
 					frameworkCount = found.frameworks
 					bundleCount = found.bundles
 					needsSubstrate = found.substrate
+					// Read while the extracted tree still exists; it is removed on return.
+					for binary in found.binaries {
+						let inspection = MachOInspector.inspect(fileAt: binary.url)
+						for finding in TweakCompatibility.evaluate(binary: inspection) {
+							binaryFindings.append((binary.path, finding))
+						}
+					}
 				}
 			}
 		} catch {
@@ -289,6 +311,33 @@ enum TweakAnalyzer {
 			: String.localized("%@", arguments: packageDesc)
 
 		var notes: [String] = [.localized("VexSign unpacks the .deb and injects each dylib/framework and copies bundles automatically.")]
+
+		let presence = TweakCompatibility.payloadPresence(inRelativePaths: installPaths)
+		let resolution = TweakCompatibility.resolveLayout(
+			declaredArchitecture: declaredArchitecture,
+			hasRootPayload: presence.root,
+			hasRootlessPayload: presence.rootless
+		)
+		var warnings: [String] = dylibCount + frameworkCount + bundleCount == 0
+			? [.localized("No dylibs/frameworks/bundles found inside — this may not be an injectable tweak.")]
+			: []
+		if resolution.layout != .unknown {
+			notes.append(.localized("Package layout: %@", arguments: resolution.layout.title))
+		}
+		warnings.append(contentsOf: resolution.findings.filter(\.isBlocking).map(\.message))
+		notes.append(contentsOf: resolution.findings.filter { !$0.isBlocking }.map(\.message))
+		// Only the tree that is injected counts: a library elsewhere in the package is never
+		// copied into the app, so a problem with it is not a problem with the injection.
+		let injectedPrefixes = resolution.layout.payloadPrefixes.flatMap { prefix in
+			TweakPackageLayout.payloadDirectories.map { prefix + $0 }
+		}
+		let injectedFindings = binaryFindings.filter { entry in
+			injectedPrefixes.contains { entry.path.hasPrefix($0) }
+		}
+		for entry in injectedFindings {
+			let line = "\((entry.path as NSString).lastPathComponent): \(entry.finding.message)"
+			if entry.finding.isBlocking { warnings.append(line) } else { notes.append(line) }
+		}
 		if needsSubstrate {
 			if let app = appURL, _appHasSubstrate(app) {
 				notes.append(.localized("Needs CydiaSubstrate — the app already includes it."))
@@ -309,10 +358,10 @@ enum TweakAnalyzer {
 			// The deb pipeline picks each file's own location; defaults are fine.
 			recommendedPath: nil,
 			recommendedFolder: nil,
-			warnings: dylibCount + frameworkCount + bundleCount == 0
-				? [.localized("No dylibs/frameworks/bundles found inside — this may not be an injectable tweak.")]
-				: [],
-			notes: notes
+			warnings: warnings,
+			notes: notes,
+			layout: resolution.layout,
+			blocksInjection: resolution.isBlocked || injectedFindings.contains { $0.finding.isBlocking }
 		)
 	}
 
@@ -335,7 +384,9 @@ enum TweakAnalyzer {
 	}
 
 	/// Decompresses + untars a control.tar.* and returns its parsed `control` fields (lowercased keys).
-	private static func _readControl(fromTar tarURL: URL) -> [String: String]? {
+	///
+	/// Internal because the injection path reads the same file to learn the package layout.
+	static func readControl(fromTar tarURL: URL) -> [String: String]? {
 		var file = tarURL
 		try? extractFile(at: &file) // decompress (.gz/.xz/.lzma) → .tar (no-op if already .tar)
 		try? extractFile(at: &file) // untar → directory
@@ -369,26 +420,35 @@ enum TweakAnalyzer {
 	}
 
 	/// Walks an extracted deb data tree, recording injectable items + their install paths.
-	private static func _scanDebData(_ root: URL) -> (paths: [String], dylibs: Int, frameworks: Int, bundles: Int, substrate: Bool) {
+	/// `binaries` are the Mach-O files behind those items: each dylib, and each framework's executable.
+	private static func _scanDebData(_ root: URL) -> (paths: [String], dylibs: Int, frameworks: Int, bundles: Int, substrate: Bool, binaries: [(path: String, url: URL)]) {
 		var paths: [String] = []
 		var dylibs = 0, frameworks = 0, bundles = 0
 		var substrate = false
+		var binaries: [(path: String, url: URL)] = []
 
 		guard let en = _fm.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey]) else {
-			return ([], 0, 0, 0, false)
+			return ([], 0, 0, 0, false, [])
 		}
+		// The enumerator may answer with `/private/var/…` for a root given as `/var/…`, so the
+		// relative path is taken by component count rather than by trimming a string prefix.
+		let rootDepth = root.resolvingSymlinksInPath().pathComponents.count
 		for case let url as URL in en {
 			let ext = url.pathExtension.lowercased()
-			let rel = url.path.replacingOccurrences(of: root.path + "/", with: "")
+			let rel = url.resolvingSymlinksInPath().pathComponents.dropFirst(rootDepth).joined(separator: "/")
 			switch ext {
 			case "dylib":
 				dylibs += 1
 				paths.append("/" + rel)
+				binaries.append((rel, url))
 				if rel.lowercased().contains("mobilesubstrate/dynamiclibraries") { substrate = true }
 				en.skipDescendants()
 			case "framework":
 				frameworks += 1
 				paths.append("/" + rel)
+				if let executable = Bundle(url: url)?.executableURL {
+					binaries.append((rel, executable))
+				}
 				en.skipDescendants()
 			case "bundle":
 				bundles += 1
@@ -398,7 +458,7 @@ enum TweakAnalyzer {
 				break
 			}
 		}
-		return (paths, dylibs, frameworks, bundles, substrate)
+		return (paths, dylibs, frameworks, bundles, substrate, binaries)
 	}
 
 	/// Maps an NSExtensionPointIdentifier to a friendly name.

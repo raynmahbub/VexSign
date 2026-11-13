@@ -21,6 +21,23 @@ struct CertificateHealth: Identifiable, Sendable {
     let revocation: Revocation
     let checkedAt: Date
 	let detail: String
+	/// What the revocation check established, kept apart from `revocation` so that "no
+	/// answer" stays distinguishable from "not asked" and "cannot be asked".
+	var revocationEvidence: CertificateRevocationEvidence = .notChecked
+
+	/// The single status the rest of the app shows for this certificate.
+	func assessment(now: Date = Date()) -> CertificateStatusAssessment {
+		CertificateStatusAssessment.assess(
+			.init(
+				certificateExpiry: certificateExpires,
+				profileExpiry: expires,
+				revokedOnRecord: revocation == .revoked,
+				evidence: revocationEvidence
+			),
+			now: now
+		)
+	}
+
     var effectiveExpiry: Date { min(expires, certificateExpires ?? expires) }
     var daysRemaining: Int { Int(floor(effectiveExpiry.timeIntervalSinceNow / 86_400)) }
 
@@ -91,26 +108,40 @@ enum CertificateInspector {
 			let certificateExpires = Self.notAfter(chain[0])
 
 			var status: CertificateHealth.Revocation = .unknown
+			var evidence: CertificateRevocationEvidence = .notChecked
 			var detail = "OCSP has not been checked. Profile metadata is not signature verification."
 			if online {
+				// A check that cannot be set up is a property of this certificate and device, not
+				// a failure of the inspection: the dates above are still worth reporting.
 				let requestedPolicy: SecPolicy? = SecPolicyCreateRevocation(CFOptionFlags(kSecRevocationOCSPMethod | kSecRevocationRequirePositiveResponse))
-                guard let revocationPolicy = requestedPolicy else {
-                    throw RepositoryError.invalid("Unable to create OCSP policy.")
-                }
-                let policies = [SecPolicyCreateBasicX509(), revocationPolicy]
-                var trust: SecTrust?
-                guard SecTrustCreateWithCertificates(chain as CFArray, policies as CFArray, &trust) == errSecSuccess, let trust else {
-                    throw RepositoryError.invalid("Could not create certificate trust evaluation.")
-                }
-                SecTrustSetNetworkFetchAllowed(trust, true)
-                var error: CFError?
-                if SecTrustEvaluateWithError(trust, &error) {
-                    status = .good; detail = "System trust evaluation passed with positive OCSP evidence. This is not a guarantee of installation eligibility."
-                } else if let error {
-                    if CFErrorGetCode(error) == errSecCertificateRevoked { status = .revoked }
-                    detail = CFErrorCopyDescription(error) as String
-                }
-            }
+				var trust: SecTrust?
+				if let revocationPolicy = requestedPolicy,
+				   SecTrustCreateWithCertificates(chain as CFArray, [SecPolicyCreateBasicX509(), revocationPolicy] as CFArray, &trust) == errSecSuccess,
+				   let trust {
+					SecTrustSetNetworkFetchAllowed(trust, true)
+					var error: CFError?
+					if SecTrustEvaluateWithError(trust, &error) {
+						evidence = .good(checkedAt: Date())
+						detail = "System trust evaluation passed with positive OCSP evidence. This is not a guarantee of installation eligibility."
+					} else if let error {
+						// Only an explicit revocation answer counts as revoked. A check that
+						// could not finish, or failed for another reason, proves nothing.
+						evidence = CertificateRevocationEvidence.classify(trustErrorCode: Int(CFErrorGetCode(error)))
+						detail = CFErrorCopyDescription(error) as String
+					} else {
+						evidence = .inconclusive
+						detail = "Trust evaluation failed without a reason. Revocation status is not known."
+					}
+				} else {
+					evidence = .unsupported
+					detail = "A revocation check could not be set up for this certificate."
+				}
+				switch evidence {
+				case .good: status = .good
+				case .revoked: status = .revoked
+				case .notChecked, .responderUnreachable, .unsupported, .inconclusive: status = .unknown
+				}
+			}
 			return CertificateHealth(id: id, name: name,
 				teamID: (plist["TeamIdentifier"] as? [String])?.joined(separator: ", ") ?? "Unknown",
 				teamName: plist["TeamName"] as? String ?? "Unknown",
@@ -123,7 +154,7 @@ enum CertificateInspector {
 				debugEntitlement: (entitlements["get-task-allow"] as? Bool) ?? false,
 				entitlements: String(decoding: entitlementData, as: UTF8.self),
 				provision: String(decoding: plistData, as: UTF8.self),
-				revocation: status, checkedAt: Date(), detail: detail)
+				revocation: status, checkedAt: Date(), detail: detail, revocationEvidence: evidence)
         }.value
     }
 

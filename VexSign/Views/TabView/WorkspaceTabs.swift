@@ -33,7 +33,7 @@ struct ActivityWorkspaceView: View {
     @ObservedObject private var selection = TabSelectionObserver.shared
 
     var body: some View {
-        NBNavigationView(.localized("Activity")) {
+        NBNavigationView(.localized("Tasks")) {
             VStack(spacing: 0) {
                 Picker(.localized("Activity workspace"), selection: $selection.activitySection) {
                     ForEach(ActivityWorkspaceSection.allCases) { section in Text(section.title).tag(section) }

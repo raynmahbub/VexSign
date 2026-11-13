@@ -167,6 +167,16 @@ struct SigningWorkflowSnapshot: Equatable {
 
     func status(of step: SigningWorkspaceStep) -> SigningWorkspaceStep.Status { step.status(self) }
 
+    /// The engine stages actually reported inside one step, in run order.
+    ///
+    /// A step groups several stages (Customize covers modifying, thinning and injecting), and
+    /// a run only reports the ones it performs. Listing them shows what was done — a run
+    /// with no tweaks never lists "Injecting tweaks" — without inventing a status for work
+    /// that was skipped.
+    func observedStages(in step: SigningWorkspaceStep) -> [SigningStage] {
+        SigningStage.allCases.filter { reached.contains($0) && SigningWorkspaceStep(stage: $0) == step }
+    }
+
     /// The ordered display rows, so a caller can render or assert the whole workflow.
     var steps: [(step: SigningWorkspaceStep, status: SigningWorkspaceStep.Status)] {
         SigningWorkspaceStep.allCases.map { (step: $0, status: $0.status(self)) }
@@ -212,6 +222,11 @@ struct SigningWorkflowView: View {
                         VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                             Text(step.title).font(.subheadline.weight(.semibold))
                             Text(status.title).font(.caption).foregroundStyle(.secondary)
+                            let stages = snapshot.observedStages(in: step)
+                            if !stages.isEmpty {
+                                Text(stages.map(\.title).joined(separator: " · "))
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .accessibilityElement(children: .combine)
