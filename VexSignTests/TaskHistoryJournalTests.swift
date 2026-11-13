@@ -193,7 +193,10 @@ final class TaskHistoryJournalTests: XCTestCase {
         guard case .blocked(.preservationFailed) = await journal.load() else {
             return XCTFail("Expected blocked, not a salvage that cannot be backed up")
         }
-        XCTAssertEqual(await journal.save([]), .notLoaded, "an unbacked-up salvage must not overwrite the original")
+        // The awaited save is hoisted: `XCTAssertEqual` takes its arguments in a non-async
+        // autoclosure, so `await` inside one does not compile.
+        let blocked = await journal.save([])
+        XCTAssertEqual(blocked, .notLoaded, "an unbacked-up salvage must not overwrite the original")
         XCTAssertEqual(try Data(contentsOf: url), original)
     }
 

@@ -566,7 +566,7 @@ final class LibraryStatusStore: ObservableObject {
 		probe: InstalledAppProbing,
 		readSignature: @Sendable (URL) -> BundleSignature.State,
 		readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable },
-		readArtifact: @Sendable (URL) -> LibraryArtifactState = LibraryArtifactInspector.read
+		readArtifact: @Sendable (URL) -> LibraryArtifactState = { LibraryArtifactInspector.read($0) }
 	) -> LibraryAppStatus {
         let candidate: InstalledApp?
         if let identifier = request.bundleIdentifier, !identifier.isEmpty {
@@ -583,7 +583,7 @@ final class LibraryStatusStore: ObservableObject {
         installedApp candidate: InstalledApp?,
         readSignature: @Sendable (URL) -> BundleSignature.State,
         readGuest: @Sendable (String) -> ContainerGuestState = { _ in .unavailable },
-        readArtifact: @Sendable (URL) -> LibraryArtifactState = LibraryArtifactInspector.read
+        readArtifact: @Sendable (URL) -> LibraryArtifactState = { LibraryArtifactInspector.read($0) }
     ) -> LibraryAppStatus {
         var status = LibraryAppStatus()
         status.bundleIdentifier = request.bundleIdentifier

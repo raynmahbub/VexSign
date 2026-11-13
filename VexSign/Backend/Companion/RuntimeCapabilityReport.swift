@@ -119,11 +119,13 @@ struct RuntimeCapabilityReport: Equatable {
 
     static func make(_ facts: Facts) -> RuntimeCapabilityReport {
         let environment = self.environment(for: facts)
-        var availability: [Operation: Availability] = [:]
+        // Named `resolved`, not `availability`: a local of that name shadows the static
+        // `availability(of:in:facts:)` below and the call stops resolving.
+        var resolved: [Operation: Availability] = [:]
         for operation in Operation.allCases {
-            availability[operation] = availability(of: operation, in: environment, facts: facts)
+            resolved[operation] = availability(of: operation, in: environment, facts: facts)
         }
-        return RuntimeCapabilityReport(environment: environment, availability: availability)
+        return RuntimeCapabilityReport(environment: environment, availability: resolved)
     }
 
     static func environment(for facts: Facts) -> Environment {

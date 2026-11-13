@@ -322,7 +322,9 @@ final class CloudSigningClient: ObservableObject {
 	@Published var activeJobs: [CloudJob] = []
 
 	/// How long a JSON round-trip may take before it is treated as a timeout.
-	private static let requestTimeout: TimeInterval = 30
+	// `nonisolated` because it is read from a default-argument expression, which is
+	// evaluated outside the actor.
+	private nonisolated static let requestTimeout: TimeInterval = 30
 
 	/// Uploads get their own session: a 2 GiB archive over a slow link needs a resource timeout
 	/// measured in minutes, and `waitsForConnectivity` keeps a request queued instead of failing
