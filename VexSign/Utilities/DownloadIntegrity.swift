@@ -32,6 +32,10 @@ enum DownloadIntegrity {
 		return transferExceedsPackageLimit(expectedBytes: expected, receivedBytes: 0)
 	}
 
+	static func isAcceptableHTTPStatus(_ statusCode: Int) -> Bool {
+		(200..<300).contains(statusCode)
+	}
+
 	// MARK: Expectation
 
 	/// What the source said the file should be. An empty expectation means "nothing declared", and

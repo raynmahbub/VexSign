@@ -5,7 +5,10 @@ import XCTest
 /// No real network, notification registration, background sessions or Live Activities.
 final class DownloadAdmissionTests: XCTestCase {
     @MainActor
-    private func withManager(_ body: (DownloadManager) throws -> Void) rethrows {
+    private func withManager(
+        protocolClass: AnyClass = HeldDownloadProtocol.self,
+        _ body: (DownloadManager) throws -> Void
+    ) rethrows {
         let keys = [DownloadPreferences.maxParallelKey, DownloadPreferences.wifiOnlyKey,
                     DownloadPreferences.chargeOnlyKey, GameMode.enabledKey]
         let defaults = UserDefaults.standard
@@ -21,9 +24,9 @@ final class DownloadAdmissionTests: XCTestCase {
         defaults.set(false, forKey: DownloadPreferences.chargeOnlyKey)
         defaults.set(false, forKey: GameMode.enabledKey)
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [HeldDownloadProtocol.self]
-        let session = URLSession(configuration: configuration)
+        configuration.protocolClasses = [protocolClass]
         let manager = DownloadManager(configureServices: false)
+        let session = URLSession(configuration: configuration, delegate: manager, delegateQueue: .main)
         manager._foregroundSession = session
         manager._backgroundSession = session
         defer {
@@ -219,11 +222,71 @@ final class DownloadAdmissionTests: XCTestCase {
             oldTask.cancel()
         }
     }
+
+    @MainActor
+    func testNonSuccessHTTPStatusDiscardsPayloadAndDropsTransfer() throws {
+        let errorExpectation = expectation(description: "HTTP error reported")
+        final class Delegate: DownloadManager.ErrorDelegate {
+            let expectation: XCTestExpectation
+            var lastMessage: String?
+            init(_ expectation: XCTestExpectation) { self.expectation = expectation }
+            func showUIErrorMessage(title: String, message: String) {
+                lastMessage = message
+                expectation.fulfill()
+            }
+            func showUIErrorMessage(
+                title: String,
+                message: String,
+                actionTitle: String,
+                action: @escaping () -> Void,
+                dismissTitle: String,
+                onDismiss: (() -> Void)?
+            ) {
+                lastMessage = message
+                expectation.fulfill()
+            }
+        }
+
+        try withManager(protocolClass: NotFoundDownloadProtocol.self) { manager in
+            let delegate = Delegate(errorExpectation)
+            manager.errorDelegate = delegate
+
+            let download = manager.startDownload(from: url(404))
+            wait(for: [errorExpectation], timeout: 5)
+
+            let settled = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in manager.downloads.isEmpty },
+                object: nil
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+            XCTAssertFalse(download.isVerifying)
+            XCTAssertFalse(download.isImporting)
+            XCTAssertFalse(download.isActive)
+            XCTAssertEqual(download.progress, 0)
+            XCTAssertFalse(manager.finishedDownloadingIDs.contains(download.id))
+            XCTAssertTrue(delegate.lastMessage?.contains("404") == true)
+        }
+    }
 }
 
 private final class HeldDownloadProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {} // Deliberately held until the test cancels the session.
+    override func stopLoading() {}
+}
+
+private final class NotFoundDownloadProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let targetURL = request.url ?? URL(string: "https://example.invalid/404.ipa")!
+        let response = HTTPURLResponse(url: targetURL, statusCode: 404, httpVersion: "HTTP/1.1", headerFields: [
+            "Content-Type": "text/html"
+        ])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("<html>Not Found</html>".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
     override func stopLoading() {}
 }

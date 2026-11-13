@@ -33,6 +33,25 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
 		defer { networkTransferFinished(download, task: downloadTask) }
 		if download.exceededPackageSizeLimit { return }
+
+		if let httpResponse = downloadTask.response as? HTTPURLResponse,
+		   !DownloadIntegrity.isAcceptableHTTPStatus(httpResponse.statusCode) {
+			try? FileManager.default.removeItem(at: location) // try? ok: discard failed HTTP error payload
+			let statusCode = httpResponse.statusCode
+			let description = HTTPURLResponse.localizedString(forStatusCode: statusCode)
+			let httpError = NSError(
+				domain: "VexSign.Download",
+				code: statusCode,
+				userInfo: [NSLocalizedDescriptionKey: "\(description) (HTTP \(statusCode))"]
+			)
+			if isAppInBackground {
+				sendCompletionNotification(for: download, status: "❌ HTTP \(statusCode)")
+			} else {
+				showUIErrorMessage(for: download, error: httpError)
+			}
+			_cleanupFailedDownload(download)
+			return
+		}
 		
 		if isAppInBackground {
 			let activeDownloads = downloads.filter { $0.progress > 0 && $0.progress < 1.0 && $0.id != download.id }
@@ -139,7 +158,6 @@ extension DownloadManager: URLSessionDownloadDelegate {
 
 		if download.exceededPackageSizeLimit {
 			download.exceededPackageSizeLimit = false
-			download.isActive = false
 			download.isPaused = false
 			let limitError = NSError(
 				domain: "VexSign.Download",
@@ -151,21 +169,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			} else {
 				showUIErrorMessage(for: download, error: limitError)
 			}
-			DispatchQueue.main.async {
-				self.allActivityDownloads.removeValue(forKey: download.id)
-				self.finishedDownloadingIDs.remove(download.id)
-				if let index = self.getDownloadIndex(by: download.id) { self.downloads.remove(at: index) }
-				let remaining = self.downloads.filter {
-					($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused) ||
-					($0.unpackageProgress > 0 && $0.unpackageProgress < 1.0)
-				}
-				if !remaining.isEmpty && self.downloadActivity != nil {
-					self.forceNextProgressUpdate()
-					self.updateLiveActivity(activeDownloads: remaining)
-				} else {
-					self.dismissLiveActivityImmediately()
-				}
-			}
+			_cleanupFailedDownload(download)
 			return
 		}
 
@@ -226,29 +230,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 				showUIErrorMessage(for: download, error: nsError)
 			}
 
-			download.isActive = false
-
-			DispatchQueue.main.async {
-				self.allActivityDownloads.removeValue(forKey: download.id)
-				self.finishedDownloadingIDs.remove(download.id)
-
-				if let index = self.getDownloadIndex(by: download.id) {
-					self.downloads.remove(at: index)
-				}
-
-				let remainingActiveDownloads = self.downloads.filter {
-					($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused) ||
-					($0.unpackageProgress > 0 && $0.unpackageProgress < 1.0)
-				}
-
-				if !remainingActiveDownloads.isEmpty && self.downloadActivity != nil {
-					self.forceNextProgressUpdate()
-					self.updateLiveActivity(activeDownloads: remainingActiveDownloads)
-				} else {
-					self.dismissLiveActivityImmediately()
-				}
-			}
-
+			_cleanupFailedDownload(download)
 			return
 		}
 
@@ -259,28 +241,33 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			showUIErrorMessage(for: download, error: nsError)
 		}
 
-			download.isActive = false
+		_cleanupFailedDownload(download)
+	}
 
-			DispatchQueue.main.async {
-				self.allActivityDownloads.removeValue(forKey: download.id)
-				self.finishedDownloadingIDs.remove(download.id)
+	private func _cleanupFailedDownload(_ download: Download) {
+		download.isActive = false
+		download.isWaitingForSlot = false
 
-				if let index = self.getDownloadIndex(by: download.id) {
-					self.downloads.remove(at: index)
-				}
+		DispatchQueue.main.async {
+			self.allActivityDownloads.removeValue(forKey: download.id)
+			self.finishedDownloadingIDs.remove(download.id)
 
-				let remainingActiveDownloads = self.downloads.filter {
-					($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused) ||
-					($0.unpackageProgress > 0 && $0.unpackageProgress < 1.0)
-				}
-
-				if !remainingActiveDownloads.isEmpty && self.downloadActivity != nil {
-					self.forceNextProgressUpdate()
-					self.updateLiveActivity(activeDownloads: remainingActiveDownloads)
-				} else {
-					self.dismissLiveActivityImmediately()
-				}
+			if let index = self.getDownloadIndex(by: download.id) {
+				self.downloads.remove(at: index)
 			}
+
+			let remainingActiveDownloads = self.downloads.filter {
+				($0.progress > 0 && $0.progress < 1.0 && !$0.isPaused) ||
+				($0.unpackageProgress > 0 && $0.unpackageProgress < 1.0)
+			}
+
+			if !remainingActiveDownloads.isEmpty && self.downloadActivity != nil {
+				self.forceNextProgressUpdate()
+				self.updateLiveActivity(activeDownloads: remainingActiveDownloads)
+			} else {
+				self.dismissLiveActivityImmediately()
+			}
+		}
 	}
 	
 	func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {

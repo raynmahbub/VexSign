@@ -210,4 +210,13 @@ final class DownloadIntegrityTests: XCTestCase {
 		XCTAssertEqual(DownloadIntegrity.byteCount(of: url), 7)
 		XCTAssertNil(DownloadIntegrity.byteCount(of: directory.appendingPathComponent("missing.ipa")))
 	}
+
+	func testHTTPStatusValidationAcceptsOnly2xx() {
+		XCTAssertTrue(DownloadIntegrity.isAcceptableHTTPStatus(200))
+		XCTAssertTrue(DownloadIntegrity.isAcceptableHTTPStatus(206))
+		XCTAssertFalse(DownloadIntegrity.isAcceptableHTTPStatus(302))
+		XCTAssertFalse(DownloadIntegrity.isAcceptableHTTPStatus(403))
+		XCTAssertFalse(DownloadIntegrity.isAcceptableHTTPStatus(404))
+		XCTAssertFalse(DownloadIntegrity.isAcceptableHTTPStatus(500))
+	}
 }
