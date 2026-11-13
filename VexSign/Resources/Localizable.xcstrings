@@ -107374,6 +107374,17 @@
           }
         }
       }
+    },
+    "Switching session restarts the host process. Save your work first; this does not confirm account login, signing or renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switching session restarts the host process. Save your work first; this does not confirm account login, signing or renewal."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

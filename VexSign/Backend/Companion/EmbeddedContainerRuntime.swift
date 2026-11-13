@@ -15,9 +15,22 @@ enum EmbeddedContainerRuntime {
 
     static var isAvailable: Bool { VEXEmbeddedRuntimeAvailable() }
 
+    /// The one answer to "what can this build do with the runtime".
+    ///
+    /// Built from the same three flags the callers used to read one at a time, so it cannot
+    /// drift from them. Tests inject `Facts` instead of a bundle.
+    static var capabilityReport: RuntimeCapabilityReport {
+        RuntimeCapabilityReport.make(
+            .init(isGuestBuild: isGuestBuild, isPrimaryHost: isPrimaryHost, runtimeLoaded: isAvailable)
+        )
+    }
+
     // BGTask launch would restart the host UI without the guest's task handlers.
     // Keep manual/foreground automation; do not register unsupported guest jobs.
-    static var supportsScheduledGuestTasks: Bool { !isGuestBuild }
+    // Read through the report so the boolean and the diagnostics cannot disagree.
+    static var supportsScheduledGuestTasks: Bool {
+        capabilityReport.isAvailable(.scheduledGuestTasks)
+    }
 
     @MainActor
     static func open(_ destination: Destination) -> Bool {
