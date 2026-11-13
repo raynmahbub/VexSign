@@ -36,15 +36,26 @@ final class Storage: ObservableObject {
 		}
 		return model
 	}()
-/// Private-queue context owned by `write(_:)`. Created lazily on first use
-/// and only ever touched from inside `perform`, which serialises writers.
-private lazy var _writeContext: NSManagedObjectContext = {
+/// Private-queue context owned by `write(_:)`. Created on first use and only ever
+/// touched from inside `perform`, which serialises writers.
+///
+/// Creation is guarded by a lock. `write` is called from arbitrary tasks, and a
+/// `lazy var` is not safe to initialise from two threads: concurrent first writers
+/// could each receive their own context, which removes the serialisation every
+/// writer relies on (two inserts then read the same lowest `sortIndex`).
+private let _writeContextLock = NSLock()
+private var _writeContextStorage: NSManagedObjectContext?
+private var _writeContext: NSManagedObjectContext {
+	_writeContextLock.lock()
+	defer { _writeContextLock.unlock() }
+	if let existing = _writeContextStorage { return existing }
 	let writeContext = container.newBackgroundContext()
 	writeContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
 	writeContext.automaticallyMergesChangesFromParent = true
 	writeContext.undoManager = nil
+	_writeContextStorage = writeContext
 	return writeContext
-}()
+}
 
 	init(inMemory: Bool = false) {
 		self._inMemory = inMemory

@@ -24,6 +24,27 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Fixed
 
+- Task history written before the build fields existed loads again. One such
+  record used to make the whole history unreadable.
+- Concurrent first writes to the library can no longer each create their own
+  write context, which let two new apps take the same sort position.
+- A library entry whose executable is gone is reported as incomplete. The check
+  never ran because nothing told it which file to look for; it now reads the
+  name from the bundle's Info.plist.
+- Scheduled signing checks its permission for each app against the certificate
+  that app will actually be signed with, so a per-app pinned certificate is not
+  covered by a permission given for another one, and turning the permission off
+  stops the rest of a running queue.
+- Signing refuses a certificate whose last status check recorded a revocation,
+  even if the certificate entry itself was not updated.
+- The ordinary app registers its background tasks again. Their availability had
+  been tied to the embedded runtime being loaded, which is never true in the
+  ordinary build, so no scheduled work was registered.
+- A symlink or a folder named like a library at the top of an app is no longer
+  treated as a library to sign, matching what is already done inside the app's
+  subfolders.
+- The tvOS and visionOS companion apps build again.
+
 - The batch certificate check shows "Not Checked" for a certificate that is in
   date but whose revocation was not established, instead of "Valid". The
   Shortcuts action reports those separately.

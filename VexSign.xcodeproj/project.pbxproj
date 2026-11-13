@@ -143,6 +143,7 @@
 				Companion/CompanionSecretStore.swift,
 				Companion/CompanionStore.swift,
 				Security/SecureSecretStore.swift,
+				Utilities/Security/LocalNetworkHost.swift,
 			);
 			target = C0FFEE000000000000000006 /* VexSignTV */;
 		};
@@ -154,6 +155,7 @@
 				Companion/CompanionSecretStore.swift,
 				Companion/CompanionStore.swift,
 				Security/SecureSecretStore.swift,
+				Utilities/Security/LocalNetworkHost.swift,
 			);
 			target = C0FFEE000000000000000012 /* VexSignVision */;
 		};

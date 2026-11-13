@@ -18,14 +18,11 @@ final class DeviceAppRemovalTests: XCTestCase {
 		init(error: Error? = nil) { self.error = error }
 
 		var requests: [String] {
-			lock.lock(); defer { lock.unlock() }
-			return _requests
+			lock.withLock { _requests }
 		}
 
 		func uninstall(bundleIdentifier: String) async throws {
-			lock.lock()
-			_requests.append(bundleIdentifier)
-			lock.unlock()
+			lock.withLock { _requests.append(bundleIdentifier) }
 			if let error { throw error }
 		}
 	}

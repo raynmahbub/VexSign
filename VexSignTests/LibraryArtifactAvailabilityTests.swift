@@ -103,7 +103,10 @@ final class LibraryArtifactAvailabilityTests: XCTestCase {
         let bundle = root.appendingPathComponent("Test.app")
         try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test cleanup, nothing to report
-        try Data("plist".utf8).write(to: bundle.appendingPathComponent("Info.plist"))
+        let plist = try PropertyListSerialization.data(
+            fromPropertyList: ["CFBundleExecutable": "Test"], format: .xml, options: 0
+        )
+        try plist.write(to: bundle.appendingPathComponent("Info.plist"))
         try Data(repeating: 0x61, count: 1024).write(to: bundle.appendingPathComponent("Test"))
 
         XCTAssertEqual(LibraryArtifactInspector.read(bundle), .available)
@@ -113,6 +116,21 @@ final class LibraryArtifactAvailabilityTests: XCTestCase {
         try FileManager.default.removeItem(at: bundle.appendingPathComponent("Test"))
         let state = LibraryArtifactInspector.read(bundle)
         guard case .incomplete = state else { return XCTFail("expected incomplete, got \(state)") }
+    }
+
+    func testAPlistThatNamesNoExecutableLeavesTheBundleAvailable() throws {
+        // No evidence about the executable is not evidence that it is missing.
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("Artifact-\(UUID().uuidString)")
+        let bundle = root.appendingPathComponent("Test.app")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test cleanup, nothing to report
+        try Data(repeating: 0x61, count: 64).write(to: bundle.appendingPathComponent("Payload"))
+
+        for contents in [Data("not a plist".utf8),
+                         try PropertyListSerialization.data(fromPropertyList: ["CFBundleExecutable": "../Other"], format: .xml, options: 0)] {
+            try contents.write(to: bundle.appendingPathComponent("Info.plist"))
+            XCTAssertEqual(LibraryArtifactInspector.read(bundle), .available)
+        }
     }
 
     // MARK: - Store wiring

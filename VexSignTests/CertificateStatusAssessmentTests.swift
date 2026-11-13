@@ -236,4 +236,30 @@ final class CertificateStatusAssessmentTests: XCTestCase {
 		defaults.set(Data("not json".utf8), forKey: CertificateRevocationSnapshot.storageKey)
 		XCTAssertNil(CertificateRevocationSnapshot.stored(forCertificateUUID: "a", defaults: defaults))
 	}
+
+	func testARecordedRevocationRefusesTheRunAndAMissingAnswerDoesNot() {
+		func snapshot(_ status: CertificateStatusValue, gap: CertificateRevocationSnapshot.Gap? = nil, expires: Date? = nil)
+			-> CertificateRevocationSnapshot {
+			CertificateRevocationSnapshot(status: status, detail: "", checkedAt: now, gap: gap, certificateExpires: expires)
+		}
+
+		XCTAssertEqual(SigningIdentityPolicy.rejection(storedSnapshot: snapshot(.revoked), now: now), .certificateRevoked)
+		// Revocation outranks a date that is still good.
+		XCTAssertEqual(
+			SigningIdentityPolicy.rejection(storedSnapshot: snapshot(.revoked, expires: nextYear), now: now),
+			.certificateRevoked
+		)
+
+		// No snapshot, no answer and a good answer refuse nothing by themselves.
+		XCTAssertNil(SigningIdentityPolicy.rejection(storedSnapshot: nil, now: now))
+		XCTAssertNil(SigningIdentityPolicy.rejection(storedSnapshot: snapshot(.unknown, gap: .responderUnreachable), now: now))
+		XCTAssertNil(SigningIdentityPolicy.rejection(storedSnapshot: snapshot(.unknown, gap: .unsupported), now: now))
+		XCTAssertNil(SigningIdentityPolicy.rejection(storedSnapshot: snapshot(.signed, expires: nextYear), now: now))
+
+		// The certificate's own date still applies when the answer was good.
+		XCTAssertEqual(
+			SigningIdentityPolicy.rejection(storedSnapshot: snapshot(.signed, expires: lastWeek), now: now),
+			.certificateExpired(expiresAt: lastWeek)
+		)
+	}
 }

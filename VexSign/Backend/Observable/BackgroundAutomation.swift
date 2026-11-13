@@ -281,7 +281,7 @@ enum BackgroundAutomation {
             }
 
 			if !tasks.isEmpty {
-				await UpdateAllManager.shared.run(tasks: tasks, automatic: true)
+				await UpdateAllManager.shared.run(tasks: tasks, automatic: true, unattended: fromBackground)
 				result.failed += UpdateAllManager.shared.failed
 				result.signed = UpdateAllManager.shared.succeeded
 				result.queueAdded = updatePreferences.autoInstallAfterUpdate

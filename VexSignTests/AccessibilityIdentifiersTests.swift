@@ -65,7 +65,8 @@ final class AccessibilityIdentifiersTests: XCTestCase {
 			A11y.Library.updateBadge,
 			A11y.Library.lockBadge,
 			A11y.Library.resign,
-			A11y.Library.export
+			A11y.Library.export,
+			A11y.Library.selectionToggle
 		]
 
 		for identifier in expected {

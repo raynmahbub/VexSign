@@ -392,16 +392,24 @@ enum InstallWatcher {
 		now: @escaping @Sendable () -> Date = { Date() }
 	) async -> InstallConfirmation.Verdict {
         var confirmation = initial
+        // A zero interval replays scripted readings. Each one must be consumed in order, so
+        // the lookup is not abandoned after a second there: on a busy machine that dropped a
+        // scripted reading and changed the verdict. The live path keeps the one-second bound.
+        let lookupTimeout: TimeInterval = interval > .zero ? 1 : 30
         var before: InstalledApp?
         if let baseline { before = baseline.app }
-        else { before = await probe.installedAppWithTimeout(for: initial.expectation.bundleIdentifier) }
+        else {
+            before = await probe.installedAppWithTimeout(
+                for: initial.expectation.bundleIdentifier, timeout: lookupTimeout)
+        }
 
         while !Task.isCancelled {
             let raw = await progress()
             // Positive independent evidence can finish a fast install or update
             // even if the progress counter is unavailable or remains nonzero.
             if confirmation.phase == .waitingForStart || confirmation.phase == .downloading {
-                let current = await probe.installedAppWithTimeout(for: initial.expectation.bundleIdentifier)
+                let current = await probe.installedAppWithTimeout(
+                    for: initial.expectation.bundleIdentifier, timeout: lookupTimeout)
                 // A positively observed placeholder is fresh install activity,
                 // even when pre-prompt lookup was restricted. Do not promote a
                 // filtered negative/unknown lookup into an "absent" baseline.

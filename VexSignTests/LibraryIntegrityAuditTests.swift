@@ -129,10 +129,11 @@ final class LibraryIntegrityAuditTests: XCTestCase {
             certificateUUIDs: []
         )
         XCTAssertEqual(report.findings.map(\.rowIndex), [0, 0, 1, 1])
-        XCTAssertEqual(
-            report.findings.map(\.code.rawValue),
-            report.findings.map(\.code.rawValue).sorted()
-        )
+        // Row first, then code within a row.
+        for index in [0, 1] {
+            let codes = report.findings.filter { $0.rowIndex == index }.map(\.code.rawValue)
+            XCTAssertEqual(codes, codes.sorted())
+        }
     }
 
     func testAnAuditDoesNotChangeItsInput() {

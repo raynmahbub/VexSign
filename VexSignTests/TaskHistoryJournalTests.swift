@@ -1,4 +1,5 @@
 import XCTest
+import os
 @testable import VexSign
 
 final class TaskHistoryJournalTests: XCTestCase {
@@ -32,10 +33,10 @@ final class TaskHistoryJournalTests: XCTestCase {
         let original = try JSONEncoder().encode([snapshot("original")])
         try original.write(to: url)
         var io = TaskHistoryJournal.IO()
-        var reads = 0 // Accessed only by the journal's serial queue.
+        let reads = OSAllocatedUnfairLock(initialState: 0)
         io.read = { url in
-            reads += 1
-            if reads == 1 { throw CocoaError(.fileReadNoPermission) }
+            let count = reads.withLock { value -> Int in value += 1; return value }
+            if count == 1 { throw CocoaError(.fileReadNoPermission) }
             return try Data(contentsOf: url)
         }
         let journal = TaskHistoryJournal(url: url, io: io)
@@ -91,10 +92,10 @@ final class TaskHistoryJournalTests: XCTestCase {
         try original.write(to: url)
         var io = TaskHistoryJournal.IO()
         let realWrite = io.write
-        var writes = 0 // Queue-confined.
+        let writes = OSAllocatedUnfairLock(initialState: 0)
         io.write = { data, url in
-            writes += 1
-            if writes == 1 { throw CocoaError(.fileWriteOutOfSpace) }
+            let count = writes.withLock { value -> Int in value += 1; return value }
+            if count == 1 { throw CocoaError(.fileWriteOutOfSpace) }
             try realWrite(data, url)
         }
         let journal = TaskHistoryJournal(url: url, io: io)
