@@ -146,7 +146,7 @@ final class AppUpdateChecker: ObservableObject {
                         }
                         if let ignoredVersion = rule.ignoredVersion, !ignoredVersion.isEmpty,
                            let sourceVersion = app.currentVersion,
-                           sourceVersion.compare(ignoredVersion, options: .caseInsensitive) == .orderedSame {
+                           VersionOrder.isSame(sourceVersion, ignoredVersion) {
                             hasUpdate = false
                         }
                         if let ignoredSource = rule.ignoredSourceID, !ignoredSource.isEmpty,

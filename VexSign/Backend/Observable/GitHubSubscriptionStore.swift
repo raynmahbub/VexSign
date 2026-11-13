@@ -98,8 +98,9 @@ final class GitHubSubscriptionStore: ObservableObject {
         guard !rule.disableUpdates, rule.ignoredSourceID != sourceID,
               rule.preferredSourceID == nil || rule.preferredSourceID == sourceID else { return [] }
         // GitHub returns recent releases first. Do not surface older cached releases as updates.
-        return releases.prefix(while: { $0.id != record.releaseID }).filter {
-            rule.ignoredVersion == nil || rule.ignoredVersion?.caseInsensitiveCompare($0.tag_name) != .orderedSame
+        return releases.prefix(while: { $0.id != record.releaseID }).filter { release in
+            guard let ignored = rule.ignoredVersion else { return true }
+            return !VersionOrder.isSame(ignored, release.tag_name)
         }
     }
 

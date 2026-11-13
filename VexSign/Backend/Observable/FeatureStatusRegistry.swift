@@ -94,6 +94,17 @@ enum FeatureStatusRegistry {
 			consumer: "NestedBundleAudit → SigningHandler (signing log) · PreflightChecks / SigningView (coverage target)",
 			status: .implemented
 		),
+		// Separate from the audit above: the audit only reads bundles, this writes a different
+		// profile into each extension. No signed app with extension profiles has been installed
+		// and launched on a device yet (issue #137 is still open), so it is not "implemented".
+		FeatureStatusEntry(
+			id: "extension-profiles",
+			name: "Per-extension provisioning profiles",
+			setting: "Certificates → certificate → Extension Profiles (optional additional profiles)",
+			persistedAs: "Profile files beside the certificate's own profile, read per run",
+			consumer: "AdditionalProfiles → ProfileApplicationIdentifierMatcher → ZsignEngine (one profile per nested bundle)",
+			status: .needsDevice
+		),
 		FeatureStatusEntry(
 			id: "signature-verification",
 			name: "Post-sign verification",

@@ -24,8 +24,13 @@ enum CompanionIPAStager {
             defer { close(output) }
             while true {
                 try Task.checkCancellation()
-                guard let chunk = try input.read(upToCount: 1 << 20), !chunk.isEmpty else { break }
-                try output.write(contentsOf: chunk)
+                // One pool per chunk; see `FileIntegrity.sha256(of:cancellationCheck:)`.
+                let finished = try autoreleasepool { () throws -> Bool in
+                    guard let chunk = try input.read(upToCount: 1 << 20), !chunk.isEmpty else { return true }
+                    try output.write(contentsOf: chunk)
+                    return false
+                }
+                if finished { break }
             }
             try Task.checkCancellation()
             try output.synchronize()

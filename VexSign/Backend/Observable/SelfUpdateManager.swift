@@ -420,6 +420,11 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	// MARK: - Version compare
 
 	static func compare(_ a: String, _ b: String) -> ComparisonResult {
+		// The shared comparator first: it knows `V1.3` from `1.3`, orders a prerelease below
+		// its release and ignores build metadata. The dotted-integer comparison below treated
+		// `1.3.0-beta` as `1.3.0.0` (equal to the release) and any `v`-prefixed component as 0.
+		// It stays as the fallback for strings the shared comparator does not accept.
+		if let order = VersionOrder.precedence(a, b) { return order }
 		func parts(_ s: String) -> [Int] {
 			s.split(whereSeparator: { $0 == "." || $0 == "-" }).map { Int($0) ?? 0 }
 		}

@@ -99,7 +99,7 @@ final class PerAppUpdateRulesStore: ObservableObject {
 
 		if rule.disableUpdates { return false }
 		if let ignored = rule.ignoredVersion, !ignored.isEmpty,
-		   let sourceVersion, sourceVersion.compare(ignored, options: .caseInsensitive) == .orderedSame {
+		   let sourceVersion, VersionOrder.isSame(sourceVersion, ignored) {
 			return false
 		}
 		if let ignoredSource = rule.ignoredSourceID, !ignoredSource.isEmpty,

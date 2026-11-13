@@ -25,14 +25,24 @@ enum FileIntegrity {
         catch { return nil }
         defer { try? handle.close() } // try? ok: read-only handle teardown
         var hasher = SHA256()
+        var unreadable = false
         while true {
             try cancellationCheck()
-            let chunk: Data
-            do { chunk = try handle.read(upToCount: 1 << 20) ?? Data() }
-            catch { return nil }
-            if chunk.isEmpty { break }
-            hasher.update(data: chunk)
+            // `FileHandle.read(upToCount:)` returns an autoreleased buffer. Callers hash on a
+            // background queue or task that has no pool of its own, so without draining one
+            // per chunk every megabyte read stayed alive until the whole file had been hashed
+            // — a 500 MB IPA held about 500 MB at once. `BackupCrypto` drains the same way.
+            let finished: Bool = autoreleasepool {
+                let chunk: Data
+                do { chunk = try handle.read(upToCount: 1 << 20) ?? Data() }
+                catch { unreadable = true; return true }
+                if chunk.isEmpty { return true }
+                hasher.update(data: chunk)
+                return false
+            }
+            if finished { break }
         }
+        if unreadable { return nil }
         try cancellationCheck()
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }

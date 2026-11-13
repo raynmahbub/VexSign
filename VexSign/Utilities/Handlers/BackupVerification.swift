@@ -52,8 +52,13 @@ enum BackupVerification {
         var hasher = SHA256()
         while true {
             try Task.checkCancellation()
-            guard let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty else { break }
-            hasher.update(data: chunk)
+            // One pool per chunk; see `FileIntegrity.sha256(of:cancellationCheck:)`.
+            let finished = try autoreleasepool { () throws -> Bool in
+                guard let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty else { return true }
+                hasher.update(data: chunk)
+                return false
+            }
+            if finished { break }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }

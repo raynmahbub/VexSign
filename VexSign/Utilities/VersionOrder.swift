@@ -37,6 +37,20 @@ enum VersionOrder {
 		return left.precedence(to: right)
 	}
 
+	/// Whether two strings name the same version.
+	///
+	/// `0.9.9` and `v0.9.9`, or `1.0` and `1.0.0`, are one version written two ways. Rules that
+	/// remember a version as text (an ignored version, for instance) compared the text, so
+	/// ignoring `0.9.9` did not ignore the `v0.9.9` a repository published. Strings that are
+	/// not versions fall back to a case-insensitive text comparison, which is what those
+	/// rules did before; they are never treated as equal to a real version.
+	static func isSame(_ lhs: String, _ rhs: String) -> Bool {
+		if let order = precedence(lhs, rhs) { return order == .orderedSame }
+		let left = lhs.trimmingCharacters(in: .whitespacesAndNewlines)
+		let right = rhs.trimmingCharacters(in: .whitespacesAndNewlines)
+		return left.caseInsensitiveCompare(right) == .orderedSame
+	}
+
 	/// Ascending order for a list of optional versions, for `max(by:)`/`sorted(by:)`.
 	///
 	/// A version that can be parsed outranks a missing or unparseable one, so choosing "the newest
