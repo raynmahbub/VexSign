@@ -44,7 +44,6 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   treated as a library to sign, matching what is already done inside the app's
   subfolders.
 - The tvOS and visionOS companion apps build again.
-- The companion platform check can be started by hand for any branch.
 
 - The batch certificate check shows "Not Checked" for a certificate that is in
   date but whose revocation was not established, instead of "Valid". The
