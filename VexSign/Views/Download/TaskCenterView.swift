@@ -62,6 +62,8 @@ struct TaskCenterView: View {
             return .localized("Task history cannot be read. Existing data is retained; new history will be saved after access is restored.")
         case .corruptPreserved:
             return .localized("Unreadable task history was preserved in a recovery file. New task history can still be saved.")
+        case .recordsDropped:
+            return .localized("Some task history entries could not be read. The rest was restored, and the original file was kept as a recovery copy.")
         case .preservationFailed:
             return .localized("Task history recovery could not be saved. The original history was kept; history writes are paused.")
         case .writeFailed:

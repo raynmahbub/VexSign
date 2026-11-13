@@ -5,6 +5,9 @@ import Foundation
 actor TaskHistoryJournal {
     enum Issue: String, Sendable {
         case inaccessible, corruptPreserved, preservationFailed, writeFailed, notLoaded
+        /// The file is a valid history array, but at least one record could not be read. The
+        /// readable records were loaded and the original file was preserved first.
+        case recordsDropped
     }
     enum LoadResult: Sendable {
         case loaded([UnifiedTask.Snapshot], warning: Issue?)
@@ -51,8 +54,37 @@ actor TaskHistoryJournal {
                 return .blocked(.inaccessible)
             }
         }
+        // Records are decoded one at a time. Decoding the array in a single call made every
+        // record's failure fatal: one unreadable entry — an unfamiliar `SigningStage` raw value
+        // written by another build, a field with an unexpected type — threw for the whole file,
+        // which then took the corrupt path and started the history empty. That is a loss of up to
+        // `historyLimit` finished tasks caused by one record.
         do {
-            let snapshots = try JSONDecoder().decode([UnifiedTask.Snapshot].self, from: data)
+            let elements = try JSONSerialization.jsonObject(with: data) as? [Any]
+            guard let elements else {
+                // A valid JSON document that is not an array is not a history file.
+                try io.preserve(url)
+                writable = true
+                return .loaded([], warning: .corruptPreserved)
+            }
+            var snapshots: [UnifiedTask.Snapshot] = []
+            var dropped = 0
+            for element in elements {
+                guard JSONSerialization.isValidJSONObject(element),
+                      let encoded = try? JSONSerialization.data(withJSONObject: element), // try? ok: an element that cannot be re-encoded is one dropped record
+                      let snapshot = try? JSONDecoder().decode(UnifiedTask.Snapshot.self, from: encoded) // try? ok: counted below, not silently ignored
+                else {
+                    dropped += 1
+                    continue
+                }
+                snapshots.append(snapshot)
+            }
+            guard dropped == 0 else {
+                // The readable records are about to replace the file, so keep the original first.
+                do { try io.preserve(url) } catch { return .blocked(.preservationFailed) }
+                writable = true
+                return .loaded(snapshots, warning: .recordsDropped)
+            }
             writable = true
             return .loaded(snapshots, warning: nil)
         } catch {
