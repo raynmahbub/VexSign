@@ -220,11 +220,12 @@ struct BackupRestoreSummary {
 	/// two disagree only when a write silently did not stick, and that is exactly the case a
 	/// success message must never hide.
 	var unverified: Int {
-		// Spelled out rather than one `reduce`: the untyped literal, the two dictionary
-		// subscripts, `max` and `-` in a single closure were enough for the type checker to
-		// give up on the whole property.
+		// A loop, not `restored.reduce`: `restored` is an OptionSet and has no `reduce` at
+		// all. The original one-liner was invalid rather than merely slow, and the compiler
+		// reported a type-check timeout instead of the missing member.
 		var total: Int = 0
-		for component in restored {
+		// `restored` is an OptionSet, not a collection, so the members come from `ordered`.
+		for component in BackupComponents.ordered where restored.contains(component) {
 			let added: Int = _added[component] ?? 0
 			let verified: Int = _verified[component] ?? 0
 			total += max(0, added - verified)
