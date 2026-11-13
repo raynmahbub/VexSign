@@ -224,12 +224,12 @@ That is simulator and build evidence only. Nothing here has run on a device.
 
 A later run on the working branch (CI run 43429740406, commit `f2c5bd5`) completed with the
 quick check, the iOS device build, the concurrency report and the simulator test job all
-successful. The tvOS and visionOS targets were not built by that run: the platform workflow
-starts only for a pull request or a push to `main`, so the membership fix for those targets
-is still unbuilt. `InstallConfirmationTests.testWatcherAcceptsNewAppearanceWithoutProgressCounter`
-failed in the previous run and passed in this one with no change to it or to the watcher; it
-reads the probe through a one-second real-clock timeout and should be treated as
-timing-sensitive until it is given an injected timeout.
+successful. On commit `fdad1fd` the same four jobs succeeded again (CI run 43434795013) and
+the platform check, started by hand for the branch, built the tvOS, visionOS and watchOS
+targets (run 43434790840). `InstallConfirmationTests.testWatcherAcceptsNewAppearanceWithoutProgressCounter`
+had failed once and passed once with no change to it; the watcher's scripted replay now uses a
+lookup bound a busy runner cannot exhaust. One failure is not enough to confirm that was the
+cause, so the test should be watched over further runs.
 
 ## Device acceptance for this change
 
