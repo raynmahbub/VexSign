@@ -9,7 +9,6 @@
 import Foundation
 import OSLog
 import Vapor
-import Zip
 
 private struct WebManagerFileInfo: Content {
 	let name: String
@@ -270,7 +269,7 @@ extension WebManagerServer {
 		}
 
 		app.get("api", "compression") { _ -> Response in
-			let options = ZipCompression.allCases.enumerated().map { CompressionOption(value: $0.offset, label: $0.element.label) }
+			let options = ArchiveCompression.allCases.enumerated().map { CompressionOption(value: $0.offset, label: $0.element.label) }
 			return Self.json(options)
 		}
 
@@ -293,7 +292,7 @@ extension WebManagerServer {
             defer { withExtendedLifetime(info.lease) {} }
 
 			let level = (try? req.query.get(Int.self, at: "compression")) ?? ArchiveHandler.getCompressionLevel() // try? ok: an absent or non-integer query parameter falls back to the user's compression preference
-			let compression = ZipCompression.allCases[safe: level] ?? .DefaultCompression
+			let compression = ArchiveCompression.allCases[safe: level] ?? .defaultCompression
 			let filename = IPAExportNaming.stem(name: info.name, version: info.version) + ".ipa"
 			let ipaURL = FileManager.default.temporaryDirectory
 				.appendingPathComponent("AppExport_\(UUID().uuidString)", isDirectory: true)

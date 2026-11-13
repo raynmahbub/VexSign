@@ -178,4 +178,35 @@ struct NativeSigningManagerTests {
         #expect(availability.isAvailable == TrollStoreDetector.isAvailable)
         #expect(availability.isAvailable == (availability.availabilityReason == nil))
     }
+
+    @Test("TwoFactorChallenge preserves operation and retry flags without SideSign import")
+    func testTwoFactorChallengeIdentityAndSubmissionRequiresBackend() async {
+        let operationID = UUID()
+        let challengeID = UUID()
+        let challenge = NativeSigningManager.TwoFactorChallenge(
+            operationID: operationID,
+            id: challengeID,
+            isRetry: true
+        )
+        #expect(challenge.operationID == operationID)
+        #expect(challenge.id == challengeID)
+        #expect(challenge.isRetry == true)
+
+        await NativeSigningManager.shared.shutdown()
+        do {
+            _ = try await NativeSigningManager.shared.submitTwoFactorCode(
+                "123456",
+                operationID: operationID,
+                challengeID: challengeID
+            )
+            Issue.record("Expected backendNotReady when manager has not been initialized")
+        } catch let error as NativeSigningError {
+            guard case .backendNotReady = error else {
+                Issue.record("Unexpected NativeSigningError: \(error)")
+                return
+            }
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
 }

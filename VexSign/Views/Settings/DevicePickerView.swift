@@ -8,7 +8,6 @@
 import SwiftUI
 import NimbleViews
 import NimbleExtensions
-import IDeviceSwift
 import os
 
 struct DevicePickerView: View {
@@ -97,7 +96,7 @@ struct DevicePickerView: View {
             await loadPairedDevices()
             // The probe blocks for up to its timeout, so it runs off the main actor.
             pairingTransportAvailable = await Task.detached(priority: .userInitiated) {
-                HeartbeatManager.shared.checkSocketConnection().isConnected
+                PairingBridge.isSocketConnected()
             }.value
         }
         .presentationDetents([.medium, .large])
@@ -235,79 +234,6 @@ struct DevicePickerView: View {
         // included: `logLines` carries operation names and statuses only.
         for line in report.logLines {
             logger.debug("\(line, privacy: .public)")
-        }
-    }
-}
-
-// MARK: - IDeviceManager
-
-/// Reads the pairing record and describes the device it names.
-///
-/// Not a device manager in the sense of owning sessions: the linked `IDevice` binary talks to one
-/// device through the pairing record, and this type reads that record. Naming it after the
-/// framework it wraps keeps the existing call sites intact.
-@MainActor
-final class IDeviceManager {
-    static let shared = IDeviceManager()
-
-    private init() {}
-
-    /// Returns the path to the pairing file
-    private var pairingFilePath: String {
-        HeartbeatManager.pairingFile()
-    }
-
-    struct Result: Sendable {
-        let pairing: DevicePairingState
-        let devices: [PairedDeviceRecord]
-    }
-
-    /// One record per device, with the pairing state that produced it.
-    ///
-    /// Duplicate records collapse by UDID, so importing the same pairing file twice — or reading
-    /// it in two formats — cannot produce two rows for one device.
-    func pairedDevices() async -> Result {
-        let url = URL(fileURLWithPath: pairingFilePath)
-        let pairing = PairingRecordInspector.inspect(fileAt: url)
-
-        guard let udid = pairing.udid else {
-            return Result(pairing: pairing, devices: [])
-        }
-
-        let info = await queryDeviceInfo()
-
-        // Presence is "found", not "connected": the record is the only evidence available from
-        // inside the sandbox, and the capability report says what still has to happen.
-        let record = PairedDeviceRecord(
-            udid: udid,
-            name: info?.name ?? .localized("iOS Device"),
-            deviceType: info?.deviceType ?? .localized("iPhone"),
-            iosVersion: info?.iosVersion ?? .localized("Unknown"),
-            presence: .discovered,
-            pairing: pairing,
-            trust: info?.trust ?? .unverified
-        )
-
-        return Result(pairing: pairing, devices: PairedDeviceRecord.unique([record]))
-    }
-
-    /// Device details through `LockdownClient`.
-    ///
-    /// This reads the record and the running system. It does not open a device session, which is
-    /// why the answer it returns can never raise trust.
-    private func queryDeviceInfo() async -> DeviceInfo? {
-        let pairingFileURL = URL(fileURLWithPath: pairingFilePath)
-        guard FileManager.default.fileExists(atPath: pairingFilePath) else { return nil }
-
-        do {
-            let client = LockdownClient(pairingFileURL: pairingFileURL)
-            try await client.connect()
-            let info = try await client.getDeviceInfo()
-            await client.disconnect()
-            return info
-        } catch {
-            logger.debug("Failed to query device info: \(error.localizedDescription, privacy: .public)")
-            return nil
         }
     }
 }

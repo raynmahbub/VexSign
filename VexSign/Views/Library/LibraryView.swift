@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  LibraryView.swift
 //  VexSign
 //
 //  Created by VexSign TeamSign Team on 10.04.2025.
@@ -16,12 +16,12 @@ struct LibraryView: View {
     var ownsNavigationStack: Bool = true
     var workspaceSection: LibraryWorkspaceSection? = nil
     @StateObject var downloadManager = DownloadManager.shared
-    @ObservedObject private var tabSelection = TabSelectionObserver.shared
-    @ObservedObject private var updateChecker = AppUpdateChecker.shared
-    @ObservedObject private var lockManager = AppLockManager.shared
+    @ObservedObject var tabSelection = TabSelectionObserver.shared
+    @ObservedObject var updateChecker = AppUpdateChecker.shared
+    @ObservedObject var lockManager = AppLockManager.shared
     @ObservedObject private var libraryStatus = LibraryStatusStore.shared
     @AppStorage("VexSign.library.layout") private var libraryLayout = "list"
-    
+
     @State private var _selectedInfoAppPresenting: AnyApp?
     @State private var _selectedSigningAppPresenting: AnyApp?
     @State private var _isDownloadingPresenting = false
@@ -29,12 +29,12 @@ struct LibraryView: View {
     @State private var _isExplorerPresenting = false
     @State private var _isDirectInstallPresenting = false
     @State private var _isGitHubImportPresenting = false
-    
+
     // MARK: Selection State
-    @State private var _selectedAppUUIDs: Set<String> = []
-    @State private var _editMode: EditMode = .inactive
-    @State private var _showDeleteConfirmation = false
-    @State private var _batchRequest: BatchRequest?
+    @State var _selectedAppUUIDs: Set<String> = []
+    @State var _editMode: EditMode = .inactive
+    @State var _showDeleteConfirmation = false
+    @State var _batchRequest: BatchRequest?
 
     @State private var _searchText = ""
     @State private var _selectedScope: Scope = .all
@@ -45,9 +45,9 @@ struct LibraryView: View {
     @State private var _sizeGeneration = UUID()
 
     @State private var scrollProxy: ScrollViewProxy?
-    
+
     @Namespace private var _namespace
-    
+
     // MARK: Fetch
     @FetchRequest(
         entity: Signed.entity(),
@@ -60,17 +60,17 @@ struct LibraryView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \Imported.sortIndex, ascending: true)],
         animation: .snappy
     ) private var _importedApps: FetchedResults<Imported>
-    
+
     // MARK: Computed Properties
     private var _sort: LibrarySort { LibrarySort(rawValue: _sortRaw) ?? .manual }
 
-    private var hiddenAppsCount: Int {
+    var hiddenAppsCount: Int {
         let sCount = _signedApps.filter { if let u = $0.uuid { return lockManager.isAppHidden(u) } else { return false } }.count
         let iCount = _importedApps.filter { if let u = $0.uuid { return lockManager.isAppHidden(u) } else { return false } }.count
         return (workspaceSection?.includesApp(isSigned: true) == false ? 0 : sCount) + (workspaceSection?.includesApp(isSigned: false) == false ? 0 : iCount)
     }
 
-    private var filteredSignedApps: [Signed] {
+    var filteredSignedApps: [Signed] {
         let filtered = _signedApps.filter { app in
             guard workspaceSection?.includesApp(isSigned: true) != false else { return false }
             if !lockManager.isRevealingHiddenApps, let uuid = app.uuid, lockManager.isAppHidden(uuid) {
@@ -82,8 +82,8 @@ struct LibraryView: View {
         }
         return _sorted(filtered)
     }
-    
-    private var filteredImportedApps: [Imported] {
+
+    var filteredImportedApps: [Imported] {
         let filtered = _importedApps.filter { app in
             guard workspaceSection?.includesApp(isSigned: false) != false else { return false }
             if !lockManager.isRevealingHiddenApps, let uuid = app.uuid, lockManager.isAppHidden(uuid) {
@@ -119,13 +119,8 @@ struct LibraryView: View {
             }
         }
     }
-    
+
     /// Date/identity changes invalidate measurements; search/layout changes do not rescan disk.
-    ///
-    /// Returns a value type rather than a joined string. `.task(id:)` builds and compares this on
-    /// every body evaluation, and body evaluates the filtered arrays many times per paint; the
-    /// previous string form allocated once per app and joined the results, which is main-thread
-    /// work proportional to the library for a comparison that almost never changes.
     private var sizeMeasurementKey: LibrarySizeMeasurementKey {
         guard _sort == .size else { return .disabled }
         return LibrarySizeMeasurementKey.make(
@@ -153,18 +148,18 @@ struct LibraryView: View {
         }
     }
 
-    private var shouldShowSignedSection: Bool {
+    var shouldShowSignedSection: Bool {
         workspaceSection?.includesApp(isSigned: true) != false && (_selectedScope == .all || _selectedScope == .attention || _selectedScope == .signed)
     }
-    
-    private var shouldShowImportedSection: Bool {
+
+    var shouldShowImportedSection: Bool {
         workspaceSection?.includesApp(isSigned: false) != false && (_selectedScope == .all || _selectedScope == .attention || _selectedScope == .imported)
     }
-    
+
     private var hasNoContent: Bool {
         (!shouldShowSignedSection || filteredSignedApps.isEmpty) && (!shouldShowImportedSection || filteredImportedApps.isEmpty)
     }
-    
+
     private func needsAttention(_ app: AppInfoPresentable) -> Bool {
         let status = libraryStatus.status(for: app)
         let certificate = Storage.shared.getCertificate(from: app)
@@ -310,7 +305,7 @@ struct LibraryView: View {
         let count = _selectedAppUUIDs.count
         return "Delete \(count) \(count == 1 ? "app" : "apps")?"
     }
-    
+
     // MARK: Main Content View
     @ViewBuilder
     private var mainContent: some View {
@@ -330,7 +325,6 @@ struct LibraryView: View {
                 _selectedScope = .all
                 TabSelectionObserver.shared.searchRequest = nil
             }
-
             .compatSearchScopes($_selectedScope) {
                 ForEach(workspaceSection == nil ? Scope.allCases : [.all, .attention], id: \.displayName) { scope in
                     Text(scope.displayName).tag(scope)
@@ -341,15 +335,10 @@ struct LibraryView: View {
                 scrollProxy = proxy
             }
             .task {
-                // One batched read of what the device has and what each stored bundle carries
-                // Rows also request their own on appear, throttled, so a recycled cell
-                // never blocks the list on a probe.
                 LibraryStatusStore.shared.refresh(
                     _signedApps.map { $0 as AppInfoPresentable } + _importedApps.map { $0 as AppInfoPresentable }
                 )
 
-                // Opt-in (Settings → Updates): badge apps whose App Store release
-                // is newer than the installed copy. Lookups are cached per session.
                 if AppStoreUpdateTracker.isEnabled {
                     let apps: [AppInfoPresentable] = _signedApps.map { $0 as AppInfoPresentable }
                         + _importedApps.map { $0 as AppInfoPresentable }
@@ -360,8 +349,6 @@ struct LibraryView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                // OTA installation can complete while VexSign is suspended. Re-query
-                // the device even if the cached negative is less than 30 seconds old.
                 libraryStatus.refresh(
                     _signedApps.map { $0 as AppInfoPresentable } + _importedApps.map { $0 as AppInfoPresentable },
                     force: true
@@ -387,7 +374,7 @@ struct LibraryView: View {
             }
         }
     }
-    
+
     // MARK: Apps List Content
     @ViewBuilder
     private var appsListContent: some View {
@@ -408,168 +395,6 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: - Hidden Apps Vault Section (LiveContainer)
-    private var hiddenAppsVaultSection: some View {
-        NBSection(.localized("Hidden Apps")) {
-            Button {
-                NBHaptic.tap(.medium)
-                lockManager.authenticateToRevealHidden { _ in }
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill((lockManager.isRevealingHiddenApps ? Color.purple : Color.secondary).opacity(0.15))
-                            .frame(width: 32, height: 32)
-                        Image(systemName: lockManager.isRevealingHiddenApps ? "eye.fill" : "eye.slash.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(lockManager.isRevealingHiddenApps ? Color.purple : Color.secondary)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(lockManager.isRevealingHiddenApps ? .localized("Hidden Apps Revealed") : .localized("Hidden Apps Vault"))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Color.primary)
-                        Text(lockManager.isRevealingHiddenApps ? .localized("Tap to conceal hidden applications") : String.localized("%lld hidden app(s) • Tap to unlock", arguments: hiddenAppsCount))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: lockManager.isRevealingHiddenApps ? "lock.open.fill" : "lock.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(lockManager.isRevealingHiddenApps ? Color.purple : Color.secondary)
-                }
-                .padding(.vertical, 2)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Updates Available Section (Apps & Quantity)
-    private var updatesAvailableSection: some View {
-        NBSection(
-            .localized("Updates Available"),
-            secondary: "\(updateChecker.updateCount) " + (updateChecker.updateCount == 1 ? .localized("Update") : .localized("Updates"))
-        ) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.userTint.opacity(0.14))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color.userTint)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(updateChecker.updateCount == 1 ? .localized("1 App Update Available") : String.localized("%lld App Updates Available", arguments: updateChecker.updateCount))
-                            .font(.subheadline.weight(.semibold))
-                        Text(.localized("New versions ready from your repositories"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    NavigationLink(destination: UpdatesView()) {
-                        Text(.localized("View All"))
-                            .font(.caption.weight(.bold))
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Color.userTint, in: Capsule())
-                            .foregroundStyle(.white)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.vertical, 2)
-
-                Divider().opacity(0.5)
-
-                // Preview apps with available updates
-                ForEach(updateChecker.availableUpdates.prefix(3)) { item in
-                    HStack(spacing: 10) {
-                        AsyncImage(url: item.iconURL) { phase in
-                            if let img = phase.image {
-                                img.resizable().scaledToFit()
-                            } else {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color.userTint.opacity(0.12))
-                                    .overlay(
-                                        Image(systemName: "app.fill")
-                                            .font(.caption)
-                                            .foregroundStyle(Color.userTint)
-                                    )
-                            }
-                        }
-                        .frame(width: 36, height: 36)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.displayName)
-                                .font(.footnote.weight(.semibold))
-                                .lineLimit(1)
-                            HStack(spacing: 4) {
-                                Text(item.installedVersion ?? "1.0")
-                                    .foregroundStyle(.secondary)
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.secondary)
-                                Text(item.sourceVersion ?? "1.1")
-                                    .foregroundStyle(Color.userTint)
-                                    .fontWeight(.semibold)
-                                Text("• \(item.sourceName)")
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            .font(.caption2)
-                        }
-
-                        Spacer()
-
-                        if let url = item.downloadURL {
-                            Button {
-                                _ = downloadManager.startDownload(
-                                    from: url,
-                                    id: item.app.currentUniqueId,
-                                    appName: item.displayName,
-                                    appDescription: item.app.localizedDescription
-                                )
-                                Toast.info(.localized("Download started"), systemImage: "arrow.down.circle")
-                            } label: {
-                                Text(.localized("UPDATE"))
-                                    .font(.caption2.weight(.bold))
-                                    .padding(.horizontal, 10).padding(.vertical, 5)
-                                    .background(Color.userTint.opacity(0.15), in: Capsule())
-                                    .foregroundStyle(Color.userTint)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-
-                if updateChecker.availableUpdates.count > 3 {
-                    NavigationLink(destination: UpdatesView()) {
-                        HStack {
-                            Spacer()
-                            Text(String.localized("+%lld more pending updates", arguments: updateChecker.availableUpdates.count - 3))
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(Color.userTint)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.userTint)
-                            Spacer()
-                        }
-                        .padding(.top, 2)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-    
     // MARK: Signed Apps Section
     @ViewBuilder
     private var signedAppsSection: some View {
@@ -658,77 +483,6 @@ struct LibraryView: View {
             }
         }
     }
-    
-    // MARK: Selection Action Bar
-    private var selectionActionBar: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            Text(String.localized("%lld selected", arguments: _selectedAppUUIDs.count))
-                .font(.caption.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            WorkspaceActionGroup { selectionActionButtons }
-        }
-        .padding(.horizontal)
-        .padding(.vertical, Theme.Spacing.medium)
-        .background(Theme.card)
-        .overlay(alignment: .top) { Divider() }
-        .reportsBottomBarHeight()
-    }
-
-    @ViewBuilder
-    private var selectionActionButtons: some View {
-        let selection = selectedApps()
-        let canSign = selection.contains { !$0.isSigned }
-        let canInstall = !selection.isEmpty && selection.allSatisfy { $0.isSigned }
-        if canInstall {
-            _actionButton(.localized("Install"), systemImage: "square.and.arrow.down") { _startBatch(.install) }
-        } else {
-            _actionButton(.localized("Sign"), systemImage: "signature", isDisabled: !canSign) { _startBatch(.sign) }
-        }
-        _actionButton(.localized("Export"), systemImage: "square.and.arrow.up") {
-            let apps = selectedApps()
-            _selectedAppUUIDs.removeAll()
-            _editMode = .inactive
-            for app in apps { InstallQueue.shared.enqueue(app, exporting: true) }
-        }
-        Menu {
-            if !canInstall {
-                Button(.localized("Sign & Install"), systemImage: "square.and.arrow.down.on.square") {
-                    _startBatch(.signAndInstall)
-                }
-                .disabled(!canSign || selection.isEmpty)
-            }
-            Button(.localized("Delete selected apps"), systemImage: "trash", role: .destructive) {
-                _showDeleteConfirmation = true
-            }
-        } label: {
-            Label(.localized("More"), systemImage: "ellipsis.circle")
-                .font(.subheadline.weight(.medium))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.bordered)
-        .disabled(selection.isEmpty)
-        .accessibilityLabel(Text(.localized("More actions for selected apps")))
-    }
-
-    @ViewBuilder
-    private func _actionButton(
-        _ title: String,
-        systemImage: String,
-        isDisabled: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.medium))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
-        }
-        .buttonStyle(.borderedProminent)
-        .disabled(isDisabled || _selectedAppUUIDs.isEmpty)
-    }
 
     // MARK: Import Menu Actions
     @ViewBuilder
@@ -775,112 +529,6 @@ struct LibraryView: View {
     }
 }
 
-// MARK: - Extension: Batch
-extension LibraryView {
-    struct BatchRequest: Identifiable {
-        let id = UUID()
-        let apps: [AppInfoPresentable]
-        let mode: BatchJobRunner.Mode
-    }
-
-    private func selectedApps() -> [AppInfoPresentable] {
-        getAllApps().filter { app in
-            guard let uuid = app.uuid else { return false }
-            return _selectedAppUUIDs.contains(uuid)
-        }
-    }
-
-    private func _beginSelection(with app: AppInfoPresentable) {
-        guard let uuid = app.uuid else { return }
-
-        withAnimation {
-            _editMode = .active
-            _selectedAppUUIDs = [uuid]
-        }
-    }
-
-    private func _startBatch(_ mode: BatchJobRunner.Mode) {
-        let apps = selectedApps()
-        guard !apps.isEmpty else { return }
-
-        _batchRequest = BatchRequest(apps: apps, mode: mode)
-        _selectedAppUUIDs.removeAll()
-        _editMode = .inactive
-    }
-}
-
-// MARK: - Extension: Reorder
-extension LibraryView {
-    private func _moveSignedApps(from source: IndexSet, to destination: Int) {
-        var apps = filteredSignedApps
-        apps.move(fromOffsets: source, toOffset: destination)
-
-        for (index, app) in apps.enumerated() {
-            app.sortIndex = Int32(index)
-        }
-        Storage.shared.saveContext()
-    }
-
-    private func _moveImportedApps(from source: IndexSet, to destination: Int) {
-        var apps = filteredImportedApps
-        apps.move(fromOffsets: source, toOffset: destination)
-
-        for (index, app) in apps.enumerated() {
-            app.sortIndex = Int32(index)
-        }
-        Storage.shared.saveContext()
-    }
-}
-
-// MARK: - Extension: Bulk Delete
-extension LibraryView {
-    private func bulkDeleteSelectedApps() {
-        var failed = 0
-        for app in selectedApps() where !Storage.shared.deleteApp(for: app) {
-            failed += 1
-        }
-
-        if failed > 0 {
-            Toast.error(
-                String.localized("Couldn't delete %lld app(s). They are still in the Library; try again.", arguments: Int64(failed)),
-                duration: .sticky
-            )
-        }
-
-        _selectedAppUUIDs.removeAll()
-        _editMode = .inactive
-    }
-    
-    private func getAllApps() -> [AppInfoPresentable] {
-        var allApps: [AppInfoPresentable] = []
-
-        if shouldShowSignedSection {
-            allApps.append(contentsOf: filteredSignedApps)
-        }
-
-        if shouldShowImportedSection {
-            allApps.append(contentsOf: filteredImportedApps)
-        }
-
-        return allApps
-    }
-
-    private var areAllAppsSelected: Bool {
-        let allApps = getAllApps()
-        let allUUIDs = Set(allApps.compactMap { $0.uuid })
-        return !allUUIDs.isEmpty && _selectedAppUUIDs == allUUIDs
-    }
-
-    private func selectAllApps() {
-        if areAllAppsSelected {
-            _selectedAppUUIDs.removeAll()
-        } else {
-            let allApps = getAllApps()
-            _selectedAppUUIDs = Set(allApps.compactMap { $0.uuid })
-        }
-    }
-}
-
 // MARK: - Extension: View (Sort)
 extension LibraryView {
     enum Scope: CaseIterable {
@@ -888,7 +536,7 @@ extension LibraryView {
         case signed
         case imported
         case attention
-        
+
         var displayName: String {
             switch self {
             case .all: return .localized("All")

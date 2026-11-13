@@ -1,7 +1,6 @@
 import SwiftUI
 import NimbleViews
 import NimbleExtensions
-import IDeviceSwift
 import UIKit
 
 // Configuration evidence only: successful signing and installation still need a device pass.
@@ -199,7 +198,7 @@ struct SetupHealthView: View {
         checkedAt = Date()
         inputs = InstallPreflightInputs(
             hasServerCertificate: LocalTLSIdentity.current() != nil,
-            pairing: PairingRecordInspector.inspect(fileAt: URL(fileURLWithPath: HeartbeatManager.pairingFile())),
+            pairing: PairingBridge.inspectPairingRecord(),
             trollStoreDetected: TrollStoreHandoff.installedByTrollStore(),
             hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable

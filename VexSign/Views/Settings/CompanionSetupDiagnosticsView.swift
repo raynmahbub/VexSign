@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import IDeviceSwift
 import NimbleViews
 import NimbleExtensions
 
@@ -84,7 +83,7 @@ struct CompanionSetupDiagnosticsView: View {
         evidence = CompanionSetupEvidence(
             sideStoreHandler: UIApplication.shared.canOpenURL(URL(string: "sidestore://")!),
             liveContainerHandler: UIApplication.shared.canOpenURL(URL(string: "livecontainer://")!),
-            vexSignPairingFile: FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile())
+            vexSignPairingFile: PairingBridge.hasPairingFile
         )
         checkedAt = Date()
     }

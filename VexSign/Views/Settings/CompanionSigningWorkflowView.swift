@@ -1,7 +1,6 @@
 import SwiftUI
 import NimbleViews
 import NimbleExtensions
-import IDeviceSwift
 import UIKit
 
 import UniformTypeIdentifiers

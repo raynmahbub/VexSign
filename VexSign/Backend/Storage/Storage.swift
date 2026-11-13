@@ -14,6 +14,7 @@ import OSLog
 final class Storage: ObservableObject {
 	static let shared = Storage()
 	let container: NSPersistentContainer
+	@Published private(set) var recoveryNotice: CoreDataStoreRecovery.Notice?
 
 	private let _name: String = "VexSign"
 	private let _inMemory: Bool
@@ -224,6 +225,48 @@ private var _writeContext: NSManagedObjectContext {
 		return "\((try? context.count(for: request)) ?? 0)" // try? ok: display count; an unreadable store shows zero
 	}
 
+	func countSources() -> String { countContent(for: AltSource.self) }
+	func countSignedApps() -> String { countContent(for: Signed.self) }
+	func countImportedApps() -> String { countContent(for: Imported.self) }
+	func countCertificates() -> String { countContent(for: CertificatePair.self) }
+
+	func clearSources() {
+		clearContext(request: AltSource.fetchRequest())
+	}
+
+	func clearSignedApps(removeDirectory: Bool = true) {
+		clearContext(request: Signed.fetchRequest())
+		guard removeDirectory else { return }
+		do {
+			try FileManager.default.removeFileIfNeeded(at: FileManager.default.signed)
+		} catch {
+			Logger.misc.error("Failed to remove signed apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+		}
+	}
+
+	func clearImportedApps(removeDirectory: Bool = true) {
+		clearContext(request: Imported.fetchRequest())
+		guard removeDirectory else { return }
+		do {
+			try FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
+		} catch {
+			Logger.misc.error("Failed to remove imported apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+		}
+	}
+
+	func clearCertificates(resetSelection: Bool = true, removeDirectory: Bool = true) {
+		if resetSelection {
+			UserDefaults.standard.set(0, forKey: "vexsign.selectedCert")
+		}
+		clearContext(request: CertificatePair.fetchRequest())
+		guard removeDirectory else { return }
+		do {
+			try FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)
+		} catch {
+			Logger.misc.error("Failed to remove certificates directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+		}
+	}
+
 	/// - Returns: why the legacy store could not be moved, when it could not be. The caller
 	///   must not then open a fresh store at `VexSign.sqlite`, or the user's library reads as
 	///   empty while their data still sits in `Feather.sqlite`.
@@ -274,32 +317,32 @@ private var _writeContext: NSManagedObjectContext {
 
 	/// True while the container is pointed at an unmigrated legacy store.
 	///
-	/// `_destroyStore` deletes the store file *and* the signed/unsigned/certificate folders.
-	/// That is the right response to a corrupt throwaway store and catastrophic for one that
-	/// holds the user's only copy of their library, so recovery is refused outright here.
+	/// Legacy stores that failed migration stay untouched in place while error recovery
+	/// quarantines unreadable stores without deleting app or certificate folders.
 	private var _legacyStoreIsLive = false
 
 	private func _loadPersistentStoreAggressively() {
 		container.loadPersistentStores { description, error in
 			if let error, self._legacyStoreIsLive {
 				Logger.misc.fault(
-					"The legacy library could not be opened. It is left untouched — recovery would delete it along with the app folders. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+					"The legacy library could not be opened. It is left untouched so existing library data is preserved. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
 				)
 				return
 			}
 			if let error {
-				// Recovery deletes the store and the app's library folders; that is
-				// the right call for a corrupt on-disk store and the wrong one for a
-				// throwaway store in a test host.
 				guard !self._inMemory else {
 					Logger.misc.fault("In-memory store failed to load: \(error.localizedDescription)")
 					return
 				}
-				Logger.misc.error("Core Data initial load failed: \(error.localizedDescription), attempting recovery via store reset")
-				self._destroyStore(at: description.url)
+				Logger.misc.error(
+					"Core Data initial load failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public); quarantining unreadable SQLite store"
+				)
+				self._quarantineStore(at: description.url, reason: error.localizedDescription)
 				self.container.loadPersistentStores { _, secondError in
 					if let secondError {
-						Logger.misc.fault("Core Data secondary load failed after store reset: \(secondError.localizedDescription)")
+						Logger.misc.fault(
+							"Core Data secondary load failed after store quarantine: \(LogRedaction.redact(secondError.localizedDescription), privacy: .public)"
+						)
 						// Fallback gracefully without crashing the app: use an in-memory description
 						let fallbackDescription = NSPersistentStoreDescription()
 						fallbackDescription.type = NSInMemoryStoreType
@@ -353,25 +396,24 @@ private var _writeContext: NSManagedObjectContext {
 		UserDefaults.standard.set(true, forKey: key)
 	}
 
-	private func _destroyStore(at url: URL?) {
-		guard let url else { return }
-
-		let base = url.deletingPathExtension()
-		let fm = FileManager.default
-
-		let files = [
-			base.appendingPathExtension("sqlite"),
-			base.appendingPathExtension("sqlite-wal"),
-			base.appendingPathExtension("sqlite-shm")
-		]
-
-		for file in files {
-			try? fm.removeItem(at: file) // try? ok: best-effort store destruction
+	private func _quarantineStore(at url: URL?, reason: String) {
+		do {
+			guard let outcome = try CoreDataStoreRecovery.quarantineStore(at: url, reason: reason) else { return }
+			let notice = outcome.notice
+			if Thread.isMainThread {
+				self.recoveryNotice = notice
+			} else {
+				DispatchQueue.main.async {
+					self.recoveryNotice = notice
+				}
+			}
+			Logger.misc.fault(
+				"Quarantined unreadable Core Data store to \(notice.quarantineFolderName, privacy: .public); app and certificate files were preserved."
+			)
+		} catch {
+			Logger.misc.fault(
+				"Failed to quarantine unreadable Core Data store: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+			)
 		}
-
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.signed) // try? ok: best-effort store destruction
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned) // try? ok: best-effort store destruction
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates) // try? ok: best-effort store destruction
-		UserDefaults.standard.set(0, forKey: "vexsign.selectedCert")
 	}
 }

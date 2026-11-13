@@ -7,7 +7,6 @@
 
 import SwiftUI
 import UIKit
-import IDeviceSwift
 import NimbleExtensions
 
 /// Its own window because the download overlay or signing cover is often already presenting, and a
@@ -236,13 +235,13 @@ private struct InstallQueueFailureView: View {
 
             HStack(spacing: 10) {
                 Button(.localized("Retry Install")) {
-                    HeartbeatManager.shared.start(true)
+                    PairingBridge.restartHeartbeat()
                     queue.retryCurrent()
                 }
                 .buttonStyle(.borderedProminent)
                 if failure.canRetryLocally {
                     Button(.localized("Retry with Semi Local (localhost)")) {
-                        HeartbeatManager.shared.start(true)
+                        PairingBridge.restartHeartbeat()
                         queue.retryCurrent(useLocalhost: true)
                     }
                     .buttonStyle(.bordered)
@@ -253,13 +252,13 @@ private struct InstallQueueFailureView: View {
 
             HStack {
                 Button(failure.waitingCount == 0 ? String.localized("Close") : String.localized("Skip")) {
-                    HeartbeatManager.shared.start(true)
+                    PairingBridge.restartHeartbeat()
                     queue.skip(forEntryID: entryID)
                 }
                 .buttonStyle(.bordered)
                 Spacer()
                 Button(.localized("Stop"), role: .destructive) {
-                    HeartbeatManager.shared.start(true)
+                    PairingBridge.restartHeartbeat()
                     queue.stopAfterFailure()
                 }
                     .buttonStyle(.bordered)

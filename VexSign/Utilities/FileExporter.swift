@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Zip
 
 enum FileExporter {
 	/// A file shares as-is; a directory bundle (e.g. `.framework`) has to be zipped first.
@@ -18,7 +17,7 @@ enum FileExporter {
 		let zipURL = exportDir.appendingPathComponent("\(source.lastPathComponent).zip")
 		do {
 			try FileManager.default.createDirectoryIfNeeded(at: exportDir)
-			try Zip.zipFiles(paths: [source], zipFilePath: zipURL, password: nil, progress: nil)
+			try ArchiveEngine.zipDirectory(source, to: zipURL)
 			return zipURL
 		} catch {
 			return nil

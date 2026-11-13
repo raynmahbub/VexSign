@@ -8,7 +8,6 @@
 
 import Foundation
 import OSLog
-import Zip
 
 enum CertificateExporter {
 	static func makeZip(for cert: CertificatePair) -> URL? {
@@ -40,7 +39,7 @@ enum CertificateExporter {
     /// the directory it created, never an existing destination.
     static func package(p12: URL, provision: URL, password: String, name: String, directory dir: URL,
                         zip: ([URL], URL) throws -> Void = {
-                            try Zip.zipFiles(paths: $0, zipFilePath: $1, password: nil, progress: nil)
+                            try ArchiveEngine.zipItems($0, to: $1)
                         }) -> URL? {
         let safe = (name as NSString).lastPathComponent.replacingOccurrences(of: "/", with: "_")
         let fm = FileManager.default

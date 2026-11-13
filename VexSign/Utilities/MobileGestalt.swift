@@ -39,4 +39,12 @@ class MobileGestalt {
 		
         return nil
     }
+
+	static var physicalHardwareName: String? {
+		MobileGestalt().getStringForName("PhysicalHardwareNameString")
+	}
+
+	static var buildVersion: String? {
+		MobileGestalt().getStringForName("BuildVersion")
+	}
 }

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import NimbleViews
-import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - View
@@ -48,10 +47,10 @@ struct TunnelView: View {
 				if #available(iOS 17.4, *) {
 				} else {
 					Button(.localized("Restart Heartbeat"), systemImage: "arrow.counterclockwise") {
-						HeartbeatManager.shared.start(true)
+						PairingBridge.restartHeartbeat()
 
 						DispatchQueue.global(qos: .userInitiated).async {
-							if !HeartbeatManager.shared.checkSocketConnection().isConnected {
+							if !PairingBridge.isSocketConnected() {
 								DispatchQueue.main.async {
 									UIAlertController.showAlertWithOk(
 										title: "Socket",
@@ -80,9 +79,7 @@ struct TunnelView: View {
 			}
 		}
 		.onAppear {
-			doesHavePairingFile = FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile())
-			? true
-			: false
+			doesHavePairingFile = PairingBridge.hasPairingFile
 
 			if let url = URL(string: "localdevvpn://") {
 				isLocalDevVpnAvailable = UIApplication.shared.canOpenURL(url)

@@ -6,6 +6,9 @@
         <attribute name="identifier" optional="YES" attributeType="String"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="sourceURL" optional="YES" attributeType="URI"/>
+        <fetchIndex name="byIdentifierIndex">
+            <fetchIndexElement property="identifier" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
     <entity name="CertificatePair" representedClassName="CertificatePair" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -17,6 +20,9 @@
         <attribute name="revoked" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="uuid" attributeType="String"/>
         <relationship name="signedApps" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Signed" inverseName="certificate" inverseEntity="Signed"/>
+        <fetchIndex name="byUUIDIndex">
+            <fetchIndexElement property="uuid" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
     <entity name="Imported" representedClassName="Imported" syncable="YES" codeGenerationType="class">
         <attribute name="appDescription" optional="YES" attributeType="String"/>
@@ -29,6 +35,9 @@
         <attribute name="source" optional="YES" attributeType="URI"/>
         <attribute name="uuid" optional="YES" attributeType="String"/>
         <attribute name="version" optional="YES" attributeType="String"/>
+        <fetchIndex name="byUUIDIndex">
+            <fetchIndexElement property="uuid" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
     <entity name="Signed" representedClassName="Signed" syncable="YES" codeGenerationType="class">
         <attribute name="appDescription" optional="YES" attributeType="String"/>
@@ -42,5 +51,8 @@
         <attribute name="uuid" optional="YES" attributeType="String"/>
         <attribute name="version" optional="YES" attributeType="String"/>
         <relationship name="certificate" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CertificatePair" inverseName="signedApps" inverseEntity="CertificatePair"/>
+        <fetchIndex name="byUUIDIndex">
+            <fetchIndexElement property="uuid" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 </model>

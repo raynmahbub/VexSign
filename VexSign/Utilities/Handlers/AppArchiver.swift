@@ -6,20 +6,19 @@
 //
 
 import Foundation
-import Zip
 
 enum AppArchiver {
 	/// Zips a prepared `Payload/` directory into an IPA at `ipaURL`.
 	static func zip(
 		payload: URL,
 		to ipaURL: URL,
-		compression: ZipCompression,
+		compression: ArchiveCompression,
 		progress: ((Double) -> Void)? = nil
 	) throws {
 		let fm = FileManager.default
 		let zipURL = ipaURL.deletingPathExtension().appendingPathExtension("zip")
 		try? fm.removeItem(at: zipURL)
-		try ArchiveBackend.current.engine.zip(directory: payload, to: zipURL, compression: compression, progress: progress)
+		try ArchiveEngine.zipDirectory(payload, to: zipURL, compression: compression, progress: progress)
 		try? fm.removeItem(at: ipaURL)
 		try fm.moveItem(at: zipURL, to: ipaURL)
 	}
@@ -28,7 +27,7 @@ enum AppArchiver {
 	static func archive(
 		appDir: URL,
 		to ipaURL: URL,
-		compression: ZipCompression,
+		compression: ArchiveCompression,
 		progress: ((Double) -> Void)? = nil
 	) throws {
 		let fm = FileManager.default

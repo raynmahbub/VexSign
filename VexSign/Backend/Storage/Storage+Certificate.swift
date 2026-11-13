@@ -211,4 +211,22 @@ extension Storage {
 		fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CertificatePair.date, ascending: false)]
 		return fetchOnQueue(fetchRequest)
 	}
+
+	@MainActor
+	func relinkSignedApps(objectURIs: [URL], to certificate: CertificatePair) {
+		StorageConcurrency.requireMainQueue()
+		guard let coordinator = container.persistentStoreCoordinator as NSPersistentStoreCoordinator? else { return }
+		for uri in objectURIs {
+			guard let objectID = coordinator.managedObjectID(forURIRepresentation: uri) else { continue }
+			do {
+				if let app = try context.existingObject(with: objectID) as? Signed {
+					app.certificate = certificate
+				}
+			} catch {
+				// The app row was deleted while the undo window was open.
+				continue
+			}
+		}
+		saveContext()
+	}
 }

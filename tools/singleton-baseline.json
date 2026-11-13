@@ -51,6 +51,7 @@
   "VexSign/Utilities/CertificateAutoImporter.swift": 1,
   "VexSign/Utilities/Handlers/AppCloner.swift": 1,
   "VexSign/Utilities/Handlers/DirectInstaller.swift": 1,
+  "VexSign/Utilities/IDevice/PairingBridge.swift": 1,
   "VexSign/Utilities/P12Cracker.swift": 1,
   "VexSign/Utilities/Signing/SigningService.swift": 1,
   "VexSign/Utilities/StdoutCapture.swift": 1,
@@ -58,7 +59,6 @@
   "VexSign/Views/Common/SelectionActionBar.swift": 1,
   "VexSign/Views/Common/Toast.swift": 2,
   "VexSign/Views/Library/Install/InstallQueueWindow.swift": 1,
-  "VexSign/Views/Settings/DevicePickerView.swift": 1,
   "VexSign/Views/Sources/Apps/DownloadButtonView.swift": 1,
   "VexSign/Views/Sources/SourcesViewModel.swift": 1
 }

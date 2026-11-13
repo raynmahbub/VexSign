@@ -9,7 +9,6 @@
 
 import Foundation
 import UIKit
-import Zip
 
 enum DiagnosticBundleExporter {
 	/// Packages the diagnostic bundle into a .zip and returns the file URL.
@@ -57,7 +56,7 @@ enum DiagnosticBundleExporter {
 
 			// 7. Compress into ZIP
 			let filesToZip = try fm.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
-			try Zip.zipFiles(paths: filesToZip, zipFilePath: zipURL, password: nil, progress: nil)
+			try ArchiveEngine.zipItems(filesToZip, to: zipURL)
 
 			// Clean up staging folder
 			try? fm.removeItem(at: stagingDir) // try? ok: best-effort cleanup; temp directory will be cleaned on next launch

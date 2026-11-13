@@ -6,13 +6,12 @@
 import SwiftUI
 import NimbleViews
 import NimbleExtensions
-import IDeviceSwift
 
 struct DeviceDiagnosticsView: View {
     @State private var diagnosticReportString = ""
 
     private var deviceModel: String {
-        MobileGestalt().getStringForName("PhysicalHardwareNameString") ?? UIDevice.current.model
+        MobileGestalt.physicalHardwareName ?? UIDevice.current.model
     }
 
     private var iosVersion: String {
@@ -20,7 +19,7 @@ struct DeviceDiagnosticsView: View {
     }
 
     private var buildNumber: String {
-        MobileGestalt().getStringForName("BuildVersion") ?? "Unknown"
+        MobileGestalt.buildVersion ?? "Unknown"
     }
 
     private var architecture: String {

@@ -8,7 +8,6 @@
 import SwiftUI
 import NimbleViews
 import Nuke
-import CoreData
 import NimbleExtensions
 
 // MARK: - View
@@ -69,8 +68,8 @@ extension ResetView {
 		Section {
 			Button(.localized("Reset Sources"), systemImage: "xmark.circle") {
 				Self.resetAlert(
-					title: .localized("Reset Signed Apps"),
-					message: Storage.shared.countContent(for: AltSource.self)
+					title: .localized("Reset Sources"),
+					message: Storage.shared.countSources()
 				) {
 					Self.resetSources()
 				}
@@ -79,7 +78,7 @@ extension ResetView {
 			Button(.localized("Reset Signed Apps"), systemImage: "xmark.circle") {
 				Self.resetAlert(
 					title: .localized("Reset Signed Apps"),
-					message: Storage.shared.countContent(for: Signed.self)
+					message: Storage.shared.countSignedApps()
 				) {
 					Self.deleteSignedApps()
 				}
@@ -88,7 +87,7 @@ extension ResetView {
 			Button(.localized("Reset Imported Apps"), systemImage: "xmark.circle") {
 				Self.resetAlert(
 					title: .localized("Reset Imported Apps"),
-					message: Storage.shared.countContent(for: Imported.self)
+					message: Storage.shared.countImportedApps()
 				) {
 					Self.deleteImportedApps()
 				}
@@ -106,7 +105,7 @@ extension ResetView {
 			Button(.localized("Reset Certificates"), systemImage: "xmark.circle") {
 				Self.resetAlert(
 					title: .localized("Reset Certificates"),
-					message: Storage.shared.countContent(for: CertificatePair.self)
+					message: Storage.shared.countCertificates()
 				) {
 					Self.resetCertificates()
 				}
@@ -153,17 +152,15 @@ extension ResetView {
 	}
 	
 	static func resetSources() {
-		Storage.shared.clearContext(request: AltSource.fetchRequest())
+		Storage.shared.clearSources()
 	}
 	
 	static func deleteSignedApps() {
-		Storage.shared.clearContext(request: Signed.fetchRequest())
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.signed)
+		Storage.shared.clearSignedApps()
 	}
 	
 	static func deleteImportedApps() {
-		Storage.shared.clearContext(request: Imported.fetchRequest())
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
+		Storage.shared.clearImportedApps()
 	}
 
 	static func resetTweaks() {
@@ -171,9 +168,7 @@ extension ResetView {
 	}
 	
 	static func resetCertificates(resetAll: Bool = false) {
-		if !resetAll { UserDefaults.standard.set(0, forKey: "vexsign.selectedCert") }
-		Storage.shared.clearContext(request: CertificatePair.fetchRequest())
-		try? FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)
+		Storage.shared.clearCertificates(resetSelection: !resetAll)
 	}
 	
 	static func resetUserDefaults() {

@@ -7,9 +7,7 @@
 
 import SwiftUI
 import NimbleViews
-import Zsign
 import UIKit
-import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - View
@@ -246,7 +244,7 @@ extension LibraryInfoView {
         _renewalIssues = PreflightChecks.run(app: app, options: (profile?.options ?? Options.batchBase).resolved(for: app), certificate: certificate).issues
         let inputs = InstallPreflightInputs(
             hasServerCertificate: LocalTLSIdentity.current() != nil,
-            pairing: PairingRecordInspector.inspect(fileAt: URL(fileURLWithPath: HeartbeatManager.pairingFile())),
+            pairing: PairingBridge.inspectPairingRecord(),
             trollStoreDetected: TrollStoreHandoff.installedByTrollStore(),
             hasTrustedServerCertificate: LocalTLSIdentity.isSystemTrusted(),
             hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable

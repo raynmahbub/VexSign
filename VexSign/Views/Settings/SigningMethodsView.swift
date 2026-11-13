@@ -3,11 +3,9 @@
 /// Integrates paid certificates, free Apple ID (NativeSigning), and TrollStore.
 
 import SwiftUI
-import UIKit
 import NimbleViews
 import NimbleExtensions
 import NativeSigning
-import SideSign
 
 struct SigningMethodsView: View {
     /// `NativeAccountPhase.isSignedIn` is internal to NativeSigning, so the case is
@@ -30,7 +28,7 @@ struct SigningMethodsView: View {
     @State private var password = ""
     @State private var xcodeVersion = "15.0"
     @State private var pendingOperation: NativeAccountOperation?
-    @State private var pendingChallenge: SideSignTwoFactorBroker.Challenge?
+    @State private var pendingChallenge: NativeSigningManager.TwoFactorChallenge?
     @State private var twoFactorCode = ""
     @State private var isAuthenticating = false
     @State private var authError: String?
@@ -183,14 +181,14 @@ struct SigningMethodsView: View {
                 Task { await submitTwoFactor(challenge) }
             }
             .disabled(twoFactorCode.count != 6)
-        } message: { challenge in
+        } message: { _ in
             Text(.localized("Enter the verification code sent to your trusted device"))
         }
         .task(id: pendingOperation?.id) {
             guard let operation = pendingOperation else { return }
             // Authentication continues after startAuthentication returns. Consume
             // its buffered challenges instead of checking one early snapshot.
-            for await challenge in operation.challenges {
+            for await challenge in nativeManager.challenges(for: operation) {
                 guard !Task.isCancelled, pendingOperation?.id == operation.id else { return }
                 twoFactorCode = ""
                 pendingChallenge = challenge
@@ -242,10 +240,6 @@ struct SigningMethodsView: View {
                     Text(method.shortDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    // An unavailable row must say why; the reason was computed but never
-                    // rendered before. An available row can still be qualified — the account
-                    // path is reachable while its adapter is not integrated with signing — and
-                    // that caveat is the difference between "experimental" and "supported".
                     if let reason = availability.availabilityReason {
                         Text(reason)
                             .font(.caption2)
@@ -274,7 +268,6 @@ struct SigningMethodsView: View {
 
     private var freeAppleIDContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Status
             if let snapshot = nativeManager.snapshot {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -308,9 +301,7 @@ struct SigningMethodsView: View {
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(uiColor: .quaternarySystemFill)))
             }
 
-            // Actions based on state
             if case .signedIn = nativeManager.snapshot?.phase {
-                // Signed in - show provisioning options
                 VStack(spacing: 12) {
                     Button {
                         showProvisioningFlow = true
@@ -342,7 +333,6 @@ struct SigningMethodsView: View {
                     .buttonStyle(.bordered)
                 }
             } else {
-                // Not signed in - show login
                 Button {
                     showAppleIDLogin = true
                 } label: {
@@ -357,11 +347,9 @@ struct SigningMethodsView: View {
                 }
             }
 
-            // Anisette Provider Configuration
             Divider()
             AnisetteProviderConfigView()
 
-            // Info
             Text(.localized("Free Apple ID: 3 apps per 7 days with weekly profile refresh and limited entitlements. Selecting this method routes app installs to the embedded LiveContainer host; the combined runtime must be loaded. Account sign-in alone does not import or install a guest."))
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -434,9 +422,8 @@ struct SigningMethodsView: View {
             isAuthenticating = false
             showAppleIDLogin = false
 
-            // Check if 2FA is required
             if case .awaitingTwoFactor = nativeManager.snapshot?.phase {
-                showTeamSelection = false // Will show 2FA alert instead
+                showTeamSelection = false
             } else if case .awaitingTeamSelection = nativeManager.snapshot?.phase {
                 showTeamSelection = true
             }
@@ -456,391 +443,21 @@ struct SigningMethodsView: View {
         }
     }
 
-    private func submitTwoFactor(_ challenge: SideSignTwoFactorBroker.Challenge) async {
+    private func submitTwoFactor(_ challenge: NativeSigningManager.TwoFactorChallenge) async {
         guard let operation = pendingOperation else { return }
-        // The challenge travels beside the response: `submitTwoFactor` takes the
-        // challenge id as its own argument, and `TwoFactorResponse` carries only the code.
-        let response = TwoFactorResponse.verificationCode(twoFactorCode)
         do {
-            _ = try await nativeManager.submitTwoFactor(response, operationID: operation.id, challengeID: challenge.id)
+            _ = try await nativeManager.submitTwoFactorCode(
+                twoFactorCode,
+                operationID: operation.id,
+                challengeID: challenge.id
+            )
             twoFactorCode = ""
             pendingChallenge = nil
-            // Check if team selection is next
             if case .awaitingTeamSelection = nativeManager.snapshot?.phase {
                 showTeamSelection = true
             }
         } catch {
             authError = error.localizedDescription
-        }
-    }
-}
-
-// MARK: - Supporting Views
-
-private struct AppleIDLoginView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Binding var appleID: String
-    @Binding var password: String
-    @Binding var xcodeVersion: String
-    @Binding var isAuthenticating: Bool
-    @Binding var authError: String?
-    let onSubmit: () -> Void
-    @State private var providerConsent = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField(.localized("Apple ID"), text: $appleID)
-                        .textContentType(.username)
-                        .autocapitalization(.none)
-                    SecureField(.localized("Password"), text: $password)
-                        .textContentType(.password)
-                    TextField(.localized("Xcode Version"), text: $xcodeVersion)
-                    Toggle(.localized("I approve using the selected anisette provider"), isOn: $providerConsent)
-                } header: {
-                    Text(.localized("Credentials"))
-                } footer: {
-                    Text(.localized("Your password is used to authenticate with Apple. The selected anisette provider receives provisioning and device metadata, not your Apple ID or password. Session tokens may be saved in device-only Keychain storage."))
-                        .font(.caption)
-                }
-
-                if let error = authError {
-                    Section {
-                        Text(error).foregroundStyle(.red)
-                    }
-                }
-            }
-            .navigationTitle(.localized("Sign in with Apple ID"))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(.localized("Sign In")) { onSubmit() }
-                        .disabled(appleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || isAuthenticating || !providerConsent)
-                }
-            }
-            .overlay {
-                if isAuthenticating {
-                    ProgressView(.localized("Authenticating…"))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.black.opacity(0.1))
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-}
-
-private struct TeamSelectionView: View {
-    let teams: [NativeAccountTeam]
-    let onSelect: (String) -> Void
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(teams, id: \.identifier) { team in
-                    Button {
-                        onSelect(team.identifier)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(team.identifier)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                Text(team.membership.displayName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: team.membership == .free ? "person" : "checkmark.seal")
-                                .foregroundStyle(team.membership == .free ? .orange : .green)
-                        }
-                    }
-                }
-            }
-            .navigationTitle(.localized("Select Team"))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) { onSelect("") }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-// MARK: - TrollStore Views
-
-private struct TrollStoreInstallView: View {
-    @Environment(\.dismiss) private var dismiss
-    @StateObject private var downloadManager = DownloadManager.shared
-    @State private var selectedDownload: Download?
-    @State private var installError: String?
-    @State private var isInstalling = false
-
-    private var signedDownloads: [Download] {
-        downloadManager.downloads.filter { $0.phase == .completed && !$0.onlyArchiving }
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "t.square.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(Color.accentColor)
-
-                Text(.localized("Install via TrollStore"))
-                    .font(.title2.weight(.semibold))
-
-                Text(.localized("Select a signed IPA to install permanently via TrollStore. The app must already be signed with a valid certificate."))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                if signedDownloads.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 36))
-                            .foregroundStyle(.secondary)
-                        Text(.localized("No signed IPAs available"))
-                            .font(.headline)
-                        Text(.localized("Sign an app first, then return here to install via TrollStore."))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                } else {
-                    List {
-                        ForEach(signedDownloads, id: \.id) { download in
-                            Button {
-                                selectedDownload = download
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading) {
-                                        Text(download.fileName)
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-                                        Text(download.appDescription ?? "")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if selectedDownload?.id == download.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(Color.accentColor)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .frame(maxHeight: 300)
-                }
-
-                if let download = selectedDownload {
-                    Button {
-                        Task { await installViaTrollStore(download) }
-                    } label: {
-                        if isInstalling {
-                            HStack {
-                                ProgressView().scaleEffect(0.8)
-                                Text(.localized("Opening TrollStore…"))
-                            }
-                        } else {
-                            Label(String.localized("Open %@ in TrollStore", arguments: download.fileName), systemImage: "t.square.fill")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isInstalling)
-
-                    Button {
-                        share(download)
-                    } label: {
-                        Label(.localized("Share Signed IPA Instead"), systemImage: "square.and.arrow.up")
-                    }
-                    .buttonStyle(.bordered)
-
-                    // The hand-off is a request to another app. Nothing here can
-                    // observe whether TrollStore finished installing it.
-                    Text(.localized("TrollStore performs the install itself. VexSign cannot confirm the result — check TrollStore, then launch the app."))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                if let error = installError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-            .padding()
-            .navigationTitle(.localized("TrollStore Install"))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-
-    private func installViaTrollStore(_ download: Download) async {
-        isInstalling = true
-        installError = nil
-        defer { isInstalling = false }
-
-        // Same resolution order DownloadManager uses: the retained package first,
-        // then the staged download. `Download` has no localURL property.
-        guard let ipaURL = download.retainedPackageURL ?? download.pendingFileURL else {
-            installError = .localized("Signed IPA file not found")
-            return
-        }
-        guard FileManager.default.fileExists(atPath: ipaURL.path) else {
-            installError = .localized("Signed IPA file not found")
-            return
-        }
-
-        // TrollStore answers on Apple's Magnifier scheme; `trollstore://` is not
-        // registered by any TrollStore release. The URL builder keeps the IPA's
-        // own query intact, and the outcome stays a hand-off: iOS opening the URL
-        // is not evidence that TrollStore installed anything.
-        switch await TrollStoreHandoff.handOff(ipaURL: ipaURL) {
-        case .openedUnverified:
-            dismiss()
-        case .openFailed:
-            installError = .localized("iOS refused to open the TrollStore hand-off URL, so nothing was installed.")
-        }
-    }
-
-    /// Share sheet, so the signed IPA can be handed to TrollStore even when the
-    /// scheme is off or this copy of the app cannot locate TrollStore.
-    private func share(_ download: Download) {
-        guard let ipaURL = download.retainedPackageURL ?? download.pendingFileURL,
-              FileManager.default.fileExists(atPath: ipaURL.path) else {
-            installError = .localized("Signed IPA file not found")
-            return
-        }
-        UIActivityViewController.show(activityItems: [ipaURL])
-    }
-}
-
-private struct TrollStoreRefreshView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var isOpening = false
-    @State private var openFailed = false
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 48))
-                    .foregroundStyle(Color.accentColor)
-
-                Text(.localized("Refresh All Apps in TrollStore"))
-                    .font(.title2.weight(.semibold))
-
-                // TrollStore has no URL command for a refresh: `TSSceneDelegate`
-                // only handles install and enable-jit. Claiming to have triggered
-                // one would be inventing work that never happened.
-                Text(.localized("VexSign cannot start a refresh for you — TrollStore does not accept a URL command for it. Open TrollStore, then use Refresh All App Registrations there. Only apps TrollStore installed are affected."))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                Button {
-                    Task { await openTrollStore() }
-                } label: {
-                    if isOpening {
-                        HStack {
-                            ProgressView().scaleEffect(0.8)
-                            Text(.localized("Opening…"))
-                        }
-                    } else {
-                        Label(.localized("Open TrollStore"), systemImage: "arrow.up.forward.app")
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isOpening)
-
-                if openFailed {
-                    Text(.localized("iOS did not open the URL. TrollStore may not be installed, or its URL Scheme setting is off."))
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                }
-            }
-            .padding()
-            .navigationTitle(.localized("TrollStore Refresh"))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(.localized("Cancel")) { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-
-    private func openTrollStore() async {
-        isOpening = true
-        openFailed = false
-        defer { isOpening = false }
-
-        guard let url = URL(string: "\(TrollStoreHandoff.scheme)://") else {
-            openFailed = true
-            return
-        }
-        let outcome = await TrollStoreHandoff.open(url)
-        if outcome == .openFailed {
-            openFailed = true
-        }
-    }
-}
-
-// MARK: - Extensions
-
-extension NativeAccountPhase {
-    var icon: String {
-        switch self {
-        case .signedOut: return "person.crop.circle.badge.xmark"
-        case .authenticating: return "person.crop.circle.badge.questionmark"
-        case .awaitingTwoFactor: return "person.crop.circle.badge.exclamationmark"
-        case .awaitingTeamSelection: return "person.2.fill"
-        case .signedIn: return "person.crop.circle.fill.badge.checkmark"
-        case .expired: return "person.crop.circle.badge.clock"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .signedOut: return .secondary
-        case .authenticating, .awaitingTwoFactor, .awaitingTeamSelection: return .orange
-        case .signedIn: return .green
-        case .expired: return .red
-        }
-    }
-
-    var displayTitle: String {
-        switch self {
-        case .signedOut: return .localized("Signed Out")
-        case .authenticating: return .localized("Authenticating…")
-        case .awaitingTwoFactor: return .localized("Two-Factor Required")
-        case .awaitingTeamSelection: return .localized("Select Team")
-        case .signedIn(let context): return .localized("Signed In: %@", arguments: context.team.identifier)
-        case .expired: return .localized("Session Expired")
-        }
-    }
-}
-
-extension NativeAccountMembership {
-    var displayName: String {
-        switch self {
-        case .free: return .localized("Free")
-        case .paidVerified: return .localized("Paid (Verified)")
-        case .developerProgramUnverified: return .localized("Developer Program (Unverified)")
         }
     }
 }

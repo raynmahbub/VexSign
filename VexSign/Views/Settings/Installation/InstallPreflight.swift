@@ -64,7 +64,7 @@ struct InstallMethodReport: Identifiable, Equatable, Sendable {
 struct InstallPreflightInputs: Equatable, Sendable {
 	/// `LocalTLSIdentity.current() != nil` — a certificate has been imported or generated.
 	var hasServerCertificate: Bool = false
-	/// The pairing record at `HeartbeatManager.pairingFile()`, inspected rather than assumed.
+	/// The pairing record at `PairingBridge.pairingFilePath`, inspected rather than assumed.
 	///
 	/// A Bool could only say "the file is there". A truncated file, a file that is not a plist
 	/// and a complete record were the same answer, so the row told the user to start a VPN for a

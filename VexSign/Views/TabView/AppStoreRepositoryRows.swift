@@ -12,7 +12,6 @@ import SwiftUI
 import NimbleViews
 import NimbleExtensions
 import NukeUI
-import CoreData
 import AltSourceKit
 
 // MARK: - Subviews & Helpers

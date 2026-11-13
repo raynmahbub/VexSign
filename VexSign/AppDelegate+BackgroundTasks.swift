@@ -238,10 +238,6 @@ extension AppDelegate {
         // .queue lets the task continue if backgrounded.
         request.strategy = .queue
 
-        if BGTaskScheduler.supportedResources.contains(.gpu) {
-            request.requiredResources = .gpu
-        }
-
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
