@@ -9,6 +9,23 @@ import Foundation
 import ActivityKit
 import NimbleExtensions
 
+enum LiveActivityPreferences {
+	static let enabledKey = "VexSign.liveActivitiesEnabled"
+	static let legacyDynamicIslandKey = "VexSign.dynamicIslandEnabled"
+
+	static func isEnabled(defaults: UserDefaults = .standard) -> Bool {
+		if defaults.object(forKey: enabledKey) == nil {
+			return true
+		}
+		return defaults.bool(forKey: enabledKey)
+	}
+
+	@available(iOS 16.2, *)
+	static func canStartActivity(defaults: UserDefaults = .standard) -> Bool {
+		isEnabled(defaults: defaults) && ActivityAuthorizationInfo().areActivitiesEnabled
+	}
+}
+
 @MainActor
 final class SigningLiveActivityManager {
 	static let shared = SigningLiveActivityManager()
@@ -19,7 +36,7 @@ final class SigningLiveActivityManager {
 
 	func start(appName: String, currentApp: Int = 1, totalApps: Int = 1) {
 		guard #available(iOS 16.2, *) else { return }
-		guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+		guard LiveActivityPreferences.canStartActivity() else { return }
 
 		// End any stale signing activity
 		endAll()

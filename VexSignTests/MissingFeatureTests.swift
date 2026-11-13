@@ -429,6 +429,18 @@ final class MissingFeatureTests: XCTestCase {
 
 	// MARK: - Live Activity & Legacy Refresh Migrations
 
+	func testLiveActivityPreferencesDefaultsToEnabledAndHonorsOptOut() throws {
+		let name = "VexSignLiveActivityTests.\(UUID().uuidString)"
+		let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+		defer { defaults.removePersistentDomain(forName: name) }
+
+		XCTAssertTrue(LiveActivityPreferences.isEnabled(defaults: defaults))
+		defaults.set(false, forKey: LiveActivityPreferences.enabledKey)
+		XCTAssertFalse(LiveActivityPreferences.isEnabled(defaults: defaults))
+		defaults.set(true, forKey: LiveActivityPreferences.enabledKey)
+		XCTAssertTrue(LiveActivityPreferences.isEnabled(defaults: defaults))
+	}
+
 	func testMigrateLegacyRefreshPreferencesPromotesWifiSettingOnceAndClearsDeadKeys() throws {
 		let name = "VexSignLegacyRefreshTests.\(UUID().uuidString)"
 		let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

@@ -10,18 +10,23 @@ import UserNotifications
 import ActivityKit
 
 struct NotificationsSettingsView: View {
-    @State private var pushEnabled: Bool = true
-    @State private var lockScreen: Bool = true
-    @State private var notificationCenter: Bool = true
-    @State private var banners: Bool = true
-    @State private var sounds: Bool = true
-    @State private var badges: Bool = true
-    @State private var timeSensitive: Bool = true
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var pushEnabled: Bool = false
+    @State private var lockScreen: Bool = false
+    @State private var notificationCenter: Bool = false
+    @State private var banners: Bool = false
+    @State private var sounds: Bool = false
+    @State private var badges: Bool = false
+    @State private var timeSensitive: Bool = false
     @State private var criticalAlerts: Bool = false
     @State private var scheduledSummary: Bool = false
+    @State private var systemLiveActivitiesAuthorized: Bool = false
 
-    @AppStorage("VexSign.liveActivitiesEnabled") private var liveActivitiesEnabled: Bool = true
-    @AppStorage("VexSign.dynamicIslandEnabled") private var dynamicIslandEnabled: Bool = true
+    @AppStorage(LiveActivityPreferences.enabledKey) private var liveActivitiesEnabled: Bool = true
+
+    private var effectiveLiveActivitiesEnabled: Bool {
+        liveActivitiesEnabled && systemLiveActivitiesAuthorized
+    }
 
     var body: some View {
         NBList(.localized("Notifications")) {
@@ -38,9 +43,9 @@ struct NotificationsSettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Push Notifications"))
+                        Text(.localized("Notifications"))
                             .font(.subheadline.weight(.semibold))
-                        Text(pushEnabled ? .localized("Enabled") : .localized("Disabled"))
+                        Text(pushEnabled ? String.localized("Authorized in iOS Settings") : String.localized("Disabled in iOS Settings"))
                             .font(.caption2)
                             .foregroundStyle(pushEnabled ? .purple : .secondary)
                     }
@@ -60,7 +65,7 @@ struct NotificationsSettingsView: View {
                 deliveryRow(icon: "speaker.wave.2.fill", title: .localized("Sounds"), isOn: sounds)
                 deliveryRow(icon: "app.badge.fill", title: .localized("Badges"), isOn: badges)
                 deliveryRow(icon: "clock.badge.exclamationmark.fill", title: .localized("Time Sensitive"), isOn: timeSensitive)
-                deliveryRow(icon: "exclamationmark.triangle.fill", title: .localized("Critical Alerts"), isOn: criticalAlerts, isNA: true)
+                deliveryRow(icon: "exclamationmark.triangle.fill", title: .localized("Critical Alerts"), isOn: criticalAlerts, isNA: !criticalAlerts)
                 deliveryRow(icon: "clock.fill", title: .localized("Scheduled Summary"), isOn: scheduledSummary, isOff: !scheduledSummary)
 
                 Button {
@@ -96,11 +101,15 @@ struct NotificationsSettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Live Activities"))
+                        Text(.localized("Download & Signing Live Activities"))
                             .font(.subheadline.weight(.semibold))
-                        Text(liveActivitiesEnabled ? .localized("Enabled") : .localized("Disabled"))
-                            .font(.caption2)
-                            .foregroundStyle(liveActivitiesEnabled ? .purple : .secondary)
+                    Text(
+                        !systemLiveActivitiesAuthorized
+                            ? String.localized("Blocked by iOS Settings")
+                            : (liveActivitiesEnabled ? String.localized("Enabled") : String.localized("Disabled"))
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(effectiveLiveActivitiesEnabled ? .purple : .secondary)
                     }
 
                     Spacer()
@@ -122,26 +131,47 @@ struct NotificationsSettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Dynamic Island"))
+                        Text(.localized("System Live Activities & Dynamic Island"))
                             .font(.subheadline.weight(.semibold))
-                        Text(dynamicIslandEnabled ? .localized("Supported") : .localized("Disabled"))
+                        Text(systemLiveActivitiesAuthorized ? String.localized("Authorized in iOS Settings") : String.localized("Disabled in iOS Settings"))
                             .font(.caption2)
-                            .foregroundStyle(dynamicIslandEnabled ? .purple : .secondary)
+                            .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
-                    Toggle("", isOn: $dynamicIslandEnabled)
-                        .labelsHidden()
-                        .tint(Color.green)
+                    statusPill(isOn: systemLiveActivitiesAuthorized)
                 }
                 .padding(.vertical, 2)
+
+                if !systemLiveActivitiesAuthorized {
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.open(url)
+                        }
+                    } label: {
+                        Label(.localized("Enable Live Activities in iOS Settings"), systemImage: "arrow.up.right.circle")
+                            .font(.subheadline)
+                    }
+                }
             } footer: {
-                Text(.localized("Live Activities require iOS 16.1+. Dynamic Island requires iPhone 14 Pro or newer."))
+                Text(.localized("Turns VexSign download and signing progress Live Activities on or off. iOS uses the same system authorization for Lock Screen Live Activities and Dynamic Island (iPhone 14 Pro or newer). When disabled, downloads fall back to standard progress notifications if allowed."))
             }
         }
         .onAppear {
-            checkSystemNotificationSettings()
+            UserDefaults.standard.removeObject(forKey: LiveActivityPreferences.legacyDynamicIslandKey)
+            refreshSystemSettings()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                refreshSystemSettings()
+            }
+        }
+        .onChange(of: liveActivitiesEnabled) { _, enabled in
+            if !enabled {
+                DownloadManager.shared.dismissLiveActivityImmediately()
+                SigningLiveActivityManager.shared.endAll()
+            }
         }
     }
 
@@ -196,19 +226,24 @@ struct NotificationsSettingsView: View {
         .background(isOn ? Color.green.opacity(0.12) : Color.secondary.opacity(0.12), in: Capsule())
     }
 
-    private func checkSystemNotificationSettings() {
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            DispatchQueue.main.async {
-                self.pushEnabled = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
-                self.lockScreen = settings.lockScreenSetting == .enabled
-                self.notificationCenter = settings.notificationCenterSetting == .enabled
-                self.banners = settings.alertSetting == .enabled
-                self.sounds = settings.soundSetting == .enabled
-                self.badges = settings.badgeSetting == .enabled
-                self.timeSensitive = settings.timeSensitiveSetting == .enabled
-                self.criticalAlerts = settings.criticalAlertSetting == .enabled
-                self.scheduledSummary = settings.scheduledDeliverySetting == .enabled
-            }
+    private func refreshSystemSettings() {
+        if #available(iOS 16.2, *) {
+            systemLiveActivitiesAuthorized = ActivityAuthorizationInfo().areActivitiesEnabled
+        } else {
+            systemLiveActivitiesAuthorized = false
+        }
+
+        Task { @MainActor in
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            pushEnabled = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+            lockScreen = settings.lockScreenSetting == .enabled
+            notificationCenter = settings.notificationCenterSetting == .enabled
+            banners = settings.alertSetting == .enabled
+            sounds = settings.soundSetting == .enabled
+            badges = settings.badgeSetting == .enabled
+            timeSensitive = settings.timeSensitiveSetting == .enabled
+            criticalAlerts = settings.criticalAlertSetting == .enabled
+            scheduledSummary = settings.scheduledDeliverySetting == .enabled
         }
     }
 }
