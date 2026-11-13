@@ -9,6 +9,9 @@ name: Platform check
 # iOS, tvOS and visionOS targets — a change that breaks only one shows up here, not on a device.
 
 on:
+  # Manual runs build every companion target for the chosen ref, so a branch can be
+  # checked before it has a pull request.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
