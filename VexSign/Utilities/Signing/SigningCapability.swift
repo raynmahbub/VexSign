@@ -181,11 +181,14 @@ struct SigningCapability: Equatable {
 		self.issues = issues
 	}
 
-	/// Deterministic text for the signing log. One line per issue, worst first, so two runs
-	/// with the same inputs produce the same log.
+	/// Deterministic text for the signing log. One line per issue, worst status first,
+	/// then ascending code, so two runs with the same inputs produce the same log.
 	var logLines: [String] {
 		issues
-			.sorted { ($0.status, $0.code.rawValue) > ($1.status, $1.code.rawValue) }
+			.sorted {
+				if $0.status != $1.status { return $0.status > $1.status }
+				return $0.code.rawValue < $1.code.rawValue
+			}
 			.map { issue in
 				let prefix = issue.severity == .blocking ? "Capability (\(issue.code.rawValue))" : "Capability note (\(issue.code.rawValue))"
 				return "\(prefix): \(issue.detail)"

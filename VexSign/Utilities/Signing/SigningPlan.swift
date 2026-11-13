@@ -69,9 +69,10 @@ struct SigningPlan: Equatable {
 
 		var displayName: String { (path as NSString).lastPathComponent }
 
-		/// A nested bundle that iOS will refuse to load: no identifier, or no executable.
+		/// Whether the executable and, for bundles, an identifier are present.
+		/// A loose dylib has no bundle identifier; this does not validate its Mach-O contents.
 		var isStructurallyComplete: Bool {
-			identifier?.isEmpty == false && hasExecutable
+			hasExecutable && (kind == .dylib || identifier?.isEmpty == false)
 		}
 	}
 
@@ -157,11 +158,19 @@ struct SigningPlan: Equatable {
 		}
 
 		for root in roots {
-			let directory = root.split(separator: "/").reduce(appBundle) { $0.appendingPathComponent(String($1)) }
-			var isDirectory: ObjCBool = false
-			guard manager.fileExists(atPath: directory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-				continue
+			var directory = appBundle
+			var validRoot = true
+			// Check each path component: `fileExists` follows links, including a link in
+			// the intermediate Library component of Library/Frameworks.
+			for component in root.split(separator: "/") {
+				directory.appendPathComponent(String(component))
+				let values = try? directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]) // try? ok: missing root contributes nothing
+				guard values?.isSymbolicLink == false, values?.isDirectory == true else {
+					validRoot = false
+					break
+				}
 			}
+			guard validRoot else { continue }
 			_walk(directory, depth: 0, in: appBundle, add: add, manager: manager)
 		}
 
@@ -170,7 +179,7 @@ struct SigningPlan: Equatable {
 		// directory enumeration.
 		if let contents = try? manager.contentsOfDirectory( // try? ok: an unreadable bundle is reported by the executable check
 			at: appBundle,
-			includingPropertiesForKeys: [.isRegularFileKey],
+			includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
 			options: [.skipsHiddenFiles]
 		) {
 			for url in contents where url.pathExtension.lowercased() == "dylib" {
@@ -194,16 +203,17 @@ struct SigningPlan: Equatable {
 		guard depth < maximumDepth else { return }
 		guard let contents = try? manager.contentsOfDirectory( // try? ok: an unreadable directory contributes nothing
 			at: directory,
-			includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+			includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
 			options: [.skipsHiddenFiles]
 		) else { return }
 
 		for url in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-			let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]) // try? ok: unreadable entry is skipped
-			// A symlink is never a nested bundle: following one can both loop and duplicate a
+			let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]) // try? ok: unreadable entry is skipped
+			// A symlink is never nested code: following one can both loop and duplicate a
 			// component that already exists under its real path.
-			guard values?.isSymbolicLink != true, values?.isDirectory == true else {
-				if url.pathExtension.lowercased() == "dylib" { add(url, .dylib) }
+			guard values?.isSymbolicLink == false else { continue }
+			guard values?.isDirectory == true else {
+				if values?.isRegularFile == true, url.pathExtension.lowercased() == "dylib" { add(url, .dylib) }
 				continue
 			}
 
@@ -239,6 +249,14 @@ struct SigningPlan: Equatable {
 	}
 
 	private static func _component(at url: URL, path: String, kind: Kind, manager: FileManager) -> Component {
+		// A loose dylib is the executable itself, not a bundle containing another file.
+		// Looking for `Library.dylib/Library` reports every real dylib as missing.
+		if kind == .dylib {
+			return Component(
+				path: path, kind: kind, identifier: nil, hasExecutable: manager.isExecutableFile(atPath: url.path)
+			)
+		}
+
 		let info = _info(at: url)
 		let identifier = info?["CFBundleIdentifier"] as? String
 		// `CFBundleExecutable` is the authoritative name; the bundle name without its
