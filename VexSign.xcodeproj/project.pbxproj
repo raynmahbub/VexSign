@@ -23,6 +23,7 @@
 		3A2F0EE72E96DA5A009DE4CE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2F0EC02E96DA0B009DE4CE /* SwiftUI.framework */; };
 		3A2F0EF62E96DA5D009DE4CE /* VexSignWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3A2F0EE52E96DA5A009DE4CE /* VexSignWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3A2F0F0D2E976B67009DE4CE /* IDevice in Frameworks */ = {isa = PBXBuildFile; productRef = 3A2F0F0C2E976B67009DE4CE /* IDevice */; };
+		33BBAACC112233445566778A /* NativeSigning in Frameworks */ = {isa = PBXBuildFile; productRef = 33BBAACC1122334455667789 /* NativeSigning */; };
 		FADE000100000000000F0001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = FADE000100000000000F0002 /* ZIPFoundation */; };
 		C0FFEE000000000000000032 /* VexSignWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000001D /* VexSignWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0FFEE000000000000000036 /* VexSignWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000029 /* VexSignWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -112,7 +113,6 @@
 		3371F6492DA92A1800281AC6 /* Exceptions for "VexSign" folder in "VexSign" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Resources/ellekit.deb,
 				Resources/Info.plist,
 				Resources/AppIcon.icon,
 			);
@@ -184,16 +184,6 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		33CF134C2DB5B9BC0021D4C5 /* Exceptions for "VexSign" folder in "Copy Bundle Resources" phase from "VexSign" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 3379C1B72DA869A1004372DA /* Resources */;
-			membershipExceptions = (
-				Resources/ellekit.deb,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3379C1BB2DA869A1004372DA /* VexSign */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -203,7 +193,6 @@
 				C0FFEE000000000000000024 /* Exceptions for "VexSign" folder in "VexSignWatch" target */,
 				C0FFEE000000000000000030 /* Exceptions for "VexSign" folder in "VexSignWatchWidgets" target */,
 				3371F6492DA92A1800281AC6 /* Exceptions for "VexSign" folder in "VexSign" target */,
-				33CF134C2DB5B9BC0021D4C5 /* Exceptions for "VexSign" folder in "Copy Bundle Resources" phase from "VexSign" target */,
 				3A2F0F082E96DD09009DE4CE /* Exceptions for "VexSign" folder in "VexSignWidgetExtensionExtension" target */,
 			);
 			path = VexSign;
@@ -260,6 +249,7 @@
 				33CF13392DB5ACFB0021D4C5 /* SWCompression in Frameworks */,
 				33693A082DC8BF5B00730215 /* AltSourceKit in Frameworks */,
 				3A2F0F0D2E976B67009DE4CE /* IDevice in Frameworks */,
+				33BBAACC112233445566778A /* NativeSigning in Frameworks */,
 				3371F7322DA9ECDD00281AC6 /* Zip in Frameworks */,
 				FADE000100000000000F0001 /* ZIPFoundation in Frameworks */,
 				3305BBAC2DB8944200660D45 /* Vapor in Frameworks */,
@@ -701,7 +691,7 @@ packageReferences = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nxcrun --sdk iphoneos clang -dynamiclib -fobjc-arc -Os -target arm64-apple-ios14.0 -isysroot \"$(xcrun --sdk iphoneos --show-sdk-path)\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/Tweaks/FilePickerFix.m\"\n";
+			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nPLATFORM=\"${PLATFORM_NAME:-iphoneos}\"\nSDK=\"${SDKROOT:-$(xcrun --sdk \"${PLATFORM}\" --show-sdk-path)}\"\nDEPLOY=\"${IPHONEOS_DEPLOYMENT_TARGET:-16.0}\"\nARCH=\"${CURRENT_ARCH:-arm64}\"\nif [ \"${ARCH}\" = \"undefined_arch\" ] || [ -z \"${ARCH}\" ]; then ARCH=\"arm64\"; fi\nif [ \"${PLATFORM}\" = \"iphonesimulator\" ]; then\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}-simulator\"\nelse\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}\"\nfi\nxcrun clang -dynamiclib -fobjc-arc -Os -target \"${TARGET}\" -isysroot \"${SDK}\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/Tweaks/FilePickerFix.m\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
