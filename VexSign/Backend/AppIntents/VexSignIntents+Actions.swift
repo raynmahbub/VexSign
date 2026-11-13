@@ -104,10 +104,10 @@ struct RefreshSourcesIntent: AppIntent {
 			return .result(dialog: IntentDialog(stringLiteral: .localized("You have not added any repositories yet.")))
 		}
 
-		await SourcesViewModel.shared.fetchSources(targets, refresh: true)
+		await SourcesViewModel.shared.fetchSources(targets, refresh: true, configuredSources: all)
 
 		return .result(dialog: IntentDialog(stringLiteral: String.localized(
-			"Refreshed %lld repositories.",
+			"Requested refresh for %lld repositories. Check repository health for results.",
 			arguments: targets.count
 		)))
 	}

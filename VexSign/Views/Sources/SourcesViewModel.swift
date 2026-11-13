@@ -16,6 +16,14 @@ import NimbleExtensions
 final class SourcesViewModel: ObservableObject {
 	static let shared = SourcesViewModel()
 
+	private let fetcher: SourceFeedLoader.Fetcher
+	private let retainSnapshots: (Set<String>) -> Void
+
+	init(fetcher: SourceFeedLoader.Fetcher? = nil, retainSnapshots: @escaping (Set<String>) -> Void = RepositorySnapshotCache.retainOnly) {
+		self.fetcher = fetcher ?? Self._fetcher()
+		self.retainSnapshots = retainSnapshots
+	}
+
 	/// `true` when no load is in progress (idle).
 	@Published var isFinished = true
 	@Published var sources: [AltSource: ASRepository] = [:]
@@ -121,8 +129,11 @@ final class SourcesViewModel: ObservableObject {
 
 	/// Array-based overload for callers without a `FetchedResults` (Update All, background automation).
 	@MainActor
-	func fetchSources(_ sourcesArray: [AltSource], refresh: Bool = false, batchSize: Int = 4) async {
-		let newKey = key(for: sourcesArray)
+	func fetchSources(_ sourcesArray: [AltSource], refresh: Bool = false, batchSize: Int = 4, configuredSources: [AltSource]? = nil) async {
+		let configured = configuredSources ?? sourcesArray
+		let targets = Set(sourcesArray)
+		let isFullRefresh = targets == Set(configured)
+		let newKey = key(for: configured)
 
 		// Coalesce: wait out any in-flight load. The task self-clears in its own
 		// defer so awaiters exit instead of busy-spinning the main actor (0x8BADF00D).
@@ -131,7 +142,7 @@ final class SourcesViewModel: ObservableObject {
 		}
 
 		// Same source set already loaded — skip (pull-to-refresh bypasses this).
-		if !refresh, newKey == lastLoadedKey, let lastLoadedAt, Date().timeIntervalSince(lastLoadedAt) < RepositorySyncEngine.refreshInterval {
+		if isFullRefresh, !refresh, newKey == lastLoadedKey, let lastLoadedAt, Date().timeIntervalSince(lastLoadedAt) < RepositorySyncEngine.refreshInterval {
 			return
 		}
 
@@ -144,14 +155,14 @@ final class SourcesViewModel: ObservableObject {
 					self.currentFetchTask = nil
 				}
 			}
-			await self._performFetch(sourcesArray, key: newKey, batchSize: batchSize)
+			await self._performFetch(configured, targets: targets, key: newKey, batchSize: max(1, batchSize), generation: generation, isFullRefresh: isFullRefresh)
 		}
 		currentFetchTask = task
 		await task.value
 	}
 
 	@MainActor
-	private func _performFetch(_ sourcesArray: [AltSource], key: Set<String>, batchSize: Int) async {
+	private func _performFetch(_ sourcesArray: [AltSource], targets: Set<AltSource>, key: Set<String>, batchSize: Int, generation: Int, isFullRefresh: Bool) async {
 		isFinished = false
 
 		if backgroundTaskManager == nil {
@@ -164,10 +175,12 @@ final class SourcesViewModel: ObservableObject {
 		}
 
 		defer {
-			lastLoadedKey = key
-			isFinished = true
-			backgroundTaskManager?.stop()
-			backgroundTaskManager = nil
+			if generation == fetchGeneration {
+				if isFullRefresh { lastLoadedKey = key }
+				isFinished = true
+				backgroundTaskManager?.stop()
+				backgroundTaskManager = nil
+			}
 		}
 
 		// Reconcile the in-memory catalog with the persisted source set before any
@@ -189,6 +202,7 @@ final class SourcesViewModel: ObservableObject {
 		var items: [FetchItem] = []
 		var transportBlocked: [(source: AltSource, identifier: String)] = []
 		for source in sourcesArray {
+			guard !source.isDeleted else { continue }
 			guard let url = source.sourceURL else {
 				Logger.misc.error("Source has no URL: \(source.name ?? "Unknown", privacy: .public)")
 				continue
@@ -200,7 +214,7 @@ final class SourcesViewModel: ObservableObject {
 				try SourceURLPolicy.validate(url)
 			} catch {
 				let id = Self._id(for: source, fallbackURL: url)
-				SourcePreferences.recordFetch(id: id, error: error.localizedDescription)
+				if targets.contains(source) { SourcePreferences.recordFetch(id: id, error: error.localizedDescription) }
 				Logger.security.warning("Skipping refresh of insecure repository: \(url.absoluteString, privacy: .public)")
 				transportBlocked.append((source, id))
 				continue
@@ -237,7 +251,9 @@ final class SourcesViewModel: ObservableObject {
 			for: Set(items.map(\.identifier) + transportBlocked.map(\.identifier))
 		)
 
-		for item in items where working[item.source] == nil {
+		guard generation == fetchGeneration, !Task.isCancelled else { return }
+		working = working.filter { !$0.key.isDeleted }
+		for item in items where !item.source.isDeleted && working[item.source] == nil {
 			if var cached = snapshots[item.identifier] {
 				cached.sourceURL = item.source.sourceURL
 				working[item.source] = cached
@@ -246,7 +262,7 @@ final class SourcesViewModel: ObservableObject {
 		}
 		// Sources blocked by the transport policy keep their cached catalog
 		// too — browsing works, refreshes simply don't run for them.
-		for blocked in transportBlocked where working[blocked.source] == nil {
+		for blocked in transportBlocked where !blocked.source.isDeleted && working[blocked.source] == nil {
 			if var cached = snapshots[blocked.identifier] {
 				cached.sourceURL = blocked.source.sourceURL
 				working[blocked.source] = cached
@@ -259,9 +275,10 @@ final class SourcesViewModel: ObservableObject {
 
 		// A rate-limited source is skipped entirely this round: hammering it
 		// again only extends the window.
-		let rateLimitedIDs = Set(items.filter { SourcePreferences.health(for: $0.identifier).isRateLimited }.map { $0.identifier })
-		let fetchable = items.filter { !rateLimitedIDs.contains($0.identifier) }
-		for item in items where rateLimitedIDs.contains(item.identifier) {
+		let selectedItems = items.filter { targets.contains($0.source) && !$0.source.isDeleted }
+		let rateLimitedIDs = Set(selectedItems.filter { SourcePreferences.health(for: $0.identifier).isRateLimited }.map { $0.identifier })
+		let fetchable = selectedItems.filter { !rateLimitedIDs.contains($0.identifier) }
+		for item in selectedItems where rateLimitedIDs.contains(item.identifier) {
 			Logger.misc.warning("Source rate-limited, skipping this refresh: \(item.identifier, privacy: .public)")
 		}
 
@@ -269,7 +286,7 @@ final class SourcesViewModel: ObservableObject {
 
 		// Fetch *and* decode happen in the loader, which has no isolation, so neither runs on the
 		// main actor. The task group only carries `SourceFeedResult` back.
-		let loader = SourceFeedLoader(fetcher: Self._fetcher())
+		let loader = SourceFeedLoader(fetcher: fetcher)
 
 		for startIndex in stride(from: 0, to: fetchable.count, by: batchSize) {
 			let endIndex = min(startIndex + batchSize, fetchable.count)
@@ -294,6 +311,10 @@ final class SourcesViewModel: ObservableObject {
 				return collected
 			}
 
+			guard generation == fetchGeneration, !Task.isCancelled else { return }
+			// A source may have been deleted while the network request was in flight.
+			working = working.filter { !$0.key.isDeleted }
+
 			// Publishing happens here, on the main actor, from finished values only.
 			let signpost = SourceFeedSignposts.publish.beginInterval(
 				"publish",
@@ -307,7 +328,7 @@ final class SourcesViewModel: ObservableObject {
 			)
 
 			for item in batch {
-				guard let outcome = outcomes[item.identifier] else { continue }
+				guard !item.source.isDeleted, let outcome = outcomes[item.identifier] else { continue }
 
 				switch outcome {
 				case let .decoded(repository, payload):
@@ -357,11 +378,11 @@ final class SourcesViewModel: ObservableObject {
 		}
 
 		// A rate-limited source that still has a catalog keeps it, marked stale.
-		for item in items where rateLimitedIDs.contains(item.identifier) && working[item.source] != nil {
+		for item in selectedItems where rateLimitedIDs.contains(item.identifier) && working[item.source] != nil {
 			staleSourceIDs.insert(item.identifier)
 		}
 
-		if successes == items.count && rateLimitedIDs.isEmpty {
+		if isFullRefresh && successes == items.count && transportBlocked.isEmpty && rateLimitedIDs.isEmpty {
 			lastLoadedAt = Date()
 		} else {
 			lastLoadedAt = nil
@@ -370,8 +391,8 @@ final class SourcesViewModel: ObservableObject {
 		// Snapshot retention follows every configured source (including any
 		// skipped by the transport policy or rate limit), not just the fetched
 		// ones, so a skipped source keeps its last-known-good catalog.
-		let allSourceIDs = Set(sourcesArray.map { Self._id(for: $0) })
-		RepositorySnapshotCache.retainOnly(identifiers: allSourceIDs)
+		let allSourceIDs = Set(sourcesArray.filter { !$0.isDeleted }.map { Self._id(for: $0) })
+		retainSnapshots(allSourceIDs)
 		Logger.misc.info("fetchSources DONE: \(working.count, privacy: .public)/\(items.count, privacy: .public) loaded")
 	}
 }
