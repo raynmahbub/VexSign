@@ -2,7 +2,7 @@
 //  FilesCompressionView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 6.05.2025.
+//  Created by VexSign Contributors on 6.05.2025.
 //
 
 import SwiftUI

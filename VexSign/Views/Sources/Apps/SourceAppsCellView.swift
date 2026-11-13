@@ -2,7 +2,7 @@
 //  SourceAppsCellView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 3.05.2025.
+//  Created by VexSign Contributors on 3.05.2025.
 //
 import SwiftUI
 import AltSourceKit
@@ -20,7 +20,7 @@ struct SourceAppsCellView: View {
 	var body: some View {
 		VStack {
 			HStack(spacing: 2) {
-				FRIconCellView(
+				VexIconCellView(
 					title: app.currentName,
 					subtitle: Self.appDescription(app: app),
 					iconUrl: app.iconURL

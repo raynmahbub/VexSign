@@ -1,8 +1,8 @@
 //
-//  FR+Repository.swift
+//  RepositoryCatalogService.swift
 //  VexSign
 //
-//  Repository handling and API key wiring.
+//  Repository validation, fetching, provenance verification, and API key wiring.
 //
 
 import Foundation
@@ -15,7 +15,7 @@ import IDeviceSwift
 import OSLog
 import NimbleExtensions
 
-extension FR {
+enum RepositoryCatalogService {
     // MARK: - Premium repository API key wiring
 
     /// Registers the app-wide repository fetch key provider and loads the effective key.
@@ -39,10 +39,10 @@ extension FR {
         #endif
     }
 
-    static func handleSource(
+    static func addSource(
         _ urlString: String,
         showAlerts: Bool = true,
-        competion: @escaping (Result<String, Error>) -> Void
+        completion: @escaping (Result<String, Error>) -> Void
     ) {
         var cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         if !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
@@ -56,7 +56,7 @@ extension FR {
                     Toast.error(.localized("Invalid URL"), duration: .sticky)
                 }
             }
-            competion(.failure(error))
+            completion(.failure(error))
             return
         }
 
@@ -64,13 +64,13 @@ extension FR {
         // explicitly opted into insecure HTTP for local repositories.
         do {
             try SourceURLPolicy.validate(url)
-            } catch {
+        } catch {
             if showAlerts {
                 DispatchQueue.main.async {
                     Toast.error(error.localizedDescription, duration: .sticky)
                 }
             }
-            competion(.failure(error))
+            completion(.failure(error))
             return
         }
 
@@ -86,12 +86,12 @@ extension FR {
             if showAlerts {
                 DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
             }
-            competion(.failure(error))
+            completion(.failure(error))
             return
         }
 
         if let apiURL = GitHubReleaseSource.apiURL(for: url) {
-            _handleGitHubSource(url, apiURL: apiURL, showAlerts: showAlerts, completion: competion)
+            _handleGitHubSource(url, apiURL: apiURL, showAlerts: showAlerts, completion: completion)
             return
         }
 
@@ -112,7 +112,7 @@ extension FR {
                     if showAlerts {
                         DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
                     }
-                    competion(.failure(error))
+                    completion(.failure(error))
                     return
                 }
 
@@ -123,7 +123,7 @@ extension FR {
                     if showAlerts {
                         DispatchQueue.main.async { Toast.error(reason, duration: .sticky) }
                     }
-                    competion(.failure(error))
+                    completion(.failure(error))
                     return
                 }
 
@@ -134,7 +134,7 @@ extension FR {
                     if showAlerts {
                         DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
                     }
-                    competion(.failure(error))
+                    completion(.failure(error))
                     return
                 }
 
@@ -149,16 +149,16 @@ extension FR {
                         if showAlerts {
                             Toast.error(.localized("Repository already added."), duration: .sticky)
                         }
-                        competion(.failure(error))
+                        completion(.failure(error))
                     } else {
                         Storage.shared.addSource(url, repository: data, id: id) { addError in
                             if let addError {
                                 if showAlerts {
                                     Toast.error(addError.localizedDescription, duration: .sticky)
                                 }
-                                competion(.failure(addError))
+                                completion(.failure(addError))
                             } else {
-                                competion(.success(data.name ?? url.absoluteString))
+                                completion(.success(data.name ?? url.absoluteString))
                             }
                         }
                     }
@@ -169,7 +169,7 @@ extension FR {
                         Toast.error(error.localizedDescription, duration: .sticky)
                     }
                 }
-                competion(.failure(error))
+                completion(.failure(error))
             }
         }
     }
@@ -209,7 +209,7 @@ extension FR {
                 await MainActor.run {
                     _addGitHubRepository(repository, sourceURL: sourceURL, showAlerts: showAlerts, completion: completion)
                 }
-                } catch {
+            } catch {
                 if showAlerts {
                     DispatchQueue.main.async { Toast.error(error.localizedDescription, duration: .sticky) }
                 }
@@ -241,6 +241,66 @@ extension FR {
             } else {
                 completion(.success(repository.name ?? sourceURL.absoluteString))
             }
+        }
+    }
+
+    /// Filters repository URLs through `SourceURLPolicy` so batch imports
+    /// cannot bypass the transport rules enforced by `RepositoryCatalogService.addSource`.
+    static func validatedRepositoryURLs(_ urls: [URL]) -> [URL] {
+        urls.filter { url in
+            do {
+                try SourceURLPolicy.validate(url)
+                return true
+            } catch {
+                Logger.security.warning("Skipping insecure repository: \(url.absoluteString, privacy: .public)")
+                return false
+            }
+        }
+    }
+
+    /// Applies premium auth, transport policy, and provenance checks to fetched sources.
+    static func fetchRepositories(from urls: [URL]) async -> [(url: URL, data: ASRepository)] {
+        let allowed = validatedRepositoryURLs(urls)
+        let requests: [(url: URL, identifier: String, headers: [String: String])] = await MainActor.run {
+            allowed.map { url in
+                let isGitHub = GitHubReleaseSource.isGitHubRepositoryURL(url)
+                return (
+                    url,
+                    url.absoluteString,
+                    isGitHub ? [:] : VexSignAPI.authHeaders(for: url)
+                )
+            }
+        }
+
+        let loader = SourceFeedLoader(fetcher: { url, headers in
+            let service = NBFetchService()
+            return await withCheckedContinuation { continuation in
+                service.fetchRaw(from: url, headers: headers) { result in
+                    continuation.resume(returning: result)
+                }
+            }
+        })
+
+        return await withTaskGroup(of: (URL, ASRepository?).self) { group in
+            for item in requests {
+                group.addTask {
+                    let result = await loader.load(url: item.url, headers: item.headers, identifier: item.identifier)
+                    switch result.outcome {
+                    case .decoded(let repository, _):
+                        return (item.url, repository)
+                    case .invalid, .failed:
+                        return (item.url, nil)
+                    }
+                }
+            }
+
+            var results: [(url: URL, data: ASRepository)] = []
+            for await (url, repository) in group {
+                if let repository {
+                    results.append((url: url, data: repository))
+                }
+            }
+            return results
         }
     }
 }

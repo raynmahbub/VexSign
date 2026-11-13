@@ -17,7 +17,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('VexSign/Resources/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):
-        for path in ['VexSign/Utilities/FR+Certificates.swift', 'VexSign/Utilities/IDevice/PairingBridge.swift',
+        for path in ['VexSign/Utilities/Services/CertificateManagementService.swift', 'VexSign/Utilities/IDevice/PairingBridge.swift',
                      'VexSign/Utilities/IDevice/LockdownClient.swift']:
             source = self.text(path)
             self.assertIn('HeartbeatManager.pairingFile()', source)
@@ -32,7 +32,8 @@ class WorkflowTracePolicyTests(unittest.TestCase):
 
     def test_failed_install_does_not_invoke_signing(self):
         source = self.text('VexSign/Backend/Observable/InstallQueueCore.swift')
-        self.assertNotIn('signPackageFile', source)
+        self.assertNotIn('signPackage(', source)
+        self.assertNotIn('PackageSigningCoordinator', source)
         self.assertNotIn('SigningService', source)
         self.assertIn('self.current?.id == failedEntryID', source)
 
@@ -178,21 +179,21 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         # new flow settles its copies.
         #   SelfUpdateManager signs a scratch import of VexSign itself and deletes both scratch
         #   entries once the update is packaged: neither was ever meant to stay in the library.
-        #   FR declares the function. FeatureStatusRegistry names it in a description.
+        #   PackageSigningCoordinator declares the function. FeatureStatusRegistry names it in a description.
         elsewhere = {
             'VexSign/Backend/Observable/SelfUpdateManager.swift',
-            'VexSign/Utilities/FR+Signing.swift',
+            'VexSign/Utilities/Services/PackageSigningCoordinator.swift',
             'VexSign/Backend/Observable/FeatureStatusRegistry.swift',
         }
         named, started = set(), set()
         for path in sorted((ROOT / 'VexSign').rglob('*.swift')):
             source = path.read_text()
-            if 'signPackageFile(' in source:
+            if 'signPackage(' in source:
                 named.add(path.relative_to(ROOT).as_posix())
             if 'SigningService.shared.sign(' in source:
                 started.add(path.relative_to(ROOT).as_posix())
         self.assertEqual(named, set(flows) | elsewhere)
-        self.assertEqual(started, {'VexSign/Utilities/FR+Signing.swift'})
+        self.assertEqual(started, {'VexSign/Utilities/Services/PackageSigningCoordinator.swift'})
 
     def test_no_flow_can_ask_for_the_signed_copy_to_be_dropped(self):
         # The entry points that took the signed copy together with a "keep it?" flag are gone.

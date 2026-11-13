@@ -2,7 +2,7 @@
 //  InstallCardView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 22.04.2025.
+//  Created by VexSign Contributors on 22.04.2025.
 //
 
 import SwiftUI
@@ -200,7 +200,7 @@ private struct InstallStatusView: View {
 		HStack(spacing: 8) {
 			HStack(spacing: -8) {
 				ForEach(upcoming.prefix(4)) { entry in
-					FRAppIconView(app: entry.base, size: 22)
+					VexAppIconView(app: entry.base, size: 22)
 						.overlay {
 							RoundedRectangle(cornerRadius: 6, style: .continuous)
 								.strokeBorder(Color(uiColor: .secondarySystemBackground), lineWidth: 2)

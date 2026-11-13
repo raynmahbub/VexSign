@@ -150,7 +150,7 @@ struct BatchProgressView: View {
 		let isInstalling = runner.phase == .installing && item.state == .working
 
 		HStack(spacing: NBSpacing.row) {
-			FRAppIconView(app: item.installable, size: 44)
+			VexAppIconView(app: item.installable, size: 44)
 
 			VStack(alignment: .leading, spacing: 4) {
 				Text(verbatim: item.installable.name ?? String.localized("Unknown"))

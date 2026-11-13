@@ -1,6 +1,6 @@
 //
 //  AppCustomizationSheet.swift
-//  VexSign — LiveContainer / AppNest Per-App Customization
+//  VexSign — Per-App Customization & Privacy Controls
 //
 
 import SwiftUI
@@ -53,7 +53,7 @@ struct AppCustomizationSheet: View {
     private var headerSection: some View {
         Section {
             HStack(spacing: 14) {
-                FRAppIconView(app: app, size: 54)
+                VexAppIconView(app: app, size: 54)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(appName)
@@ -88,12 +88,12 @@ struct AppCustomizationSheet: View {
             }
             .disabled(appName.trimmingCharacters(in: .whitespaces).isEmpty)
         } footer: {
-            Text(.localized("Ported from LiveContainer. Changes how the application title is displayed in your library and search."))
+            Text(.localized("Changes how the application title is displayed in your library and search."))
         }
     }
 
     private var securityAndPrivacySection: some View {
-        NBSection(.localized("LiveContainer Security & Vault")) {
+        NBSection(.localized("Security & Privacy Vault")) {
             Toggle(isOn: Binding(
                 get: { isLocked },
                 set: { val in

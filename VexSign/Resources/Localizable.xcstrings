@@ -20055,89 +20055,6 @@
         }
       }
     },
-    "Compression Engine" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "محرك الضغط"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kompresní engine"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Komprimierungs-Engine"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compression Engine"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Motor de compresión"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Moteur de compression"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mesin Kompresi"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Motore di compressione"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Silnik kompresji"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Движок сжатия"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sıkıştırma motoru"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bộ nén"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "压缩引擎"
-          }
-        }
-      }
-    },
     "Compression Level" : {
       "comment" : "Archive compression level",
       "extractionState" : "manual",
@@ -68890,89 +68807,6 @@
         }
       }
     },
-    "The engine used to pack signed apps into IPAs. ZIPFoundation can be a more reliable fallback if Zip fails." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "المحرك المستخدم لحزم التطبيقات الموقعة في ملفات IPA. يمكن أن يكون ZIPFoundation بديلاً أكثر موثوقية إذا فشل Zip."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine použitý k zabalení podepsaných aplikací do IPA. ZIPFoundation může být spolehlivější záloha, pokud Zip selže."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Engine, mit der signierte Apps in IPAs gepackt werden. ZIPFoundation kann eine zuverlässigere Alternative sein, wenn Zip fehlschlägt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The engine used to pack signed apps into IPAs. ZIPFoundation can be a more reliable fallback if Zip fails."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El motor usado para empaquetar apps firmadas en IPAs. ZIPFoundation puede ser una alternativa más fiable si Zip falla."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le moteur utilisé pour empaqueter les apps signées en IPA. ZIPFoundation peut être un repli plus fiable si Zip échoue."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mesin yang dipakai untuk mengemas aplikasi tertanda menjadi IPA. ZIPFoundation bisa jadi cadangan yang lebih andal jika Zip gagal."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il motore usato per impacchettare le app firmate in IPA. ZIPFoundation può essere un fallback più affidabile se Zip fallisce."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Silnik używany do pakowania podpisanych aplikacji do IPA. ZIPFoundation może być pewniejszą alternatywą, gdy Zip zawiedzie."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Движок для упаковки подписанных приложений в IPA. ZIPFoundation может быть более надёжным запасным вариантом, если Zip не справляется."
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İmzalanan uygulamaları IPA olarak paketlemek için kullanılan motor. Zip başarısız olursa ZIPFoundation daha güvenilir bir alternatif olabilir."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bộ máy dùng để đóng gói ứng dụng đã ký thành IPA. ZIPFoundation có thể là phương án dự phòng đáng tin cậy hơn nếu Zip lỗi."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用于将已签名应用打包为 IPA 的引擎。若 Zip 失败，ZIPFoundation 可作为更可靠的备选。"
-          }
-        }
-      }
-    },
     "The heartbeat is activated in the background, it will restart when the app is re-opened or prompted. If the status below is pulsing, that means its healthy." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -82383,17 +82217,6 @@
         }
       }
     },
-    "Configure entitlements, PPQ protection, FlareStore iOS 26/27 build SDK spoofing, dylib injection, and local loopback installation." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configure entitlements, PPQ protection, FlareStore iOS 26/27 build SDK spoofing, dylib injection, and local loopback installation."
-          }
-        }
-      }
-    },
     "Configure name matching, beta filters & developers" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -83538,28 +83361,6 @@
         }
       }
     },
-    "Features from LiveContainer, AppNest, and FlareStore. Lock specific apps with Face ID, conceal hidden applications, and block Apple revocation endpoints. Repositories must use HTTPS; the insecure HTTP option exists only for local network repositories and is off by default." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Features from LiveContainer, AppNest, and FlareStore. Lock specific apps with Face ID, conceal hidden applications, and block Apple revocation endpoints. Repositories must use HTTPS; the insecure HTTP option exists only for local network repositories and is off by default."
-          }
-        }
-      }
-    },
-    "Features ported from FlareStore and MySign. When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are intercepted." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Features ported from FlareStore and MySign. When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are intercepted."
-          }
-        }
-      }
-    },
     "Features supported:" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -83600,17 +83401,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "File name (e.g. notes.txt)"
-          }
-        }
-      }
-    },
-    "Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above like Ksign's locations." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Files shows everything VexSign stores on-device. Long-press a row for rename, duplicate, share, copy hash and tweak actions. Swipe to delete. Use Quick Access above like Ksign's locations."
           }
         }
       }
@@ -83699,17 +83489,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Flare Touch Animations"
-          }
-        }
-      }
-    },
-    "FlareStore-style self test: confirms the local loopback debug pipe responds without risking the target emulator." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FlareStore-style self test: confirms the local loopback debug pipe responds without risking the target emulator."
           }
         }
       }
@@ -84095,17 +83874,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Holds the remaining apps; the current install finishes."
-          }
-        }
-      }
-    },
-    "How Ksign files works" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How Ksign files works"
           }
         }
       }
@@ -84704,17 +84472,6 @@
         }
       }
     },
-    "JIT attachment for emulators, FlareStore location simulator, browser drag-and-drop file upload, bundle inspection, and ecosystem synchronization." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "JIT attachment for emulators, FlareStore location simulator, browser drag-and-drop file upload, bundle inspection, and ecosystem synchronization."
-          }
-        }
-      }
-    },
     "Just-In-Time Compilation" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -84744,28 +84501,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keep the device unlocked and on the same local network when using the local install server."
-          }
-        }
-      }
-    },
-    "Ksign-style browser" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ksign-style browser"
-          }
-        }
-      }
-    },
-    "Ksign-style quick folders — tap to browse, long-press for actions." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ksign-style quick folders — tap to browse, long-press for actions."
           }
         }
       }
@@ -84942,17 +84677,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Live Revoke Checker"
-          }
-        }
-      }
-    },
-    "LiveContainer Security & Vault" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LiveContainer Security & Vault"
           }
         }
       }
@@ -86658,72 +86382,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Popular across all repositories"
-          }
-        }
-      }
-    },
-    "Ported from FlareStore. Emulates on-device CoreLocation coordinates via developer disk image injection without jailbreak." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ported from FlareStore. Emulates on-device CoreLocation coordinates via developer disk image injection without jailbreak."
-          }
-        }
-      }
-    },
-    "Ported from LiveContainer and SideStore. Use custom URL schemes from Shortcuts, widgets, or web browsers." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ported from LiveContainer and SideStore. Use custom URL schemes from Shortcuts, widgets, or web browsers."
-          }
-        }
-      }
-    },
-    "Ported from LiveContainer, SideStore, and FlareStore." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ported from LiveContainer, SideStore, and FlareStore."
-          }
-        }
-      }
-    },
-    "Ported from LiveContainer. Changes how the application title is displayed in your library and search." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ported from LiveContainer. Changes how the application title is displayed in your library and search."
-          }
-        }
-      }
-    },
-    "Ported from LiveContainer. When an app is locked here, VexSign prompts for biometric verification before opening its details, signing sheet, or launching it." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ported from LiveContainer. When an app is locked here, VexSign prompts for biometric verification before opening its details, signing sheet, or launching it."
-          }
-        }
-      }
-    },
-    "Ported from LiveContainer. When an application is marked hidden, it vanishes from standard views and searches. Authenticate at the bottom of the Library to reveal them." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ported from LiveContainer. When an application is marked hidden, it vanishes from standard views and searches. Authenticate at the bottom of the Library to reveal them."
           }
         }
       }
@@ -108834,6 +108492,402 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Compression level used when packaging signed apps and exports into IPA archives."
+          }
+        }
+      }
+    },
+    "%lld apps currently hidden from Library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld apps currently hidden from Library."
+          }
+        }
+      }
+    },
+    "%lld apps currently require authentication." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld apps currently require authentication."
+          }
+        }
+      }
+    },
+    "%lld imported (%lld expiring soon)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld imported (%lld expiring soon)"
+          }
+        }
+      }
+    },
+    "%lld installed (%lld failing)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld installed (%lld failing)"
+          }
+        }
+      }
+    },
+    "%lld need refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld need refresh"
+          }
+        }
+      }
+    },
+    "%lldd left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lldd left"
+          }
+        }
+      }
+    },
+    "All fresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All fresh"
+          }
+        }
+      }
+    },
+    "Authenticate to view and manage apps hidden from the main Library and search results." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate to view and manage apps hidden from the main Library and search results."
+          }
+        }
+      }
+    },
+    "Credential storage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credential storage"
+          }
+        }
+      }
+    },
+    "Export & Logs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export & Logs"
+          }
+        }
+      }
+    },
+    "Import or sign apps to configure individual app locks." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import or sign apps to configure individual app locks."
+          }
+        }
+      }
+    },
+    "Library Applications" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library Applications"
+          }
+        }
+      }
+    },
+    "Lock Specific Apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock Specific Apps"
+          }
+        }
+      }
+    },
+    "Locked apps require Face ID, Touch ID, or device passcode before they can be opened, signed, installed, or exported from Library." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locked apps require Face ID, Touch ID, or device passcode before they can be opened, signed, installed, or exported from Library."
+          }
+        }
+      }
+    },
+    "Manage Library Visibility" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Library Visibility"
+          }
+        }
+      }
+    },
+    "No certificates imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No certificates imported"
+          }
+        }
+      }
+    },
+    "No tasks recorded yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks recorded yet"
+          }
+        }
+      }
+    },
+    "None imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None imported"
+          }
+        }
+      }
+    },
+    "Per-App Authentication" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per-App Authentication"
+          }
+        }
+      }
+    },
+    "Protected Vault" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protected Vault"
+          }
+        }
+      }
+    },
+    "Recent Task History" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent Task History"
+          }
+        }
+      }
+    },
+    "Reveal Hidden Apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveal Hidden Apps"
+          }
+        }
+      }
+    },
+    "Search apps to hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search apps to hide"
+          }
+        }
+      }
+    },
+    "Stale Sources" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stale Sources"
+          }
+        }
+      }
+    },
+    "Stealth & Security" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stealth & Security"
+          }
+        }
+      }
+    },
+    "Strict Hiding completely excludes hidden apps from search, widgets, and export suggestions until this vault is unlocked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Strict Hiding completely excludes hidden apps from search, widgets, and export suggestions until this vault is unlocked."
+          }
+        }
+      }
+    },
+    "System Overview" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Overview"
+          }
+        }
+      }
+    },
+    "Toggle an app ON to hide it from the main Library tab. You can always unhide or launch hidden apps from this secure vault." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle an app ON to hide it from the main Library tab. You can always unhide or launch hidden apps from this secure vault."
+          }
+        }
+      }
+    },
+    "View Logs History" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Logs History"
+          }
+        }
+      }
+    },
+    "Changes how the application title is displayed in your library and search." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes how the application title is displayed in your library and search."
+          }
+        }
+      }
+    },
+    "Configure on-device JIT activation, URL triggers, and loopback transport." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure on-device JIT activation, URL triggers, and loopback transport."
+          }
+        }
+      }
+    },
+    "Emulates on-device CoreLocation coordinates via developer disk image services without jailbreak." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emulates on-device CoreLocation coordinates via developer disk image services without jailbreak."
+          }
+        }
+      }
+    },
+    "Loopback self-test: confirms the local debug pipe responds without interrupting the target app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loopback self-test: confirms the local debug pipe responds without interrupting the target app."
+          }
+        }
+      }
+    },
+    "Security & Privacy Vault" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Security & Privacy Vault"
+          }
+        }
+      }
+    },
+    "Trigger JIT activation using custom URL schemes from Shortcuts, widgets, or web browsers." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trigger JIT activation using custom URL schemes from Shortcuts, widgets, or web browsers."
+          }
+        }
+      }
+    },
+    "When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are filtered according to your active DNS rules." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are filtered according to your active DNS rules."
           }
         }
       }

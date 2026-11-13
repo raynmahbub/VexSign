@@ -2,7 +2,7 @@
 //  NBGrid.swift
 //  NimbleKit
 //
-//  Created by VexSign TeamSign Team on 10.05.2025.
+//  Created by VexSign Contributors on 10.05.2025.
 //
 
 import SwiftUI

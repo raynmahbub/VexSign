@@ -2,7 +2,7 @@
 //  DownloadManager.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 3.05.2025.
+//  Created by VexSign Contributors on 3.05.2025.
 //
 
 import Foundation
@@ -610,7 +610,7 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 
 		DispatchQueue.global().async {
-			FR.handlePackageFile(url, download: download) { result in
+			PackageImportService.importPackage(url, download: download) { result in
 				switch result {
                 case .failure(let error):
                     if error is CancellationError {

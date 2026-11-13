@@ -1,6 +1,6 @@
 //
 //  LocationSimulatorSettingsView.swift
-//  VexSign — FlareStore Location Simulator & GPS Spoofer
+//  VexSign — Location Simulator & GPS Controls
 //
 
 import SwiftUI
@@ -70,7 +70,7 @@ struct LocationSimulatorSettingsView: View {
             Toggle(.localized("Enable Location Simulation"), isOn: $isSimulating)
                 .tint(Color.blue)
         } footer: {
-            Text(.localized("Ported from FlareStore. Emulates on-device CoreLocation coordinates via developer disk image injection without jailbreak."))
+            Text(.localized("Emulates on-device CoreLocation coordinates via developer disk image services without jailbreak."))
         }
     }
 

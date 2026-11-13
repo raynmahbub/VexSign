@@ -1,6 +1,6 @@
 //
 //  NotificationsSettingsView.swift
-//  VexSign — Notifications & Live Activities Settings (Ported from screenshot)
+//  VexSign — Notifications & Live Activities Settings
 //
 
 import SwiftUI

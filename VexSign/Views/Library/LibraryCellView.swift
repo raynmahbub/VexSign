@@ -2,7 +2,7 @@
 //  LibraryCellView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 11.04.2025.
+//  Created by VexSign Contributors on 11.04.2025.
 //
 
 import SwiftUI
@@ -40,7 +40,7 @@ struct LibraryCellView: View {
 	@State private var _explorerApp: AnyApp?
 	/// Clone sheet target, so "Clone…" can ask for a name and bundle ID.
 	@State private var _cloneApp: AnyApp?
-	/// LiveContainer / AppNest customization sheet
+	/// Per-app customization sheet
 	@State private var _customizingApp: AnyApp?
     @State private var _companionApp: AnyApp?
 
@@ -98,7 +98,7 @@ struct LibraryCellView: View {
 				.accessibilityIdentifier(A11y.Library.selectionToggle)
 			}
 			
-			FRAppIconView(app: app, size: 48)
+			VexAppIconView(app: app, size: 48)
 			
 			NBTitleWithSubtitleView(
 				title: app.name ?? .localized("Unknown"),
@@ -256,7 +256,7 @@ struct LibraryCellView: View {
 
     private var iconTile: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            FRAppIconView(app: app, size: 64)
+            VexAppIconView(app: app, size: 64)
             Text(app.name ?? .localized("Application"))
                 .font(.headline).lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -412,7 +412,7 @@ struct LibraryCellView: View {
 
 // MARK: - Extension: View
 extension LibraryCellView {
-    // KSign-style install/re-sign/sign-and-install actions, routed through
+    // Quick install/re-sign/sign-and-install actions, routed through
     // VexSign's checked signing and evidence-based installation pipeline.
     private func _performWorkflow(_ action: LibraryAppWorkflowAction) {
         _withAppAccess {
@@ -623,7 +623,7 @@ extension LibraryCellView {
 						NBHaptic.tap()
 						_performWorkflow(.install)
 					} label: {
-						FRExpirationPillView(
+						VexExpirationPillView(
 							title: .localized("Install"),
 							revoked: certRevoked,
 							expiration: certInfo
@@ -648,7 +648,7 @@ extension LibraryCellView {
 					NBHaptic.tap()
                     _performWorkflow(_usesContainer ? .install : .resign)
 				} label: {
-					FRExpirationPillView(
+					VexExpirationPillView(
                         title: _usesContainer ? .localized("Prepare Guest") : .localized("Sign"),
 						revoked: false,
 						expiration: nil

@@ -10,7 +10,7 @@ import NimbleViews
 import NimbleExtensions
 
 extension LibraryView {
-    // MARK: - Hidden Apps Vault Section (LiveContainer)
+    // MARK: - Hidden Apps Vault Section
     var hiddenAppsVaultSection: some View {
         NBSection(.localized("Hidden Apps")) {
             Button {

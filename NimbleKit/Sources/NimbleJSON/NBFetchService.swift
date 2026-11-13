@@ -2,7 +2,7 @@
 //  FetchService.swift
 //  Loader
 //
-//  Created by VexSign TeamSign Team on 14.03.2025.
+//  Created by VexSign Contributors on 14.03.2025.
 //
 
 import Foundation
@@ -26,7 +26,7 @@ public class NBFetchService {
 	/// package declares swift-tools-version 6.0, which rejects unsynchronized
 	/// shared mutable state outright). It is safe here because the property is
 	/// assigned exactly once — on the main thread at launch, via
-	/// `FR.registerRepositoryKeyProvider()` — before any fetch runs; afterwards
+	/// `RepositoryCatalogService.registerRepositoryKeyProvider()` — before any fetch runs; afterwards
 	/// the background queues in `fetch(from:headers:completion:)` only read it.
 	nonisolated(unsafe) public static var apiKeyProvider: (() -> String)?
 

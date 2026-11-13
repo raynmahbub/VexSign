@@ -2,7 +2,7 @@
 //  Decompression.swift
 //  vexsign
 //
-//  Created by VexSign TeamSign Team on 21.08.2024.
+//  Created by VexSign Contributors on 21.08.2024.
 //  Copyright (c) 2026 VexSign Team
 //
 

@@ -1,15 +1,15 @@
 //
-//  FRExpirationPillView.swift
+//  VexExpirationPillView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 7.05.2025.
+//  Created by VexSign Contributors on 7.05.2025.
 //
 
 import SwiftUI
 import NimbleExtensions
 
 // MARK: - View
-struct FRExpirationPillView: View {
+struct VexExpirationPillView: View {
 	let title: String
 	let revoked: Bool
 	let expiration: Date.ExpirationInfo?

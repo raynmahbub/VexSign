@@ -196,7 +196,7 @@ final class BatchJobRunner: ObservableObject {
 			)
 
 			let result = await withCheckedContinuation { (continuation: CheckedContinuation<Result<Signed, Error>, Never>) in
-				FR.signPackageFile(app, using: options, icon: icon, certificate: _certificate) { result in
+				PackageSigningCoordinator.signPackage(app, using: options, icon: icon, certificate: _certificate) { result in
 					continuation.resume(returning: result)
 				}
 			}

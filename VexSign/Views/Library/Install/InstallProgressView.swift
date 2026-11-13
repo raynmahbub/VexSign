@@ -2,7 +2,7 @@
 //  InstallProgressView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 23.04.2025.
+//  Created by VexSign Contributors on 23.04.2025.
 //
 
 import SwiftUI
@@ -46,12 +46,12 @@ struct InstallProgressView: View {
 	@ViewBuilder
 	private func _appIcon() -> some View {
 		ZStack {
-			FRAppIconView(app: app)
+			VexAppIconView(app: app)
 				.opacity(0.2)
 				.frame(width: 54, height: 54)
 				.foregroundStyle(Color.black)
 			
-			FRAppIconView(app: app)
+			VexAppIconView(app: app)
 				.frame(width: 54, height: 54)
 				.mask(
 					ZStack {

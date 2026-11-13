@@ -258,9 +258,9 @@ signer, paste the source URL below manually.
 
 Already using a compatible signer? Open one of these links to add the stable VexSign feed:
 
+- [Add to VexSign](vexsign://source/https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json)
 - [Add to AltStore](altstore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
 - [Add to SideStore](sidestore://source?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
-- [Add to Feather](feather://source/https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json)
 
 If a link does not open your app, copy the stable source URL shown below and add it manually.
 

@@ -1,6 +1,6 @@
 //
 //  AntiRevokeSettingsView.swift
-//  VexSign — FlareStore / MySign / RyukSign Anti-Revoke & DNS Shield
+//  VexSign — Anti-Revoke & DNS Protection
 //
 
 import SwiftUI
@@ -76,7 +76,7 @@ struct AntiRevokeSettingsView: View {
             Toggle(.localized("Offline Verification Bypass"), isOn: $offlineBypass)
                 .tint(Color.userTint)
         } footer: {
-            Text(.localized("Features ported from FlareStore and MySign. When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are intercepted."))
+            Text(.localized("When enabled, requests to Apple certificate revocation lists (OCSP) and Provisioning Profile Quality (PPQ) services are filtered according to your active DNS rules."))
         }
     }
 

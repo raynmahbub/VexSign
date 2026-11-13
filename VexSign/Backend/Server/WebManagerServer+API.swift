@@ -202,7 +202,7 @@ extension WebManagerServer {
 		}
 
 		let imported: (app: AppInfoPresentable?, error: Error?) = await withCheckedContinuation { continuation in
-			FR.handlePackageFile(ipaURL) { result in
+			PackageImportService.importPackage(ipaURL) { result in
 				switch result {
 				case .success(let app): continuation.resume(returning: (app, nil))
 				case .failure(let error): continuation.resume(returning: (nil, error))

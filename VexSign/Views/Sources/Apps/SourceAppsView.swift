@@ -2,7 +2,7 @@
 //  SourceAppsView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 1.05.2025.
+//  Created by VexSign Contributors on 1.05.2025.
 //
 
 import SwiftUI

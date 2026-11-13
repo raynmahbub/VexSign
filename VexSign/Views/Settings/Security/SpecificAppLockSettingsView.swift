@@ -1,154 +1,129 @@
 //
 //  SpecificAppLockSettingsView.swift
-//  VexSign — LiveContainer / AppNest Per-App Biometric Lock
+//  VexSign — Specific App Biometric Lock Rules
 //
 
 import SwiftUI
-import CoreData
 import NimbleViews
 import NimbleExtensions
 
 struct SpecificAppLockSettingsView: View {
-    @ObservedObject private var lock = AppLockManager.shared
-    @State private var searchText = ""
+    @Environment(\.appContainer) private var appContainer
+    @State private var viewModel: SpecificAppLockViewModel?
 
-    @FetchRequest(
-        entity: Signed.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Signed.name, ascending: true)],
-        animation: .snappy
-    ) private var signedApps: FetchedResults<Signed>
-
-    @FetchRequest(
-        entity: Imported.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Imported.name, ascending: true)],
-        animation: .snappy
-    ) private var importedApps: FetchedResults<Imported>
-
-    private var allApps: [AppInfoPresentable] {
-        var list: [AppInfoPresentable] = []
-        list.append(contentsOf: signedApps.map { $0 as AppInfoPresentable })
-        list.append(contentsOf: importedApps.map { $0 as AppInfoPresentable })
-        return list
-    }
-
-    private var filteredApps: [AppInfoPresentable] {
-        if searchText.isEmpty {
-            return allApps
-        }
-        return allApps.filter { app in
-            (app.name?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-            (app.identifier?.localizedCaseInsensitiveContains(searchText) ?? false)
-        }
-    }
-
-    private var lockedCount: Int {
-        allApps.filter { app in
-            guard let uuid = app.uuid else { return false }
-            return lock.isAppLocked(uuid)
-        }.count
+    init(viewModel: SpecificAppLockViewModel? = nil) {
+        self._viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
-        NBList(.localized("Specific App Lock")) {
-            headerSection
+        Group {
+            if let viewModel {
+                SpecificAppLockContent(viewModel: viewModel)
+            } else {
+                ProgressView()
+                    .onAppear {
+                        let container = appContainer ?? AppContainer.live()
+                        viewModel = container.makeSpecificAppLockViewModel()
+                    }
+            }
+        }
+    }
+}
 
+private struct SpecificAppLockContent: View {
+    @ObservedObject var viewModel: SpecificAppLockViewModel
+
+    var body: some View {
+        NBList(.localized("Lock Specific Apps")) {
+            headerSection
             appsListSection
         }
-        .searchable(text: $searchText, placement: .platform(), prompt: Text(.localized("Search installed apps...")))
+        .searchable(
+            text: $viewModel.searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: .localized("Search apps")
+        )
+        .onAppear {
+            viewModel.reload()
+        }
     }
 
+    // MARK: - Header
     private var headerSection: some View {
-        NBSection(.localized("Per-App Security")) {
+        Section {
             HStack(spacing: 14) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.userTint.opacity(0.14))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Color.userTint)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "lock.app.dashed")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(Color.blue)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(.localized("Specific App Lock"))
-                            .font(.headline)
-                        if lockedCount > 0 {
-                            Text("\(lockedCount)")
-                                .font(.caption2.weight(.bold))
-                                .padding(.horizontal, 7).padding(.vertical, 2)
-                                .background(Color.userTint, in: Capsule())
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    Text(.localized("Require Face ID, Touch ID or Passcode to open, sign, or inspect selected applications."))
+                    Text(.localized("Per-App Authentication"))
+                        .font(.headline)
+                    Text(String.localized("%lld apps currently require authentication.", arguments: viewModel.lockedCount))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .padding(.vertical, 4)
-        } footer: {
-            Text(.localized("Ported from LiveContainer. When an app is locked here, VexSign prompts for biometric verification before opening its details, signing sheet, or launching it."))
         }
     }
 
+    // MARK: - Apps List
     private var appsListSection: some View {
-        NBSection(.localized("Applications"), secondary: "\(lockedCount) " + .localized("locked")) {
-            if allApps.isEmpty {
+        NBSection(.localized("Library Applications")) {
+            if viewModel.filteredApps.isEmpty {
                 VStack(spacing: 8) {
-                    Image(systemName: "app.dashed")
+                    Image(systemName: "square.grid.2x2")
                         .font(.system(size: 32))
                         .foregroundStyle(.secondary)
-                    Text(.localized("No Applications in Library"))
+                    Text(.localized("No Apps Found"))
                         .font(.subheadline.weight(.semibold))
-                    Text(.localized("Import or sign an app first to apply specific biometric locks."))
+                    Text(.localized("Import or sign apps to configure individual app locks."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-            } else if filteredApps.isEmpty {
-                Text(.localized("No matching apps found."))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
+                .padding(.vertical, 20)
             } else {
-                ForEach(filteredApps, id: \.uuid) { app in
-                    if let uuid = app.uuid {
-                        let isLocked = lock.isAppLocked(uuid)
+                ForEach(viewModel.filteredApps) { app in
+                    let isLocked = viewModel.isAppLocked(app.uuid)
 
-                        HStack(spacing: 12) {
-                            FRAppIconView(app: app, size: 40)
+                    HStack(spacing: 12) {
+                        VexAppIconView(bundleURL: app.bundleURL, size: 40)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(app.name ?? .localized("Unknown"))
-                                    .font(.subheadline.weight(.medium))
-                                    .lineLimit(1)
-                                Text(app.identifier ?? "")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            Toggle("", isOn: Binding(
-                                get: { isLocked },
-                                set: { _ in
-                                    NBHaptic.selection()
-                                    lock.toggleAppLock(uuid)
-                                }
-                            ))
-                            .labelsHidden()
-                            .tint(Color.userTint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(app.name)
+                                .font(.subheadline.weight(.medium))
+                                .lineLimit(1)
+                            Text(app.identifier)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        .padding(.vertical, 2)
+
+                        Spacer()
+
+                        Toggle("", isOn: Binding(
+                            get: { isLocked },
+                            set: { _ in
+                                NBHaptic.tap()
+                                viewModel.toggleAppLock(app.uuid)
+                            }
+                        ))
+                        .labelsHidden()
+                        .tint(Color.userTint)
                     }
+                    .padding(.vertical, 2)
                 }
             }
         } footer: {
-            Text(.localized("Toggle on any application you wish to protect with biometrics."))
+            Text(.localized("Locked apps require Face ID, Touch ID, or device passcode before they can be opened, signed, installed, or exported from Library."))
         }
     }
 }

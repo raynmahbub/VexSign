@@ -11,7 +11,7 @@ import SwiftUI
 import NimbleExtensions
 
 enum VexSignVisualTheme: String, CaseIterable, Identifiable {
-    /// The original VexSign/Ksign-style iOS surfaces.
+    /// Standard VexSign iOS grouped surfaces.
     case system
     case midnightViolet
     case graphite
@@ -45,7 +45,7 @@ enum VexSignVisualTheme: String, CaseIterable, Identifiable {
         case .paper: return .localized("Warm light surfaces with crisp, readable text.")
         case .oled: return .localized("True-black backgrounds with subtly elevated surfaces.")
         case .luna: return "A soft indigo, glassy VexSign theme inspired by moonlight."
-        case .flare: return "A dark, glassy native presentation inspired by the FlareStore website."
+        case .flare: return "A dark, translucent native VexSign presentation with grid accents."
         }
     }
     var preferredColorScheme: ColorScheme? {
@@ -110,7 +110,7 @@ enum VexSignStylePreferences {
     }
 }
 
-/// A restrained FlareStore-inspired press treatment: a tiny scale/opacity
+/// A restrained VexSign press treatment: a tiny scale/opacity
 /// change and no layout-affecting geometry. It remains instantaneous when the
 /// user enables Reduce Motion or turns Flare animations off.
 ///

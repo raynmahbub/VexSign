@@ -574,7 +574,7 @@ final class NativeSigningManager: ObservableObject {
                     identityID: identityID, password: password, consent: consent)
             }, importCertificate: { p12URL, provisionURL, password, name in
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    FR.handleCertificateFiles(p12URL: p12URL, provisionURL: provisionURL,
+                    CertificateManagementService.importCertificateFiles(p12URL: p12URL, provisionURL: provisionURL,
                         p12Password: password, certificateName: name) { error in
                         if let error { continuation.resume(throwing: error) }
                         else { continuation.resume() }

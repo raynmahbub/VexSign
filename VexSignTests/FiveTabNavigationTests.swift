@@ -144,7 +144,7 @@ final class FiveTabNavigationTests: XCTestCase {
         XCTAssertEqual(selection.librarySection, .apps)
     }
 
-    func testKSignStyleActionsRespectStoredAppKind() {
+    func testLibraryQuickActionsRespectStoredAppKind() {
         XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: true), [.install, .resign])
         XCTAssertEqual(LibraryAppWorkflowAction.actions(isSigned: false), [.signAndInstall])
         XCTAssertFalse(LibraryAppWorkflowAction.actions(isSigned: false).contains(.install),

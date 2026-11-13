@@ -127,7 +127,7 @@ enum WebManagerRouter {
         Task { @MainActor in
             switch dest {
             case .library:
-                FR.handlePackageFile(url) { result in
+                PackageImportService.importPackage(url) { result in
                     defer { withExtendedLifetime(lease) {} }
                     switch result {
                     case .success:

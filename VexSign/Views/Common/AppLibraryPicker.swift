@@ -70,7 +70,7 @@ struct AppLibraryPicker: View {
 	@ViewBuilder
 	private func _row(_ app: AppInfoPresentable) -> some View {
 		HStack(spacing: 12) {
-			FRAppIconView(app: app, size: 38)
+			VexAppIconView(app: app, size: 38)
 			VStack(alignment: .leading, spacing: 2) {
 				Text(verbatim: app.name ?? String.localized("Unknown"))
 					.foregroundStyle(.primary)

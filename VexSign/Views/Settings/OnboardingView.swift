@@ -157,7 +157,7 @@ struct OnboardingView: View {
 			}
 		}
 
-		FR.handlePackageFile(url) { result in
+		PackageImportService.importPackage(url) { result in
 			switch result {
 			case .success(let app):
 				_importedAppName = app.name ?? url.lastPathComponent

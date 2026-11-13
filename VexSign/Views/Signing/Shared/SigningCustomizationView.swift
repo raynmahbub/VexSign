@@ -56,7 +56,7 @@ struct SigningCustomizationView: View {
 					Image(uiImage: appIcon)
 						.appIconStyle()
 				} else {
-					FRAppIconView(app: app, size: 56)
+					VexAppIconView(app: app, size: 56)
 				}
 			}
 			.sheet(isPresented: $_isAltPickerPresenting) {

@@ -2,7 +2,7 @@
 //  LibraryInfoView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 14.04.2025.
+//  Created by VexSign Contributors on 14.04.2025.
 //
 
 import SwiftUI
@@ -32,7 +32,7 @@ struct LibraryInfoView: View {
 		NBNavigationView(app.name ?? "", displayMode: .inline) {
 			List {
 				Section {} header: {
-					FRAppIconView(app: app)
+					VexAppIconView(app: app)
 						.frame(maxWidth: .infinity, alignment: .center)
 				}
 

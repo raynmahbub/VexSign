@@ -2,7 +2,7 @@
 //  View+NavTransition.swift
 //  Luce
 //
-//  Created by VexSign TeamSign Team on 30.01.2025.
+//  Created by VexSign Contributors on 30.01.2025.
 //
 
 import SwiftUI

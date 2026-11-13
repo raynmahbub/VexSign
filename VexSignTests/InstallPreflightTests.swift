@@ -91,11 +91,11 @@ final class InstallPreflightTests: XCTestCase {
 		for data in [Data(), Data("not a plist".utf8),
 			try PropertyListSerialization.data(fromPropertyList: ["HostID": " "], format: .xml, options: 0),
 			try PropertyListSerialization.data(fromPropertyList: ["Unrelated": "value"], format: .binary, options: 0)] {
-			XCTAssertThrowsError(try FR.validatePairingFile(data))
+			XCTAssertThrowsError(try CertificateManagementService.validatePairingFile(data))
 		}
-		XCTAssertThrowsError(try FR.validatePairingFile(Data(repeating: 0, count: 2 * 1024 * 1024 + 1)))
+		XCTAssertThrowsError(try CertificateManagementService.validatePairingFile(Data(repeating: 0, count: 2 * 1024 * 1024 + 1)))
 		let valid = try PropertyListSerialization.data(fromPropertyList: ["HostID": "test-host"], format: .xml, options: 0)
-		XCTAssertNoThrow(try FR.validatePairingFile(valid))
+		XCTAssertNoThrow(try CertificateManagementService.validatePairingFile(valid))
 	}
 
 	// MARK: - Export

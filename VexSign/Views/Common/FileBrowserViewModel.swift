@@ -1,6 +1,6 @@
 //
 //  FileBrowserViewModel.swift
-//  VexSign — shared ViewModel for Files tab (Ksign-like), extracted to avoid duplicating IPAFileLoader logic.
+//  VexSign — shared ViewModel for the Files browser, extracted to avoid duplicating IPAFileLoader logic.
 //
 
 import Foundation
@@ -49,7 +49,7 @@ final class FileBrowserViewModel: ObservableObject {
         return filtered.sorted(by: sort.comparator())
     }
 
-    // Quick stats for Ksign grid
+    // Quick folder counts and sizes for the Quick Access grid
     func count(at url: URL) -> Int {
         (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil).count) ?? 0
     }

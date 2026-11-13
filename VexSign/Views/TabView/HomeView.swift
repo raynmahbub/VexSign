@@ -2,8 +2,8 @@
 //  HomeView.swift
 //  VexSign
 //
-//  The Home tab adapts to the selected appearance: the FlareStore-inspired
-//  grid layout for Flare, and a token-driven dashboard for the modern themes.
+//  The Home tab adapts to the selected appearance: the classic grid layout
+//  for Luna/Flare themes, and a token-driven dashboard for the modern themes.
 //
 
 import SwiftUI
@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 import NimbleExtensions
 
 struct HomeView: View {
+    @Environment(\.appContainer) var appContainer
     @ObservedObject private var updateChecker = AppUpdateChecker.shared
     @StateObject var downloadManager = DownloadManager.shared
     @ObservedObject private var lockManager = AppLockManager.shared

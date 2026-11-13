@@ -1,8 +1,8 @@
 //
-//  FR+Signing.swift
+//  PackageSigningCoordinator.swift
 //  VexSign
 //
-//  Signing adapter over SigningService.
+//  Coordinated signing workflow adapter over SigningService.
 //
 
 import Foundation
@@ -15,13 +15,10 @@ import IDeviceSwift
 import OSLog
 import NimbleExtensions
 
-extension FR {
-    /// Adapter over `SigningService`.
-    ///
-    /// Existing call sites stay source-compatible through the defaulted progress callbacks.
-    /// Signing is owned by a cancellable service rather than an unstructured task; callers can
-    /// observe stage/compatibility events and cancel their own request ID.
-    static func signPackageFile(
+enum PackageSigningCoordinator {
+    /// Coordinates signing requests over `SigningService` with unified preflight,
+    /// identity compatibility reporting, Live Activity updates, and durable task tracing.
+    static func signPackage(
         _ app: AppInfoPresentable,
         using options: Options,
         icon: UIImage?,

@@ -166,7 +166,7 @@ enum FeatureStatusRegistry {
 			name: "Per-app certificate selection",
 			setting: "App context → Signing certificate",
 			persistedAs: "Per-app options / PerAppUpdateRules.pinnedCertificateUUID",
-			consumer: "FR.signPackageFile(certificate:) → Zsign",
+			consumer: "PackageSigningCoordinator.signPackage(certificate:) → Zsign",
 			status: .implemented
 		),
 		FeatureStatusEntry(
@@ -174,7 +174,7 @@ enum FeatureStatusRegistry {
 			name: "Quick Sign",
 			setting: "Home → Quick Sign row",
 			persistedAs: "— (immediate action)",
-			consumer: "FR.handlePackageFile → SigningView",
+			consumer: "PackageImportService.importPackage → SigningView",
 			status: .implemented
 		),
 		FeatureStatusEntry(
@@ -182,7 +182,7 @@ enum FeatureStatusRegistry {
 			name: "Re-sign / re-install",
 			setting: "Library → app → Re-sign",
 			persistedAs: "— (library action)",
-			consumer: "FR.signPackageFile → InstallQueue",
+			consumer: "PackageSigningCoordinator.signPackage → InstallQueue",
 			status: .needsDevice
 		),
 		FeatureStatusEntry(
@@ -246,7 +246,7 @@ enum FeatureStatusRegistry {
 			name: "Unified task pipeline",
 			setting: "Downloads → Task Center",
 			persistedAs: "UnifiedTaskHistory.json (outcomes only)",
-			consumer: "DownloadManager mirror, FR.signPackageFile, InstallQueue",
+			consumer: "DownloadManager mirror, PackageSigningCoordinator.signPackage, InstallQueue",
 			status: .implemented
 		),
 		FeatureStatusEntry(

@@ -63,7 +63,6 @@
   "VexSign/Utilities/Signing/SigningService.swift": 2,
   "VexSign/Utilities/StdoutCapture.swift": 2,
   "VexSign/Utilities/VexSignAPI.swift": 2,
-  "VexSign/VexSignApp.swift": 6,
   "VexSign/Views/Common/DocumentPicker.swift": 1,
   "VexSign/Views/Common/FileBrowserViewModel.swift": 1,
   "VexSign/Views/Common/ImportFolderPickerView.swift": 1,
@@ -80,6 +79,5 @@
   "VexSign/Views/Signing/Shared/PlistRawEditorView.swift": 1,
   "VexSign/Views/Signing/Shared/SigningCustomizationView.swift": 1,
   "VexSign/Views/Signing/Shared/SigningFrameworksView.swift": 1,
-  "VexSign/Views/TabView/DownloadsTabView.swift": 1,
   "VexSign/Views/Tweaks/TweakExtractionView.swift": 1
 }

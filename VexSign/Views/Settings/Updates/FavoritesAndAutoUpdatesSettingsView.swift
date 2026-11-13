@@ -4,28 +4,37 @@
 //
 
 import SwiftUI
-import CoreData
 import NimbleViews
 import NimbleExtensions
 
 struct FavoritesAndAutoUpdatesSettingsView: View {
+    @Environment(\.appContainer) private var appContainer
+    @State private var viewModel: FavoritesAutoUpdatesViewModel?
+
+    init(viewModel: FavoritesAutoUpdatesViewModel? = nil) {
+        self._viewModel = State(initialValue: viewModel)
+    }
+
+    var body: some View {
+        Group {
+            if let viewModel {
+                FavoritesAndAutoUpdatesContent(viewModel: viewModel)
+            } else {
+                ProgressView()
+                    .onAppear {
+                        let container = appContainer ?? AppContainer.live()
+                        viewModel = container.makeFavoritesAutoUpdatesViewModel()
+                    }
+            }
+        }
+    }
+}
+
+private struct FavoritesAndAutoUpdatesContent: View {
+    @ObservedObject var viewModel: FavoritesAutoUpdatesViewModel
     @ObservedObject private var prefs = UpdateMatchingPreferences.shared
     @State private var searchText = ""
     @State private var filterMode: FilterOption = .all
-
-    @FetchRequest(
-        entity: Signed.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Signed.name, ascending: true)],
-        animation: .snappy
-    ) private var signedApps: FetchedResults<Signed>
-
-    @FetchRequest(
-        entity: Imported.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Imported.name, ascending: true)],
-        animation: .snappy
-    ) private var importedApps: FetchedResults<Imported>
-
-    private let certificates = Storage.shared.getAllCertificates()
 
     enum FilterOption: String, CaseIterable, Identifiable {
         case all = "All"
@@ -41,26 +50,18 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
         }
     }
 
-    private var allApps: [AppInfoPresentable] {
-        var result: [AppInfoPresentable] = []
-        result.append(contentsOf: signedApps.map { $0 as AppInfoPresentable })
-        result.append(contentsOf: importedApps.map { $0 as AppInfoPresentable })
-        return result
-    }
-
-    private var filteredApps: [AppInfoPresentable] {
-        allApps.filter { app in
-            guard let uuid = app.uuid else { return false }
-            let nameMatch = searchText.isEmpty || (app.name?.localizedCaseInsensitiveContains(searchText) ?? false)
+    private var filteredApps: [AppPrivacyItem] {
+        viewModel.apps.filter { app in
+            let nameMatch = searchText.isEmpty || app.name.localizedCaseInsensitiveContains(searchText)
             guard nameMatch else { return false }
 
             switch filterMode {
             case .all:
                 return true
             case .favorites:
-                return prefs.isFavorite(uuid: uuid)
+                return prefs.isFavorite(uuid: app.uuid)
             case .autoUpdate:
-                return prefs.isAutoUpdateAllowed(for: uuid)
+                return prefs.isAutoUpdateAllowed(for: app.uuid)
             }
         }
     }
@@ -68,14 +69,13 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
     var body: some View {
         NBList(.localized("Favorites & Auto Updates")) {
             headerOverviewSection
-
             matchingModeSection
-
             autoUpdateCertSection
-
             automationSettingsSection
-
             favoriteAppsManagementSection
+        }
+        .onAppear {
+            viewModel.refresh()
         }
     }
 
@@ -128,9 +128,8 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
             Picker(.localized("Signing Certificate"), selection: $prefs.autoUpdateCertificate) {
                 Text(.localized("Global Default")).tag("Global Default")
                 Text("VexSign (Dist)").tag("VexSign (Dist)")
-                ForEach(certificates, id: \.uuid) { cert in
-                    let name = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? "Certificate"
-                    Text(name == "Certificate" ? .localized("Certificate") : name).tag(name)
+                ForEach(viewModel.certificateOptions) { option in
+                    Text(option.displayName).tag(option.tagName)
                 }
             }
             .pickerStyle(.menu)
@@ -169,7 +168,7 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
             .pickerStyle(.segmented)
             .padding(.vertical, 4)
 
-            if allApps.isEmpty {
+            if viewModel.apps.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "square.stack.3d.up.slash")
                         .font(.system(size: 32))
@@ -190,51 +189,47 @@ struct FavoritesAndAutoUpdatesSettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 12)
             } else {
-                ForEach(filteredApps, id: \.uuid) { app in
-                    if let uuid = app.uuid {
-                        let isFav = prefs.isFavorite(uuid: uuid)
-                        let isAuto = prefs.isAutoUpdateAllowed(for: uuid)
+                ForEach(filteredApps) { app in
+                    let isFav = prefs.isFavorite(uuid: app.uuid)
+                    let isAuto = prefs.isAutoUpdateAllowed(for: app.uuid)
 
-                        HStack(spacing: 12) {
-                            FRAppIconView(app: app, size: 40)
+                    HStack(spacing: 12) {
+                        VexAppIconView(bundleURL: app.bundleURL, size: 40)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(app.name ?? .localized("Unknown"))
-                                    .font(.subheadline.weight(.medium))
-                                    .lineLimit(1)
-                                Text(app.version ?? "1.0")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            // Favorite toggle button
-                            Button {
-                                NBHaptic.tap()
-                                prefs.toggleFavorite(uuid: uuid)
-                            } label: {
-                                Image(systemName: isFav ? "star.fill" : "star")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(isFav ? Color.yellow : Color.secondary.opacity(0.5))
-                                    .padding(6)
-                            }
-                            .buttonStyle(.plain)
-
-                            // Auto update toggle button
-                            Button {
-                                NBHaptic.tap()
-                                prefs.toggleAutoUpdate(for: uuid, allUUIDs: Set(allApps.compactMap { $0.uuid }))
-                            } label: {
-                                Image(systemName: isAuto ? "arrow.triangle.2.circlepath.circle.fill" : "arrow.triangle.2.circlepath.circle")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(isAuto ? Color.userTint : Color.secondary.opacity(0.4))
-                                    .padding(6)
-                            }
-                            .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(app.name)
+                                .font(.subheadline.weight(.medium))
+                                .lineLimit(1)
+                            Text(app.version)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 2)
+
+                        Spacer()
+
+                        Button {
+                            NBHaptic.tap()
+                            prefs.toggleFavorite(uuid: app.uuid)
+                        } label: {
+                            Image(systemName: isFav ? "star.fill" : "star")
+                                .font(.system(size: 18))
+                                .foregroundStyle(isFav ? Color.yellow : Color.secondary.opacity(0.5))
+                                .padding(6)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            NBHaptic.tap()
+                            prefs.toggleAutoUpdate(for: app.uuid, allUUIDs: Set(viewModel.apps.map(\.uuid)))
+                        } label: {
+                            Image(systemName: isAuto ? "arrow.triangle.2.circlepath.circle.fill" : "arrow.triangle.2.circlepath.circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(isAuto ? Color.userTint : Color.secondary.opacity(0.4))
+                                .padding(6)
+                        }
+                        .buttonStyle(.plain)
                     }
+                    .padding(.vertical, 2)
                 }
             }
         } footer: {

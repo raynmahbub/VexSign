@@ -1,6 +1,6 @@
 //
 //  AdvancedSigningSettingsView.swift
-//  VexSign — FlareStore / FeatherPlus / MySign Advanced Signing & Patches
+//  VexSign — Advanced Signing & Binary Patches
 //
 //  These controls are bound to the same Options object consumed by SigningHandler.
 //  They are not a second, settings-only preference store.
@@ -16,7 +16,7 @@ struct AdvancedSigningSettingsView: View {
 	var body: some View {
 		NBList(.localized("Advanced Signing & Patches")) {
 			headerSection
-			flareStoreSDKSection
+			sdkSpoofingSection
 			compatibilitySection
 			machoAndPackagingSection
 		}
@@ -49,7 +49,7 @@ struct AdvancedSigningSettingsView: View {
 		}
 	}
 
-	private var flareStoreSDKSection: some View {
+	private var sdkSpoofingSection: some View {
 		NBSection(.localized("Build SDK Spoofing")) {
 			Toggle(.localized("Spoof Build SDK Version"), isOn: $optionsManager.options.experiment_supportLiquidGlass)
 				.tint(Color.orange)

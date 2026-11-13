@@ -2,7 +2,7 @@
 //  Logger++.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 24.05.2025.
+//  Created by VexSign Contributors on 24.05.2025.
 //
 
 import OSLog

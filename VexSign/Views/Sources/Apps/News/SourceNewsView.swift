@@ -2,7 +2,7 @@
 //  SourceNewsView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 3.05.2025.
+//  Created by VexSign Contributors on 3.05.2025.
 //
 
 import SwiftUI

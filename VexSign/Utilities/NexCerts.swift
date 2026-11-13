@@ -2,9 +2,9 @@
 //  NexCerts.swift
 //  VexSign
 //
-//  Free certificate catalog imported from NexStore (NovaDev404).
-//  Fetches development certificates from the NexCerts API so users can get
-//  started signing without bringing their own cert.
+//  Community certificate catalog (NexCerts).
+//  Fetches public community certificates so users can test signing workflows
+//  before importing their own signing certificate.
 //
 
 import Foundation
@@ -308,12 +308,12 @@ extension NexCerts {
 
 			let password = passwordText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-			guard FR.checkPasswordForCertificate(for: p12URL, with: password, using: provisionURL) else {
+			guard CertificateManagementService.validateCertificatePassword(for: p12URL, with: password, using: provisionURL) else {
 				throw NexCertsError.invalidPassword
 			}
 
 			try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-				FR.handleCertificateFiles(
+				CertificateManagementService.importCertificateFiles(
 					p12URL: p12URL,
 					provisionURL: provisionURL,
 					p12Password: password,

@@ -302,7 +302,7 @@ final class UpdateAllManager: ObservableObject {
 
 	private func _import(_ ipa: URL) async throws -> AppInfoPresentable {
 		try await withCheckedThrowingContinuation { continuation in
-			FR.handlePackageFile(ipa) { result in
+			PackageImportService.importPackage(ipa) { result in
 				continuation.resume(with: result)
 			}
 		}
@@ -341,7 +341,7 @@ final class UpdateAllManager: ObservableObject {
 			: []
 
 		let result: Result<Signed, Error> = await withCheckedContinuation { continuation in
-			FR.signPackageFile(app, using: options, icon: nil, certificate: certificate, notices: notices) { result in
+			PackageSigningCoordinator.signPackage(app, using: options, icon: nil, certificate: certificate, notices: notices) { result in
 				continuation.resume(returning: result)
 			}
 		}

@@ -1,7 +1,6 @@
 //
 //  AppStoreView.swift
-//  VexSign — Apple App Store redesign, merges Sources. Single nav bar.
-//  Ported from App Store, SideStore, and Ksign with modern Apple feel.
+//  VexSign — Unified app repository catalog, sources, and updates.
 //
 
 import SwiftUI
@@ -11,7 +10,7 @@ import NukeUI
 import CoreData
 import AltSourceKit
 
-// MARK: - App Store (Apple Official Style) — Single NavigationStack, Sources merged
+// MARK: - App Store & Sources Catalog
 
 struct AppStoreView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -42,7 +41,7 @@ struct AppStoreView: View {
 
     let communityRepos: [CommunityRepoItem] = [
         .init(name: "SideStore Community", subtitle: "Official SideStore community apps", url: URL(string: "https://community-apps.sidestore.io/sidecommunity.json")!, iconName: "globe.desk.fill"),
-        .init(name: "Ksign Repo", subtitle: "Esign-style curated tools & signers", url: URL(string: "https://raw.githubusercontent.com/Nyasami/Ksign/refs/heads/main/repo.json")!, iconName: "app.badge.fill"),
+        .init(name: "Nyasami Community", subtitle: "Curated sideloading tools & utilities", url: URL(string: "https://raw.githubusercontent.com/Nyasami/Ksign/refs/heads/main/repo.json")!, iconName: "app.badge.fill"),
         .init(name: "LiveContainer", subtitle: "Run multiple iOS apps side-by-side", url: URL(string: "https://raw.githubusercontent.com/LiveContainer/LiveContainer/refs/heads/main/apps.json")!, iconName: "square.stack.3d.up.fill"),
         .init(name: "OatmealDome", subtitle: "Dolphin iOS & emulation utilities", url: URL(string: "https://altstore.oatmealdome.me/")!, iconName: "gamecontroller.fill"),
         .init(name: "Aidoku", subtitle: "Manga & comic reader", url: URL(string: "https://raw.githubusercontent.com/Aidoku/Aidoku/altstore/apps.json")!, iconName: "book.fill"),
@@ -525,7 +524,7 @@ struct AppStoreView: View {
         }
     }
 
-    // MARK: - Apps Catalog Section (Ksign App Store Catalog)
+    // MARK: - Apps Catalog Section
     private var appsCatalogSection: some View {
         VStack(spacing: 16) {
             // Category filter pills

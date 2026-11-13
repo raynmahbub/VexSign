@@ -210,6 +210,7 @@ jobs:
           python3 tools/check-docs.py
           python3 tools/test_docs.py
           python3 tools/test_integration_contracts.py
+          python3 tools/test_architecture_boundaries.py
           python3 tools/test_ci_repair_agent.py
           python3 tools/test_device_acceptance.py
           python3 tools/test_native_promotion_evidence.py

@@ -213,7 +213,7 @@ extension DownloadManager {
         checkpointRecovery(dl, stage: .importing, file: url)
         beginImport(for: dl)
 
-		FR.handlePackageFile(url, download: dl) { result in
+		PackageImportService.importPackage(url, download: dl) { result in
 			switch result {
             case .failure(let error):
                 if error is CancellationError {

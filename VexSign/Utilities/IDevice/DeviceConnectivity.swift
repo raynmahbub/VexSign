@@ -238,7 +238,7 @@ struct PairedDeviceRecord: Identifiable, Equatable, Sendable {
 /// Reads the pairing file without trusting it.
 ///
 /// The keys are the ones a `lockdownd` session needs, and the same set the redaction rules in
-/// `LogRedaction` already strip from logs. `FR.validatePairingFile` keeps its own stricter
+/// `LogRedaction` already strip from logs. `CertificateManagementService.validatePairingFile` keeps its own stricter
 /// import-time rule (`HostID`); this inspection exists so the rest of the app can say *which*
 /// part is missing instead of only that the file is there.
 enum PairingRecordInspector {
@@ -253,7 +253,7 @@ enum PairingRecordInspector {
 		"RootCertificate"
 	]
 
-	/// Matches the import limit in `FR.movePairing`, so an oversized file is refused the same
+	/// Matches the import limit in `CertificateManagementService.installPairingFile(from:)`, so an oversized file is refused the same
 	/// way wherever it is read.
 	static let maximumSize = 2 * 1024 * 1024
 

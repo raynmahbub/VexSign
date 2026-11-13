@@ -1,6 +1,6 @@
 //
 //  DeviceDiagnosticsView.swift
-//  VexSign — FlareStore / Ksign / MySign System Diagnostics
+//  VexSign — System Diagnostics
 //
 
 import SwiftUI

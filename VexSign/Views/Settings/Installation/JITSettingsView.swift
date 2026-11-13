@@ -1,6 +1,6 @@
 //
 //  JITSettingsView.swift
-//  VexSign — LiveContainer / FlareStore / SideStore JIT & Pairing Tools
+//  VexSign — JIT & Pairing Tools
 //
 
 import SwiftUI
@@ -44,7 +44,7 @@ struct JITSettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(.localized("JIT & Debugger Tools"))
                         .font(.headline)
-                    Text(.localized("Ported from LiveContainer, SideStore, and FlareStore."))
+                    Text(.localized("Configure on-device JIT activation, URL triggers, and loopback transport."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -133,7 +133,7 @@ struct JITSettingsView: View {
                 .padding(.vertical, 2)
             }
         } footer: {
-            Text(.localized("FlareStore-style self test: confirms the local loopback debug pipe responds without risking the target emulator."))
+            Text(.localized("Loopback self-test: confirms the local debug pipe responds without interrupting the target app."))
         }
     }
 
@@ -159,7 +159,7 @@ struct JITSettingsView: View {
             }
             .padding(.vertical, 4)
         } footer: {
-            Text(.localized("Ported from LiveContainer and SideStore. Use custom URL schemes from Shortcuts, widgets, or web browsers."))
+            Text(.localized("Trigger JIT activation using custom URL schemes from Shortcuts, widgets, or web browsers."))
         }
     }
 

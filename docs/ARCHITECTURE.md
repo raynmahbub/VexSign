@@ -7,7 +7,7 @@ place.
 
 ```text
 VexSignApp
- └── VariedTabbarView / TabbarView
+ └── TabbarView
       ├── Home       → VexHomeDashboard
       ├── Discover   → AppStoreView + SourcesView
       ├── Library    → LibraryView, SigningView, IPA tools
@@ -19,14 +19,20 @@ VexSignApp
 
 | Layer | Location | Responsibility |
 | --- | --- | --- |
-| App shell | `VexSign/VexSignApp.swift`, `Views/TabView/Bars/` | Scene lifecycle, tabs, appearance, onboarding, app lock, download overlay. |
+| App shell & Composition Root | `VexSign/VexSignApp.swift`, `Application/AppContainer.swift`, `Presentation/AppContainerEnvironment.swift` | Scene lifecycle, explicit dependency graph (`AppContainer.live()`), `@Environment(\.appContainer)` injection, deep-link dispatch. |
+| Domain | `VexSign/Domain/` (`Foundation`-only) | Framework-free contracts, subsystem boundary protocols, value snapshots, errors, and `DeepLinkCommand` parsing. |
+| Application | `VexSign/Application/` | Orchestration use cases (`DirectPackageInstallUseCase`, `FirmwareDownloadUseCase`, `WorkspaceResetUseCase`, `DeepLinkRouterUseCase`, `AnisetteProviderUseCase`, `WorkspaceSupportUseCase`). |
+| Presentation | `VexSign/Presentation/`, `Views/` | `@MainActor` ViewModels/coordinators and pure SwiftUI views decoupled from Core Data, `URLSession`, and `FileManager` internals. |
+| Security & Shared | `VexSign/Security/`, `VexSign/Shared/` | `SecurityPolicyGateway`, `TransferSecuritySession` (HTTP `2xx`, redirect policy, byte cap), `AppLockManager`, `ErrorBoundary`, redacted `SubsystemDiagnosticsLog`. |
+| Platform & Infrastructure | `VexSign/Platform/`, `VexSign/Infrastructure/` | Concrete UIKit/Nuke/filesystem/Core Data/network adapters implementing `Domain` boundary protocols. |
 | Design system | `Extensions/Theme.swift`, `Extensions/WorkspaceStyle.swift`, `DesignSystem/` | Colour, type, spacing, surfaces, reusable controls. |
-| Features | `Views/Library`, `Views/Sources`, `Views/Signing`, `Views/Settings`, `Views/Downloads`, `Views/Files`, `Views/Tweaks` | Screen-level composition and user intent. |
 | Core services | `Backend/Services`, `Backend/Observable` | Import, signing, installation, downloads, updates, task state, storage cleanup. |
 | Models and storage | `Backend/Storage`, `Utilities/Handlers` | Core Data entities, filesystem layout, import/export, archive handling. |
 | Utilities | `Utilities/` | Mach-O, IPA inspection, OCSP, certificate reading, anti-revoke, logging, installing. |
 | Local packages | `NimbleKit`, `AltSourceKit`, `NativeSigning`, `Vendor/` | Shared UI/utilities, repository parsing, experimental provisioning, signing and device bridge. |
 | Companion targets | `VexSignTV/`, `VexSignVision/`, `VexSignWatch*/` | Shared companion UI and platform wrappers. |
+
+Architectural boundaries (pure `Domain`, zero `URLSession.shared` or `CoreData` leaks in Presentation/Application or refactored views, and `AppContainer` composition-root wiring) are enforced continuously by [`tools/test_architecture_boundaries.py`](../tools/test_architecture_boundaries.py) and [Clean Architecture Boundaries](changes/clean-architecture-boundaries.md).
 
 ## The task pipeline
 
@@ -188,7 +194,7 @@ that, so a claim can be traced to code instead of a promise:
 | Clone Wizard and icon badges | `VexSign/Utilities/Handlers/AppCloner.swift` (badge is drawn onto a writable PNG icon), `VexSign/CloneWizard/CloneWizardView.swift` |
 | File manager and QuickLook | `VexSign/Views/FileManager/FileManagerView.swift`, `VexSign/Views/Settings/Files & Compression/` |
 | AltStore-compatible sources and ESign parsing | `AltSourceKit/`, `VexSign/Utilities/SourceFeedLoader.swift` |
-| Public GitHub release IPA sources (single IPA asset; no bundle-ID matching guarantee) | `VexSign/Utilities/GitHubReleaseSource.swift`, `FR.swift`, `SourceFeedLoader.swift` |
+| Public GitHub release IPA sources (single IPA asset; no bundle-ID matching guarantee) | `VexSign/Utilities/GitHubReleaseSource.swift`, `Utilities/Services/RepositoryCatalogService.swift`, `SourceFeedLoader.swift` |
 | Repository sync, ETag revalidation and offline catalog | `VexSign/RepositorySync/RepositorySyncEngine.swift`, `VexSign/Views/Sources/SourcesViewModel.swift` |
 | Source health dashboard | `VexSign/Views/Sources/SourceHealthDashboardView.swift` |
 | Discover, ranking and bundle grouping | `VexSign/Views/TabView/AppStoreView.swift` (state, catalog, body), `AppStoreView+Discover.swift`, `AppStoreView+Repositories.swift`, `AppStoreRepositoryRows.swift`, `VexSign/Views/Sources/Apps/` |

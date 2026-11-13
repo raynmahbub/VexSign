@@ -2,7 +2,7 @@
 //  SourcesAddView.swift
 //  VexSign
 //
-//  Created by VexSign TeamSign Team on 1.05.2025.
+//  Created by VexSign Contributors on 1.05.2025.
 //
 
 import SwiftUI
@@ -367,7 +367,7 @@ struct SourcesAddView: View {
 			NBSection(.localized("Featured")) {
 				ForEach(_filteredRecommendedSourcesData, id: \.url) { url, source in
 					HStack(spacing: 2) {
-						FRIconCellView(
+						VexIconCellView(
 							title: source.name ?? .localized("Unknown"),
 							subtitle: url.absoluteString,
 							iconUrl: source.currentIconURL
@@ -409,7 +409,7 @@ struct SourcesAddView: View {
 				}
 
 				_isSavingSource = true
-				FR.handleSource(_sourceURL, showAlerts: false) { result in
+				RepositoryCatalogService.addSource(_sourceURL, showAlerts: false) { result in
 					_isSavingSource = false
 					switch result {
 					case .success(let sourceName):

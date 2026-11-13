@@ -2,7 +2,7 @@
 //  NBToolbarButtonRole.swift
 //  NimbleKit
 //
-//  Created by VexSign TeamSign Team on 28.04.2025.
+//  Created by VexSign Contributors on 28.04.2025.
 //
 
 public enum NBToolbarButtonRole {
