@@ -11,7 +11,7 @@ import QRCode from 'qrcode';
 import { z } from 'zod';
 import type { Config } from './config.js';
 import type { Infrastructure } from './infrastructure.js';
-import { artifactMetadata, batchRequest, checkRequest, signRequest, uuid } from './contracts.js';
+import { artifactMetadata, batchRequest, checkRequest, jobView, queueCounts, signRequest, uuid } from './contracts.js';
 import { APIError, submitJobs, type Submission } from './jobs.js';
 import { capability, permittedWebhook, verifyCapability } from './security.js';
 import { installLink, installPage, manifest } from './ota.js';
@@ -40,6 +40,19 @@ export async function buildApp(config: Config, infra: Infrastructure) {
   await app.register(multipart, { limits: { files: 1, fields: 0, parts: 1, fileSize: MAX_IPA }, throwFileSizeLimit: true });
 
   const subject = (request: FastifyRequest) => (request.user as { sub: string }).sub;
+  /**
+   * Response validation. A ZodError from a *response* is not the client's fault, so it must not
+   * reach the error handler's `400 Invalid request` path: it becomes a 500, which is retryable and
+   * alerts, and it says nothing about the row that failed. Only the schema name is logged.
+   */
+  function contract<T>(schema: z.ZodType<T>, name: string, value: unknown, request: FastifyRequest): T {
+    try {
+      return schema.parse(value);
+    } catch {
+      request.log.error({ contract: name }, 'response contract violated');
+      throw new APIError(500, 'Response contract violated');
+    }
+  }
   async function authenticate(request: FastifyRequest) {
     await request.jwtVerify();
     const claims = z.object({ sub: z.string().min(1).max(200), scope: z.string(), exp: z.number(), iat: z.number() }).parse(request.user);
@@ -134,17 +147,23 @@ export async function buildApp(config: Config, infra: Infrastructure) {
   });
   app.get('/api/jobs/:id', { onRequest: authenticate }, async request => {
     const { id } = z.object({ id: uuid }).parse(request.params);
-    const data = await infra.pool.query('SELECT id,kind,state,result,error_code,created_at,finished_at FROM jobs WHERE id=$1 AND owner=$2', [id, subject(request)]);
-    const job = data.rows[0]; if (!job) throw new APIError(404, 'Job not found');
-    if (job.state === 'completed' && job.kind === 'sign') {
-      const expires = Math.floor(Date.now() / 1000) + 86_400;
-      job.installURL = `${config.PUBLIC_ORIGIN}/install/${id}?token=${capability(id, expires, key)}`;
-    }
-    return job;
+    const data = await infra.pool.query('SELECT id,kind,state,result,error_code,output_sha256,created_at,finished_at FROM jobs WHERE id=$1 AND owner=$2', [id, subject(request)]);
+    const row = data.rows[0]; if (!row) throw new APIError(404, 'Job not found');
+    // Validated, not merely returned: the client decodes this shape, so a column that is
+    // renamed or dropped fails here instead of in an app nobody can debug.
+    return contract(jobView, 'JobView', {
+      id: row.id, kind: row.kind, state: row.state, result: row.result,
+      error_code: row.error_code, output_sha256: row.output_sha256,
+      created_at: new Date(row.created_at).toISOString(),
+      finished_at: row.finished_at ? new Date(row.finished_at).toISOString() : null,
+      ...(row.state === 'completed' && row.kind === 'sign'
+        ? { installURL: `${config.PUBLIC_ORIGIN}/install/${id}?token=${capability(id, Math.floor(Date.now() / 1000) + 86_400, key)}` }
+        : {}),
+    }, request);
   });
   app.get('/api/queue', { onRequest: authenticate }, async request => {
     const result = await infra.pool.query('SELECT state,count(*)::int AS count FROM jobs WHERE owner=$1 GROUP BY state', [subject(request)]);
-    return { counts: result.rows };
+    return contract(queueCounts, 'QueueCounts', { counts: result.rows }, request);
   });
   for (const route of ['/install/:id', '/api/install/:id', '/manifest/:id', '/download/:id', '/api/download/:id']) {
     app.get(route, async (request, reply) => {

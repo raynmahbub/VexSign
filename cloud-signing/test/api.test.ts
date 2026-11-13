@@ -63,3 +63,56 @@ test('OTA fails closed without valid resource-specific capability', async () => 
     assert.ok(response.headers['content-security-policy']?.includes("frame-ancestors 'none'"));
   } finally { await app.close(); }
 });
+
+test('job status returns the documented view, not the raw row', async () => {
+  const id = '01234567-89ab-4def-8123-456789abcdef';
+  const createdAt = new Date('2026-01-02T03:04:05.000Z');
+  const finishedAt = new Date('2026-01-02T03:05:05.000Z');
+  const rowsFor = (row: Record<string, unknown>) => ({
+    redis: { defineCommand() {}, rateLimit(...args: unknown[]) { (args.at(-1) as Function)(null, [1, 60_000]); }, eval: async () => 1, ping: async () => 'PONG' },
+    pool: { query: async () => ({ rows: [row], rowCount: 1 }) },
+  }) as unknown as Infrastructure;
+
+  const completed = await buildApp(config, rowsFor({
+    id, kind: 'sign', state: 'completed',
+    result: { name: 'App', bundleIdentifier: 'com.example.app', version: '1.0', changelog: '', screenshotURLs: [] },
+    error_code: null, output_sha256: 'a'.repeat(64), created_at: createdAt, finished_at: finishedAt,
+  }));
+  try {
+    const response = await completed.inject({ method: 'GET', url: `/api/jobs/${id}`, headers: { authorization: `Bearer ${token('owner-a')}` } });
+    assert.equal(response.statusCode, 200, response.body);
+    const body = response.json();
+    // Exactly the documented fields: no owner, no sealed password, no object keys.
+    assert.deepEqual(Object.keys(body).sort(), ['created_at', 'error_code', 'finished_at', 'id', 'installURL', 'kind', 'output_sha256', 'result', 'state']);
+    assert.equal(body.created_at, '2026-01-02T03:04:05.000Z');
+    assert.equal(body.state, 'completed');
+    assert.ok(String(body.installURL).startsWith('https://install.test/install/'));
+    assert.ok(String(body.installURL).includes('?token='));
+  } finally { await completed.close(); }
+
+  const inspect = await buildApp(config, rowsFor({
+    id, kind: 'check-cert', state: 'completed', result: { status: 'good' },
+    error_code: null, output_sha256: null, created_at: createdAt, finished_at: finishedAt,
+  }));
+  try {
+    const response = await inspect.inject({ method: 'GET', url: `/api/jobs/${id}`, headers: { authorization: `Bearer ${token('owner-a')}` } });
+    const body = response.json();
+    // A certificate check has no artifact, so it must not advertise an install link.
+    assert.equal(body.installURL, undefined);
+    assert.equal(body.output_sha256, null);
+  } finally { await inspect.close(); }
+});
+
+test('a job row that drifts from the contract fails instead of reaching the client', async () => {
+  const id = '01234567-89ab-4def-8123-456789abcdef';
+  const app = await buildApp(config, {
+    redis: { defineCommand() {}, rateLimit(...args: unknown[]) { (args.at(-1) as Function)(null, [1, 60_000]); }, eval: async () => 1, ping: async () => 'PONG' },
+    pool: { query: async () => ({ rows: [{ id, kind: 'sign', state: 'completed', result: null, error_code: null, created_at: new Date(), finished_at: null, owner: 'someone-else' }], rowCount: 1 }) },
+  } as unknown as Infrastructure);
+  try {
+    const response = await app.inject({ method: 'GET', url: `/api/jobs/${id}`, headers: { authorization: `Bearer ${token('owner-a')}` } });
+    // Fails closed: the schema rejects it rather than leaking an unexpected field or shape.
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.json().error, 'Service unavailable');
+  } finally { await app.close(); }
+});
