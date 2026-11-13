@@ -74,8 +74,20 @@ final class EntitlementsManager: ObservableObject {
 		(NSDictionary(contentsOf: fileURL(for: entry)) as? [String: Any]) ?? [:]
 	}
 
-	func save(_ entry: EntitlementsFile, dict: [String: Any]) {
+	/// Returns false when the file could not be written, so the editor can say so. The editor
+	/// keeps its own copy of the values; a failed write that reported nothing left the screen
+	/// showing edits that were gone the next time the file was opened.
+	@discardableResult
+	func save(_ entry: EntitlementsFile, dict: [String: Any]) -> Bool {
 		_write(dict, for: entry)
+	}
+
+	/// Whether `dict` can be written as an entitlements property list.
+	///
+	/// A JSON export can carry `null`, which a property list has no type for. Such a
+	/// dictionary used to be accepted on import and then failed every later save.
+	static func isStorable(_ dict: [String: Any]) -> Bool {
+		PropertyListSerialization.propertyList(dict, isValidFor: .xml)
 	}
 
 	// MARK: Mutations
@@ -88,7 +100,7 @@ final class EntitlementsManager: ObservableObject {
 	@discardableResult
 	func add(name: String, dict: [String: Any]) -> EntitlementsFile {
 		let entry = EntitlementsFile(name: name)
-		_write(dict, for: entry)
+		_ = _write(dict, for: entry)
 		files.insert(entry, at: 0)
 		_save()
 		return entry
@@ -112,8 +124,10 @@ final class EntitlementsManager: ObservableObject {
 		if url.pathExtension.lowercased() == "mobileprovision" {
 			return CertificateReader(url).decoded?.Entitlements.map { $0.mapValues { $0.value } }
 		}
-		if let data = try? Data(contentsOf: url) {
-			return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+		if let data = try? Data(contentsOf: url), // try? ok: an unreadable file is reported as "couldn't read"
+		   let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], // try? ok: not JSON means not importable
+		   isStorable(dict) {
+			return dict
 		}
 		return nil
 	}
@@ -133,11 +147,12 @@ final class EntitlementsManager: ObservableObject {
 		_save()
 	}
 
-	private func _write(_ dict: [String: Any], for entry: EntitlementsFile) {
+	private func _write(_ dict: [String: Any], for entry: EntitlementsFile) -> Bool {
 		do {
 			let data = try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
 			try _fm.createDirectoryIfNeeded(at: _fm.entitlementsLibrary(entry.id.uuidString))
 			try data.write(to: fileURL(for: entry), options: .atomic)
+			return true
 		} catch {
 			// Saving an entitlement set used to fail in silence: the sheet closed and the file was
 			// simply not there the next time the user looked.
@@ -145,6 +160,7 @@ final class EntitlementsManager: ObservableObject {
 				"Saving entitlements failed for \(entry.id.uuidString): \(error.localizedDescription)",
 				category: "entitlements"
 			)
+			return false
 		}
 	}
 }

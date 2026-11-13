@@ -60,9 +60,12 @@ extension AppStoreView {
             VStack(alignment: .leading, spacing: 1) {
                 Text(.localized("Showing Saved Copies"))
                     .font(.subheadline.weight(.semibold))
-                Text(.localized("Some repositories couldn't be refreshed. You're browsing the last saved copy."))
+                Text(verbatim: RepositoryRefreshNotice.message(
+                    naming: sources.filter { viewModel.isStale($0) }.map { RepositoryRefreshNotice.displayName(for: $0) }
+                ))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             Button {
@@ -438,4 +441,38 @@ private enum DiscoverHeaderDate {
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter
     }()
+}
+
+/// Names the repositories behind the "Showing Saved Copies" banner.
+///
+/// The banner used to say only that "some repositories" could not be refreshed, with every
+/// repository's own reason one screen away in Source Health. The names come from the same
+/// stale set that marks the rows; the reasons stay in Source Health, which already records
+/// them per repository.
+enum RepositoryRefreshNotice {
+    /// How many repositories are named before the rest are counted.
+    static let namedLimit = 2
+
+    static func message(naming names: [String]) -> String {
+        let cleaned = names
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !cleaned.isEmpty else {
+            return .localized("Some repositories couldn't be refreshed. You're browsing the last saved copy.")
+        }
+        let named = cleaned.prefix(namedLimit).joined(separator: ", ")
+        let remaining = cleaned.count - min(cleaned.count, namedLimit)
+        if remaining == 0 {
+            return .localized("Couldn't refresh %@. Showing the last saved copy. See Source Health for the reason.", arguments: named)
+        }
+        return .localized(
+            "Couldn't refresh %@ and %lld more. Showing the last saved copy. See Source Health for the reasons.",
+            arguments: named, remaining
+        )
+    }
+
+    static func displayName(for source: AltSource) -> String {
+        if let name = source.name, !name.isEmpty { return name }
+        return source.sourceURL?.host ?? source.sourceURL?.absoluteString ?? ""
+    }
 }

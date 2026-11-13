@@ -94,9 +94,13 @@ enum CloudUploadBody {
 
 		let input = try FileHandle(forReadingFrom: file)
 		defer { try? input.close() } // try? ok: read-only handle; the copy's result was already decided
-		while let chunk = try input.read(upToCount: chunkSize), !chunk.isEmpty {
+		// One pool per chunk: the buffers `read(upToCount:)` returns are autoreleased, and this
+		// runs off the main thread where nothing drains them until the whole archive is copied.
+		while try autoreleasepool(invoking: { () throws -> Bool in
+			guard let chunk = try input.read(upToCount: chunkSize), !chunk.isEmpty else { return false }
 			try append(chunk)
-		}
+			return true
+		}) {}
 
 		try append(Data(trailer(boundary: boundary).utf8))
 		return written

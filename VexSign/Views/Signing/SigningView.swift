@@ -9,6 +9,12 @@ import SwiftUI
 import NimbleViews
 import NimbleExtensions
 
+/// How long the signing sheet waits for the log sheet's dismissal callback before closing itself.
+enum SigningCompletionHandOff {
+	/// Longer than a sheet dismissal (about 0.35 s), so the normal callback always wins.
+	static let fallbackDelay: TimeInterval = 0.8
+}
+
 private enum SigningSheet: String, Identifiable {
 	case preflight
 	case logs
@@ -557,6 +563,16 @@ extension SigningView {
                 if _presentedSheet == .logs {
                     _postSignAction = { finish(.done) }
                     _presentedSheet = nil
+                    // The hand-off above runs from the log sheet's onDismiss. That callback is
+                    // not guaranteed: when it is lost (the same loss `InstallQueue` guards against
+                    // for its own card) nothing else closes this sheet, and a finished run sits
+                    // open. Take the pending action after the dismissal animation if it is still
+                    // there. Both paths take it and clear it, so it runs once.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + SigningCompletionHandOff.fallbackDelay) {
+                        guard _presentedSheet == nil, let pending = _postSignAction else { return }
+                        _postSignAction = nil
+                        pending()
+                    }
                 } else {
                     finish(.done)
                 }

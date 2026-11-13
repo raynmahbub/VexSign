@@ -28,6 +28,17 @@ struct RepositoryRow: View {
         source.identifier ?? source.sourceURL?.absoluteString ?? ""
     }
 
+    /// How many apps a repository lists, or nil while its catalogue is not loaded.
+    ///
+    /// The fallback for an unloaded catalogue used to be `source.value(forKey: "apps")`.
+    /// `AltSource` has no `apps` attribute or relationship, so Core Data raised
+    /// `NSUnknownKeyException` from `-[NSManagedObject valueForUndefinedKey:]` inside this
+    /// row's body — an abort every time a row was drawn for a repository that had not
+    /// loaded or had failed to refresh. The count comes from the decoded catalogue only.
+    nonisolated static func appCount(in repository: ASRepository?) -> Int? {
+        repository?.apps.count
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             RepoIcon(source: source, repository: repository)
@@ -80,10 +91,13 @@ struct RepositoryRow: View {
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.orange)
                     }
-                    let count = repository?.apps.count ?? source.appsCount
-                    Text(verbatim: count == 1 ? .localized("1 app") : String.localized("%lld apps", arguments: count))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    // No count while the catalogue is not loaded: the stored source row
+                    // does not know how many apps it lists (see `appCount(in:)`).
+                    if let count = Self.appCount(in: repository) {
+                        Text(verbatim: count == 1 ? .localized("1 app") : String.localized("%lld apps", arguments: count))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -194,11 +208,5 @@ struct AppStoreIconView: View {
             }
             .frame(width: size, height: size)
         }
-    }
-}
-
-extension AltSource {
-    var appsCount: Int {
-        (value(forKey: "apps") as? Set<NSManagedObject>)?.count ?? 0
     }
 }

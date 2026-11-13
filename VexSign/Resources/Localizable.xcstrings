@@ -108793,6 +108793,39 @@
           }
         }
       }
+    },
+    "Couldn't refresh %@ and %lld more. Showing the last saved copy. See Source Health for the reasons." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't refresh %@ and %lld more. Showing the last saved copy. See Source Health for the reasons."
+          }
+        }
+      }
+    },
+    "Couldn't refresh %@. Showing the last saved copy. See Source Health for the reason." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't refresh %@. Showing the last saved copy. See Source Health for the reason."
+          }
+        }
+      }
+    },
+    "Couldn't save these entitlements. Your last change was not stored." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't save these entitlements. Your last change was not stored."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

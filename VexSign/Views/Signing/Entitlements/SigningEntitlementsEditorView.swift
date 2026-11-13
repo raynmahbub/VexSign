@@ -238,7 +238,8 @@ extension SigningEntitlementsEditorView {
 		Menu(.localized("Add Preset")) {
 			ForEach(EntitlementsPreset.allCases) { preset in
 				Button(preset.name) {
-					_merge(preset.values)
+					_dict = preset.merging(into: _dict)
+					_save()
 				}
 			}
 		}
@@ -434,7 +435,8 @@ extension SigningEntitlementsEditorView {
 	}
 
 	private func _save() {
-		_manager.save(entry, dict: _dict)
+		guard !_manager.save(entry, dict: _dict) else { return }
+		Toast.error(.localized("Couldn't save these entitlements. Your last change was not stored."))
 	}
 }
 
@@ -464,6 +466,14 @@ enum EntitlementsPreset: String, CaseIterable, Identifiable {
 		case .timeSensitiveNotifications: .localized("Time-Sensitive Notifications")
 		case .deviceName: .localized("Device Name Access")
 		}
+	}
+
+	/// Adds this preset's keys to `existing` without replacing a value that is already there —
+	/// the rule stated above. The Add Preset menu used the editor's general merge, where the
+	/// incoming value wins, so adding "App Groups" replaced the user's own group list with the
+	/// placeholder one.
+	func merging(into existing: [String: Any]) -> [String: Any] {
+		existing.merging(values) { current, _ in current }
 	}
 
 	var values: [String: Any] {

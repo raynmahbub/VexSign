@@ -186,9 +186,12 @@ enum ArtifactHashVerifier {
         defer { try? handle.close() } // try? ok: a read-only handle is closed best-effort after hashing
         let boundedChunkSize = min(max(chunkSize, 1), 4_194_304)
         var hasher = SHA256()
-        while let chunk = try handle.read(upToCount: boundedChunkSize), !chunk.isEmpty {
+        // One pool per chunk; see `FileIntegrity.sha256(of:cancellationCheck:)`.
+        while try autoreleasepool(invoking: { () throws -> Bool in
+            guard let chunk = try handle.read(upToCount: boundedChunkSize), !chunk.isEmpty else { return false }
             hasher.update(data: chunk)
-        }
+            return true
+        }) {}
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
