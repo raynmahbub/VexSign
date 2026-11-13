@@ -422,8 +422,44 @@ extension ASRepository {
 			case marketplaceID
 		}
 		
+		/// The release VexSign offers for this app: the newest one this OS can install.
+		///
+		/// The AltStore source format makes the order of `versions` meaningful — the newest
+		/// release is first, and AltStore's own `setVersions` reads `versions.first` for the
+		/// same reason. That contract is kept: this never re-orders by version string, because
+		/// a source that lists its releases newest-first is correct and a second ordering here
+		/// would disagree with it.
+		///
+		/// What it does filter on is `minOSVersion`, which was decoded and then ignored. A
+		/// source whose newest release needs iOS 26 offers nothing usable on an iOS 18 device
+		/// … until now. `latestSupportedVersion` is the same idea AltStore applies, and it is
+		/// what stops the download button from fetching an IPA this device cannot install
+		/// while a compatible release sat one entry further down the list.
+		///
+		/// When no release advertises support (or none declares `minOSVersion`), the newest
+		/// release is still returned: a source with unparsable metadata should behave exactly
+		/// as it did before, not become undownloadable.
 		public var currentAppVersion: Version? {
-			versions?.first
+			newestSupportedRelease(running: .running)
+		}
+
+		/// The first release in source order that this OS version can install.
+		///
+		/// Source order is the newest-first contract above; `running` is injected rather than
+		/// read from the process so the rule can be tested against an arbitrary OS.
+		public func newestSupportedRelease(running: OSVersion) -> Version? {
+			guard let versions, !versions.isEmpty else { return nil }
+			return versions.first { $0.isSupported(running: running) } ?? versions.first
+		}
+
+		/// Whether any release in this app advertises compatibility with `running`.
+		///
+		/// False means every listed release declares a newer `minOSVersion`. The newest one is
+		/// still offered (see `newestSupportedRelease`), so callers that want to warn instead
+		/// of blocking can ask this.
+		public func hasSupportedRelease(running: OSVersion) -> Bool {
+			guard let versions, !versions.isEmpty else { return false }
+			return versions.contains { $0.isSupported(running: running) }
 		}
 		
 		public var currentName: String {
@@ -502,6 +538,15 @@ extension ASRepository {
 			static public func < (lhs: Self, rhs: Self) -> Bool {
 				// compare id
 				lhs.id < rhs.id
+			}
+
+			/// Whether this release declares that it runs on `running`.
+			///
+			/// A release with no `minOSVersion` claims nothing, and an unknown claim is not
+			/// treated as a refusal: it is offered exactly as it was before this check existed.
+			public func isSupported(running: OSVersion) -> Bool {
+				guard let minOSVersion else { return true }
+				return minOSVersion <= running
 			}
 
 			public enum CodingKeys: String, CodingKey {
@@ -762,5 +807,36 @@ public struct OSVersion: Decodable, Hashable, CustomStringConvertible, Sendable 
 		self.majorVersion = components[safe: 0] ?? 0
 		self.minorVersion = components[safe: 1] ?? 0
 		self.patchVersion = components[safe: 2] ?? 0
+	}
+
+	public init(major: UInt, minor: UInt = 0, patch: UInt = 0) {
+		self.majorVersion = major
+		self.minorVersion = minor
+		self.patchVersion = patch
+	}
+
+	/// The OS this process is running on, as the same type a source declares.
+	///
+	/// Computed once: `currentAppVersion` is read per app row, and reading the system version
+	/// on every row would put a syscall in a list render.
+	public static let running: OSVersion = {
+		let version = ProcessInfo.processInfo.operatingSystemVersion
+		return OSVersion(
+			major: UInt(max(version.majorVersion, 0)),
+			minor: UInt(max(version.minorVersion, 0)),
+			patch: UInt(max(version.patchVersion, 0))
+		)
+	}()
+}
+
+// MARK: - Ordering
+
+extension OSVersion: Comparable {
+	/// Component-wise, the same way the system compares its own version numbers: `18.0.1`
+	/// outranks `18.0`, and a missing component is zero rather than "less than everything".
+	public static func < (lhs: OSVersion, rhs: OSVersion) -> Bool {
+		if lhs.majorVersion != rhs.majorVersion { return lhs.majorVersion < rhs.majorVersion }
+		if lhs.minorVersion != rhs.minorVersion { return lhs.minorVersion < rhs.minorVersion }
+		return lhs.patchVersion < rhs.patchVersion
 	}
 }
