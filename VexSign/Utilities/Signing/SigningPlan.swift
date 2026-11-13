@@ -183,8 +183,6 @@ struct SigningPlan: Equatable {
 			options: [.skipsHiddenFiles]
 		) {
 			for url in contents where url.pathExtension.lowercased() == "dylib" {
-				let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) // try? ok: unreadable entry is skipped
-				guard values?.isSymbolicLink == false, values?.isRegularFile == true else { continue }
 				add(url, kind: .dylib)
 			}
 		}
