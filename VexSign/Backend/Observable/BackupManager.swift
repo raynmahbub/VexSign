@@ -220,9 +220,16 @@ struct BackupRestoreSummary {
 	/// two disagree only when a write silently did not stick, and that is exactly the case a
 	/// success message must never hide.
 	var unverified: Int {
-		restored.reduce(0) { total, component in
-			total + max(0, (_added[component] ?? 0) - (_verified[component] ?? 0))
+		// Spelled out rather than one `reduce`: the untyped literal, the two dictionary
+		// subscripts, `max` and `-` in a single closure were enough for the type checker to
+		// give up on the whole property.
+		var total: Int = 0
+		for component in restored {
+			let added: Int = _added[component] ?? 0
+			let verified: Int = _verified[component] ?? 0
+			total += max(0, added - verified)
 		}
+		return total
 	}
 
 	var lines: [String] {
