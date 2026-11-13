@@ -95,9 +95,9 @@ struct OnboardingView: View {
 
 	private var _pageCertificate: some View {
 		VStack(alignment: .leading, spacing: 16) {
-			Text(.localized("Import a certificate"))
+			Text(.localized("Set up signing"))
 				.font(.title2.weight(.semibold))
-			Text(.localized("A .p12 and .mobileprovision pair is required to sign. You can skip this and import later from Settings → Certificates."))
+			Text(.localized("Import a .p12 and .mobileprovision pair to sign apps directly on this device. You can skip this now and configure Paid Certificate, Free Apple ID, SideStore/LiveContainer, or TrollStore later in Settings → Signing Methods."))
 				.foregroundStyle(.secondary)
 			Button {
 				_isAddingCert = true
@@ -195,8 +195,8 @@ struct OnboardingView: View {
 		VStack(alignment: .leading, spacing: 16) {
 			Text(.localized("How should apps install?"))
 				.font(.title2.weight(.semibold))
-			PicketInstall(method: $_installMethod)
-			Text(.localized("Server install works without a computer. Pairing (idevice) needs a lockdownd pairing file and a VPN, and installs more like a USB sideload."))
+			PicketInstall(method: $_installMethod, hasEmbeddedRuntime: EmbeddedContainerRuntime.isAvailable)
+			Text(.localized("Local Server requires installing and trusting VexSign's local Root CA in iOS Settings → Certificate Trust Settings. Pairing (idevice) needs a pairing file and a loopback VPN. Review readiness any time in Settings → Setup Health."))
 				.font(.footnote)
 				.foregroundStyle(.secondary)
 			Spacer()
@@ -208,11 +208,15 @@ struct OnboardingView: View {
 
 private struct PicketInstall: View {
 	@Binding var method: Int
+	var hasEmbeddedRuntime: Bool
 
 	var body: some View {
 		VStack(spacing: 10) {
-			_row(0, title: .localized("Local Server"), detail: .localized("itms-services over HTTPS. Works on any device."))
-			_row(1, title: .localized("Pairing / idevice"), detail: .localized("Needs a pairing file. Fastest once set up."))
+			_row(0, title: .localized("Local Server"), detail: .localized("itms-services over HTTPS after trusting the local Root CA."))
+			_row(1, title: .localized("Pairing / idevice"), detail: .localized("Needs a pairing file and loopback VPN. Fast once set up."))
+			if hasEmbeddedRuntime {
+				_row(2, title: .localized("Embedded LiveContainer"), detail: .localized("Imports the app as a container guest inside this host."))
+			}
 		}
 	}
 

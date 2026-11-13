@@ -203,11 +203,35 @@ enum FeatureStatusRegistry {
 		),
 		FeatureStatusEntry(
 			id: "dynamic-island",
-			name: "Dynamic Island download controls",
-			setting: "Downloads settings",
-			persistedAs: "Live Activity state (DownloadManager+LiveActivity)",
-			consumer: "DownloadProgressAttributes activity + app-group commands",
+			name: "Live Activities & Dynamic Island controls",
+			setting: "Settings → Notifications & Live Activities",
+			persistedAs: "LiveActivityPreferences (VexSign.liveActivitiesEnabled) + ActivityAuthorizationInfo",
+			consumer: "DownloadManager+LiveActivity & SigningLiveActivityManager",
 			status: .needsDevice
+		),
+		FeatureStatusEntry(
+			id: "deep-link-launch",
+			name: "Bundle identifier launch deep link",
+			setting: "App Customization → Fast Launch Deep Link (vexsign://launch?bundleId=…)",
+			persistedAs: "— (stateless URL command)",
+			consumer: "DeepLinkCommand.launchApp → DeepLinkRouterUseCase → AppLauncher.open",
+			status: .needsDevice
+		),
+		FeatureStatusEntry(
+			id: "refresh-downloads",
+			name: "Refresh & download network controls",
+			setting: "Settings → Refresh & Background Sync",
+			persistedAs: "BackgroundAutomationPreferences + DownloadPreferences + UpdateMatchingPreferences",
+			consumer: "AppDelegate.scheduleAutomationMaintenance + DownloadManager + BackgroundAutomation",
+			status: .implemented
+		),
+		FeatureStatusEntry(
+			id: "antirevoke-ocsp-dns",
+			name: "DoH profile builder & live OCSP check",
+			setting: "Settings → Security → Anti-Revoke & DNS Shield",
+			persistedAs: "AntiRevoke.mobileconfig + VexSign.useNovaDNSDynamic",
+			consumer: "AntiRevokeManager + NovaDNSDynamic + BatchCertChecker",
+			status: .implemented
 		),
 		FeatureStatusEntry(
 			id: "strict-hiding",
