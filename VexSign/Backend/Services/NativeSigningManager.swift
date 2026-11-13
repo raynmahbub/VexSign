@@ -401,6 +401,36 @@ final class NativeSigningManager: ObservableObject {
         return operation
     }
 
+    /// 2FA prompt exposed to the app UI without leaking `SideSign` types into views.
+    struct TwoFactorChallenge: Identifiable, Equatable, Sendable {
+        let operationID: UUID
+        let id: UUID
+        let isRetry: Bool
+    }
+
+    func challenges(for operation: NativeAccountOperation) -> AsyncStream<TwoFactorChallenge> {
+        AsyncStream { continuation in
+            let task = Task {
+                for await challenge in operation.challenges {
+                    continuation.yield(
+                        TwoFactorChallenge(
+                            operationID: challenge.operation,
+                            id: challenge.id,
+                            isRetry: challenge.isRetry
+                        )
+                    )
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Submits a 2FA verification code string for a pending challenge.
+    func submitTwoFactorCode(_ code: String, operationID: UUID, challengeID: UUID) async throws -> Bool {
+        try await submitTwoFactor(.verificationCode(code), operationID: operationID, challengeID: challengeID)
+    }
+
     /// Submits a 2FA response for a pending challenge.
     func submitTwoFactor(_ response: TwoFactorResponse, operationID: UUID, challengeID: UUID) async throws -> Bool {
         let backend = try configuredBackend()

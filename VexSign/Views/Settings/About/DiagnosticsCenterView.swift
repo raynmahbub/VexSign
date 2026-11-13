@@ -13,7 +13,6 @@ import SwiftUI
 import NimbleViews
 import NimbleExtensions
 import CoreData
-import IDeviceSwift
 
 struct DiagnosticsCenterView: View {
     @ObservedObject private var migration = CredentialMigrationDiagnostics.shared

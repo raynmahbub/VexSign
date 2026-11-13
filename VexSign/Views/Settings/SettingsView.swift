@@ -7,7 +7,6 @@ import SwiftUI
 import NimbleViews
 import UIKit
 import Darwin
-import IDeviceSwift
 import NimbleExtensions
 
 struct SettingsView: View {
@@ -557,8 +556,7 @@ private extension SettingsView {
                 configurationSection += "  - Server type: `\(serverType)`\n"
                 configurationSection += "  - IP Fix: `\(ipFix)`\n"
             case .directPaid(.idevice):
-                let pairingPath = HeartbeatManager.pairingFile()
-                let pairingExists = FileManager.default.fileExists(atPath: pairingPath)
+                let pairingExists = PairingBridge.hasPairingFile
                 configurationSection += "- Install method: `idevice`\n"
                 configurationSection += "  - Pairing file: `\(pairingExists ? "Present" : "Not Present")`\n"
             case .containerized:
@@ -571,7 +569,7 @@ private extension SettingsView {
         }
         let body = """
         ### Device Information
-        - Device: `\(MobileGestalt().getStringForName("PhysicalHardwareNameString") ?? "Unknown")`
+        - Device: `\(MobileGestalt.physicalHardwareName ?? "Unknown")`
         - iOS Version: `\(UIDevice.current.systemVersion)`
         - App Version: `\(Bundle.main.version)`
 

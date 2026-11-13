@@ -8,7 +8,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import NimbleViews
-import ZsignSwift
 import NimbleExtensions
 
 // MARK: - View

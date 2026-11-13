@@ -17,7 +17,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('VexSign/Resources/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):
-        for path in ['VexSign/Utilities/FR+Certificates.swift', 'VexSign/Views/Settings/DevicePickerView.swift',
+        for path in ['VexSign/Utilities/FR+Certificates.swift', 'VexSign/Utilities/IDevice/PairingBridge.swift',
                      'VexSign/Utilities/IDevice/LockdownClient.swift']:
             source = self.text(path)
             self.assertIn('HeartbeatManager.pairingFile()', source)

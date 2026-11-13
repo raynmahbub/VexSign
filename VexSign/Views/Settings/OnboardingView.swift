@@ -10,7 +10,6 @@
 import SwiftUI
 import NimbleViews
 import NimbleExtensions
-import IDeviceSwift
 import UniformTypeIdentifiers
 import CoreData
 

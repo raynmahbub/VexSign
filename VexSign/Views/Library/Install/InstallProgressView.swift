@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import IDeviceSwift
 import NimbleExtensions
 
 struct InstallProgressView: View {

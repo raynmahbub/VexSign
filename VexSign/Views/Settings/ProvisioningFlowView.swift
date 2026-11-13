@@ -557,20 +557,7 @@ private struct ReviewRow: View {
 private struct AppPickerView: View {
     @Binding var selectedApp: AppInfoPresentable?
     @Environment(\.dismiss) private var dismiss
-    @FetchRequest(
-        entity: Imported.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Imported.date, ascending: false)],
-        animation: .snappy
-    ) private var importedApps: FetchedResults<Imported>
-    @FetchRequest(
-        entity: Signed.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Signed.date, ascending: false)],
-        animation: .snappy
-    ) private var signedApps: FetchedResults<Signed>
-
-    var allApps: [AppInfoPresentable] {
-        Array(importedApps) + Array(signedApps)
-    }
+    @State private var allApps: [AppInfoPresentable] = []
 
     var body: some View {
         NavigationStack {
@@ -597,6 +584,9 @@ private struct AppPickerView: View {
                         }
                     }
                 }
+            }
+            .task {
+                allApps = Storage.shared.getAllApps()
             }
             .navigationTitle(.localized("Select App"))
             .toolbar {
