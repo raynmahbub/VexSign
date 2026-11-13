@@ -57,12 +57,33 @@ bool ZSHA::SHAFile(const char* szFile, string& strSHA1, string& strSHA256)
 {
 	strSHA1.clear();
 	strSHA256.clear();
+	if (NULL == szFile) {
+		return false;
+	}
 	size_t sSize = 0;
 	uint8_t* pBase = (uint8_t*)ZFile::MapFile(szFile, 0, 0, &sSize, true);
-	// pBase may be NULL, but it's ok, because the file may be empty
+	if (NULL == pBase) {
+		if (sSize > 0) {
+			return false;
+		}
+		// Only an actual, readable 0-byte regular file may hash as empty data.
+		struct stat st = {};
+		if (0 != stat(szFile, &st) || !S_ISREG(st.st_mode) || 0 != st.st_size) {
+			return false;
+		}
+		FILE* fp = fopen(szFile, "rb");
+		if (NULL == fp) {
+			return false;
+		}
+		fclose(fp);
+		static uint8_t s_empty = 0;
+		ZSHA::SHA1(&s_empty, 0, strSHA1);
+		ZSHA::SHA256(&s_empty, 0, strSHA256);
+		return (!strSHA1.empty() && !strSHA256.empty());
+	}
 	ZSHA::SHA1(pBase, sSize, strSHA1);
 	ZSHA::SHA256(pBase, sSize, strSHA256);
-	if (NULL != pBase && sSize > 0) {
+	if (sSize > 0) {
 		ZFile::UnmapFile(pBase, sSize);
 	}
 	return (!strSHA1.empty() && !strSHA256.empty());
@@ -81,10 +102,14 @@ bool ZSHA::SHABase64(const string& strData, string& strSHA1Base64, string& strSH
 
 bool ZSHA::SHABase64File(const char* szFile, string& strSHA1Base64, string& strSHA256Base64)
 {
+	strSHA1Base64.clear();
+	strSHA256Base64.clear();
 	jbase64 b64;
 	string strSHA1;
 	string strSHA256;
-	SHAFile(szFile, strSHA1, strSHA256);
+	if (!SHAFile(szFile, strSHA1, strSHA256)) {
+		return false;
+	}
 	strSHA1Base64 = b64.encode(strSHA1);
 	strSHA256Base64 = b64.encode(strSHA256);
 	return (!strSHA1Base64.empty() && !strSHA256Base64.empty());

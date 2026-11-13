@@ -54,13 +54,6 @@ int zsignWithNestedProvisions(
 	void(^completionHandler)(BOOL success, NSError *error)
 );
 
-int checkCert(
-	NSString *prov,
-	NSString *key,
-	NSString *pass,
-	void(^completionHandler)(int status, NSDate* expirationDate, NSString *error)
-);
-
 #ifdef __cplusplus
 }
 #endif
