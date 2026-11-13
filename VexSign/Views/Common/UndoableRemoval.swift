@@ -240,7 +240,8 @@ enum CertificateRemoval {
 
 		UndoableRemoval.announce(UndoableRemoval(
 			title: snapshot.nickname ?? .localized("Certificate"),
-			restore: { _restore(snapshot, token: token) },
+			// Undo is tapped on the main thread; the banner is the only caller.
+			restore: { MainActor.assumeIsolated { _restore(snapshot, token: token) } },
 			discard: { if let token { RecoverableFileRemoval.discard(token) } }
 		))
 	}
@@ -284,6 +285,7 @@ enum CertificateRemoval {
 		)
 	}
 
+	@MainActor
 	private static func _restore(_ snapshot: Snapshot, token: RecoverableFileRemoval.Token?) -> Bool {
 		// Files first: a row without its .p12 is a certificate that cannot sign.
 		if let token {
