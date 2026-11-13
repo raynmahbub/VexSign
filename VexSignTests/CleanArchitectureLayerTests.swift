@@ -217,6 +217,15 @@ final class CleanArchitectureLayerTests: XCTestCase {
         let sharedTweak = DeepLinkCommand.parse(URL(string: "file:///tmp/tweak.dylib")!)
         XCTAssertEqual(sharedTweak, .importTweakFile(URL(string: "file:///tmp/tweak.dylib")!))
 
+        let launchQuery = DeepLinkCommand.parse(URL(string: "vexsign://launch?bundleId=com.example.app")!)
+        XCTAssertEqual(launchQuery, .launchApp(bundleIdentifier: "com.example.app"))
+
+        let launchPath = DeepLinkCommand.parse(URL(string: "vexsign://launch/com.example.app")!)
+        XCTAssertEqual(launchPath, .launchApp(bundleIdentifier: "com.example.app"))
+
+        let launchEmpty = DeepLinkCommand.parse(URL(string: "vexsign://launch?bundleId=%20")!)
+        XCTAssertEqual(launchEmpty, .unsupported)
+
         let invalid = DeepLinkCommand.parse(URL(string: "unknown://navigate/home")!)
         XCTAssertEqual(invalid, .unsupported)
     }
@@ -225,6 +234,7 @@ final class CleanArchitectureLayerTests: XCTestCase {
         let platform = MockPlatformAdapter()
         var navigated: WorkspaceDestination?
         var startedURL: URL?
+        var launchedBundleID: String?
 
         let router = DeepLinkRouterUseCase(
             securityPolicy: SecurityPolicyGateway(),
@@ -236,6 +246,7 @@ final class CleanArchitectureLayerTests: XCTestCase {
             addTweakRepository: { _ in 0 },
             openRepositoryApp: { _, _, _ in },
             navigateWorkspace: { navigated = $0 },
+            launchInstalledApp: { launchedBundleID = $0 },
             addSource: { _ in },
             startPackageDownload: { startedURL = $0 },
             acquireWorkLease: { MockLease() },
@@ -253,6 +264,9 @@ final class CleanArchitectureLayerTests: XCTestCase {
 
         router.handle(URL(string: "vexsign://downloads")!)
         XCTAssertEqual(navigated, .downloads)
+
+        router.handle(URL(string: "vexsign://launch?bundleId=com.example.app")!)
+        XCTAssertEqual(launchedBundleID, "com.example.app")
     }
 
     // MARK: - Security Policy Gateway

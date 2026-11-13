@@ -169,6 +169,9 @@ final class AppContainer: ObservableObject {
                         }
                         TabSelectionObserver.shared.navigate(to: route)
                     },
+                    launchInstalledApp: { bundleID in
+                        AppLauncher.open(bundleID)
+                    },
                     addSource: { sourceString in
                         RepositoryCatalogService.addSource(sourceString) { _ in }
                     },

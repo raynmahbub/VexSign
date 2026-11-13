@@ -87,6 +87,7 @@ enum DeepLinkCommand: Equatable, Sendable {
     case addTweakRepository(URL)
     case openRepositoryApp(appID: String, appName: String?, sourceIdentifier: String?)
     case openWorkspace(WorkspaceDestination)
+    case launchApp(bundleIdentifier: String)
     case addSource(String)
     case downloadAndInstall(URL, notifyDirectStarted: Bool)
     case importPackageFile(URL)
@@ -174,6 +175,24 @@ enum DeepLinkCommand: Equatable, Sendable {
                 )
             }
             return .unsupported
+        }
+
+        if host == "launch" {
+            let candidate = (
+                queryValue("bundleId", caseInsensitive: true)
+                    ?? queryValue("bundleIdentifier", caseInsensitive: true)
+                    ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            )
+            .removingPercentEncoding?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            guard !candidate.isEmpty,
+                  !candidate.contains("/"),
+                  candidate.rangeOfCharacter(from: .whitespacesAndNewlines) == nil
+            else {
+                return .unsupported
+            }
+            return .launchApp(bundleIdentifier: candidate)
         }
 
         if let destination = WorkspaceDestination.resolve(host: host) {

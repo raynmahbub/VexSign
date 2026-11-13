@@ -14,6 +14,7 @@ final class DeepLinkRouterUseCase {
     private let addTweakRepository: (URL) async throws -> Int
     private let openRepositoryApp: (String, String, String?) -> Void
     private let navigateWorkspace: (WorkspaceDestination) -> Void
+    private let launchInstalledApp: (String) -> Void
     private let addSource: (String) -> Void
     private let startPackageDownload: (URL) -> Void
     private let acquireWorkLease: () throws -> AnyObject
@@ -31,6 +32,7 @@ final class DeepLinkRouterUseCase {
         addTweakRepository: @escaping (URL) async throws -> Int,
         openRepositoryApp: @escaping (String, String, String?) -> Void,
         navigateWorkspace: @escaping (WorkspaceDestination) -> Void,
+        launchInstalledApp: @escaping (String) -> Void = { _ in },
         addSource: @escaping (String) -> Void,
         startPackageDownload: @escaping (URL) -> Void,
         acquireWorkLease: @escaping () throws -> AnyObject,
@@ -47,6 +49,7 @@ final class DeepLinkRouterUseCase {
         self.addTweakRepository = addTweakRepository
         self.openRepositoryApp = openRepositoryApp
         self.navigateWorkspace = navigateWorkspace
+        self.launchInstalledApp = launchInstalledApp
         self.addSource = addSource
         self.startPackageDownload = startPackageDownload
         self.acquireWorkLease = acquireWorkLease
@@ -90,6 +93,9 @@ final class DeepLinkRouterUseCase {
 
         case .openWorkspace(let destination):
             navigateWorkspace(destination)
+
+        case .launchApp(let bundleIdentifier):
+            launchInstalledApp(bundleIdentifier)
 
         case .addSource(let sourceString):
             addSource(sourceString)

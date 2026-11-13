@@ -173,7 +173,7 @@ struct AppCustomizationSheet: View {
                 }
             }
         } footer: {
-            Text(.localized("Trigger instant launch from Apple Shortcuts, Siri, or third-party launchers."))
+            Text(.localized("Copies a deep link that asks VexSign to open this bundle identifier from Apple Shortcuts or launchers when iOS permits it."))
         }
     }
 }
