@@ -26,8 +26,12 @@ struct SigningProfilesView: View {
 				Button {
 					if let data = store.exportJSON() {
 						let url = FileManager.default.temporaryDirectory.appendingPathComponent("VexSign-profiles.json")
-						try? data.write(to: url)
-						UIActivityViewController.show(activityItems: [url])
+						do {
+							try data.write(to: url, options: .atomic)
+							UIActivityViewController.show(activityItems: [url])
+						} catch {
+							Toast.error(error.localizedDescription, duration: .long)
+						}
 					}
 				} label: {
 					Label(.localized("Export Profiles"), systemImage: "square.and.arrow.up")
@@ -36,8 +40,11 @@ struct SigningProfilesView: View {
 
 				Button {
 					DocumentPicker.open([.json], multiple: false) { urls in
-						guard let url = urls.first, let data = try? Data(contentsOf: url) else { return }
+						guard let url = urls.first else { return }
+						let scoped = url.startAccessingSecurityScopedResource()
+						defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 						do {
+							let data = try Data(contentsOf: url)
 							try store.importJSON(data)
 							Toast.success(.localized("Profiles imported"), systemImage: "checkmark")
 						} catch {

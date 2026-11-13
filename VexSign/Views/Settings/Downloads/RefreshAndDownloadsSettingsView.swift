@@ -4,38 +4,39 @@
 //
 
 import SwiftUI
+import UIKit
 import NimbleViews
 import NimbleExtensions
 
 struct RefreshAndDownloadsSettingsView: View {
-    @AppStorage("VexSign.bgRefreshEnabled") private var bgRefreshEnabled: Bool = true
-    @AppStorage("VexSign.autoCheckAppUpdates") private var autoCheckAppUpdates: Bool = true
-    @AppStorage("VexSign.refreshIntervalString") private var refreshInterval: String = "1h"
-    @AppStorage("VexSign.refreshNetworkOption") private var refreshNetworkOption: String = "Wi-Fi & Cellular"
-    @AppStorage("VexSign.downloadsNetworkOption") private var downloadsNetworkOption: String = "Wi-Fi & Cellular"
+    @Environment(\.scenePhase) private var scenePhase
 
-    private let intervals = ["15m", "30m", "1h", "2h", "6h", "12h", "24h"]
-    private let networkOptions = ["Wi-Fi", "Cellular", "Wi-Fi & Cellular"]
+    @AppStorage(BackgroundAutomationPreferences.enabledKey) private var automationEnabled: Bool = false
+    @AppStorage(BackgroundAutomationPreferences.intervalKey) private var intervalRaw: Int = BackgroundAutomationInterval.everySixHours.rawValue
+    @AppStorage(DownloadPreferences.wifiOnlyKey) private var wifiOnlyDownloads: Bool = false
+    @AppStorage(DownloadPreferences.chargeOnlyKey) private var chargeOnlyDownloads: Bool = false
+    @ObservedObject private var updatePreferences = UpdateMatchingPreferences.shared
 
-    private func networkTitle(_ opt: String) -> String {
-        switch opt {
-        case "Wi-Fi": return .localized("Wi-Fi")
-        case "Cellular": return .localized("Cellular")
-        case "Wi-Fi & Cellular": return .localized("Wi-Fi & Cellular")
-        default: return opt
-        }
+    @State private var systemRefreshStatus: UIBackgroundRefreshStatus = UIApplication.shared.backgroundRefreshStatus
+
+    private var selectedInterval: BackgroundAutomationInterval {
+        BackgroundAutomationInterval(rawValue: intervalRaw) ?? .everySixHours
     }
 
-    private func intervalTitle(_ token: String) -> String {
-        switch token {
-        case "15m": return .localized("%lldm", arguments: 15)
-        case "30m": return .localized("%lldm", arguments: 30)
-        case "1h": return .localized("%lldh", arguments: 1)
-        case "2h": return .localized("%lldh", arguments: 2)
-        case "6h": return .localized("%lldh", arguments: 6)
-        case "12h": return .localized("%lldh", arguments: 12)
-        case "24h": return .localized("%lldh", arguments: 24)
-        default: return token
+    private var isSystemRefreshAvailable: Bool {
+        systemRefreshStatus == .available
+    }
+
+    private var systemRefreshLabel: String {
+        switch systemRefreshStatus {
+        case .available:
+            return .localized("Available")
+        case .denied:
+            return .localized("Disabled in iOS Settings")
+        case .restricted:
+            return .localized("Restricted by System Policy")
+        @unknown default:
+            return .localized("Unknown")
         }
     }
 
@@ -54,27 +55,38 @@ struct RefreshAndDownloadsSettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("iOS Background Refresh"))
+                        Text(.localized("iOS Background App Refresh"))
                             .font(.subheadline.weight(.semibold))
-                        Text(bgRefreshEnabled ? .localized("Enabled") : .localized("Disabled"))
+                        Text(systemRefreshLabel)
                             .font(.caption2)
-                            .foregroundStyle(bgRefreshEnabled ? .purple : .secondary)
+                            .foregroundStyle(isSystemRefreshAvailable ? .purple : .secondary)
                     }
 
                     Spacer()
 
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(bgRefreshEnabled ? Color.green : Color.secondary)
+                            .fill(isSystemRefreshAvailable ? Color.green : Color.orange)
                             .frame(width: 6, height: 6)
-                        Text(bgRefreshEnabled ? .localized("ON") : .localized("OFF"))
+                        Text(isSystemRefreshAvailable ? String.localized("ON") : String.localized("OFF"))
                             .font(.caption2.weight(.heavy))
-                            .foregroundStyle(bgRefreshEnabled ? Color.green : .secondary)
+                            .foregroundStyle(isSystemRefreshAvailable ? Color.green : .orange)
                     }
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(bgRefreshEnabled ? Color.green.opacity(0.12) : Color.secondary.opacity(0.12), in: Capsule())
+                    .background((isSystemRefreshAvailable ? Color.green : Color.orange).opacity(0.12), in: Capsule())
                 }
                 .padding(.vertical, 2)
+
+                if !isSystemRefreshAvailable {
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.open(url)
+                        }
+                    } label: {
+                        Label(.localized("Enable in iOS Settings"), systemImage: "arrow.up.right.circle")
+                            .font(.subheadline)
+                    }
+                }
 
                 HStack(spacing: 12) {
                     ZStack {
@@ -87,20 +99,22 @@ struct RefreshAndDownloadsSettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("App Updates"))
+                        Text(.localized("Scheduled Update Checks"))
                             .font(.subheadline.weight(.semibold))
-                        Text(.localized("Automatically check for updates"))
+                        Text(.localized("Refresh sources and check for updates"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
-                    Toggle("", isOn: $autoCheckAppUpdates)
+                    Toggle("", isOn: $automationEnabled)
                         .labelsHidden()
                         .tint(Color.red)
                 }
                 .padding(.vertical, 2)
+            } footer: {
+                Text(.localized("Uses the same Background Automation schedule as Settings → Automation. iOS runs background tasks opportunistically when system refresh is allowed."))
             }
 
             // MARK: - Refresh Interval
@@ -116,9 +130,9 @@ struct RefreshAndDownloadsSettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Refresh Every"))
+                        Text(.localized("Minimum Interval"))
                             .font(.subheadline.weight(.semibold))
-                        Text(.localized("Check for updates periodically"))
+                        Text(.localized("Requested frequency for background runs"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -126,14 +140,14 @@ struct RefreshAndDownloadsSettingsView: View {
                     Spacer()
 
                     Menu {
-                        Picker(.localized("Interval"), selection: $refreshInterval) {
-                            ForEach(intervals, id: \.self) { item in
-                                Text(intervalTitle(item)).tag(item)
+                        Picker(.localized("Interval"), selection: $intervalRaw) {
+                            ForEach(BackgroundAutomationInterval.allCases) { interval in
+                                Text(interval.title).tag(interval.rawValue)
                             }
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Text(intervalTitle(refreshInterval))
+                            Text(selectedInterval.title)
                                 .font(.subheadline.weight(.semibold))
                             Image(systemName: "chevron.down")
                                 .font(.caption2.weight(.bold))
@@ -144,125 +158,77 @@ struct RefreshAndDownloadsSettingsView: View {
                     }
                 }
                 .padding(.vertical, 2)
-            }
+                .disabled(!automationEnabled)
 
-            // MARK: - Refresh On
-            NBSection(.localized("REFRESH ON")) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.pink.opacity(0.18))
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "network")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.pink)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Network"))
-                            .font(.subheadline.weight(.semibold))
-                        Text(.localized("On any network connection"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(.vertical, 2)
-
-                ForEach(networkOptions, id: \.self) { opt in
-                    Button {
-                        refreshNetworkOption = opt
-                    } label: {
-                        HStack {
-                            ZStack {
-                                Circle()
-                                    .stroke(refreshNetworkOption == opt ? Color.pink : Color.secondary.opacity(0.4), lineWidth: 2)
-                                    .frame(width: 20, height: 20)
-                                if refreshNetworkOption == opt {
-                                    Circle()
-                                        .fill(Color.pink)
-                                        .frame(width: 10, height: 10)
-                                }
-                            }
-                            .padding(.trailing, 4)
-
-                            Text(networkTitle(opt))
-                                .font(.subheadline.weight(refreshNetworkOption == opt ? .semibold : .regular))
-                                .foregroundStyle(refreshNetworkOption == opt ? Color.pink : .primary)
-
-                            Spacer()
-
-                            if refreshNetworkOption == opt {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Color.pink)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.plain)
+                NavigationLink(destination: AutomationView()) {
+                    Label(.localized("Automation Policy, Run Now & History"), systemImage: "bolt.badge.clock")
                 }
             }
 
-            // MARK: - Downloads
-            NBSection(.localized("DOWNLOADS")) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.purple.opacity(0.18))
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "arrow.down.circle")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.purple)
-                    }
-
+            // MARK: - Network Policies
+            NBSection(.localized("NETWORK POLICIES")) {
+                Toggle(isOn: $updatePreferences.autoUpdateWifiOnly) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(.localized("Allow Downloads On"))
+                        Text(.localized("Wi-Fi Only for Automatic Updates"))
                             .font(.subheadline.weight(.semibold))
-                        Text(.localized("On any network connection"))
+                        Text(.localized("Skips background update downloads on cellular or hotspot connections"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    Spacer()
                 }
-                .padding(.vertical, 2)
+                .tint(Color.pink)
 
-                ForEach(networkOptions, id: \.self) { opt in
-                    Button {
-                        downloadsNetworkOption = opt
-                    } label: {
-                        HStack {
-                            ZStack {
-                                Circle()
-                                    .stroke(downloadsNetworkOption == opt ? Color.pink : Color.secondary.opacity(0.4), lineWidth: 2)
-                                    .frame(width: 20, height: 20)
-                                if downloadsNetworkOption == opt {
-                                    Circle()
-                                        .fill(Color.pink)
-                                        .frame(width: 10, height: 10)
-                                }
-                            }
-                            .padding(.trailing, 4)
-
-                            Text(networkTitle(opt))
-                                .font(.subheadline.weight(downloadsNetworkOption == opt ? .semibold : .regular))
-                                .foregroundStyle(downloadsNetworkOption == opt ? Color.pink : .primary)
-
-                            Spacer()
-
-                            if downloadsNetworkOption == opt {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Color.pink)
-                            }
-                        }
-                        .padding(.vertical, 4)
+                Toggle(isOn: $wifiOnlyDownloads) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(.localized("Wi-Fi Only for Package Downloads"))
+                            .font(.subheadline.weight(.semibold))
+                        Text(.localized("Requires non-cellular Wi-Fi before starting new IPA downloads"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                }
+                .tint(Color.purple)
+
+                Toggle(isOn: $chargeOnlyDownloads) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(.localized("Only While Charging"))
+                            .font(.subheadline.weight(.semibold))
+                        Text(.localized("Waits until power is connected before starting new downloads"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(Color.purple)
+
+                NavigationLink(destination: DownloadsSettingsView()) {
+                    Label(.localized("Parallel Slots & Display Options"), systemImage: "arrow.down.circle")
                 }
             } footer: {
-                Text(.localized("Controls which network types are used for app downloads"))
+                Text(.localized("Network and power rules here directly control DownloadManager and scheduled background update passes."))
             }
         }
+        .onAppear {
+            DownloadPreferences.migrateLegacyRefreshPreferences()
+            refreshSystemStatus()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                refreshSystemStatus()
+            }
+        }
+        .onChange(of: automationEnabled) { _, _ in
+            scheduleAutomation()
+        }
+        .onChange(of: intervalRaw) { _, _ in
+            scheduleAutomation()
+        }
+    }
+
+    private func refreshSystemStatus() {
+        systemRefreshStatus = UIApplication.shared.backgroundRefreshStatus
+    }
+
+    private func scheduleAutomation() {
+        (UIApplication.shared.delegate as? AppDelegate)?.scheduleAutomationMaintenance()
     }
 }

@@ -319,6 +319,7 @@ final class CloudSigningClient: ObservableObject {
 	}
 	@Published var isTesting = false
 	@Published var lastTestResult: String?
+	@Published private(set) var lastHealthCheckSucceeded: Bool?
 	@Published var activeJobs: [CloudJob] = []
 
 	/// How long a JSON round-trip may take before it is treated as a timeout.
@@ -556,16 +557,19 @@ final class CloudSigningClient: ObservableObject {
 	func testConnection() async {
 		isTesting = true
 		lastTestResult = nil
+		lastHealthCheckSucceeded = nil
 		defer { isTesting = false }
 
 		do {
 			let isAlive = try await checkHealth()
+			lastHealthCheckSucceeded = isAlive
 			if isAlive {
 				lastTestResult = "Connected successfully to cloud service."
 			} else {
 				lastTestResult = "Service reachable, but health check returned non-OK."
 			}
 		} catch {
+			lastHealthCheckSucceeded = false
 			lastTestResult = "Connection failed: \(error.localizedDescription)"
 		}
 	}

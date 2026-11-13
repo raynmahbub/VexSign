@@ -9,6 +9,8 @@ import NimbleExtensions
 
 struct DeviceDiagnosticsView: View {
     @State private var diagnosticReportString = ""
+    @State private var pairingState: DevicePairingState = PairingBridge.inspectPairingRecord()
+    @State private var tlsIdentitySummary: String = LocalTLSIdentity.current()?.detail ?? String.localized("Not initialized")
 
     private var deviceModel: String {
         MobileGestalt.physicalHardwareName ?? UIDevice.current.model
@@ -33,13 +35,11 @@ struct DeviceDiagnosticsView: View {
     }
 
     private var totalDiskSpace: String {
-        let free = (try? URL(fileURLWithPath: NSHomeDirectory()).resourceValues(forKeys: [.volumeTotalCapacityKey]))?.volumeTotalCapacity ?? 0
-        return ByteCountFormatter.string(fromByteCount: Int64(free), countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: volumeCapacity(for: .volumeTotalCapacityKey), countStyle: .file)
     }
 
     private var availableDiskSpace: String {
-        let avail = (try? URL(fileURLWithPath: NSHomeDirectory()).resourceValues(forKeys: [.volumeAvailableCapacityKey]))?.volumeAvailableCapacity ?? 0
-        return ByteCountFormatter.string(fromByteCount: Int64(avail), countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: volumeCapacity(for: .volumeAvailableCapacityKey), countStyle: .file)
     }
 
     var body: some View {
@@ -50,9 +50,14 @@ struct DeviceDiagnosticsView: View {
 
             firmwareSection
 
+            signingReadinessSection
+
             storageSection
 
             exportSection
+        }
+        .onAppear {
+            refreshLocalDiagnostics()
         }
     }
 
@@ -92,7 +97,17 @@ struct DeviceDiagnosticsView: View {
         NBSection(.localized("Operating System")) {
             LabeledContent(.localized("iOS Version"), value: iosVersion)
             LabeledContent(.localized("Build Number"), value: buildNumber)
-            LabeledContent(.localized("Developer Mode"), value: String.localized("Enabled"))
+            LabeledContent(.localized("Developer Mode"), value: String.localized("Check in iOS Settings"))
+        } footer: {
+            Text(.localized("iOS does not expose Developer Mode state to sandboxed apps. Verify it in iOS Settings → Privacy & Security if prompted during installation."))
+        }
+    }
+
+    private var signingReadinessSection: some View {
+        NBSection(.localized("Signing & Transport State")) {
+            LabeledContent(.localized("App Routing"), value: SigningModeManager.shared.preference.title)
+            LabeledContent(.localized("Pairing Record"), value: pairingState.title)
+            LabeledContent(.localized("Local HTTPS Identity"), value: tlsIdentitySummary)
         }
     }
 
@@ -106,6 +121,7 @@ struct DeviceDiagnosticsView: View {
     private var exportSection: some View {
         NBSection(.localized("Diagnostics Export")) {
             Button {
+                refreshLocalDiagnostics()
                 generateReport()
                 UIActivityViewController.show(activityItems: [diagnosticReportString])
             } label: {
@@ -114,6 +130,28 @@ struct DeviceDiagnosticsView: View {
         } footer: {
             Text(.localized("Exports a comprehensive diagnostic log for bug reports, developer support, or certificate troubleshooting."))
         }
+    }
+
+    private func volumeCapacity(for key: URLResourceKey) -> Int64 {
+        do {
+            let values = try URL(fileURLWithPath: NSHomeDirectory()).resourceValues(forKeys: [key])
+            switch key {
+            case .volumeTotalCapacityKey:
+                return Int64(values.volumeTotalCapacity ?? 0)
+            case .volumeAvailableCapacityKey:
+                return Int64(values.volumeAvailableCapacity ?? 0)
+            default:
+                return 0
+            }
+        } catch {
+            FileLogger.warn("Failed to read volume metadata (\(key.rawValue)): \(error.localizedDescription)", category: "diagnostics")
+            return 0
+        }
+    }
+
+    private func refreshLocalDiagnostics() {
+        pairingState = PairingBridge.inspectPairingRecord()
+        tlsIdentitySummary = LocalTLSIdentity.current()?.detail ?? String.localized("Not initialized")
     }
 
     private func generateReport() {
@@ -125,6 +163,9 @@ struct DeviceDiagnosticsView: View {
         App Version: \(Bundle.main.version)
         Total Storage: \(totalDiskSpace)
         Available Storage: \(availableDiskSpace)
+        App Routing Preference: \(SigningModeManager.shared.preference.rawValue)
+        Pairing Record State: \(pairingState.title)
+        Local HTTPS Identity: \(tlsIdentitySummary)
         Certificates Installed: \(Storage.shared.getAllCertificates().count)
         Signed Apps: \(Storage.shared.getSignedApps().count)
         Imported Apps: \(Storage.shared.getImportedApps().count)

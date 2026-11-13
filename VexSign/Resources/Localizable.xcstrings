@@ -108891,6 +108891,1381 @@
           }
         }
       }
+    },
+    "A .mobileconfig DoH profile is saved. iOS only applies DNS rules after you install it in Settings → VPN & Device Management." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A .mobileconfig DoH profile is saved. iOS only applies DNS rules after you install it in Settings → VPN & Device Management."
+          }
+        }
+      }
+    },
+    "A pairing file lets VexSign's embedded idevice transport talk to lockdownd when a loopback VPN is active. Importing a file validates its HostID and stores it atomically." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A pairing file lets VexSign's embedded idevice transport talk to lockdownd when a loopback VPN is active. Importing a file validates its HostID and stores it atomically."
+          }
+        }
+      }
+    },
+    "Apple Revocation Hosts (Profile Targets)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Revocation Hosts (Profile Targets)"
+          }
+        }
+      }
+    },
+    "Ask Apple (OCSP) — Check Revocation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask Apple (OCSP) — Check Revocation"
+          }
+        }
+      }
+    },
+    "Ask Apple about certificate revocation?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask Apple about certificate revocation?"
+          }
+        }
+      }
+    },
+    "Authorized in iOS Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authorized in iOS Settings"
+          }
+        }
+      }
+    },
+    "Automation Policy, Run Now & History" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automation Policy, Run Now & History"
+          }
+        }
+      }
+    },
+    "Availability" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Availability"
+          }
+        }
+      }
+    },
+    "Available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available"
+          }
+        }
+      }
+    },
+    "Blocked by iOS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked by iOS"
+          }
+        }
+      }
+    },
+    "Blocked by iOS Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked by iOS Settings"
+          }
+        }
+      }
+    },
+    "Build DoH Profile & NovaDNS Rules" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build DoH Profile & NovaDNS Rules"
+          }
+        }
+      }
+    },
+    "Capability-scoped OTA manifest URLs with webhook allowlisting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capability-scoped OTA manifest URLs with webhook allowlisting"
+          }
+        }
+      }
+    },
+    "Check Pairing & Heartbeat Socket" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Pairing & Heartbeat Socket"
+          }
+        }
+      }
+    },
+    "Check in iOS Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check in iOS Settings"
+          }
+        }
+      }
+    },
+    "Checking Pairing & Heartbeat…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking Pairing & Heartbeat…"
+          }
+        }
+      }
+    },
+    "Cluster Capabilities (Server Side)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cluster Capabilities (Server Side)"
+          }
+        }
+      }
+    },
+    "Configuration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration"
+          }
+        }
+      }
+    },
+    "Configure a pairing file, loopback VPN, and verify readiness" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure a pairing file, loopback VPN, and verify readiness"
+          }
+        }
+      }
+    },
+    "Connect LocalDevVPN" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect LocalDevVPN"
+          }
+        }
+      }
+    },
+    "Copies a deep link that asks VexSign to open this bundle identifier from Apple Shortcuts or launchers when iOS permits it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies a deep link that asks VexSign to open this bundle identifier from Apple Shortcuts or launchers when iOS permits it."
+          }
+        }
+      }
+    },
+    "Current Build Policy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Build Policy"
+          }
+        }
+      }
+    },
+    "DDI Location Service" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DDI Location Service"
+          }
+        }
+      }
+    },
+    "DNS Profile Status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DNS Profile Status"
+          }
+        }
+      }
+    },
+    "Device UDID: …%@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device UDID: …%@"
+          }
+        }
+      }
+    },
+    "Disabled in iOS Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disabled in iOS Settings"
+          }
+        }
+      }
+    },
+    "DoH target" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DoH target"
+          }
+        }
+      }
+    },
+    "Download & Install IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download & Install IPA"
+          }
+        }
+      }
+    },
+    "Download & Signing Live Activities" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download & Signing Live Activities"
+          }
+        }
+      }
+    },
+    "Embedded LiveContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded LiveContainer"
+          }
+        }
+      }
+    },
+    "Enable Live Activities in iOS Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable Live Activities in iOS Settings"
+          }
+        }
+      }
+    },
+    "Enable a loopback VPN such as LocalDevVPN on Wi-Fi or Airplane mode before using idevice installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable a loopback VPN such as LocalDevVPN on Wi-Fi or Airplane mode before using idevice installation."
+          }
+        }
+      }
+    },
+    "Enable in iOS Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable in iOS Settings"
+          }
+        }
+      }
+    },
+    "External DNS Generators" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "External DNS Generators"
+          }
+        }
+      }
+    },
+    "Feature Status Registry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feature Status Registry"
+          }
+        }
+      }
+    },
+    "GENERATED" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GENERATED"
+          }
+        }
+      }
+    },
+    "Get LocalDevVPN" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get LocalDevVPN"
+          }
+        }
+      }
+    },
+    "Heartbeat Socket" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heartbeat Socket"
+          }
+        }
+      }
+    },
+    "Implemented in companion cloud-signing service:" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Implemented in companion cloud-signing service:"
+          }
+        }
+      }
+    },
+    "Import a .p12 and .mobileprovision pair to sign apps directly on this device. You can skip this now and configure Paid Certificate, Free Apple ID, SideStore/LiveContainer, or TrollStore later in Settings → Signing Methods." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a .p12 and .mobileprovision pair to sign apps directly on this device. You can skip this now and configure Paid Certificate, Free Apple ID, SideStore/LiveContainer, or TrollStore later in Settings → Signing Methods."
+          }
+        }
+      }
+    },
+    "Imports the app as a container guest inside this host." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imports the app as a container guest inside this host."
+          }
+        }
+      }
+    },
+    "In-App Debugserver JIT" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In-App Debugserver JIT"
+          }
+        }
+      }
+    },
+    "Inspects the on-disk pairing record and probes the real lockdownd heartbeat TCP socket managed by PairingBridge." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inspects the on-disk pairing record and probes the real lockdownd heartbeat TCP socket managed by PairingBridge."
+          }
+        }
+      }
+    },
+    "Installation Engine & Pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation Engine & Pairing"
+          }
+        }
+      }
+    },
+    "Installation Engine & Tunnel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation Engine & Tunnel"
+          }
+        }
+      }
+    },
+    "Isolated zsign/ldid worker queue (blocked for .p12 in this client)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isolated zsign/ldid worker queue (blocked for .p12 in this client)"
+          }
+        }
+      }
+    },
+    "JIT Support Status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JIT Support Status"
+          }
+        }
+      }
+    },
+    "Launch Installed App by Bundle ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch Installed App by Bundle ID"
+          }
+        }
+      }
+    },
+    "Live health probe (/health/live) & artifact staging API" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live health probe (/health/live) & artifact staging API"
+          }
+        }
+      }
+    },
+    "Local DoH Profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local DoH Profile"
+          }
+        }
+      }
+    },
+    "Local HTTPS Identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local HTTPS Identity"
+          }
+        }
+      }
+    },
+    "Local Pairing Diagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local Pairing Diagnostics"
+          }
+        }
+      }
+    },
+    "Local Server requires installing and trusting VexSign's local Root CA in iOS Settings → Certificate Trust Settings. Pairing (idevice) needs a pairing file and a loopback VPN. Review readiness any time in Settings → Setup Health." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local Server requires installing and trusting VexSign's local Root CA in iOS Settings → Certificate Trust Settings. Pairing (idevice) needs a pairing file and a loopback VPN. Review readiness any time in Settings → Setup Health."
+          }
+        }
+      }
+    },
+    "Manage your lockdownd pairing file, verify the local heartbeat socket, and copy working vexsign:// deep links." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage your lockdownd pairing file, verify the local heartbeat socket, and copy working vexsign:// deep links."
+          }
+        }
+      }
+    },
+    "Minimum Interval" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum Interval"
+          }
+        }
+      }
+    },
+    "NETWORK POLICIES" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NETWORK POLICIES"
+          }
+        }
+      }
+    },
+    "NOT BUILT" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOT BUILT"
+          }
+        }
+      }
+    },
+    "Needs a pairing file and loopback VPN. Fast once set up." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs a pairing file and loopback VPN. Fast once set up."
+          }
+        }
+      }
+    },
+    "Network and power rules here directly control DownloadManager and scheduled background update passes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Network and power rules here directly control DownloadManager and scheduled background update passes."
+          }
+        }
+      }
+    },
+    "No certificates installed in VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No certificates installed in VexSign."
+          }
+        }
+      }
+    },
+    "No local DoH profile built yet. Stock iOS cannot block Apple revocation checks inside an app without an installed DNS profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No local DoH profile built yet. Stock iOS cannot block Apple revocation checks inside an app without an installed DNS profile."
+          }
+        }
+      }
+    },
+    "Not Connected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Connected"
+          }
+        }
+      }
+    },
+    "Not Implemented" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Implemented"
+          }
+        }
+      }
+    },
+    "Not Loaded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Loaded"
+          }
+        }
+      }
+    },
+    "Not Present in Transport" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Present in Transport"
+          }
+        }
+      }
+    },
+    "Not initialized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not initialized"
+          }
+        }
+      }
+    },
+    "Note that stock sandboxed VexSign does not include tetherless debugserver JIT injection or system-wide GPS location simulation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note that stock sandboxed VexSign does not include tetherless debugserver JIT injection or system-wide GPS location simulation."
+          }
+        }
+      }
+    },
+    "Notifications & Live Activities" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications & Live Activities"
+          }
+        }
+      }
+    },
+    "NovaDNS Dynamic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NovaDNS Dynamic"
+          }
+        }
+      }
+    },
+    "Off (Default)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off (Default)"
+          }
+        }
+      }
+    },
+    "On-Device Pairing & Launch Tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-Device Pairing & Launch Tools"
+          }
+        }
+      }
+    },
+    "Only While Charging" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only While Charging"
+          }
+        }
+      }
+    },
+    "Open Settings → Installation Engine (or JIT & On-Device Pairing) to import a .mobiledevicepairing record exported from a trusted computer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings → Installation Engine (or JIT & On-Device Pairing) to import a .mobiledevicepairing record exported from a trusted computer."
+          }
+        }
+      }
+    },
+    "Opens external DNS profile tools in Safari. Only install configuration profiles from resolvers you trust." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens external DNS profile tools in Safari. Only install configuration profiles from resolvers you trust."
+          }
+        }
+      }
+    },
+    "Pairing & JIT Availability" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing & JIT Availability"
+          }
+        }
+      }
+    },
+    "Pairing Record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing Record"
+          }
+        }
+      }
+    },
+    "Pairing and Diagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing and Diagnostics"
+          }
+        }
+      }
+    },
+    "Pairing file imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing file imported"
+          }
+        }
+      }
+    },
+    "Pairing record is readable, but the heartbeat socket is not connected. Enable your loopback VPN (such as LocalDevVPN) on Wi-Fi or Airplane mode and retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record is readable, but the heartbeat socket is not connected. Enable your loopback VPN (such as LocalDevVPN) on Wi-Fi or Airplane mode and retry."
+          }
+        }
+      }
+    },
+    "Pairing record is valid and the local heartbeat socket is reachable for idevice installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record is valid and the local heartbeat socket is reachable for idevice installation."
+          }
+        }
+      }
+    },
+    "Parallel Slots & Display Options" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parallel Slots & Display Options"
+          }
+        }
+      }
+    },
+    "Private Key Upload Disabled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private Key Upload Disabled"
+          }
+        }
+      }
+    },
+    "Real Certificate & OCSP Check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Real Certificate & OCSP Check"
+          }
+        }
+      }
+    },
+    "Refresh sources and check for updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh sources and check for updates"
+          }
+        }
+      }
+    },
+    "Remote signing refuses to upload .p12 private keys or passwords on this build. Signing runs locally on this device; this screen lets you configure and health-check a self-hosted cluster endpoint." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote signing refuses to upload .p12 private keys or passwords on this build. Signing runs locally on this device; this screen lets you configure and health-check a self-hosted cluster endpoint."
+          }
+        }
+      }
+    },
+    "Requested frequency for background runs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requested frequency for background runs"
+          }
+        }
+      }
+    },
+    "Requires non-cellular Wi-Fi before starting new IPA downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requires non-cellular Wi-Fi before starting new IPA downloads"
+          }
+        }
+      }
+    },
+    "Restricted by System Policy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restricted by System Policy"
+          }
+        }
+      }
+    },
+    "Rule Snapshot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rule Snapshot"
+          }
+        }
+      }
+    },
+    "Run Check Pairing & Heartbeat Socket or open Setup Health to verify the pairing record and socket before installing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run Check Pairing & Heartbeat Socket or open Setup Health to verify the pairing record and socket before installing."
+          }
+        }
+      }
+    },
+    "Run a check above to inspect installed certificates against local expiry or Apple OCSP." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run a check above to inspect installed certificates against local expiry or Apple OCSP."
+          }
+        }
+      }
+    },
+    "Sandboxed CoreLocation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandboxed CoreLocation"
+          }
+        }
+      }
+    },
+    "Save Cluster Configuration" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Cluster Configuration"
+          }
+        }
+      }
+    },
+    "Scheduled Update Checks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled Update Checks"
+          }
+        }
+      }
+    },
+    "Sends a GET request to /health/live on the configured cluster endpoint without uploading certificates or apps." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends a GET request to /health/live on the configured cluster endpoint without uploading certificates or apps."
+          }
+        }
+      }
+    },
+    "Sends each certificate's public serial number and issuer details to Apple's OCSP responder to check revocation status. Private .p12 keys and passwords never leave your device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends each certificate's public serial number and issuer details to Apple's OCSP responder to check revocation status. Private .p12 keys and passwords never leave your device."
+          }
+        }
+      }
+    },
+    "Share Generated .mobileconfig Profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Generated .mobileconfig Profile"
+          }
+        }
+      }
+    },
+    "Signing & Transport State" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing & Transport State"
+          }
+        }
+      }
+    },
+    "Simulating system GPS requires a mounted Developer Disk Image and DVT/RSD location simulation service over a trusted tunnel or USB tether. VexSign's linked device transport provides Heartbeat and InstallationProxy only." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulating system GPS requires a mounted Developer Disk Image and DVT/RSD location simulation service over a trusted tunnel or USB tether. VexSign's linked device transport provides Heartbeat and InstallationProxy only."
+          }
+        }
+      }
+    },
+    "Skips background update downloads on cellular or hotspot connections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skips background update downloads on cellular or hotspot connections"
+          }
+        }
+      }
+    },
+    "Stock sandboxed VexSign does not run an in-app debugserver JIT injector. For TrollStore installs, enable JIT directly in TrollStore. For standard sideloads, attach JIT via an external debugger or SideStore/LiveContainer workflow." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stock sandboxed VexSign does not run an in-app debugserver JIT injector. For TrollStore installs, enable JIT directly in TrollStore. For standard sideloads, attach JIT via an external debugger or SideStore/LiveContainer workflow."
+          }
+        }
+      }
+    },
+    "Stores your cluster endpoint preference locally. Active signing remains on-device until a dedicated private-key transfer consent flow is enabled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stores your cluster endpoint preference locally. Active signing remains on-device until a dedicated private-key transfer consent flow is enabled."
+          }
+        }
+      }
+    },
+    "Supported Device Tools" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supported Device Tools"
+          }
+        }
+      }
+    },
+    "Synced host list from NovaDNSDynamic rules. Filtering only takes effect when your installed DoH server refuses or sinkholes these hosts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synced host list from NovaDNSDynamic rules. Filtering only takes effect when your installed DoH server refuses or sinkholes these hosts."
+          }
+        }
+      }
+    },
+    "System Live Activities & Dynamic Island" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Live Activities & Dynamic Island"
+          }
+        }
+      }
+    },
+    "System-wide GPS simulation is not supported in this on-device build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System-wide GPS simulation is not supported in this on-device build."
+          }
+        }
+      }
+    },
+    "Tap either scheme to copy it. Launching external apps via vexsign://launch uses iOS app-launch permissions and cannot force-attach JIT on stock iOS." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap either scheme to copy it. Launching external apps via vexsign://launch uses iOS app-launch permissions and cannot force-attach JIT on stock iOS."
+          }
+        }
+      }
+    },
+    "Test Cluster Health" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test Cluster Health"
+          }
+        }
+      }
+    },
+    "The base URL of your Fastify cloud-signing instance. The optional bearer token is stored in the iOS Keychain, not in backups." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The base URL of your Fastify cloud-signing instance. The optional bearer token is stored in the iOS Keychain, not in backups."
+          }
+        }
+      }
+    },
+    "TrollStore Install Detected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TrollStore Install Detected"
+          }
+        }
+      }
+    },
+    "Turns VexSign download and signing progress Live Activities on or off. iOS uses the same system authorization for Lock Screen Live Activities and Dynamic Island (iPhone 14 Pro or newer). When disabled, downloads fall back to standard progress notifications if allowed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turns VexSign download and signing progress Live Activities on or off. iOS uses the same system authorization for Lock Screen Live Activities and Dynamic Island (iPhone 14 Pro or newer). When disabled, downloads fall back to standard progress notifications if allowed."
+          }
+        }
+      }
+    },
+    "UNAVAILABLE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UNAVAILABLE"
+          }
+        }
+      }
+    },
+    "Uses Apple's Security framework (`SecPolicyCreateRevocation`) via BatchCertChecker. For full per-certificate details and profile capabilities, open Settings → Certificates → Certificate Health." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses Apple's Security framework (`SecPolicyCreateRevocation`) via BatchCertChecker. For full per-certificate details and profile capabilities, open Settings → Certificates → Certificate Health."
+          }
+        }
+      }
+    },
+    "Uses the same Background Automation schedule as Settings → Automation. iOS runs background tasks opportunistically when system refresh is allowed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses the same Background Automation schedule as Settings → Automation. iOS runs background tasks opportunistically when system refresh is allowed."
+          }
+        }
+      }
+    },
+    "Verify Local Expiry & Integrity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify Local Expiry & Integrity"
+          }
+        }
+      }
+    },
+    "VexSign cannot detect from inside the app sandbox whether you installed a DNS profile in iOS Settings, and no DNS rule can restore a certificate Apple already revoked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot detect from inside the app sandbox whether you installed a DNS profile in iOS Settings, and no DNS rule can restore a certificate Apple already revoked."
+          }
+        }
+      }
+    },
+    "VexSign never alters device GPS coordinates. Your device always reports real system location to iOS and installed apps." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign never alters device GPS coordinates. Your device always reports real system location to iOS and installed apps."
+          }
+        }
+      }
+    },
+    "Waits until power is connected before starting new downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waits until power is connected before starting new downloads"
+          }
+        }
+      }
+    },
+    "Why It Is Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why It Is Unavailable"
+          }
+        }
+      }
+    },
+    "Wi-Fi Only for Automatic Updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Only for Automatic Updates"
+          }
+        }
+      }
+    },
+    "Wi-Fi Only for Package Downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Only for Package Downloads"
+          }
+        }
+      }
+    },
+    "Working URL Schemes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working URL Schemes"
+          }
+        }
+      }
+    },
+    "iOS Background App Refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS Background App Refresh"
+          }
+        }
+      }
+    },
+    "iOS does not expose Developer Mode state to sandboxed apps. Verify it in iOS Settings → Privacy & Security if prompted during installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS does not expose Developer Mode state to sandboxed apps. Verify it in iOS Settings → Privacy & Security if prompted during installation."
+          }
+        }
+      }
+    },
+    "itms-services over HTTPS after trusting the local Root CA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "itms-services over HTTPS after trusting the local Root CA."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

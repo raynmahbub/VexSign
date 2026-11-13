@@ -87,14 +87,14 @@ private struct GuideTopic: Identifiable {
 		),
 		GuideTopic(
 			id: "jit-location",
-			title: .localized("JIT and Location Simulation"),
-			subtitle: .localized("Pair the device and confirm simulation state"),
+			title: .localized("Pairing and Diagnostics"),
+			subtitle: .localized("Configure a pairing file, loopback VPN, and verify readiness"),
 			icon: "bolt.badge.automatic",
 			steps: [
-				.localized("Open Settings → JIT & On-Device Pairing and follow the pairing instructions."),
-				.localized("Run the self-test before attaching JIT to an emulator or other app."),
-				.localized("Choose a location from the map in Location Simulator, then use the Live Activity to confirm when simulation is active."),
-				.localized("Stop simulation from the location controls before disconnecting or troubleshooting the paired device.")
+				.localized("Open Settings → Installation Engine (or JIT & On-Device Pairing) to import a .mobiledevicepairing record exported from a trusted computer."),
+				.localized("Enable a loopback VPN such as LocalDevVPN on Wi-Fi or Airplane mode before using idevice installation."),
+				.localized("Run Check Pairing & Heartbeat Socket or open Setup Health to verify the pairing record and socket before installing."),
+				.localized("Note that stock sandboxed VexSign does not include tetherless debugserver JIT injection or system-wide GPS location simulation.")
 			]
 		),
 		GuideTopic(

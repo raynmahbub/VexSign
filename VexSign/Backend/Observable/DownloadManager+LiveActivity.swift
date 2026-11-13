@@ -37,7 +37,7 @@ extension DownloadManager {
 
 	func startLiveActivityIfNeeded() {
 		guard #available(iOS 16.2, *) else { return }
-		guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+		guard LiveActivityPreferences.canStartActivity() else { return }
 
 		if downloadActivity != nil {
 			return
@@ -179,8 +179,7 @@ extension DownloadManager {
 
 	func updateLiveActivity(activeDownloads: [Download]) {
 		guard #available(iOS 16.2, *) else { return }
-		let authInfo = ActivityAuthorizationInfo()
-		guard authInfo.areActivitiesEnabled else {
+		guard LiveActivityPreferences.canStartActivity() else {
 			if downloadActivity != nil {
 				dismissLiveActivityImmediately()
 			}

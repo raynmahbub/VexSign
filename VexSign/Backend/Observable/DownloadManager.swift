@@ -457,9 +457,9 @@ class DownloadManager: NSObject, ObservableObject {
 		}
 
 		// Live Activities are the primary progress UI; only fall back to a local notification when
-		// they're genuinely unavailable. (Don't branch on `downloadActivity != nil` — it's
+		// they're disabled or genuinely unavailable. (Don't branch on `downloadActivity != nil` — it's
 		// momentarily false mid-creation, which would race a stray notification onscreen.)
-		if #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled {
+		if #available(iOS 16.2, *), LiveActivityPreferences.canStartActivity() {
 			if downloadActivity == nil && !isCreatingLiveActivity {
 				startLiveActivityIfNeeded()
 			}

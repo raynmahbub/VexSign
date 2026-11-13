@@ -145,7 +145,7 @@ struct SettingsView: View {
                         Label(.localized("Tab Bar"), systemImage: "squares.below.rectangle")
                     }
                     NavigationLink(destination: NotificationsSettingsView()) {
-                        Label(.localized("Notifications & Dynamic Island"), systemImage: "bell.badge.fill")
+                        Label(.localized("Notifications & Live Activities"), systemImage: "bell.badge.fill")
                     }
                 } footer: {
                     Text(.localized("Customize themes, accent tints, home screen icon, the fixed tab shell, and Live Activities."))
@@ -256,7 +256,13 @@ struct SettingsView: View {
                         Label(.localized("JIT & On-Device Pairing"), systemImage: "bolt.badge.automatic.fill")
                     }
                     NavigationLink(destination: LocationSimulatorSettingsView()) {
-                        Label(.localized("Location Simulator"), systemImage: "location.fill")
+                        HStack {
+                            Label(.localized("Location Simulator"), systemImage: "location.slash.fill")
+                            Spacer()
+                            Text(.localized("Unavailable"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     NavigationLink(destination: WebManagerView()) {
                         Label(.localized("Web Manager & File Server"), systemImage: "externaldrive.badge.wifi")
