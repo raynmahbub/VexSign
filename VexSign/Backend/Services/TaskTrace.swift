@@ -32,6 +32,39 @@ struct TaskSigningTrace: Codable, Equatable {
 	/// Bounded so a pathological run cannot grow the persisted history without limit.
 	private static let stageLimit = 32
 
+	private enum CodingKeys: String, CodingKey {
+		case stages
+		case stoppedAt
+		case verified
+		case outcome
+	}
+
+	init() {}
+
+	/// Decodes stages by their raw value instead of as an enum.
+	///
+	/// A trace is *persisted*, and `SigningStage`'s raw values are the on-disk form. Decoding
+	/// `[SigningStage]` directly meant that a single raw value this build does not know — a stage
+	/// added by a newer build, or read back after a downgrade — threw, and the throw propagated
+	/// out of `TaskContext` into the whole `[UnifiedTask.Snapshot]` decode. The journal then
+	/// treated the entire history file as corrupt and started empty: up to 200 finished tasks
+	/// lost because one stage name was unfamiliar.
+	///
+	/// The rest of the record already works this way (`UnifiedTask.Snapshot` keeps `kind`,
+	/// `phase` and `failureStage` as `String` and falls back on read), so this closes the one
+	/// field that was still strict. Unknown stages are dropped rather than guessed, and the
+	/// caller can still tell "no evidence" from "no stages" through `isEmpty`.
+	init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		stages = (try container.decodeIfPresent([String].self, forKey: .stages) ?? [])
+			.compactMap(SigningStage.init(rawValue:))
+		stoppedAt = try container.decodeIfPresent(String.self, forKey: .stoppedAt)
+			.flatMap(SigningStage.init(rawValue:))
+		verified = try container.decodeIfPresent(Bool.self, forKey: .verified)
+		outcome = try container.decodeIfPresent(String.self, forKey: .outcome)
+			.flatMap(Outcome.init(rawValue:))
+	}
+
 	mutating func record(_ stage: SigningStage) {
 		if stages.last != stage { stages.append(stage) }
 		if stages.count > Self.stageLimit { stages.removeFirst(stages.count - Self.stageLimit) }

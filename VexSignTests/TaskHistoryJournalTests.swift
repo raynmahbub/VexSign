@@ -135,3 +135,81 @@ final class TaskHistoryJournalTests: XCTestCase {
         XCTAssertEqual(task.failureStage, .signing)
     }
 }
+
+    // MARK: - One unreadable record must not take the rest of the history with it
+
+    /// A valid history array whose second element is not a task record.
+    private func journalWithOneUnreadableRecord() throws -> (url: URL, original: Data) {
+        let url = try fixture()
+        let good = try JSONEncoder().encode([snapshot("kept")])
+        var elements = try XCTUnwrap(JSONSerialization.jsonObject(with: good) as? [Any])
+        elements.append(["id": 42, "kind": false])   // wrong types: cannot be a snapshot
+        let original = try JSONSerialization.data(withJSONObject: elements)
+        try original.write(to: url)
+        return (url, original)
+    }
+
+    func testOneUnreadableRecordDoesNotDiscardTheReadableHistory() async throws {
+        let (url, _) = try journalWithOneUnreadableRecord()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) } // try? ok: test teardown only
+        let journal = TaskHistoryJournal(url: url)
+
+        guard case .loaded(let snapshots, warning: .recordsDropped) = await journal.load() else {
+            return XCTFail("Expected the readable record to be salvaged, not the whole file dropped")
+        }
+        XCTAssertEqual(snapshots.map(\.title), ["kept"])
+
+        // Salvage is a read, not a licence to overwrite: writing the salvaged set is allowed only
+        // because the original was preserved first.
+        let saved = await journal.save(snapshots)
+        XCTAssertNil(saved)
+        let recovered = try JSONDecoder().decode([UnifiedTask.Snapshot].self, from: Data(contentsOf: url))
+        XCTAssertEqual(recovered.map(\.title), ["kept"])
+    }
+
+    func testSalvagePreservesTheOriginalFileByteForByte() async throws {
+        let (url, original) = try journalWithOneUnreadableRecord()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) } // try? ok: test teardown only
+        let journal = TaskHistoryJournal(url: url)
+
+        guard case .loaded(_, warning: .recordsDropped) = await journal.load() else {
+            return XCTFail("Expected a salvage")
+        }
+        let backup = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix("TaskHistory-recovery-") },
+            "the dropped record must still exist somewhere"
+        )
+        XCTAssertEqual(try Data(contentsOf: backup), original)
+    }
+
+    func testSalvageBlocksWritesWhenTheOriginalCannotBePreserved() async throws {
+        let (url, original) = try journalWithOneUnreadableRecord()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) } // try? ok: test teardown only
+        var io = TaskHistoryJournal.IO()
+        io.preserve = { _ in throw CocoaError(.fileWriteOutOfSpace) }
+        let journal = TaskHistoryJournal(url: url, io: io)
+
+        guard case .blocked(.preservationFailed) = await journal.load() else {
+            return XCTFail("Expected blocked, not a salvage that cannot be backed up")
+        }
+        XCTAssertEqual(await journal.save([]), .notLoaded, "an unbacked-up salvage must not overwrite the original")
+        XCTAssertEqual(try Data(contentsOf: url), original)
+    }
+
+    func testAValidJSONDocumentThatIsNotAnArrayIsStillCorruption() async throws {
+        let url = try fixture()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) } // try? ok: test teardown only
+        let original = Data(#"{"tasks":[]}"#.utf8)
+        try original.write(to: url)
+        let journal = TaskHistoryJournal(url: url)
+
+        guard case .loaded([], warning: .corruptPreserved) = await journal.load() else {
+            return XCTFail("An object is not a history file; it must not be read as an empty history")
+        }
+        let backup = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix("TaskHistory-recovery-") }
+        )
+        XCTAssertEqual(try Data(contentsOf: backup), original)
+    }

@@ -107440,6 +107440,17 @@
           }
         }
       }
+    },
+    "Some task history entries could not be read. The rest was restored, and the original file was kept as a recovery copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some task history entries could not be read. The rest was restored, and the original file was kept as a recovery copy."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
