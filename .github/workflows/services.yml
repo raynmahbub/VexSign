@@ -96,5 +96,10 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run contracts && git diff --exit-code -- openapi.json
+      # The iOS client decodes the contract above by hand. This compares the two texts, so a
+      # renamed field fails here instead of in an accepted submission that cannot be decoded.
+      - name: iOS client matches the documented contract
+        working-directory: .
+        run: python3 tools/test_cloud_signing_contract.py
       - run: npm audit --omit=dev --audit-level=high
         if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'
