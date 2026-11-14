@@ -156,5 +156,28 @@ class LogRedactionContractTests(unittest.TestCase):
             self.assertIn(name, tests)
 
 
+class DeepLinkBase64ContractTests(unittest.TestCase):
+    def test_normalization_and_size_bound_are_present(self) -> None:
+        source = BASE64_STAGING.read_text()
+        self.assertIn(".filter { !$0.isWhitespace }", source)
+        self.assertIn('.replacingOccurrences(of: "-", with: "+")', source)
+        self.assertIn('.replacingOccurrences(of: "_", with: "/")', source)
+        self.assertIn("data.count <= maxBytes", source)
+        self.assertIn("maxBytes: Int = 16 << 20", source)
+        self.assertIn("String(repeating: \"=\", count: 4 - remainder)", source)
+
+    def test_swift_tests_exercise_every_form(self) -> None:
+        tests = BASE64_STAGING_TESTS.read_text()
+        for name in (
+            "testStandardBase64IsStaged",
+            "testMissingPaddingIsAccepted",
+            "testWhitespaceIsIgnored",
+            "testBase64URLAlphabetIsAccepted",
+            "testOversizedPayloadIsRejected",
+            "testInvalidBase64IsRejected",
+        ):
+            self.assertIn(name, tests)
+
+
 if __name__ == "__main__":
     unittest.main()
