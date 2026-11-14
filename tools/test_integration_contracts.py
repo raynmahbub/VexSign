@@ -129,5 +129,32 @@ class ManifestResolutionContractTests(unittest.TestCase):
         self.assertLess(block.index("guard let manifestUrl else {"), block.index("server.manifestUrl = manifestUrl"))
 
 
+class LogRedactionContractTests(unittest.TestCase):
+    def test_account_pairing_and_device_key_rules_are_present(self) -> None:
+        source = LOG_REDACTION.read_text()
+        for key in (
+            "certificateP12", "certificatePassword", "adiPb", "appleID",
+            "anisetteAdiBlob", "private_key", "alt_irk", "HostPrivateKey",
+            "SerialNumber", "UniqueChipID", "X-Apple-I-MD", "DeviceName",
+            "UniqueDeviceID", "UDID", "remotepairing_udid",
+        ):
+            self.assertIn(f'"{key}"', source, f"missing redaction key {key}")
+        self.assertIn("sensitiveKeyAlternation", source)
+        self.assertIn("NSRegularExpression.escapedPattern(for: $0)", source)
+        self.assertIn(r"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}\b", source)
+        self.assertIn(r"(?i)(?<![\w-])", source)
+
+    def test_swift_tests_exercise_the_new_rules(self) -> None:
+        tests = LOG_REDACTION_TESTS.read_text()
+        for name in (
+            "testAccountAndPairingJSONKeysAreRedacted",
+            "testAppleAccountAndAnisetteHeadersAreRedacted",
+            "testDeviceIdentifiersAndNamesAreRedacted",
+            "testEmailAddressesAreMaskedButDomainSurvives",
+            "testBareHashesAreNotMistakenForUDIDs",
+        ):
+            self.assertIn(name, tests)
+
+
 if __name__ == "__main__":
     unittest.main()
