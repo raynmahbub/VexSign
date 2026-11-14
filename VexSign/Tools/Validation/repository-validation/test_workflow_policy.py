@@ -214,7 +214,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                 source = block(workflow, job, 2)
                 source = source.split('      - name: ' + step + '\n', 1)[1].split('      - name:', 1)[0]
                 script = '\n'.join(line[10:] for line in block(source, 'run', 8).splitlines()[1:])
-                self.assertIn('-continueBuildingAfterErrors', script)
+                self.assertNotIn('-continueBuildingAfterErrors', script)
                 # Exercise the actual prologue and verdict-handling suffix with
                 # a portable failed compiler stand-in, under GitHub's shell flags.
                 prefix = script.split('\nxcodebuild ', 1)[0] + '\n'

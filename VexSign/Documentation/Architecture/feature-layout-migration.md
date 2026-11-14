@@ -211,10 +211,15 @@ The next repair uses the SDK's `.NSManagedObjectContextObjectsDidChange`
 notification name while preserving the exact-context filter, main-actor hop and
 observation teardown. The clone sheet declares its inherited container, and the
 installation fallback imports the existing NimbleViews browser wrapper rather
-than replacing it. Native build/test commands continue collecting independent
-compiler errors after a failed build task, while retaining their nonzero verdict
-and the unchanged warnings gate. Portable source regressions and the full
-preservation/grammar audit pass; these changes still require native revalidation.
+than replacing it. Portable source regressions and the full preservation/grammar
+audit pass; these changes still require native revalidation.
+
+An attempted diagnostic-only `-continueBuildingAfterErrors` option was rejected
+by the selected Xcode at `f7de470` ([run 43607748458](https://github.com/raynmahbub/VexSign/actions/runs/43607748458),
+build exit 64). That run provides no compile/test evidence and was cancelled
+once the setup error was established. The unsupported flag was removed from both
+commands; regression checks prevent its reintroduction. Compiler exit capture
+and the unchanged warnings gate remain enabled.
 
 The separate native-signing smoke success does not compile the app's 84 added
 XCTest methods; those still require a successful `VexSignTests` simulator job.
