@@ -1,0 +1,82 @@
+//
+//  DylibToggleView.swift
+//  VexSign
+//
+//  Created by VexSign Contributors on 20.04.2025.
+//
+
+import SwiftUI
+import UIKit
+import NimbleExtensions
+
+struct SigningToggleCellView<T>: View {
+    @EnvironmentObject private var services: AppContainer
+	let title: String
+	@Binding var options: T?
+	let arrayKeyPath: WritableKeyPath<T, [String]>
+	/// When set and the file still exists, the row offers Send to Tweak Manager / Share.
+	var fileURL: URL?
+
+	var body: some View {
+		Toggle(title, isOn: Binding(
+			get: {
+				guard let options = options else { return false }
+				return !options[keyPath: arrayKeyPath].contains(title)
+			},
+			set: { isOn in
+				if isOn {
+					_removeItem()
+				} else {
+					_addItem()
+				}
+			}
+		))
+		.contextMenu {
+			if _exportableURL != nil { _exportActions }
+		}
+		.swipeActions(edge: .trailing) {
+			if _exportableURL != nil { _exportActions }
+		}
+	}
+
+	private var _exportableURL: URL? {
+		guard let fileURL, services.files.exists(at: fileURL) else { return nil }
+		return fileURL
+	}
+
+	@ViewBuilder
+	private var _exportActions: some View {
+		Button {
+			guard let fileURL = _exportableURL else { return }
+            Task { @MainActor in
+                if await services.tweaks.importTweak(name: fileURL.lastPathComponent, fromFiles: [fileURL]) != nil {
+                    Toast.info(.localized("Added to Tweak Manager"))
+                } else {
+                    Toast.error(.localized("Could not import this tweak. Check its format, size and file access."), duration: .sticky)
+                }
+            }
+		} label: {
+			Label(.localized("Send to Tweak Manager"), systemImage: "wrench.and.screwdriver")
+		}
+		Button {
+			guard let fileURL = _exportableURL else { return }
+            services.files.share(fileURL)
+		} label: {
+			Label(.localized("Share"), systemImage: "square.and.arrow.up")
+		}
+	}
+
+	private func _removeItem() {
+		guard var opts = options else { return }
+		opts[keyPath: arrayKeyPath].removeAll { $0 == title }
+		options = opts
+	}
+	
+	private func _addItem() {
+		guard var opts = options else { return }
+		if !opts[keyPath: arrayKeyPath].contains(title) {
+			opts[keyPath: arrayKeyPath].append(title)
+		}
+		options = opts
+	}
+}

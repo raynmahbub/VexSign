@@ -3,9 +3,9 @@ name: CI
 # Answers "is this commit good?" for every relevant push and PR.
 #
 #   quick   ~1 min · Linux: Swift syntax, resources, project
-#           structure and the repo gates in Tools/. `Tools/CI/ci-scope.py` then
+#           structure and the repo gates in VexSign/Tools/. `VexSign/Tools/Validation/repository-validation/ci-scope.py` then
 #           decides whether the macOS jobs are needed (portable-only diffs,
-#           e.g. docs or Tools/*.py, skip them). Docs-only changes never
+#           e.g. docs or VexSign/Tools/*.py, skip them). Docs-only changes never
 #           start this workflow at all — see docs.yml.
 #   build   macOS · unsigned Debug build, warnings gate (baseline in
 #           .github/build-warnings-baseline.json), 14-day test IPA.
@@ -27,15 +27,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'App/iOS/VexSign/**'
-      - 'App/Tests/VexSignTests/**'
-      - 'Extensions/Widgets/VexSignWidgetExtension/**'
-      - 'App/SharedPlatformInfo/**'
+      - 'VexSign/App/iOS/VexSign/**'
+      - 'VexSign/Tests/**'
+      - 'VexSign/App/Extensions/WidgetExtension/**'
+      - 'VexSign/App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'Packages/NimbleKit/**'
-      - 'Packages/AltSourceKit/**'
-      - 'Packages/Vendor/**'
+      - 'VexSign/Packages/NimbleKit/**'
+      - 'VexSign/Packages/AltSourceKit/**'
+      - 'VexSign/Packages/Vendor/**'
       - 'Package.swift'
       - 'Package.resolved'
       - 'Makefile'
@@ -46,37 +46,37 @@ on:
       - 'icon.png'
       - 'license_plist.yml'
       - 'render.yaml'
-      - 'Tools/Development/**'
-      - 'Tools/**'
-      - 'App/**'
-      - 'Packages/**'
-      - 'Extensions/**'
-      - 'Integrations/**'
-      - 'Resources/**'
-      - 'Documentation/**'
-      - 'Integrations/EmbeddedContainer/*.py'
-      - 'Integrations/EmbeddedContainer/tests/**'
-      - 'Integrations/EmbeddedContainer/HostOverlay/**'
-      - 'Integrations/EmbeddedContainer/patches/**'
-      - 'Integrations/EmbeddedContainer/inputs.lock.json'
-      - 'Packages/NativeSigning/**'
-      - 'Packages/SideSign/**'
+      - 'VexSign/Tools/Development/**'
+      - 'VexSign/Tools/**'
+      - 'VexSign/App/**'
+      - 'VexSign/Packages/**'
+      - 'VexSign/Integrations/**'
+      - 'VexSign/Resources/**'
+      - 'VexSign/Documentation/**'
+      - 'VexSign/Integrations/EmbeddedContainer/*.py'
+      - 'VexSign/Integrations/EmbeddedContainer/tests/**'
+      - 'VexSign/Integrations/EmbeddedContainer/HostOverlay/**'
+      - 'VexSign/Integrations/EmbeddedContainer/patches/**'
+      - 'VexSign/Integrations/EmbeddedContainer/inputs.lock.json'
+      - 'VexSign/Packages/NativeSigning/**'
+      - 'VexSign/Packages/SideSign/**'
       - '.github/scripts/**'
       - '.github/build-warnings-baseline.json'
       - '.github/workflows/ci.yml'
       - '.github/workflows/ci-repair-assistant.yml'
+      - 'VexSign/Configuration/**'
   pull_request:
     branches: [main]
     paths:
-      - 'App/iOS/VexSign/**'
-      - 'App/Tests/VexSignTests/**'
-      - 'Extensions/Widgets/VexSignWidgetExtension/**'
-      - 'App/SharedPlatformInfo/**'
+      - 'VexSign/App/iOS/VexSign/**'
+      - 'VexSign/Tests/**'
+      - 'VexSign/App/Extensions/WidgetExtension/**'
+      - 'VexSign/App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'Packages/NimbleKit/**'
-      - 'Packages/AltSourceKit/**'
-      - 'Packages/Vendor/**'
+      - 'VexSign/Packages/NimbleKit/**'
+      - 'VexSign/Packages/AltSourceKit/**'
+      - 'VexSign/Packages/Vendor/**'
       - 'Package.swift'
       - 'Package.resolved'
       - 'Makefile'
@@ -87,25 +87,25 @@ on:
       - 'icon.png'
       - 'license_plist.yml'
       - 'render.yaml'
-      - 'Tools/Development/**'
-      - 'Tools/**'
-      - 'App/**'
-      - 'Packages/**'
-      - 'Extensions/**'
-      - 'Integrations/**'
-      - 'Resources/**'
-      - 'Documentation/**'
-      - 'Integrations/EmbeddedContainer/*.py'
-      - 'Integrations/EmbeddedContainer/tests/**'
-      - 'Integrations/EmbeddedContainer/HostOverlay/**'
-      - 'Integrations/EmbeddedContainer/patches/**'
-      - 'Integrations/EmbeddedContainer/inputs.lock.json'
-      - 'Packages/NativeSigning/**'
-      - 'Packages/SideSign/**'
+      - 'VexSign/Tools/Development/**'
+      - 'VexSign/Tools/**'
+      - 'VexSign/App/**'
+      - 'VexSign/Packages/**'
+      - 'VexSign/Integrations/**'
+      - 'VexSign/Resources/**'
+      - 'VexSign/Documentation/**'
+      - 'VexSign/Integrations/EmbeddedContainer/*.py'
+      - 'VexSign/Integrations/EmbeddedContainer/tests/**'
+      - 'VexSign/Integrations/EmbeddedContainer/HostOverlay/**'
+      - 'VexSign/Integrations/EmbeddedContainer/patches/**'
+      - 'VexSign/Integrations/EmbeddedContainer/inputs.lock.json'
+      - 'VexSign/Packages/NativeSigning/**'
+      - 'VexSign/Packages/SideSign/**'
       - '.github/scripts/**'
       - '.github/build-warnings-baseline.json'
       - '.github/workflows/ci.yml'
       - '.github/workflows/ci-repair-assistant.yml'
+      - 'VexSign/Configuration/**'
   workflow_dispatch:
     inputs:
       validation:
@@ -176,7 +176,7 @@ jobs:
             exit 1
           }
 
-          python3 Tools/CI/ci-scope.py
+          python3 VexSign/Tools/Validation/repository-validation/ci-scope.py
 
       # swiftc -parse on every first-party file, duplicate types/file names,
       # broken plists/xcstrings, layout/script sanity — plus its own regressions.
@@ -190,23 +190,37 @@ jobs:
       # concurrency escapes.
       - name: Repository gates
         run: |
-          python3 Tools/CI/check-pbxproj.py
-          python3 Tools/CI/check-package-graph.py
-          python3 Tools/Development/sync_repo_aliases.py --check
-          python3 Tools/Development/test_repo_aliases.py
-          python3 Tools/Architecture/test_repository_layout.py
-          python3 Tools/Development/sync-strings.py --check
-          python3 Tools/Development/test_sync_strings.py
-          python3 Tools/Development/error-discipline.py
-          python3 Tools/Development/singleton-freeze.py
-          python3 Tools/Development/concurrency-discipline.py
+          python3 VexSign/Tools/Validation/repository-validation/check-pbxproj.py
+          python3 VexSign/Tools/Validation/repository-validation/check-package-graph.py
+          python3 VexSign/Tools/Validation/repository-validation/sync_repo_aliases.py --check
+          python3 VexSign/Tools/Validation/repository-validation/test_repo_aliases.py
+          python3 VexSign/Tools/Validation/architecture-rules/test_repository_layout.py
+          python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --check
+          python3 VexSign/Tools/Validation/repository-validation/test_sync_strings.py
+          python3 VexSign/Tools/Validation/security-validation/error-discipline.py
+          python3 VexSign/Tools/Validation/security-validation/singleton-freeze.py
+          python3 VexSign/Tools/Validation/security-validation/concurrency-discipline.py
           # A count is not a reason: every escape needs its invariant on record.
-          python3 Tools/Development/test_concurrency_audit.py --self-test
-          python3 Tools/Development/test_concurrency_audit.py
-          python3 Tools/Development/check-native-handoff.py
+          python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py --self-test
+          python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
+          python3 VexSign/Tools/Validation/security-validation/check-native-handoff.py
           # The CMS fixture is generated elsewhere (OpenSSL) and must keep
           # conforming to the subset the parser accepts; drift fails here.
-          python3 Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
+          python3 VexSign/Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
+
+      # Exercise the real C++ engine with synthetic Mach-O/CMS data. No Apple
+      # credentials or device result is inferred; the iOS Security bridge remains
+      # in the simulator test job. Normal CI never rewrites the public fixture.
+      - name: Native signing core · ASan and UBSan
+        env:
+          VEXSIGN_NATIVE_SANITIZERS: '1'
+        run: |
+          set -euo pipefail
+          pkg-config --atleast-version=3 openssl || {
+            echo "::error::OpenSSL 3 development files are required on ubuntu-24.04."
+            exit 1
+          }
+          python3 VexSign/Tools/Validation/security-validation/test_native_signing_core.py
 
       # swiftformat for consistent code style. The runner image ships Swift but not
       # the formatter, so the pinned release is built once per run.
@@ -236,30 +250,32 @@ jobs:
       # Documentation links plus the offline regression suites.
       - name: Docs and regressions
         run: |
-          python3 Tools/Development/check-docs.py
-          python3 Tools/Development/test_docs.py
-          python3 Tools/Development/test_integration_contracts.py
-          python3 Tools/Architecture/test_architecture_boundaries.py
-          python3 Tools/Architecture/test_architecture_excellence.py
-          python3 Tools/CI/test_ci_repair_agent.py
-          python3 Tools/Development/test_device_acceptance.py
-          python3 Tools/Development/test_native_promotion_evidence.py
-          python3 Tools/Development/test_private_defaults_policy.py
-          python3 Tools/Development/test_archive_extraction_policy.py
-          python3 Tools/Development/test_network_timeout_policy.py
-          python3 Tools/Development/test_cloud_signing_contract.py
-          python3 Tools/Development/test_task_history_resilience.py
-          python3 Tools/Development/test_capability_disclosure.py
-          python3 Tools/Development/test_logging_message_policy.py
-          python3 Tools/Development/test_cross_file_privacy.py
-          python3 Tools/Release/test_release_assets.py
-          python3 Tools/CI/test_autopilot.py
-          python3 Tools/CI/test_workflow_policy.py
-          python3 Tools/CI/test_workflow_trace_policy.py
-          python3 Tools/CI/test_build_provenance.py
-          python3 Tools/CI/test_package_graph.py
-          python3 Tools/CI/test_coverage_report.py
-          python3 Tools/CI/test_swift6_build_regressions.py
+          python3 VexSign/Tools/Validation/repository-validation/check-docs.py
+          python3 VexSign/Tools/Validation/repository-validation/test_docs.py
+          python3 VexSign/Tools/Development/test_integration_contracts.py
+          python3 VexSign/Tools/Validation/architecture-rules/test_architecture_boundaries.py
+          python3 VexSign/Tools/Validation/architecture-rules/test_feature_workspace_boundaries.py
+          python3 VexSign/Tools/Validation/architecture-rules/test_feature_preservation.py
+          python3 VexSign/Tools/Validation/architecture-rules/test_architecture_excellence.py
+          python3 VexSign/Tools/Validation/repository-validation/test_ci_repair_agent.py
+          python3 VexSign/Tools/Development/test_device_acceptance.py
+          python3 VexSign/Tools/Validation/security-validation/test_native_promotion_evidence.py
+          python3 VexSign/Tools/Validation/security-validation/test_private_defaults_policy.py
+          python3 VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py
+          python3 VexSign/Tools/Validation/security-validation/test_network_timeout_policy.py
+          python3 VexSign/Tools/Development/test_cloud_signing_contract.py
+          python3 VexSign/Tools/Development/test_task_history_resilience.py
+          python3 VexSign/Tools/Validation/security-validation/test_capability_disclosure.py
+          python3 VexSign/Tools/Validation/security-validation/test_logging_message_policy.py
+          python3 VexSign/Tools/Validation/security-validation/test_cross_file_privacy.py
+          python3 VexSign/Tools/Release/test_release_assets.py
+          python3 VexSign/Tools/Validation/repository-validation/test_autopilot.py
+          python3 VexSign/Tools/Validation/repository-validation/test_workflow_policy.py
+          python3 VexSign/Tools/Validation/repository-validation/test_workflow_trace_policy.py
+          python3 VexSign/Tools/Validation/repository-validation/test_build_provenance.py
+          python3 VexSign/Tools/Validation/repository-validation/test_package_graph.py
+          python3 VexSign/Tools/Validation/repository-validation/test_coverage_report.py
+          python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
 
       - name: Upload findings
         if: always()
@@ -312,7 +328,7 @@ jobs:
             spm-${{ runner.os }}-
 
       - name: Release manifest signer tests
-        run: node --test Tools/Release/test-release-manifest.mjs
+        run: node --test VexSign/Tools/Release/test-release-manifest.mjs
 
       # Unsigned generic iOS build: no certificates exist on the runner and
       # none are needed to prove the code compiles. libunicorn.a's deployment-
@@ -321,6 +337,9 @@ jobs:
       - name: Build (Debug)
         id: build
         run: |
+          # Actions starts bash with -e. Capture the real xcodebuild verdict
+          # before exiting so diagnostics never receive an "unknown" status.
+          set +e
           set -uo pipefail
           xcodebuild \
             -workspace VexSign.xcworkspace \
@@ -380,6 +399,12 @@ jobs:
           APP="${DERIVED_DATA}/Build/Products/Debug-iphoneos/VexSign.app"
           STAGING="${RUNNER_TEMP}/ci-ipa"
           test -f "${APP}/Info.plist"
+          # A .deb uses the AR container format but is a runtime resource, not
+          # a Mach-O static library. Prove the file-type repair still bundles it.
+          if ! cmp -s "${GITHUB_WORKSPACE}/VexSign/App/iOS/VexSign/Resources/ellekit.deb" "${APP}/ellekit.deb"; then
+            echo "::error::Built app must bundle the original ellekit.deb as a byte-identical resource."
+            exit 1
+          fi
           mkdir -p "${STAGING}/Payload"
           ditto "${APP}" "${STAGING}/Payload/VexSign.app"
           python3 - "${APP}/Info.plist" "${STAGING}/BUILD.json" <<'PY'
@@ -407,7 +432,7 @@ jobs:
           (
             cd "${STAGING}"
             ditto -c -k --keepParent Payload VexSign-unsigned.ipa
-            python3 "${GITHUB_WORKSPACE}/Tools/Release/release-build-version.py" --check-container VexSign-unsigned.ipa
+            python3 "${GITHUB_WORKSPACE}/VexSign/Tools/Release/release-build-version.py" --check-container VexSign-unsigned.ipa
             shasum -a 256 VexSign-unsigned.ipa BUILD.json > SHA256SUMS
           )
 
@@ -459,8 +484,9 @@ jobs:
           retention-days: 3
 
   # ---------------------------------------------------------------------------
-  # Do the tests pass? Host-only suite, unsigned simulator run: no certificates
-  # exist on the runner and none are needed to exercise signing *logic*.
+  # Do the tests pass? Host-only suite with a local ad-hoc simulator signature.
+  # No Apple identity/profile is needed, but Keychain integration tests require
+  # the simulator host to have signed entitlements (unsigned returns -34018).
   # ---------------------------------------------------------------------------
   tests:
     if: >-
@@ -515,6 +541,9 @@ jobs:
         env:
           SIM_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
+          # Actions starts bash with -e. Capture the real xcodebuild verdict
+          # before exiting so diagnostics never receive an "unknown" status.
+          set +e
           set -uo pipefail
           xcodebuild \
             -workspace VexSign.xcworkspace \
@@ -529,9 +558,10 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             ONLY_ACTIVE_ARCH=YES \
             test 2>&1 | tee "$TEST_LOG" \
@@ -615,7 +645,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # What still breaks under complete concurrency checking?
   # ---------------------------------------------------------------------------
-  # `Tools/Development/concurrency-discipline.py` in the quick job is a counting gate: it
+  # `VexSign/Tools/Validation/security-validation/concurrency-discipline.py` in the quick job is a counting gate: it
   # stops escapes from spreading but proves nothing about isolation. This is the
   # compiler half, and it can only run on macOS — AltSourceKit imports SwiftUI.
   #

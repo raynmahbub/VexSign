@@ -1,0 +1,340 @@
+// MARK: - CertificateStatusView
+/// UI for certificate revocation status (OCSP/CRL) checking and consent management.
+
+import SwiftUI
+import NimbleViews
+import NimbleExtensions
+
+struct CertificateStatusView: View {
+    @EnvironmentObject private var manager: AppleAccountWorkspaceModel
+    @State private var consentIdentities: [AppleAccountIdentity] = []
+    @State private var showConsentSheet = false
+    @State private var statusResults: [UUID: AppleAccountCertificateCheck] = [:]
+    @State private var isChecking = false
+    @State private var isLoadingIdentities = false
+    @State private var errorMessage: String?
+    @State private var identities: [AppleAccountIdentity] = []
+
+    var body: some View {
+        NBList(.localized("Certificate Status")) {
+            Section {
+                if let snapshot = manager.snapshot,
+                   case .signedIn(let context) = snapshot.phase {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(.localized("Active Context"))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Text("Team: \(context.team.identifier)")
+                            .font(.subheadline.weight(.medium))
+                        Text("Expires: \(context.expiresAt?.formatted() ?? .localized("Unknown"))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    Text(.localized("Sign in with a Free Apple ID to check certificate status."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text(.localized("Current Session"))
+            }
+
+            Section {
+                if !identities.isEmpty {
+                    ForEach(identities) { identity in
+                        CertificateStatusRow(
+                            identityName: identity.displayName,
+                            status: statusResults[identity.identityID] == nil ? .notChecked : .verified,
+                            lastChecked: statusResults[identity.identityID]?.checkedAt,
+                            onCheck: { checkIdentity(identity) },
+                            onConsent: { requestConsentForIdentity(identity) }
+                        )
+                    }
+                } else if manager.isBackendReady {
+                    if isLoadingIdentities {
+                        HStack {
+                            ProgressView().scaleEffect(0.8)
+                            Text(.localized("Loading identities…"))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "checkmark.seal")
+                                .font(.system(size: 36))
+                                .foregroundStyle(.secondary)
+                            Text(.localized("No signing identities found"))
+                                .font(.headline)
+                            Text(.localized("Create a signing identity by provisioning an app first."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                Task { await loadIdentities() }
+                            } label: {
+                                Label(.localized("Refresh"), systemImage: "arrow.clockwise")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding()
+                    }
+                } else {
+                    Text(.localized("Native signing backend not initialized. Configure Anisette Provider first."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text(.localized("Certificate Status"))
+            } footer: {
+                Text(.localized("Certificate status checks use Apple's OCSP/CRL responders. Positive cached responses are required; missing or unknown status never counts as valid. Explicit consent is required for each check."))
+            }
+
+            Section {
+                if !identities.isEmpty {
+                    Button {
+                        checkAllIdentities()
+                    } label: {
+                        if isChecking {
+                            HStack {
+                                ProgressView().scaleEffect(0.8)
+                                Text(.localized("Checking All…"))
+                            }
+                        } else {
+                            Label(.localized("Check All Certificates"), systemImage: "checkmark.shield")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isChecking)
+                }
+
+                Button {
+                    Task { await loadIdentities() }
+                } label: {
+                    Label(.localized("Refresh Identities"), systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isLoadingIdentities)
+
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .task(id: getContextID()) {
+            statusResults = [:]
+            identities = []
+            await loadIdentities()
+        }
+        .sheet(isPresented: $showConsentSheet) {
+            if !consentIdentities.isEmpty {
+                CertificateStatusConsentView(
+                    identityName: consentIdentities.map(\.displayName).joined(separator: "\n"),
+                    onConfirm: {
+                        let approved = consentIdentities
+                        Task { await performStatusChecks(for: approved) }
+                    }
+                )
+            }
+        }
+        .alert(.localized("Error"), isPresented: .constant(errorMessage != nil), presenting: errorMessage) { _ in
+            Button(.localized("OK")) { errorMessage = nil }
+        } message: { msg in
+            Text(msg)
+        }
+    }
+
+    @MainActor
+    private func loadIdentities() async {
+        isLoadingIdentities = true
+        defer { isLoadingIdentities = false }
+        identities = await manager.listSigningIdentities()
+    }
+
+    private func checkAllIdentities() {
+        guard !isChecking, getContextID() != nil, !identities.isEmpty else { return }
+        consentIdentities = identities
+        showConsentSheet = true
+    }
+
+    private func checkIdentity(_ identity: AppleAccountIdentity) {
+        guard !isChecking, getContextID() != nil else { return }
+        consentIdentities = [identity]
+        showConsentSheet = true
+    }
+
+    private func requestConsentForIdentity(_ identity: AppleAccountIdentity) {
+        checkIdentity(identity)
+    }
+
+    private func getContextID() -> UUID? {
+        guard case .signedIn(let context) = manager.snapshot?.phase else { return nil }
+        return context.id
+    }
+
+    @MainActor
+    private func performStatusChecks(for approved: [AppleAccountIdentity]) async {
+        guard !isChecking, let contextID = getContextID() else { return }
+        isChecking = true
+        errorMessage = nil
+        defer { isChecking = false }
+        for identity in approved {
+            guard !Task.isCancelled, getContextID() == contextID else { return }
+            do {
+                let result = try await manager.checkCertificate(contextID: contextID,
+                    identityID: identity.identityID, consentGiven: true)
+                guard getContextID() == contextID else { return }
+                statusResults[identity.identityID] = result
+            } catch {
+                if !(error is CancellationError) { errorMessage = error.localizedDescription }
+            }
+        }
+    }
+}
+
+/// What a row can honestly claim.
+///
+/// `AppleAccountCertificateCheck` is metadata on purpose — the certificate hash and when it
+/// was checked, never a verdict the UI could over-read (`evaluateSigningCertificateStatus`
+/// throws on a rejected certificate, so a returned record *is* the pass). Revocation evidence
+/// belongs to the certificate record, not to this row.
+private enum CertificateStatusKind {
+    case verified
+    case notChecked
+}
+
+private struct CertificateStatusRow: View {
+    let identityName: String
+    let status: CertificateStatusKind
+    let lastChecked: Date?
+    let onCheck: () -> Void
+    let onConsent: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: status.icon)
+                    .foregroundStyle(status.color)
+                    .font(.title2)
+                VStack(alignment: .leading) {
+                    Text(identityName)
+                        .font(.headline)
+                    Text(status.displayName)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(status.color)
+                }
+                Spacer()
+            }
+
+            if let checked = lastChecked {
+                Text("\(String.localized("Last checked")): \(checked.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    onConsent()
+                } label: {
+                    Label(.localized("Request Consent & Check"), systemImage: "hand.raised.fill")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    onCheck()
+                } label: {
+                    Label(.localized("Refresh"), systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding()
+        .background(Color(uiColor: .quaternarySystemFill))
+        .cornerRadius(14)
+    }
+}
+
+private struct CertificateStatusConsentView: View {
+    let identityName: String
+    let onConfirm: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var consentGiven = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.orange)
+
+                        Text(.localized("Certificate Status Consent Required"))
+                            .font(.title2.weight(.bold))
+
+                        Text(String.localized("Checking the revocation status of **%@** requires explicit consent for network disclosure to Apple's OCSP/CRL responders.", arguments: identityName))
+                            .font(.body)
+
+                        Text(.localized("This will:"))
+                            .font(.headline)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(.localized("Send certificate serial/issuer to Apple's OCSP responder"), systemImage: "network")
+                            Label(.localized("Query CRL distribution points if OCSP unavailable"), systemImage: "doc.text.magnifyingglass")
+                            Label(.localized("Require positive cached response (no network fetch)"), systemImage: "lock.shield")
+                        }
+                        .font(.subheadline)
+
+                        Text(.localized("Missing or unknown status never counts as valid. This consent is single-use and expires in 2 minutes."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                Section {
+                    Toggle(.localized("I understand and consent to this status check"), isOn: $consentGiven)
+                }
+            }
+            .navigationTitle(.localized("Status Consent"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(.localized("Cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(.localized("Allow")) {
+                        onConfirm()
+                        dismiss()
+                    }
+                    .disabled(!consentGiven)
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+}
+
+// MARK: - Extensions
+
+extension CertificateStatusKind {
+    var icon: String {
+        switch self {
+        case .verified: return "checkmark.shield.fill"
+        case .notChecked: return "questionmark.shield.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .verified: return .green
+        case .notChecked: return .secondary
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .verified: return .localized("Valid")
+        case .notChecked: return .localized("Unknown")
+        }
+    }
+}

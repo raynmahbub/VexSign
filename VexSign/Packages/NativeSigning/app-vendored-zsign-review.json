@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "upstream_sha256": "cec84a96df1f5a62cc2d35889d893b93e105de6f3bca7dd2b8abe9226424a2d7",
+  "sha256": "97cb530bc9ca8c46c18e546edc9d83344344ce6d3e41aca5fe2fb3938f017b67",
+  "review": "The app-only vendored manifest additionally links the public Security framework for authenticated provisioning CMS verification. The isolated upstream smoke checkout and its original manifest digest remain unchanged."
+}

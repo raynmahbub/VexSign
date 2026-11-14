@@ -19,9 +19,44 @@ make bootstrap
 open VexSign.xcworkspace
 ```
 
-The signing engine and device bridge live in `Packages/Vendor/`; other SwiftPM packages
+The signing engine and device bridge live in `VexSign/Packages/Vendor/`; other SwiftPM packages
 resolve normally. Use a supported current
 Xcode and the iOS 17+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
+
+## Source ownership
+
+Project content lives under `VexSign/`. Keep the Xcode project/workspace,
+`.github/`, root entry points and legal files where their tools expect them.
+The iOS app is `VexSign/App/iOS/VexSign/`:
+
+- `App/`: scenes, bootstrap, dependency composition, lifecycle and app navigation.
+- `Presentation/Features/<Feature>/`: views, components, view models and UI models
+  belonging to that feature. Reuse `Presentation/DesignSystem/` and `Shared/`.
+- `Application/`: workflow orchestration through injected Domain interfaces.
+- `Domain/`: Foundation-only contracts, values and deterministic policy; no UI,
+  SDK, concrete persistence, file or HTTP implementations.
+- `Infrastructure/`: actual signing/archive/account/device/repository/storage
+  adapters. Keep the existing pipeline, registry and task/device coordinators.
+- `Platform/`: Apple/iOS API and compatibility adapters.
+- `Security/` and `Resources/`: real security policies/secret stores and bundled
+  app resources, respectively.
+
+Domain and Application must remain Foundation-only. New Presentation code must
+not reach directly into signing, key/ZIP/device or concrete database APIs; legacy
+coupling is recorded debt, not a pattern to copy. Add a consumed port and wire
+its adapter in `App/Composition/AppContainer` when a workflow needs a new seam.
+
+Keep genuine packages in `VexSign/Packages/`, optional services in
+`VexSign/Services/`, existing test categories in `VexSign/Tests/`, and nonsecret
+build/signing inputs in `VexSign/Configuration/`. Do not create empty example
+packages, placeholder feature/suite folders or another catchall manager.
+
+See the [architecture guide](VexSign/Documentation/Architecture/ARCHITECTURE.md),
+[dependency rules](VexSign/Documentation/Architecture/dependency-rules.md) and
+[migration record](VexSign/Documentation/Architecture/feature-layout-migration.md).
+If a canonical public alias changes, run
+`python3 VexSign/Tools/Validation/repository-validation/sync_repo_aliases.py --write`;
+do not change historical feed or commit-pinned URLs by mass substitution.
 
 ## Validate changes
 
@@ -57,15 +92,15 @@ rebuild with an explicit deployment target (for example `15.0`).
 - Prefer small, testable components and dependency injection over new global singletons.
 - Do not add silent `try?` at user-visible failure boundaries.
 - Preserve strict-concurrency boundaries; document any justified exception.
-- Edit `App/iOS/VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 Tools/Development/sync-strings.py --write`), then run `make verify`.
-- Follow [Design](Documentation/Design/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `App/iOS/VexSign/DesignSystem/` instead of adding another card style.
+- Edit `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --write`), then run `make verify`.
+- Follow [Design](VexSign/Documentation/Features/Design/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `VexSign/App/iOS/VexSign/Presentation/` instead of adding another card style.
 - Keep documentation concise and update only guides affected by the change.
 
 ## Releases
 
-Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [Documentation/Releases/RELEASING.md](Documentation/Releases/RELEASING.md).
+Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [VexSign/Documentation/Release/RELEASING.md](VexSign/Documentation/Release/RELEASING.md).
 
-Zsign and IDeviceKit sources are vendored under `Packages/Vendor/`. Send general Zsign
+Zsign and IDeviceKit sources are vendored under `VexSign/Packages/Vendor/`. Send general Zsign
 changes upstream to [claration/Zsign-Package](https://github.com/claration/Zsign-Package/tree/package);
-if VexSign needs a new pin, follow [Packages/Vendor/README.md](Packages/Vendor/README.md) and
+if VexSign needs a new pin, follow [VexSign/Packages/Vendor/README.md](VexSign/Packages/Vendor/README.md) and
 include the licence/commit update in the same PR.

@@ -45,7 +45,9 @@ BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 # Summary heading. The build job uses the default; the test job passes its
 # own so a test run does not report itself as a build.
 DEFAULT_TITLE = "Build"
-DEFAULT_FIRST_PARTY = ["App", "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources", "Documentation"]
+# Keep historical log roots readable, but classify the migrated ownership root
+# too. A relocation must never silently disable the first-party warning gate.
+DEFAULT_FIRST_PARTY = ["VexSign", "App", "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources", "Documentation"]
 MAX_ANNOTATIONS = 200
 MAX_LISTED = 80
 
@@ -156,7 +158,8 @@ def is_first_party(rel: str | None, first_party: list[str]) -> bool:
     parts = rel.split("/")
     if any(marker in parts for marker in ("DerivedData", "SourcePackages", ".build", "node_modules")):
         return False
-    if parts[:2] == ["Packages", "Vendor"]:
+    owned_parts = parts[1:] if parts[:1] == ["VexSign"] else parts
+    if owned_parts[:2] == ["Packages", "Vendor"]:
         return False
     return parts[0] in first_party
 
@@ -175,6 +178,23 @@ def annotate(kind: str, msg: str, rel: str | None = None, line: int | None = Non
     msg = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
     head = f"::{kind} {','.join(props)}::" if props else f"::{kind}::"
     print(head + msg)
+
+
+def failure_log_contexts(lines: list[str]) -> list[str]:
+    """Keep unlocated linker/script failures even when later resource chatter
+    pushes them out of the log tail. Each annotation stays under GitHub's cap.
+    This is diagnostic-only and never changes the compiler or warning verdict.
+    """
+    marker = re.compile(r"^ld:|^clang(?:\+\+)?:|\berror:|fatal error|nonzero exit|"
+                        r"linker command failed|the following build commands failed|\*\* (?:BUILD|TEST) FAILED", re.I)
+    locations = [index for index, line in enumerate(lines) if marker.search(line)]
+    contexts = []
+    for index in locations[-6:]:
+        detail = [f"log line {index + 1}: {lines[index].strip()[:900]}"]
+        detail.extend(line.strip()[:180] for line in lines[max(0, index - 2):index] if line.strip())
+        detail.extend(line.strip()[:180] for line in lines[index + 1:index + 5] if line.strip())
+        contexts.append("\n".join(detail))
+    return contexts
 
 
 def main() -> int:
@@ -369,8 +389,15 @@ def main() -> int:
 
     if build_failed and not errors and not bare_errors:
         tail = [line for line in lines if line.strip()][-60:]
-        annotate("error", "Failed without a parsed diagnostic. Log tail:\n" +
-                 "\n".join(line[:500] for line in tail), title="Unparsed build/test failure")
+        contexts = failure_log_contexts(lines)
+        if contexts:
+            for context in contexts:
+                annotate("error", context, title="Unparsed build/test failure context")
+        else:
+            # The summary retains the full tail; the API-visible annotation
+            # must not lose its final (usually actionable) lines to truncation.
+            annotate("error", "Failed without a parsed diagnostic. Final log lines:\n" +
+                     "\n".join(line[:180] for line in tail[-12:]), title="Unparsed build/test failure")
         out.append("### Log tail (build failed without a parseable diagnostic)")
         out.append("")
         out.append("```text")

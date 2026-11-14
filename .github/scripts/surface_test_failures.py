@@ -79,22 +79,59 @@ def failed_tests(tests_path: str) -> list[tuple[str, list[str]]]:
     return found
 
 
+def crash_payload(text: str) -> dict:
+    """Read Apple's metadata record followed by a possibly multiline IPS body.
+
+    The last line is usually just `}`. Parsing that line discarded the actual
+    startup stack, exactly when XCTest had not connected enough to name a test.
+    """
+    decoder = json.JSONDecoder()
+    remaining = text.lstrip("\ufeff \t\r\n")
+    while remaining:
+        try:
+            value, end = decoder.raw_decode(remaining)
+        except ValueError:
+            return {}
+        if isinstance(value, dict) and isinstance(value.get("threads"), list):
+            return value
+        remaining = remaining[end:].lstrip()
+    return {}
+
+
+def text_crash_frames(text: str) -> list[str]:
+    """Older .crash exports are plain text rather than IPS JSON."""
+    match = re.search(r"(?m)^Thread \d+ Crashed:[^\n]*\n", text)
+    if not match:
+        return []
+    frames: list[str] = []
+    for line in text[match.end():].splitlines():
+        frame = re.match(r"\s*\d+\s+\S+\s+0x[0-9a-fA-F]+\s+(.+)", line)
+        if not frame:
+            break
+        frames.append(frame.group(1).strip())
+    return frames
+
+
 def crash_stack(diag_dir: str) -> str:
     """Faulting-thread symbols from the first readable .ips/.crash export."""
-    for base, _dirs, names in os.walk(diag_dir):
-        for name in names:
+    for base, dirs, names in os.walk(diag_dir):
+        dirs.sort()
+        for name in sorted(names):
             if not name.endswith((".ips", ".crash")):
                 continue
             try:
                 with open(os.path.join(base, name), encoding="utf-8", errors="replace") as handle:
-                    payload = json.loads(handle.read().splitlines()[-1])
+                    text = handle.read()
+                payload = crash_payload(text)
                 threads = payload.get("threads") or []
                 index = payload.get("faultingThread")
-                if not isinstance(index, int) or index >= len(threads):
+                if not isinstance(index, int) or not 0 <= index < len(threads):
                     index = next((i for i, t in enumerate(threads) if t.get("triggered")), 0)
                 frames = (threads[index].get("frames") or []) if threads else []
                 symbols = [f.get("symbol") or f.get("imageOffset") or "?" for f in frames]
-            except Exception:
+                if not symbols:
+                    symbols = text_crash_frames(text)
+            except (OSError, ValueError, TypeError, AttributeError, IndexError):
                 continue
             if symbols:
                 return " <- ".join(str(s)[:70] for s in symbols[:24])
@@ -171,7 +208,8 @@ def log_context(path: str) -> list[str]:
         before = [line.strip() for line in lines[max(0, marker - 40):marker] if line.strip()][-3:]
         after = [line.strip() for line in lines[marker + 1:marker + 30] if line.strip()][:4]
         picked = before + after
-    offender = re.compile(r"ran off the main queue|CoreData: error|NSInternalInconsistencyException")
+    offender = re.compile(r"ran off the main queue|CoreData: error|NSInternalInconsistencyException|"
+                          r"No ObservableObject|Fatal error|Precondition failed")
     flagged = [line.strip() for line in lines if offender.search(line)][-4:]
     picked = flagged + picked
     if not picked:

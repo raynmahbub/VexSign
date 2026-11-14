@@ -1,0 +1,103 @@
+import Foundation
+import NimbleExtensions
+
+/// Direct process-local host access. A detected external URL handler is not enough.
+enum EmbeddedContainerRuntime {
+    enum Destination: Equatable { case container, sideStore }
+
+    static var isGuestBuild: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "VexSignEmbeddedGuest") as? Bool == true
+    }
+
+    static var isPrimaryHost: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "VexSignPrimaryHost") as? Bool == true && !isGuestBuild
+    }
+
+    static var isAvailable: Bool { VEXEmbeddedRuntimeAvailable() }
+
+    /// The one answer to "what can this build do with the runtime".
+    ///
+    /// Built from the same three flags the callers used to read one at a time, so it cannot
+    /// drift from them. Tests inject `Facts` instead of a bundle.
+    static var capabilityReport: RuntimeCapabilityReport {
+        RuntimeCapabilityReport.make(
+            .init(isGuestBuild: isGuestBuild, isPrimaryHost: isPrimaryHost, runtimeLoaded: isAvailable)
+        )
+    }
+
+    // BGTask launch would restart the host UI without the guest's task handlers.
+    // Keep manual/foreground automation; do not register unsupported guest jobs.
+    // Read through the report so the boolean and the diagnostics cannot disagree.
+    static var supportsScheduledGuestTasks: Bool {
+        capabilityReport.isAvailable(.scheduledGuestTasks)
+    }
+
+    @MainActor
+    static func open(_ destination: Destination) -> Bool {
+        VEXEmbeddedRuntimeOpen(destination == .sideStore)
+    }
+
+    /// Run on a worker task: both ZIP inspection and copying can be expensive.
+    static func stageIPA(_ source: URL) throws -> Bool {
+        try Task.checkCancellation()
+        guard isAvailable else { return false }
+        let manager = FileManager.default
+        guard let caches = manager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        // LiveContainer deliberately symlinks guest tmp to the host tmp folder.
+        // Copy into guest-owned Caches before the native home-containment check;
+        // never broaden that check to all shared temporary files.
+        let root = caches.appendingPathComponent("VexSignEmbeddedImports", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) } // try? ok: best-effort cleanup of a private staging copy
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        let local = root.appendingPathComponent("Import.ipa")
+        try manager.copyItem(at: source, to: local)
+        try Task.checkCancellation()
+        try ArchiveSafetyValidator.validate(local)
+        try Task.checkCancellation()
+        // The native call synchronously copies into its own inbox and commits
+        // VexSignPendingImport. After that handoff only the host may discard it.
+        return VEXEmbeddedRuntimeStageIPA(local)
+    }
+}
+
+
+/// A container import is intentionally separate from an installd registration.
+/// Even .imported does not prove signing, a successful launch, or renewal.
+enum ContainerGuestState: Equatable, Sendable {
+    case unavailable
+    case unknown
+    case notImported
+    case imported(version: String?)
+
+    static func derive(runtimeAvailable: Bool, answer: [String: String]?) -> Self {
+        guard runtimeAvailable else { return .unavailable }
+        switch answer?["state"] {
+        case "imported": return .imported(version: answer?["version"])
+        case "notImported": return .notImported
+        default: return .unknown
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .unavailable: return .localized("Embedded runtime not loaded")
+        case .unknown: return .localized("Unknown")
+        case .notImported: return .localized("Not imported")
+        case .imported(let version):
+            return version.map { String.localized("Imported guest · v%@", arguments: $0) }
+                ?? .localized("Imported guest")
+        }
+    }
+}
+
+extension EmbeddedContainerRuntime {
+    static func guestState(for identifier: String) -> ContainerGuestState {
+        guard isAvailable else { return .unavailable }
+        return .derive(runtimeAvailable: true, answer: VEXEmbeddedRuntimeGuestInfo(identifier))
+    }
+}
