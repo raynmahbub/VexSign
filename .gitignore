@@ -6,8 +6,8 @@ xcuserdata/
 
 # Xcode and SwiftPM
 .build/
-packages/
-Payload/
+/packages/
+/Payload/
 *.ipa
 *.dSYM
 *.dSYM.zip
@@ -26,7 +26,7 @@ pending_notes.txt
 DEV.md
 bk
 manifest-worker
-App/iOS/VexSign/Resources/SelfUpdateConfig.plist
+VexSign/App/iOS/VexSign/Resources/SelfUpdateConfig.plist
 
 # Signing material and secrets
 *.p12
@@ -43,18 +43,19 @@ cert.json
 cert.txt
 
 # Python backend
+/.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-Services/API/server/*.db
-Services/API/server/.venv/
-Services/API/server/premium.json
+VexSign/Services/WebManager/API/*.db
+VexSign/Services/WebManager/API/.venv/
+VexSign/Services/WebManager/Configuration/premium.json
 
 # Cloud signing
-Services/CloudSigning/cloud-signing/node_modules/
-Services/CloudSigning/cloud-signing/dist/
-Services/CloudSigning/cloud-signing/work/
-Services/CloudSigning/cloud-signing/*.log
+VexSign/Services/Cloud/node_modules/
+VexSign/Services/Cloud/dist/
+VexSign/Services/Cloud/work/
+VexSign/Services/Cloud/*.log
 
 # Private real-device acceptance observations
 device-acceptance.local.json

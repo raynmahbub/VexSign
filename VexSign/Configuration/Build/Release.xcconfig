@@ -1,0 +1,4 @@
+#include "Shared.xcconfig"
+
+// Release symbols retain the project's existing dSYM configuration.
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym

@@ -1,0 +1,205 @@
+//
+//  ZsignHandler.swift
+//  VexSign
+//
+//  Created by VexSign Team on 17.04.2025.
+//
+
+import Foundation
+import OSLog
+import UIKit
+import NimbleExtensions
+
+final class ZsignHandler {
+	var hadError: Error?
+
+	private let executionGate: SigningExecutionGate
+    private let engine: any SigningEngine
+	private var _appUrl: URL
+	private var _options: Options
+	private var _certificate: CertificatePair?
+
+	init(
+		appUrl: URL,
+		options: Options = OptionsManager.shared.options,
+		cert: CertificatePair? = nil,
+        executionGate: SigningExecutionGate,
+        engine: any SigningEngine = ZsignAdapter()
+	) {
+		self.executionGate = executionGate
+        self.engine = engine
+		self._appUrl = appUrl
+		self._options = options
+		self._certificate = cert
+	}
+
+	func disinject() async throws {
+		guard !_options.disInjectionFiles.isEmpty else {
+			return
+		}
+
+		SigningLog.shared.info(.localized("Removing injected dylibs"))
+
+        guard let executable = SigningInputValidation.executable(in: _appUrl) else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        try await executionGate.withPermit {
+            guard ZsignEngine.removeInjectedDylibs(_options.disInjectionFiles, fromExecutableAt: executable.path) else {
+                throw SigningFileHandlerError.disinjectFailed
+            }
+        }
+	}
+
+	func sign() async throws {
+		guard let cert = _certificate else {
+			throw SigningFileHandlerError.missingCertifcate
+		}
+
+		var request = ZsignEngine.Request(appPath: _appUrl.relativePath)
+		request.provisionPath = Storage.shared.getFile(.provision, from: cert)?.path ?? ""
+		request.p12Path = Storage.shared.getFile(.certificate, from: cert)?.path ?? ""
+		request.p12Password = try cert.requireSigningPassword()
+		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
+		request.removeProvisioning = _options.removeProvisioning
+		request.nestedProvisionPaths = try _nestedProvisionPaths(for: cert, p12Path: request.p12Path)
+
+		try _rejectRefusedIdentity(for: cert, provisionPath: request.provisionPath, p12Path: request.p12Path)
+        try await _runExclusively(request)
+	}
+
+	func adhocSign() async throws {
+		var request = ZsignEngine.Request(
+			appPath: _appUrl.relativePath,
+			isAdHoc: true,
+			removeProvisioning: _options.removeProvisioning
+		)
+		request.entitlementsPath = _options.appEntitlementsFile?.path ?? ""
+
+        try await _runExclusively(request)
+	}
+
+    /// Validate custom entitlements for both certificate and ad-hoc requests. Capture and
+    /// cache cleanup must start only after acquiring native-engine ownership.
+    private func _runExclusively(_ request: ZsignEngine.Request) async throws {
+        guard SigningInputValidation.executable(in: _appUrl) != nil else {
+            throw SigningFileHandlerError.appNotFound
+        }
+        guard SigningInputValidation.entitlementsAreUsable(at: request.entitlementsPath) else {
+            throw SigningFileHandlerError.entitlementsUnreadable
+        }
+        try await executionGate.withPermit {
+            // Recheck after waiting: inputs may have changed while queued.
+            guard SigningInputValidation.executable(in: self._appUrl) != nil else {
+                throw SigningFileHandlerError.appNotFound
+            }
+            guard SigningInputValidation.entitlementsAreUsable(at: request.entitlementsPath) else {
+                throw SigningFileHandlerError.entitlementsUnreadable
+            }
+            // This worker-side check is shared by certificate, ad-hoc, batch and automation.
+            // It inspects the modified tree after extension removal, not an earlier source snapshot.
+            try BundleExecutableAudit.requireSignable(self._appUrl)
+            let captured = StdoutCapture.shared.start { SigningLog.shared.info($0) }
+            if !captured {
+                SigningLog.shared.warn(.localized(
+                    "Another signing run already owns engine output capture; this run's log will be incomplete."
+                ))
+            }
+            defer { if captured { StdoutCapture.shared.stop() } }
+            try self.run(request)
+        }
+    }
+
+	// MARK: - Nested profiles
+
+	/// The additional profile each nested bundle is signed with, read from the tree as it is
+	/// now — after identifier rewrites and extension removal — so the keys are the
+	/// identifiers the engine will see.
+	private func _nestedProvisionPaths(for cert: CertificatePair, p12Path: String) throws -> [String: String] {
+		let profiles = AdditionalProfiles.entries(for: cert)
+			.filter { !$0.isExpired }
+			.map { (pattern: $0.pattern, value: $0.url.path) }
+		guard !profiles.isEmpty else { return [:] }
+
+		let assigned = AdditionalProfiles.assignments(
+			nestedIdentifiers: NestedBundleAudit.bundles(in: _appUrl).compactMap(\.identifier),
+			mainPattern: cert.decodedProfile?.Entitlements?["application-identifier"]?.value as? String,
+			profiles: profiles
+		)
+		for (identifier, path) in assigned.sorted(by: { $0.key < $1.key }) {
+			// The engine refuses a profile that was not issued for this .p12 and says only
+			// "failed". Ask the same question first, per profile, so the failure names the
+			// extension and the reason.
+			if let problem = ZsignEngine.identityProblem(
+				provisioningProfile: _data(at: path),
+				certificate: _data(at: p12Path),
+				leafCertificate: cert.appliedCertificateDER,
+				profile: CertificateReader(URL(fileURLWithPath: path)).decoded
+			) {
+				let message = String.localized(
+					"The extension profile for %@ cannot be used with this certificate. %@ Remove it under Settings → Certificates → Extension Profiles, or add one issued for this certificate.",
+					arguments: identifier, problem.message
+				)
+				SigningLog.shared.error(message)
+				throw SigningFileHandlerError.identityRejected(message)
+			}
+			SigningLog.shared.info(.localized(
+				"%@ will be signed with its own profile (%@).",
+				arguments: identifier, URL(fileURLWithPath: path).lastPathComponent
+			))
+		}
+		return assigned
+	}
+
+	// MARK: - Identity
+
+	/// Asks the engine's own acceptance rules whether this identity can start a run.
+	///
+	/// `zsign` refuses a profile that does not belong to the .p12, an unreadable .p12, a
+	/// missing profile and a profile without a team identifier — and reports none of that
+	/// through its completion handler, so the run would otherwise end in the bare
+	/// "Signing failed." this check replaces.
+	private func _rejectRefusedIdentity(
+		for cert: CertificatePair,
+		provisionPath: String,
+		p12Path: String
+	) throws {
+		let problem = ZsignEngine.identityProblem(
+			provisioningProfile: _data(at: provisionPath),
+			certificate: _data(at: p12Path),
+			leafCertificate: cert.appliedCertificateDER,
+			profile: cert.decodedProfile
+		)
+		guard let problem else { return }
+
+		SigningLog.shared.error(.localized("Signing identity: %@", arguments: problem.message))
+		throw SigningFileHandlerError.identityRejected(problem.message)
+	}
+
+	private func _data(at path: String) -> Data? {
+		guard !path.isEmpty else { return nil }
+		do {
+			return try Data(contentsOf: URL(fileURLWithPath: path))
+		} catch {
+			Logger.misc.error("Could not read \(path): \(error.localizedDescription)")
+			return nil
+		}
+	}
+
+	// MARK: - Private
+
+	/// Hands one request to the engine and turns its two failure signals into a thrown error.
+	private func run(_ request: ZsignEngine.Request) throws {
+		// The pinned engine writes its cache into the working directory and never reads it back
+		// (see `ZsignEngine.clearCache`), so clearing it first cannot lose a cache hit and keeps
+		// a stale entry from an earlier run out of the way.
+		ZsignEngine.clearCache()
+
+		let outcome = engine.sign(request)
+
+        do { try outcome.requireSuccess() }
+        catch {
+            hadError = error
+            throw error
+        }
+	}
+}

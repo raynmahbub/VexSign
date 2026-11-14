@@ -1,0 +1,9 @@
+{
+  "VexSign/App/iOS/VexSign/Application/Shared/RemovalUndoLease.swift": 1,
+  "VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/AppFileHandler.swift": 1,
+  "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppOperationRegistry.swift": 1,
+  "VexSign/App/iOS/VexSign/Infrastructure/Downloads/Download.swift": 1,
+  "VexSign/App/iOS/VexSign/Infrastructure/Observation/StreamObservationCancellation.swift": 1,
+  "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryDirectoryClient.swift": 1,
+  "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift": 1
+}

@@ -1,0 +1,1305 @@
+{
+  "generatedAt": "2026-11-13",
+  "branch": "arena/bf87c593-vexsign",
+  "baseCommit": "57d3aa65b0228071fa0d2589c232a00b5517ece2",
+  "scope": "Feature-oriented source migration and current runtime ownership; source evidence is not Xcode or device acceptance.",
+  "layers": [
+    "App",
+    "Presentation",
+    "Application",
+    "Domain",
+    "Infrastructure",
+    "Platform",
+    "Security",
+    "Resources",
+    "External integrations",
+    "Tooling"
+  ],
+  "dependencyRules": [
+    "Dependencies point inward toward Domain contracts.",
+    "Domain imports Foundation only and owns no platform or infrastructure implementation.",
+    "Application coordinates use cases through explicit injected ports.",
+    "Infrastructure and Platform implement ports; External integrations are adapters, not owners of application state.",
+    "Presentation must not directly execute signing, archive extraction, installation, provisioning or persistence.",
+    "Composition is explicit in AppContainer.live(); no new uncontrolled service locator.",
+    "Legacy violations are baseline-tracked and must not spread to new files."
+  ],
+  "coreSystems": [
+    {
+      "name": "SigningOrchestrator",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift"
+      ],
+      "responsibility": "One shared signing pipeline.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift",
+        "VexSign/Tests/UnitTests/Signing/SigningServiceTests.swift",
+        "VexSign/App/iOS/VexSign/Application/Signing/RunSigningUseCase.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningPipeline.swift",
+        "VexSign/App/iOS/VexSign/Application/Signing/SigningWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/LibrarySigningAdapter.swift"
+      ]
+    },
+    {
+      "name": "IdentityManager",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/IdentityVault.swift",
+        "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateStatusManager.swift"
+      ],
+      "responsibility": "Certificate/key import, secure storage and status monitoring.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/IdentityVault.swift",
+        "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift",
+        "VexSign/Tests/SecurityTests/CertificateValidation/CertificateRevocationTests.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateRemoval.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage+Certificate.swift"
+      ]
+    },
+    {
+      "name": "ProvisioningValidator",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/NestedBundleAudit.swift",
+        "VexSign/Packages/NativeSigning/Provisioning/NativeProvisioningProfileValidator.swift"
+      ],
+      "responsibility": "File-backed compatibility checks plus strict experimental native CMS/profile validation; pure matcher remains Domain.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
+        "VexSign/Packages/NativeSigning/Provisioning/NativeProvisioningProfileValidator.swift",
+        "VexSign/Tests/UnitTests/Signing/ProfileCompatibilityTests.swift"
+      ]
+    },
+    {
+      "name": "ApplicationRegistry",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift"
+      ],
+      "responsibility": "Canonical app lifecycle records; permanent, nondeleted app snapshots are admitted only from the owning context before relationship access.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift",
+        "VexSign/Tests/PerformanceTests/StorageConcurrencyTests.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
+        "VexSign/App/iOS/VexSign/Domain/Entities/WorkspaceSnapshot.swift",
+        "VexSign/Tests/UnitTests/Persistence/CoreDataWorkspaceRepositoryTests.swift"
+      ]
+    },
+    {
+      "name": "InstallationCoordinator",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueue.swift"
+      ],
+      "responsibility": "Install routing, queueing and result verification.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueueCore.swift",
+        "VexSign/Tests/WorkflowTests/InstallationWorkflow/InstallConfirmationTests.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallationQueueAdapter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchJobRunner.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchSigningAdapter.swift",
+        "VexSign/App/iOS/VexSign/Application/Installation/DirectPackageInstallUseCase.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/DirectPackageInstallationAdapter.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Installation/ViewModels/DirectInstallViewModel.swift",
+        "VexSign/Tests/UnitTests/Application/DirectInstallWorkspaceBoundaryTests.swift"
+      ]
+    },
+    {
+      "name": "DeviceCapabilityResolver",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/DeviceConnectivity.swift"
+      ],
+      "responsibility": "Capability answers separated from device trust evidence.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/DeviceConnectivity.swift",
+        "VexSign/Tests/UnitTests/Devices/DeviceConnectivityTests.swift"
+      ]
+    },
+    {
+      "name": "UnifiedTaskCenter",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift"
+      ],
+      "responsibility": "Single long-running task state.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskPolicies.swift",
+        "VexSign/Tests/UnitTests/Application/UnifiedTaskPolicyTests.swift",
+        "VexSign/App/iOS/VexSign/Application/Tasks/TaskWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskWorkspaceAdapter.swift"
+      ]
+    },
+    {
+      "name": "PersistentTaskJournal",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift",
+        "VexSign/App/iOS/VexSign/Domain/Services/TaskHistoryQuery.swift"
+      ],
+      "responsibility": "Durable checkpoints, history and recovery records.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskTrace.swift",
+        "VexSign/Tests/UnitTests/Application/TaskHistoryJournalTests.swift"
+      ]
+    },
+    {
+      "name": "RepositoryManager",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositorySyncEngine.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryCatalogService.swift"
+      ],
+      "responsibility": "Source discovery, ETag refresh and catalog integrity.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositorySyncEngine.swift",
+        "VexSign/Packages/AltSourceKit",
+        "VexSign/Tests/UnitTests/Repositories/SourceFeedLoaderTests.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/SourceCatalogStore.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryWorkspaceAdapter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryDirectoryClient.swift"
+      ]
+    },
+    {
+      "name": "DownloadManager",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager.swift"
+      ],
+      "responsibility": "Validated download lifecycle and recovery.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager+Recovery.swift",
+        "VexSign/Tests/UnitTests/Persistence/DownloadRecoveryJournalTests.swift"
+      ]
+    },
+    {
+      "name": "ArtifactStorage",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Archives",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift"
+      ],
+      "responsibility": "Filesystem artifacts, bounded extraction and atomic staging.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Archives",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift",
+        "VexSign/Tests/UnitTests/Signing/PostSignArtifactsTests.swift"
+      ]
+    },
+    {
+      "name": "BackupRestoreCoordinator",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupManager.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupRestorePlan.swift"
+      ],
+      "responsibility": "Encrypted backup, restore admission and verification.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupManager.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupCrypto.swift",
+        "VexSign/Tests/UnitTests/Persistence/BackupRestorePolicyTests.swift",
+        "VexSign/App/iOS/VexSign/Application/Backups/BackupWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupWorkspaceAdapter.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Views/BackupView.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Models/BackupPresentationState.swift",
+        "VexSign/Tests/UnitTests/Application/BackupWorkspaceBoundaryTests.swift"
+      ]
+    },
+    {
+      "name": "AutomationCoordinator",
+      "layer": "External integrations",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift",
+        "VexSign/App/iOS/VexSign/Platform/iOS/AppIntents"
+      ],
+      "responsibility": "Background grants, Shortcuts and automation entry points.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift",
+        "VexSign/App/iOS/VexSign/Platform/iOS/AppIntents",
+        "VexSign/Tests/UnitTests/Application/AutomationAvailabilityTests.swift"
+      ]
+    },
+    {
+      "name": "DiagnosticService",
+      "layer": "Infrastructure",
+      "owner": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/SubsystemDiagnosticsLog.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift"
+      ],
+      "responsibility": "Redacted structured diagnostics and support exports.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift",
+        "VexSign/Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "App shell and composition root",
+      "layer": "App",
+      "responsibilities": "Scene lifecycle, explicit dependency graph, environment injection, deep-link dispatch and platform bootstrap.",
+      "dependencies": [
+        "Application use cases",
+        "Domain ports",
+        "Platform adapters",
+        "Infrastructure adapters"
+      ],
+      "publicInterfaces": [
+        "VexSignApp",
+        "AppContainer.live()",
+        "AppContainer make*UseCase factories"
+      ],
+      "stateOwnership": "Owns one AppContainer instance per scene; no duplicated service locator state.",
+      "concurrencyModel": "@MainActor SwiftUI app and @MainActor AppContainer; use cases constructed on demand.",
+      "persistence": "No persistent state; UserDefaults-backed adapters are injected behind ports.",
+      "existingTests": [
+        "CleanArchitectureLayerTests.swift",
+        "VexSign/Tools/Validation/architecture-rules/test_architecture_boundaries.py"
+      ],
+      "failureModes": [
+        "Missing composition wiring",
+        "main-actor singleton misuse",
+        "environment fallback creating a second container"
+      ],
+      "refactoringRequirement": "Keep all new dependencies explicit; avoid adding static shared state to AppContainer.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/App/VexSignApp.swift",
+        "VexSign/App/iOS/VexSign/App/Composition/AppContainer.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Shared/Models/AppContainerEnvironment.swift",
+        "VexSign/Tests/UnitTests/Application/CleanArchitectureLayerTests.swift",
+        "VexSign/App/iOS/VexSign/App/Bootstrap/AppPreferencesBootstrap.swift",
+        "VexSign/App/iOS/VexSign/App/Lifecycle/AppDelegate.swift",
+        "VexSign/App/iOS/VexSign/App/Lifecycle/AppLifecycleCoordinator.swift"
+      ]
+    },
+    {
+      "name": "Presentation views and view models",
+      "layer": "Presentation",
+      "responsibilities": "Feature-oriented UI and immutable/opaque workspace models; intentions cross injected use cases. Guarded storage/I/O/managed-record/engine-owner coupling is zero, not a proof of every UI/platform edge.",
+      "dependencies": [
+        "Presentation view models",
+        "Application use cases",
+        "Domain value types",
+        "Design system"
+      ],
+      "publicInterfaces": [
+        "SwiftUI View conformances",
+        "@MainActor ObservableObject view models",
+        "Coordinator callbacks"
+      ],
+      "stateOwnership": "Transient @State/@StateObject and injected view models; legacy views still use @FetchRequest/Storage.shared.",
+      "concurrencyModel": "Main-actor UI; async work must be delegated; legacy direct file/network work is baseline-tracked.",
+      "persistence": "Legacy Core Data fetch requests and direct Storage calls remain in baseline; new shortcuts are blocked.",
+      "existingTests": [
+        "CleanArchitectureLayerTests.swift",
+        "StabilityAndArchitectureTests.swift",
+        "VexSign/Tools/Validation/architecture-rules/test_architecture_excellence.py"
+      ],
+      "failureModes": [
+        "Direct persistence mutation",
+        "main-thread file I/O",
+        "stale progress state",
+        "duplicated business logic in views"
+      ],
+      "refactoringRequirement": "Incrementally move baseline view coupling behind view models/use cases; do not mass-move files.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Presentation",
+        "VexSign/App/iOS/VexSign",
+        "VexSign/App/iOS/VexSign/Presentation",
+        "VexSign/Tools/Validation/architecture-rules/architecture-drift-baseline.json",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Tasks/ViewModels/TaskWorkspaceModel.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Signing/ViewModels/SigningWorkspaceModel.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Devices/ViewModels/CompanionArchiveModel.swift"
+      ]
+    },
+    {
+      "name": "Application use cases and coordinators",
+      "layer": "Application",
+      "responsibilities": "Foundation-only workflow policy and consumption metadata through Domain ports; existing engines retain execution, registration, persistence and device verdict authority.",
+      "dependencies": [
+        "Domain protocols and value types",
+        "Injected platform/transfer/reset/diagnostics ports"
+      ],
+      "publicInterfaces": [
+        "DirectPackageInstallUseCase",
+        "FirmwareDownloadUseCase",
+        "DeepLinkRouterUseCase",
+        "WorkspaceResetUseCase",
+        "WorkspaceSupportUseCase",
+        "AnisetteProviderUseCase",
+        "RunSigningUseCase"
+      ],
+      "stateOwnership": "Per-instance injected closures/services; no global mutable workflow state in refactored use cases.",
+      "concurrencyModel": "@MainActor where UI-facing; async use cases use structured concurrency and cancellation checks.",
+      "persistence": "None directly; adapters own persistence.",
+      "existingTests": [
+        "CleanArchitectureLayerTests.swift",
+        "WorkspaceSupportArchitectureTests.swift",
+        "VexSign/Tools/Validation/architecture-rules/test_architecture_boundaries.py"
+      ],
+      "failureModes": [
+        "Cancellation swallowed by a closure",
+        "direct UIKit/infra import",
+        "implicit singleton lookup",
+        "unsafe error strings"
+      ],
+      "refactoringRequirement": "Keep Application free of concrete globals and platform/SDK I/O. Legacy feature workflows remain ratcheted at their existing owners until incrementally ported.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Application",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/SubsystemBoundaries.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/WorkspaceSupportContracts.swift",
+        "VexSign/Tests/UnitTests/Application/WorkspaceSupportArchitectureTests.swift",
+        "VexSign/App/iOS/VexSign/Application/Signing/RunSigningUseCase.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/DirectInstallationProviding.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/AnisetteConfigurationProviding.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/IncomingFilesProviding.swift",
+        "VexSign/App/iOS/VexSign/Application/Signing/SigningWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Application/Library/LibraryUseCase.swift",
+        "VexSign/App/iOS/VexSign/Application/Accounts/AppleAccountWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Application/Backups/BackupWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Application/Tasks/TaskWorkspaceUseCase.swift",
+        "VexSign/App/iOS/VexSign/Application/Installation/CompanionArchiveUseCase.swift"
+      ]
+    },
+    {
+      "name": "Domain contracts and value types",
+      "layer": "Domain",
+      "responsibilities": "Framework-free contracts, workspace commands, errors, snapshots, routes and boundary protocols.",
+      "dependencies": [
+        "Foundation only"
+      ],
+      "publicInterfaces": [
+        "SecurityPolicyValidating",
+        "SecureTransferProviding",
+        "PlatformSystemAdapting",
+        "WorkspaceSupportEnvironmentProviding",
+        "DeepLinkCommand",
+        "ArchitectureDomainError",
+        "SigningWork",
+        "SigningEngine",
+        "SigningWorkflowEvent",
+        "SigningStage",
+        "AnisetteConfigurationProviding",
+        "DirectInstallationProviding",
+        "IncomingFilesProviding"
+      ],
+      "stateOwnership": "Immutable value types and protocol definitions; owns no mutable global state.",
+      "concurrencyModel": "Sendable values and @MainActor-only UI-facing protocols; no concurrency primitives.",
+      "persistence": "No persistence; persistence interfaces are protocols only.",
+      "existingTests": [
+        "CleanArchitectureLayerTests.swift",
+        "VexSign/Tools/Validation/architecture-rules/test_architecture_boundaries.py",
+        "VexSign/Tools/Validation/architecture-rules/test_architecture_excellence.py"
+      ],
+      "failureModes": [
+        "Infrastructure import creep",
+        "singleton references",
+        "platform-specific types",
+        "generic error strings"
+      ],
+      "refactoringRequirement": "Keep Domain pure; add contracts only when an existing workflow needs an explicit seam.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Domain/Entities/DomainContracts.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/SubsystemBoundaries.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/WorkspaceSupportContracts.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/SigningEngine.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/SigningWork.swift",
+        "VexSign/App/iOS/VexSign/Domain/Results/SigningWorkflowEvent.swift",
+        "VexSign/App/iOS/VexSign/Domain/Entities/WorkspaceSnapshot.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/TaskWorkspaceProviding.swift",
+        "VexSign/App/iOS/VexSign/Domain/Protocols/AppleAccountWorkspaceProviding.swift",
+        "VexSign/App/iOS/VexSign/Domain/Entities/BackupWorkspace.swift"
+      ]
+    },
+    {
+      "name": "Unified signing pipeline",
+      "layer": "Infrastructure",
+      "responsibilities": "IPA validation, preflight, identity resolution, signing plan, Zsign execution, output verification and structured diagnostics.",
+      "dependencies": [
+        "SigningPlan",
+        "ProfileCompatibility",
+        "NestedBundleAudit",
+        "SignatureVerifier",
+        "VexSign/Packages/Vendor/Zsign",
+        "UnifiedTaskCenter",
+        "Domain SigningEngine and SigningWork ports"
+      ],
+      "publicInterfaces": [
+        "SigningService.sign",
+        "SigningHandler",
+        "SigningRequest",
+        "ZsignEngine"
+      ],
+      "stateOwnership": "Per-run signing request/options; signed artifacts registered through library services.",
+      "concurrencyModel": "SigningService owns run admission and registry leases; RunSigningUseCase owns event/terminal policy; the existing worker runs off the main actor with execution-gate serialization and cancellation checkpoints.",
+      "persistence": "Original/signed IPA files and Core Data library records are written by existing storage adapters.",
+      "existingTests": [
+        "SigningServiceTests.swift",
+        "FullSignPipelineIntegrationTests.swift",
+        "ExtensionSigningRegressionTests.swift",
+        "SignatureVerifierTests.swift"
+      ],
+      "failureModes": [
+        "Invalid archive",
+        "identity/profile mismatch",
+        "nested extension missing profile",
+        "verification failure",
+        "interrupted run"
+      ],
+      "refactoringRequirement": "Preserve one pipeline; provider differences belong in identity acquisition and plan inputs, not duplicate engines.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Zsign/ZsignEngine.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningPipeline.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Zsign/ZsignAdapter.swift",
+        "VexSign/App/iOS/VexSign/Application/Signing/RunSigningUseCase.swift"
+      ]
+    },
+    {
+      "name": "Native account provisioning and identity",
+      "layer": "External integrations",
+      "responsibilities": "Experimental Apple-account authentication, anisette, certificate creation, profile creation and CMS/profile validation.",
+      "dependencies": [
+        "NativeSigning package",
+        "SideSign adapters",
+        "Keychain",
+        "AnisetteServer",
+        "Apple services"
+      ],
+      "publicInterfaces": [
+        "AppleAccountSessionCoordinator",
+        "NativeSigningManager",
+        "NativeProvisioningProfileValidator",
+        "NativeAppleProfileCMSVerifier"
+      ],
+      "stateOwnership": "Account/session repositories and Keychain-backed stores; capability remains .notIntegrated.",
+      "concurrencyModel": "Actors/structured async plus @MainActor managers; strict cancellation/fail-closed CMS gate.",
+      "persistence": "Keychain, resume journal, profile receipt stores; secrets are not in ordinary logs.",
+      "existingTests": [
+        "VexSign/Packages/NativeSigning/Tests",
+        "AppleAccountSessionCoordinatorTests.swift",
+        "VexSign/Tools/Validation/security-validation/check-native-handoff.py"
+      ],
+      "failureModes": [
+        "2FA interruption",
+        "unsupported Apple response",
+        "missing genuine Apple CMS",
+        "expired profile",
+        "revoked certificate"
+      ],
+      "refactoringRequirement": "Do not promote native signing or claim computer-free install without device/CMS evidence.",
+      "sourceEvidence": [
+        "VexSign/Packages/NativeSigning",
+        "VexSign/App/iOS/VexSign/Infrastructure/Accounts/NativeSigningManager.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift",
+        "VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md"
+      ]
+    },
+    {
+      "name": "Certificate, Keychain and OCSP services",
+      "layer": "Security",
+      "responsibilities": "P12/profile import, secret storage, certificate health, revocation snapshots and OCSP response verification.",
+      "dependencies": [
+        "Security framework",
+        "Keychain",
+        "CertificateReader",
+        "IdentityVault",
+        "OCSP"
+      ],
+      "publicInterfaces": [
+        "CertificateManagementService",
+        "SecureSecretStore",
+        "CertificateSecrets",
+        "OCSPValidator"
+      ],
+      "stateOwnership": "Keychain items and cached status snapshots; no private-key bytes in logs.",
+      "concurrencyModel": "Main-actor status stores; crypto/verifier work is value-based and off the UI path.",
+      "persistence": "Keychain ThisDeviceOnly tiers, Core Data certificate records, UserDefaults status snapshots.",
+      "existingTests": [
+        "CertificateRevocationTests.swift",
+        "OCSPTests.swift",
+        "OCSPResponderVerificationTests.swift",
+        "CertificateHealthRedactionTests.swift"
+      ],
+      "failureModes": [
+        "Wrong P12 password",
+        "missing intermediate",
+        "unknown revocation status",
+        "Keychain write failure"
+      ],
+      "refactoringRequirement": "Preserve TLS/TLS-validation requirements; do not copy AGPL/GPL validator implementations.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Security/Secrets/SecureSecretStore.swift",
+        "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/IdentityVault.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/OCSP",
+        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateStatusManager.swift"
+      ]
+    },
+    {
+      "name": "Provisioning compatibility and nested bundle audit",
+      "layer": "Infrastructure",
+      "responsibilities": "File-backed profile compatibility, nested-code discovery, signing-plan validation; the pure identifier matcher is in Domain.",
+      "dependencies": [
+        "Foundation",
+        "Domain identifier matcher",
+        "Infrastructure profile/file readers"
+      ],
+      "publicInterfaces": [
+        "ProfileCompatibility",
+        "SigningPlan.validationIssues()",
+        "NestedBundleAudit"
+      ],
+      "stateOwnership": "Pure values derived from files; no mutating shared state.",
+      "concurrencyModel": "Synchronous pure functions; safe to call from background inspection tasks.",
+      "persistence": "None; reads plists/files supplied by infrastructure.",
+      "existingTests": [
+        "ProfileCompatibilityTests.swift",
+        "NestedBundleAuditTests.swift",
+        "ExtensionSigningRegressionTests.swift",
+        "SigningPlanTests.swift"
+      ],
+      "failureModes": [
+        "Wildcard mismatch",
+        "missing entitlement",
+        "extension without identifier/executable",
+        "symlink traversal"
+      ],
+      "refactoringRequirement": "Keep filesystem inspection in Infrastructure and move only genuinely pure policies into Domain.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/NestedBundleAudit.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift",
+        "VexSign/Tests/UnitTests/Signing/NestedBundleAuditTests.swift"
+      ]
+    },
+    {
+      "name": "Archive extraction and artifact storage",
+      "layer": "Infrastructure",
+      "responsibilities": "IPA/ZIP inspection, bounded extraction, path-traversal refusal, atomic staging and signed-artifact lifecycle.",
+      "dependencies": [
+        "FileManager",
+        "NimbleExtensions",
+        "ArchiveHandler",
+        "DownloadIntegrity",
+        "FileIntegrity"
+      ],
+      "publicInterfaces": [
+        "PackageImportService",
+        "ArchiveHandler",
+        "PostSignArtifacts",
+        "FileIntegrity"
+      ],
+      "stateOwnership": "Files under Documents directories; temporary staging is bounded and cleaned by existing services.",
+      "concurrencyModel": "Background-safe file operations; atomic replacement and integrity checks before registration.",
+      "persistence": "Filesystem plus Core Data references; large IPA bytes are never embedded in the database.",
+      "existingTests": [
+        "ArchiveLimitsTests.swift",
+        "IPAExtractorTests.swift",
+        "DownloadIntegrityTests.swift",
+        "PostSignArtifactsTests.swift",
+        "VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py"
+      ],
+      "failureModes": [
+        "Zip slip",
+        "decompression bomb",
+        "partial write",
+        "orphan artifact",
+        "unsafe temp cleanup"
+      ],
+      "refactoringRequirement": "Preserve one archive/artifact owner; do not add a second storage abstraction.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Archives",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadIntegrity.swift",
+        "VexSign/App/iOS/VexSign/Security/Validation/FileIntegrity.swift"
+      ]
+    },
+    {
+      "name": "Application library and lifecycle registry",
+      "layer": "Infrastructure",
+      "responsibilities": "Canonical Core Data records for imported, signed, installed and updated apps; duplicate review and integrity audit.",
+      "dependencies": [
+        "Core Data",
+        "Storage+Shared",
+        "ImportDuplicateReview",
+        "LibraryIntegrityAudit"
+      ],
+      "publicInterfaces": [
+        "Storage.shared",
+        "AppInfoPresentable",
+        "LibraryDisplayPreferences"
+      ],
+      "stateOwnership": "One persistent store for app lifecycle records; file references are separate from database rows.",
+      "concurrencyModel": "@MainActor Core Data context plus serialized writes; concurrent first-write regression is guarded.",
+      "persistence": "VexSign.xcdatamodeld and Documents artifact directories.",
+      "existingTests": [
+        "StorageConcurrencyTests.swift",
+        "LibraryIntegrityAuditTests.swift",
+        "LibraryInstallationLifecycleTests.swift",
+        "ImportAndInstallationTests.swift",
+        "VexSign/Tests/UnitTests/Persistence/CoreDataWorkspaceRepositoryTests.swift"
+      ],
+      "failureModes": [
+        "Duplicate UUID",
+        "missing artifact",
+        "orphaned certificate",
+        "invalid installation-state claim",
+        "Typed result projection bypasses context/deletion/permanent-identity validation"
+      ],
+      "refactoringRequirement": "Keep one canonical registry; schema migrations require device/simulator rehearsal before uniqueness constraints.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage+Shared.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
+        "VexSign/Tests/UnitTests/Persistence/CoreDataWorkspaceRepositoryTests.swift"
+      ]
+    },
+    {
+      "name": "UnifiedTaskCenter and persistent journal",
+      "layer": "Infrastructure",
+      "responsibilities": "Task IDs, typed progress, cancellation, retry/error classification, checkpoints, recovery and structured task history.",
+      "dependencies": [
+        "TaskHistoryJournal",
+        "TaskHistoryQuery",
+        "UnifiedTaskModels",
+        "UnifiedTaskPolicies",
+        "Signing/Install/Download services"
+      ],
+      "publicInterfaces": [
+        "UnifiedTaskCenter",
+        "TaskReceipt",
+        "TaskTrace",
+        "TaskHistoryJournal"
+      ],
+      "stateOwnership": "Actor-observable task state plus durable journal files; widgets/Live Activities read snapshots.",
+      "concurrencyModel": "Swift structured concurrency, actor isolation, bounded operations, cancellation propagation.",
+      "persistence": "Atomic journal files and checkpoint records; no blind byte-resume claim.",
+      "existingTests": [
+        "TaskHistoryJournalTests.swift",
+        "UnifiedTaskPolicyTests.swift",
+        "WorkflowTraceTests.swift",
+        "VexSign/Tools/Development/test_task_history_resilience.py"
+      ],
+      "failureModes": [
+        "Interrupted run",
+        "stale progress",
+        "duplicate job",
+        "unsafe concurrent file access",
+        "unresumable transport"
+      ],
+      "refactoringRequirement": "Do not spawn independent progress engines; preserve operation-specific recovery semantics.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift",
+        "VexSign/App/iOS/VexSign/Domain/Services/TaskHistoryQuery.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskTrace.swift"
+      ]
+    },
+    {
+      "name": "Download and repository management",
+      "layer": "Infrastructure",
+      "responsibilities": "Repository discovery, ETag refresh, validated downloads, package import, transfer control and recovery.",
+      "dependencies": [
+        "AltSourceKit",
+        "RepositorySyncEngine",
+        "DownloadManager",
+        "SecurityPolicyGateway",
+        "TransferSecuritySession"
+      ],
+      "publicInterfaces": [
+        "DownloadManager.startDownload",
+        "RepositoryCatalogService",
+        "SourceFeedLoader",
+        "PackageImportService"
+      ],
+      "stateOwnership": "Download list, recovery journal and staged files; library import is a separate transition.",
+      "concurrencyModel": "URLSession delegates, async import, bounded concurrency and cancellation; Live Activity mirrors state.",
+      "persistence": "Filesystem staging and Core Data source records.",
+      "existingTests": [
+        "DownloadRecoveryJournalTests.swift",
+        "DownloadIntegrityTests.swift",
+        "SourceFeedLoaderTests.swift",
+        "VexSign/Tools/Validation/security-validation/test_network_timeout_policy.py"
+      ],
+      "failureModes": [
+        "Unsafe redirect",
+        "malformed port/IPv6 URL",
+        "oversize payload",
+        "duplicate repository refresh",
+        "interrupted download"
+      ],
+      "refactoringRequirement": "Keep one download manager; route all URL validation through the security gateway.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager+PackageImport.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositorySyncEngine.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryCatalogService.swift",
+        "VexSign/Packages/AltSourceKit"
+      ]
+    },
+    {
+      "name": "Installation coordinator and capability adapters",
+      "layer": "Infrastructure",
+      "responsibilities": "Capability-driven installation routing, OTA/idevice/container paths, install queue, result verification and device state.",
+      "dependencies": [
+        "AppInstaller",
+        "InstallQueue",
+        "DeviceConnectivity",
+        "LocalTLSIdentity",
+        "IDeviceKitten",
+        "EmbeddedContainerRuntime"
+      ],
+      "publicInterfaces": [
+        "DeviceCapabilityResolver.report",
+        "InstallQueue.enqueue",
+        "AppInstaller",
+        "InstallConfirmation"
+      ],
+      "stateOwnership": "Install queue current entry, capability report and device/pairing/trust states. Direct Install owns screen intent/confirmation admission only; its retired worker keeps the lease until completion and existing owners retain committed imports and accepted handoffs.",
+      "concurrencyModel": "Main-actor observable installers; device work is asynchronous; cancellation/deadline budgets exist.",
+      "persistence": "Pairing files, local TLS identity, manifest URLs, task history and library installation state.",
+      "existingTests": [
+        "InstallConfirmationTests.swift",
+        "InstallQueueSheetLifecycleTests.swift",
+        "DeviceConnectivityTests.swift",
+        "InstallVerificationTests.swift",
+        "VexSign/Tools/Validation/security-validation/test_capability_disclosure.py",
+        "VexSign/Tests/UnitTests/Application/DirectInstallWorkspaceBoundaryTests.swift"
+      ],
+      "failureModes": [
+        "No pairing",
+        "unauthorized device",
+        "unsupported transport",
+        "unverified manifest",
+        "transport succeeded but app not installed",
+        "A dismissed Direct Install sheet submits new work",
+        "A stale warning approves another request"
+      ],
+      "refactoringRequirement": "Do not promise universal computer-free install; capability answers must stay distinct from success evidence.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueue.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/DeviceConnectivity.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/TLS/LocalTLSIdentity.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation",
+        "VexSign/App/iOS/VexSign/Application/Installation/DirectPackageInstallUseCase.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/DirectPackageInstallationAdapter.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Installation/ViewModels/DirectInstallViewModel.swift",
+        "VexSign/Tests/UnitTests/Application/DirectInstallWorkspaceBoundaryTests.swift"
+      ]
+    },
+    {
+      "name": "Local HTTPS, OTA and Web Manager",
+      "layer": "Infrastructure",
+      "responsibilities": "Device-local HTTPS server, manifest generation, WebDAV/web tools, authorization and URL/SSRF guards.",
+      "dependencies": [
+        "VexSign/Services/WebManager/API/url_guard.py",
+        "ManifestService",
+        "WebManagerServer",
+        "LocalTLSIdentity",
+        "LogRedaction"
+      ],
+      "publicInterfaces": [
+        "ManifestService.resolve",
+        "WebManagerServer",
+        "public_url_error"
+      ],
+      "stateOwnership": "Server instance, TLS identity, bound port and access tokens; no universal external trust.",
+      "concurrencyModel": "Server event loop / async request handling; iOS-side server start is coordinated on main actor.",
+      "persistence": "Local certificates, source catalogs and request-scoped state.",
+      "existingTests": [
+        "ManifestServiceResolutionTests.swift",
+        "WebManagerAccessTests.swift",
+        "VexSign/Services/WebManager/Tests/test_signer_decoder_installer.py",
+        "VexSign/Tools/Development/test_integration_contracts.py"
+      ],
+      "failureModes": [
+        "Malformed port/IPv6",
+        "private-network redirect",
+        "unverified manifest",
+        "unauthenticated Web Manager request"
+      ],
+      "refactoringRequirement": "Keep OTA endpoint verification positive and authorization explicit.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/OTA/ManifestService.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Networking/WebManager/WebManagerServer.swift",
+        "VexSign/Services/WebManager/API/url_guard.py",
+        "VexSign/Services/WebManager/Tests/test_signer_decoder_installer.py"
+      ]
+    },
+    {
+      "name": "Automation, Shortcuts, widgets and companion targets",
+      "layer": "External integrations",
+      "responsibilities": "App Intents, background automation, Live Activities, widget/watch/TV/Vision read-only state surfaces.",
+      "dependencies": [
+        "UnifiedTaskCenter snapshots",
+        "App Intents",
+        "BackgroundAutomation",
+        "WidgetKit/WatchKit/SwiftUI"
+      ],
+      "publicInterfaces": [
+        "VexSignIntents",
+        "AutomationAvailability",
+        "SigningLiveActivityManager",
+        "Companion views"
+      ],
+      "stateOwnership": "Read-only snapshots and user grants; no independent progress engine.",
+      "concurrencyModel": "Main-actor UI surfaces; background task scheduling is platform-limited.",
+      "persistence": "UserDefaults grants, task journal snapshots and shared app-group containers.",
+      "existingTests": [
+        "AutomationAvailabilityTests.swift",
+        "CompanionAndWidgetTests.swift",
+        "VexSign/Tools/Validation/repository-validation/test_workflow_policy.py"
+      ],
+      "failureModes": [
+        "Background task not scheduled",
+        "expired permission",
+        "stale widget snapshot",
+        "companion build drift"
+      ],
+      "refactoringRequirement": "Keep companion targets read-only; do not duplicate signing/install state.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Platform/iOS/AppIntents",
+        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift",
+        "VexSign/App/Extensions/WidgetExtension",
+        "VexSign/App/Watch/VexSignWatch",
+        "VexSign/App/Watch/VexSignWatchWidgets",
+        "VexSign/App/TV/VexSignTV",
+        "VexSign/App/Vision/VexSignVision"
+      ]
+    },
+    {
+      "name": "Backup, restore and diagnostics",
+      "layer": "Infrastructure",
+      "responsibilities": "Encrypted backup creation, restore admission/verification, diagnostic bundles and redacted structured logs.",
+      "dependencies": [
+        "BackupManager",
+        "BackupRestorePlan",
+        "BackupCrypto",
+        "LibraryBackupSupport",
+        "DiagnosticBundleExporter",
+        "LogRedaction"
+      ],
+      "publicInterfaces": [
+        "BackupManager",
+        "BackupRestorePlan",
+        "DiagnosticBundleExporter",
+        "SubsystemDiagnosticsLog"
+      ],
+      "stateOwnership": "Encrypted backup archives own restore data; diagnostics exclude private keys. Screen-only visibility/operation generations own delayed alerts and Restart admission, not restore commits.",
+      "concurrencyModel": "@MainActor export builders; streaming archive work and crypto are isolated from UI.",
+      "persistence": "Encrypted backup container, integrity metadata, diagnostic archive and log files.",
+      "existingTests": [
+        "BackupRestorePolicyTests.swift",
+        "BackupStreamingTests.swift",
+        "LogRedactionTests.swift",
+        "CredentialMigrationDiagnosticsTests.swift",
+        "VexSign/Tools/Validation/security-validation/test_cross_file_privacy.py",
+        "VexSign/Tests/UnitTests/Application/BackupWorkspaceBoundaryTests.swift"
+      ],
+      "failureModes": [
+        "Corrupt backup",
+        "unknown format",
+        "missing integrity seal",
+        "sensitive value in export",
+        "A delayed completion or Restart action outlives its screen or operation"
+      ],
+      "refactoringRequirement": "Preserve encryption/validation and redaction-before-export; no unauthenticated restore.",
+      "sourceEvidence": [
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupManager.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupRestorePlan.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupCrypto.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
+        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Views/BackupView.swift",
+        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Models/BackupPresentationState.swift",
+        "VexSign/Tests/UnitTests/Application/BackupWorkspaceBoundaryTests.swift"
+      ]
+    },
+    {
+      "name": "Python backend and repository/web tools",
+      "layer": "External integrations",
+      "responsibilities": "Account/premium/catalog-related backend, URL guard, web signer, repo tools and OTA helper endpoints.",
+      "dependencies": [
+        "FastAPI/Starlette",
+        "VexSign/Services/WebManager/Configuration/requirements.txt",
+        "url_guard",
+        "httpx",
+        "repository metadata"
+      ],
+      "publicInterfaces": [
+        "/api/Tools/install/probe",
+        "/api/Tools/repo/decode",
+        "public_url_error"
+      ],
+      "stateOwnership": "Request-scoped state, prepared factories and single-use device-bound keys.",
+      "concurrencyModel": "ASGI async endpoints; deterministic URL validation before network fetch.",
+      "persistence": "Database/cache as configured by server; no secrets in repository defaults.",
+      "existingTests": [
+        "VexSign/Services/WebManager/Tests",
+        "VexSign/Tools/Development/test_cloud_signing_contract.py",
+        "VexSign/Tools/Development/test_integration_contracts.py"
+      ],
+      "failureModes": [
+        "Malformed URL",
+        "SSRF redirect",
+        "missing signature",
+        "prepared-factory drift"
+      ],
+      "refactoringRequirement": "Keep cloud/backend optional; local signing must remain on-device-first.",
+      "sourceEvidence": [
+        "VexSign/Services/WebManager/API",
+        "VexSign/Services/WebManager/API/url_guard.py",
+        "VexSign/Services/WebManager/Tests",
+        "VexSign/Documentation/Development/WEBTOOLS.md"
+      ]
+    },
+    {
+      "name": "TypeScript cloud signing service",
+      "layer": "External integrations",
+      "responsibilities": "Optional remote signing job API, queue, isolated worker, digest/HMAC verification and OpenAPI contract.",
+      "dependencies": [
+        "Node/TypeScript",
+        "zod",
+        "VexSign/Services/Cloud/openapi.json",
+        "CloudSigningClient"
+      ],
+      "publicInterfaces": [
+        "/api/upload",
+        "/api/sign",
+        "/api/jobs/{id}",
+        "OpenAPI schema"
+      ],
+      "stateOwnership": "Job rows, queue state and artifact storage; explicit authorization required.",
+      "concurrencyModel": "Async queue/worker; signatureVerified must be true before success.",
+      "persistence": "Artifact storage, job metadata, HMAC-verified webhooks.",
+      "existingTests": [
+        "VexSign/Services/Cloud/Tests",
+        "VexSign/Tests/UnitTests/Signing/CloudSigningContractTests.swift",
+        "VexSign/Tools/Development/test_cloud_signing_contract.py"
+      ],
+      "failureModes": [
+        "Unauthorized job",
+        "unsigned response",
+        "digest mismatch",
+        "wire-contract drift",
+        "missing deployment"
+      ],
+      "refactoringRequirement": "Do not describe a configured API as an operational production service.",
+      "sourceEvidence": [
+        "VexSign/Services/Cloud",
+        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift",
+        "VexSign/Documentation/Workflows/Distribution/CLOUD_SERVICES.md"
+      ]
+    },
+    {
+      "name": "EmbeddedContainer and SideSign integrations",
+      "layer": "External integrations",
+      "responsibilities": "Experimental guest-host packaging, companion signing bridge and isolated integration adapters.",
+      "dependencies": [
+        "EmbeddedContainer",
+        "SideSign",
+        "LiveContainer compatibility",
+        "Vendor packages"
+      ],
+      "publicInterfaces": [
+        "EmbeddedContainerRuntime",
+        "CompanionBridge",
+        "RuntimeCapabilityReport"
+      ],
+      "stateOwnership": "Availability reports and staged guest artifacts; no duplicated app registry.",
+      "concurrencyModel": "Capability-gated runtime handoff; no universal install promise.",
+      "persistence": "Staged IPA and runtime metadata files.",
+      "existingTests": [
+        "EmbeddedContainerRuntimeTests.swift",
+        "RuntimeCapabilityReportTests.swift",
+        "VexSign/Integrations/EmbeddedContainer/tests"
+      ],
+      "failureModes": [
+        "Runtime unavailable",
+        "guest not installed",
+        "unsupported extension",
+        "license incompatibility"
+      ],
+      "refactoringRequirement": "Preserve license obligations and capability gates; no AGPL/GPL source copying.",
+      "sourceEvidence": [
+        "VexSign/Integrations/EmbeddedContainer",
+        "VexSign/Packages/SideSign",
+        "VexSign/App/iOS/VexSign/Platform/Compatibility/EmbeddedContainerRuntime.swift",
+        "VexSign/App/iOS/VexSign/Platform/Compatibility/RuntimeCapabilityReport.swift"
+      ]
+    },
+    {
+      "name": "NimbleKit, AltSourceKit and vendored dependencies",
+      "layer": "External integrations",
+      "responsibilities": "Local utility/UI extensions, AltStore-compatible source parsing, zsign and device bridge packages.",
+      "dependencies": [
+        "SwiftPM pins",
+        "VexSign/Packages/Vendor/Zsign",
+        "VexSign/Packages/Vendor/IDeviceKitten",
+        "licenses"
+      ],
+      "publicInterfaces": [
+        "NimbleExtensions",
+        "AltSourceKit",
+        "ZsignEngine",
+        "IDeviceSwift"
+      ],
+      "stateOwnership": "Pin files and package graphs; no package introduced merely for appearance.",
+      "concurrencyModel": "Package-level concurrency; adapters isolate platform calls.",
+      "persistence": "Package.resolved pins and vendored source/licenses.",
+      "existingTests": [
+        "VexSign/Tools/Validation/repository-validation/check-package-graph.py",
+        "VexSign/Tools/Validation/repository-validation/test_xcode_package_audit.py",
+        "VexSign/Tools/Validation/repository-validation/test_package_graph.py"
+      ],
+      "failureModes": [
+        "Unpinned dependency",
+        "license drift",
+        "duplicate package name",
+        "unreviewed upstream change"
+      ],
+      "refactoringRequirement": "Preserve pins and third-party notices; no new Swift package for folder aesthetics.",
+      "sourceEvidence": [
+        "VexSign/Packages/NimbleKit",
+        "VexSign/Packages/AltSourceKit",
+        "VexSign/Packages/Vendor",
+        "THIRD_PARTY_NOTICES.md",
+        "license_plist.yml"
+      ]
+    },
+    {
+      "name": "Xcode project, workspace and build configurations",
+      "layer": "App",
+      "responsibilities": "VexSign/App/tests/widget/watch/TV/Vision targets, file-system-synchronized groups, signing-disabled CI build and SwiftPM pins.",
+      "dependencies": [
+        "VexSign.xcodeproj",
+        "VexSign.xcworkspace",
+        "Package.resolved files",
+        "Info.plists/entitlements"
+      ],
+      "publicInterfaces": [
+        "xcodebuild schemes",
+        "PBXFileSystemSynchronizedRootGroup",
+        "target entitlements"
+      ],
+      "stateOwnership": "Build settings and target membership; no runtime mutable state.",
+      "concurrencyModel": "Build-time configuration; CI selects Xcode and simulator at run time.",
+      "persistence": "Project files and resolved package pins.",
+      "existingTests": [
+        "VexSign/Tools/Validation/repository-validation/check-pbxproj.py",
+        "VexSign/Tools/Validation/repository-validation/check-xcode-packages.py",
+        ".github/scripts/quick_check.py"
+      ],
+      "failureModes": [
+        "Missing target membership",
+        "warning baseline drift",
+        "Swift 6 diagnostic",
+        "companion build failure"
+      ],
+      "refactoringRequirement": "Do not add separate packages for appearance; new files in synchronized groups need no pbxproj edit.",
+      "sourceEvidence": [
+        "VexSign.xcodeproj",
+        "VexSign.xcworkspace",
+        "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "VexSign.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+      ]
+    },
+    {
+      "name": "GitHub Actions and quality gates",
+      "layer": "Tooling",
+      "responsibilities": "CI, platform check, services, docs, release, embedded-container and maintenance workflows; portable policy tests.",
+      "dependencies": [
+        "ubuntu/macOS runners",
+        "Python tools suite",
+        "Xcode",
+        "npm/pytest",
+        "gh CLI"
+      ],
+      "publicInterfaces": [
+        "ci.yml quick/build/tests/concurrency",
+        "make verify",
+        "workflow_dispatch validation"
+      ],
+      "stateOwnership": "Workflow run state and artifacts; no hidden product state.",
+      "concurrencyModel": "Parallel jobs; superseded PR runs are cancelled, main runs are keyed by SHA.",
+      "persistence": "Actions artifacts, build-warnings baseline and check-run annotations.",
+      "existingTests": [
+        "VexSign/Tools/Validation/repository-validation/test_workflow_policy.py",
+        "VexSign/Tools/Validation/repository-validation/test_workflow_trace_policy.py",
+        "VexSign/Tools/Validation/repository-validation/test_build_provenance.py",
+        "VexSign/Tools/Validation/architecture-rules/test_architecture_excellence.py"
+      ],
+      "failureModes": [
+        "Missing toolchain",
+        "new warning",
+        "failed build/test",
+        "drift guard not wired",
+        "device test falsely marked passed"
+      ],
+      "refactoringRequirement": "Run portable gates locally; a fresh PR CI run remains the Build-verified gate.",
+      "sourceEvidence": [
+        ".github/workflows",
+        "Makefile",
+        "VexSign/Tools",
+        ".github/build-warnings-baseline.json"
+      ]
+    },
+    {
+      "name": "Distribution, bootstrap and acceptance documentation",
+      "layer": "Tooling",
+      "responsibilities": "Honest iOS installation routes, Apple provisioning limits, TestFlight/OTA prerequisites, device acceptance and threat model.",
+      "dependencies": [
+        "Apple distribution rules",
+        "upstream README evidence",
+        "VexSign/Documentation/distribution",
+        "QA_DEVICE_ACCEPTANCE.md"
+      ],
+      "publicInterfaces": [
+        "VexSign/Documentation/Workflows/Distribution/bootstrap.md",
+        "VexSign/Documentation/DeviceTesting/DEVICE_TESTING.md",
+        "VexSign/Documentation/Security/THREAT_MODEL.md"
+      ],
+      "stateOwnership": "Documentation only; no runtime state.",
+      "concurrencyModel": "Not applicable.",
+      "persistence": "Markdown documents and pinned research reports.",
+      "existingTests": [
+        "VexSign/Tools/Development/test_device_acceptance.py",
+        "VexSign/Tools/Validation/security-validation/test_capability_disclosure.py",
+        "VexSign/Documentation/Decisions/Research/device-acceptance-guide-2026-11-13.md"
+      ],
+      "failureModes": [
+        "Universal computer-free claim",
+        "bypassing Apple provisioning",
+        "missing device evidence"
+      ],
+      "refactoringRequirement": "Never promote Device-verified status without real iPhone evidence.",
+      "sourceEvidence": [
+        "VexSign/Documentation/Workflows/Distribution",
+        "VexSign/Documentation/DeviceTesting/DEVICE_TESTING.md",
+        "VexSign/Documentation/DeviceTesting/QA_DEVICE_ACCEPTANCE.md",
+        "VexSign/Documentation/Security/THREAT_MODEL.md"
+      ]
+    },
+    {
+      "name": "Security, privacy and performance policy suites",
+      "layer": "Tooling",
+      "responsibilities": "Cross-file guards for secrets, redaction, TLS, URL policy, archive safety, capability disclosure and performance fixtures.",
+      "dependencies": [
+        "Foundation/Python tools",
+        "policy baselines",
+        "Swift source text"
+      ],
+      "publicInterfaces": [
+        "VexSign/Tools/Validation/security-validation/test_cross_file_privacy.py",
+        "VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py",
+        "VexSign/Tools/Validation/security-validation/test_capability_disclosure.py",
+        "VexSign/Tools/Development/performance-fixtures.py"
+      ],
+      "stateOwnership": "Baseline JSON files and synthetic fixtures; no product runtime state.",
+      "concurrencyModel": "Offline deterministic checks; no profiling claims without evidence.",
+      "persistence": "Policy baselines and fixture corpora in repository.",
+      "existingTests": [
+        "VexSign/Tools/Validation/security-validation/test_logging_message_policy.py",
+        "VexSign/Tools/Validation/security-validation/test_network_timeout_policy.py",
+        "VexSign/Tools/Development/test_performance_fixtures.py",
+        "VexSign/Documentation/Decisions/Research/performance-and-reliability-review.md"
+      ],
+      "failureModes": [
+        "Secret in log",
+        "unsafe extraction",
+        "unbounded download",
+        "capability overclaim",
+        "speculative optimization"
+      ],
+      "refactoringRequirement": "Use profiling evidence before optimization; preserve all security gates.",
+      "sourceEvidence": [
+        "VexSign/Tools",
+        "SECURITY.md",
+        "VexSign/Documentation/Decisions/Research/performance-and-reliability-review.md"
+      ]
+    }
+  ],
+  "sourceReferences": [
+    {
+      "repository": "zhlynn/zsign",
+      "revision": "9299685bab7ef99827e06e5dfda93af747386590",
+      "license": "MIT",
+      "feature": "Local signing engine, multi-profile extension signing, cache and OCSP checks",
+      "adaptation": "VexSign already vendors zsign; preserve one pipeline and output verification. No README/source code copied.",
+      "verifiedInThisPass": true
+    },
+    {
+      "repository": "pwnapplehat/iPASide",
+      "revision": "6b721393964fd654a8984c22e00ead068e1e3109",
+      "license": "MIT",
+      "feature": "Apple ID sign-in, USB/computer trust and developer-profile trust prerequisites",
+      "adaptation": "Bootstrap documentation must never promise universal computer-free install.",
+      "verifiedInThisPass": true
+    },
+    {
+      "repository": "FrizzleM/SideInstaller",
+      "revision": "82452dfd2a575b5a031145de2b22b98d4b7b3a76",
+      "license": "custom noncommercial",
+      "feature": "iOS 27+ siboot prerequisites, PC-created pairing for older iOS, base64 link staging and log redaction",
+      "adaptation": "Use as capability/bootstrap evidence only; custom licence prevents source incorporation.",
+      "verifiedInThisPass": true
+    },
+    {
+      "repository": "LiveContainer/LiveContainer",
+      "revision": "9d6ea09b05afa2c8fc537c372795a294db631311",
+      "license": "AGPL-3.0",
+      "feature": "Guest-runtime limitations, JIT-less signing, app-extension limitations",
+      "adaptation": "Keep EmbeddedContainerRuntime capability-gated; do not copy AGPL source.",
+      "verifiedInThisPass": true
+    },
+    {
+      "repository": "ProStore-iOS/ProStore",
+      "revision": "f244d5397970bd7f31e258811a49e4e408a92054",
+      "license": "MIT",
+      "feature": "Download-and-sign progress manager with session temp directory",
+      "adaptation": "Confirms need for typed progress, cleanup and single owner; VexSign keeps its existing UnifiedTaskCenter/DownloadManager. No source copied.",
+      "verifiedInThisPass": true
+    },
+    {
+      "repository": "SideStore/SideStore",
+      "revision": "4f3d18d98c5fbee72c80f787ceb2e8e09ded60a6",
+      "license": "AGPL-3.0",
+      "feature": "OCSP status classification and WWDR intermediate handling",
+      "adaptation": "Use as policy comparison only; VexSign retains independent OCSP verifier and TLS/privacy gates. No source copied.",
+      "verifiedInThisPass": true
+    },
+    {
+      "repository": "VexSign/Documentation/Decisions/Research/reference-investigation-2026-11-13.md",
+      "revision": "workspace",
+      "license": "workspace",
+      "feature": "Pinned 17-repo metadata, licence notes and SideInstaller source inspection",
+      "adaptation": "Reused as license-compliant source inventory; no upstream implementation source copied.",
+      "verifiedInThisPass": true
+    }
+  ],
+  "assessment": "Feature/layer source migration and consumed workspace boundaries implemented over existing owners. All guarded architecture categories are zero with original provenance retained. Portable checks and original-blob/grammar audits are separate from still-open Xcode/XCTest, native CMS, simulator and physical-device acceptance."
+}

@@ -1,0 +1,4 @@
+#include "Shared.xcconfig"
+
+// Development diagnostics; target-specific settings stay in the project.
+DEBUG_INFORMATION_FORMAT = dwarf

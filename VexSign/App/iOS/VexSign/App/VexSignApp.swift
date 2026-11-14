@@ -1,0 +1,208 @@
+//
+//  VexSignApp.swift / AppDelegate
+//  VexSign
+//
+//  Created by VexSign Contributors on 10.04.2025.
+//
+
+import SwiftUI
+import NimbleViews
+import IDeviceSwift
+import NimbleExtensions
+
+@main
+struct VexSignApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
+
+    let heartbeat = HeartbeatManager.shared
+
+    @StateObject private var appContainer = AppContainer.live()
+    @StateObject var downloadManager = DownloadManager.shared
+    @StateObject private var tabSelection = TabSelectionObserver.shared
+    @StateObject private var selfUpdate = SelfUpdateManager.shared
+    @StateObject private var appLock = AppLockManager.shared
+    /// Single observable source of truth for theme/font/animation preferences,
+    /// injected into the environment so every view updates on change.
+    @StateObject private var appearance = AppearanceStore.shared
+    @AppStorage("VexSign.userTintColor") private var customWorkspaceAccent: String?
+    @AppStorage("VexSign.onboardingCompleted") private var _onboardingCompleted = false
+    @State private var _showOnboarding = false
+
+    private var activeManualDownloads: [Download] {
+        downloadManager.manualDownloads.filter {
+            $0.isActive || $0.progress > 0 || $0.unpackageProgress > 0
+        }
+    }
+
+    private var activeNonManualDownloads: [Download] {
+        downloadManager.nonManualDownloads.filter {
+            $0.isActive || $0.progress > 0 || $0.unpackageProgress > 0
+        }
+    }
+
+    private var hasActiveDownloads: Bool {
+        !activeManualDownloads.isEmpty || !activeNonManualDownloads.isEmpty
+    }
+
+    init() {
+        AppPreferencesBootstrap.prepare()
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            Group {
+                let downloadDisplayMode = UserDefaults.standard.string(forKey: "VexSign.downloadDisplayMode") ?? "floating"
+
+                if downloadDisplayMode == "header" {
+                    VStack(spacing: 0) {
+                        // Single animation point for header presence
+                        if !activeManualDownloads.isEmpty || !activeNonManualDownloads.isEmpty {
+                            downloadHeaderContent
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                                .zIndex(1)
+                        }
+
+                        TabbarView()
+                            .environmentObject(tabSelection)
+                            .onOpenURL(perform: _handleURL)
+                            .zIndex(0)
+                    }
+                    .animation(
+                        appearance.animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
+                        value: hasActiveDownloads
+                    )
+                } else {
+                    ZStack {
+                        TabbarView()
+                            .environmentObject(tabSelection)
+                            .onOpenURL(perform: _handleURL)
+                            .zIndex(0)
+
+                        // Floating download bubble and overlay (always present to handle its own animations)
+                        DownloadBubbleOverlayContainer(downloadManager: downloadManager)
+                            .zIndex(1)
+                    }
+                }
+            }
+            .environmentObject(appContainer)
+            .environmentObject(appContainer.cloudConfiguration)
+            .environmentObject(appContainer.tasks)
+            .environmentObject(appContainer.appleAccount)
+            .environmentObject(appContainer.workspace)
+            .environmentObject(appContainer.sources)
+            .environmentObject(appContainer.certificates)
+            .environmentObject(appContainer.signingPreferences)
+            .environmentObject(appContainer.discovery)
+            .environmentObject(appContainer.installationQueue)
+            .environmentObject(appContainer.files)
+            .environmentObject(appContainer.tweaks)
+            .environmentObject(appContainer.entitlements)
+            .environmentObject(appContainer.repositoryBuilder)
+            .environmentObject(appContainer.fileBrowser)
+            .environment(\.appContainer, appContainer)
+            .environmentObject(appearance)
+            .modifier(VexWorkspaceTypography())
+            .modifier(VexWorkspaceAccessibility())
+            .tint(Theme.tint)
+            .environment(\.nbWorkspaceBackground, Theme.background)
+            .environment(\.nbWorkspaceCard, Theme.card)
+            .preferredColorScheme(appearance.visualTheme.preferredColorScheme)
+            .buttonStyle(VexSignFlareButtonStyle(enabled: appearance.animationsEnabled))
+            .vexSignWebMotion()
+            .overlay(alignment: .bottom) {
+                InstallQueuePill()
+            }
+            .overlay {
+                // App Lock: covers everything, including the download bubble, while locked.
+                if appLock.isLocked {
+                    AppLockScreenView()
+                        .transition(.opacity)
+                        .zIndex(99)
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: appLock.isLocked)
+            .onReceive(NotificationCenter.default.publisher(for: .heartbeatInvalidHost)) { _ in
+                DispatchQueue.main.async {
+                    UIAlertController.showAlertWithOk(
+                        title: "InvalidHostID",
+                        message: .localized("Your pairing file is invalid and is incompatible with your device, please import a valid pairing file.")
+                    )
+                }
+            }
+            .onAppear {
+                if let style = UIUserInterfaceStyle(rawValue: UserDefaults.standard.integer(forKey: "VexSign.userInterfaceStyle")) {
+                    UIApplication.topViewController()?.view.window?.overrideUserInterfaceStyle = style
+                }
+
+                UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
+            }
+            .nbOnChange(of: customWorkspaceAccent) { _ in
+                UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
+            }
+            .nbOnChange(of: appearance.visualTheme) { _ in
+                UIApplication.topViewController()?.view.window?.tintColor = UIColor(Theme.tint)
+            }
+            .nbOnChange(of: scenePhase) { newPhase in
+                if newPhase == .background {
+                    AppLifecycleCoordinator.enterBackground()
+                }
+                if newPhase == .active {
+                    AppLifecycleCoordinator.enterForeground()
+                }
+            }
+            .task {
+                await AppLifecycleCoordinator.launch()
+                if !_onboardingCompleted {
+                    _showOnboarding = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .vexShowOnboarding)) { _ in
+                _showOnboarding = true
+            }
+            .sheet(isPresented: $_showOnboarding) {
+                // Sheets observe the same immutable workspace and application models.
+                OnboardingView()
+                    .environmentObject(appContainer)
+            .environmentObject(appContainer.workspace)
+            .environmentObject(appContainer.sources)
+            .environmentObject(appContainer.certificates)
+            .environmentObject(appContainer.signingPreferences)
+            .environmentObject(appContainer.discovery)
+            .environmentObject(appContainer.installationQueue)
+                    .environment(\.appContainer, appContainer)
+            }
+            .sheet(isPresented: $selfUpdate.presentUpdatePrompt) {
+                if let release = selfUpdate.available {
+                    SelfUpdateSheet(release: release)
+                        .environmentObject(appContainer)
+            .environmentObject(appContainer.workspace)
+            .environmentObject(appContainer.sources)
+            .environmentObject(appContainer.certificates)
+            .environmentObject(appContainer.signingPreferences)
+            .environmentObject(appContainer.discovery)
+            .environmentObject(appContainer.installationQueue)
+                        .environment(\.appContainer, appContainer)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var downloadHeaderContent: some View {
+        if !activeManualDownloads.isEmpty {
+            DownloadHeaderView(downloadManager: downloadManager)
+        } else if !activeNonManualDownloads.isEmpty {
+            let showInSourcesTab = UserDefaults.standard.bool(forKey: "VexSign.showDownloadHeaderInSourcesTab")
+            let shouldHide = tabSelection.selectedTab == .appStore && !showInSourcesTab
+
+            if !shouldHide {
+                ConditionalDownloadHeaderView(downloads: activeNonManualDownloads)
+            }
+        }
+    }
+
+    private func _handleURL(_ url: URL) {
+        appContainer.makeDeepLinkRouter().handle(url)
+    }
+}

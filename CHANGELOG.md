@@ -5,12 +5,32 @@ All notable changes to VexSign are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
-[Documentation/Releases/RELEASING.md](Documentation/Releases/RELEASING.md).
+[VexSign/Documentation/Release/RELEASING.md](VexSign/Documentation/Release/RELEASING.md).
 
 ## [Unreleased]
 
 ### Added
 
+- A populated feature-oriented iOS source tree under one main `VexSign/` root,
+  with App, Presentation, Application, Domain, Infrastructure, Platform, Security
+  and Resources owners. The [migration record](VexSign/Documentation/Architecture/feature-layout-migration.md),
+  [complete file map](VexSign/Documentation/Architecture/feature-layout-migration-map.json)
+  and [ADR](VexSign/Documentation/Decisions/ADR-0001-feature-layered-source-tree.md)
+  cover preservation and remaining native/device acceptance.
+- Consumed Domain ports for signing work/engine, opaque installation requests,
+  anisette configuration, incoming-file coordination and routing diagnostics;
+  Foundation-only Domain/Application, explicit App bootstrap/lifecycle ownership,
+  populated feature-local view models and real xcconfig inputs. Existing engine,
+  task center, device coordinator and library registry remain authoritative.
+- Layout/boundary/resource/membership regressions and expanded whole-Presentation
+  architecture coverage. Initial legacy matches were audited against original
+  source; consumed feature ports now bring all guarded categories to zero while
+  retaining the review/history. Added workspace/identity/consent/cancellation
+  regression sources; native compilation and device acceptance remain pending.
+- A read-only original-Git preservation auditor and 22 offline positive/negative
+  fixtures covering license/index text, protected inputs, target/product/config
+  identities, pins, shared membership and published aliases. Its optional Swift
+  grammar comparison is not a native build or device-verification claim.
 - The signing screen shows ten steps: identity, preflight, the seven stages the
   engine reports, and install. A step is marked done only from recorded evidence;
   stages a run did not need are shown as skipped, and install is shown as a
@@ -29,14 +49,38 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - A pure support-environment port and UIKit adapter so feedback/diagnostic
   actions no longer couple the Application layer to UIKit or platform globals.
 - A clean top-level ownership-root layout with an original-to-new
-  [migration map](Documentation/Engineering/Changes/root-layout-migration-map.json),
+  [migration map](VexSign/Documentation/Decisions/History/root-layout-migration-map.json),
   byte-identical published compatibility aliases, portable layout gates and a
-  [migration report](Documentation/Engineering/Changes/root-layout-migration.md).
+  [migration report](VexSign/Documentation/Decisions/History/root-layout-migration.md).
   This organizes App, Extensions, Integrations, Packages, Resources, Services,
   Tools and Documentation; it is not an Xcode-build or device-verification claim.
 
 ### Fixed
 
+- Direct Install owns/cancels its screen task, serializes overlapping imports,
+  and binds each once-only warning confirmation to the reviewed request. A
+  dismissed sheet cannot submit a later installation; registered artifacts and
+  accepted handoffs survive cancellation. Confirmation retains the actual guest
+  vs device-submission outcome instead of always displaying a device install.
+- All app snapshot projections now share one throwing store-admission gate,
+  including typed signing/batch outputs and workspace reads. Foreign-context,
+  deleted and temporary rows cannot bypass validation through a typed overload.
+- Backup completion delays and Restart actions are bound to the visible
+  operation and consumed once. Dismissal/reappearance cannot revive stale
+  callbacks, and cancellation does not pretend to undo committed restore data.
+- Retired batch installer callbacks cannot resume a later entry. Stop/skip after
+  an iOS handoff preserves delivery without claiming installation confirmation.
+- Certificate mutation saves are isolated; failed deletion retains credentials
+  and durable recovery files. Undo preserves nil dates and eligible app links;
+  old status checks cannot publish for an undone/reimported row.
+- Signing completion side effects use the reviewed request/output and are
+  consumed at most once. Explorer/companion dismissal forwards cancellation,
+  waits for active readers and cannot trigger a stale install/session switch.
+- Direct-import results distinguish guest-import and installation submission from
+  device-confirmed installation. Unknown routing fails closed. Temporary work,
+  confirmation handles and existing verification remain with their real owners.
+- Workflow/source-test/resource paths follow the feature migration without
+  rewriting bundle-relative fixtures, public feed URLs or upstream attribution.
 - The workspace support use case no longer imports UIKit, presents alerts
   directly, or reads device/user-default/pairing globals; those facts are
   injected through a Domain port and a Platform adapter, with XCTest coverage.
@@ -88,7 +132,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - When a tweak cannot be added to an app extension, the signing log now says
   which extension is without it.
 - The Discover screen's header and its appearance setting are named Discover.
-- Published GitHub/raw compatibility URLs, the `Packages/NativeSigning` SwiftPM
+- Published GitHub/raw compatibility URLs, the `VexSign/Packages/NativeSigning` SwiftPM
   local dependency path, pbxproj membership-exception validation and moved
   Python tool/test roots were corrected after the ownership-root move. Portable
   gates cover these regressions; Xcode, simulator and device checks remain open.
@@ -194,7 +238,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   'fileprivate' protection level*. Reaching across a split needs `internal`, the
   default, which is still module-scoped and so does not widen the public
   interface. All five now use it.
-- `Tools/Development/test_cross_file_privacy.py` pins this: for each type split across files,
+- `VexSign/Tools/Validation/security-validation/test_cross_file_privacy.py` pins this: for each type split across files,
   no `private` member may be referenced from a file that does not declare it.
   It follows braces to attribute a member to the type it is private *inside* (a
   file can declare several), treats top-level directories as separate modules,
@@ -212,7 +256,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   `privacy: .public`: OSLog interpolation defaults to `.private`, so those
   messages would otherwise read as `<private>` in Console — hiding the very
   failures that change was written to surface.
-- `Tools/Development/test_logging_message_policy.py` pins both properties: no `Logger` call
+- `VexSign/Tools/Validation/security-validation/test_logging_message_policy.py` pins both properties: no `Logger` call
   concatenates its message, and no `LogRedaction.redact(...)` reaches OSLog
   without `privacy: .public`. Neither is visible to the localisation, docs or
   `swift-syntax` checks, which is why only the Apple jobs caught it.
@@ -232,7 +276,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   They are now `refreshRenewalCandidates()` and
   `trackExpiringFreeAppleIDProfiles()`, and the comments say renewal is manual
   and needs an explicit grant this build does not have. No behaviour changed.
-  `Tools/Development/check-native-handoff.py` fails if either name, or the "Weekly refresh"
+  `VexSign/Tools/Validation/security-validation/check-native-handoff.py` fails if either name, or the "Weekly refresh"
   copy, comes back.
 - `DownloadManager` is split along a boundary it already had. Network policy and
   the transfer lifecycle — pausing, cancelling, resuming, and finishing a
@@ -268,7 +312,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - `make` builds through `VexSign.xcworkspace`, the same graph CI builds and tests.
   The workspace and project `Package.resolved` files had drifted apart, so the
   released IPA was compiled against pins CI never exercised. Both now hold one
-  identical set of 42 versioned pins, and `Tools/CI/check-package-graph.py` fails on
+  identical set of 42 versioned pins, and `VexSign/Tools/Validation/repository-validation/check-package-graph.py` fails on
   drift or an unsatisfied requirement.
 - Code coverage is enabled on the shared `VexSignTests` scheme; CI reports the
   overall number and the least-covered first-party files (reporting only).
@@ -331,14 +375,14 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 - The app no longer writes SwiftUI's undocumented
   `com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck` preference to force the Liquid
   Glass redesign. The stale value is cleared once from the container, and
-  `Tools/Development/test_private_defaults_policy.py` now fails on any first-party write to a
+  `VexSign/Tools/Validation/security-validation/test_private_defaults_policy.py` now fails on any first-party write to a
   `com.apple.*` default.
 - The archive validator folds Unicode normalization into an entry's identity, so
   the same file shipped once precomposed and once decomposed (`Café.app` as NFC
   and NFD) is a duplicate rather than two paths that collide on APFS. It also
   rejects an archive that uses one path as both a file and a folder, whichever of
   the two entries comes first; previously the extractor decided that by order.
-  `Tools/Development/test_archive_extraction_policy.py` keeps every extraction route behind
+  `VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py` keeps every extraction route behind
   `ArchiveSafetyValidator.validate(_:destination:)`.
 
 ### Fixed
@@ -359,7 +403,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   retried on the next launch. The corrupt-store recovery is also refused while
   that fallback is active, because it deletes the store file together with the
   signed, unsigned and certificate folders.
-- `make verify` no longer fails on a source archive. `Tools/Development/device-acceptance.py`
+- `make verify` no longer fails on a source archive. `VexSign/Tools/Development/device-acceptance.py`
   called `git rev-parse HEAD` unconditionally, so running the suite from an
   unpacked zip (no `.git`) ended in `fatal: not a git repository` and failed the
   native acceptance test for a reason unrelated to acceptance. The commit now
@@ -528,7 +572,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
     otherwise the next app ran on the declined app's record.
 
   None of the entries above has been exercised on a device yet; see
-  [the follow-up record](Documentation/Engineering/Changes/signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification)
+  [the follow-up record](VexSign/Documentation/Decisions/History/signing-and-installation-lifecycle.md#follow-up--re-signing-with-saved-settings-the-record-of-a-signed-copy-and-install-verification)
   for what was and was not validated.
 - A sign that succeeds can no longer leave no copy in the library. With Auto
   Cleanup's **Delete Signed App** on and settings that do not install after
@@ -558,7 +602,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
   These four entries, and the three at the top of Changed that go with them,
   have not been exercised on a device or compiled against the iOS SDK yet; see
-  [the second follow-up](Documentation/Engineering/Changes/signing-and-installation-lifecycle.md#follow-up-2--what-a-successful-sign-leaves-in-the-library)
+  [the second follow-up](VexSign/Documentation/Decisions/History/signing-and-installation-lifecycle.md#follow-up-2--what-a-successful-sign-leaves-in-the-library)
   for what was and was not validated.
 - An OTA install that iOS never reported on is no longer called **Failed**. On
   modern iOS the private LaunchServices lookups are filtered, so `InstalledAppProbe`
@@ -647,15 +691,15 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 ### Documentation
 
 - Document the Free Apple ID handoff gap instead of leaving it to be
-  rediscovered: `Documentation/Security/NATIVE_SIGNING_HANDOFF.md` names the three closed gates
+  rediscovered: `VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md` names the three closed gates
   (no production CMS verifier, no profile export, no identity export reachable
   from the app), the six-stage design that closes them, and the order that keeps
-  each intermediate state honest. `Documentation/Security/FREE_APPLE_ID_SETUP.md` now says at the
+  each intermediate state honest. `VexSign/Documentation/Security/FREE_APPLE_ID_SETUP.md` now says at the
   top that the flow cannot sign yet.
 - Add an independently generated CMS fixture for the Apple-profile parser.
   Every existing case in `NativeAppleProfileCMSTests` builds its envelope with
   the same DER helpers the parser was written against, so it could only prove
-  self-consistency. `Packages/NativeSigning/Fixtures/make_cms_fixture.py` now produces an
+  self-consistency. `VexSign/Packages/NativeSigning/Fixtures/make_cms_fixture.py` now produces an
   envelope with OpenSSL and asserts the exact subset
   `NativeProfileCMSEnvelope.parse` accepts (v1, definite lengths, one SHA-256
   digest algorithm, attached `id-data`, issuerAndSerialNumber, DER-sorted
@@ -667,13 +711,13 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   as base64 rather than a bundle resource, because the test file compiles in
   two different package layouts; `--check` verifies the inline copy against the
   committed DER so they cannot drift. It runs in `make verify` and in CI.
-- `Tools/Development/check-native-handoff.py` (wired into `make verify`) keeps the
+- `VexSign/Tools/Validation/security-validation/check-native-handoff.py` (wired into `make verify`) keeps the
   `nativeAppleAccountSigning` capability tied to its wiring: flipping it to
   `.implemented` without an export adapter and a package-side profile export
   fails, as does deleting the "handoff is not enabled" copy while the flag still
   says `.notIntegrated`.
 
-- `Tools/Release/update-repo.sh` no longer writes a markdown image into the source
+- `VexSign/Tools/Release/update-repo.sh` no longer writes a markdown image into the source
   "news" caption. Release bodies open with the app icon, and the raw markdown
   image reference landed in `app-repo.json` verbatim for 1.1.0 and 1.2.0;
   image-only lines and inline link syntax are now stripped to their text. The
@@ -689,7 +733,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   Lowering the widget would have meant replacing the configurable Repository
   Apps widget with SiriKit `IntentConfiguration`; raising the app keeps every
   feature and is a one-line change if the floor should instead be restored.
-  `Tools/CI/check-pbxproj.py` now fails on this class of mismatch.
+  `VexSign/Tools/Validation/repository-validation/check-pbxproj.py` now fails on this class of mismatch.
 
 ## [1.2.0] - 2026-11-07
 
@@ -710,7 +754,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   library could look like. The rows are resolved onto the main-queue context before
   deletion (a row handed over from another context used to be a silent no-op), the save
   is checked, `deleteApp`/`deleteApps` report whether the row is gone, and the library
-  says so when it is not. Covered by `App/Tests/VexSignTests/StorageConcurrencyTests.swift`,
+  says so when it is not. Covered by `VexSign/Tests/PerformanceTests/StorageConcurrencyTests.swift`,
   which now deletes a signed row with a certificate attached, not just an imported one.
 - Signing no longer fails *after* the tap on the very problems the preflight sheet
   already let the user accept. "Sign Anyway" used to be defeated one stage later:
@@ -724,20 +768,20 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   instead of a warning. The post-sign inspection already failed that bundle, so the
   sheet promised a "Start Signing" run that could only end in an error; it now says
   so before the two-minute sign and offers the override. Covered by
-  `App/Tests/VexSignTests/ProfileCompatibilityTests.swift` and
-  `App/Tests/VexSignTests/SignatureVerifierTests.swift`.
+  `VexSign/Tests/UnitTests/Signing/ProfileCompatibilityTests.swift` and
+  `VexSign/Tests/UnitTests/Application/SignatureVerifierTests.swift`.
 - Deleting a certificate is no longer a silent no-op when the Keychain refuses the
   delete (a locked device, or an item written by an older build): the error is
   logged and the row, files and status records are removed, instead of tapping
   Delete and watching nothing happen.
-- `App/Tests/VexSignTests/SelfUpdateNotificationTests.swift` compiles again: one call site
+- `VexSign/Tests/UnitTests/Application/SelfUpdateNotificationTests.swift` compiles again: one call site
   passed `decide(active:surfaced:)` against a `decide(surfaced:active:)`
   declaration, which failed the whole simulator test bundle on `main`.
 - The app-storage delete path imports `OSLog` explicitly, fixing the `Logger not found`
   build error reported by the main CI run (#118).
-- `Tools/Release/update-repo.sh` no longer word-splits its authorization header
+- `VexSign/Tools/Release/update-repo.sh` no longer word-splits its authorization header
   (curl used to receive `Bearer` as a URL and failed every authenticated
-  run), and the stale workflow name in `Documentation/Engineering/BUILD.md` was corrected.
+  run), and the stale workflow name in `VexSign/Documentation/Development/BUILD.md` was corrected.
 - Tapping Reinstall (or Install) no longer ends in the dead end "The updater
   server isn't available in this build." with a Try Again button that repeated
   the same sentence. The update flow now evaluates a method plan before the tap
@@ -748,7 +792,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   up in-app, plus a one-tap switch to IDevice when a pairing file exists. A
   stored address is validated before it is saved, a dismissed sheet no longer
   reopens on a stale failure, and the plan is covered by
-  `App/Tests/VexSignTests/SelfUpdateReadinessTests.swift`.
+  `VexSign/Tests/UnitTests/Application/SelfUpdateReadinessTests.swift`.
 - The Settings → Signing Methods screen no longer reports placeholder data:
   `SigningMethodAvailability` now exposes only real availability (paid
   mirrors imported certificates, TrollStore mirrors the device detector,
@@ -776,14 +820,14 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   at launch, in Update settings, or during a scheduled automation pass; it is not
   an instant server push. The scheduled automation pass now also checks for a new
   VexSign release before it looks at sources. The decision is pure and covered by
-  `App/Tests/VexSignTests/SelfUpdateNotificationTests.swift`.
+  `VexSign/Tests/UnitTests/Application/SelfUpdateNotificationTests.swift`.
 - Settings now opens with a compact identity header — the VexSign logo, app name
   and version — directly above the About section. It replaces the full-width
   "Star on GitHub" card that used to sit at the bottom of the list with a small
   star pill in the same header row, so the link stays reachable without a
   dedicated section. Debug and Nightly builds keep hiding the star, as before.
   `SettingsDonationCellView` is deleted.
-- `Documentation/Architecture/ARCHITECTURE.md` gained a **README feature coverage** table that maps
+- `VexSign/Documentation/Architecture/ARCHITECTURE.md` gained a **README feature coverage** table that maps
   every feature advertised in the README to the files that implement it, with an
   explicit statement of what that check does and does not prove.
 
@@ -822,8 +866,8 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   update status, recent apps and a compact workspace-tools card. It uses the
   shared design tokens and collapses empty sections instead of showing dead
   cards.
-- A documented design system (`Documentation/Design/DESIGN.md`) and reusable Home components
-  under `App/iOS/VexSign/DesignSystem/`, including contrast-aware surfaces, responsive
+- A documented design system (`VexSign/Documentation/Features/Design/DESIGN.md`) and reusable Home components
+  under `VexSign/App/iOS/VexSign/Presentation/`, including contrast-aware surfaces, responsive
   action tiles and accessible setup/status rows.
 - A professional repository front page, architecture/build/design guides,
   documentation index and security policy.
@@ -844,7 +888,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
-- Zsign and IDeviceKit are vendored under `Packages/Vendor/` with pinned commits and
+- Zsign and IDeviceKit are vendored under `VexSign/Packages/Vendor/` with pinned commits and
   licences; cloning and CI no longer require Git submodules or `--recursive`.
 - `make bootstrap` validates the toolchain and package graph before the first
   Xcode build.
@@ -914,7 +958,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Experimental / not included as a stable combined artifact
 
-- Added the native-primary App/iOS/VexSign/LiveContainer/SideStore bootstrap and packaging
+- Added the native-primary VexSign/App/iOS/VexSign/LiveContainer/SideStore bootstrap and packaging
   candidate, explicit session controls, separate OpenSSL namespaces, preserved
   runtime settings/legal panes and collision-checked localization merging.
 - The combined host is not device-accepted and is not the standalone release IPA.

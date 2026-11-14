@@ -11,11 +11,11 @@
 # Only first-party Swift is linted. Submodules ship their own tooling and the
 # generated/vendored directories are not ours to fix.
 included:
-  - App/iOS/VexSign
-  - Extensions/Widgets/VexSignWidgetExtension
-  - App/Tests/VexSignTests
-  - Packages/AltSourceKit/Sources
-  - Packages/NimbleKit/Sources
+  - VexSign/App/iOS/VexSign
+  - VexSign/App/Extensions/WidgetExtension
+  - VexSign/Tests
+  - VexSign/Packages/AltSourceKit/Sources/AltSourceKit
+  - VexSign/Packages/NimbleKit/Sources
 
 excluded:
   - .build
@@ -27,10 +27,10 @@ excluded:
   - deps
   - _upstream_vexsign
   - _VexSign
-  - Services/API/server
-  - Services/CloudSigning/cloud-signing
+  - VexSign/Services/WebManager/API
+  - VexSign/Services/Cloud
   - Tools
-  - Tools/Development
+  - VexSign/Tools/Development
   - "**/.build"
   - "**/Package.swift"
 
