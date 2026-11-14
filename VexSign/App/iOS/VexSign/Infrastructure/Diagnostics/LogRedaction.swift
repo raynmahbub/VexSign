@@ -10,8 +10,8 @@
 //  token sent to a repository, would sit there readable forever.
 //
 //  The rules are deliberately narrow. A pattern that fires on ordinary text hides the very thing a
-//  log is kept for, so nothing here matches a bare word: every rule needs a key, a header name, or
-//  a URL's userinfo before it acts.
+//  log is kept for, so nothing here matches a bare word: every rule needs a key, a header name,
+//  a URL's userinfo or a known private device/simulator container root before it acts.
 //
 
 import Foundation
@@ -133,6 +133,13 @@ enum LogRedaction {
 		),
 		// Current UDIDs anywhere: 8 hex, a dash, 16 hex.
 		Rule(pattern: #"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}\b"#, template: marker),
+		// Local container paths identify a device, simulator or user. Keep error
+		// codes/text, but never export their filesystem roots. The boundary keeps
+		// the same path segment in an ordinary HTTP URL untouched.
+		Rule(
+			pattern: #"(?<![\w:/])(?:file://)?(?:/(?:private/)?var/(?:mobile|containers)/|/Users/[^/\s]+/Library/Developer/CoreSimulator/Devices/)[^\s"'()<>\[\]{},;]+"#,
+			template: marker
+		),
 		// `Authorization: <anything>` — covers the schemes the bearer rule does not name.
 		// The scheme word (`Basic`, `Digest`, …) is part of the header value and the
 		// credential follows it, so both have to go: masking only the scheme left the

@@ -15,8 +15,8 @@ licenses, package pins, target identities or existing execution engines.
 - **Decision:** [ADR-0001](../Decisions/ADR-0001-feature-layered-source-tree.md).
 - **Current guide:** [architecture](ARCHITECTURE.md) and [dependency rules](dependency-rules.md).
 
-All original files have unique existing destinations: 945 remain byte-identical
-and 430 text originals are rewritten. Focused extractions and validation/docs add
+All original files have unique existing destinations: 943 remain byte-identical
+and 432 text originals are rewritten. Focused extractions and validation/docs add
 191 files without replacing the original inventory or its recorded hashes. The
 inventory includes this working tree's added/rewritten files, not an earlier
 checkpoint; rerun the audit after any further edits.
@@ -165,10 +165,12 @@ replacement UUID ownership, unavailable stores, interrupted undo, failed
 re-stage/erasure and durable journal retention. An archive stream regression
 checks that completed edit/undo operations update immutable snapshots through
 the existing workspace publisher. Two discovery cases additionally cover accepted
-intent/signal ordering and provider refusal without a success signal. **The app and test bundle compile at `703550d`, but none of these 90 added
-methods has a successful native execution result yet.** That simulator host
-trapped before XCTest could connect; its one reported infrastructure failure
-is not an executed application test. Source-reading fixtures fail
+intent/signal ordering and provider refusal without a success signal. Two further native methods pin private device/simulator path redaction without
+hiding error codes or public URL paths, for 92 added methods in the current tree.
+**At `853238a` the app launches and XCTest runs: 1,908 tests total, 1,900 passed,
+six failed and two skipped.** The Keychain-dependent certificate cases are among
+the failures; this is not a claim that all 92 current added methods pass. The two
+new path-redaction methods and simulator-signing repair still need a native rerun. Source-reading fixtures fail
 when an expected implementation file is absent; they do not silently skip
 migration breakage. In particular, fixture/source passes are not delayed-OCSP,
 UIKit, real protected-database, host-copy or actual installer callback acceptance.
@@ -191,6 +193,7 @@ merged, released or deployed.
 | `4879a1b`, [CI 43611504148](https://github.com/raynmahbub/VexSign/actions/runs/43611504148) | Quick gates passed and the report-only concurrency job completed. Debug failed without a parsed source diagnostic. Simulator compilation reached the linker, which rejected `ellekit.deb` as a Mach-O static archive. No simulator tests ran (xcresult total 0). |
 | `c249f3b`, [CI 43613459987](https://github.com/raynmahbub/VexSign/actions/runs/43613459987) | Unsigned iOS Debug build, unchanged warnings gate, bundled-resource byte comparison, unsigned test IPA packaging/upload and download-integrity check all passed. Quick gates passed and the report-only concurrency job completed. Simulator compiled the app, then found three stale `DiscoveryViewModel(downloads:)` constructions in the test target. No simulator tests ran (xcresult total 0). |
 | `703550d`, [CI 43615782485](https://github.com/raynmahbub/VexSign/actions/runs/43615782485) | Unsigned iOS Debug build, unchanged warnings gate, resource-byte comparison and unsigned test IPA packaging/download checks passed again. Quick gates passed and the report-only concurrency job completed. Both simulator app and test bundle compiled, but the app trapped before XCTest established a connection. The xcresult reports one host-bootstrap failure, zero passed tests; no authored XCTest method is established as executed. |
+| `853238a`, [CI 43618845284](https://github.com/raynmahbub/VexSign/actions/runs/43618845284) | Unsigned iOS Debug/warnings/resource-byte/IPA checks passed. Simulator app now launches and connects to XCTest: 1,908 total, 1,900 passed, six failed, two skipped. Five certificate cases hit the unsigned host’s missing Keychain entitlement (`-34018`); the remaining assertion exposed an unredacted local path in a store-recovery notice. No startup trap was reported. The overall run failed, not accepted as green. |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -301,8 +304,9 @@ modifiers, outside the subtree carrying its required `InstallationQueueModel`.
 The root dependency scope now wraps all overlays and sheets, including onboarding
 and self-update, instead of duplicating an incomplete model subset in the sheet
 closures. The shared production models and original execution owners are unchanged.
-A portable regression pins this ordering; native startup/test revalidation is
-pending and a physical-device crash log is still needed to establish that this
+A portable regression pins this ordering. The next native run at `853238a`
+launched successfully and executed the suite, instead of trapping before XCTest
+connected. A physical-device crash log is still needed to establish that this
 is the user's device-specific failure. The observation-lifetime fixture also
 uses an equivalent weak capture instead of a compiler-warned weak local.
 
@@ -312,8 +316,24 @@ line. Missing-environment and other fatal messages survive unrelated log chatter
 Three additional fixtures exercise those paths (54 workflow-policy tests total);
 crash reporting still cannot turn a failed compiler/test run into success.
 
-The separate native-signing smoke success does not compile the app's 90 added
-XCTest methods; those still require a successful `VexSignTests` simulator job.
+The six remaining simulator failures are not compiler/launch errors. Five
+certificate durability/undo cases need real Keychain writes and fail in the
+unsigned simulator host (`errSecMissingEntitlement`, status `-34018`). CI and
+`make test` now request a **local ad-hoc simulator signature** (`-`), without an
+Apple identity, profile download or credential. Device test-IPA builds remain
+unsigned, production entitlement/project bytes remain unchanged, and no Keychain
+error is swallowed, mocked away or converted to a skip. A portable workflow
+regression pins that separation (55 workflow-policy cases).
+
+The sixth failure is the original store-recovery redaction assertion: known local
+device/simulator container roots could remain in a shared recovery notice.
+`LogRedaction` now masks those specific filesystem forms, retaining the diagnostic
+text/error code and leaving the same segments inside HTTP URLs readable. Two
+native cases and a portable production-pattern fixture pin redaction, negative
+URL cases and idempotence. Both repairs require a new full native run.
+
+The separate native-signing smoke success does not compile the app's 92 added
+XCTest methods; complete acceptance still requires a successful `VexSignTests` simulator job.
 Native Apple-account signing remains `.notIntegrated` after synthetic/link tests.
 
 GitHub reports PR #243 as conflicting with main at `725a276`, while read-only

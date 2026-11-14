@@ -453,6 +453,23 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertNotIn('contents: write', text)
         self.assertNotIn('gh release create', text)
 
+    def test_simulator_keychain_tests_use_only_local_ad_hoc_signing(self):
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        tests = block(ci, 'tests', 2)
+        makefile = (ROOT / 'Makefile').read_text()
+        local = makefile.split('\ntest:\n', 1)[1].split('\n# Use an activated virtualenv', 1)[0]
+        for source in [tests, local]:
+            for setting in ['CODE_SIGNING_ALLOWED=YES', 'CODE_SIGNING_REQUIRED=YES',
+                            'CODE_SIGN_IDENTITY="-"', 'AD_HOC_CODE_SIGNING_ALLOWED=YES']:
+                self.assertIn(setting, source)
+            self.assertNotIn('CODE_SIGNING_ALLOWED=NO', source)
+            self.assertNotIn('CODE_SIGN_ENTITLEMENTS=', source, 'Do not replace the protected production entitlement file')
+            self.assertNotIn('-allowProvisioningUpdates', source)
+        self.assertIn('platform=iOS Simulator,id=${SIM_UDID}', tests)
+        self.assertIn('platform=iOS Simulator,id=$$dest', local)
+        self.assertIn('CODE_SIGNING_ALLOWED=NO', block(ci, 'build', 2))
+        self.assertIn('CODE_SIGNING_ALLOWED=NO', makefile.split('$(SCHEMES):', 1)[1].split('\n# Self-hosted', 1)[0])
+
     def test_manual_quick_mode_and_parallel_macos_jobs(self):
         text = (WORKFLOWS / "ci.yml").read_text()
         self.assertIn('options: [full, quick]', text)

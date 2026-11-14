@@ -470,8 +470,9 @@ jobs:
           retention-days: 3
 
   # ---------------------------------------------------------------------------
-  # Do the tests pass? Host-only suite, unsigned simulator run: no certificates
-  # exist on the runner and none are needed to exercise signing *logic*.
+  # Do the tests pass? Host-only suite with a local ad-hoc simulator signature.
+  # No Apple identity/profile is needed, but Keychain integration tests require
+  # the simulator host to have signed entitlements (unsigned returns -34018).
   # ---------------------------------------------------------------------------
   tests:
     if: >-
@@ -543,9 +544,10 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             ONLY_ACTIVE_ARCH=YES \
             test 2>&1 | tee "$TEST_LOG" \

@@ -62,6 +62,33 @@ final class LogRedactionTests: XCTestCase {
 		XCTAssertTrue(output.contains("example.com/repo.json"), "the host is the useful part: \(output)")
 	}
 
+    func testLocalDeviceContainerPathsAreMaskedWithoutHidingTheFailureReason() {
+        for path in [
+            "/private/var/mobile/Containers/Data/Application/fixture/VexSign.sqlite",
+            "/var/mobile/Containers/Data/Application/fixture/VexSign.sqlite-wal",
+            "file:///private/var/containers/Bundle/Application/fixture/VexSign.app",
+            "/var/containers/Bundle/Application/fixture/VexSign.app"
+        ] {
+            let output = LogRedaction.redact("Failed to open \(path) (SQLite error 11)")
+            XCTAssertFalse(output.contains("/var/"), output)
+            XCTAssertTrue(output.contains(LogRedaction.marker), output)
+            XCTAssertTrue(output.contains("(SQLite error 11)"), output)
+            XCTAssertEqual(LogRedaction.redact(output), output)
+        }
+    }
+
+    func testSimulatorContainerPathsAreMaskedButPublicURLPathsRemainUseful() {
+        let path = "file:///Users/fixture/Library/Developer/CoreSimulator/Devices/fixture-device/data/Containers/Data/Application/fixture/VexSign.sqlite"
+        let output = LogRedaction.redact("Could not read \"\(path)\": SQLite error 11")
+        XCTAssertFalse(output.contains("/Users/fixture"), output)
+        XCTAssertTrue(output.contains(LogRedaction.marker), output)
+        XCTAssertTrue(output.contains("SQLite error 11"), output)
+        XCTAssertEqual(LogRedaction.redact(output), output)
+        for url in ["https://example.com/var/mobile/backup.sqlite", "https://example.com/Users/fixture/Library/Developer/CoreSimulator/Devices/help"] {
+            XCTAssertEqual(LogRedaction.redact("GET \(url)"), "GET \(url)")
+        }
+    }
+
 	// MARK: - What must be left alone
 
 	func testAnOrdinaryLogLineIsUntouched() {

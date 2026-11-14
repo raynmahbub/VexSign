@@ -174,6 +174,25 @@ def private_redactions(text: str) -> list[str]:
 
 
 class LoggingMessagePolicyTests(unittest.TestCase):
+    def test_container_path_redaction_preserves_error_codes_and_public_urls(self):
+        source = (ROOT / 'VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift').read_text()
+        rule = re.search(r'// Local container paths.*?pattern: #"(.*?)"#,', source, re.DOTALL)
+        self.assertIsNotNone(rule, 'The production container-path rule must exist')
+        pattern = re.compile(rule.group(1))
+        for path in [
+            '/private/var/mobile/Containers/Data/VexSign.sqlite',
+            '/var/mobile/Containers/Data/VexSign.sqlite-wal',
+            'file:///private/var/containers/Bundle/Application/fixture/VexSign.app',
+            'file:///Users/fixture/Library/Developer/CoreSimulator/Devices/fixture-device/data/Containers/Data/fixture/VexSign.sqlite',
+        ]:
+            output = pattern.sub('<redacted>', 'Failed to open "' + path + '" (SQLite error 11)')
+            self.assertEqual(output, 'Failed to open "<redacted>" (SQLite error 11)')
+            self.assertEqual(pattern.sub('<redacted>', output), output)
+        for text in ['GET https://example.com/var/mobile/backup.sqlite',
+                     'GET https://example.com/Users/fixture/Library/Developer/CoreSimulator/Devices/help',
+                     'SQLite error 11', 'Signed Example.app (com.example.app)']:
+            self.assertEqual(pattern.sub('<redacted>', text), text)
+
     def test_no_oslog_call_concatenates_its_message(self):
         offenders = []
         for path in swift_files():

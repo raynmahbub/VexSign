@@ -205,7 +205,8 @@ format:
 	@if [ "$(FIX)" = "1" ]; then swiftformat .; else swiftformat --lint .; fi
 
 # Unit tests. Same command the CI `tests` job runs (.github/workflows/ci.yml);
-# a second way to run the suite should never exist.
+# a second way to run the suite should never exist. The simulator uses a local
+# ad-hoc signature for Keychain entitlements, never an Apple signing identity.
 # The simulator is resolved at run time so this does not rot when Xcode renames
 # its device list.
 #   make test                     # newest available iPhone simulator
@@ -236,9 +237,10 @@ test:
 	    -parallel-testing-worker-count 2 \
 	    -skipPackagePluginValidation \
 	    -skipMacroValidation \
-	    CODE_SIGNING_ALLOWED=NO \
-	    CODE_SIGNING_REQUIRED=NO \
-	    CODE_SIGN_IDENTITY="" \
+	    CODE_SIGNING_ALLOWED=YES \
+	    CODE_SIGNING_REQUIRED=YES \
+	    CODE_SIGN_IDENTITY="-" \
+	    AD_HOC_CODE_SIGNING_ALLOWED=YES \
 	    COMPILER_INDEX_STORE_ENABLE=NO \
 	    ONLY_ACTIVE_ARCH=YES \
 	    test
