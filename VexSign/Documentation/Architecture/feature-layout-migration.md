@@ -2,7 +2,7 @@
 
 ## Current signing/library follow-up
 
-The unpublished working tree based on `8daf7e7` now contains the
+The signing/library commit `bf063e7`, based on `8daf7e7`, contains the
 [signing/library reliability follow-up](signing-library-reliability.md), including
 shared signing readiness, authenticated component resolution, fresh signature
 verification, compact Delete and transactional recovery. Its
@@ -12,12 +12,25 @@ preservation evidence are refreshed for this working tree.
 
 Portable `make verify`, 36 native core regressions both normally and under
 ASan/UBSan, independent plistlib interoperability, 14 identity/readiness/output
-wiring checks and 25 preservation-auditor fixtures passed at the recorded draft
-checkpoint. Swift grammar checks are not type checking. **No new Apple build,
-Objective-C++/Security execution, XCTest or device result exists for these drafts.**
-The revision-specific CI results later in this document are historical and do not
-validate the unpublished edits. No new commit or push has been performed or is
-automatically authorized.
+wiring checks passed at the recorded implementation checkpoint. Main integration
+adds two negative/positive preservation fixtures (**27 total**) and reruns the
+Cloud build/14 tests/contracts plus all **216 WebManager tests** on the updated
+dependencies. One upstream Starlette/httpx deprecation warning remains.
+Swift grammar checks are not type checking. **No local Apple build,
+Objective-C++/Security execution, XCTest or device result exists for this candidate.**
+Revision-specific CI results later in this document are historical; check new CI
+against the exact integrated PR head. Publication and main integration have now
+been explicitly authorized, preserving existing published commit history.
+
+### Main dependency integration
+
+The incoming base is `725a2769be00ad60542102f472bbb879c8136f86`. Its FastAPI,
+AWS SDK and BullMQ updates are retained in the relocated service owners; the Cloud
+lock and WebManager requirements match main byte-for-byte. The Cloud manifest keeps
+the already-migrated command paths and otherwise matches main. The
+[follow-up report](signing-library-reliability.md#main-integration-and-conflict-resolution)
+records exact paths/hashes and the narrowly audited lock exception. Original
+migration hashes and dependency-upstream provenance are not regenerated.
 
 ## Scope and source of truth
 
@@ -113,20 +126,24 @@ or establish distribution-license compliance.
 
 Of the 28 protected inputs—including original plists, entitlements, model contents,
 seven package manifests, all three resolved-pin files, the native input lock,
-Cloud lock/OpenAPI, FilePickerFix and the certificate-directory getter—27 remain
-byte-identical. The sole reviewed exception adds public Security-framework linkage
+Cloud lock/OpenAPI, FilePickerFix and the certificate-directory getter—26 remain
+byte-identical. One reviewed exception adds public Security-framework linkage
 to the app's existing vendor package manifest, without changing its upstream
-revision or pins. The auditor accepts only that exact transformation; the original
-upstream manifest digest remains authoritative for isolated smoke preparation.
-Bridge-header edits only relocate the same three unchanged headers. All seven target objects/products and 157 original Xcode object IDs
+revision or pins. The original upstream manifest digest remains authoritative for
+isolated smoke preparation. The second exception admits only the exact incoming
+main Cloud dependency lock and separately records its superseded dependency URLs;
+it does not permit arbitrary lock changes or reset any original hash.
+Bridge-header edits only relocate the same three unchanged headers.
+All seven target objects/products and 157 original Xcode object IDs
 remain; the four added IDs are xcconfig references/their group. All 32 declared
 configuration setting sets are preserved after path relocation and xcconfig
 extraction. This does not evaluate Xcode-expanded settings or bundle placement.
 
 The only rewritten original app resource is the localization catalogue (relocated
 path-display text and additive English error/consent/readiness keys); other original
-translations are retained. No dependency update, license replacement, target
-renaming or native promotion is part of this work.
+translations are retained. Apart from retaining main's explicitly recorded service
+dependency updates, no pin update, license replacement, target renaming or native
+promotion is part of this work.
 
 ## Architecture ratchet
 
@@ -145,7 +162,7 @@ cast. CI never regenerates a baseline to make a check pass.
 ## Historical migration validation record
 
 This section records the earlier migration/native-CI checkpoint through `9aa3046`,
-not the unpublished signing/library follow-up above. Its counts describe that
+not the signing/library candidate and main integration above. Its counts describe that
 checkpoint; current original-blob/grammar evidence is in the refreshed JSON report.
 
 The following portable checks were rerun after the projection, backup and
@@ -378,9 +395,10 @@ build input from `9aa3046`; the current signing/library draft does.
 
 At that checkpoint GitHub reported PR #243 as conflicting with main at `725a276`,
 while read-only local merge-tree diagnostics were clean. This is historical, not
-a new mergeability assertion. No merge/rebase/base sync was applied,
-and no current-main service dependency update was silently copied over the
-protected original pins. The manually dispatched runs test the named branch
+a new mergeability assertion. At that historical checkpoint no merge/rebase/base
+sync had been applied, and no current-main service dependency update was copied
+over the protected original pins. The subsequently authorized integration is
+recorded separately above. The manually dispatched runs test the named branch
 revision, not a PR merge commit. Mergeability and physical-device acceptance
 remain separate from those branch results.
 
@@ -398,7 +416,7 @@ python3 VexSign/Tools/Validation/architecture-rules/audit_feature_preservation.p
 
 The preservation audit is read-only (apart from an explicitly requested JSON
 report) and requires the recorded original Git revision locally; it never
-fetches, stages or changes a baseline. Its 25 offline fixture tests run in normal
+fetches, stages or changes a baseline. Its 27 offline fixture tests run in normal
 verification/CI without needing that historical Git object. The JSON records its
 exact file, legal-index, protected-input, target/configuration and grammar
 findings. The two intentionally incomplete URL-prefix sentinels from the old
@@ -444,8 +462,9 @@ background limits and evidence. Native Apple-account signing remains
 artifact registration, export, guest preparation and install submission do not
 establish verified installation, unattended renewal or computer-free bootstrap.
 
-Earlier publication/native CI authorization applied to the named historical
-revisions only. The current signing/library drafts have not been committed or
-pushed; do not publish them automatically. Native CI findings must be recorded
-separately for the exact revision tested. No merge, tag, release, deployment or
-credential change is authorized by a portable verification result.
+Publication and main integration of the current signing/library candidate were
+explicitly authorized after the earlier implementation checkpoint. Existing
+published commit messages/history are retained; new commits use scoped,
+descriptive messages. This does not authorize merging the PR, tagging, releasing,
+deploying or changing credentials. Native CI findings must be recorded separately
+for the exact revision tested; portable checks do not establish device acceptance.

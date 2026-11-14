@@ -4,8 +4,8 @@
   "originalFiles": 1375,
   "mappedFiles": 1375,
   "relocatedFiles": 1322,
-  "byteIdenticalOriginals": 897,
-  "rewrittenTextOriginals": 478,
+  "byteIdenticalOriginals": 895,
+  "rewrittenTextOriginals": 480,
   "addedFiles": 216,
   "binaryFilesPreserved": 35,
   "licenseAndAttributionFilesPreserved": 10,
@@ -226,9 +226,12 @@
     },
     {
       "path": "VexSign/Services/Cloud/package-lock.json",
-      "identical": true,
+      "identical": false,
       "sha256Before": "2da2bc3b6488837c338b993bc68796e4dbf003e367f8cad2f7364d88fef4c92a",
-      "sha256After": "2da2bc3b6488837c338b993bc68796e4dbf003e367f8cad2f7364d88fef4c92a"
+      "sha256After": "e6931af4c320d691770bbe7258a8167e696a372bef11d54eaa4054e49899f47a",
+      "reviewedChange": "Exact incoming main dependency lock; original migration hash retained",
+      "sourceRevision": "725a2769be00ad60542102f472bbb879c8136f86",
+      "sourcePath": "Services/CloudSigning/cloud-signing/package-lock.json"
     },
     {
       "path": "VexSign/Configuration/Build/FilePickerFix.m",
@@ -745,6 +748,30 @@
   "syntheticURLPrefixExclusions": [
     "https://github.com/raynmahbub/",
     "https://raw.githubusercontent.com/raynmahbub/"
+  ],
+  "supersededMainDependencyURLs": [
+    "https://registry.npmjs.org/@aws-sdk/checksums/-/checksums-3.1002.3.tgz",
+    "https://registry.npmjs.org/@aws-sdk/client-s3/-/client-s3-3.1164.0.tgz",
+    "https://registry.npmjs.org/@aws-sdk/core/-/core-3.980.1.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-env/-/credential-provider-env-3.972.82.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-http/-/credential-provider-http-3.972.84.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-ini/-/credential-provider-ini-3.973.27.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-login/-/credential-provider-login-3.972.89.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-node/-/credential-provider-node-3.972.94.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-process/-/credential-provider-process-3.972.82.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-sso/-/credential-provider-sso-3.973.26.tgz",
+    "https://registry.npmjs.org/@aws-sdk/credential-provider-web-identity/-/credential-provider-web-identity-3.972.88.tgz",
+    "https://registry.npmjs.org/@aws-sdk/lib-storage/-/lib-storage-3.1164.0.tgz",
+    "https://registry.npmjs.org/@aws-sdk/middleware-sdk-s3/-/middleware-sdk-s3-3.972.87.tgz",
+    "https://registry.npmjs.org/@aws-sdk/nested-clients/-/nested-clients-3.998.1.tgz",
+    "https://registry.npmjs.org/@aws-sdk/s3-request-presigner/-/s3-request-presigner-3.1164.0.tgz",
+    "https://registry.npmjs.org/@aws-sdk/signature-v4-multi-region/-/signature-v4-multi-region-3.996.51.tgz",
+    "https://registry.npmjs.org/@aws-sdk/token-providers/-/token-providers-3.1164.0.tgz",
+    "https://registry.npmjs.org/@aws-sdk/types/-/types-3.975.0.tgz",
+    "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.42.tgz",
+    "https://registry.npmjs.org/@smithy/core/-/core-3.39.0.tgz",
+    "https://registry.npmjs.org/bullmq/-/bullmq-6.7.2.tgz",
+    "https://registry.npmjs.org/cron-parser/-/cron-parser-5.10.3.tgz"
   ],
   "failures": [],
   "limitations": [

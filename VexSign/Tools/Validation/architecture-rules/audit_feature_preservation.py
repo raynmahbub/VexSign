@@ -35,6 +35,16 @@ SYNTHETIC_URL_PREFIXES = {
     "https://github.com/raynmahbub/",
     "https://raw.githubusercontent.com/raynmahbub/",
 }
+# Preserve the original migration hashes. Integrating main must also preserve
+# its already-reviewed dependency update, not revert it to make an audit pass.
+# Only this exact original -> upstream lock pair is admitted; no mutable map
+# baseline, arbitrary lock regeneration, or URL-domain exemption is allowed.
+REVIEWED_MAIN_DEPENDENCY_LOCK = {
+    "path": "Services/CloudSigning/cloud-signing/package-lock.json",
+    "revision": "725a2769be00ad60542102f472bbb879c8136f86",
+    "sha256Before": "2da2bc3b6488837c338b993bc68796e4dbf003e367f8cad2f7364d88fef4c92a",
+    "sha256After": "e6931af4c320d691770bbe7258a8167e696a372bef11d54eaa4054e49899f47a",
+}
 
 
 def digest(value: bytes) -> str:
@@ -388,6 +398,17 @@ def reviewed_security_linkage(old: str, before: bytes, after: bytes) -> bool:
         and after == before.replace(marker, marker + addition, 1))
 
 
+def reviewed_main_dependency_lock(old: str, before: bytes, after: bytes) -> bool:
+    """Admit only the exact lock already published on the integrated main revision.
+
+    The ordinary original-hash check still runs independently. Changed registry
+    URLs are accounted for only when both complete blobs match this reviewed pair.
+    """
+    return (old == REVIEWED_MAIN_DEPENDENCY_LOCK["path"]
+        and digest(before) == REVIEWED_MAIN_DEPENDENCY_LOCK["sha256Before"]
+        and digest(after) == REVIEWED_MAIN_DEPENDENCY_LOCK["sha256After"])
+
+
 def bridging_header_preservation(old: str, new: str, before: bytes, after: bytes,
                                  paths: dict[str, str], originals: dict) -> dict:
     includes = []
@@ -442,6 +463,7 @@ def audit(parse_swift: bool = False) -> dict:
     rewritten, identical, binary, licenses, resources = [], [], [], [], []
     paths = relocations(mapping)
     attribution_indexes, protected, metadata, headers = [], [], [], []
+    superseded_dependency_urls: set[str] = set()
     blobs_now = {path: working_blob(ROOT / path) for path in current}
     for path, value in blobs_now.items():
         # An old evidence report must not manufacture preservation of a URL
@@ -487,11 +509,17 @@ def audit(parse_swift: bool = False) -> dict:
                 failures.append(f"Attribution/index content changed beyond repository paths: {old}")
         if protected_input(old):
             reviewed = reviewed_security_linkage(old, before, after)
+            main_lock = reviewed_main_dependency_lock(old, before, after)
             evidence = {"path": new, "identical": before == after, "sha256Before": digest(before), "sha256After": digest(after)}
             if reviewed:
                 evidence["reviewedChange"] = "Public Security framework linkage only; upstream package/pins unchanged"
+            if main_lock:
+                evidence["reviewedChange"] = "Exact incoming main dependency lock; original migration hash retained"
+                evidence["sourceRevision"] = REVIEWED_MAIN_DEPENDENCY_LOCK["revision"]
+                evidence["sourcePath"] = old
+                superseded_dependency_urls.update(set(URL.findall(before.decode())) - set(URL.findall(after.decode())))
             protected.append(evidence)
-            if before != after and not reviewed:
+            if before != after and not (reviewed or main_lock):
                 failures.append(f"Protected input bytes changed: {old}")
         if old == "Packages/Vendor/manifest.json":
             path_only = relocate_path(json.loads(before), paths) == json.loads(after)
@@ -519,7 +547,7 @@ def audit(parse_swift: bool = False) -> dict:
     failures.extend(project["failures"])
     if sorted(rewritten) != sorted(mapping.get("rewrittenFiles", [])):
         failures.append("rewrittenFiles inventory differs from the actual original-blob comparison")
-    missing_urls = sorted(urls_before - urls_now - SYNTHETIC_URL_PREFIXES)
+    missing_urls = sorted(urls_before - urls_now - SYNTHETIC_URL_PREFIXES - superseded_dependency_urls)
     failures.extend(f"Original URL removed: {url}" for url in missing_urls)
     result = {
         "baseCommit": mapping["baseCommit"], "branch": mapping["branch"],
@@ -535,6 +563,7 @@ def audit(parse_swift: bool = False) -> dict:
         "originalAppResources": resources,
         "missingOriginalURLs": missing_urls,
         "syntheticURLPrefixExclusions": sorted(SYNTHETIC_URL_PREFIXES),
+        "supersededMainDependencyURLs": sorted(superseded_dependency_urls),
         "failures": failures,
         "limitations": ["Byte/path/grammar checks are not Swift type checking, Xcode builds, XCTest, simulator or device acceptance."],
     }

@@ -187,7 +187,7 @@ class PreservationAuditorTests(unittest.TestCase):
             path.symlink_to("missing-target")
             self.assertEqual(preservation.working_blob(path), b"missing-target")
 
-    def fixture_audit(self, mutate=lambda root, mapping: None):
+    def fixture_audit(self, mutate=lambda root, mapping: None, additional_files=None):
         """Execute the real auditor on a tiny synthetic original/current tree."""
         base_blobs = {
             "VexSign.xcodeproj/project.pbxproj": openstep(self.base).encode(),
@@ -213,6 +213,9 @@ class PreservationAuditorTests(unittest.TestCase):
             data = b"\x89PNG\0synthetic-binary" if alias == "icon.png" else b"synthetic alias bytes\n"
             base_blobs[alias] = data
             current_blobs[alias] = current_blobs[canonical] = data
+        for path, (before, after) in (additional_files or {}).items():
+            base_blobs[path] = before
+            current_blobs[path] = after
         destinations = {entry["old"]: entry["new"] for entry in self.mapping["fileMappings"]}
         entries = [{"old": old, "new": destinations.get(old, old), "sha256Before": preservation.digest(value)} for old, value in base_blobs.items()]
         mapping = {**self.mapping, "fileMappings": entries}
@@ -262,6 +265,42 @@ class PreservationAuditorTests(unittest.TestCase):
         ]:
             with self.subTest(old=old, changed=changed):
                 self.assertFalse(preservation.reviewed_security_linkage(old, before, changed))
+
+    def dependency_lock_fixture(self):
+        before = b'{"resolved":"https://registry.npmjs.org/example/-/example-1.0.0.tgz"}\n'
+        after = b'{"resolved":"https://registry.npmjs.org/example/-/example-1.0.1.tgz"}\n'
+        review = {**preservation.REVIEWED_MAIN_DEPENDENCY_LOCK,
+            "sha256Before": preservation.digest(before), "sha256After": preservation.digest(after)}
+        return before, after, review
+
+    def test_only_exact_reviewed_main_dependency_lock_bytes_are_accepted(self):
+        before, after, review = self.dependency_lock_fixture()
+        with patch.object(preservation, "REVIEWED_MAIN_DEPENDENCY_LOCK", review):
+            self.assertTrue(preservation.reviewed_main_dependency_lock(review["path"], before, after))
+            for old, original, changed in [
+                ("Other/package-lock.json", before, after), (review["path"], before + b" ", after),
+                (review["path"], before, after + b" "), (review["path"], before, before),
+            ]:
+                with self.subTest(old=old, original=original, changed=changed):
+                    self.assertFalse(preservation.reviewed_main_dependency_lock(old, original, changed))
+
+    def test_reviewed_main_lock_accounts_only_for_its_exact_superseded_dependency_urls(self):
+        before, after, review = self.dependency_lock_fixture()
+        files = {review["path"]: (before, after)}
+        with patch.object(preservation, "REVIEWED_MAIN_DEPENDENCY_LOCK", review):
+            result = self.fixture_audit(additional_files=files)
+            self.assertEqual(result["failures"], [])
+            self.assertEqual(result["supersededMainDependencyURLs"], preservation.URL.findall(before.decode()))
+            evidence = next(row for row in result["protectedInputs"] if row["path"] == review["path"])
+            self.assertEqual(evidence["sourceRevision"], review["revision"])
+            self.assertEqual(evidence["sha256Before"], review["sha256Before"])
+            self.assertFalse(evidence["identical"])
+            changed = self.fixture_audit(lambda root, _: (root / review["path"]).write_bytes(after + b" "), additional_files=files)
+            self.assertTrue(any("Protected input bytes changed" in failure for failure in changed["failures"]))
+            self.assertEqual(changed["supersededMainDependencyURLs"], [])
+            self.assertIn(preservation.URL.findall(before.decode())[0], changed["missingOriginalURLs"])
+            unrelated = self.fixture_audit(lambda root, _: (root / "Documentation/guide.md").write_text("removed"), additional_files=files)
+            self.assertIn("https://example.invalid/preserved-resource", unrelated["missingOriginalURLs"])
 
     def test_binary_and_published_alias_drift_are_rejected(self):
         result = self.fixture_audit(lambda root, _: (root / "icon.png").write_bytes(b"changed binary"))

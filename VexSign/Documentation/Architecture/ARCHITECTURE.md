@@ -7,7 +7,7 @@ owners. This implements the repository layout in the
 The [migration record](feature-layout-migration.md) explains the inventory,
 compatibility safeguards, implemented boundaries and remaining acceptance work.
 
-The unpublished [signing/library follow-up](signing-library-reliability.md) records
+The [signing/library follow-up](signing-library-reliability.md) records
 the existing production signing owners, shared readiness, per-component admission,
 verification, compact deletion and their still-pending Apple/device acceptance.
 

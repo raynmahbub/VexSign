@@ -2,11 +2,15 @@
 
 ## Status and scope
 
-This is an **unpublished working-tree follow-up**, based on
+The signing/library implementation is recorded in
+`bf063e778cc2bdf3bdbcd5a84646cc6b95b6d285`, based on
 `8daf7e7e577cd05597a29d69952ea2c80e31e3ee` on `arena/bf87c593-vexsign`.
-It is not the revision tested by the historical CI results in
-[the migration record](feature-layout-migration.md). No new commit, push, release,
-merge or deployment was performed for this follow-up.
+Publication and integration of current `main` were subsequently authorized, with
+existing published commit history retained. The integration source is
+`725a2769be00ad60542102f472bbb879c8136f86`; it does not merge the pull request,
+release or deploy anything. Historical CI in
+[the migration record](feature-layout-migration.md) does not validate this candidate.
+Record new CI outcomes against the exact integrated PR head, not an older artifact.
 
 The existing application, signing engine, library repositories, task history,
 packaging and installation owners remain in place. The separate experimental
@@ -215,19 +219,20 @@ visible filtered records and is retained when the transaction fails. Neither app
 deletion nor its recovery deletes shared certificate/profile storage or an installed
 application.
 
-## Validation record for this draft
+## Validation record for this candidate
 
 | Check | Observed result / limit |
 | --- | --- |
 | Native C++ regressions | **36 passed, 0 failed**, normally and with AddressSanitizer + UndefinedBehaviorSanitizer, including the final bundle-metadata checks; independent plistlib interoperability passed in both runs. Generated non-runnable images, ephemeral non-Apple keys/PKCS#12 and public-only CMS fixture; no Apple trust/device acceptance. |
 | Portable repository validation | Final `make verify` passed, including the 75-case experimental-native preparation suite. These are portable/source/fixture groups, not an Apple build or execution of production signing through Security. |
 | Identity/readiness/output wiring | **14 portable source-policy cases passed**; these pin wiring, not Security/Core Data runtime behavior. |
-| Preservation-auditor fixtures | **25 passed**. Only the exact public Security-framework linkage is an allowed protected-manifest transformation. Original hashes, pins, legal text and binaries remain independently checked. |
-| Original-file preservation | **1,375 originals accounted for**: 897 byte-identical, 478 rewritten text; 1,322 relocations and 216 added files. All 35 original binaries and ten license texts are preserved. 27/28 protected inputs remain exact; the sole exception is audited public Security-framework linkage, not changed pins/upstream inputs. |
+| Preservation-auditor fixtures | **27 passed**. Public Security-framework linkage and the exact incoming main Cloud lock are narrowly audited exceptions. Negative fixtures reject altered locks, changed original hashes and unrelated removed URLs. |
+| Original-file preservation | **1,375 originals accounted for**: 895 byte-identical, 480 rewritten text; 1,322 relocations and 216 added files. All 35 original binaries and ten license texts are preserved. 26/28 protected inputs remain exact; the two exceptions are public Security-framework linkage and the byte-exact incoming main Cloud lock. Original recorded hashes are unchanged. |
 | Swift grammar | **85 changed Swift files, 0 grammar findings**; full comparison **959 original / 1,158 current files**, the same **25 / 25 known findings and no new signatures**, in `feature-migration-preservation.json`. Neither check is Swift type checking. |
 | Localization | **736 files / 3,708 distinct literals / 4,189 catalogue keys**, no missing localized-call keys; existing translations are not pruned. |
 | Public certificate fixture | The calendar-mutation anchor is present in the public DER. This check is not execution of `ProvisioningAdmissionTests`. |
-| Apple build / Objective-C++ / XCTest | **Not run for this draft**: no local Swift/Xcode/Apple SDK. Existing Actions build/test jobs are retained and the Linux quick job now runs native ASan/UBSan; unpublished edits have not been tested by those remote jobs. |
+| Main service integration | Cloud TypeScript build, **14 tests**, contract generation with no OpenAPI drift, and WebManager **216 tests** passed after the incoming dependency updates. One upstream Starlette/httpx deprecation warning; no skips. No deployment acceptance is implied. |
+| Apple build / Objective-C++ / XCTest | **Not run locally for this candidate**: no Swift/Xcode/Apple SDK. Existing Actions build/test jobs are retained and the Linux quick job now runs native ASan/UBSan. New remote outcomes must be checked for the exact integrated PR head; historical successes are not candidate validation. |
 | Hosted UI / iPhone installation | **Not run**. Two hosted layout methods and additional resolver/admission/seal/source/readiness/lease/inventory/migration/deletion XCTest regressions await Apple execution. No positive authenticated end-to-end signing/install result is claimed. |
 
 Reproduce native checks with a C++17 compiler and matching OpenSSL 3 development
@@ -245,13 +250,35 @@ The upstream native input lock and revision remain byte-identical. The isolated
 preparation still verifies the original upstream manifest; the app-local public
 Security-linkage review is separate in
 `VexSign/Packages/NativeSigning/app-vendored-zsign-review.json`. No permissive
-baseline regeneration, target deletion, dependency-pin update, license replacement
-or production promotion is used to obtain a green check.
+baseline regeneration, target deletion, license replacement or production promotion
+is used to obtain a green check. The service dependency updates below come from
+main integration, not native signing or a regenerated lock.
+
+## Main integration and conflict resolution
+
+GitHub reported PR #243 as conflicting with main despite a clean local merge
+preview. Main is integrated without rewriting the published branch commits and
+without choosing the old dependency versions merely to avoid a content change.
+The three incoming service files keep their migrated owners:
+
+| Incoming owner at `725a276` | Retained destination and evidence |
+| --- | --- |
+| `Services/API/server/requirements.txt` | `VexSign/Services/WebManager/Configuration/requirements.txt`; byte-identical to main, including FastAPI `0.162.4`. |
+| `Services/CloudSigning/cloud-signing/package-lock.json` | `VexSign/Services/Cloud/package-lock.json`; byte-identical to main, SHA-256 `e6931af4c320d691770bbe7258a8167e696a372bef11d54eaa4054e49899f47a`. |
+| `Services/CloudSigning/cloud-signing/package.json` | `VexSign/Services/Cloud/package.json`; every non-script field matches main, including AWS SDK `^3.1166.0` and BullMQ `^6.7.4`. The already-migrated command paths remain unchanged. |
+
+The preservation auditor still compares every recorded original hash with the
+original Git blob. Its second protected-input exception binds the exact original
+and incoming Cloud lock digests and source revision. Only dependency URLs actually
+superseded by that exact lock pair are accounted for separately; there is no blanket
+registry/domain exclusion. Tampering, a different lock, altered original bytes or
+an unrelated deleted URL still fails the audit. The main requirements and lock
+are also independently compared byte-for-byte with their real source Git blobs.
 
 ## Changed-file inventory
 
-The following appendix is a working-tree path inventory relative to the repository
-root, compared with the draft's base revision. It is not a replacement for reviewing
+The following appendix is a candidate path inventory relative to the repository
+root, compared with the follow-up base `8daf7e7`. It is not a replacement for reviewing
 `git diff`, the newly added files or the original-hash preservation report.
 
 ```text
@@ -346,6 +373,9 @@ VexSign/Packages/Vendor/Zsign/src/openssl_tools.mm
 VexSign/Packages/Vendor/Zsign/src/signing.cpp
 VexSign/Packages/Vendor/Zsign/src/zsign.hpp
 VexSign/Packages/Vendor/Zsign/src/zsign.mm
+VexSign/Services/Cloud/package-lock.json
+VexSign/Services/Cloud/package.json
+VexSign/Services/WebManager/Configuration/requirements.txt
 VexSign/Tests/SecurityTests/CredentialRedaction/CredentialMigrationDiagnosticsTests.swift
 VexSign/Tests/Support/Fixtures/CodeSignatureCMSFixture.json
 VexSign/Tests/Support/SigningRegressionFixture.swift

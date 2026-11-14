@@ -9,16 +9,18 @@ raw UDIDs or private device logs into Git, Actions artifacts or public reports.
 ## 1. Candidate provenance and Apple build gate
 
 1. Record the exact reviewed candidate revision and full working-tree state. The
-   unpublished follow-up is based on `8daf7e7e577cd05597a29d69952ea2c80e31e3ee`;
-   historical CI for an earlier revision does not validate its drafts.
+   implementation commit is `bf063e778cc2bdf3bdbcd5a84646cc6b95b6d285`, based on
+   `8daf7e7e577cd05597a29d69952ea2c80e31e3ee`, with subsequent integration of main
+   `725a2769be00ad60542102f472bbb879c8136f86`. Test the actual integrated PR head;
+   historical CI for an earlier revision does not validate this candidate.
 2. On a Mac with the repository's supported Xcode/iOS SDK, run the normal app
    build and simulator XCTest target (`make bootstrap`, `make test`, `make VexSign`).
    Run the existing companion/platform checks when relevant. Confirm that the
    public-only `CodeSignatureCMSFixture.json` is bundled in the XCTest resources.
-3. After explicit publication authorization, the existing CI full workflow can
-   validate the exact published revision. Do not commit or push merely to obtain
-   a CI result without that authorization. The Linux native regression job does
-   not compile Swift or Objective-C++/Security code.
+3. Publication and main integration have been explicitly authorized. Use the
+   existing CI full workflow to validate the exact integrated published revision;
+   do not substitute old results or infer physical-device acceptance. The Linux
+   native regression job does not compile Swift or Objective-C++/Security code.
 4. Inspect compiler/concurrency diagnostics rather than suppressing new warnings
    or weakening tests. Run `ProvisioningAdmissionTests`, `SignatureSealTests`,
    `ComponentSigningResolverTests`, `SigningReadinessTests`, `SigningInventoryTests`,
