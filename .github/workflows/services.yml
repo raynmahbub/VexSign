@@ -5,14 +5,20 @@ on:
   push:
     branches: [main]
     paths:
-      - 'server/**'
-      - 'cloud-signing/**'
+      - 'Services/API/server/**'
+      - 'Services/CloudSigning/cloud-signing/**'
+      - 'Services/Anisette/**'
+      - 'Services/API/render.yaml'
+      - 'render.yaml'
       - '.github/workflows/services.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'server/**'
-      - 'cloud-signing/**'
+      - 'Services/API/server/**'
+      - 'Services/CloudSigning/cloud-signing/**'
+      - 'Services/Anisette/**'
+      - 'Services/API/render.yaml'
+      - 'render.yaml'
       - '.github/workflows/services.yml'
   schedule:
     - cron: '0 6 * * 2'   # weekly dependency advisories, even without source edits
@@ -49,7 +55,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: server/requirements.txt
+          cache-dependency-path: Services/API/server/requirements.txt
 
       - name: Install dependencies
         # cryptography enables the full X.509 certificate-checker tests.
@@ -80,7 +86,7 @@ jobs:
           changed=true
           if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] \
               && git fetch --quiet --depth=1 origin "$BASE" 2>/dev/null; then
-            if git diff --quiet "$BASE" HEAD -- :/cloud-signing/package.json :/cloud-signing/package-lock.json; then
+            if git diff --quiet "$BASE" HEAD -- :/Services/CloudSigning/cloud-signing/package.json :/Services/CloudSigning/cloud-signing/package-lock.json; then
               changed=false
             fi
           fi
@@ -89,7 +95,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: cloud-signing/package-lock.json
+          cache-dependency-path: Services/CloudSigning/cloud-signing/package-lock.json
       - run: npm ci
       # `build` is `tsc -p ...`; it type-checks and emits, so the old
       # `check` (`tsc --noEmit`) step was the same work twice.
@@ -100,6 +106,6 @@ jobs:
       # renamed field fails here instead of in an accepted submission that cannot be decoded.
       - name: iOS client matches the documented contract
         working-directory: .
-        run: python3 tools/test_cloud_signing_contract.py
+        run: python3 Tools/Development/test_cloud_signing_contract.py
       - run: npm audit --omit=dev --audit-level=high
         if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'

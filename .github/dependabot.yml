@@ -3,7 +3,7 @@
 # check affected components before maintainers review and merge.
 #
 # The Xcode app's own packages are declared in project.pbxproj, not Package.swift,
-# so they are audited separately by docs/MAINTENANCE.md.
+# so they are audited separately by Documentation/MAINTENANCE.md.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -22,7 +22,7 @@ updates:
       include: scope
 
   - package-ecosystem: pip
-    directory: /server
+    directory: /Services/API/server
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -36,7 +36,7 @@ updates:
     labels: ["dependencies", "server"]
 
   - package-ecosystem: npm
-    directory: /cloud-signing
+    directory: /Services/CloudSigning/cloud-signing
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -50,7 +50,7 @@ updates:
     labels: ["dependencies", "cloud-signing"]
 
   - package-ecosystem: swift
-    directory: /NativeSigning
+    directory: /Packages/NativeSigning
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -64,7 +64,7 @@ updates:
     labels: ["dependencies", "native-signing"]
 
   - package-ecosystem: swift
-    directory: /SideSign
+    directory: /Packages/SideSign
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -78,7 +78,7 @@ updates:
     labels: ["dependencies", "side-sign"]
 
   - package-ecosystem: swift
-    directory: /Vendor/Zsign
+    directory: /Packages/Vendor/Zsign
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
@@ -92,7 +92,7 @@ updates:
     labels: ["dependencies", "vendored"]
 
   - package-ecosystem: docker
-    directory: /server
+    directory: /Services/API/server
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
@@ -102,7 +102,7 @@ updates:
     labels: ["dependencies", "server"]
 
   - package-ecosystem: docker
-    directory: /cloud-signing
+    directory: /Services/CloudSigning/cloud-signing
     schedule:
       interval: weekly
     open-pull-requests-limit: 3

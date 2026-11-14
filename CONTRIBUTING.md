@@ -19,7 +19,7 @@ make bootstrap
 open VexSign.xcworkspace
 ```
 
-The signing engine and device bridge live in `Vendor/`; other SwiftPM packages
+The signing engine and device bridge live in `Packages/Vendor/`; other SwiftPM packages
 resolve normally. Use a supported current
 Xcode and the iOS 17+ deployment target. Configure your own development team for device builds. Local HTTPS installation uses an identity generated on the device; no certificate pack is downloaded by the build.
 
@@ -57,15 +57,15 @@ rebuild with an explicit deployment target (for example `15.0`).
 - Prefer small, testable components and dependency injection over new global singletons.
 - Do not add silent `try?` at user-visible failure boundaries.
 - Preserve strict-concurrency boundaries; document any justified exception.
-- Edit `VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 tools/sync-strings.py --write`), then run `make verify`.
-- Follow [Design](docs/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `VexSign/DesignSystem/` instead of adding another card style.
+- Edit `App/iOS/VexSign/Resources/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 Tools/Development/sync-strings.py --write`), then run `make verify`.
+- Follow [Design](Documentation/Design/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `App/iOS/VexSign/DesignSystem/` instead of adding another card style.
 - Keep documentation concise and update only guides affected by the change.
 
 ## Releases
 
-Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [docs/RELEASING.md](docs/RELEASING.md).
+Push a `vX.Y.Z` tag whose version matches `MARKETING_VERSION`. For an unsigned test artifact without publishing, manually run **Release** with `build_only` enabled. See [Documentation/Releases/RELEASING.md](Documentation/Releases/RELEASING.md).
 
-Zsign and IDeviceKit sources are vendored under `Vendor/`. Send general Zsign
+Zsign and IDeviceKit sources are vendored under `Packages/Vendor/`. Send general Zsign
 changes upstream to [claration/Zsign-Package](https://github.com/claration/Zsign-Package/tree/package);
-if VexSign needs a new pin, follow [Vendor/README.md](Vendor/README.md) and
+if VexSign needs a new pin, follow [Packages/Vendor/README.md](Packages/Vendor/README.md) and
 include the licence/commit update in the same PR.

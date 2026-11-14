@@ -46,8 +46,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ./tools/update-repo.sh
-          TAG="${RELEASE_TAG:-$(jq -r '.apps[0].version' app-repo.json)}"
+          ./Tools/Release/update-repo.sh
+          python3 Tools/Development/sync_repo_aliases.py --write
+          TAG="${RELEASE_TAG:-$(jq -r '.apps[0].version' Resources/RepositoryMetadata/app-repo.json)}"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Open or refresh listing review PR
@@ -60,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- app-repo.json; then
+          if git diff --quiet -- Resources/RepositoryMetadata/app-repo.json app-repo.json; then
             echo "app-repo.json is unchanged, nothing to commit."
             exit 0
           fi
@@ -69,7 +70,7 @@ jobs:
           git switch -C "$BRANCH"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app-repo.json
+          git add Resources/RepositoryMetadata/app-repo.json app-repo.json
           git commit -m "chore(release): update app-repo.json for v${VERSION}"
           # Only this disposable automation branch is updated, never main.
           git push --force origin "HEAD:refs/heads/${BRANCH}"

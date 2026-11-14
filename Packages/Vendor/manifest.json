@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "description": "Third-party SwiftPM sources vendored into the repository so a plain clone builds VexSign.",
+  "packages": [
+    {
+      "name": "Zsign",
+      "path": "Packages/Vendor/Zsign",
+      "upstream": "https://github.com/claration/Zsign-Package.git",
+      "branch": "package",
+      "commit": "6ffe703df73ef9069adacdbb19d571f11a69a801",
+      "commitDate": "2025-07-28",
+      "license": "MIT AND Apache-2.0",
+      "licenseFiles": [
+        "LICENSE",
+        "LICENSE_LC"
+      ]
+    },
+    {
+      "name": "IDeviceKitten",
+      "path": "Packages/Vendor/IDeviceKitten",
+      "upstream": "https://github.com/claration/IDeviceKit.git",
+      "branch": "main",
+      "commit": "837cf1e14d4875771dd5ee1b754a4c86215c5db3",
+      "commitDate": "2026-04-14",
+      "license": "MIT",
+      "licenseFiles": [
+        "LICENSE"
+      ],
+      "localPatches": [
+        {
+          "path": "Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift",
+          "description": "Bounded pairing payload streaming, scoped FFI buffer access, file-handle cleanup and cancellation forwarding.",
+          "baseSHA256": "5497ecda8c7ceeb769dbb39d29787025e6da96fa29640d6ab10605ef3b08a5d4",
+          "patchedSHA256": "6f4b8552817c67643ace148172b3426be4f2de0a6c78e61ea60deb3dac5f27c9"
+        },
+        {
+          "path": "Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift",
+          "description": "deleteApp connects like listApps (pairing check, RSD tunnel) and frees the installation-proxy client on every path.",
+          "baseSHA256": "0f8b245ed3734262883fc25cc4d068edb67e3dc9892a61913f4b115979b7bdda",
+          "patchedSHA256": "a8884437ec4390be2bf21c6ed35c95c628fd5e5cc277a0a6558551ddfbb4b22c"
+        }
+      ]
+    }
+  ]
+}

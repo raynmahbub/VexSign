@@ -1,0 +1,35 @@
+{
+  "_comment": "Every concurrency escape in the app target, with the invariant that makes it safe. Enforced by Tools/Development/test_concurrency_audit.py: a new escape with no entry fails the build gate, as does an entry whose file no longer has an escape. `make strict-concurrency` is the compiler half; this is the reasoning half.",
+  "escapes": [
+    {
+      "file": "App/iOS/VexSign/Backend/Services/AppOperationRegistry.swift",
+      "symbol": "AppOperationRegistry.Lease",
+      "kind": "unchecked-sendable",
+      "invariant": "Immutable stored closure. It runs in `deinit`, which may happen on any thread; the closure only calls back into the lock-protected registry, which is safe from any thread. The release is synchronous (the earlier actor version hopped through a `Task`, which left the owner entry alive briefly after the lease was dropped and let `acquireCleanup` refuse a pass that should have succeeded). No other state.",
+      "risk": "low"
+    },
+    {
+      "file": "App/iOS/VexSign/Backend/Observable/Download.swift",
+      "symbol": "Download",
+      "kind": "unchecked-sendable",
+      "invariant": "@Published properties are written on the main thread only. The verification path in DownloadManager+PackageImport.swift runs on a utility queue but wraps every model mutation in DispatchQueue.main.async, and both URLSessions deliver delegate callbacks on delegateQueue .main. The reference is passed across boundaries; the fields are not written there. A worker reading the fields directly (rather than a copied snapshot) would be unsound - BackgroundDownloadMonitor reads them on @MainActor and copies values for exactly this reason.",
+      "risk": "medium",
+      "watch": "This is the escape most likely to stop being true. Any new off-main writer must be paired with a main-actor hop, not a direct assignment."
+    },
+    {
+      "file": "App/iOS/VexSign/Backend/Observable/UnifiedTaskModels.swift",
+      "symbol": "UnifiedTask",
+      "kind": "unchecked-sendable",
+      "invariant": "The owning UnifiedTaskCenter is @MainActor and there are no detached or global-queue tasks in the file; every mutation goes through the center on the main actor. The Sendable conformance exists so a reference can be handed to async signing/install work, not so those can mutate it.",
+      "risk": "low"
+    },
+    {
+      "file": "App/iOS/VexSign/Utilities/Handlers/AppFileHandler.swift",
+      "symbol": "AppFileHandler",
+      "kind": "unchecked-sendable",
+      "invariant": "One import's private scratch object; `_ipa`, `uniqueWorkDirPayload` and `_didAddToDatabase` are mutated only from its own sequential async methods (copy -> extract -> move -> addDatabase -> clean). The only cross-thread touch is `download.unpackageProgress`, wrapped in DispatchQueue.main.async at the extract progress callback.",
+      "risk": "low",
+      "watch": "Safe only while the pipeline stays sequential per instance. Two steps run concurrently on one handler would race on `_ipa` and `uniqueWorkDirPayload`."
+    }
+  ]
+}

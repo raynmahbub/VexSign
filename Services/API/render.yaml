@@ -1,0 +1,38 @@
+# Render Blueprint for the VexSign backend. Private environment variables are
+# configured in the Render dashboard and are never committed to this repo.
+services:
+  - type: web
+    name: vexsign-premium
+    runtime: python
+    plan: free
+    rootDir: Services/API/server
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      # NOTE on free tier: the filesystem (SQLite keys DB + uploaded IPAs) is
+      # ephemeral — every restart/redeploy wipes device activations and the
+      # self-hosted source. SEED_KEYS below re-creates the *keys* on boot, but
+      # as FRESH keys: previous device bindings are lost, so old devices must
+      # re-validate and a used key becomes redeemable again until it is.
+      # For persistence, upgrade to a paid plan, attach a disk mounted at
+      # /data, and set VEXSIGN_DB=/data/vexsign.db plus
+      # REPO_STORE_DIR=/data/repo-store in the dashboard, e.g.:
+      #
+      #     disk:
+      #       name: vexsign-data
+      #       mountPath: /data
+      #       sizeGB: 1
+      #
+      # (Disks require a paid plan — adding the block above on `plan: free`
+      # fails to deploy. Leaving the DB vars unset intentionally uses a
+      # SQLite file next to the app so the service still boots.)
+      - key: SEED_KEYS
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: PREMIUM_REPO_URLS
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false

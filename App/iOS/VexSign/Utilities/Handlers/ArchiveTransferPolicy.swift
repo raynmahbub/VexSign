@@ -1,0 +1,13 @@
+// Adapted from KorSign's ArchiveHandler.archive(compressForTransfer:).
+// Original file notice: Created by samara on 22.04.2025; KorSign contributors.
+// GNU GPL version 3; see LICENSE and Documentation/THIRD_PARTY_ADAPTATIONS.md.
+
+/// Pairing upload is often transport-bound. Use fast compression when a transfer
+/// would otherwise send an uncompressed IPA, without changing export preferences.
+enum ArchiveTransferPolicy {
+    static func compression(storedIndex: Int, compressForTransfer: Bool) -> ArchiveCompression {
+        let choices = ArchiveCompression.allCases
+        let selected = choices.indices.contains(storedIndex) ? choices[storedIndex] : .defaultCompression
+        return compressForTransfer && selected == .noCompression ? .bestSpeed : selected
+    }
+}

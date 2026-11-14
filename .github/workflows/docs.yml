@@ -6,17 +6,15 @@ on:
     branches: [main]
     paths:
       - '**/*.md'
-      - 'docs/**'
-      - 'tools/check-docs.py'
-      - 'tools/test_docs.py'
+      - 'Documentation/**'
+      - 'Tools/**'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
     paths:
       - '**/*.md'
-      - 'docs/**'
-      - 'tools/check-docs.py'
-      - 'tools/test_docs.py'
+      - 'Documentation/**'
+      - 'Tools/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 

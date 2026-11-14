@@ -35,7 +35,7 @@ swiftversion 6.0
 rules trailingClosures,void,redundantSelf,redundantLet,redundantNilInit,redundantType,redundantParens,redundantPattern,redundantOptionalInit,redundantReturn,redundantLetError,redundantProtocol,unusedArguments,unusedImport,unusedPrivateDeclaration,unusedVariable,fileHeader,linebreaks,trailingCommas,trimWhitespace,preferForLoop,preferKeyPath,preferNimbleOperator,preferSelfType,specifiedSelfType,strongOutlets,wrapArguments,wrapMultilineStatementBraces,wrapSwitchCases,wrapTernary,wrapCollections,wrapEnumCases,wrapFunctionCalls,wrapFunctionDefinitions
 
 # Exclude
-exclude Vendor,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
+exclude Packages/Vendor,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
 
 # Custom options
 indentcase true

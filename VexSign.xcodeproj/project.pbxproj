@@ -195,7 +195,7 @@
 				3371F6492DA92A1800281AC6 /* Exceptions for "VexSign" folder in "VexSign" target */,
 				3A2F0F082E96DD09009DE4CE /* Exceptions for "VexSign" folder in "VexSignWidgetExtensionExtension" target */,
 			);
-			path = VexSign;
+			path = App/iOS/VexSign;
 			sourceTree = "<group>";
 		};
 		3A2F0EE82E96DA5A009DE4CE /* VexSignWidgetExtension */ = {
@@ -203,27 +203,27 @@
 			exceptions = (
 				3A2F0EFC2E96DA5D009DE4CE /* Exceptions for "VexSignWidgetExtension" folder in "VexSignWidgetExtensionExtension" target */,
 			);
-			path = VexSignWidgetExtension;
+			path = Extensions/Widgets/VexSignWidgetExtension;
 			sourceTree = "<group>";
 		};
 		AABA5D1A2DB3C87800BFCD2C /* VexSignTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VexSignTests;
+			path = App/Tests/VexSignTests;
 			sourceTree = "<group>";
 		};
 		C0FFEE000000000000000001 /* VexSignTV */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VexSignTV;
+			path = App/TV/VexSignTV;
 			sourceTree = "<group>";
 		};
 		C0FFEE00000000000000000D /* VexSignVision */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VexSignVision;
+			path = App/Vision/VexSignVision;
 			sourceTree = "<group>";
 		};
 		C0FFEE000000000000000019 /* VexSignWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VexSignWatch;
+			path = Extensions/Watch/VexSignWatch;
 			sourceTree = "<group>";
 		};
 		C0FFEE000000000000000025 /* VexSignWatchWidgets */ = {
@@ -231,7 +231,7 @@
 			exceptions = (
 				C0FFEE000000000000000039 /* Exceptions for "VexSignWatchWidgets" folder in "VexSignWatchWidgets" target */,
 			);
-			path = VexSignWatchWidgets;
+			path = Extensions/Watch/VexSignWatchWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -683,7 +683,7 @@ packageReferences = (
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Tweaks/FilePickerFix.m",
+				"$(SRCROOT)/Tools/Development/FilePickerFix.m",
 			);
 			name = "Build FilePickerFix";
 			outputPaths = (
@@ -691,7 +691,7 @@ packageReferences = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nPLATFORM=\"${PLATFORM_NAME:-iphoneos}\"\nSDK=\"${SDKROOT:-$(xcrun --sdk \"${PLATFORM}\" --show-sdk-path)}\"\nDEPLOY=\"${IPHONEOS_DEPLOYMENT_TARGET:-16.0}\"\nARCH=\"${CURRENT_ARCH:-arm64}\"\nif [ \"${ARCH}\" = \"undefined_arch\" ] || [ -z \"${ARCH}\" ]; then ARCH=\"arm64\"; fi\nif [ \"${PLATFORM}\" = \"iphonesimulator\" ]; then\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}-simulator\"\nelse\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}\"\nfi\nxcrun clang -dynamiclib -fobjc-arc -Os -target \"${TARGET}\" -isysroot \"${SDK}\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/Tweaks/FilePickerFix.m\"\n";
+			shellScript = "set -e\nOUTPUT=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FilePickerFix.dylib\"\nmkdir -p \"$(dirname \"${OUTPUT}\")\"\nPLATFORM=\"${PLATFORM_NAME:-iphoneos}\"\nSDK=\"${SDKROOT:-$(xcrun --sdk \"${PLATFORM}\" --show-sdk-path)}\"\nDEPLOY=\"${IPHONEOS_DEPLOYMENT_TARGET:-16.0}\"\nARCH=\"${CURRENT_ARCH:-arm64}\"\nif [ \"${ARCH}\" = \"undefined_arch\" ] || [ -z \"${ARCH}\" ]; then ARCH=\"arm64\"; fi\nif [ \"${PLATFORM}\" = \"iphonesimulator\" ]; then\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}-simulator\"\nelse\n  TARGET=\"${ARCH}-apple-ios${DEPLOY}\"\nfi\nxcrun clang -dynamiclib -fobjc-arc -Os -target \"${TARGET}\" -isysroot \"${SDK}\" -Wno-deprecated-declarations -framework Foundation -framework UIKit -install_name @executable_path/Frameworks/FilePickerFix.dylib -o \"${OUTPUT}\" \"${SRCROOT}/Tools/Development/FilePickerFix.m\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -900,7 +900,7 @@ packageReferences = (
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -916,7 +916,7 @@ packageReferences = (
 					"$(inherited)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSign/Resources/Info.plist;
+				INFOPLIST_FILE = App/iOS/VexSign/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSign;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 VexSign Team";
@@ -936,7 +936,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/Resources",
+					"$(PROJECT_DIR)/App/iOS/VexSign/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -953,7 +953,7 @@ packageReferences = (
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "VexSign/Supporting Files/VexSign-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "App/iOS/VexSign/Supporting Files/VexSign-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -969,7 +969,7 @@ packageReferences = (
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -984,7 +984,7 @@ packageReferences = (
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSign/Resources/Info.plist;
+				INFOPLIST_FILE = App/iOS/VexSign/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSign;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 VexSign Team";
@@ -1004,7 +1004,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/Resources",
+					"$(PROJECT_DIR)/App/iOS/VexSign/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -1021,7 +1021,7 @@ packageReferences = (
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "VexSign/Supporting Files/VexSign-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "App/iOS/VexSign/Supporting Files/VexSign-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TVOS_DEPLOYMENT_TARGET = 16.0;
@@ -1099,7 +1099,7 @@ packageReferences = (
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -1116,7 +1116,7 @@ packageReferences = (
 					"$(inherited)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSign/Resources/Info.plist;
+				INFOPLIST_FILE = App/iOS/VexSign/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSign;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 VexSign Team";
@@ -1136,7 +1136,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/Resources",
+					"$(PROJECT_DIR)/App/iOS/VexSign/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -1153,7 +1153,7 @@ packageReferences = (
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "APPSTORE DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "VexSign/Supporting Files/VexSign-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "App/iOS/VexSign/Supporting Files/VexSign-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1166,7 +1166,7 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				COMPRESS_PNG_FILES = NO;
@@ -1249,7 +1249,7 @@ packageReferences = (
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -1264,7 +1264,7 @@ packageReferences = (
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "APPSTORE=1";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSign/Resources/Info.plist;
+				INFOPLIST_FILE = App/iOS/VexSign/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSign;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 VexSign Team";
@@ -1284,7 +1284,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/Resources",
+					"$(PROJECT_DIR)/App/iOS/VexSign/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -1301,7 +1301,7 @@ packageReferences = (
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPSTORE;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "VexSign/Supporting Files/VexSign-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "App/iOS/VexSign/Supporting Files/VexSign-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TVOS_DEPLOYMENT_TARGET = 16.0;
@@ -1313,7 +1313,7 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				COMPRESS_PNG_FILES = NO;
@@ -1340,14 +1340,14 @@ packageReferences = (
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Extensions/Widgets/VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = S4Q99652S6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSignWidgetExtension/Info.plist;
+				INFOPLIST_FILE = Extensions/Widgets/VexSignWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSignWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1380,14 +1380,14 @@ packageReferences = (
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Extensions/Widgets/VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = S4Q99652S6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSignWidgetExtension/Info.plist;
+				INFOPLIST_FILE = Extensions/Widgets/VexSignWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSignWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1420,14 +1420,14 @@ packageReferences = (
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Extensions/Widgets/VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = S4Q99652S6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSignWidgetExtension/Info.plist;
+				INFOPLIST_FILE = Extensions/Widgets/VexSignWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSignWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1461,14 +1461,14 @@ packageReferences = (
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Extensions/Widgets/VexSignWidgetExtension/VexSignWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = S4Q99652S6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = VexSignWidgetExtension/Info.plist;
+				INFOPLIST_FILE = Extensions/Widgets/VexSignWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VexSignWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1501,7 +1501,7 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				COMPRESS_PNG_FILES = NO;
@@ -1526,7 +1526,7 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_ENTITLEMENTS = "VexSign/Supporting Files/VexSign.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "App/iOS/VexSign/Supporting Files/VexSign.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				COMPRESS_PNG_FILES = NO;
@@ -1557,7 +1557,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1586,7 +1586,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1615,7 +1615,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1645,7 +1645,7 @@ packageReferences = (
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign TV";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1676,7 +1676,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1707,7 +1707,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1738,7 +1738,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1770,7 +1770,7 @@ packageReferences = (
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PlatformInfo/Companion-Info.plist;
+				INFOPLIST_FILE = App/SharedPlatformInfo/Companion-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign Vision";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifestGeneration = YES;
@@ -1795,7 +1795,7 @@ packageReferences = (
 		C0FFEE000000000000000020 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
@@ -1827,7 +1827,7 @@ packageReferences = (
 		C0FFEE000000000000000021 /* Debug-distribution */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
@@ -1859,7 +1859,7 @@ packageReferences = (
 		C0FFEE000000000000000022 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
@@ -1892,7 +1892,7 @@ packageReferences = (
 		C0FFEE000000000000000023 /* Release-distribution */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatch/VexSignWatch.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatch/VexSignWatch.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
@@ -1926,14 +1926,14 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "VexSignWatchWidgets/Info.plist";
+				INFOPLIST_FILE = "Extensions/Watch/VexSignWatchWidgets/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign WatchWidgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1958,14 +1958,14 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "VexSignWatchWidgets/Info.plist";
+				INFOPLIST_FILE = "Extensions/Watch/VexSignWatchWidgets/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign WatchWidgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1990,14 +1990,14 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "VexSignWatchWidgets/Info.plist";
+				INFOPLIST_FILE = "Extensions/Watch/VexSignWatchWidgets/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign WatchWidgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2023,14 +2023,14 @@ packageReferences = (
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = "VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Extensions/Watch/VexSignWatchWidgets/VexSignWatchWidgets.entitlements";
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "2";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "VexSignWatchWidgets/Info.plist";
+				INFOPLIST_FILE = "Extensions/Watch/VexSignWatchWidgets/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "VexSign WatchWidgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2148,23 +2148,23 @@ packageReferences = (
 /* Begin XCLocalSwiftPackageReference section */
 		330F68FF2DC03DF400D8C35D /* XCLocalSwiftPackageReference "NimbleKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = NimbleKit;
+			relativePath = Packages/NimbleKit;
 		};
 		33693A062DC8BF5B00730215 /* XCLocalSwiftPackageReference "AltSourceKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = AltSourceKit;
+			relativePath = Packages/AltSourceKit;
 		};
 		3371F5152DA91FDC00281AC6 /* XCLocalSwiftPackageReference "Zsign" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Vendor/Zsign;
+			relativePath = Packages/Vendor/Zsign;
 		};
 		3A2F0F0B2E976B67009DE4CE /* XCLocalSwiftPackageReference "IDeviceKitten" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Vendor/IDeviceKitten;
+			relativePath = Packages/Vendor/IDeviceKitten;
 		};
 		33BBAACC1122334455667788 /* XCLocalSwiftPackageReference "NativeSigning" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = NativeSigning;
+			relativePath = Packages/NativeSigning;
 		};
 /* End XCLocalSwiftPackageReference section */
 

@@ -45,7 +45,7 @@ BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 # Summary heading. The build job uses the default; the test job passes its
 # own so a test run does not report itself as a build.
 DEFAULT_TITLE = "Build"
-DEFAULT_FIRST_PARTY = ["VexSign", "VexSignWidgetExtension", "VexSignTests", "AltSourceKit", "NimbleKit", "Tweaks"]
+DEFAULT_FIRST_PARTY = ["App", "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources", "Documentation"]
 MAX_ANNOTATIONS = 200
 MAX_LISTED = 80
 
@@ -154,7 +154,9 @@ def is_first_party(rel: str | None, first_party: list[str]) -> bool:
     if rel is None:
         return False
     parts = rel.split("/")
-    if "DerivedData" in parts or "SourcePackages" in parts or ".build" in parts:
+    if any(marker in parts for marker in ("DerivedData", "SourcePackages", ".build", "node_modules")):
+        return False
+    if parts[:2] == ["Packages", "Vendor"]:
         return False
     return parts[0] in first_party
 

@@ -33,8 +33,9 @@ help:
 	  'make clean            Remove local IPA staging/output'
 
 docs-check:
-	@python3 tools/check-docs.py
-	@python3 tools/test_docs.py
+	@python3 Tools/Development/check-docs.py
+	@python3 Tools/Development/test_docs.py
+	@python3 Tools/Development/sync_repo_aliases.py --check
 
 clean:
 	rm -rf $(TMP)
@@ -44,7 +45,7 @@ clean:
 # Validate a fresh checkout and resolve packages without building.
 #   make bootstrap
 bootstrap:
-	@bash tools/bootstrap.sh
+	@bash Tools/Development/bootstrap.sh
 
 # Install-server TLS is generated and persisted on each device, not in an IPA.
 $(SCHEMES):
@@ -77,7 +78,7 @@ $(SCHEMES):
 	mkdir -p packages
 	zip -r9 "$(IPA_FILE)" Payload
 
-# Self-hosted backend (server/). Keep this BELOW `all` — make builds the first
+# Self-hosted backend (Services/API/server/). Keep this BELOW `all` — make builds the first
 # target in the file, so a rule above it would hijack a bare `make` (which is
 # what CI runs).
 #   docker run -p 8080:8080 -e ADMIN_TOKEN=<secret> -v vexsign-repo:/data \
@@ -85,8 +86,8 @@ $(SCHEMES):
 IMAGE ?= vexsign-server
 deploy-server:
 	@command -v docker >/dev/null 2>&1 || { \
-		echo "docker is not installed; see server/README.md for the deploy steps"; exit 1; }
-	docker build --platform linux/amd64 -t $(IMAGE) server
+		echo "docker is not installed; see Services/API/server/README.md for the deploy steps"; exit 1; }
+	docker build --platform linux/amd64 -t $(IMAGE) Services/API/server
 	@echo "Built $(IMAGE). Run it with:"
 	@echo "  docker run -p 8080:8080 -e ADMIN_TOKEN=<secret> -e REPO_STORE_DIR=/data \\"
 	@echo "    -v vexsign-repo:/data $(IMAGE)"
@@ -111,75 +112,78 @@ STRICT_CONCURRENCY_FLAGS = $(if $(IOS_SDK),--sdk "$(IOS_SDK)") --triple $(IOS_TR
 
 strict-concurrency:
 	@echo "== AltSourceKit (StrictConcurrency, warnings only) =="
-	swift build --package-path AltSourceKit $(STRICT_CONCURRENCY_FLAGS)
+	swift build --package-path Packages/AltSourceKit $(STRICT_CONCURRENCY_FLAGS)
 	@echo "== NimbleKit (Swift 6 language mode: complete by default) =="
-	swift build --package-path NimbleKit --sdk "$(IOS_SDK)" --triple $(IOS_TRIPLE)
+	swift build --package-path Packages/NimbleKit --sdk "$(IOS_SDK)" --triple $(IOS_TRIPLE)
 	@echo "== app target =="
-	@echo "Guarded by tools/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe)),"
-	@echo "and by tools/test_concurrency_audit.py (every escape needs a written invariant)."
+	@echo "Guarded by Tools/Development/concurrency-discipline.py (no new @unchecked Sendable / nonisolated(unsafe)),"
+	@echo "and by Tools/Development/test_concurrency_audit.py (every escape needs a written invariant)."
 
 # Everything that can be checked without Xcode: the same gates as CI's quick
 # job, minus Swift syntax parsing. Use this before pushing; `make test` and
 # `make` are the parts that need a toolchain.
 #   make verify
 verify: docs-check
-	@python3 tools/check_ios_icon_assets.py
-	@python3 tools/test_public_blur_policy.py
-	@python3 tools/test_private_launch_policy.py
-	@python3 tools/test_private_defaults_policy.py
-	@python3 tools/test_archive_extraction_policy.py
-	@python3 tools/test_network_timeout_policy.py
-	@python3 tools/test_logging_message_policy.py
-	@python3 tools/test_cross_file_privacy.py
-	@python3 tools/test_signing_identity_policy.py
-	@python3 tools/test_integration_contracts.py
-	@python3 tools/test_architecture_boundaries.py
-	@python3 tools/test_performance_fixtures.py
-	@python3 tools/test_ci_repair_agent.py
-	@python3 tools/test_autopilot.py
-	@python3 tools/test_release_assets.py
-	@python3 tools/test_device_acceptance.py
-	@python3 tools/test_native_promotion_evidence.py
+	@python3 Tools/Development/test_repo_aliases.py
+	@python3 Tools/Development/check_ios_icon_assets.py
+	@python3 Tools/Development/test_public_blur_policy.py
+	@python3 Tools/Development/test_private_launch_policy.py
+	@python3 Tools/Development/test_private_defaults_policy.py
+	@python3 Tools/Development/test_archive_extraction_policy.py
+	@python3 Tools/Development/test_network_timeout_policy.py
+	@python3 Tools/Development/test_logging_message_policy.py
+	@python3 Tools/Development/test_cross_file_privacy.py
+	@python3 Tools/Development/test_signing_identity_policy.py
+	@python3 Tools/Development/test_integration_contracts.py
+	@python3 Tools/Architecture/test_architecture_boundaries.py
+	@python3 Tools/Architecture/test_architecture_excellence.py
+	@python3 Tools/Architecture/test_repository_layout.py
+	@python3 Tools/Development/test_performance_fixtures.py
+	@python3 Tools/CI/test_ci_repair_agent.py
+	@python3 Tools/CI/test_autopilot.py
+	@python3 Tools/Release/test_release_assets.py
+	@python3 Tools/Development/test_device_acceptance.py
+	@python3 Tools/Development/test_native_promotion_evidence.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --self-test
 	@python3 .github/scripts/quick_check.py --no-swiftc
 	@echo "== Xcode project structure =="
-	@python3 tools/check-pbxproj.py
+	@python3 Tools/CI/check-pbxproj.py
 	@echo "== package graph (workspace/project pins) =="
-	@python3 tools/check-package-graph.py
-	@python3 tools/test_xcode_package_audit.py
+	@python3 Tools/CI/check-package-graph.py
+	@python3 Tools/CI/test_xcode_package_audit.py
 	@echo "== localisation catalogue =="
-	@python3 tools/sync-strings.py --check
-	@python3 tools/test_sync_strings.py
+	@python3 Tools/Development/sync-strings.py --check
+	@python3 Tools/Development/test_sync_strings.py
 	@echo "== error discipline =="
-	@python3 tools/error-discipline.py
+	@python3 Tools/Development/error-discipline.py
 	@echo "== singleton freeze =="
-	@python3 tools/singleton-freeze.py
+	@python3 Tools/Development/singleton-freeze.py
 	@echo "== concurrency discipline =="
-	@python3 tools/concurrency-discipline.py
+	@python3 Tools/Development/concurrency-discipline.py
 	@echo "== concurrency audit (every escape needs a reason) =="
-	@python3 tools/test_concurrency_audit.py
+	@python3 Tools/Development/test_concurrency_audit.py
 	@echo "== native signing capability =="
-	@python3 tools/check-native-handoff.py
+	@python3 Tools/Development/check-native-handoff.py
 	@echo "== CMS fixture contract =="
-	@python3 NativeSigning/Fixtures/make_cms_fixture.py --check | tail -1
+	@python3 Packages/NativeSigning/Fixtures/make_cms_fixture.py --check | tail -1
 	@echo "== workflow trigger policy =="
-	@python3 tools/test_workflow_policy.py
-	@python3 tools/test_workflow_trace_policy.py
-	@python3 tools/test_build_provenance.py
-	@python3 tools/test_package_graph.py
-	@python3 tools/test_coverage_report.py
-	@python3 tools/test_swift6_build_regressions.py
+	@python3 Tools/CI/test_workflow_policy.py
+	@python3 Tools/CI/test_workflow_trace_policy.py
+	@python3 Tools/CI/test_build_provenance.py
+	@python3 Tools/CI/test_package_graph.py
+	@python3 Tools/CI/test_coverage_report.py
+	@python3 Tools/CI/test_swift6_build_regressions.py
 	@echo "== embedded-container packaging =="
-	@python3 -m unittest discover -s EmbeddedContainer/tests -v
+	@python3 -m unittest discover -s Integrations/EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="
-	@python3 -m unittest discover -s NativeSigning/PythonTests -v
+	@python3 -m unittest discover -s Packages/NativeSigning/PythonTests -v
 
 # Read-only upstream check for the root Xcode SwiftPM requirements (Dependabot
 # covers Package.swift, but not project.pbxproj). Never edits the project.
 #   make audit-packages
 audit-packages:
-	@python3 tools/check-xcode-packages.py
+	@python3 Tools/CI/check-xcode-packages.py
 
 # Style, on demand. Nothing in CI runs SwiftLint any more: the auto-fix commits
 # it pushed onto pull requests were noise at best (see CHANGELOG.md).
@@ -240,13 +244,13 @@ test:
 # Use an activated virtualenv, or override PYTHON=/path/to/venv/bin/python.
 PYTHON ?= python3
 test-server:
-	cd server && $(PYTHON) -m pytest tests/ -q
+	cd Services/API/server && $(PYTHON) -m pytest tests/ -q
 
 # Do not silently install or update dependencies during a test run.
 test-cloud:
-	cd cloud-signing && npm run build && npm test && npm run contracts
-	git diff --exit-code -- cloud-signing/openapi.json
+	cd Services/CloudSigning/cloud-signing && npm run build && npm test && npm run contracts
+	git diff --exit-code -- Services/CloudSigning/cloud-signing/openapi.json
 
 .PHONY: device-smoke
 device-smoke:
-	@bash tools/device-smoke.sh
+	@bash Tools/Development/device-smoke.sh

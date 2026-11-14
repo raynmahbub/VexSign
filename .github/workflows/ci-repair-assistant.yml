@@ -47,7 +47,7 @@ jobs:
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BUGFIX_AGENT_MODEL: ${{ vars.BUGFIX_AGENT_MODEL || 'gpt-4.1-mini' }}
-        run: python3 tools/ci_repair_agent.py propose
+        run: python3 Tools/CI/ci_repair_agent.py propose
 
       - name: Upload candidate patch
         if: steps.agent.outputs.patch_ready == 'true'
@@ -90,7 +90,9 @@ jobs:
         env:
           TARGET_REPO: target
           BUGFIX_ARTIFACT_DIR: bugfix-candidate
-        run: python3 trusted/tools/ci_repair_agent.py validate
+        run: |
+          if [ -f trusted/Tools/CI/ci_repair_agent.py ]; then AGENT=trusted/Tools/CI/ci_repair_agent.py; else AGENT=trusted/tools/ci_repair_agent.py; fi
+          python3 "$AGENT" validate
 
   publish:
     needs: [propose, validate]
@@ -131,4 +133,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           TARGET_REPO: target
           BUGFIX_ARTIFACT_DIR: bugfix-candidate
-        run: python3 trusted/tools/ci_repair_agent.py publish
+        run: |
+          if [ -f trusted/Tools/CI/ci_repair_agent.py ]; then AGENT=trusted/Tools/CI/ci_repair_agent.py; else AGENT=trusted/tools/ci_repair_agent.py; fi
+          python3 "$AGENT" publish
