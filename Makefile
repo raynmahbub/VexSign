@@ -169,6 +169,7 @@ verify: docs-check
 	@python3 tools/test_build_provenance.py
 	@python3 tools/test_package_graph.py
 	@python3 tools/test_coverage_report.py
+	@python3 tools/test_swift6_build_regressions.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s EmbeddedContainer/tests -v
 	@echo "== native-signing preparation =="

@@ -1,6 +1,14 @@
 import Foundation
 import NimbleExtensions
 
+/// A user-visible file-import refusal. `Result.Failure` must conform to `Error`
+/// in Swift 6; using `String` here failed compilation and hid the failure text's
+/// type from the rest of the application layer.
+private struct CoordinatedFileCopyFailure: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
 /// Coordinates incoming `vexsign://`, `feather://`, `.ipa`/`.tipa`, and tweak URLs
 /// with centralized security policy validation instead of burying routing logic in `VexSignApp`.
 @MainActor
@@ -161,7 +169,7 @@ final class DeepLinkRouterUseCase {
 
         switch copyCoordinatedFile(from: url, to: destinationURL, tempDirectory: tempDir) {
         case .failure(let reason):
-            platform.presentErrorWithCopy(title: .localized("Import Failed"), message: reason)
+            platform.presentErrorWithCopy(title: .localized("Import Failed"), message: reason.localizedDescription)
             return
         case .success:
             break
@@ -230,7 +238,7 @@ final class DeepLinkRouterUseCase {
         }
     }
 
-    private func copyCoordinatedFile(from url: URL, to destinationURL: URL, tempDirectory: URL) -> Result<Void, String> {
+    private func copyCoordinatedFile(from url: URL, to destinationURL: URL, tempDirectory: URL) -> Result<Void, CoordinatedFileCopyFailure> {
         let didStartAccessing = url.startAccessingSecurityScopedResource()
         defer {
             if didStartAccessing {
@@ -252,13 +260,13 @@ final class DeepLinkRouterUseCase {
         }
 
         if let error = copyError {
-            return .failure("Could not copy the shared file into the app.\n\nFile: \(url.lastPathComponent)\nReason: \(error.localizedDescription)")
+            return .failure(CoordinatedFileCopyFailure(message: "Could not copy the shared file into the app.\n\nFile: \(url.lastPathComponent)\nReason: \(error.localizedDescription)"))
         }
         if let error = coordinatorError {
-            return .failure("Could not read the shared file. The other app may have denied access.\n\nFile: \(url.lastPathComponent)\nReason: \(error.localizedDescription)")
+            return .failure(CoordinatedFileCopyFailure(message: "Could not read the shared file. The other app may have denied access.\n\nFile: \(url.lastPathComponent)\nReason: \(error.localizedDescription)"))
         }
         guard FileManager.default.fileExists(atPath: destinationURL.path) else {
-            return .failure("The shared file could not be copied into the app. It may be inaccessible, or storage may be full.\n\nFile: \(url.lastPathComponent)")
+            return .failure(CoordinatedFileCopyFailure(message: "The shared file could not be copied into the app. It may be inaccessible, or storage may be full.\n\nFile: \(url.lastPathComponent)"))
         }
         return .success(())
     }
