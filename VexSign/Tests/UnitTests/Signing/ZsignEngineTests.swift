@@ -69,21 +69,16 @@ final class ZsignEngineTests: XCTestCase {
 		XCTAssertFalse(request.isAdHoc)
 	}
 
-	/// The signer and the post-sign verifier are told the same thing from the same option
-	/// (`SigningHandler._verifySignedBundle`). If one of them starts reading the flag the other
-	/// way round, a good bundle fails verification or a profile-less one passes it.
-	func testTheVerifierExpectsWhatTheEngineWasToldToProduce() {
-		for removeProvisioning in [false, true] {
-			let request = ZsignEngine.Request(
-				appPath: "/tmp/A.app",
-				removeProvisioning: removeProvisioning
-			)
-			var expectation = SignatureVerifier.Expectation.freshlySigned
-			expectation.requiresEmbeddedProfile = !removeProvisioning
-
-			XCTAssertEqual(request.engineEmbedProvision, expectation.requiresEmbeddedProfile)
-		}
-	}
+    /// Low-level polarity is not device admission: fresh verification always
+    /// needs a current authorized profile, and removing it cannot be consented away.
+    func testFreshDeviceVerificationRequiresAuthorizedEmbeddedProfiles() {
+        XCTAssertTrue(SignatureVerifier.Expectation.freshlySigned.requiresEmbeddedProfile)
+        XCTAssertTrue(SignatureVerifier.Expectation.freshlySigned.expectsFreshSignature)
+        XCTAssertTrue(SignatureVerifier.Expectation.freshlySigned.assets.isEmpty,
+            "Run-owned assets must still be supplied; the default alone cannot verify fresh output.")
+        XCTAssertFalse(SignatureVerifier.Expectation.alreadySigned.expectsFreshSignature,
+            "Import inspection is not fresh signing acceptance.")
+    }
 
 	/// Only the provisioning intent changes between the two requests: the flag is not standing in
 	/// for anything else.
@@ -225,21 +220,18 @@ final class ZsignEngineTests: XCTestCase {
 				leafCertificate: leaf,
 				profile: _profile(developerCertificates: [other, leaf])
 			),
-			"a profile that names this certificate can sign with it"
+			"the metadata names this leaf; actual CMS, validity and private-key proof are still required"
 		)
 	}
 
-	func testAProfileThatNamesNoCertificatesSkipsTheComparison() {
-		XCTAssertNil(
-			ZsignEngine.identityProblem(
-				provisioningProfile: Data([0x01]),
-				certificate: Data([0x02]),
-				leafCertificate: Data([0xAA, 0xBB, 0xCC]),
-				profile: _profile()
-			),
-			"an older profile without DeveloperCertificates cannot be compared and must not block"
-		)
-	}
+    func testAProfileThatNamesNoCertificatesCannotAuthorizeTheLeaf() {
+        let values: [[Data]?] = [nil, []]
+        for certificates in values {
+            XCTAssertEqual(ZsignEngine.identityProblem(provisioningProfile: Data([0x01]),
+                certificate: Data([0x02]), leafCertificate: Data([0xAA, 0xBB, 0xCC]),
+                profile: _profile(developerCertificates: certificates)), .certificateNotInProfile)
+        }
+    }
 
 	// MARK: - Cache
 

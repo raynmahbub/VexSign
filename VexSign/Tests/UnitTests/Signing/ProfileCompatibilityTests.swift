@@ -33,7 +33,7 @@ final class ProfileCompatibilityTests: XCTestCase {
 		XCTAssertFalse(evaluation.hasBlocking, _describe(evaluation))
 	}
 
-	func testExplicitProfileForAnotherAppBlocksAndSuggestsTheIdentifierItCovers() {
+	func testExplicitProfileForAnotherAppBlocksWithoutSuggestingAnIdentifierBypass() {
 		let evaluation = ProfileCompatibility.evaluate(
 			profile: _profile(appIdentifier: "TEAM12345.com.example.profile"),
 			target: _target("com.example.app")
@@ -41,11 +41,8 @@ final class ProfileCompatibilityTests: XCTestCase {
 
 		XCTAssertEqual(evaluation.verdict, .unusable)
 		XCTAssertTrue(evaluation.blockingIssues.contains { $0.code == .appIdentifierMismatch }, _describe(evaluation))
-		XCTAssertEqual(
-			evaluation.suggestedBundleIdentifier,
-			"com.example.profile",
-			"the fix is the identifier the profile actually covers"
-		)
+        XCTAssertNil(evaluation.suggestedBundleIdentifier, "Import compatible assets; do not rename the original app to fit an unrelated profile.")
+        XCTAssertTrue(evaluation.blockingIssues.first?.detail.contains("com.example.app") == true)
 	}
 
 	func testVerdictTable() {

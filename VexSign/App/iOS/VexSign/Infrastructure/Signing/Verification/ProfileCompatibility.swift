@@ -89,10 +89,10 @@ extension ProfileCompatibility {
 				Issue(
 					code: .appIdentifierMismatch,
 					severity: .blocking,
-					detail: suggestion.map {
+					detail: suggestion.map { _ in
 						.localized(
-							"The profile covers %@, so it cannot sign %@. Change the bundle identifier to %@ or pick a different certificate.",
-							arguments: pattern, identifier, $0
+							"The profile covers %@, so it cannot sign %@. Import a profile that authorizes the original identifier %@ and its matching signing identity.",
+							arguments: pattern, identifier, identifier
 						)
 					} ?? .localized(
 						"The profile covers %@, so it cannot sign %@.",
@@ -246,9 +246,7 @@ extension ProfileCompatibility {
 		return Evaluation(
 			verdict: verdict,
 			issues: issues,
-			suggestedBundleIdentifier: verdict == .unusable && malformation == nil
-				? pattern.flatMap { SignatureVerifier.isWildcard($0) ? nil : $0.split(separator: ".", maxSplits: 1).last.map(String.init) }
-				: nil
+			suggestedBundleIdentifier: nil
 		)
 	}
 

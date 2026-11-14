@@ -26,22 +26,23 @@ final class SigningIdentityPolicyTests: XCTestCase {
 	@MainActor
 	func testAnExpiredCertificateIsRejectedAtItsExpiryInstant() {
 		let expiry = Date(timeIntervalSince1970: 1_800_000_000)
-		let certificate = _certificate(expiration: expiry)
+        let certificate = _certificate(expiration: expiry.addingTimeInterval(86_400))
+        let snapshot = CertificateRevocationSnapshot(status: .signed, detail: "", checkedAt: expiry,
+            certificateExpires: expiry)
 
 		// One second before expiry it is still usable; at expiry it is not. The boundary is
 		// inclusive on the "expired" side because `notAfter` is the last instant of validity.
-		XCTAssertNil(SigningIdentityPolicy.rejection(for: certificate, now: expiry.addingTimeInterval(-1)))
+		XCTAssertNil(SigningIdentityPolicy.rejection(for: certificate, storedSnapshot: snapshot, now: expiry.addingTimeInterval(-1)))
 		XCTAssertEqual(
-			SigningIdentityPolicy.rejection(for: certificate, now: expiry),
+			SigningIdentityPolicy.rejection(for: certificate, storedSnapshot: snapshot, now: expiry),
 			.certificateExpired(expiresAt: expiry)
 		)
 	}
 
 	@MainActor
 	func testAnUnknownExpiryIsNotTreatedAsExpired() {
-		// A certificate whose row has no date is *unknown*, not expired. The produced
-		// signature's real validity window is read by the verifier after signing; guessing
-		// here would block a perfectly good identity.
+        // Missing cached dates are not expiry evidence. The coordinator and
+        // execution gate still require readable current X.509 validity.
 		let certificate = _certificate(expiration: nil)
 		XCTAssertNil(SigningIdentityPolicy.rejection(for: certificate, now: .distantFuture))
 	}
@@ -90,22 +91,32 @@ final class SigningIdentityPolicyTests: XCTestCase {
 
 	@MainActor
 	func testOverridingPreflightDoesNotExcuseAnInvalidIdentity() {
-		// "Sign Anyway" on the preflight sheet covers only issues that can still install (a
-		// team or signer mismatch, an unlisted device). It must not cover an identity that is
-		// invalid on its face.
-		let expired = _certificate(expiration: Date(timeIntervalSince1970: 1_000))
+        // No override excuses revocation, expiry, team/device incompatibility,
+        // identity authenticity or required capabilities.
+        let revoked = _certificate(expiration: .distantFuture, revoked: true)
 		let request = SigningRequest(
 			app: _signed(),
 			options: Options.defaultOptions,
 			icon: nil,
-			certificate: expired,
+			certificate: revoked,
 			overridesBlockingPreflightIssues: true
 		)
 		XCTAssertEqual(
 			SigningIdentityPolicy.rejection(for: request),
-			.certificateExpired(expiresAt: Date(timeIntervalSince1970: 1_000))
+			.certificateRevoked
 		)
 	}
+
+    @MainActor
+    func testExpiredPrimaryProfileMetadataDoesNotInvalidateTheActualCertificate() {
+        let certificate = _certificate(expiration: Date(timeIntervalSince1970: 1_000))
+        XCTAssertNil(SigningIdentityPolicy.rejection(for: certificate, storedSnapshot: nil))
+        let snapshot = CertificateRevocationSnapshot(status: .signed, detail: "", checkedAt: Date(),
+            certificateExpires: .distantFuture)
+        XCTAssertNil(SigningIdentityPolicy.rejection(for: certificate, storedSnapshot: snapshot))
+        // The resolver, not this row date, must require a different current
+        // compatible profile. Expired profiles themselves still never resolve.
+    }
 
 	// MARK: - Messages
 
@@ -165,42 +176,20 @@ final class SigningIdentityPolicyTests: XCTestCase {
 
 	// MARK: - Pipeline integration, end to end
 
-	/// Drives the **real** `SigningPipeline`, not a fake work item.
-	///
-	/// The gate is the first thing the pipeline does, so a rejected identity must fail without
-	/// a bundle existing at all: the app is not in storage, so any attempt to copy or inspect
-	/// it would fail differently. That is what makes this a test of ordering, not just of the
-	/// helper the ordering calls.
-	/// An expired identity is refused, and the expiry that reaches the caller is the one
-	/// the certificate actually carries.
-	///
-	/// Asserted on the gate rather than by driving `SigningPipeline().run`, for the same
-	/// reason as the two tests below: the pipeline is `nonisolated`, so awaiting it from a
-	/// `@MainActor` test leaves the main queue while the `Signed` fixture belongs to
-	/// `Storage.context` — the view context, which `Storage` documents as belonging to the
-	/// queue that fetched it. That illegal hop is what traps on the simulator.
+    /// The cheap gate uses certificate-status evidence, never the profile date.
 	@MainActor
 	func testExpiredIdentityIsRefusedAndReportsItsOwnExpiry() {
-		let expired = _certificate(expiration: Date(timeIntervalSince1970: 1_000))
-		let request = SigningRequest(app: _signed(), options: .defaultOptions, icon: nil, certificate: expired)
+        let expired = _certificate(expiration: .distantFuture)
+        let snapshot = CertificateRevocationSnapshot(status: .signed, detail: "", checkedAt: Date(),
+            certificateExpires: Date(timeIntervalSince1970: 1_000))
 
-		guard case .certificateExpired(let expiresAt)? = SigningIdentityPolicy.rejection(for: request) else {
+        guard case .certificateExpired(let expiresAt)? = SigningIdentityPolicy.rejection(for: expired, storedSnapshot: snapshot) else {
 			return XCTFail("An expired identity must not be accepted")
 		}
 		XCTAssertEqual(expiresAt, Date(timeIntervalSince1970: 1_000))
 	}
 
-	/// Default signing with no certificate is refused by the gate, before the handler exists.
-	///
-	/// This asserts the gate directly rather than driving `SigningPipeline().run`. The
-	/// pipeline is `nonisolated`, so awaiting it from a `@MainActor` test hops off the main
-	/// queue — while the `Signed` fixture belongs to `Storage.context`, the *view* context.
-	/// `Storage` documents that contract explicitly: managed objects belong to the queue that
-	/// fetched them. Crossing the boundary trips the runtime's main-actor check, which is
-	/// exactly what two of these tests did on device. Keeping the assertion on the gate tests
-	/// the same property without the illegal hop; the ordering of gate-before-handler is
-	/// separately pinned by `testThePipelineAsksTheIdentityPolicyBeforeStarting`, which reads
-	/// the call order out of `SigningPipeline.swift`.
+    /// Missing identity is refused before constructing the worker or copying.
 	@MainActor
 	func testDefaultSigningWithNoCertificateIsRefused() {
 		let request = SigningRequest(app: _signed(), options: .defaultOptions, icon: nil, certificate: nil)

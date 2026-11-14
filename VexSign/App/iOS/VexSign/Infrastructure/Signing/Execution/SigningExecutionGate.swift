@@ -46,6 +46,21 @@ actor SigningExecutionGate {
         waiters.remove(at: index).continuation.resume(throwing: CancellationError())
     }
 
+    /// Allows a fresh MainActor credential-location snapshot AFTER waiting for
+    /// native ownership. The engine still runs off that actor and remains serial.
+    nonisolated func withAsyncPermit<T>(_ operation: () async throws -> T) async throws -> T {
+        try await acquire()
+        do {
+            try Task.checkCancellation()
+            let value = try await operation()
+            await release()
+            return value
+        } catch {
+            await release()
+            throw error
+        }
+    }
+
     /// The operation runs on the caller's executor, outside this actor. That keeps the
     /// actor responsive to cancellation while a synchronous native operation is busy.
     nonisolated func withPermit<T>(_ operation: () throws -> T) async throws -> T {

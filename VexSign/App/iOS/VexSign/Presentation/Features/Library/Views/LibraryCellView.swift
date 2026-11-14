@@ -48,6 +48,8 @@ struct LibraryCellView: View {
 	@Binding var selectedInfoAppPresenting: AnyApp?
 	@Binding var selectedSigningAppPresenting: AnyApp?
 	@Binding var selectedAppUUIDs: Set<String>
+    @Binding var revealedRowID: String?
+    @State private var isDeleting = false
 	var isHighlighted: Bool = false
 	var onSelectMore: (() -> Void)?
     var isIconTile = false
@@ -57,18 +59,15 @@ struct LibraryCellView: View {
 	
 	// MARK: Selections
 	private var _isSelected: Bool {
-		guard let uuid = app.uuid else { return false }
-		return selectedAppUUIDs.contains(uuid)
+        guard let id = app.workspaceIdentity else { return false }
+        return selectedAppUUIDs.contains(id)
 	}
 	
 	private func _toggleSelection() {
-		guard let uuid = app.uuid else { return }
-		NBHaptic.selection()
-		if selectedAppUUIDs.contains(uuid) {
-			selectedAppUUIDs.remove(uuid)
-		} else {
-			selectedAppUUIDs.insert(uuid)
-		}
+        guard let id = app.workspaceIdentity else { return }
+        NBHaptic.selection()
+        if selectedAppUUIDs.contains(id) { selectedAppUUIDs.remove(id) }
+        else { selectedAppUUIDs.insert(id) }
 	}
 	
 	// MARK: Body
@@ -121,10 +120,14 @@ struct LibraryCellView: View {
             Button(.localized("Delete"), role: .destructive) {
                 // A failed delete used to look like a tap that did nothing: the row stayed and
                 // nothing was said. Say it instead.
-                let uuid = app.uuid
+                guard !isDeleting else { return }
+                isDeleting = true
+                let id = app.workspaceIdentity
+                revealedRowID = nil
                 if services.library.delete(app) {
-                    if let uuid { selectedAppUUIDs.remove(uuid) }
+                    if let id { selectedAppUUIDs.remove(id) }
                 } else {
+                    isDeleting = false
                     Toast.error(
                         .localized("Couldn't delete the app. The stored copy is still in the Library; try again."),
                         duration: .sticky
@@ -144,8 +147,11 @@ struct LibraryCellView: View {
         }
 		.contentShape(Rectangle())
 		.onAppear { _status.request(app) }
-		.onTapGesture {
-			if isEditing {
+        .onTapGesture {
+            // A tap closes an exposed custom action; it never also navigates.
+            if revealedRowID != nil { revealedRowID = nil; return }
+            guard !isDeleting else { return }
+            if isEditing {
 				_toggleSelection()
 			} else if let uuid = app.uuid, lockManager.isAppLocked(uuid), !lockManager.isSessionUnlocked(uuid) {
 				lockManager.authenticateForApp(uuid: uuid, name: app.name ?? .localized("Application")) { success in
@@ -157,38 +163,16 @@ struct LibraryCellView: View {
 				selectedInfoAppPresenting = AnyApp(base: app)
 			}
 		}
-		.modifier(LibraryGridSwipeDelete(enabled: isGridLayout && !isEditing) {
-			confirmDelete = true
-		})
-		.swipeActions(edge: .trailing, allowsFullSwipe: false) {
-			if !isEditing {
-				_actions(for: app)
-				if let update = updateChecker.hasUpdate(for: app), let url = update.downloadURL {
-					Button {
-						_ = DownloadManager.shared.startDownload(
-							from: url,
-							id: update.app.currentUniqueId,
-							appName: update.displayName,
-							appDescription: update.app.localizedDescription
-						)
-						Toast.info(.localized("Downloading update..."), systemImage: "arrow.down.circle")
-					} label: {
-						Label(.localized("Update"), systemImage: "arrow.triangle.2.circlepath")
-					}
-					.tint(Color.userTint)
-				}
-				if services.signing.savedProfile(forBundleID: app.identifier) != nil {
-					Button {
-						_resignLastOrPresent()
-					} label: {
-						Label(.localized("Re-sign Last"), systemImage: "signature")
-					}
-					.tint(.accentColor)
-				}
-			}
-		}
+        .modifier(LibraryGridSwipeDelete(enabled: !isEditing && !isDeleting && app.workspaceIdentity != nil,
+            rowID: app.workspaceIdentity ?? "unavailable", revealedRowID: $revealedRowID) {
+            confirmDelete = true
+        })
+        .accessibilityAction(named: Text(.localized("Delete"))) {
+            guard !isEditing, !isDeleting else { return }
+            confirmDelete = true
+        }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            if !isEditing {
+            if !isEditing && revealedRowID == nil {
                 ForEach(_workflowActions, id: \.self) { action in
                     Button {
                         _performWorkflow(action)

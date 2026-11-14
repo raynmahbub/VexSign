@@ -44,9 +44,9 @@ enum DER {
 
 		// 0x00 is the end-of-contents marker (indefinite form) and 0xff is reserved padding;
 		// neither belongs in a DER element.
-		guard offset >= 0, offset + 2 <= upperBound else { return nil }
+		guard upperBound >= 2, offset >= 0, offset <= upperBound - 2 else { return nil }
 		let tag = bytes[offset]
-		guard tag != 0x00, tag != 0xff else { return nil }
+		guard tag != 0x00, tag != 0xff, tag & 0x1f != 0x1f else { return nil }
 
 		let first = bytes[offset + 1]
 		let length: Int
@@ -89,6 +89,7 @@ enum DER {
 		var children: [Element] = []
 		var offset = element.content
 		while offset < element.end {
+            guard children.count < 4096 else { return nil }
 			guard let child = self.element(bytes, at: offset, limit: element.end) else { return nil }
 			children.append(child)
 			offset = child.end

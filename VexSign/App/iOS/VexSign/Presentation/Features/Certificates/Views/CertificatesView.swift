@@ -92,9 +92,10 @@ struct CertificatesView: View {
 			}
 		}
 		.toolbar {
-			if _bindingSelectedCert == nil {
+                // The app-specific picker must also offer import; otherwise a
+                // profile mismatch strands the user in a list they cannot fix.
 				ToolbarItemGroup(placement: .topBarTrailing) {
-					if !_certificates.isEmpty {
+					if _bindingSelectedCert == nil && !_certificates.isEmpty {
 						Button {
 							_batchCheckCertificates()
 						} label: {
@@ -113,7 +114,6 @@ struct CertificatesView: View {
 						Image(systemName: "plus")
 					}
 				}
-			}
 		}
 		.sheet(item: $_isSelectedInfoPresenting) { cert in
 			CertificatesInfoView(cert: cert)

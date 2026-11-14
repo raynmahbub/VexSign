@@ -8,8 +8,8 @@
 //  the two checks that happen before the engine starts. No step is ever marked from elapsed
 //  time or from the run "probably" having done it:
 //
-//    1  Identity   — `SigningIdentityPolicy`, evaluated on the selected certificate
-//    2  Preflight  — the result of `PreflightChecks`, once it has run on this screen
+//    1  Identity   — authenticated component-profile and accessible-key resolution
+//    2  Preflight  — shared SigningReadiness, including all executable findings
 //    3–9           — the seven stages the engine reports, individually
 //    10 Install    — never completed by signing; it has its own lifecycle
 //
@@ -43,7 +43,7 @@ enum SigningChecklistStep: Int, CaseIterable, Identifiable, Sendable {
 
 	var title: String {
 		switch self {
-		case .identity: .localized("Check the certificate")
+		case .identity: .localized("Validate identities and profiles")
 		case .preflight: .localized("Review the setup")
 		case .install: .localized("Install")
 		case .copy, .modify, .thin, .inject, .sign, .verify, .register:

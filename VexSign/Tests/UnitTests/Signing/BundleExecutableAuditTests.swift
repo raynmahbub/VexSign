@@ -36,7 +36,8 @@ final class BundleExecutableAuditTests: XCTestCase {
     func testCleanBundleAndEntryBudget() throws {
         try fixture { root in
             XCTAssertNoThrow(try BundleExecutableAudit.requireSignable(root))
-            XCTAssertThrowsError(try BundleExecutableAudit.inspect(root, maximumEntries: 0))
+            let incomplete = try BundleExecutableAudit.inspect(root, maximumEntries: 0)
+            XCTAssertTrue(incomplete.blocking.contains { $0.problem == .discoveryIncomplete })
         }
     }
 

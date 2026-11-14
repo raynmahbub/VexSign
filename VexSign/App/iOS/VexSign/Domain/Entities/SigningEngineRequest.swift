@@ -9,7 +9,7 @@ struct SigningEngineRequest: Equatable {
 	/// `.p12` identity the bundle is signed with.
 	var p12Path: String = ""
 	var p12Password: String = ""
-	/// Entitlements the identity is allowed to grant. Empty falls back to the profile's.
+	/// Explicit component-specific authorized entitlements; device signing has no profile-template fallback.
 	var entitlementsPath: String = ""
 	/// Optional `CFBundleIdentifier` / display name / version rewrites.
 	var customIdentifier: String = ""
@@ -19,7 +19,15 @@ struct SigningEngineRequest: Equatable {
 	var isAdHoc: Bool = false
 	/// User intent, straight from `Options.removeProvisioning`: leave no profile behind.
 	var removeProvisioning: Bool = false
-	/// Profiles for individual nested bundles: bundle identifier → profile path. A nested
-	/// bundle that is not listed is signed with `provisionPath`, as before.
+	/// Profiles for individual nested bundles: bundle identifier → profile path.
+    /// Device signing supplies explicit assets for every profile-bound component.
 	var nestedProvisionPaths: [String: String] = [:]
+    struct NestedAsset: Equatable {
+        let provisionPath: String
+        let p12Path: String
+        let password: String
+        let entitlementsPath: String
+    }
+    /// Run-owned inputs only. Never encode these into history or saved options.
+    var nestedAssets: [String: NestedAsset] = [:]
 }

@@ -20,67 +20,57 @@ void ZSign::_DERLength(string& strBlob, uint64_t uLength)
 
 string ZSign::_DER(const jvalue& data)
 {
-	string strOutput;
-	if (data.is_bool()) {
-		strOutput.append(1, 0x01);
-		strOutput.append(1, 1);
-		strOutput.append(1, data.as_bool() ? 1 : 0);
-	} else if (data.is_int()) {
-		uint64_t uVal = data.as_int64();
-		strOutput.append(1, 0x02);
-		_DERLength(strOutput, uVal);
-
-		uint32_t sLength = (64 - ZUtil::builtin_clzll(uVal) + 7) / 8;
-		sLength *= 8;
-		do {
-			strOutput.append(1, (char)(uVal >> (sLength -= 8)));
-		} while (sLength != 0);
-	} else if (data.is_string()) {
-		string strVal = data.as_cstr();
-		strOutput.append(1, 0x0c);
-		_DERLength(strOutput, strVal.size());
-		strOutput += strVal;
-	} else if (data.is_array()) {
-		string strArray;
-		size_t size = data.size();
-		for (size_t i = 0; i < size; i++) {
-			strArray += _DER(data[i]);
-		}
-		strOutput.append(1, 0x30);
-		_DERLength(strOutput, strArray.size());
-		strOutput += strArray;
-	} else if (data.is_object()) {
-		string strDict;
-		vector<string> arrKeys;
-		data.get_keys(arrKeys);
-		for (size_t i = 0; i < arrKeys.size(); i++) {
-			string& strKey = arrKeys[i];
-			string strVal = _DER(data[strKey]);
-
-			strDict.append(1, 0x30);
-			_DERLength(strDict, (2 + strKey.size() + strVal.size()));
-
-			strDict.append(1, 0x0c);
-			_DERLength(strDict, strKey.size());
-			strDict += strKey;
-
-			strDict += strVal;
-		}
-
-		strOutput.append(1, 0x31);
-		_DERLength(strOutput, strDict.size());
-		strOutput += strDict;
-	} else if (data.is_double()) {
-		assert(false);
-	} else if (data.is_date()) {
-		assert(false);
-	} else if (data.is_data()) {
-		assert(false);
-	} else {
-		assert(false && "Unsupported Entitlements DER Type");
-	}
-
-	return strOutput;
+    string output;
+    if (data.is_bool()) {
+        output.append(1, 0x01); output.append(1, 1);
+        output.append(1, data.as_bool() ? static_cast<char>(0xff) : 0);
+    } else if (data.is_int()) {
+        // Minimal signed two's-complement INTEGER, including zero/negative values.
+        uint64_t bits = static_cast<uint64_t>(data.as_int64());
+        unsigned char bytes[8];
+        for (int index = 7; index >= 0; --index) { bytes[index] = bits & 0xff; bits >>= 8; }
+        size_t start = 0;
+        while (start < 7 && ((bytes[start] == 0 && !(bytes[start + 1] & 0x80)) ||
+                             (bytes[start] == 0xff && (bytes[start + 1] & 0x80)))) ++start;
+        output.append(1, 0x02); _DERLength(output, 8 - start);
+        output.append(reinterpret_cast<const char *>(bytes + start), 8 - start);
+    } else if (data.is_string()) {
+        string value = data.as_cstr();
+        output.append(1, 0x0c); _DERLength(output, value.size()); output += value;
+    } else if (data.is_array()) {
+        string body;
+        for (size_t index = 0; index < data.size(); ++index) {
+            string value = _DER(data[index]);
+            if (value.empty()) return string();
+            body += value;
+        }
+        output.append(1, 0x30); _DERLength(output, body.size()); output += body;
+    } else if (data.is_object()) {
+        vector<string> keys, pairs;
+        data.get_keys(keys);
+        for (const string& key : keys) {
+            string value = _DER(data[key]);
+            if (value.empty()) return string();
+            string body;
+            body.append(1, 0x0c); _DERLength(body, key.size()); body += key; body += value;
+            string pair;
+            pair.append(1, 0x30); _DERLength(pair, body.size()); pair += body;
+            pairs.push_back(pair);
+        }
+        // DER SET OF ordering compares the complete encoded pair, not just the key.
+        sort(pairs.begin(), pairs.end(), [](const string& a, const string& b) {
+            return lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+                [](unsigned char x, unsigned char y) { return x < y; });
+        });
+        string body;
+        for (const string& pair : pairs) body += pair;
+        output.append(1, 0x31); _DERLength(output, body.size()); output += body;
+    } else {
+        // Untrusted entitlements must fail, never assert/crash or silently lose a value.
+        ZLog::Error(">>> Unsupported entitlement value type.\n");
+        return string();
+    }
+    return output;
 }
 
 uint32_t ZSign::SlotParseGeneralHeader(const char* szSlotName, uint8_t* pSlotBase, CS_BlobIndex* pbi)
@@ -254,10 +244,10 @@ bool ZSign::SlotBuildDerEntitlements(const string& strEntitlements, string& strO
 		return false;
 	}
 
-	jvalue jvInfo;
-	jvInfo.read_plist(strEntitlements);
-
-	string strRawEntitlementsData = _DER(jvInfo);
+    jvalue jvInfo;
+    if (!jvInfo.read_plist(strEntitlements) || !jvInfo.is_object()) return false;
+    string strRawEntitlementsData = _DER(jvInfo);
+    if (strRawEntitlementsData.empty()) return false;
 	uint32_t uMagic = BE((uint32_t)CSMAGIC_EMBEDDED_DER_ENTITLEMENTS);
 	uint32_t uLength = BE((uint32_t)strRawEntitlementsData.size() + 8);
 
@@ -605,11 +595,14 @@ bool ZSign::SlotBuildCMSSignature(ZSignAsset* pSignAsset,
 	string strCodeDirectorySlotSHA1;
 	string strAltnateCodeDirectorySlot256;
 	ZSHA::SHA1(strCodeDirectorySlot, strCodeDirectorySlotSHA1);
-	ZSHA::SHA256(strAltnateCodeDirectorySlot, strAltnateCodeDirectorySlot256);
+	ZSHA::SHA256(strAltnateCodeDirectorySlot.empty() ? strCodeDirectorySlot : strAltnateCodeDirectorySlot, strAltnateCodeDirectorySlot256);
 
-	size_t cdHashSize = strCodeDirectorySlotSHA1.size();
-	jvHashes["cdhashes"][0].assign_data(strCodeDirectorySlotSHA1.data(), cdHashSize);
-	jvHashes["cdhashes"][1].assign_data(strAltnateCodeDirectorySlot256.data(), cdHashSize);
+    if (strAltnateCodeDirectorySlot.empty()) {
+        jvHashes["cdhashes"][0].assign_data(strAltnateCodeDirectorySlot256.data(), 20);
+    } else {
+        jvHashes["cdhashes"][0].assign_data(strCodeDirectorySlotSHA1.data(), 20);
+        jvHashes["cdhashes"][1].assign_data(strAltnateCodeDirectorySlot256.data(), 20);
+    }
 	jvHashes.style_write_plist(strCDHashesPlist);
 
 	string strCMSData;

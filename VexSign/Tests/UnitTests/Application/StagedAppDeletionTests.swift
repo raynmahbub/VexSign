@@ -194,4 +194,137 @@ final class StagedAppDeletionTests: XCTestCase {
         XCTAssertEqual(stored.name, "Before")
         XCTAssertEqual(unrelated.name, "Unsaved")
     }
+
+    func testDuplicateOriginalsAndNoncanonicalRecoverySlotsFailClosed() throws {
+        let (root, original, quarantine) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: synthetic fixture cleanup
+        XCTAssertThrowsError(try StagedAppDeletion(root: quarantine, originals: [(original, uri), (original, uri)]))
+        let transaction = try StagedAppDeletion(root: quarantine, originals: [(original, uri)])
+        try transaction.stage()
+        for slot in ["../escape", "00", "1", "-1", "", "0/file"] {
+            let entry = StagedAppDeletion.Entry(original: original, objectURI: uri, slot: slot)
+            try JSONEncoder().encode([entry]).write(to: transaction.directory.appendingPathComponent("manifest.json"))
+            let recovered = try StagedAppDeletion(directory: transaction.directory)
+            XCTAssertThrowsError(try recovered.recover(rowExists: { _ in true }, allowedOriginal: { $0 == original }))
+            XCTAssertEqual(try Data(contentsOf: transaction.directory.appendingPathComponent("0/file")), Data("original-bytes".utf8))
+        }
+    }
+
+    func testRecoveryValidatesEveryOwnerBeforeRestoringAnyFile() throws {
+        let (root, original, quarantine) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: synthetic fixture cleanup
+        let second = root.appendingPathComponent("Library/second")
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        let otherURI = URL(string: "x-coredata://test/Imported/p2")!
+        let transaction = try StagedAppDeletion(root: quarantine, originals: [(original, uri), (second, otherURI)])
+        try transaction.stage()
+        XCTAssertThrowsError(try transaction.recover(rowExists: { value in
+            if value == otherURI { throw CocoaError(.fileReadNoPermission) }
+            return true
+        }, allowedOriginal: { _ in true }))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: original.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: transaction.directory.appendingPathComponent("0/file").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: transaction.directory.appendingPathComponent("1").path))
+        XCTAssertThrowsError(try transaction.recover(rowExists: { _ in true }, allowedOriginal: { $0 == original }))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: original.path))
+    }
+
+    func testStageCannotFollowAnOriginalSymlink() throws {
+        let (root, original, quarantine) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: synthetic fixture cleanup
+        let link = root.appendingPathComponent("Library/alias")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: original)
+        let transaction = try StagedAppDeletion(root: quarantine, originals: [(link, uri)])
+        XCTAssertThrowsError(try transaction.stage())
+        XCTAssertEqual(try Data(contentsOf: original.appendingPathComponent("file")), Data("original-bytes".utf8))
+    }
+
+    @MainActor
+    func testALiveOperationRefusesDeletionBeforeMovingOrSaving() throws {
+        let storage = Storage(inMemory: true)
+        let row = Imported(context: storage.context); row.uuid = UUID().uuidString
+        try storage.context.save()
+        let directory = try XCTUnwrap(storage.getUuidDirectory(for: row))
+        defer { try? FileManager.default.removeItem(at: directory) } // try? ok: unique test artifact cleanup
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("source".utf8).write(to: directory.appendingPathComponent("file"))
+        let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(row))
+        withExtendedLifetime(lease) {
+            XCTAssertFalse(storage.deleteApps([row], saveDeletion: { _ in XCTFail("A busy app cannot start a deletion transaction.") }))
+            XCTAssertFalse(row.isDeleted)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("file").path))
+        }
+    }
+
+    @MainActor
+    func testDeletingAnExactSlotPreservesOtherVersionsSourceAndSharedIdentity() throws {
+        let storage = Storage(inMemory: true)
+        let uuid = UUID().uuidString
+        let imported = Imported(context: storage.context); imported.uuid = uuid
+        imported.identifier = "com.example.app"
+        let signed = Signed(context: storage.context); signed.uuid = uuid
+        signed.identifier = "com.example.app"
+        let otherVersion = Signed(context: storage.context); otherVersion.uuid = UUID().uuidString
+        otherVersion.identifier = "com.example.app"
+        let certificate = CertificatePair(context: storage.context); certificate.uuid = UUID().uuidString
+        certificate.ppQCheck = false; certificate.isDefault = false; certificate.revoked = false
+        signed.certificate = certificate; otherVersion.certificate = certificate
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".ipa")
+        try Data("original user-owned IPA".utf8).write(to: source)
+        imported.source = source
+        try storage.context.save()
+        let certificateID = certificate.objectID
+        let directories = try [imported as AppInfoPresentable, signed, otherVersion].map { try XCTUnwrap(storage.getUuidDirectory(for: $0)) }
+        defer {
+            for directory in directories { try? FileManager.default.removeItem(at: directory) } // try? ok: test-created slots only
+            try? FileManager.default.removeItem(at: source) // try? ok: test-created source only
+        }
+        for (index, directory) in directories.enumerated() {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data("slot-\(index)".utf8).write(to: directory.appendingPathComponent("file"))
+        }
+        XCTAssertTrue(storage.deleteApps([imported]))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directories[0].path))
+        XCTAssertEqual(try Data(contentsOf: directories[1].appendingPathComponent("file")), Data("slot-1".utf8))
+        XCTAssertTrue(storage.deleteApps([signed]))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directories[1].path))
+        XCTAssertEqual(try Data(contentsOf: directories[2].appendingPathComponent("file")), Data("slot-2".utf8))
+        XCTAssertEqual(try Data(contentsOf: source), Data("original user-owned IPA".utf8))
+        XCTAssertFalse(certificate.isDeleted)
+        XCTAssertNotNil(try storage.context.existingObject(with: certificateID))
+        XCTAssertEqual(otherVersion.certificate?.objectID, certificate.objectID)
+    }
+
+    @MainActor
+    func testDuplicateUUIDOwnershipRefusesDeletionRatherThanErasingASibling() throws {
+        let storage = Storage(inMemory: true)
+        let uuid = UUID().uuidString
+        let first = Imported(context: storage.context); first.uuid = uuid
+        let second = Imported(context: storage.context); second.uuid = uuid.lowercased()
+        try storage.context.save()
+        let directory = try XCTUnwrap(storage.getUuidDirectory(for: first))
+        defer { try? FileManager.default.removeItem(at: directory) } // try? ok: unique test artifact cleanup
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        XCTAssertFalse(storage.deleteApps([first]))
+        XCTAssertFalse(first.isDeleted); XCTAssertFalse(second.isDeleted)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path))
+    }
+
+    @MainActor
+    func testFailedBulkCommitRestoresEverySelectedArtifactAndReleasesLeases() throws {
+        let storage = Storage(inMemory: true)
+        let rows = (0..<2).map { _ -> Imported in
+            let row = Imported(context: storage.context); row.uuid = UUID().uuidString; return row
+        }
+        try storage.context.save()
+        let directories = try rows.map { try XCTUnwrap(storage.getUuidDirectory(for: $0)) }
+        defer { for directory in directories { try? FileManager.default.removeItem(at: directory) } } // try? ok: test artifact cleanup
+        for directory in directories { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+        XCTAssertFalse(storage.deleteApps(rows.map { $0 as AppInfoPresentable }, saveDeletion: { _ in throw CocoaError(.fileWriteOutOfSpace) }))
+        for (row, directory) in zip(rows, directories) {
+            XCTAssertFalse(row.isDeleted)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path))
+            XCTAssertFalse(AppOperationRegistry.shared.isBusy(AppOperationRegistry.key(row)))
+        }
+    }
 }

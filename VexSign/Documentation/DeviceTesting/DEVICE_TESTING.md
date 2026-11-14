@@ -5,6 +5,11 @@ OTA installation, device Keychain persistence or locked-device behaviour. Use a
 spare paired iPhone/iPad with non-production signing credentials. Do not reset
 identities or install test profiles on a primary device without a backup.
 
+For the current unpublished signing/library follow-up, also execute the
+[component/readiness/swipe/deletion acceptance checklist](SIGNING_LIBRARY_ACCEPTANCE.md).
+Its build, positive Apple-profile trust, hosted layout, gestures and physical-device
+observations are pending; older CI or unsigned artifacts do not validate the draft.
+
 ## 1. Validate the exact source
 
 Run **CI → full** on the candidate commit: both the unsigned macOS build and

@@ -34,6 +34,9 @@ final class SigningHandler: NSObject {
 	// throw an error
 	var appIcon: UIImage?
 	var appCertificate: CertificatePair?
+    var authorization: SigningResolutionAuthorization?
+    private var originalRequirements: [String: [String: Any]]?
+    private var originalSourceFingerprint: String?
 	// Original bundle id, captured before PPQ protection / any modifications.
 	private var _originalBundleIdentifier: String?
 	private var _appDescription: String?
@@ -82,7 +85,13 @@ final class SigningHandler: NSObject {
 
         try StoragePreflight.checkBundle(appUrl, copies: 2, destination: _uniqueWorkDir)
 		try _fileManager.copyItem(at: appUrl, to: movedAppURL)
-		_movedAppPath = movedAppURL
+        _movedAppPath = movedAppURL
+        if _options.signingOption == .default {
+            let source = try SigningResolutionSession.sourceFingerprint(in: movedAppURL)
+            if let authorization, authorization.sourceFingerprint != source { throw SigningResolutionSession.changedSinceReview() }
+            originalSourceFingerprint = source
+            originalRequirements = try SigningResolutionSession.requirements(in: movedAppURL, options: _options)
+        }
 
 		// A cancel during a large copy is common enough to check for straight away.
 		try Task.checkCancellation()
@@ -146,11 +155,9 @@ final class SigningHandler: NSObject {
 		}
 
 		try await _removePresetFiles(for: movedAppPath)
-		try await _removeWatchIfNeeded(for: movedAppPath)
-		// If explicitly enabled, compatibility mode removes only known-uncovered app extensions.
-		// The separate blanket option below can still remove every app extension.
-		try await _removeAppExtensionsIfNeeded(for: movedAppPath)
-		try await _removeUnsupportedNestedBundlesIfNeeded(for: movedAppPath)
+        // Device-signing removals are planned/confirmed and applied only in the
+        // final resolver gate. They never use just the selected profile's pattern.
+        if _options.signingOption == .onlyModify { try await _removeAppExtensionsIfNeeded(for: movedAppPath) }
 
 		if _options.experiment_supportLiquidGlass {
 			SigningLog.shared.info(.localized("Patching for Liquid Glass"))
@@ -182,16 +189,14 @@ final class SigningHandler: NSObject {
 		// iOS "26" (19) needs special treatment
 		try await _locateMachosAndFixupArm64eSlice(for: movedAppPath)
 
-		if _options.keychainIsolation {
-			try await _isolateKeychainGroups(for: movedAppPath)
-		}
-
-		// Runs after keychain isolation so it layers on top of whatever that wrote.
-		if _options.enableJIT {
-			try _applyJITEntitlements()
-		}
+        // Required entitlements were captured before binary surgery. JIT and
+        // explicit keychain changes are planned and authorized per component;
+        // they no longer copy the entire selected profile or drop unknown keys.
 
 		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate, executionGate: executionGate)
+        handler.authorization = authorization
+        handler.originalRequirements = originalRequirements
+        handler.originalSourceFingerprint = originalSourceFingerprint
 		try await handler.disinject()
 
 		// Customization ends here. What follows decides whether the selected certificate and
@@ -204,17 +209,24 @@ final class SigningHandler: NSObject {
 			onStage?(.signing)
 		}
 
-		// Before the long sign: which extensions the selected profile can actually cover. The
-		// engine signs every nested bundle with the outer asset, so an extension the profile does
-		// not cover cannot come out correctly — better said now than after the install.
-		try _auditNestedBundles(at: movedAppPath, certificate: appCertificate)
+        // The execution gate validates every retained component, including
+        // nested identities and entitlements, against the actual modified tree.
 
 		if
 			_options.signingOption == .default,
 			let cert = appCertificate {
-			let certName = cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? .localized("certificate")
+            let certName = await MainActor.run {
+                cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? .localized("certificate")
+            }
 			SigningLog.shared.info(.localized("Signing with %@", arguments: certName))
 			try await handler.sign()
+            if let reference = handler.resolutionReview?.mainIdentityReference {
+                appCertificate = try await MainActor.run { try Storage.shared.managedCertificate(id: reference) }
+            }
+            if let removed = handler.resolutionReview?.plannedRemovals, !removed.isEmpty {
+                onCompatibilityRemoved?(removed)
+                for path in removed { SigningLog.shared.warn("Explicit compatibility removal: " + path) }
+            }
 		} else if _options.signingOption == .onlyModify {
 			SigningLog.shared.info(.localized("Modifying without signing"))
 		} else {
@@ -228,13 +240,12 @@ final class SigningHandler: NSObject {
 
 		if _options.signingOption == .default {
 			onStage?(.verifying)
-			try _verifySignedBundle(at: movedAppPath)
+			try _verifySignedBundle(at: movedAppPath, assets: handler.verificationAssets)
 			// `_verifySignedBundle` throws when the report is unacceptable, so returning from
 			// it is the engine's own evidence that verification passed. Reported here and only
 			// here: a "modify without signing" run never reaches this line.
-			// Only a complete check is reported as verified. When part of the evidence could
-			// not be read the copy is kept, because nothing failed, but it is not described
-			// as verified.
+            // Only complete independently authenticated evidence is accepted
+            // for fresh device-signing output.
 			if verification?.verdict.isVerified == true {
 				onSignatureVerified?()
 			}
@@ -259,10 +270,11 @@ final class SigningHandler: NSObject {
     /// The final check on what was produced. Any failure stops the run before library
     /// registration or a success event: a bundle that failed here cannot be installed, so it
     /// is not kept, whether or not the preflight sheet was confirmed.
-	private func _verifySignedBundle(at path: URL) throws {
+	private func _verifySignedBundle(at path: URL, assets: [String: SignatureVerifier.AssetExpectation]) throws {
 		var expectation = SignatureVerifier.Expectation.freshlySigned
 		expectation.declaredBundleIdentifier = _options.effectiveAppIdentifier
-		expectation.requiresEmbeddedProfile = !_options.removeProvisioning
+		expectation.requiresEmbeddedProfile = true
+        expectation.assets = assets
 
 		let report = SignatureVerifier.verify(bundleAt: path, expectation: expectation)
 		verification = report
@@ -278,13 +290,13 @@ final class SigningHandler: NSObject {
 		case .valid:
 			SigningLog.shared.success(report.summary)
 		case .incomplete:
-			// Kept, because nothing failed, but not described as fully checked.
+            // A fresh device signature is never registered on incomplete evidence.
 			SigningLog.shared.warn(report.summary)
 			SigningLog.shared.warn(.localized("Some signing evidence could not be read, so the checks that depend on it did not run."))
 		case .invalid, .unsupported:
             SigningLog.shared.error(report.summary)
         }
-        try report.requireAcceptable(overridingBlockingIssues: overridesBlockingPreflightIssues)
+        try report.requireVerified()
     }
 
 	func move() async throws {
@@ -370,115 +382,6 @@ final class SigningHandler: NSObject {
 }
 
 extension SigningHandler {
-	/// Adds the JIT keys to the entitlements Zsign signs with. Silently skipped for
-	/// PPQLess certificates: their distribution profile can't grant `get-task-allow`,
-	/// so the keys would only produce an app that fails to launch.
-	private func _applyJITEntitlements() throws {
-		guard let cert = appCertificate, cert.supportsJIT else {
-			SigningLog.shared.info(.localized("Skipping JIT: needs a PPQ certificate."))
-			return
-		}
-
-		guard let dictionary = _baseEntitlements() else {
-			SigningLog.shared.info(.localized("Skipping JIT: no entitlements to extend."))
-			return
-		}
-
-		let base = ((dictionary as NSDictionary) as? [String: Any]) ?? [:]
-		guard EntitlementBuilder.addsJIT(base: base, enableJIT: true, supportsJIT: true) else { return }
-
-		let built = EntitlementBuilder.entitlements(base: base, enableJIT: true, supportsJIT: true)
-		let entitlementsURL = _uniqueWorkDir.appendingPathComponent("entitlements.plist")
-		try EntitlementBuilder.write(built, to: entitlementsURL)
-		_options.appEntitlementsFile = entitlementsURL
-
-		SigningLog.shared.info(.localized("Enabling JIT entitlements"))
-	}
-
-	private func _isolateKeychainGroups(for app: URL) async throws {
-		guard
-			let bundleId = _options.effectiveAppIdentifier ?? _app.identifier, !bundleId.isEmpty,
-			let entitlements = _baseEntitlements(),
-			let teamId = _teamIdentifier(from: entitlements)
-		else {
-			return
-		}
-
-		var groups = entitlements["keychain-access-groups"] as? [String] ?? []
-		if let executable = Bundle(url: app)?.executableURL {
-			groups += MachOEntitlements.keychainAccessGroups(forExecutableAt: executable)
-		}
-
-		let isolated = _isolatedGroups(groups, teamId: teamId, bundleId: bundleId)
-		guard !isolated.isEmpty else { return }
-
-		entitlements["keychain-access-groups"] = isolated
-
-		let entitlementsURL = _uniqueWorkDir.appendingPathComponent("entitlements.plist")
-		let data = try PropertyListSerialization.data(fromPropertyList: entitlements, format: .xml, options: 0)
-		try data.write(to: entitlementsURL)
-		_options.appEntitlementsFile = entitlementsURL
-
-		SigningLog.shared.info(.localized("Isolating keychain to %@", arguments: isolated.joined(separator: ", ")))
-	}
-
-	private func _baseEntitlements() -> NSMutableDictionary? {
-		if let file = _options.appEntitlementsFile, let dict = NSMutableDictionary(contentsOf: file) {
-			return dict
-		}
-		guard
-			let cert = appCertificate,
-			let entitlements = Storage.shared.getProvisionFileDecoded(for: cert)?.Entitlements
-		else {
-			return nil
-		}
-		return NSMutableDictionary(dictionary: entitlements.mapValues { $0.value })
-	}
-
-	private func _teamIdentifier(from entitlements: NSDictionary) -> String? {
-		if
-			let appId = entitlements["application-identifier"] as? String,
-			let team = appId.split(separator: ".").first.map(String.init),
-			_isTeamIdentifier(team) {
-			return team
-		}
-		for group in entitlements["keychain-access-groups"] as? [String] ?? [] {
-			if let team = group.split(separator: ".").first.map(String.init), _isTeamIdentifier(team) {
-				return team
-			}
-		}
-		return nil
-	}
-
-	// Re-prefix every group with our team so the profile's wildcard authorizes them, give the app a
-	// unique default group, and drop Apple-managed groups (e.g. com.apple.token) the cert can't claim.
-	private func _isolatedGroups(_ groups: [String], teamId: String, bundleId: String) -> [String] {
-		var result: [String] = []
-		var seen = Set<String>()
-
-		func append(_ group: String) {
-			if seen.insert(group).inserted { result.append(group) }
-		}
-
-		append("\(teamId).\(bundleId)")
-
-		for group in groups {
-			let expanded = group.replacingOccurrences(of: "*", with: bundleId)
-			guard let dot = expanded.firstIndex(of: ".") else { continue }
-			guard _isTeamIdentifier(String(expanded[..<dot])) else { continue }
-
-			let suffix = String(expanded[expanded.index(after: dot)...])
-			guard !suffix.isEmpty else { continue }
-			append("\(teamId).\(suffix)")
-		}
-
-		return result
-	}
-
-	private func _isTeamIdentifier(_ value: String) -> Bool {
-		value.count == 10 && value.allSatisfy { $0.isUppercase && $0.isLetter || $0.isNumber }
-	}
-
 	private func _modifyDict(using infoDictionary: NSMutableDictionary, with options: Options, to app: URL) async throws {
 		if options.infoPlistChangeCount > 0 {
 			SigningLog.shared.info(.localized("Applying custom Info.plist changes"))
@@ -565,7 +468,7 @@ extension SigningHandler {
 			
 			// CFBundleIdentifier
 			if let oldValue = infoDict["CFBundleIdentifier"] as? String {
-				let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+				let newValue = NestedBundleAudit.rewrittenIdentifier(oldValue, from: oldIdentifier, to: newIdentifier)
 				if oldValue != newValue {
 					infoDict["CFBundleIdentifier"] = newValue
 					didChange = true
@@ -574,7 +477,7 @@ extension SigningHandler {
 			
 			// WKCompanionAppBundleIdentifier
 			if let oldValue = infoDict["WKCompanionAppBundleIdentifier"] as? String {
-				let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+				let newValue = NestedBundleAudit.rewrittenIdentifier(oldValue, from: oldIdentifier, to: newIdentifier)
 				if oldValue != newValue {
 					infoDict["WKCompanionAppBundleIdentifier"] = newValue
 					didChange = true
@@ -586,7 +489,7 @@ extension SigningHandler {
 				if
 					let attributes = extensionDict["NSExtensionAttributes"] as? NSMutableDictionary,
 					let oldValue = attributes["WKAppBundleIdentifier"] as? String {
-					let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+					let newValue = NestedBundleAudit.rewrittenIdentifier(oldValue, from: oldIdentifier, to: newIdentifier)
 					if oldValue != newValue {
 						attributes["WKAppBundleIdentifier"] = newValue
 						didChange = true
@@ -596,7 +499,7 @@ extension SigningHandler {
 				// NSExtension → NSExtensionFileProviderDocumentGroup
 				if
 					let oldValue = extensionDict["NSExtensionFileProviderDocumentGroup"] as? String {
-					let newValue = oldValue.replacingOccurrences(of: oldIdentifier, with: newIdentifier)
+					let newValue = NestedBundleAudit.rewrittenIdentifier(oldValue, from: oldIdentifier, to: newIdentifier)
 					if oldValue != newValue {
 						extensionDict["NSExtensionFileProviderDocumentGroup"] = newValue
 						didChange = true
@@ -612,62 +515,6 @@ extension SigningHandler {
 		}
 	}
 	
-	/// Compatibility mode removes only bundles known not to be covered by the selected profile.
-	/// Unknown coverage is not treated as failure; covered extensions and the main app stay intact.
-	private func _removeUnsupportedNestedBundlesIfNeeded(for app: URL) async throws {
-		guard
-			_options.autoRemoveUnsupportedExtensions,
-			_options.signingOption == .default,
-			let pattern = appCertificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
-		else { return }
-
-		let removed = try NestedBundleAudit.removeUncoveredBundles(
-			in: app,
-			profilePattern: pattern,
-			additionalPatterns: AdditionalProfiles.patterns(for: appCertificate),
-			fileManager: _fileManager
-		)
-		guard !removed.isEmpty else { return }
-
-		for entry in removed {
-			SigningLog.shared.warn(.localized("Compatibility mode removed %@ (%@): not covered by %@.", arguments: entry.bundle.path, entry.bundle.identifier ?? .localized("unknown identifier"), pattern))
-			Logger.misc.info("[\(self._uuid)] Removed uncovered nested bundle: \(entry.bundle.path)")
-		}
-
-		SigningLog.shared.warn(.localized("Removed %lld unsupported app extension(s); the main app and profile-covered extensions were retained.", arguments: removed.count))
-		let removedNames = removed.map { entry -> String in
-			let identifier = entry.bundle.identifier ?? .localized("unknown identifier")
-			return "\(entry.bundle.displayName) (\(identifier))"
-		}
-		onCompatibilityRemoved?(removedNames)
-	}
-
-	/// Logs what the selected profile can do for each nested bundle in the payload.
-	private func _auditNestedBundles(at app: URL, certificate: CertificatePair?) throws {
-		// Stripped extensions are gone, but retained Watch apps still need profile coverage.
-		guard _options.signingOption == .default else { return }
-
-		let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String
-		let report = NestedBundleAudit.report(
-			appBundle: app,
-			profilePattern: pattern,
-			additionalPatterns: AdditionalProfiles.patterns(for: certificate)
-		)
-		guard !report.isEmpty else { return }
-
-		for warning in report.warnings {
-			SigningLog.shared.warn(warning)
-		}
-		if let summary = report.summary {
-			if report.isClean {
-				SigningLog.shared.info(summary)
-			} else {
-				SigningLog.shared.warn(summary)
-			}
-        }
-		try report.requireCompatibleProfile()
-	}
-
 	private func _removePresetFiles(for app: URL) async throws {
 		var files = [
 			"_CodeSignature", // Fallback for some reason the locate doesnt work
@@ -694,37 +541,34 @@ extension SigningHandler {
 		guard !appexes.isEmpty else { return }
 
 		SigningLog.shared.info(.localized("Removing %lld app extension(s)", arguments: appexes.count))
-		for appex in appexes {
-			try _fileManager.removeFileIfNeeded(at: appex)
+        for appex in appexes {
+            let path = String(appex.path.dropFirst(app.path.count + 1))
+            guard try OptionalExtensionPolicy.canRemove(path, in: app) else {
+                throw SigningFileHandlerError.identityRejected("This extension cannot be safely removed: " + path)
+            }
+            try _fileManager.removeFileIfNeeded(at: appex)
 			Logger.misc.info("[\(self._uuid)] Removed app extension: \(appex.lastPathComponent)")
 		}
 	}
 
 	// horrible edge-case
-	private func _removeWatchIfNeeded(for app: URL) async throws {
-		// A watch app is an app extension; keep it unless extensions are stripped on purpose.
-		guard !_options.removeAppExtensions else { return }
-		let watchDir = app.appendingPathComponent("Watch")
-		guard _fileManager.fileExists(atPath: watchDir.path) else { return }
-		
-		let contents = try _fileManager.contentsOfDirectory(at: watchDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
-		
-		for app in contents where app.pathExtension == "app" {
-			let infoPlist = app.appendingPathComponent("Info.plist")
-			if !_fileManager.fileExists(atPath: infoPlist.path) {
-				try? _fileManager.removeItem(at: app)
-			}
-		}
-	}
 
 	private func _removeFiles(for app: URL, from appendingComponent: [String]) async throws {
-		let filesToRemove = appendingComponent.map {
-			app.appendingPathComponent($0)
-		}
-		
-		for url in filesToRemove {
-			try _fileManager.removeFileIfNeeded(at: url)
-		}
+        let root = app.resolvingSymlinksInPath().standardizedFileURL
+        // Validate the complete user-specified list before changing the work
+        // tree. A relative customization cannot escape into a source IPA,
+        // another version, shared identity, or any other container directory.
+        let filesToRemove = try appendingComponent.map { path -> URL in
+            let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+            let url = root.appendingPathComponent(path).standardizedFileURL
+            guard !path.isEmpty, !path.hasPrefix("/"), !parts.contains(".."), !parts.contains("."),
+                  url.path.hasPrefix(root.path + "/"),
+                  url.resolvingSymlinksInPath().path.hasPrefix(root.path + "/") else {
+                throw SigningFileHandlerError.identityRejected("A requested file removal escapes the signing working copy. No such file has been removed.")
+            }
+            return url
+        }
+        for url in filesToRemove { try _fileManager.removeFileIfNeeded(at: url) }
 	}
 	
 	private func _inject(for app: URL, with options: Options) async throws {

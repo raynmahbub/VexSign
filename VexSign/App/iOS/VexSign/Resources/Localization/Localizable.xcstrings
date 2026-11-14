@@ -110299,6 +110299,259 @@
           }
         }
       }
+    },
+    "A Watch component has no supported Watch-device executable slice: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Watch component has no supported Watch-device executable slice: %@"
+          }
+        }
+      }
+    },
+    "Close Delete action" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Delete action"
+          }
+        }
+      }
+    },
+    "Import compatible Apple-issued profiles and matching identities for every retained component, then review again. Original Bundle Identifiers will not be changed to bypass provisioning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import compatible Apple-issued profiles and matching identities for every retained component, then review again. Original Bundle Identifiers will not be changed to bypass provisioning."
+          }
+        }
+      }
+    },
+    "The Mach-O file type does not match this component's signing role: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Mach-O file type does not match this component's signing role: %@"
+          }
+        }
+      }
+    },
+    "The profile covers %@, so it cannot sign %@. Import a profile that authorizes the original identifier %@ and its matching signing identity." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The profile covers %@, so it cannot sign %@. Import a profile that authorizes the original identifier %@ and its matching signing identity."
+          }
+        }
+      }
+    },
+    "The signing manifest could not be completely established: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing manifest could not be completely established: %@"
+          }
+        }
+      }
+    },
+    "Compatible identities and profiles are required for every retained component." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compatible identities and profiles are required for every retained component."
+          }
+        }
+      }
+    },
+    "Every retained application and extension needs a compatible profile. Imported profiles are evaluated with the available identities; certificate membership and an accessible matching private key are required. Adding a profile does not bypass identifier, capability or device checks." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every retained application and extension needs a compatible profile. Imported profiles are evaluated with the available identities; certificate membership and an accessible matching private key are required. Adding a profile does not bypass identifier, capability or device checks."
+          }
+        }
+      }
+    },
+    "Import a compatible profile for this extension. Compatibility mode may remove only explicitly reviewed optional extensions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a compatible profile for this extension. Compatibility mode may remove only explicitly reviewed optional extensions."
+          }
+        }
+      }
+    },
+    "Import a profile that grants the required entitlement. Required capabilities are not silently removed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a profile that grants the required entitlement. Required capabilities are not silently removed."
+          }
+        }
+      }
+    },
+    "Inspecting profiles, identities, executable slices and working space…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inspecting profiles, identities, executable slices and working space…"
+          }
+        }
+      }
+    },
+    "Only explicitly reviewed optional removals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only explicitly reviewed optional removals"
+          }
+        }
+      }
+    },
+    "Open Certificates and use + → Certificate Files to import a compatible identity, or Get Info → Extension Profiles for its component profiles. Then check again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Certificates and use + → Certificate Files to import a compatible identity, or Get Info → Extension Profiles for its component profiles. Then check again."
+          }
+        }
+      }
+    },
+    "Original Bundle Identifiers are preserved. Import compatible profiles and their matching identities; changing an identifier is not a provisioning fix." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original Bundle Identifiers are preserved. Import compatible profiles and their matching identities; changing an identifier is not a provisioning fix."
+          }
+        }
+      }
+    },
+    "Requires a completed compatible component review. Signing never bypasses provisioning requirements." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requires a completed compatible component review. Signing never bypasses provisioning requirements."
+          }
+        }
+      }
+    },
+    "Review Signing Issues" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Signing Issues"
+          }
+        }
+      }
+    },
+    "Signing inspection did not establish compatibility. Review the component requirements." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing inspection did not establish compatibility. Review the component requirements."
+          }
+        }
+      }
+    },
+    "The selected profile does not authorize JIT. Import a compatible development profile; signing will not silently drop the requested capability." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected profile does not authorize JIT. Import a compatible development profile; signing will not silently drop the requested capability."
+          }
+        }
+      }
+    },
+    "The verified signed copy will remain in Library → Signed. Signing does not install or launch it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The verified signed copy will remain in Library → Signed. Signing does not install or launch it."
+          }
+        }
+      }
+    },
+    "This identity is required. Every component still needs an authenticated compatible profile and accessible matching private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This identity is required. Every component still needs an authenticated compatible profile and accessible matching private key."
+          }
+        }
+      }
+    },
+    "This is the preferred identity only. The authenticated identities and profiles actually selected are listed for each component below." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is the preferred identity only. The authenticated identities and profiles actually selected are listed for each component below."
+          }
+        }
+      }
+    },
+    "Validate identities and profiles" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validate identities and profiles"
+          }
+        }
+      }
+    },
+    "Fresh signing verification is incomplete. Import a complete IPA and compatible current signing assets; this output has not been registered." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fresh signing verification is incomplete. Import a complete IPA and compatible current signing assets; this output has not been registered."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

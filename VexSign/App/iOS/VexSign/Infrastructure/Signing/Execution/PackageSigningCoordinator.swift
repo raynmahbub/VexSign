@@ -26,13 +26,14 @@ enum PackageSigningCoordinator {
         overridesBlockingPreflightIssues: Bool = false,
         notices: [String] = [],
         requestID: String = UUID().uuidString,
+        reviewedAuthorization: SigningResolutionAuthorization? = nil,
         isCancellationRequested: @escaping @MainActor () -> Bool = { false },
         onStage: (@MainActor (SigningStage) -> Void)? = nil,
         onVerified: (@MainActor () -> Void)? = nil,
         onCompatibilityRemoved: (@MainActor ([String]) -> Void)? = nil,
         completion: @escaping @MainActor (Result<Signed, Error>) -> Void
     ) {
-        let request = SigningRequest(
+        let initialRequest = SigningRequest(
             id: requestID,
             app: app,
             options: options,
@@ -43,9 +44,40 @@ enum PackageSigningCoordinator {
         )
 
         Task { @MainActor in
+            var request = initialRequest
             guard !isCancellationRequested() else {
                 completion(.failure(CancellationError()))
                 return
+            }
+            if options.signingOption == .default {
+                do {
+                    guard let bundle = Storage.shared.getAppDirectory(for: app) else { throw SigningFileHandlerError.appNotFound }
+                    let inventory = try SigningIdentityStore.snapshot()
+                    let preferred = certificate?.objectID.uriRepresentation().absoluteString
+                    let device = PairingBridge.inspectPairingRecord().udid
+                    let worker = Task.detached(priority: .userInitiated) {
+                        try SigningResolutionSession.review(bundle: bundle, options: options, inventory: inventory,
+                            preferredIdentity: preferred, deviceUDID: device)
+                    }
+                    let review = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                    guard !isCancellationRequested() else { throw CancellationError() }
+                    guard review.isReady, let identityID = review.mainIdentityReference else {
+                        throw SigningResolutionSession.refusal(review)
+                    }
+                    if let reviewedAuthorization, reviewedAuthorization != review.authorization { throw SigningResolutionSession.changedSinceReview() }
+                    if !review.plannedRemovals.isEmpty && reviewedAuthorization == nil {
+                        throw SigningFileHandlerError.identityRejected("Open Ready to Sign and explicitly confirm the listed optional extension removals. Automation cannot silently remove a newly incompatible extension.")
+                    }
+                    let resolvedCertificate = try Storage.shared.managedCertificate(id: identityID)
+                    request = SigningRequest(id: requestID, app: app, options: options, icon: icon,
+                        certificate: resolvedCertificate, overridesBlockingPreflightIssues: overridesBlockingPreflightIssues,
+                        notices: notices)
+                    request.authorization = review.authorization
+                } catch {
+                    SigningLog.shared.error(LogRedaction.redact(error.localizedDescription))
+                    completion(.failure(error))
+                    return
+                }
             }
             // Reject duplicates before changing the shared log or Live Activity.
             guard SigningService.shared.canStart(request) else {
@@ -59,7 +91,7 @@ enum PackageSigningCoordinator {
             // starts; the paths that never show a sheet — batch, Update All, automation — get
             // the same explanation in the log rather than silence.
             if
-                let certificate,
+                let certificate = request.certificate,
                 app.isSigned,
                 let detail = CertificateIdentity.match(for: app, certificate: certificate).detail {
                 log.warn(detail)
@@ -105,7 +137,7 @@ enum PackageSigningCoordinator {
                let info = NSDictionary(contentsOf: directory.appendingPathComponent("Info.plist")) {
                 trace.appBuild = TaskContext.versionToken(info["CFBundleVersion"] as? String)
             }
-            if let certificateID = certificate?.uuid {
+            if let certificateID = request.certificate?.uuid {
                 trace.certificateReference = TaskContext.fingerprint(Data(certificateID.utf8))
             }
             let encoder = JSONEncoder()

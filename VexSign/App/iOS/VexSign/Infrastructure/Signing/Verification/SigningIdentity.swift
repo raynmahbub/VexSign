@@ -29,6 +29,7 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 	let fingerprint: String
 	/// Subject common name, when the certificate has one.
 	let commonName: String?
+	let teamIdentifier: String?
 	/// Uppercase hex, the way Apple prints a serial number.
 	let serial: String?
 	let notBefore: Date?
@@ -37,10 +38,11 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 	var id: String { fingerprint }
 
 	init?(_ der: Data) {
-		guard let parsed = X509.parse([UInt8](der)) else { return nil }
+        guard der.count <= 64 * 1024, let parsed = X509.parse([UInt8](der)) else { return nil }
 
 		self.fingerprint = Self.fingerprint(of: der)
 		self.commonName = parsed.commonName
+		self.teamIdentifier = parsed.teamIdentifier
 		self.serial = parsed.serial
 		self.notBefore = parsed.notBefore
 		self.notAfter = parsed.notAfter
@@ -50,12 +52,14 @@ struct SigningIdentity: Identifiable, Equatable, Sendable {
 	init(
 		fingerprint: String,
 		commonName: String? = nil,
+		teamIdentifier: String? = nil,
 		serial: String? = nil,
 		notBefore: Date? = nil,
 		notAfter: Date? = nil
 	) {
 		self.fingerprint = fingerprint
 		self.commonName = commonName
+		self.teamIdentifier = teamIdentifier
 		self.serial = serial
 		self.notBefore = notBefore
 		self.notAfter = notAfter
@@ -103,6 +107,7 @@ private enum X509 {
 		let notBefore: Date
 		let notAfter: Date
 		let commonName: String?
+		let teamIdentifier: String?
 	}
 
 	/// Object identifier 2.5.4.3 (commonName), as its DER content octets.
@@ -111,8 +116,9 @@ private enum X509 {
 	static func parse(_ bytes: [UInt8]) -> Parsed? {
 		guard
 			let certificate = DER.element(bytes, at: 0),
-			certificate.tag == 0x30, // SEQUENCE { tbsCertificate, signatureAlgorithm, signature }
-			let parts = DER.children(bytes, in: certificate),
+            certificate.tag == 0x30, certificate.end == bytes.count,
+            let parts = DER.children(bytes, in: certificate), parts.count == 3,
+            parts[1].tag == 0x30, parts[2].tag == 0x03,
 			let tbsElement = parts.first,
 			tbsElement.tag == 0x30,
 			let fields = DER.children(bytes, in: tbsElement),
@@ -139,7 +145,7 @@ private enum X509 {
 			let validity = DER.children(bytes, in: validityElement),
 			validity.count == 2,
 			let notBefore = date(validity[0], in: bytes),
-			let notAfter = date(validity[1], in: bytes)
+            let notAfter = date(validity[1], in: bytes), notBefore < notAfter
 		else {
 			return nil
 		}
@@ -152,7 +158,8 @@ private enum X509 {
 			serial: serial(serialElement, in: bytes),
 			notBefore: notBefore,
 			notAfter: notAfter,
-			commonName: commonName(in: subject, bytes: bytes)
+			commonName: attributeName(in: subject, bytes: bytes, oid: commonNameOID),
+			teamIdentifier: attributeName(in: subject, bytes: bytes, oid: [0x55, 0x04, 0x0b])
 		)
 	}
 
@@ -229,7 +236,12 @@ private enum X509 {
 		components.minute = minute
 		components.second = second
 
-		return utc.date(from: components)
+        guard (1...12).contains(month), (1...31).contains(day), (0...23).contains(hour),
+              (0...59).contains(minute), (0...59).contains(second), let result = utc.date(from: components) else { return nil }
+        let roundTrip = utc.dateComponents([.year, .month, .day, .hour, .minute, .second], from: result)
+        guard roundTrip.year == year, roundTrip.month == month, roundTrip.day == day,
+              roundTrip.hour == hour, roundTrip.minute == minute, roundTrip.second == second else { return nil }
+        return result
 	}
 
 	private static let utc: Calendar = {
@@ -242,7 +254,7 @@ private enum X509 {
 
 	/// Walks `Name ::= RDNSequence` for the common name and stops at the first one. A certificate
 	/// with no CN, or with an encoding this does not know, simply has no common name.
-	private static func commonName(in subject: DER.Element, bytes: [UInt8]) -> String? {
+	private static func attributeName(in subject: DER.Element, bytes: [UInt8], oid: [UInt8]) -> String? {
 		guard let sets = DER.children(bytes, in: subject) else { return nil }
 
 		for set in sets {
@@ -250,7 +262,7 @@ private enum X509 {
 			for pair in pairs {
 				guard let attribute = DER.children(bytes, in: pair), attribute.count == 2 else { continue }
 				guard attribute[0].tag == 0x06 else { continue }
-				guard DER.content(of: attribute[0], in: bytes) == commonNameOID else { continue }
+				guard DER.content(of: attribute[0], in: bytes) == oid else { continue }
 				guard let name = string(attribute[1], in: bytes) else { continue }
 				return name
 			}

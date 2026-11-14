@@ -195,6 +195,25 @@ int zsignWithNestedProvisions(
 	NSDictionary<NSString *, NSString *> *nestedProvisions,
 	void(^completionHandler)(BOOL success, NSError *error)
 ) {
+    return zsignWithNestedAssets(app, prov, key, pass, entitlement, bundleid, displayname,
+        bundleversion, adhoc, excludeprovion, nestedProvisions, @{}, completionHandler);
+}
+
+int zsignWithNestedAssets(
+	NSString *app,
+	NSString *prov,
+	NSString *key,
+	NSString *pass,
+	NSString *entitlement,
+	NSString *bundleid,
+	NSString *displayname,
+	NSString *bundleversion,
+	bool adhoc,
+	bool excludeprovion,
+	NSDictionary<NSString *, NSString *> *nestedProvisions,
+    NSDictionary<NSString *, NSDictionary<NSString *, NSString *> *> *nestedAssetInputs,
+	void(^completionHandler)(BOOL success, NSError *error)
+) {
 	ZTimer atimer;
 	ZTimer gtimer;
 	
@@ -258,7 +277,11 @@ int zsignWithNestedProvisions(
 				return -1;
 			}
 			nestedAssets.emplace_back();
-			if (!nestedAssets.back().Init(strCertFile, strPKeyFile, string(szNestedProv), string(), strPassword, false, bSHA256Only, false)) {
+            NSDictionary<NSString *, NSString *> *asset = nestedAssetInputs[nestedBundleId];
+            string nestedKey = asset[@"p12"] ? [asset[@"p12"] UTF8String] : strPKeyFile;
+            string nestedPassword = asset[@"password"] ? [asset[@"password"] UTF8String] : strPassword;
+            string nestedEntitlements = asset[@"entitlements"] ? [asset[@"entitlements"] UTF8String] : string();
+            if (!nestedAssets.back().Init(strCertFile, nestedKey, string(szNestedProv), nestedEntitlements, nestedPassword, false, bSHA256Only, false)) {
 				ZLog::ErrorV(">>> Can't use the provisioning profile for %s\n", szNestedId);
 				return -1;
 			}

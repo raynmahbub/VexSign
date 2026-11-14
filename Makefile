@@ -181,6 +181,14 @@ verify: docs-check
 	@echo "== native-signing preparation =="
 	@python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v
 
+# Credential-free behavioral tests of the production native signing core.
+# Needs C++17 and OpenSSL 3 development files; never downloads dependencies.
+# Use VEXSIGN_NATIVE_SANITIZERS=1 for ASan+UBSan. This is not iOS/Apple trust
+# or physical-device acceptance; the Security bridge is exercised by make test.
+.PHONY: test-signing-core
+test-signing-core:
+	@python3 VexSign/Tools/Validation/security-validation/test_native_signing_core.py
+
 # Read-only upstream check for the root Xcode SwiftPM requirements (Dependabot
 # covers Package.swift, but not project.pbxproj). Never edits the project.
 #   make audit-packages

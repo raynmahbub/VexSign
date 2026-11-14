@@ -31,7 +31,9 @@ struct LibraryView: View {
     @State private var _isGitHubImportPresenting = false
 
     // MARK: Selection State
+    // Legacy variable name; values are store-bound workspace identities, never bare UUIDs.
     @State var _selectedAppUUIDs: Set<String> = []
+    @State private var _revealedRowID: String?
     @State var _editMode: EditMode = .inactive
     @State var _showDeleteConfirmation = false
     @State var _batchRequest: BatchRequest?
@@ -70,7 +72,8 @@ struct LibraryView: View {
             }
             if _selectedScope == .attention && !needsAttention(app) { return false }
             return _searchText.isEmpty ||
-            (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
+            (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false) ||
+            (app.identifier?.localizedCaseInsensitiveContains(_searchText) ?? false)
         }
         return _sorted(filtered)
     }
@@ -83,7 +86,8 @@ struct LibraryView: View {
             }
             if _selectedScope == .attention && !needsAttention(app) { return false }
             return _searchText.isEmpty ||
-            (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
+            (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false) ||
+            (app.identifier?.localizedCaseInsensitiveContains(_searchText) ?? false)
         }
         return _sorted(filtered)
     }
@@ -173,7 +177,13 @@ struct LibraryView: View {
                 }
                 .onReceive(services.workspace.$revision) { _ in
                     _sizeGeneration = UUID()
+                    reconcileLibrarySelection()
                 }
+                .onChange(of: Set(getAllApps().compactMap(\.workspaceIdentity))) { _, _ in reconcileLibrarySelection() }
+                .onChange(of: _searchText) { _, _ in reconcileLibrarySelection() }
+                .onChange(of: _selectedScope) { _, _ in reconcileLibrarySelection() }
+                .onChange(of: _editMode) { _, _ in _revealedRowID = nil }
+                .onChange(of: libraryLayout) { _, _ in _revealedRowID = nil }
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         if _editMode.isEditing {
@@ -277,7 +287,7 @@ struct LibraryView: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This action cannot be undone.")
+                    Text("This removes only the selected stored library copies, not installed apps, downloaded source files, or signing identities. This action cannot be undone.")
                 }
                 .onAppear { presentPendingExplorer() }
                 .onChange(of: tabSelection.ipaExplorerRequested) { _, _ in presentPendingExplorer() }
@@ -285,6 +295,12 @@ struct LibraryView: View {
                     Presentation.afterDismiss { _isExplorerPresenting = true }
                 }
         }
+    }
+
+    private func reconcileLibrarySelection() {
+        let visible = Set(getAllApps().compactMap(\.workspaceIdentity))
+        _selectedAppUUIDs.formIntersection(visible)
+        if let id = _revealedRowID, !visible.contains(id) { _revealedRowID = nil }
     }
 
     private func presentPendingExplorer() {
@@ -391,8 +407,8 @@ struct LibraryView: View {
     @ViewBuilder
     private var signedAppsSection: some View {
         let selectedSignedCount = filteredSignedApps.filter { app in
-            guard let uuid = app.uuid else { return false }
-            return _selectedAppUUIDs.contains(uuid)
+            guard let id = app.workspaceIdentity else { return false }
+            return _selectedAppUUIDs.contains(id)
         }.count
 
         let sectionTitle = _editMode.isEditing && selectedSignedCount > 0
@@ -403,19 +419,20 @@ struct LibraryView: View {
             .localized("Signed"),
             secondary: sectionTitle
         ) {
-            ForEach(filteredSignedApps, id: \.uuid) { app in
+            ForEach(filteredSignedApps, id: \.id) { app in
                 LibraryCellView(
                     app: app,
                     selectedInfoAppPresenting: $_selectedInfoAppPresenting,
                     selectedSigningAppPresenting: $_selectedSigningAppPresenting,
                     selectedAppUUIDs: $_selectedAppUUIDs,
+                    revealedRowID: $_revealedRowID,
                     isHighlighted: app.uuid == tabSelection.highlightedAppUUID,
                     onSelectMore: { _beginSelection(with: app) },
                     isIconTile: libraryLayout == "icons" && !_editMode.isEditing,
                     isGridLayout: libraryLayout != "list" && !_editMode.isEditing
                 )
                 .compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
-                .id(app.uuid)
+                .id(app.workspaceIdentity)
             }
             .onMove(perform: (_searchText.isEmpty && _sort == .manual) ? _moveSignedApps : nil)
         }
@@ -425,8 +442,8 @@ struct LibraryView: View {
     @ViewBuilder
     private var importedAppsSection: some View {
         let selectedImportedCount = filteredImportedApps.filter { app in
-            guard let uuid = app.uuid else { return false }
-            return _selectedAppUUIDs.contains(uuid)
+            guard let id = app.workspaceIdentity else { return false }
+            return _selectedAppUUIDs.contains(id)
         }.count
 
         let sectionTitle = _editMode.isEditing && selectedImportedCount > 0
@@ -437,19 +454,20 @@ struct LibraryView: View {
             .localized("Imported"),
             secondary: sectionTitle
         ) {
-            ForEach(filteredImportedApps, id: \.uuid) { app in
+            ForEach(filteredImportedApps, id: \.id) { app in
                 LibraryCellView(
                     app: app,
                     selectedInfoAppPresenting: $_selectedInfoAppPresenting,
                     selectedSigningAppPresenting: $_selectedSigningAppPresenting,
                     selectedAppUUIDs: $_selectedAppUUIDs,
+                    revealedRowID: $_revealedRowID,
                     isHighlighted: app.uuid == tabSelection.highlightedAppUUID,
                     onSelectMore: { _beginSelection(with: app) },
                     isIconTile: libraryLayout == "icons" && !_editMode.isEditing,
                     isGridLayout: libraryLayout != "list" && !_editMode.isEditing
                 )
                 .compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
-                .id(app.uuid)
+                .id(app.workspaceIdentity)
             }
             .onMove(perform: (_searchText.isEmpty && _sort == .manual) ? _moveImportedApps : nil)
         }

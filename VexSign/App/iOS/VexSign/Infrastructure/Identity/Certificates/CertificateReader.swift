@@ -23,23 +23,9 @@ class CertificateReader: NSObject {
 		
 		do {
 			let fileData = try CertificateInputReader.read(file)
-			
-			guard let xmlRange = fileData.range(of: Data("<?xml".utf8)) else {
-				Logger.misc.error("XML start not found")
-				return nil
-			}
-			
-			// CMS signatures contain binary data after the plist. Do not feed
-			// that trailer to PropertyListDecoder.
-			guard let endRange = fileData.range(
-				of: Data("</plist>".utf8),
-				in: xmlRange.upperBound..<fileData.endIndex
-			) else { return nil }
-			let xmlData = fileData.subdata(in: xmlRange.lowerBound..<endRange.upperBound)
-			
-			let decoder = PropertyListDecoder()
-			let data = try decoder.decode(Certificate.self, from: xmlData)
-			return data
+            // Management may display an expired profile, but never unauthenticated
+            // metadata. The signing resolver uses the parser's strict expiry path.
+            return try ProvisioningProfileParser.parse(fileData, allowingExpiredForDisplay: true)
 		} catch {
 			Logger.misc.error("Error extracting certificate: \(error.localizedDescription)")
 			return nil

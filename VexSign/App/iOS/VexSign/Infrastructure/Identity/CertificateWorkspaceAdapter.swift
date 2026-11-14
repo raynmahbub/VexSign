@@ -66,6 +66,8 @@ final class CertificateWorkspaceAdapter: CertificateWorkspaceProviding {
     func additionalProfiles(id: String) throws -> [AdditionalProfileRecord] { AdditionalProfiles.entries(for: try storage.managedCertificate(id: id)) }
     func importAdditionalProfile(from url: URL, certificateID: String) throws {
         let row = try storage.managedCertificate(id: certificateID)
+        let lease = try AppOperationRegistry.shared.acquire(SigningIdentityStore.leaseKey(reference: certificateID))
+        defer { withExtendedLifetime(lease) {} }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do { try AdditionalProfiles.add(from: url, to: row) }
@@ -74,6 +76,8 @@ final class CertificateWorkspaceAdapter: CertificateWorkspaceProviding {
         }
     }
     func removeAdditionalProfile(entryID: String, certificateID: String) throws {
+        let lease = try AppOperationRegistry.shared.acquire(SigningIdentityStore.leaseKey(reference: certificateID))
+        defer { withExtendedLifetime(lease) {} }
         // Never trust an arbitrary path returned by a caller. Re-resolve the current
         // certificate and accept only an entry enumerated under its owned directory.
         guard let entry = try additionalProfiles(id: certificateID).first(where: { $0.id == entryID }) else {

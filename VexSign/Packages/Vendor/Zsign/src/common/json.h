@@ -419,8 +419,10 @@ private:
 			pbegin = NULL;
 			pend = NULL;
 			type = E_PTOKEN_ERROR;
+            real = false;
 		}
 
+        bool real;
 		ptoken_type type;
 		const char* pbegin;
 		const char* pend;
@@ -462,6 +464,9 @@ private: //xml
 	const char* m_pcursor;
 	const char* m_perror;
 	string		m_strerr;
+    size_t m_depth = 0;
+    size_t m_remaining = 200000;
+    bool m_has_plist = false;
 
 private: //binary
 	const char* m_ptrailer;
@@ -481,7 +486,7 @@ public:
 	void			write(const jvalue& pval, string& strdoc);
 	void			write_to_binary(const jvalue& pval, string& strdoc);
 	const string&	style_write(const jvalue& pval);
-	
+
 private:
 	struct bplist_object
 	{

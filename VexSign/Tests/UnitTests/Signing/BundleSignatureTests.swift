@@ -4,7 +4,7 @@
 //
 //  Fixture-based tests for who signed a stored bundle, and when that identity expires.
 //
-//  The fixtures are real, not synthesized: a self-signed certificate and a CMS SignedData that
+//  The fixtures are synthetic public test evidence: a self-signed certificate and CMS SignedData that
 //  openssl produced from it, embedded as base64 so the suite needs no files, no keychain and no
 //  device. The executable the end-to-end tests read is built here byte by byte — an arm64 Mach-O
 //  header with one `LC_CODE_SIGNATURE` command in front of a real superblob — because that is
@@ -27,45 +27,9 @@ import os
 final class BundleSignatureTests: XCTestCase {
 	// MARK: Fixtures
 
-	private let fixtureCertificateBase64 = """
-		MIIDbTCCAlWgAwIBAgIUTXgca/74BIH3LItr2gNazURWqrMwDQYJKoZIhvcNAQELBQAwRjELMAkGA1UEBhMCQkQxFjAUBgNV
-		BAoMDVZleFNpZ24gVGVzdHMxHzAdBgNVBAMMFlZleFNpZ24gRml4dHVyZSBTaWduZXIwHhcNMjYxMDMxMjM0MTQ4WhcNMjcx
-		MjA1MjM0MTQ4WjBGMQswCQYDVQQGEwJCRDEWMBQGA1UECgwNVmV4U2lnbiBUZXN0czEfMB0GA1UEAwwWVmV4U2lnbiBGaXh0
-		dXJlIFNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMUsL7EHTxgy2p2lFOKSUGE9YWC+86qWkGckPACB
-		+DSTp2RwnNf+MbqX8R/49j+Gs4TnAH4zUj/icTVjqgiSUBLChM5xqWul5QaRo1V0E3jaDRz18A+S1YIAUWVQ3AvDUqE8Bdal
-		sCcZqY+O4bKKqPpm+MvOr4pBTxMKECoiAREB++Jh3k0xYBSpXL31kY0JDzRIeByORSQ0bbhBqIaFC/UHZprBA3hWaCQBrRiq
-		8J2u2P0jw/Idn9NDIVVu+jUq1r93vv9wkfXUo8ZTBsEDbe96faMKMxsftkxYezupoNGo8Na4XdTgG+mEKwb1N94nc8sh/ZEr
-		1sw76wZweyPH6SUCAwEAAaNTMFEwHQYDVR0OBBYEFJWOi/BtAPNDZ2vUwdAdFtGOUZT2MB8GA1UdIwQYMBaAFJWOi/BtAPND
-		Z2vUwdAdFtGOUZT2MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBADyo/f4dCTyr1/Agx7NNo7fxM4me5UMC
-		gnJXvgXLq8kJekl9aSJ3aoGpjJUp2ZhmxzEFAOojDxF8sdgo400L0LrCM4qIuRHQYqQcihJNtFPzEe+Fr2bY8ZqS0KDK9GVe
-		N577Wxr+kVxfO96n+YnzGdaN8fHbBUKiIbUoMNbk4e0L3OgeWU19mm9xb10PP5FsuT6MQfbcYS6+CWItGyCkKcpVqIDLdryk
-		dil9Fh5vmU+h/SX3klxstgGNDA9/mzR3p1smOHgrXL8Xp03X/dMawAIdf0IjNaS0WNMriTQoSM2tem9GxzBtuXG6cFs71Q0T
-		aEzTVgX/Z5MvtIEt5jlh/Sg=
-		"""
 
-	private let fixtureCMSBase64 = """
-		MIIFuQYJKoZIhvcNAQcCoIIFqjCCBaYCAQExDTALBglghkgBZQMEAgEwJwYJKoZIhvcNAQcBoBoEGFZleFNpZ24gZml4dHVy
-		ZSBwYXlsb2FkCqCCA3EwggNtMIICVaADAgECAhRNeBxr/vgEgfcsi2vaA1rNRFaqszANBgkqhkiG9w0BAQsFADBGMQswCQYD
-		VQQGEwJCRDEWMBQGA1UECgwNVmV4U2lnbiBUZXN0czEfMB0GA1UEAwwWVmV4U2lnbiBGaXh0dXJlIFNpZ25lcjAeFw0yNjEw
-		MzEyMzQxNDhaFw0yNzEyMDUyMzQxNDhaMEYxCzAJBgNVBAYTAkJEMRYwFAYDVQQKDA1WZXhTaWduIFRlc3RzMR8wHQYDVQQD
-		DBZWZXhTaWduIEZpeHR1cmUgU2lnbmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxSwvsQdPGDLanaUU4pJQ
-		YT1hYL7zqpaQZyQ8AIH4NJOnZHCc1/4xupfxH/j2P4azhOcAfjNSP+JxNWOqCJJQEsKEznGpa6XlBpGjVXQTeNoNHPXwD5LV
-		ggBRZVDcC8NSoTwF1qWwJxmpj47hsoqo+mb4y86vikFPEwoQKiIBEQH74mHeTTFgFKlcvfWRjQkPNEh4HI5FJDRtuEGohoUL
-		9QdmmsEDeFZoJAGtGKrwna7Y/SPD8h2f00MhVW76NSrWv3e+/3CR9dSjxlMGwQNt73p9owozGx+2TFh7O6mg0ajw1rhd1OAb
-		6YQrBvU33idzyyH9kSvWzDvrBnB7I8fpJQIDAQABo1MwUTAdBgNVHQ4EFgQUlY6L8G0A80Nna9TB0B0W0Y5RlPYwHwYDVR0j
-		BBgwFoAUlY6L8G0A80Nna9TB0B0W0Y5RlPYwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAPKj9/h0JPKvX
-		8CDHs02jt/EziZ7lQwKCcle+BcuryQl6SX1pIndqgamMlSnZmGbHMQUA6iMPEXyx2CjjTQvQusIzioi5EdBipByKEk20U/MR
-		74WvZtjxmpLQoMr0ZV43nvtbGv6RXF873qf5ifMZ1o3x8dsFQqIhtSgw1uTh7Qvc6B5ZTX2ab3FvXQ8/kWy5PoxB9txhLr4J
-		Yi0bIKQpylWogMt2vKR2KX0WHm+ZT6H9JfeSXGy2AY0MD3+bNHenWyY4eCtcvxenTdf90xrAAh1/QiM1pLRY0yuJNChIza16
-		b0bHMG25cbpwWzvVDRNoTNNWBf9nky+0gS3mOWH9KDGCAfIwggHuAgEBMF4wRjELMAkGA1UEBhMCQkQxFjAUBgNVBAoMDVZl
-		eFNpZ24gVGVzdHMxHzAdBgNVBAMMFlZleFNpZ24gRml4dHVyZSBTaWduZXICFE14HGv++ASB9yyLa9oDWs1EVqqzMAsGCWCG
-		SAFlAwQCAaBpMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI2MTAzMTIzNDE1MFowLwYJKoZI
-		hvcNAQkEMSIEIBBc2KfwQr34lApnoDpJfVrYRKQ++N4YO6itAGlBFtG0MA0GCSqGSIb3DQEBAQUABIIBAFjBrrC558+rIB3E
-		6cBOxi8Gl6oJuSQAHf3W8Wa7JYrGXcxPmUf74eKDIcx0CxfonSj5XxJS1dur6/t8UXANyfptRShm6Jy+rb7owe3biZlSTlGP
-		+YGAJWSF9MGolXDSoMqRv1nIGc/smN1xxyFvTwNIjb1l3iaXh0yNPgTjKJGh18cgYK7rNuZ/aU/0p0ZeandfUJXQGK19YO/W
-		yJki96fulP8GUwEGzxVyLzTmMQ7ztSnRH/GFTk1Z3afOxBRbFpURVLzryHuzynkQFThDbpwJkp2JFcAw9Al/aNsfgb5MgGw4
-		Sf3/MLgVi9K6KvplCzNgtBHxwgOw+Y2aRxnGbLE=
-		"""
+
+
 
 	private let expectedFingerprint = "1cc79e23acbd34c625de9c48d33eda8ff1f7b024f7dbccfa324e2d759bab3a16"
 	private let expectedCommonName = "VexSign Fixture Signer"
@@ -74,11 +38,11 @@ final class BundleSignatureTests: XCTestCase {
 	private let notAfter = Date(timeIntervalSince1970: 1_828_050_108)
 
 	private var certificateDER: Data {
-		Data(base64Encoded: fixtureCertificateBase64, options: .ignoreUnknownCharacters) ?? Data()
+		SigningRegressionFixture.certificateDER
 	}
 
 	private var cms: Data {
-		Data(base64Encoded: fixtureCMSBase64, options: .ignoreUnknownCharacters) ?? Data()
+		SigningRegressionFixture.cms
 	}
 
 	// MARK: DER
@@ -191,8 +155,9 @@ final class BundleSignatureTests: XCTestCase {
 		XCTAssertEqual(der, certificateDER)
 	}
 
-	func testCMSWithoutACertificateSetIsEmptyNotNil() throws {
-		// SignedData with no `[0]` certificates: ad-hoc signing writes one of these.
+	func testCMSWithoutSignerInfosIsMalformedNotAnAdHocSignature() throws {
+		// This incomplete SignedData has neither certificates nor required SignerInfos.
+        // Ad-hoc Mach-O signatures omit the CMS slot; they do not forge SignedData.
 		// ContentInfo is the SEQUENCE around the content type, as in the fixture above.
 		let contentInfo = Data(der([
 			tlv(0x30, der([
@@ -207,8 +172,7 @@ final class BundleSignatureTests: XCTestCase {
 			]))
 		]))
 
-		let certificates = try XCTUnwrap(BundleSignature.certificateDERs(inCMS: contentInfo))
-		XCTAssertTrue(certificates.isEmpty)
+        XCTAssertNil(BundleSignature.certificateDERs(inCMS: contentInfo))
 	}
 
 	func testMalformedCMSReturnsNil() {

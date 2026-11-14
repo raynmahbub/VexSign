@@ -113,7 +113,7 @@ extension CertificatesInfoView {
 		} header: {
 			Text(.localized("Extension Profiles"))
 		} footer: {
-			Text(.localized("An app extension with its own App ID needs its own provisioning profile. Profiles added here are used for the extensions they cover; everything else is signed with the certificate's main profile. They must be issued for this certificate."))
+			Text(.localized("Every retained application and extension needs a compatible profile. Imported profiles are evaluated with the available identities; certificate membership and an accessible matching private key are required. Adding a profile does not bypass identifier, capability or device checks."))
 		}
 	}
 

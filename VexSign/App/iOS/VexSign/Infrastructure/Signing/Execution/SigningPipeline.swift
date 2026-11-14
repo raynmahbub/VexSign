@@ -7,37 +7,31 @@ struct SigningPipeline: SigningWork {
 	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
 		let log = SigningLog.shared
 		log.reset()
-		log.info(.localized("Preparing to sign %@", arguments: request.name))
+        let name = await MainActor.run { request.name }
+		log.info(.localized("Preparing to sign %@", arguments: name))
 		for notice in request.notices {
 			log.warn(notice)
 		}
 
-		// The identity is decided here, before a byte is copied.
-		//
-		// Only the Signing screen ran `PreflightChecks`, and only after the user pressed
-		// Sign; batch, Update All, Shortcuts and self-update never rendered it. An expired
-		// or revoked certificate therefore reached zsign on those paths, produced a bundle
-		// iOS refuses to install, and failed minutes later with a signature-shaped error.
-		// `overridesBlockingPreflightIssues` intentionally does not excuse this: the
-		// preflight's "Sign Anyway" covers profile and entitlement compatibility, which can
-		// still install, not an identity that is invalid on its face.
-		if let rejection = SigningIdentityPolicy.rejection(for: request) {
-			log.error(SigningIdentityPolicy.logLine(for: rejection))
-			return .failure(rejection)
-		}
-		// The certificate's own end date, recorded by the last status check. It is read from
-		// the stored snapshot, not fetched: a run must not wait on the network to start.
-		if request.options.signingOption == .default,
-		   let uuid = request.certificate?.uuid,
-		   let rejection = SigningIdentityPolicy.rejection(
-			storedSnapshot: CertificateRevocationSnapshot.stored(forCertificateUUID: uuid)
-		   ) {
-			log.error(SigningIdentityPolicy.logLine(for: rejection))
-			return .failure(rejection)
-		}
+        // Managed rows are inspected only on their owning actor. The worker
+        // gets an immutable app projection; the PKCS#12/profile plan is still
+        // independently revalidated inside native ownership before any signing.
+        if let rejection = await MainActor.run(body: { SigningIdentityPolicy.rejection(for: request) }) {
+            log.error(SigningIdentityPolicy.logLine(for: rejection))
+            return .failure(rejection)
+        }
 
-		let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
-		handler.appCertificate = request.certificate
+        let app: AppInfoPresentable
+        do {
+            let snapshot: LibraryAppRecord? = try await MainActor.run {
+                guard request.app is Signed || request.app is Imported else { return nil }
+                return try CoreDataWorkspaceRepository(storage: Storage.shared).appRecord(request.app)
+            }
+            if let snapshot { app = snapshot } else { app = request.app }
+        } catch { return .failure(error) }
+        let handler = SigningHandler(app: app, options: request.options, executionGate: executionGate)
+        handler.appCertificate = request.certificate
+        handler.authorization = request.authorization
 		handler.appIcon = request.icon
 		handler.onStage = { reporting(.stage($0)) }
 		handler.onSignatureVerified = { reporting(.signatureVerified) }

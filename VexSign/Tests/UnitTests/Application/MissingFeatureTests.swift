@@ -17,7 +17,8 @@ final class MissingFeatureTests: XCTestCase {
 
 	// MARK: - Helpers
 
-	/// Writes a provisioning-profile plist the way `CertificateReader` expects it.
+	/// Decodes caller-constructed metadata only. This deliberately does not go
+    /// through the authenticated profile reader or claim signing admission.
 	private func profile(
 		entitlements: [String: Any]? = nil,
 		ppqCheck: Bool? = nil,
@@ -42,13 +43,7 @@ final class MissingFeatureTests: XCTestCase {
 		if let provisionedDevices { payload["ProvisionedDevices"] = provisionedDevices }
 
 		let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
-		let url = FileManager.default.temporaryDirectory
-			.appendingPathComponent("\(UUID().uuidString).mobileprovision")
-		try data.write(to: url)
-		addTeardownBlock { try? FileManager.default.removeItem(at: url) }
-
-		let decoded = CertificateReader(url).decoded
-		return try XCTUnwrap(decoded, "CertificateReader could not decode the test profile")
+        return try PropertyListDecoder().decode(Certificate.self, from: data)
 	}
 
 	private func temporaryFile(_ data: Data) throws -> URL {

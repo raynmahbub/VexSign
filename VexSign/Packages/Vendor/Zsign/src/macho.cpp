@@ -14,11 +14,13 @@ ZMachO::ZMachO()
 
 ZMachO::~ZMachO()
 {
-	FreeArchOes();
+    Free();
 }
 
 bool ZMachO::Init(const char* szFile)
 {
+    if (!szFile || !szFile[0]) return false;
+    m_bCSRealloced = false;
 	m_strFile = szFile;
 	return OpenFile(szFile);
 }
@@ -31,8 +33,9 @@ bool ZMachO::InitV(const char* szPath, ...)
 
 bool ZMachO::Free()
 {
-	FreeArchOes();
-	return CloseFile();
+    bool closed = !m_pBase || CloseFile();
+    FreeArchOes();
+    return closed;
 }
 
 bool ZMachO::NewArchO(uint8_t* pBase, uint32_t uLength)
@@ -59,36 +62,45 @@ void ZMachO::FreeArchOes()
 
 bool ZMachO::OpenFile(const char* szPath)
 {
-	FreeArchOes();
-
-	m_sSize = 0;
-	m_pBase = (uint8_t*)ZFile::MapFile(szPath, 0, 0, &m_sSize, false);
-	if (NULL != m_pBase) {
-		uint32_t magic = *((uint32_t*)m_pBase);
-		if (FAT_CIGAM == magic || FAT_MAGIC == magic) {
-			fat_header* pFatHeader = (fat_header*)m_pBase;
-			int nFatArch = (FAT_MAGIC == magic) ? pFatHeader->nfat_arch : LE(pFatHeader->nfat_arch);
-			for (int i = 0; i < nFatArch; i++) {
-				fat_arch* pFatArch = (fat_arch*)(m_pBase + sizeof(fat_header) + sizeof(fat_arch) * i);
-				uint8_t* pArchBase = m_pBase + ((FAT_MAGIC == magic) ? pFatArch->offset : LE(pFatArch->offset));
-				uint32_t uArchLength = (FAT_MAGIC == magic) ? pFatArch->size : LE(pFatArch->size);
-				if (!NewArchO(pArchBase, uArchLength)) {
-					ZLog::ErrorV(">>> Invalid arch file in fat mach-o file!\n");
-					return false;
-				}
-			}
-		} else if (MH_MAGIC == magic || MH_CIGAM == magic || MH_MAGIC_64 == magic || MH_CIGAM_64 == magic) {
-			if (!NewArchO(m_pBase, (uint32_t)m_sSize)) {
-				ZLog::ErrorV(">>> Invalid mach-o file!\n");
-				return false;
-			}
-		} else {
-			ZLog::ErrorV(">>> Invalid mach-o file (2)!\n");
-			return false;
-		}
-	}
-
-	return (!m_arrArchOes.empty());
+    Free();
+    m_pBase = static_cast<uint8_t*>(ZFile::MapFile(szPath, 0, 0, &m_sSize, false));
+    auto invalid = [this]() { Free(); return false; };
+    if (!m_pBase || m_sSize < sizeof(mach_header) || m_sSize > 0x7fffffffU) return invalid();
+    auto word = [this](size_t offset, bool big) {
+        uint32_t value; memcpy(&value, m_pBase + offset, sizeof(value));
+        return big ? LE(value) : value;
+    };
+    uint32_t magic = word(0, false);
+    bool fat64 = magic == 0xbfbafecaU || magic == 0xcafebabfU;
+    if (FAT_CIGAM == magic || FAT_MAGIC == magic || fat64) {
+        bool big = magic == FAT_CIGAM || magic == 0xbfbafecaU;
+        uint32_t count = word(4, big), entrySize = fat64 ? 32 : sizeof(fat_arch);
+        if (!count || count > 64 || count > (m_sSize - sizeof(fat_header)) / entrySize) return invalid();
+        uint64_t tableEnd = sizeof(fat_header) + count * entrySize;
+        vector<pair<uint64_t, uint64_t>> ranges;
+        for (uint32_t i = 0; i < count; ++i) {
+            size_t entry = sizeof(fat_header) + i * entrySize;
+            auto wide = [&word, big](size_t offset) {
+                return big ? (uint64_t(word(offset, true)) << 32) | word(offset + 4, true)
+                           : (uint64_t(word(offset + 4, false)) << 32) | word(offset, false);
+            };
+            uint64_t start = fat64 ? wide(entry + 8) : word(entry + 8, big);
+            uint64_t size = fat64 ? wide(entry + 16) : word(entry + 12, big);
+            uint32_t alignment = word(entry + (fat64 ? 24 : 16), big);
+            if (alignment > 30 || start < tableEnd || start > m_sSize || start % 4 ||
+                start % (uint64_t(1) << alignment) || size < sizeof(mach_header) || size > m_sSize - start ||
+                (fat64 && word(entry + 28, big) != 0)) return invalid();
+            for (const auto& range : ranges) if (start < range.second && range.first < start + size) return invalid();
+            ranges.emplace_back(start, start + size);
+            uint32_t sliceMagic = word(start, false);
+            bool sliceBig = sliceMagic == MH_CIGAM || sliceMagic == MH_CIGAM_64;
+            if (word(start + 4, sliceBig) != word(entry, big) ||
+                word(start + 8, sliceBig) != word(entry + 4, big) || !NewArchO(m_pBase + start, static_cast<uint32_t>(size))) return invalid();
+        }
+    } else if (MH_MAGIC == magic || MH_CIGAM == magic || MH_MAGIC_64 == magic || MH_CIGAM_64 == magic) {
+        if (!NewArchO(m_pBase, static_cast<uint32_t>(m_sSize))) return invalid();
+    } else { return invalid(); }
+    return !m_arrArchOes.empty();
 }
 
 bool ZMachO::CloseFile()
@@ -101,6 +113,8 @@ bool ZMachO::CloseFile()
 		ZLog::ErrorV(">>> CodeSign write(munmap) failed! Error: %p, %lu, %s\n", m_pBase, m_sSize, strerror(errno));
 		return false;
 	}
+    m_pBase = NULL;
+    m_sSize = 0;
 	return true;
 }
 
@@ -114,7 +128,7 @@ void ZMachO::PrintInfo()
 
 bool ZMachO::CheckSignature() const
 {
-	return std::all_of(m_arrArchOes.cbegin(), m_arrArchOes.cend(), 
+    return !m_arrArchOes.empty() && std::all_of(m_arrArchOes.cbegin(), m_arrArchOes.cend(),
 		[](ZArchO const * archo) {
 			return archo->IsSigned();
 		}
@@ -129,25 +143,26 @@ bool ZMachO::Sign(ZSignAsset* pSignAsset, bool bForce, string strBundleId, strin
 
 	for (size_t i = 0; i < m_arrArchOes.size(); i++) {
 		ZArchO* archo = m_arrArchOes[i];
-		if (strBundleId.empty()) {
+        string imageBundleId = strBundleId, imageInfoSHA1 = strInfoSHA1, imageInfoSHA256 = strInfoSHA256;
+		if (imageBundleId.empty()) {
 			jvalue jvInfo;
 			jvInfo.read_plist(archo->m_strInfoPlist);
-			strBundleId = jvInfo["CFBundleIdentifier"].as_cstr();
-			if (strBundleId.empty()) {
-				strBundleId = ZUtil::GetBaseName(m_strFile.c_str());
+            imageBundleId = jvInfo["CFBundleIdentifier"].as_cstr();
+			if (imageBundleId.empty()) {
+				imageBundleId = ZUtil::GetBaseName(m_strFile.c_str());
 			}
 		}
 
-		if (strInfoSHA1.empty() || strInfoSHA256.empty()) {
+        if (imageInfoSHA1.empty() || imageInfoSHA256.empty()) {
 			if (archo->m_strInfoPlist.empty()) {
-				strInfoSHA1.append(20, 0);
-				strInfoSHA256.append(32, 0);
+                imageInfoSHA1.assign(20, 0);
+                imageInfoSHA256.assign(32, 0);
 			} else {
-				ZSHA::SHA(archo->m_strInfoPlist, strInfoSHA1, strInfoSHA256);
+				ZSHA::SHA(archo->m_strInfoPlist, imageInfoSHA1, imageInfoSHA256);
 			}
 		}
 
-		if (!archo->Sign(pSignAsset, bForce, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResourcesData)) {
+		if (!archo->Sign(pSignAsset, bForce, imageBundleId, imageInfoSHA1, imageInfoSHA256, strCodeResourcesData)) {
 			if (!archo->m_bEnoughSpace && !m_bCSRealloced) {
 				m_bCSRealloced = true;
 				if (ReallocCodeSignSpace()) {
@@ -179,8 +194,7 @@ bool ZMachO::ReallocCodeSignSpace()
 	ZLog::Warn(">>> Success!\n");
 
 	if (1 == m_arrArchOes.size()) {
-		CloseFile();
-		ZFile::RemoveFile(m_strFile.c_str());
+        if (!CloseFile()) return false;
 		string strNewArchOFile = m_strFile + ".archo.0";
 		if (0 == rename(strNewArchOFile.c_str(), m_strFile.c_str())) {
 			return OpenFile(m_strFile.c_str());
@@ -188,17 +202,19 @@ bool ZMachO::ReallocCodeSignSpace()
 	} else { //fat
 		uint32_t uAlign = 16384;
 		vector<fat_arch> arrArches;
-		fat_header fath = *((fat_header*)m_pBase);
-		int nFatArch = (FAT_MAGIC == fath.magic) ? fath.nfat_arch : LE(fath.nfat_arch);
-		for (int i = 0; i < nFatArch; i++) {
-			fat_arch arch = *((fat_arch*)(m_pBase + sizeof(fat_header) + sizeof(fat_arch) * i));
-			arrArches.push_back(arch);
-		}
-		CloseFile();
-
-		if (arrArches.size() != m_arrArchOes.size()) {
-			return false;
-		}
+        // Rebuild a canonical FAT32 table from the bounded images, not by
+        // reinterpreting a FAT64 (or differently-endian) input table as FAT32.
+        fat_header fath;
+        fath.magic = BE(static_cast<uint32_t>(FAT_MAGIC));
+        fath.nfat_arch = BE(static_cast<uint32_t>(m_arrArchOes.size()));
+        for (const ZArchO* image : m_arrArchOes) {
+            fat_arch arch = {};
+            uint32_t cpu = image->m_pHeader->cputype, subtype = image->m_pHeader->cpusubtype;
+            if (image->m_bBigEndian) { cpu = LE(cpu); subtype = LE(subtype); }
+            arch.cputype = BE(cpu); arch.cpusubtype = BE(subtype);
+            arrArches.push_back(arch);
+        }
+        if (!CloseFile()) return false;
 
 		uint32_t uFatHeaderSize = sizeof(fat_header) + (uint32_t)arrArches.size() * sizeof(fat_arch);
 		uint32_t uPadding1 = (uAlign - uFatHeaderSize % uAlign);
@@ -207,10 +223,10 @@ bool ZMachO::ReallocCodeSignSpace()
 			fat_arch& arch = arrArches[i];
 			uint32_t& uMachOSize = arrMachOesSizes[i];
 
-			arch.align = (FAT_MAGIC == fath.magic) ? 14 : BE((uint32_t)14);
-			arch.offset = (FAT_MAGIC == fath.magic) ? uOffset : BE(uOffset);
-			arch.size = (FAT_MAGIC == fath.magic) ? uMachOSize : BE(uMachOSize);
-
+            arch.align = BE(static_cast<uint32_t>(14));
+            arch.offset = BE(uOffset);
+            arch.size = BE(uMachOSize);
+            if (uMachOSize > 0x7fffffffU - uOffset - uAlign) return false;
 			uOffset += uMachOSize;
 			uOffset = uOffset + (uAlign - uOffset % uAlign);
 		}
@@ -227,8 +243,8 @@ bool ZMachO::ReallocCodeSignSpace()
 		string strPadding1;
 		strPadding1.append(uPadding1, 0);
 
-		ZFile::AppendFile(strNewFatMachOFile.c_str(), strFatHeader);
-		ZFile::AppendFile(strNewFatMachOFile.c_str(), strPadding1);
+        if (!ZFile::WriteFile(strNewFatMachOFile.c_str(), strFatHeader) ||
+            !ZFile::AppendFile(strNewFatMachOFile.c_str(), strPadding1)) return false;
 
 		for (size_t i = 0; i < arrArches.size(); i++) {
 			size_t sSize = 0;
@@ -241,14 +257,13 @@ bool ZMachO::ReallocCodeSignSpace()
 			string strPadding;
 			strPadding.append((uAlign - sSize % uAlign), 0);
 
-			ZFile::AppendFile(strNewFatMachOFile.c_str(), (const char*)pData, sSize);
-			ZFile::AppendFile(strNewFatMachOFile.c_str(), strPadding);
-
+            bool written = ZFile::AppendFile(strNewFatMachOFile.c_str(), (const char*)pData, sSize) &&
+                ZFile::AppendFile(strNewFatMachOFile.c_str(), strPadding);
 			ZFile::UnmapFile((void*)pData, sSize);
+            if (!written) return false;
 			ZFile::RemoveFile(strNewArchOFile.c_str());
 		}
 
-		ZFile::RemoveFile(m_strFile.c_str());
 		if (0 == rename(strNewFatMachOFile.c_str(), m_strFile.c_str())) {
 			return OpenFile(m_strFile.c_str());
 		}

@@ -1,670 +1,275 @@
-//
-//  SignatureVerifierTests.swift
-//  VexSignTests
-//
-//  Fixture-based tests for. No private key and no device: the fixtures are synthetic
-//  bundles whose executables carry a real `LC_CODE_SIGNATURE` load command and a real
-//  entitlements superblob, which is exactly what the verifier reads.
-//
-//  The acceptance cases are here by name: deleting
-//  `_CodeSignature` must fail, and a profile for an unrelated App ID must fail.
-//
-
 import XCTest
 @testable import VexSign
 
+/// These non-runnable fixtures intentionally lack a cryptographic code seal.
+/// Structural import evidence must never masquerade as a fresh signed success.
+/// Directory/resource/CMS checks have their own positive and tamper regressions.
 final class SignatureVerifierTests: XCTestCase {
-	private var _root: URL!
+    private var root: URL!
 
-	override func setUpWithError() throws {
-		_root = FileManager.default.temporaryDirectory
-			.appendingPathComponent("SignatureVerifierTests-\(UUID().uuidString)", isDirectory: true)
-		try FileManager.default.createDirectory(at: _root, withIntermediateDirectories: true)
-	}
+    override func setUpWithError() throws {
+        root = FileManager.default.temporaryDirectory.appendingPathComponent("Verifier-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    }
 
-	override func tearDownWithError() throws {
-		if let _root {
-			try? FileManager.default.removeItem(at: _root)
-		}
-		_root = nil
-	}
+    override func tearDownWithError() throws {
+        if let root { try FileManager.default.removeItem(at: root) }
+        root = nil
+    }
 
-    func testVerificationReadsRewrittenIdentifierInsteadOfBundleCache() throws {
-        let url = try _makeBundle(writesProfile: false)
-        let cached = Bundle(url: url)
+    private func bundle(signs: Bool = true) throws -> URL {
+        try SigningRegressionFixture.bundle(at: root.appendingPathComponent("Fixture.app"), signs: signs)
+    }
+
+    private func imported(_ url: URL) -> SignatureVerifier.Report {
+        SignatureVerifier.verify(bundleAt: url, expectation: .alreadySigned)
+    }
+
+    func testEntitlementOnlyFixtureCannotPassFreshVerificationWithoutAuthenticatedAssets() throws {
+        let report = SignatureVerifier.verify(bundleAt: try bundle())
+        XCTAssertFalse(report.isAcceptable)
+        XCTAssertEqual(report.verdict, .invalid)
+        XCTAssertTrue(report.failures.contains { $0.code == .expectedAssetsMissing })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testFreshVerificationStillRejectsEntitlementOnlyBlobWhenAnExpectationIsSupplied() throws {
+        let url = try bundle()
+        var expectation = SignatureVerifier.Expectation.freshlySigned
+        expectation.assets["."] = .init(bundleIdentifier: "com.example.app", certificateFingerprint: "not-an-identity",
+            teamIdentifier: SigningRegressionFixture.team, profileDigest: "not-a-profile", entitlements: [:])
+        let report = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
+        XCTAssertFalse(report.isAcceptable)
+        XCTAssertTrue(report.failures.contains { $0.code == .signatureInvalid || $0.code == .resourceSealInvalid })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testImportedStructureIsIncompleteNotCryptographicallyVerified() throws {
+        let report = imported(try bundle())
+        XCTAssertTrue(report.failures.isEmpty, report.summary)
+        XCTAssertTrue(report.isAcceptable)
+        XCTAssertEqual(report.verdict, .incomplete)
+        XCTAssertFalse(report.verdict.isVerified)
+        XCTAssertTrue(report.warnings.contains { $0.code == .inspectionOnly })
+    }
+
+    func testVerificationReadsCurrentIdentifierInsteadOfBundleCache() throws {
+        let url = try bundle(), cached = Bundle(url: root.appendingPathComponent("Fixture.app"))
         _ = cached?.bundleIdentifier
         var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url))
         info["CFBundleIdentifier"] = "com.example.changed"
-        try _plist(info).write(to: url.appendingPathComponent("Info.plist"))
-        var expectation = SignatureVerifier.Expectation.freshlySigned
-        expectation.requiresEmbeddedProfile = false
+        try SigningRegressionFixture.plist(info).write(to: url.appendingPathComponent("Info.plist"))
+        var expectation = SignatureVerifier.Expectation.alreadySigned
         expectation.declaredBundleIdentifier = "com.example.changed"
-        let report = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
-        XCTAssertTrue(report.isAcceptable, _describe(report))
-        XCTAssertNoThrow(try report.requireAcceptable())
-        expectation.declaredBundleIdentifier = "com.example.different"
+        let current = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
+        XCTAssertFalse(current.failures.contains { $0.code == .requestedIdentifierMismatch })
+        expectation.declaredBundleIdentifier = "com.example.old"
         let mismatch = SignatureVerifier.verify(bundleAt: url, expectation: expectation)
-        XCTAssertThrowsError(try mismatch.requireAcceptable())
         XCTAssertTrue(mismatch.failures.contains { $0.code == .requestedIdentifierMismatch })
+        XCTAssertThrowsError(try mismatch.requireAcceptable())
         withExtendedLifetime(cached) {}
     }
 
-    func testKnownUncoveredNestedIdentifierIsBlocking() throws {
-        let url = try _makeBundle()
-        let nested = url.appendingPathComponent("PlugIns/Widget.appex", isDirectory: true)
-        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
-        try _plist(["CFBundleIdentifier": "com.example.app.widget", "CFBundlePackageType": "XPC!"])
-            .write(to: nested.appendingPathComponent("Info.plist"))
-        let report = SignatureVerifier.verify(bundleAt: url)
-        XCTAssertTrue(report.failures.contains { $0.code == .nestedIdentifierUncovered })
-        XCTAssertThrowsError(try report.requireAcceptable())
-    }
-
-    func testRetainedWatchCompanionIsNotInvisibleToVerification() throws {
-        // `_removeWatchIfNeeded` keeps every watch app that has an Info.plist, and the pinned
-        // engine signs by path suffix rather than folder name, so a retained `Watch/*.app` is real
-        // signed content. The verifier used to scan only Frameworks/PlugIns/Extensions, so an
-        // uncovered watch companion verified clean and then failed on the device with nothing in
-        // the report to explain why — while `NestedBundleAudit` had been checking the same bundle
-        // before the sign all along.
-        let url = try _makeBundle()
-        let watch = url.appendingPathComponent("Watch/ExampleWatch.app", isDirectory: true)
-        try FileManager.default.createDirectory(at: watch, withIntermediateDirectories: true)
-        try _plist(["CFBundleIdentifier": "com.example.watch",
-                    "CFBundleExecutable": "ExampleWatch",
-                    "CFBundlePackageType": "APPL"])
-            .write(to: watch.appendingPathComponent("Info.plist"))
-        let report = SignatureVerifier.verify(bundleAt: url)
-        XCTAssertTrue(report.failures.contains { $0.code == .nestedIdentifierUncovered }, _describe(report))
-        // No executable was written, so the same bundle must also be reported as unsigned.
-        XCTAssertTrue(report.warnings.contains {
-            $0.code == .unsignedNestedBundle && $0.subject == "ExampleWatch.app"
-        }, _describe(report))
-        XCTAssertThrowsError(try report.requireAcceptable())
-    }
-
-    func testCoveredAndSignedWatchCompanionIsNotReported() throws {
-        // The positive control for the case above: scanning `Watch` must surface problems, not
-        // invent them. A watch companion the profile covers and whose executable really carries a
-        // code signature has to verify clean.
-        // A team wildcard is the profile that really covers a watch companion: an exact App ID
-        // matches only that one identifier.
-        let url = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.*"])
-        let watch = url.appendingPathComponent("Watch/ExampleWatch.app", isDirectory: true)
-        try FileManager.default.createDirectory(at: watch, withIntermediateDirectories: true)
-        try _plist(["CFBundleIdentifier": "com.example.app.watchkitapp",
-                    "CFBundleExecutable": "ExampleWatch",
-                    "CFBundlePackageType": "APPL"])
-            .write(to: watch.appendingPathComponent("Info.plist"))
-        // Non-nil entitlements are what make the fixture executable carry `LC_CODE_SIGNATURE`.
-        try _machO(entitlements: ["application-identifier": "TEAM12345.com.example.app.watchkitapp"])
-            .write(to: watch.appendingPathComponent("ExampleWatch"))
-        let report = SignatureVerifier.verify(bundleAt: url)
-        XCTAssertFalse(report.issues.contains { $0.subject == "ExampleWatch.app" }, _describe(report))
-        XCTAssertFalse(report.failures.contains { $0.code == .nestedIdentifierUncovered }, _describe(report))
-    }
-
-    func testInvalidExecutablePathIsRejected() throws {
-        let url = try _makeBundle()
-        var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url))
-        info["CFBundleExecutable"] = "../outside"
-        try _plist(info).write(to: url.appendingPathComponent("Info.plist"))
-        let report = SignatureVerifier.verify(bundleAt: url)
-        XCTAssertTrue(report.failures.contains { $0.code == .executableMissing })
-        XCTAssertThrowsError(try report.requireAcceptable())
-    }
-
-	// MARK: - Acceptance cases
-
-	func testACleanlySignedBundleIsAcceptable() throws {
-		let bundle = try _makeBundle()
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertEqual(report.bundlePath, bundle.path)
-		XCTAssertTrue(report.failures.isEmpty, _describe(report))
-		XCTAssertTrue(report.isAcceptable, _describe(report))
-	}
-
-	func testDeletingCodeResourcesIsAFailure() throws {
-		let bundle = try _makeBundle()
-		try FileManager.default.removeItem(at: bundle.appendingPathComponent("_CodeSignature"))
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .missingCodeResources }, _describe(report))
-	}
-
-	func testAProfileForAnotherAppIsAFailure() throws {
-		let bundle = try _makeBundle(
-			profileEntitlements: ["application-identifier": "TEAM99999.com.someone.else"]
-		)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .bundleIdentifierMismatch }, _describe(report))
-	}
-
-	// MARK: - Profile coverage
-
-	func testAWildcardProfileCoversTheApp() throws {
-		let bundle = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.*"])
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertTrue(report.isAcceptable, _describe(report))
-	}
-
-	func testAPrefixWildcardProfileCoversTheApp() throws {
-		let bundle = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.com.example.*"])
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertTrue(report.isAcceptable, _describe(report))
-	}
-
-	func testAnExpiredProfileIsAFailure() throws {
-		let bundle = try _makeBundle(profileExpiry: Date().addingTimeInterval(-60 * 60 * 24))
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .profileExpired }, _describe(report))
-	}
-
-	func testAMissingProfileFailsOnlyWhenOneWasExpected() throws {
-		let bundle = try _makeBundle(writesProfile: false)
-
-		let expected = SignatureVerifier.verify(bundleAt: bundle, expectation: .freshlySigned)
-		XCTAssertTrue(expected.failures.contains { $0.code == .profileMissing }, _describe(expected))
-
-		let tolerated = SignatureVerifier.verify(bundleAt: bundle, expectation: .alreadySigned)
-		XCTAssertFalse(
-			tolerated.failures.contains { $0.code == .profileMissing },
-			"an already-signed bundle may legitimately have no profile"
-		)
-	}
-
-	// MARK: - Certificate expiry
-
-	func testAnExpiredSigningCertificateIsAFailure() throws {
-		let expiry = Date(timeIntervalSince1970: 1_800_000_000)
-		let issue = try XCTUnwrap(
-			SignatureVerifier.certificateExpiryIssue(signatureExpiry: expiry, now: expiry),
-			"a signature whose certificate expired at now must be reported"
-		)
-		XCTAssertEqual(issue.code, .certificateExpired)
-		XCTAssertEqual(issue.severity, .failure)
-	}
-
-	func testASigningCertificateValidForOneMoreSecondPasses() throws {
-		let expiry = Date(timeIntervalSince1970: 1_800_000_000)
-		XCTAssertNil(
-			SignatureVerifier.certificateExpiryIssue(signatureExpiry: expiry, now: expiry.addingTimeInterval(-1))
-		)
-	}
-
-	func testAnUnreadableOrAdHocSignatureIsNotCalledExpired() throws {
-		// No certificate in the signature (ad-hoc), or a signature that could not be read, is
-		// *unknown* — never "expired". Guessing here would fail bundles that carry no signer.
-		XCTAssertNil(SignatureVerifier.certificateExpiryIssue(signatureExpiry: nil, now: .distantFuture))
-	}
-
-	/// The check must read the certificate out of the *produced signature*, and must run only
-	/// for bundles this run signed.
-	///
-	/// An end-to-end fixture with an expired X.509 certificate is not in the suite: the CMS
-	/// fixture in `BundleSignatureTests` is signed by a certificate valid until 2027, and
-	/// forging an expired one would mean hand-assembling a signed CMS. What is asserted here
-	/// is the wiring the pure-function tests above cannot see.
-	func testTheExpiryCheckReadsTheProducedSignatureAndOnlyForFreshSigns() throws {
-		let source = try RepositorySourceFixture.read("VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift")
-		let scan = try XCTUnwrap(source.range(of: "static func _signatureIssues"))
-		let body = String(source[scan.lowerBound...])
-
-		XCTAssertTrue(
-			body.contains("BundleSignature.read(bundleAt: bundleURL).expiresAt"),
-			"the expiry must come from the bundle's own signature, not from the stored row"
-		)
-		XCTAssertTrue(
-			body.contains("expectation.expectsFreshSignature"),
-			"a bundle signed elsewhere may legitimately carry an expired signing certificate"
-		)
-
-		// And "already signed" installs must stay unaffected.
-		let expectation = SignatureVerifier.Expectation.alreadySigned
-		XCTAssertFalse(expectation.expectsFreshSignature)
-		XCTAssertTrue(SignatureVerifier.Expectation.freshlySigned.expectsFreshSignature)
-	}
-
-	// MARK: - Entitlements
-
-	func testAnEntitlementTheProfileDoesNotGrantIsAFailure() throws {
-		let bundle = try _makeBundle(
-			executableEntitlements: [
-				"application-identifier": "TEAM12345.com.example.app",
-				"aps-environment": "production"
-			]
-		)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .entitlementNotGranted }, _describe(report))
-	}
-
-	func testAToleratedEntitlementIsOnlyAWarning() throws {
-		// VexSign rewrites keychain-access-groups itself; a difference there must not block.
-		let bundle = try _makeBundle(
-			executableEntitlements: [
-				"application-identifier": "TEAM12345.com.example.app",
-				"keychain-access-groups": ["TEAM12345.com.example.isolated"]
-			]
-		)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertTrue(report.isAcceptable, _describe(report))
-		XCTAssertTrue(report.warnings.contains { $0.code == .entitlementNotGranted }, _describe(report))
-	}
-
-	func testAnAppGroupTheProfileDoesNotGrantIsAFailure() throws {
-		let bundle = try _makeBundle(
-			executableEntitlements: [
-				"application-identifier": "TEAM12345.com.example.app",
-				"com.apple.security.application-groups": ["group.com.example.shared"]
-			]
-		)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .entitlementNotGranted }, _describe(report))
-	}
-
-	func testJITEntitlementsAreTolerated() throws {
-		// VexSign adds these itself for PPQ certificates; a profile never lists them, and
-		// reporting them as failures would block every JIT-enabled sign.
-		let bundle = try _makeBundle(
-			executableEntitlements: [
-				"application-identifier": "TEAM12345.com.example.app",
-				"dynamic-codesigning": true,
-				"com.apple.security.cs.allow-jit": true
-			]
-		)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertTrue(report.isAcceptable, _describe(report))
-	}
-
-	// MARK: - Identifier the user asked for
-
-	func testABundleThatKeptItsOldIdentifierIsAFailure() throws {
-		let bundle = try _makeBundle()
-		var expectation = SignatureVerifier.Expectation.freshlySigned
-		expectation.declaredBundleIdentifier = "com.example.requested"
-
-		let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .requestedIdentifierMismatch }, _describe(report))
-	}
-
-	func testAnUnsignedExecutableIsAFailure() throws {
-		let bundle = try _makeBundle(signsExecutable: false)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .unsignedExecutable }, _describe(report))
-	}
-
-	func testADirectoryWithNoBundleIsNotAcceptable() throws {
-		let report = SignatureVerifier.verify(bundleAt: _root)
-
-		XCTAssertNil(report.bundlePath)
-		XCTAssertFalse(report.isAcceptable)
-		XCTAssertTrue(report.failures.contains { $0.code == .bundleNotFound }, _describe(report))
-	}
-
-	// MARK: - Override
-
-	/// "Sign Anyway" used to keep a bundle whose profile is for another app. iOS refuses to
-	/// install that bundle, so the result was a signed copy that could not be installed. The
-	/// override no longer changes what the final check accepts.
-	func testAProfileMismatchIsNotSignedThroughByAnOverride() throws {
-        let bundle = try _makeBundle(profileEntitlements: ["application-identifier": "TEAM12345.com.other.app"])
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertFalse(report.failures.isEmpty, _describe(report))
-		XCTAssertEqual(report.verdict, .invalid)
-		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false))
-		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true))
-		XCTAssertThrowsError(try report.requireAcceptable())
-		XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
-	}
-
-	/// The override is not a blanket "ignore verification": a directory with no bundle has
-	/// nothing to register, so it keeps failing.
-	func testAMissingBundleNeverSurvivesAnOverride() {
-		let report = SignatureVerifier.verify(bundleAt: _root)
-
-		XCTAssertNil(report.bundlePath)
-		XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true))
-		XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
-	}
-
-	func testAWarningOnlyReportNeverStopsTheRun() throws {
-		let bundle = try _makeBundle(
-			executableEntitlements: [
-				"application-identifier": "TEAM12345.com.example.app",
-				"get-task-allow": true
-			]
-		)
-
-		let report = SignatureVerifier.verify(bundleAt: bundle)
-
-		XCTAssertTrue(report.failures.isEmpty, _describe(report))
-		XCTAssertFalse(report.warnings.isEmpty, _describe(report))
-		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: false))
-		XCTAssertFalse(report.stopsRun(overridingBlockingIssues: true))
-	}
-
-    func testStructuralFailuresCannotBeOverridden() {
-        let codes: [SignatureVerifier.Issue.Code] = [.bundleNotFound, .executableMissing, .bundleIdentifierMissing,
-            .missingCodeResources, .unsignedExecutable, .unsignedNestedBundle,
-            .requestedIdentifierMismatch, .profileMissing, .profileUnreadable,
-            .profileIdentifierUnknown, .entitlementUnreadable,
-            // An expired signing certificate cannot produce an installable app, so it
-            // belongs with the failures "Sign Anyway" must not excuse.
-            .certificateExpired]
-        for code in codes {
-            let report = SignatureVerifier.Report(bundlePath: "/test.app",
-                issues: [.init(code: code, severity: .failure, detail: code.rawValue)], duration: 0)
-            XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true), code.rawValue)
-            XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true), code.rawValue)
+    func testRawXMLExactAndWildcardProfilesAreNeverAuthenticated() throws {
+        let url = try bundle()
+        for pattern in [SigningRegressionFixture.team + ".com.example.app", SigningRegressionFixture.team + ".*",
+                        SigningRegressionFixture.team + ".com.example.*"] {
+            let profile = try SigningRegressionFixture.profile(pattern: pattern)
+            try SigningRegressionFixture.unsignedProfileData(profile).write(to: url.appendingPathComponent("embedded.mobileprovision"))
+            let report = imported(url)
+            XCTAssertTrue(report.failures.contains { $0.code == .profileUnreadable }, pattern)
+            XCTAssertFalse(report.verdict.isVerified)
+            XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
         }
     }
 
-    /// The four codes the override used to excuse. Each one describes a bundle iOS will not
-    /// install, so each one now stops the run like every other failure.
-    func testCompatibilityFailuresCannotBeOverridden() {
-        let codes: [SignatureVerifier.Issue.Code] = [.profileExpired, .bundleIdentifierMismatch,
-            .nestedIdentifierUncovered, .entitlementNotGranted]
+    func testArbitraryXMLDatesCannotCreateExpiredOrValidAuthenticationEvidence() throws {
+        let url = try bundle()
+        var profile = try SigningRegressionFixture.profile()
+        profile.ExpirationDate = .distantPast
+        try SigningRegressionFixture.unsignedProfileData(profile).write(to: url.appendingPathComponent("embedded.mobileprovision"))
+        let report = imported(url)
+        XCTAssertTrue(report.failures.contains { $0.code == .profileUnreadable })
+        XCTAssertFalse(report.issues.contains { $0.code == .profileExpired }, "An unauthenticated field is not trusted expiry evidence.")
+    }
+
+    func testMissingProfileIsPermittedOnlyForExplicitStructuralImportInspection() throws {
+        let url = try bundle()
+        let inspected = imported(url)
+        XCTAssertFalse(inspected.failures.contains { $0.code == .profileMissing })
+        var required = SignatureVerifier.Expectation.alreadySigned
+        required.requiresEmbeddedProfile = true
+        let missing = SignatureVerifier.verify(bundleAt: url, expectation: required)
+        XCTAssertTrue(missing.failures.contains { $0.code == .profileMissing })
+        XCTAssertThrowsError(try missing.requireAcceptable())
+    }
+
+    func testDeletingCodeResourcesIsBlockingEvenDuringImportInspection() throws {
+        let url = try bundle()
+        try FileManager.default.removeItem(at: url.appendingPathComponent("_CodeSignature"))
+        let report = imported(url)
+        XCTAssertTrue(report.failures.contains { $0.code == .missingCodeResources })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testCodeResourcesMustBeAContainedFileNotADirectoryOrLink() throws {
+        let url = try bundle(), resources = url.appendingPathComponent("_CodeSignature/CodeResources")
+        try FileManager.default.removeItem(at: resources)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: false)
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .missingCodeResources })
+        try FileManager.default.removeItem(at: resources)
+        let outside = root.appendingPathComponent("outside-resources")
+        try Data("outside".utf8).write(to: outside)
+        try FileManager.default.createSymbolicLink(at: resources, withDestinationURL: outside)
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .missingCodeResources })
+        XCTAssertEqual(try Data(contentsOf: outside), Data("outside".utf8))
+    }
+
+    func testUnsignedMainAndLooseDylibAreBlocking() throws {
+        let url = try bundle(signs: false)
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .unsignedExecutable })
+        let directory = url.appendingPathComponent("Unusual/Deep")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try SigningRegressionFixture.machO(fileType: 6).write(to: directory.appendingPathComponent("Loose.DYLIB"))
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .unsignedExecutable && $0.subject == "Unusual/Deep/Loose.DYLIB" })
+    }
+
+    func testRecursiveManifestFindsUnsignedExtensionsOutsideStandardFolders() throws {
+        let url = try bundle()
+        try SigningRegressionFixture.bundle(at: url.appendingPathComponent("Odd/Deep/Widget.APPEX"),
+            identifier: "com.example.app.widget", signs: false)
+        let report = imported(url)
+        XCTAssertTrue(report.failures.contains { $0.code == .unsignedNestedBundle && $0.subject == "Widget.APPEX" })
+        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    }
+
+    func testWatchCompanionIsNotInvisibleAndNotClaimedAuthorizedByPhoneEvidence() throws {
+        let url = try bundle()
+        try SigningRegressionFixture.bundle(at: url.appendingPathComponent("Watch/Companion.app"),
+            identifier: "com.example.app.watch", signs: false, platform: 4)
+        let report = imported(url)
+        XCTAssertTrue(report.failures.contains { $0.code == .unsignedNestedBundle && $0.subject == "Companion.app" })
+        XCTAssertFalse(report.verdict.isVerified)
+    }
+
+    func testMissingFrameworkBinaryIsNotResourceOnlyEvidence() throws {
+        let url = try bundle(), framework = url.appendingPathComponent("Frameworks/Broken.framework")
+        try FileManager.default.createDirectory(at: framework, withIntermediateDirectories: true)
+        try SigningRegressionFixture.plist(["CFBundlePackageType": "FMWK", "CFBundleIdentifier": "org.vendor.Broken",
+            "CFBundleExecutable": "Broken"]).write(to: framework.appendingPathComponent("Info.plist"))
+        let report = imported(url)
+        XCTAssertTrue(report.failures.contains { $0.code == .manifestInvalid })
+        XCTAssertTrue(report.failures.contains { $0.code == .unsignedNestedBundle })
+    }
+
+    func testPositiveResourceOnlyEvidenceIsSealedByParentNotTreatedAsUnsignedCode() throws {
+        let url = try bundle(), resources = url.appendingPathComponent("Frameworks/Resources.framework")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        try SigningRegressionFixture.plist(["CFBundlePackageType": "BNDL", "CFBundleIdentifier": "org.vendor.resources"])
+            .write(to: resources.appendingPathComponent("Info.plist"))
+        try Data([1, 2, 3]).write(to: resources.appendingPathComponent("image.dat"))
+        XCTAssertTrue(SigningPlan.isResourceOnlyBundle(resources))
+        let report = imported(url)
+        XCTAssertFalse(report.failures.contains { $0.code == .unsignedNestedBundle || $0.code == .manifestInvalid })
+        XCTAssertEqual(report.verdict, .incomplete)
+    }
+
+    func testExternalExecutableLinkAndPathTraversalAreRejectedWithoutTouchingSource() throws {
+        let url = try bundle(), executable = url.appendingPathComponent("Fixture"), outside = root.appendingPathComponent("source")
+        try FileManager.default.moveItem(at: executable, to: outside)
+        try FileManager.default.createSymbolicLink(at: executable, withDestinationURL: outside)
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .executableMissing })
+        var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url))
+        info["CFBundleExecutable"] = "../source"
+        try SigningRegressionFixture.plist(info).write(to: url.appendingPathComponent("Info.plist"))
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .executableMissing })
+        XCTAssertFalse(try Data(contentsOf: outside).isEmpty)
+    }
+
+    func testMissingBundleAndIdentifierNeverSurviveOverride() throws {
+        let missing = SignatureVerifier.verify(bundleAt: root)
+        XCTAssertNil(missing.bundlePath)
+        XCTAssertEqual(missing.verdict, .unsupported)
+        XCTAssertThrowsError(try missing.requireAcceptable(overridingBlockingIssues: true))
+        let url = try bundle()
+        var info = try XCTUnwrap(SignatureVerifier.readInfo(at: url)); info["CFBundleIdentifier"] = ""
+        try SigningRegressionFixture.plist(info).write(to: url.appendingPathComponent("Info.plist"))
+        XCTAssertTrue(imported(url).failures.contains { $0.code == .bundleIdentifierMissing })
+    }
+
+    func testNoCapabilityHasAToleratedBypass() {
+        XCTAssertTrue(SignatureVerifier.tolerantEntitlementKeys.isEmpty)
+        for key in ["keychain-access-groups", "dynamic-codesigning", "com.apple.security.cs.allow-jit", "get-task-allow"] {
+            XCTAssertEqual(ProfileEntitlementAuthorization.failures(requested: [key: true], grants: [:]), [key])
+        }
+    }
+
+    func testLeafCertificateValidityUsesAnExplicitBoundaryNotUnknownExpiryGuessing() throws {
+        let expiry = SigningRegressionFixture.now
+        XCTAssertNil(SignatureVerifier.certificateExpiryIssue(signatureExpiry: nil, now: .distantFuture))
+        XCTAssertNil(SignatureVerifier.certificateExpiryIssue(signatureExpiry: expiry, now: expiry.addingTimeInterval(-1)))
+        let issue = try XCTUnwrap(SignatureVerifier.certificateExpiryIssue(signatureExpiry: expiry, now: expiry))
+        XCTAssertEqual(issue.code, .certificateExpired)
+        XCTAssertEqual(issue.severity, .failure)
+    }
+
+    func testMandatoryAndCompatibilityFailuresCannotBeOverridden() {
+        let codes: [SignatureVerifier.Issue.Code] = [.bundleNotFound, .executableMissing, .bundleIdentifierMissing,
+            .missingCodeResources, .unsignedExecutable, .unsignedNestedBundle, .requestedIdentifierMismatch,
+            .profileMissing, .profileUnreadable, .profileExpired, .profileIdentifierUnknown, .entitlementUnreadable,
+            .certificateExpired, .bundleIdentifierMismatch, .nestedIdentifierUncovered, .entitlementNotGranted,
+            .manifestInvalid, .expectedAssetsMissing, .signatureInvalid, .resourceSealInvalid, .signerMismatch, .profileChanged]
         for code in codes {
             let report = SignatureVerifier.Report(bundlePath: "/test.app",
                 issues: [.init(code: code, severity: .failure, detail: code.rawValue)], duration: 0)
-            XCTAssertEqual(report.verdict, .invalid, code.rawValue)
+            XCTAssertEqual(report.verdict, .invalid)
             XCTAssertTrue(report.stopsRun(overridingBlockingIssues: false), code.rawValue)
             XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true), code.rawValue)
             XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true), code.rawValue)
         }
     }
 
-    func testTheVerdictSeparatesVerifiedFromMerelyNotFailed() {
-        let clean = SignatureVerifier.Report(bundlePath: "/test.app", issues: [], duration: 0)
-        XCTAssertEqual(clean.verdict, .valid)
-        XCTAssertTrue(clean.verdict.isVerified)
-
-        // An advisory that is not a gap in the evidence leaves the result verified.
-        let advisory = SignatureVerifier.Report(bundlePath: "/test.app",
-            issues: [.init(code: .unsignedNestedBundle, severity: .warning, detail: "")], duration: 0)
-        XCTAssertEqual(advisory.verdict, .valid)
-
-        // Evidence that could not be read means the checks that need it did not run.
-        for code in [SignatureVerifier.Issue.Code.profileUnreadable, .profileIdentifierUnknown, .entitlementUnreadable] {
+    func testEvidenceGapIsNeverDescribedAsVerified() {
+        for code in [SignatureVerifier.Issue.Code.profileUnreadable, .profileIdentifierUnknown, .entitlementUnreadable, .inspectionOnly] {
             let report = SignatureVerifier.Report(bundlePath: "/test.app",
-                issues: [.init(code: code, severity: .warning, detail: "")], duration: 0)
-            XCTAssertEqual(report.verdict, .incomplete, code.rawValue)
-            XCTAssertFalse(report.verdict.isVerified, code.rawValue)
-            XCTAssertFalse(report.stopsRun(overridingBlockingIssues: false), "nothing failed, so the copy is kept")
+                issues: [.init(code: code, severity: .warning, detail: code.rawValue)], duration: 0)
+            XCTAssertEqual(report.verdict, .incomplete)
+            XCTAssertFalse(report.verdict.isVerified)
         }
-
-        let missing = SignatureVerifier.Report(bundlePath: nil, issues: [], duration: 0)
-        XCTAssertEqual(missing.verdict, .unsupported)
-        XCTAssertTrue(missing.stopsRun(overridingBlockingIssues: true))
     }
 
-    func testMixedCompatibilityAndStructuralFailuresStillStop() {
-        let report = SignatureVerifier.Report(bundlePath: "/test.app", issues: [
-            .init(code: .profileExpired, severity: .failure, detail: "expired"),
-            .init(code: .unsignedExecutable, severity: .failure, detail: "unsigned")
-        ], duration: 0)
-        XCTAssertTrue(report.stopsRun(overridingBlockingIssues: true))
+    func testFreshOutputRequiresVerifiedEvidenceWhileImportInspectionCanRemainIncomplete() throws {
+        let complete = SignatureVerifier.Report(bundlePath: "/synthetic.app", issues: [], duration: 0)
+        XCTAssertNoThrow(try complete.requireVerified())
+        let incomplete = SignatureVerifier.Report(bundlePath: "/synthetic.app",
+            issues: [.init(code: .inspectionOnly, severity: .warning, detail: "Inspection only")], duration: 0)
+        XCTAssertNoThrow(try incomplete.requireAcceptable(overridingBlockingIssues: true))
+        XCTAssertThrowsError(try incomplete.requireVerified())
+        let invalid = SignatureVerifier.Report(bundlePath: "/synthetic.app",
+            issues: [.init(code: .signatureInvalid, severity: .failure, detail: "Invalid synthetic signature")], duration: 0)
+        XCTAssertThrowsError(try invalid.requireVerified())
+        let unsupported = SignatureVerifier.Report(bundlePath: nil, issues: [], duration: 0)
+        XCTAssertThrowsError(try unsupported.requireVerified())
+        // A fabricated value above is a policy test, not a real verified bundle.
     }
 
-    func testIgnoredRequestedIdentifierCannotBeSignedThrough() throws {
-        let bundle = try _makeBundle()
-        var expectation = SignatureVerifier.Expectation.freshlySigned
-        expectation.declaredBundleIdentifier = "com.example.requested"
-        let report = SignatureVerifier.verify(bundleAt: bundle, expectation: expectation)
-        XCTAssertTrue(report.failures.contains { $0.code == .requestedIdentifierMismatch })
-        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
+    func testCoverageKeepsTheOriginalApplicationAndExtensionIdentifiers() {
+        let incompatible = "N2998T85B9.app.vanilla7419.emerald5335"
+        for identifier in ["app.aidoku.Aidoku", "app.batsign.ios", "app.batsign.ios.status"] {
+            XCTAssertFalse(SignatureVerifier.coverage(of: incompatible, includes: identifier), identifier)
+        }
+        XCTAssertTrue(SignatureVerifier.coverage(of: "TESTTEAM00.com.example.*", includes: "com.example.app.widget"))
+        XCTAssertFalse(SignatureVerifier.coverage(of: "TESTTEAM00.com.example.*", includes: "com.example"))
+        XCTAssertFalse(SignatureVerifier.coverage(of: "TESTTEAM00.com.example.*", includes: "com.examples.app"))
+    }
+    func testFreshModeUsesIndependentCryptographicSealsNotImportStructure() throws {
+        let source = try RepositorySourceFixture.read("VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift")
+        let fresh = try XCTUnwrap(source.range(of: "if expectation.expectsSignature && expectation.expectsFreshSignature"))
+        let structural = try XCTUnwrap(source.range(of: "issues += _signatureIssues"))
+        XCTAssertLessThan(fresh.lowerBound, structural.lowerBound)
+        let body = source[fresh.lowerBound..<structural.lowerBound]
+        XCTAssertTrue(body.contains("freshSealIssues(in: bundleURL, assets: expectation.assets)"))
+        XCTAssertTrue(body.contains("return Report"), "Fresh admission must not fall through into import-only inspection.")
     }
 
-    func testExternalExecutableSymlinkFailsVerificationEvenWithOverride() throws {
-        let bundle = try _makeBundle()
-        let executable = bundle.appendingPathComponent("App")
-        let outside = _root.appendingPathComponent("outside")
-        try FileManager.default.moveItem(at: executable, to: outside)
-        try FileManager.default.createSymbolicLink(at: executable, withDestinationURL: outside)
-        let report = SignatureVerifier.verify(bundleAt: bundle)
-        XCTAssertTrue(report.failures.contains { $0.code == .executableMissing })
-        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
-    }
-
-    func testEmptyBundleIdentifierCannotBeRegisteredThroughAnOverride() throws {
-        let bundle = try _makeBundle(identifier: "")
-        let report = SignatureVerifier.verify(bundleAt: bundle)
-        XCTAssertTrue(report.failures.contains { $0.code == .bundleIdentifierMissing })
-        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
-    }
-
-    func testCodeResourcesMustBeAFileNotADirectory() throws {
-        let bundle = try _makeBundle()
-        let resources = bundle.appendingPathComponent("_CodeSignature/CodeResources")
-        try FileManager.default.removeItem(at: resources)
-        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
-        let report = SignatureVerifier.verify(bundleAt: bundle)
-        XCTAssertTrue(report.failures.contains { $0.code == .missingCodeResources })
-        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
-    }
-
-    func testCodeResourcesCannotBeASymlink() throws {
-        let bundle = try _makeBundle()
-        let resources = bundle.appendingPathComponent("_CodeSignature/CodeResources")
-        let outside = _root.appendingPathComponent("resources")
-        try FileManager.default.moveItem(at: resources, to: outside)
-        try FileManager.default.createSymbolicLink(at: resources, withDestinationURL: outside)
-        let report = SignatureVerifier.verify(bundleAt: bundle)
-        XCTAssertTrue(report.failures.contains { $0.code == .missingCodeResources })
-        XCTAssertThrowsError(try report.requireAcceptable(overridingBlockingIssues: true))
-    }
-
-	// MARK: - Performance
-
-	func testVerificationIsCheapEnoughToRunOnEverySign() throws {
-		let bundle = try _makeBundle()
-
-		let started = Date()
-		_ = SignatureVerifier.verify(bundleAt: bundle)
-		let elapsed = Date().timeIntervalSince(started)
-
-		// The roadmap's budget is ~200 ms for a 200 MB bundle on device. This fixture is tiny,
-		// so anything approaching half a second here means the verifier is walking the bundle
-		// instead of reading headers.
-		XCTAssertLessThan(elapsed, 0.5, "verification took \(elapsed)s on a two-file bundle")
-	}
-
-	// MARK: - Coverage rules
-
-	func testCoverageRulesMatchAppleSemantics() {
-		XCTAssertTrue(SignatureVerifier.coverage(of: "TEAM.com.example.app", includes: "com.example.app"))
-		XCTAssertTrue(SignatureVerifier.coverage(of: "TEAM.*", includes: "com.example.app"))
-		XCTAssertTrue(SignatureVerifier.coverage(of: "TEAM.com.example.*", includes: "com.example.app"))
-		XCTAssertTrue(SignatureVerifier.coverage(of: "TEAM.com.example.*", includes: "com.example.other"))
-
-		// An entitlement value carries the team prefix; a bundle identifier does not. Both are
-		// legitimate inputs, so both resolve to the same answer.
-		XCTAssertTrue(SignatureVerifier.coverage(of: "TEAM.com.example.app", includes: "TEAM.com.example.app"))
-
-		XCTAssertFalse(SignatureVerifier.coverage(of: "TEAM.com.example.app", includes: "com.example.other"))
-		XCTAssertFalse(SignatureVerifier.coverage(of: "TEAM.com.example.*", includes: "com.examplex.app"))
-		XCTAssertFalse(
-			SignatureVerifier.coverage(of: "TEAM.com.example.app", includes: "com.example.app.extension"),
-			"an explicit App ID does not cover its extensions"
-		)
-		XCTAssertTrue(
-			SignatureVerifier.coverage(of: "com.example.app", includes: "com.example.app"),
-			"a pattern with no team prefix is compared literally"
-		)
-	}
-
-	func testWildcardDetection() {
-		XCTAssertTrue(SignatureVerifier.isWildcard("TEAM.*"))
-		XCTAssertTrue(SignatureVerifier.isWildcard("TEAM.com.example.*"))
-		XCTAssertFalse(SignatureVerifier.isWildcard("TEAM.com.example.app"))
-		XCTAssertFalse(SignatureVerifier.isWildcard("com.example.app"))
-	}
-
-	// MARK: - Fixtures
-
-	private func _describe(_ report: SignatureVerifier.Report) -> String {
-		"issues: " + report.issues.map { "\($0.code.rawValue)[\($0.severity.rawValue)] \($0.detail)" }.joined(separator: " | ")
-	}
-
-	@discardableResult
-	private func _makeBundle(
-		identifier: String = "com.example.app",
-		executableEntitlements: [String: Any] = ["application-identifier": "TEAM12345.com.example.app"],
-		profileEntitlements: [String: Any]? = nil,
-		profileExpiry: Date = Date().addingTimeInterval(60 * 60 * 24 * 30),
-		signsExecutable: Bool = true,
-		writesCodeResources: Bool = true,
-		writesProfile: Bool = true
-	) throws -> URL {
-		let fm = FileManager.default
-		let bundle = _root.appendingPathComponent("App.app", isDirectory: true)
-		try fm.createDirectory(at: bundle, withIntermediateDirectories: true)
-
-		let info: [String: Any] = [
-			"CFBundleIdentifier": identifier,
-			"CFBundleExecutable": "App",
-			"CFBundleName": "App",
-			"CFBundlePackageType": "APPL",
-			"CFBundleShortVersionString": "1.0"
-		]
-		try _plist(info).write(to: bundle.appendingPathComponent("Info.plist"))
-
-		try _machO(entitlements: signsExecutable ? executableEntitlements : nil)
-			.write(to: bundle.appendingPathComponent("App"))
-
-		if writesCodeResources {
-			let signature = bundle.appendingPathComponent("_CodeSignature", isDirectory: true)
-			try fm.createDirectory(at: signature, withIntermediateDirectories: true)
-			try _plist(["files": ["App": [:] as [String: Any]]])
-				.write(to: signature.appendingPathComponent("CodeResources"))
-		}
-
-		if writesProfile {
-			let entitlements = profileEntitlements ?? ["application-identifier": "TEAM12345.\(identifier)"]
-			try _plist(
-				_profile(identifier: identifier, entitlements: entitlements, expiry: profileExpiry)
-			).write(to: bundle.appendingPathComponent("embedded.mobileprovision"))
-		}
-
-		return bundle
-	}
-
-	private func _profile(identifier: String, entitlements: [String: Any], expiry: Date) -> [String: Any] {
-		[
-			"AppIDName": identifier,
-			"ApplicationIdentifierPrefix": ["TEAM12345"],
-			"CreationDate": Date().addingTimeInterval(-60 * 60 * 24),
-			"Platform": ["iOS"],
-			"Entitlements": entitlements,
-			"ExpirationDate": expiry,
-			"Name": "Fixture Profile",
-			"ProvisionsAllDevices": false,
-			"TeamIdentifier": ["TEAM12345"],
-			"TeamName": "Fixture Team",
-			"TimeToLive": 365,
-			"UUID": UUID().uuidString,
-			"Version": 1
-		]
-	}
-
-	/// A plist that `CertificateReader` accepts: it looks for `<?xml` and `</plist>` and decodes
-	/// everything between them, so an unsigned XML plist exercises the same path as a CMS blob.
-	private func _plist(_ dictionary: [String: Any]) throws -> Data {
-		try PropertyListSerialization.data(fromPropertyList: dictionary, format: .xml, options: 0)
-	}
-
-	/// A 64-bit Mach-O header whose single load command is `LC_CODE_SIGNATURE`, followed by a
-	/// code signature superblob holding the entitlements. `MachOEntitlements` reads exactly this.
-	private func _machO(entitlements: [String: Any]?) throws -> Data {
-		let headerSize = 32
-		let commandSize = 16
-
-		var superblob = Data()
-		if let entitlements {
-			let plist = try _plist(entitlements)
-			let entitlementsMagic: UInt32 = 0xfade_7171
-			let superblobMagic: UInt32 = 0xfade_0cc0
-			let entitlementsSlot: UInt32 = 5
-
-			var blob = Data()
-			blob.append(_u32(entitlementsMagic))
-			blob.append(_u32(UInt32(8 + plist.count)))
-			blob.append(plist)
-
-			superblob.append(_u32(superblobMagic))
-			superblob.append(_u32(UInt32(12 + 8 + blob.count)))
-			superblob.append(_u32(1))
-			superblob.append(_u32(entitlementsSlot))
-			superblob.append(_u32(20))
-			superblob.append(blob)
-		}
-
-		// An arm64 Mach-O is little-endian throughout, including the magic; only the code
-		// signature superblob is big-endian.
-		var data = Data()
-		data.append(_u32le(0xfeed_facf)) // MH_MAGIC_64
-		data.append(_u32le(0x0100_000c)) // CPU_TYPE_ARM64
-		data.append(_u32le(0))           // cpusubtype
-		data.append(_u32le(2))           // MH_EXECUTE
-		data.append(_u32le(1))           // ncmds
-		data.append(_u32le(UInt32(commandSize)))
-		data.append(_u32le(0))           // flags
-		data.append(_u32le(0))           // reserved
-
-		if entitlements == nil {
-			// A load command that is *not* a code signature: the binary is unsigned.
-			data.append(_u32le(0x19))    // LC_SEGMENT_64
-			data.append(_u32le(UInt32(commandSize)))
-		} else {
-			data.append(_u32le(0x1d))    // LC_CODE_SIGNATURE
-			data.append(_u32le(UInt32(commandSize)))
-			data.append(_u32le(UInt32(headerSize + commandSize)))
-			data.append(_u32le(UInt32(superblob.count)))
-		}
-
-		data.append(superblob)
-		return data
-	}
-
-	/// Big-endian, for the code signature superblob (which is always big-endian).
-	private func _u32(_ value: UInt32) -> Data {
-		var bigEndian = value.bigEndian
-		return withUnsafeBytes(of: &bigEndian) { Data($0) }
-	}
-
-	/// Little-endian, for arm64 Mach-O headers and load commands.
-	private func _u32le(_ value: UInt32) -> Data {
-		var littleEndian = value.littleEndian
-		return withUnsafeBytes(of: &littleEndian) { Data($0) }
-	}
 }

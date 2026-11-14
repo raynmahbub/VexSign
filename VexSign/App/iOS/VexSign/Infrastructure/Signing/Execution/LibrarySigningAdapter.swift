@@ -8,6 +8,7 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
     private let repository: CoreDataWorkspaceRepository
     private var storage: Storage { repository.storage }
     private var cancelledRequests: Set<String> = []
+    private var successfulCertificates: [String: String] = [:]
 
     init(repository: CoreDataWorkspaceRepository) { self.repository = repository }
 
@@ -51,7 +52,7 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
             PackageSigningCoordinator.signPackage(
                 app, using: request.options, icon: icon, certificate: certificate,
                 overridesBlockingPreflightIssues: request.overridesBlockingPreflightIssues,
-                notices: request.notices, requestID: request.id,
+                notices: request.notices, requestID: request.id, reviewedAuthorization: request.authorization,
                 isCancellationRequested: { [weak self] in self?.cancelledRequests.contains(request.id) == true },
                 onStage: { onEvent(.stage($0)) },
                 onVerified: { onEvent(.signatureVerified) },
@@ -59,7 +60,10 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
             ) { [weak self, repository] result in
                 self?.cancelledRequests.remove(request.id)
                 switch result {
-                case .success(let signed): onEvent(.finished(Result { try repository.appRecord(signed) }))
+                case .success(let signed):
+                    let projected = Result { try repository.appRecord(signed) }
+                    if case .success = projected, let uuid = signed.certificate?.uuid { self?.successfulCertificates[request.id] = uuid }
+                    onEvent(.finished(projected))
                 case .failure(let error): onEvent(.finished(.failure(error)))
                 }
             }
@@ -75,7 +79,7 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
 
     func preflight(_ request: LibrarySigningRequest) throws -> PreflightResult {
         PreflightChecks.run(app: try storage.managedApp(matching: request.app), options: request.options,
-                            certificate: try certificate(request.certificateID))
+                            certificate: try certificate(request.certificateID), profileResolutionIsDeferred: true)
     }
 
     func compatibilityTarget(app reference: LibraryAppReference, options: Options) throws -> ProfileCompatibility.Target {
@@ -96,27 +100,30 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
         }
         let app = try storage.managedApp(matching: request.app)
         guard let directory = storage.getAppDirectory(for: app) else { throw WorkspaceAccessError.missingRecord }
-        let certificate = try certificate(request.certificateID)
-        var excluded = Set<String>()
-        if request.options.removeAppExtensions {
-            excluded = Set(NestedBundleAudit.bundles(in: directory).filter { $0.kind == .appExtension }.map(\.path))
-        } else if request.options.autoRemoveUnsupportedExtensions, request.options.signingOption == .default,
-                  let pattern = certificate?.decodedProfile?.Entitlements?["application-identifier"]?.value as? String {
-            excluded = Set(NestedBundleAudit.report(appBundle: directory, profilePattern: pattern,
-                additionalPatterns: AdditionalProfiles.patterns(for: certificate)).uncovered
-                .filter { $0.bundle.kind == .appExtension }.map { $0.bundle.path })
-        }
-        let excludedPaths = excluded
+        let inventory = try SigningIdentityStore.snapshot(storage: storage)
+        let device = PairingBridge.inspectPairingRecord().udid
         let worker = Task.detached(priority: .userInitiated) {
-            let report = try BundleExecutableAudit.inspect(directory, excludingBundlePaths: excludedPaths)
+            let resolution = request.options.signingOption == .default
+                ? try SigningResolutionSession.review(bundle: directory, options: request.options, inventory: inventory,
+                    preferredIdentity: request.certificateID, deviceUDID: device) : nil
+            let report = try BundleExecutableAudit.inspect(directory,
+                excludingBundlePaths: Set(resolution?.plannedRemovals ?? []))
             let bytes = try StoragePreflight.logicalSize(directory)
             let required = StoragePreflight.required(bytes: bytes, copies: 2)
             let available = FileManager.default.availableImportantCapacity(at: directory)
             try StoragePreflight.check(bytes: bytes, copies: 2, at: directory, available: available)
             try Task.checkCancellation()
-            return SigningReviewEvidence(report: report, requiredBytes: required)
+            return SigningReviewEvidence(report: report, requiredBytes: required, resolution: resolution)
         }
-        return try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+        var evidence = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+        try Task.checkCancellation()
+        if let identity = evidence.resolution?.mainIdentityReference, app.isSigned {
+            let resolved = try storage.managedCertificate(id: identity)
+            if let detail = CertificateIdentity.match(forBundleAt: directory, certificate: resolved).detail {
+                evidence.resolution?.inventoryNotices.append(detail)
+            }
+        }
+        return evidence
     }
 
     func savedProfile(bundleIdentifier: String?) -> SigningProfile? { SigningProfileStore.shared.profile(forBundleID: bundleIdentifier) }
@@ -136,7 +143,8 @@ final class LibrarySigningAdapter: LibrarySigningProviding {
     func captureSuccessfulRun(_ request: LibrarySigningRequest) throws {
         defer { TweakImportSupport.discard(request.options.injectionFiles) }
         let app = try storage.managedApp(matching: request.app)
-        SigningProfileStore.shared.capture(options: request.options, certificate: try certificate(request.certificateID), for: app)
+        let actualIdentity = successfulCertificates.removeValue(forKey: request.id)
+        SigningProfileStore.shared.capture(options: request.options, certificateUUID: actualIdentity, for: app)
     }
     func finishSuccessfulRun(_ request: LibrarySigningRequest, output: LibraryAppReference, deletesSource: Bool) throws {
         let source = try storage.managedApp(matching: request.app)

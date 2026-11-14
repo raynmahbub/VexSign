@@ -151,6 +151,10 @@ final class ProfileApplicationIdentifierMatcherTests: XCTestCase {
 	func testRequirementsEnforcedAtInstallAreNotOfferedSignAnyway() {
 		let mandatory: [SigningCapability.Issue.Code] = [
 			.certificateMissing, .certificateExpired, .certificateRevoked, .profileExpired,
+            .certificatePasswordUnavailable, .certificateNotInProfile, .profileMissing, .profileUnreadable,
+            .teamMismatch, .deviceNotProvisioned, .bundleIdentifierMissing, .infoPlistUnreadable,
+            .executableUnavailable, .executableUnsupportedPlatform, .executableEncrypted,
+            .executablePlatformUnknown, .nestedComponentInvalid, .storageInsufficient, .minimumOSNewerThanDevice,
 			.appIdentifierMismatch, .extensionNotCovered, .entitlementNotGranted
 		]
 		for code in mandatory {
@@ -163,8 +167,7 @@ final class ProfileApplicationIdentifierMatcherTests: XCTestCase {
 
 	func testOtherBlockingFindingsCanStillBeAccepted() {
 		let acceptable: [SigningCapability.Issue.Code] = [
-			.teamMismatch, .certificateNotInProfile, .deviceNotProvisioned, .signerMismatch,
-			.storageInsufficient, .general
+			.signerMismatch, .deploymentTargetMismatch, .general
 		]
 		for code in acceptable {
 			let result = PreflightResult(issues: [_issue(code)])
@@ -197,11 +200,11 @@ final class ProfileApplicationIdentifierMatcherTests: XCTestCase {
 		}
 
 		XCTAssertNil(capability([]).refusal)
-		XCTAssertNil(capability([(.teamMismatch, .blocking)]).refusal)
+		XCTAssertNotNil(capability([(.teamMismatch, .blocking)]).refusal)
 		XCTAssertNil(capability([(.appIdentifierMismatch, .advisory)]).refusal)
 
 		let refusal = capability([(.teamMismatch, .blocking), (.appIdentifierMismatch, .blocking), (.extensionNotCovered, .blocking)]).refusal
-		XCTAssertEqual(refusal?.codes, [.appIdentifierMismatch, .extensionNotCovered])
+		XCTAssertEqual(refusal?.codes, [.teamMismatch, .appIdentifierMismatch, .extensionNotCovered])
 		XCTAssertTrue(refusal?.localizedDescription.contains("detail-\(SigningCapability.Issue.Code.appIdentifierMismatch.rawValue)") == true)
 	}
 

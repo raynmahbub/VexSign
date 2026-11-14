@@ -70,12 +70,14 @@ const char* jbase64::encode(const char* src, int src_len)
 	char* p64 = enc;
 	unsigned char* pcursor = (unsigned char*)src;
 	for (i = 0; i < src_len - 3; i += 3) {
-		unsigned long temp = *(unsigned long*)pcursor;
+        // Consume exactly three bytes. A machine-word load is both unaligned
+        // and out of bounds at the end of a SHA1/SHA256 buffer on 64-bit hosts.
+        unsigned long temp = pcursor[0] | (static_cast<unsigned long>(pcursor[1]) << 8) | (static_cast<unsigned long>(pcursor[2]) << 16);
 		int b0 = get_b64_char((B0(temp) >> 2) & 0x3F);
 		int b1 = get_b64_char((B0(temp) << 6 >> 2 | B1(temp) >> 4) & 0x3F);
 		int b2 = get_b64_char((B1(temp) << 4 >> 2 | B2(temp) >> 6) & 0x3F);
 		int b3 = get_b64_char((B2(temp) << 2 >> 2) & 0x3F);
-		*((unsigned long*)p64) = b0 | b1 << 8 | b2 << 16 | b3 << 24;
+        p64[0] = b0; p64[1] = b1; p64[2] = b2; p64[3] = b3;
 		p64 += 4;
 		pcursor += 3;
 	}
@@ -103,6 +105,8 @@ const char* jbase64::encode(const string& input)
 
 const char* jbase64::decode(const char* src, int src_len, int* pdecode_len)
 {
+    if (pdecode_len) *pdecode_len = 0;
+    if (!src || src_len < 0) return "";
 	if (0 == src_len) {
 		src_len = (int)strlen(src);
 	}
@@ -111,42 +115,36 @@ const char* jbase64::decode(const char* src, int src_len, int* pdecode_len)
 		return "";
 	}
 
-	char* dec = new char[src_len];
+    if (src_len % 4) return "";
+    int padding = src[src_len - 1] == '=' ? (src[src_len - 2] == '=' ? 2 : 1) : 0;
+    for (int index = 0; index < src_len - padding; ++index) if (get_b64_index(src[index]) < 0) return "";
+    if ((padding == 1 && (get_b64_index(src[src_len - 2]) & 3)) ||
+        (padding == 2 && (get_b64_index(src[src_len - 3]) & 15))) return "";
+    char* dec = new char[src_len];
 	m_array_decodes.push_back(dec);
 
 	int i = 0;
 	char* pbuf = dec;
 	unsigned char* psrc = (unsigned char*)src;
 	for (i = 0; i < src_len - 4; i += 4) {
-		unsigned long temp = *(unsigned long*)psrc;
+        unsigned long temp = psrc[0] | (static_cast<unsigned long>(psrc[1]) << 8) |
+            (static_cast<unsigned long>(psrc[2]) << 16) | (static_cast<unsigned long>(psrc[3]) << 24);
 		int b0 = (get_b64_index((char)B0(temp)) << 2 | get_b64_index((char)B1(temp)) << 2 >> 6) & 0xFF;
 		int b1 = (get_b64_index((char)B1(temp)) << 4 | get_b64_index((char)B2(temp)) << 2 >> 4) & 0xFF;
 		int b2 = (get_b64_index((char)B2(temp)) << 6 | get_b64_index((char)B3(temp)) << 2 >> 2) & 0xFF;
-		*((unsigned long*)pbuf) = b0 | b1 << 8 | b2 << 16;
+        pbuf[0] = b0; pbuf[1] = b1; pbuf[2] = b2;
 		psrc += 4;
 		pbuf += 3;
 	}
 
-	if (i < src_len) {
-		int rest = src_len - i;
-		unsigned long temp = 0;
-		for (int j = 0; j < rest; ++j) {
-			*(((unsigned char*)&temp) + j) = *psrc++;
-		}
-
-		int b0 = (get_b64_index((char)B0(temp)) << 2 | get_b64_index((char)B1(temp)) << 2 >> 6) & 0xFF;
-		*pbuf++ = b0;
-
-		if ('=' != B1(temp) && '=' != B2(temp)) {
-			int b1 = (get_b64_index((char)B1(temp)) << 4 | get_b64_index((char)B2(temp)) << 2 >> 4) & 0xFF;
-			*pbuf++ = b1;
-		}
-
-		if ('=' != B2(temp) && '=' != B3(temp)) {
-			int b2 = (get_b64_index((char)B2(temp)) << 6 | get_b64_index((char)B3(temp)) << 2 >> 2) & 0xFF;
-			*pbuf++ = b2;
-		}
-	}
+    if (i < src_len) {
+        const int a = get_b64_index(src[i]), b = get_b64_index(src[i + 1]);
+        const int c = padding >= 2 ? 0 : get_b64_index(src[i + 2]);
+        const int d = padding >= 1 ? 0 : get_b64_index(src[i + 3]);
+        *pbuf++ = static_cast<char>((a << 2) | (b >> 4));
+        if (padding < 2) *pbuf++ = static_cast<char>((b << 4) | (c >> 2));
+        if (padding < 1) *pbuf++ = static_cast<char>((c << 6) | d);
+    }
 	*pbuf = '\0';
 
 	if (NULL != pdecode_len) {

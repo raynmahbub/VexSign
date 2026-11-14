@@ -248,6 +248,21 @@ class PreservationAuditorTests(unittest.TestCase):
         result = self.fixture_audit(lambda root, _: (root / "VexSign/Configuration/Build/iOS/Info.plist").write_text("different input"))
         self.assertTrue(any("Protected input bytes changed" in failure for failure in result["failures"]))
 
+    def test_only_the_exact_public_security_linkage_is_a_reviewed_protected_change(self):
+        before = b'header\n\t\t\t\t.linkedFramework("OpenSSL"),\nfooter\n'
+        addition = b'                .linkedFramework("Security"),\n'
+        after = before.replace(b'footer', addition + b'footer')
+        path = "Packages/Vendor/Zsign/Package.swift"
+        self.assertTrue(preservation.reviewed_security_linkage(path, before, after))
+        for old, changed in [
+            ("Packages/Other/Package.swift", after), (path, after + b'new target'),
+            (path, after.replace(b'Security', b'PrivateFramework')),
+            (path, after.replace(b'OpenSSL', b'OtherCrypto')),
+            (path, before), (path, after.replace(addition, addition + addition)),
+        ]:
+            with self.subTest(old=old, changed=changed):
+                self.assertFalse(preservation.reviewed_security_linkage(old, before, changed))
+
     def test_binary_and_published_alias_drift_are_rejected(self):
         result = self.fixture_audit(lambda root, _: (root / "icon.png").write_bytes(b"changed binary"))
         self.assertTrue(any("Binary bytes changed" in failure for failure in result["failures"]))

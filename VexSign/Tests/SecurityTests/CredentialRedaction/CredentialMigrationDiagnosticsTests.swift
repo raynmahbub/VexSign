@@ -1,5 +1,6 @@
 import XCTest
 import Security
+import CoreData
 @testable import VexSign
 
 final class CredentialMigrationDiagnosticsTests: XCTestCase {
@@ -68,6 +69,95 @@ final class CredentialMigrationDiagnosticsTests: XCTestCase {
             write: { _ in XCTFail("Must not overwrite secure credentials") }, clearLegacy: { cleared = true })
         XCTAssertEqual(result, "secure-fixture")
         XCTAssertTrue(cleared)
+    }
+
+    func testCorruptSecurePasswordDoesNotOverwriteOrClearRecoverableLegacyText() {
+        var wrote = false, cleared = false
+        XCTAssertThrowsError(try CertificatePasswordMigration.resolve(legacy: "recoverable synthetic password",
+            read: { Data([0xff, 0xfe]) }, write: { _ in wrote = true }, clearLegacy: { cleared = true }))
+        XCTAssertFalse(wrote)
+        XCTAssertFalse(cleared)
+    }
+
+    func testFailedLegacyClearCanRetryFromTheSecureCopyWithoutWritingItAgain() throws {
+        var secure: Data?, writes = 0, clears = 0
+        XCTAssertThrowsError(try CertificatePasswordMigration.resolve(legacy: "synthetic migration password",
+            read: { secure }, write: { secure = $0; writes += 1 }, clearLegacy: {
+                clears += 1; throw CocoaError(.fileWriteOutOfSpace)
+            }))
+        XCTAssertEqual(writes, 1)
+        XCTAssertEqual(clears, 1)
+        let result = try CertificatePasswordMigration.resolve(legacy: "synthetic migration password", read: { secure },
+            write: { _ in XCTFail("Retry must use the existing secure copy") }, clearLegacy: { clears += 1 })
+        XCTAssertEqual(result, "synthetic migration password")
+        XCTAssertEqual(writes, 1)
+        XCTAssertEqual(clears, 2)
+    }
+
+    @MainActor
+    private func legacyCertificate(in storage: Storage) throws -> CertificatePair {
+        let row = CertificatePair(context: storage.context)
+        row.uuid = UUID().uuidString; row.nickname = "Synthetic legacy identity"
+        row.password = "synthetic legacy password"; row.date = Date(); row.expiration = .distantFuture
+        row.revoked = false; row.ppQCheck = false; row.isDefault = false
+        try storage.context.save()
+        return row
+    }
+
+    @MainActor
+    func testInvalidAndDeletedRowsCannotReadOrRecreateAKeychainPassword() throws {
+        let storage = Storage(inMemory: true), row = try legacyCertificate(in: storage)
+        let originalUUID = row.uuid
+        row.uuid = "../invalid-identity"
+        XCTAssertThrowsError(try row.requireSigningPassword(readSecret: { _ in
+            XCTFail("Invalid UUID must refuse before Keychain access"); return nil
+        }, writeSecret: { _, _ in XCTFail("Invalid UUID must not recreate a password") }))
+        XCTAssertThrowsError(try row.setSigningPassword("synthetic value"))
+        row.uuid = originalUUID
+        storage.context.delete(row)
+        XCTAssertThrowsError(try row.requireSigningPassword(readSecret: { _ in
+            XCTFail("Deleted identity must refuse before Keychain access"); return nil
+        }, writeSecret: { _, _ in XCTFail("Deleted identity must not recreate a password") }))
+        XCTAssertThrowsError(try row.setSigningPassword("synthetic value"))
+    }
+
+    @MainActor
+    func testLegacyPasswordMigrationDoesNotCommitUnrelatedOrSameRowPendingEdits() throws {
+        let storage = Storage(inMemory: true), row = try legacyCertificate(in: storage)
+        let unrelated = Imported(context: storage.context)
+        unrelated.uuid = UUID().uuidString; unrelated.name = "Before"
+        try storage.context.save()
+        unrelated.name = "Pending"; row.nickname = "Pending nickname"
+        var secure: Data?
+        XCTAssertEqual(try row.requireSigningPassword(readSecret: { _ in secure }, writeSecret: { data, _ in secure = data }),
+            "synthetic legacy password")
+        XCTAssertNil(row.password)
+        XCTAssertEqual(row.nickname, "Pending nickname")
+        XCTAssertEqual(unrelated.name, "Pending")
+        let reader = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        reader.persistentStoreCoordinator = storage.container.persistentStoreCoordinator
+        let persistedRow = try XCTUnwrap(try reader.existingObject(with: row.objectID) as? CertificatePair)
+        XCTAssertNil(persistedRow.password)
+        XCTAssertEqual(persistedRow.nickname, "Synthetic legacy identity")
+        XCTAssertEqual((try reader.existingObject(with: unrelated.objectID) as? Imported)?.name, "Before")
+    }
+
+    @MainActor
+    func testFailedIsolatedLegacySaveRetainsPlaintextAndAllowsASecureReadRetry() throws {
+        let storage = Storage(inMemory: true), row = try legacyCertificate(in: storage)
+        var secure: Data?, writes = 0
+        XCTAssertThrowsError(try row.requireSigningPassword(readSecret: { _ in secure }, writeSecret: { data, _ in
+            secure = data; writes += 1
+        }, saveMigration: { _ in throw CocoaError(.fileWriteOutOfSpace) }))
+        XCTAssertEqual(row.password, "synthetic legacy password")
+        let reader = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        reader.persistentStoreCoordinator = storage.container.persistentStoreCoordinator
+        XCTAssertEqual((try reader.existingObject(with: row.objectID) as? CertificatePair)?.password, "synthetic legacy password")
+        XCTAssertEqual(try row.requireSigningPassword(readSecret: { _ in secure }, writeSecret: { _, _ in
+            XCTFail("Retry must not overwrite the stored secure password")
+        }), "synthetic legacy password")
+        XCTAssertNil(row.password)
+        XCTAssertEqual(writes, 1)
     }
 
     @MainActor

@@ -2,20 +2,11 @@
 //  NestedBundleAudit.swift
 //  VexSign
 //
-//  What the selected profile can actually do for the extensions inside an app.
-//
-//  The bundled engine signs every nested bundle with the *outer* asset — one `ZSignAsset` for the
-//  whole tree (`VexSign/Packages/Vendor/Zsign/src/bundle.cpp:515-544` in the pin) — so an extension whose identifier the
-//  profile does not cover cannot be signed correctly, and the install either fails or produces a
-//  widget that never launches. Until the engine can take one asset per nested bundle, the honest
-//  thing to do is say which extensions are in that state before the long sign starts, instead of
-//  discovering it afterwards.
-//
-//  Frameworks are deliberately not audited: iOS does not require a provisioning profile for them,
-//  so listing every `com.apple.SwiftUI`-style identifier as "not covered" would be pure noise.
-//
-//  Everything here is pure apart from reading `Info.plist` and an existing
-//  `embedded.mobileprovision` off disk.
+//  Identifier-coverage display compatibility for existing certificate screens.
+//  Device admission uses SigningResolutionSession/ProfileCompatibilityValidator
+//  for every component's own identity, authenticated profile and entitlements.
+//  This view reads the same bounded recursive manifest as that path; profile
+//  pattern coverage alone is not proof that a component can be signed.
 //
 
 import Foundation
@@ -28,6 +19,7 @@ struct NestedBundle: Equatable {
 	enum Kind: String, Equatable {
 		case appExtension
 		case watchApp
+        case embeddedApp
 	}
 
 	/// Path relative to the `.app`, e.g. `PlugIns/Widget.appex`.
@@ -97,7 +89,7 @@ enum NestedBundleAudit {
         /// this check runs. `overridingBlockingIssues` is kept for source compatibility and
         /// no longer changes the answer.
         func requireCompatibleProfile(overridingBlockingIssues: Bool = false) throws {
-            guard uncovered.isEmpty else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
+            guard isClean else { throw IncompatibleProfile(details: warnings.joined(separator: " ")) }
         }
 
 		/// Explain known mismatches and unknown coverage without conflating them.
@@ -147,13 +139,12 @@ enum NestedBundleAudit {
 	// MARK: Scanning
 
 	/// Every nested bundle that carries a profile requirement, in a stable order.
-	static func bundles(in appBundle: URL) -> [NestedBundle] {
-		[
-			(folder: "PlugIns", pathExtension: "appex", kind: NestedBundle.Kind.appExtension),
-			(folder: "Extensions", pathExtension: "appex", kind: .appExtension),
-			(folder: "Watch", pathExtension: "app", kind: .watchApp)
-		].flatMap { _members(in: appBundle, folder: $0.folder, pathExtension: $0.pathExtension, kind: $0.kind) }
-	}
+    static func bundles(in appBundle: URL) -> [NestedBundle] {
+        SigningPlan.make(appBundle: appBundle).profileBoundComponents.map { component in
+            NestedBundle(path: component.path, identifier: component.identifier,
+                kind: (component.path as NSString).pathExtension.lowercased() == "appex" ? .appExtension : (component.kind == .watchApp ? .watchApp : .embeddedApp))
+        }.sorted { $0.path < $1.path }
+    }
 
 	/// Identifiers the profile has to cover for the app to work after signing.
 	///
@@ -189,7 +180,9 @@ enum NestedBundleAudit {
 		guard let oldBase, !oldBase.isEmpty, let newBase, !newBase.isEmpty, oldBase != newBase else {
 			return identifier
 		}
-		return identifier.replacingOccurrences(of: oldBase, with: newBase)
+		if identifier == oldBase { return newBase }
+        guard identifier.hasPrefix(oldBase + ".") else { return identifier }
+        return newBase + String(identifier.dropFirst(oldBase.count))
 	}
 
 	// MARK: Reporting
@@ -216,6 +209,9 @@ enum NestedBundleAudit {
 	) throws -> [Entry] {
 		let uncovered = report(appBundle: appBundle, profilePattern: profilePattern, additionalPatterns: additionalPatterns).uncovered
 			.filter { $0.bundle.kind == .appExtension }
+        for entry in uncovered where try !OptionalExtensionPolicy.canRemove(entry.bundle.path, in: appBundle) {
+            throw SigningFileHandlerError.identityRejected("This extension cannot be safely removed: " + entry.bundle.path)
+        }
 		for entry in uncovered {
 			try fileManager.removeItem(at: appBundle.appendingPathComponent(entry.bundle.path))
 		}
@@ -266,45 +262,4 @@ enum NestedBundleAudit {
 		return CertificateReader(profile).decoded?.Entitlements?["application-identifier"]?.value as? String
 	}
 
-	// MARK: Helpers
-
-	private static func _members(
-		in appBundle: URL,
-		folder: String,
-		pathExtension: String,
-		kind: NestedBundle.Kind
-	) -> [NestedBundle] {
-		let directory = appBundle.appendingPathComponent(folder)
-		guard
-			let contents = try? FileManager.default.contentsOfDirectory(
-				at: directory,
-				includingPropertiesForKeys: [.isDirectoryKey],
-				options: [.skipsHiddenFiles]
-			)
-		else { return [] }
-
-		return contents
-			.filter { $0.pathExtension.lowercased() == pathExtension && $0.hasDirectoryPath }
-			.map {
-				NestedBundle(
-					path: "\(folder)/\($0.lastPathComponent)",
-					identifier: _identifier(of: $0),
-					kind: kind
-				)
-			}
-	}
-
-	/// Reads `CFBundleIdentifier` straight from the bundle's plist. `Bundle(url:)` would work too,
-	/// but it caches per path and returns nil for bundles whose plist lacks a package type, which
-	/// some App Store payloads do.
-	private static func _identifier(of bundle: URL) -> String? {
-		guard let data = try? Data(contentsOf: bundle.appendingPathComponent("Info.plist")) else { return nil }
-		guard let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) else { return nil }
-		guard
-			let plist = object as? [String: Any],
-			let identifier = plist["CFBundleIdentifier"] as? String,
-			!identifier.isEmpty
-		else { return nil }
-		return identifier
-	}
 }

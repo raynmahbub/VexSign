@@ -1,5 +1,12 @@
 # Signing compatibility, install confirmation and removal UX
 
+> Historical snapshot. Current imported-identity/component validation, mandatory
+> checks, fresh cryptographic verification and compact library deletion are
+> described in the [signing/library follow-up](../../Architecture/signing-library-reliability.md).
+> Older selection, override and structural-verifier statements below are not the
+> current policy or acceptance evidence. Apple/device validation of the follow-up
+> remains pending.
+
 This note describes the behaviour after the "signing compatibility, installation reliability and
 consistent swipe-to-remove" work. Where an older note in this folder disagrees, this one is current;
 the older passages carry a "Superseded" marker pointing here.

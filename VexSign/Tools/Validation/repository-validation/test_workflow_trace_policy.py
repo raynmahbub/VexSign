@@ -85,8 +85,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertEqual(modify.count('onStage?(.signing)'), 1)
         # Customization ends with the disinjection; a refusal after it belongs to Sign.
         self.assertLess(modify.index('try await handler.disinject()'), modify.index('onStage?(.signing)'))
-        self.assertLess(modify.index('onStage?(.signing)'), modify.index('try _auditNestedBundles('))
+        self.assertLess(modify.index('onStage?(.signing)'), modify.index('try await handler.sign()'))
         self.assertLess(modify.index('onStage?(.signing)'), modify.index('throw SigningFileHandlerError.missingCertifcate'))
+        handler = self.text('VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/ZsignHandler.swift')
+        sign = handler.split('func sign() async throws {', 1)[1].split('func adhocSign()', 1)[0]
+        # Component/profile checks moved into the shared execution gate, not out
+        # of signing. Both preparation and final revalidation precede execution.
+        self.assertLess(sign.index('SigningResolutionSession.prepare('), sign.index('try self.run(prepared.request)'))
+        self.assertLess(sign.index('SigningIdentityStore.requireCurrent('), sign.index('try self.run(prepared.request)'))
 
     def test_one_shot_tweak_files_are_copied_for_a_run_and_never_replayed(self):
         handler = self.text('VexSign/App/iOS/VexSign/Infrastructure/Signing/Transformation/TweakHandler.swift')

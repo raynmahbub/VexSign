@@ -222,13 +222,20 @@ def apply_certificate_inventory_overlay(deps, lock):
     return spec
 
 
-def check_app_baseline(lock):
+def check_app_baseline(lock, app_review=None):
     manifest = json.loads((ROOT / "VexSign/Packages/Vendor/manifest.json").read_text())
     entry = next((item for item in manifest['packages'] if item['name'] == 'Zsign'), None)
     if entry is None or entry['commit'] != lock['packages']['zsign-package']['commit']:
         raise ValueError('Vendored Zsign pin changed; update/review the native smoke lock')
+    # The isolated smoke graph downloads the pinned upstream manifest; the
+    # app's local manifest has a separately reviewed public-framework linkage.
+    # Do not replace the upstream digest with a local one: that would break
+    # hash verification when preparing the actual upstream checkout.
+    review = app_review if app_review is not None else json.loads((HERE / 'app-vendored-zsign-review.json').read_text())
+    if review['upstream_sha256'] != lock['packages']['zsign-package']['manifest_sha256']:
+        raise ValueError('Vendored Zsign manifest review no longer matches the upstream baseline')
     package = ROOT / "VexSign/Packages/Vendor/Zsign/Package.swift"
-    if not package.is_file() or digest(package.read_bytes()) != lock['packages']['zsign-package']['manifest_sha256']:
+    if not package.is_file() or digest(package.read_bytes()) != review['sha256']:
         raise ValueError('Vendored Zsign manifest changed; update/review the native smoke lock')
     resolved = json.loads((ROOT / "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved").read_text())
     pins = {pin['identity']: pin['state']['revision'] for pin in resolved['pins']}

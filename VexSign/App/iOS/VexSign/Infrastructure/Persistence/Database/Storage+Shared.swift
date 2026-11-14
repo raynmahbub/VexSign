@@ -42,7 +42,7 @@ extension Storage {
 		guard !apps.isEmpty else { return true }
         let resolved = apps.compactMap { _deletableRow(for: $0) }
         let ids = Array(Set(resolved.map(\.objectID)))
-        guard resolved.count == apps.count, !ids.isEmpty,
+        guard resolved.count == apps.count, ids.count == apps.count, !ids.isEmpty,
               ids.allSatisfy({ !$0.isTemporaryID }),
               Set(ids.compactMap { $0.persistentStore?.identifier }).count == 1 else { return false }
         let managedApps = resolved.compactMap { $0 as? AppInfoPresentable }
@@ -76,6 +76,13 @@ extension Storage {
             let originals = try rows.map { row -> (URL, URL) in
                 guard let app = row as? AppInfoPresentable, let directory = getUuidDirectory(for: app),
                       Self._allowedDeletionOriginal(directory) else { throw CocoaError(.fileReadCorruptFile) }
+                // A directory must belong to exactly one committed record of
+                // this kind. A corrupt duplicate UUID must not erase a sibling version.
+                guard let entityName = row.entity.name, let uuid = app.uuid else { throw CocoaError(.fileReadCorruptFile) }
+                let owners = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+                owners.predicate = NSPredicate(format: "uuid ==[c] %@", uuid)
+                owners.includesPendingChanges = false
+                guard try deletion.count(for: owners) == 1 else { throw CocoaError(.fileReadCorruptFile) }
                 return (directory, row.objectID.uriRepresentation())
             }
             let staged = try StagedAppDeletion(root: Self._deletionRoot, originals: originals)
@@ -109,8 +116,14 @@ extension Storage {
 
     private static func _allowedDeletionOriginal(_ url: URL) -> Bool {
         let path = url.standardizedFileURL
-        guard path.isFileURL, !path.lastPathComponent.isEmpty,
+        guard path.isFileURL, UUID(uuidString: path.lastPathComponent) != nil,
               !url.path.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }) else { return false }
+        if FileManager.default.fileExists(atPath: path.path) {
+            do {
+                let values = try path.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values.isDirectory == true, values.isSymbolicLink != true else { return false }
+            } catch { return false }
+        }
         let parent = path.deletingLastPathComponent().resolvingSymlinksInPath()
         return [FileManager.default.signed, FileManager.default.unsigned].contains {
             $0.resolvingSymlinksInPath() == parent
@@ -132,6 +145,10 @@ extension Storage {
     /// or protected/unreadable transactions remain on disk for the next launch.
     func recoverPendingAppDeletions() {
         StorageConcurrency.requireMainQueue()
+        // Recovery is destructive cleanup too. If signing/import/installation
+        // already owns an artifact, retain the journal rather than racing it.
+        guard let recoveryLease = AppOperationRegistry.shared.acquireCleanup() else { return }
+        defer { withExtendedLifetime(recoveryLease) {} }
         guard FileManager.default.fileExists(atPath: Self._deletionRoot.path) else { return }
         do {
             let directories = try FileManager.default.contentsOfDirectory(at: Self._deletionRoot, includingPropertiesForKeys: nil)

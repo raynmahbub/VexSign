@@ -30,7 +30,7 @@ enum SigningCapabilityResolver {
 
 		// Structural and compatibility checks. `PreflightChecks` owns these rules; this pass
 		// only gives them codes and remediation.
-		let preflight = PreflightChecks.run(app: app, options: options, certificate: certificate)
+		let preflight = PreflightChecks.run(app: app, options: options, certificate: certificate, profileResolutionIsDeferred: true)
 		issues.append(contentsOf: preflight.issues.map(issue(for:)))
 
 		// What the bundle contains, and whether each nested component can be signed at all.

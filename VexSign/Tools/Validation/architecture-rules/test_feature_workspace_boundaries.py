@@ -73,8 +73,12 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
 
     def test_app_projection_failures_propagate_through_all_typed_result_consumers(self):
         self.require("Infrastructure/Tasks/BatchSigningAdapter.swift", "signed: try item.signed.map { try repository.appRecord($0) }")
-        self.require("Infrastructure/Signing/Execution/LibrarySigningAdapter.swift",
-            "case .success(let signed): onEvent(.finished(Result { try repository.appRecord(signed) }))")
+        adapter = self.require("Infrastructure/Signing/Execution/LibrarySigningAdapter.swift",
+            "case .success(let signed):", "let projected = Result { try repository.appRecord(signed) }",
+            "if case .success = projected", "onEvent(.finished(projected))")
+        self.assertLess(adapter.index("let projected = Result"), adapter.index("onEvent(.finished(projected))"))
+        self.assertNotIn("try? repository.appRecord", adapter,
+            "Projection failure must remain a terminal failure, not fabricated success")
         self.require("Infrastructure/Archives/IPA/ArchiveWorkspaceAdapter.swift", "return try repository.appRecord(signed)")
         self.require("Infrastructure/Persistence/Database/Storage+Shared.swift",
             "context.fetch(Signed.fetchRequest()).map { try adapter.appRecord($0) }",

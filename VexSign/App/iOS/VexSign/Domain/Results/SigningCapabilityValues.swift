@@ -118,16 +118,16 @@ struct SigningCapability: Equatable {
 			/// sheet does not offer "Sign Anyway" for them. A blocking issue with any
 			/// other code is a risk the user may accept.
 			///
-			/// `certificateNotInProfile` is deliberately not listed. It compares the first
-			/// identity in the stored p12 with the profile, and a p12 that carries several
-			/// identities can be reported when the engine would have used a matching one.
-			/// It stays blocking and visible, and the post-sign check still judges the
-			/// signer that was actually used.
+            /// Missing/unknown security evidence is not a user-overridable risk.
 			var isMandatory: Bool {
 				switch self {
 				case .certificateMissing, .certificateExpired, .certificateRevoked,
-					 .profileExpired, .appIdentifierMismatch, .extensionNotCovered,
-					 .entitlementNotGranted:
+                     .certificatePasswordUnavailable, .certificateNotInProfile,
+                     .profileMissing, .profileExpired, .profileUnreadable, .teamMismatch,
+                     .appIdentifierMismatch, .extensionNotCovered, .entitlementNotGranted,
+                     .deviceNotProvisioned, .bundleIdentifierMissing, .infoPlistUnreadable,
+                     .executableUnavailable, .executableUnsupportedPlatform, .executableEncrypted,
+                     .executablePlatformUnknown, .nestedComponentInvalid, .storageInsufficient, .minimumOSNewerThanDevice:
 					true
 				default:
 					false

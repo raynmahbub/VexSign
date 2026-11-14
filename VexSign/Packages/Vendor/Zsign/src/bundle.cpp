@@ -4,6 +4,16 @@
 #include "macho.h"
 #include "sys/stat.h"
 #include "sys/types.h"
+#include <cctype>
+
+namespace {
+// Match the Swift manifest without changing suffix semantics for unrelated I/O.
+bool CodeSuffix(const string& path, const char* suffix) {
+    string lowered = path;
+    transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char c) { return std::tolower(c); });
+    return ZFile::IsPathSuffix(lowered, suffix);
+}
+}
 
 ZBundle::ZBundle()
 {
@@ -15,7 +25,7 @@ ZBundle::ZBundle()
 
 bool ZBundle::FindAppFolder(const string& strFolder, string& strAppFolder)
 {
-	if (ZFile::IsPathSuffix(strFolder, ".app") || ZFile::IsPathSuffix(strFolder, ".appex")) {
+	if (CodeSuffix(strFolder, ".app") || CodeSuffix(strFolder, ".appex")) {
 		strAppFolder = strFolder;
 		return true;
 	}
@@ -28,7 +38,7 @@ bool ZBundle::FindAppFolder(const string& strFolder, string& strAppFolder)
 		return false;
 	}, [&](bool bFolder, const string& strPath) {
 		if (bFolder) {
-			if (ZFile::IsPathSuffix(strPath, ".app") || ZFile::IsPathSuffix(strPath, ".appex")) {
+			if (CodeSuffix(strPath, ".app") || CodeSuffix(strPath, ".appex")) {
 				strAppFolder = strPath;
 				return true;
 			}
@@ -43,10 +53,17 @@ bool ZBundle::GetSignFolderInfo(const string& strFolder, jvalue& jvNode, bool bG
 {
 	string strInfoPlistData;
 	string strInfoPlistPath = strFolder + "/Info.plist";
-	ZFile::ReadFile(strInfoPlistPath.c_str(), strInfoPlistData);
+	if (!ZFile::ReadFile(strInfoPlistPath.c_str(), strInfoPlistData)) {
+		return false;
+	}
 
 	jvalue jvInfo;
-	jvInfo.read_plist(strInfoPlistData);
+	// A failed parse must not become a partial signing node. Identifiers and
+	// executable names are strings, never numbers/Booleans coerced by jvalue.
+	if (!jvInfo.read_plist(strInfoPlistData) || !jvInfo.is_object() ||
+		!jvInfo["CFBundleIdentifier"].is_string() || !jvInfo["CFBundleExecutable"].is_string()) {
+		return false;
+	}
 	string strBundleId = jvInfo["CFBundleIdentifier"];
 	string strBundleExe = jvInfo["CFBundleExecutable"];
 	string strBundleVersion = jvInfo["CFBundleVersion"];
@@ -85,10 +102,10 @@ bool ZBundle::GetObjectsToSign(const string& strFolder, jvalue& jvInfo)
 	std::function<void(const string&)> findAllBundles = [&](const string& currentPath) {
 		ZFile::EnumFolder(currentPath.c_str(), false, NULL, [&](bool bFolder, const string& strPath) {
 			if (bFolder) {
-				if (ZFile::IsPathSuffix(strPath, ".app") ||
-					ZFile::IsPathSuffix(strPath, ".appex") ||
-					ZFile::IsPathSuffix(strPath, ".framework") ||
-					ZFile::IsPathSuffix(strPath, ".xctest")) {
+				if (CodeSuffix(strPath, ".app") ||
+					CodeSuffix(strPath, ".appex") ||
+                    CodeSuffix(strPath, ".framework") ||
+                    CodeSuffix(strPath, ".bundle")) {
 					allBundles.push_back(strPath);
 					findAllBundles(strPath);
 				} else {
@@ -105,18 +122,26 @@ bool ZBundle::GetObjectsToSign(const string& strFolder, jvalue& jvInfo)
 		size_t depthA = count(a.begin(), a.end(), '/');
 		size_t depthB = count(b.begin(), b.end(), '/');
 		// deeper paths first
-		return depthA > depthB;
+        return depthA == depthB ? a < b : depthA > depthB;
 	});
 	
 	for (const string& bundlePath : allBundles) {
 		jvalue jvNode;
 		if (GetSignFolderInfo(bundlePath, jvNode)) {
-			jvInfo["folders"].push_back(jvNode);
+            string identifier = jvNode["bundle_id"];
+            auto asset = m_mapNestedAssets.find(identifier);
+            bool profileBound = CodeSuffix(bundlePath, ".app") || CodeSuffix(bundlePath, ".appex");
+            if (profileBound && asset != m_mapNestedAssets.end()) m_mapPathAssets[jvNode["path"].as_string()] = asset->second;
+            if (!m_pSignAsset->m_bAdhoc && profileBound && asset == m_mapNestedAssets.end()) {
+                ZLog::ErrorV(">>> Missing explicit component signing inputs: %s\n", bundlePath.c_str());
+                return false;
+            }
+            jvInfo["folders"].push_back(jvNode);
 		}
 	}
 	
 	ZFile::EnumFolder(strFolder.c_str(), true, NULL, [&](bool bFolder, const string& strPath) {
-		if (!bFolder && ZFile::IsPathSuffix(strPath, ".dylib")) {
+		if (!bFolder && CodeSuffix(strPath, ".dylib")) {
 			jvInfo["files"].push_back(strPath.substr(m_strAppFolder.size() + 1));
 		}
 		return false;
@@ -138,8 +163,14 @@ bool ZBundle::GenerateCodeResources(const string& strFolder, jvalue& jvCodeRes)
 	});
 
 	jvalue jvInfo;
-	jvInfo.read_plist_from_file("%s/Info.plist", strFolder.c_str());
+	if (!jvInfo.read_plist_from_file("%s/Info.plist", strFolder.c_str()) ||
+		!jvInfo.is_object() || !jvInfo["CFBundleExecutable"].is_string()) {
+		return false;
+	}
 	string strBundleExe = jvInfo["CFBundleExecutable"];
+	if (strBundleExe.empty()) {
+		return false;
+	}
 
 #ifdef _WIN32
 	iconv ic;
@@ -263,6 +294,19 @@ void ZBundle::GetNodeChangedFiles(jvalue& jvNode, bool excludeProvisioning)
 	}
 }
 
+ZSignAsset* ZBundle::AssetForPath(const string& path)
+{
+    ZSignAsset* asset = m_pSignAsset;
+    size_t longest = 0;
+    for (const auto& binding : m_mapPathAssets) {
+        if (binding.second && binding.first.size() > longest &&
+            (path == binding.first || path.compare(0, binding.first.size() + 1, binding.first + "/") == 0)) {
+            asset = binding.second; longest = binding.first.size();
+        }
+    }
+    return asset;
+}
+
 bool ZBundle::SignNode(jvalue& jvNode)
 {
 	if (jvNode.has("files")) {
@@ -271,15 +315,15 @@ bool ZBundle::SignNode(jvalue& jvNode)
 			ZLog::PrintV(">>> SignFile: \t%s\n", strFile.c_str());
 			ZMachO macho;
 			if (macho.InitV("%s/%s", m_strAppFolder.c_str(), strFile.c_str())) {
-				if (!macho.Sign(m_pSignAsset, m_bForceSign, "", "", "", "")) {
+				if (!macho.Sign(AssetForPath(strFile), m_bForceSign, "", "", "", "")) {
 					signFailedFiles += strFile;
 					signFailedFiles += "\n";
-//					return false;
+                    return false;
 				}
 			} else {
 				signFailedFiles += strFile;
 				signFailedFiles += "\n";
-//				return false;
+                return false;
 			}
 		}
 	}
@@ -320,10 +364,10 @@ bool ZBundle::SignNode(jvalue& jvNode)
 	// A nested bundle with a profile of its own is signed with that profile's entitlements
 	// and carries that profile. It is written before CodeResources is generated: the seal
 	// hashes every file in the bundle, so a profile added afterwards would break it.
-	ZSignAsset* pNodeAsset = m_pSignAsset;
+    ZSignAsset* pNodeAsset = AssetForPath(strFolder);
 	if ("/" != strFolder) {
-		map<string, ZSignAsset*>::iterator itAsset = m_mapNestedAssets.find(strBundleId);
-		if (itAsset != m_mapNestedAssets.end() && NULL != itAsset->second) {
+		map<string, ZSignAsset*>::iterator itAsset = m_mapPathAssets.find(strFolder);
+        if (itAsset != m_mapPathAssets.end() && NULL != itAsset->second) {
 			pNodeAsset = itAsset->second;
 			if (m_bEmbedNestedProvisions && !pNodeAsset->m_strProvData.empty()) {
 				if (!ZFile::WriteFileV(pNodeAsset->m_strProvData, "%s/embedded.mobileprovision", strBaseFolder.c_str())) {
@@ -342,11 +386,10 @@ bool ZBundle::SignNode(jvalue& jvNode)
 		ZLog::ErrorV(">>> Can't parse BundleExecute file! %s\n", strExePath.c_str());
 		signFailedFiles += strExePath;
 		signFailedFiles += "\n";
-//		return false;
-		return true;
-	}
+        return false;
+    }
 
-	ZFile::CreateFolderV("%s/_CodeSignature", strBaseFolder.c_str());
+    if (!ZFile::CreateFolderV("%s/_CodeSignature", strBaseFolder.c_str())) return false;
 	string strCodeResFile = strBaseFolder + "/_CodeSignature/CodeResources";
 
 	jvalue jvCodeRes;

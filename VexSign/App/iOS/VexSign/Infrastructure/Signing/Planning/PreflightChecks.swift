@@ -23,17 +23,22 @@ enum PreflightChecks {
 		("CFBundleExecutable", "Executable")
 	]
 
-	static func run(app: AppInfoPresentable, options: Options, certificate: CertificatePair?) -> PreflightResult {
+	static func run(app: AppInfoPresentable, options: Options, certificate: CertificatePair?, profileResolutionIsDeferred: Bool = false) -> PreflightResult {
 		var issues: [PreflightIssue] = []
 
 		bundleIdentifier(app: app, into: &issues)
 		versions(app: app, options: options, into: &issues)
 		plistKeys(app: app, into: &issues)
         executableAndStorage(app: app, options: options, into: &issues)
-		certificateExpiry(certificate: certificate, options: options, into: &issues)
-		profileCompatibility(app: app, options: options, certificate: certificate, into: &issues)
-		signerIdentity(app: app, options: options, certificate: certificate, into: &issues)
-		jitEntitlement(certificate: certificate, options: options, into: &issues)
+        if !profileResolutionIsDeferred {
+            certificateExpiry(certificate: certificate, options: options, into: &issues)
+            profileCompatibility(app: app, options: options, certificate: certificate, into: &issues)
+            signerIdentity(app: app, options: options, certificate: certificate, into: &issues)
+            jitEntitlement(certificate: certificate, options: options, into: &issues)
+        }
+        // Deferred resolution must not diagnose the preferred row as though it
+        // were the selected signer. The async review reports the actual identity;
+        // its validator requires every requested JIT capability without reduction.
 		dylibInjections(app: app, options: options, into: &issues)
 
 		return PreflightResult(issues: issues)
@@ -321,9 +326,9 @@ enum PreflightChecks {
 		case .appIdentifierMismatch:
 			.localized("Choose a profile whose App ID covers this bundle identifier.")
 		case .extensionNotCovered:
-			.localized("Enable automatic compatibility mode to remove the uncovered extension.")
+			.localized("Import a compatible profile for this extension. Compatibility mode may remove only explicitly reviewed optional extensions.")
 		case .entitlementNotGranted:
-			.localized("Choose a profile that grants this entitlement, or remove it from the app's plist.")
+			.localized("Import a profile that grants the required entitlement. Required capabilities are not silently removed.")
 		case .teamMismatch:
 			.localized("Choose a certificate and profile from the same team.")
 		case .certificateNotInProfile:
@@ -375,9 +380,8 @@ enum PreflightChecks {
 
 	// MARK: JIT
 
-	/// JIT needs `get-task-allow`, which only a PPQ (development) profile grants.
-	/// Signing continues either way — the entitlement is simply dropped — so this is
-	/// a warning, not a blocker.
+    /// A legacy selected-profile advisory. The authoritative component resolver
+    /// requires the complete requested JIT capability set and never drops it.
 	private static func jitEntitlement(certificate: CertificatePair?, options: Options, into issues: inout [PreflightIssue]) {
 		guard options.enableJIT, options.signingOption == .default else { return }
 
@@ -393,7 +397,7 @@ enum PreflightChecks {
 
 		issues.append(PreflightIssue(
 			.localized("JIT requires a PPQ certificate"),
-			.localized("The selected certificate uses a PPQLess distribution profile, so the JIT entitlement will be dropped. Pick a PPQ certificate or turn JIT off.")
+			.localized("The selected profile does not authorize JIT. Import a compatible development profile; signing will not silently drop the requested capability.")
 		))
 	}
 

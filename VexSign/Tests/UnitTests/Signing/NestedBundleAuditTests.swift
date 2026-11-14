@@ -25,7 +25,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		appBundle = root
 			.appendingPathComponent("Payload", isDirectory: true)
 			.appendingPathComponent("Example.app", isDirectory: true)
-		try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
+        try SigningRegressionFixture.bundle(at: appBundle)
 	}
 
 	override func tearDownWithError() throws {
@@ -45,7 +45,10 @@ final class NestedBundleAuditTests: XCTestCase {
 		let url = appBundle.appendingPathComponent(relativePath, isDirectory: true)
 		try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
 
-		var plist: [String: Any] = ["CFBundlePackageType": "XPC!"]
+		var plist: [String: Any] = ["CFBundlePackageType": "XPC!", "CFBundleExecutable": "Fixture",
+            "NSExtension": ["NSExtensionPointIdentifier": "com.apple.share-services"]]
+        try SigningRegressionFixture.machO(fileType: relativePath.hasSuffix(".framework") ? 6 : 2,
+            platform: relativePath.hasPrefix("Watch/") ? 4 : 2).write(to: url.appendingPathComponent("Fixture"))
 		if let identifier {
 			plist["CFBundleIdentifier"] = identifier
 		}
@@ -71,8 +74,8 @@ final class NestedBundleAuditTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("Widget.appex"))
         }
         XCTAssertNoThrow(try report(pattern: "TEAM.com.example.*").requireCompatibleProfile())
-        // Lack of evidence must not be invented as a known profile mismatch.
-        XCTAssertNoThrow(try report(pattern: nil).requireCompatibleProfile())
+        // Unknown is not a proven mismatch, but it still cannot authorize signing.
+        XCTAssertThrowsError(try report(pattern: nil).requireCompatibleProfile())
     }
 
 	// MARK: Scanning
@@ -87,13 +90,13 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertEqual(bundles.count, 3)
 		XCTAssertEqual(
 			bundles.map(\.path),
-			["PlugIns/Widget.appex", "Extensions/Share.appex", "Watch/Example Watch.app"]
+			["Extensions/Share.appex", "PlugIns/Widget.appex", "Watch/Example Watch.app"]
 		)
 		XCTAssertEqual(
 			bundles.map(\.kind),
 			[.appExtension, .appExtension, .watchApp]
 		)
-		XCTAssertEqual(bundles.first?.displayName, "Widget.appex")
+		XCTAssertEqual(bundles.first?.displayName, "Share.appex")
 	}
 
 	/// Frameworks never need their own profile, and a `.appex` that is a file rather than a
@@ -132,18 +135,18 @@ final class NestedBundleAuditTests: XCTestCase {
 	}
 
 	func testCompatibilityRemovalSkipsOnlyKnownUncoveredBundles() throws {
-		let covered = try makeBundle("PlugIns/Compatible.appex", identifier: "com.frameradar.app.widget")
+		let covered = try makeBundle("PlugIns/Compatible.appex", identifier: "com.example.app.widget")
 		let unsupportedNames = ["AirportNotifications", "Intents", "IntentsUI", "LiveActivitiesWidget", "RichNotifications"]
 		let unsupported = try unsupportedNames.map { name in
-			try makeBundle("PlugIns/\(name).appex", identifier: "org.frameradar.extension.\(name)")
+			try makeBundle("PlugIns/\(name).appex", identifier: "org.example.extension.\(name)")
 		}
-		let watchApp = try makeBundle("Watch/Example Watch.app", identifier: "org.frameradar.watch")
+		let watchApp = try makeBundle("Watch/Example Watch.app", identifier: "org.example.watch")
 		let appInfo = appBundle.appendingPathComponent("Info.plist")
-		try Data("main app".utf8).write(to: appInfo)
+		let originalInfo = try Data(contentsOf: appInfo)
 
 		let removed = try NestedBundleAudit.removeUncoveredBundles(
 			in: appBundle,
-			profilePattern: "TEAM12345.com.frameradar.app.*"
+			profilePattern: "TEAM12345.com.example.app.*"
 		)
 
 		XCTAssertEqual(Set(removed.map(\.bundle.displayName)), Set(unsupportedNames.map { "\($0).appex" }))
@@ -151,7 +154,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		for bundle in unsupported {
 			XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.path))
 		}
-		XCTAssertTrue(FileManager.default.fileExists(atPath: appInfo.path), "the main app must remain intact")
+		XCTAssertEqual(try Data(contentsOf: appInfo), originalInfo, "the main app metadata must remain intact")
 		XCTAssertTrue(FileManager.default.fileExists(atPath: watchApp.path), "watch apps are not removable app extensions")
 		XCTAssertFalse(removed.contains { $0.bundle.kind == .watchApp })
 	}
@@ -179,7 +182,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertThrowsError(try remaining.requireCompatibleProfile())
 	}
 
-	/// Unknown coverage is warned about, but is not treated as a proven mismatch.
+	/// Unknown coverage is distinguished from a mismatch and remains fail-closed.
 	func testWithoutAProfileCoverageIsUnknownAndReported() throws {
 		try makeBundle("PlugIns/Widget.appex", identifier: "com.example.widget")
 
@@ -191,7 +194,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertEqual(report.unknown.count, 1)
 		XCTAssertTrue(try XCTUnwrap(report.summary).contains("unknown"))
 		XCTAssertTrue(try XCTUnwrap(report.warnings.first).contains("Widget.appex"))
-		XCTAssertNoThrow(try report.requireCompatibleProfile())
+		XCTAssertThrowsError(try report.requireCompatibleProfile())
 		XCTAssertEqual(report.profilePattern, nil)
 	}
 
@@ -205,7 +208,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertEqual(report.entries.first?.coverage, .unknown)
 	}
 
-	func testCoveredAndUnknownBundlesWarnWithoutBlocking() throws {
+	func testCoveredAndUnknownBundlesRemainBlockedWithoutInventingAMismatch() throws {
 		try makeBundle("PlugIns/Covered.appex", identifier: "com.example.widget")
 		try makeBundle("PlugIns/Unknown.appex", identifier: nil)
 		let result = report(pattern: "TEAM.com.example.*")
@@ -213,7 +216,7 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertTrue(result.uncovered.isEmpty)
 		XCTAssertEqual(result.unknown.count, 1)
 		XCTAssertEqual(result.warnings.count, 1)
-		XCTAssertNoThrow(try result.requireCompatibleProfile())
+		XCTAssertThrowsError(try result.requireCompatibleProfile())
 	}
 
 	func testMixedCoverageSummaryDoesNotCountUnknownAsCovered() throws {

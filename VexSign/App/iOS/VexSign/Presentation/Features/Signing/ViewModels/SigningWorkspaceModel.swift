@@ -38,12 +38,14 @@ final class SigningWorkspaceModel {
 
     func signPackage(_ app: AppInfoPresentable, using options: Options, icon: UIImage?, certificate: CertificateRecord?,
                      overridesBlockingPreflightIssues: Bool = false, requestID: String = UUID().uuidString,
+                     reviewedAuthorization: SigningResolutionAuthorization? = nil,
                      onStage: (@MainActor (SigningStage) -> Void)? = nil,
                      onVerified: (@MainActor () -> Void)? = nil,
                      onCompatibilityRemoved: (@MainActor ([String]) -> Void)? = nil,
                      completion: @escaping @MainActor (Result<LibraryAppRecord, Error>) -> Void) {
         do {
-            let draft = try request(app: app, options: options, certificate: certificate, id: requestID, overrides: overridesBlockingPreflightIssues)
+            var draft = try request(app: app, options: options, certificate: certificate, id: requestID, overrides: overridesBlockingPreflightIssues)
+            draft.authorization = reviewedAuthorization
             useCase.start(draft, icon: icon) { event in
                 switch event {
                 case .stage(let stage): onStage?(stage)

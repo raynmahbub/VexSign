@@ -54,6 +54,17 @@ int zsignWithNestedProvisions(
 	void(^completionHandler)(BOOL success, NSError *error)
 );
 
+/// Explicit per-component assets. The caller validates same-team containment and
+/// passes only entitlement sets authorized by each authenticated profile.
+int zsignWithNestedAssets(
+    NSString *app, NSString *prov, NSString *key, NSString *pass,
+    NSString *entitlement, NSString *bundleid, NSString *displayname,
+    NSString *bundleversion, bool adhoc, bool dontGenerateEmbeddedMobileProvision,
+    NSDictionary<NSString *, NSString *> *nestedProvisions,
+    NSDictionary<NSString *, NSDictionary<NSString *, NSString *> *> *nestedAssetInputs,
+    void(^completionHandler)(BOOL success, NSError *error)
+);
+
 #ifdef __cplusplus
 }
 #endif

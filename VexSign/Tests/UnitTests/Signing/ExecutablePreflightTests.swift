@@ -58,6 +58,38 @@ final class ExecutablePreflightTests: XCTestCase {
         XCTAssertNil(ExecutablePreflight.inspectSlices(fat([clean], sizes: [UInt32.max])))
     }
 
+    func testAllFATFormatsAndByteOrdersReturnEveryExactImageRange() throws {
+        let image = try SigningRegressionFixture.machO(entitlements: ["flag": false])
+        for wide in [false, true] { for big in [false, true] {
+            let data = SigningRegressionFixture.fat([image, image], wide: wide, big: big)
+            let images = try XCTUnwrap(ExecutablePreflight.inspectImages(data))
+            XCTAssertEqual(images.count, 2)
+            for slice in images {
+                XCTAssertEqual(Data(data[slice.range]), image)
+                XCTAssertEqual(slice.evidence.cpuType, 0x0100000c)
+                XCTAssertEqual(slice.evidence.platform, 2)
+                XCTAssertEqual(slice.evidence.fileType, 2)
+            }
+        } }
+    }
+
+    func testFATCPUAndSubtypeMustMatchEachImageAndReservedWordsMustBeZero() throws {
+        let image = try SigningRegressionFixture.machO()
+        for wide in [false, true] { for big in [false, true] {
+            let valid = SigningRegressionFixture.fat([image], wide: wide, big: big)
+            for (offset, value) in [(8, UInt32(12)), (12, 2), (wide ? 32 : 24, 31), (4, UInt32.max)] {
+                var bytes = valid
+                bytes.replaceSubrange(offset..<offset + 4, with: SigningRegressionFixture.u32(value, big: big))
+                XCTAssertNil(ExecutablePreflight.inspectImages(bytes), "Invalid FAT metadata at \(offset)")
+            }
+            if wide {
+                var bytes = valid
+                bytes.replaceSubrange(36..<40, with: SigningRegressionFixture.u32(1, big: big))
+                XCTAssertNil(ExecutablePreflight.inspectImages(bytes))
+            }
+        } }
+    }
+
     func testBuildVersionToolCountCannotExceedCommand() {
         XCTAssertNil(ExecutablePreflight.inspect(binary(commands: [0x32, 24, 2, 0, 0, 1], count: 1)))
     }

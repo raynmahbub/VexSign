@@ -96,6 +96,7 @@ extension Storage {
         StorageConcurrency.requireMainQueue()
         guard cert.managedObjectContext === context, !cert.isDeleted, !cert.objectID.isTemporaryID,
               let uuid = cert.uuid, UUID(uuidString: uuid) != nil else { return false }
+        guard !AppOperationRegistry.shared.isBusy(SigningIdentityStore.leaseKey(reference: cert.objectID.uriRepresentation().absoluteString)) else { return false }
         let id = cert.objectID
         let directory = getUuidDirectory(for: cert)
         let linkedIDs = ((cert.signedApps as? Set<Signed>) ?? []).map(\.objectID)

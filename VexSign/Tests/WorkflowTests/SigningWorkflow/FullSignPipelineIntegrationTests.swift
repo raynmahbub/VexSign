@@ -2,7 +2,7 @@
 //  FullSignPipelineIntegrationTests.swift
 //  VexSignTests
 //
-//  Integration test for the complete sign pipeline: import → sign → install → verify
+//  Deterministic admission/ownership integration. No Apple credentials or device installation.
 //
 
 import Foundation
@@ -11,91 +11,56 @@ import XCTest
 
 @MainActor
 final class FullSignPipelineIntegrationTests: XCTestCase {
-    /// Tests the complete pipeline from IPA import through signing to installation verification.
-    /// This is a structural test that verifies the wiring between components without requiring
-    /// actual device installation.
-    func testFullSignPipelineWiring() async throws {
-        // 1. Verify AppFileHandler can process an IPA
+    /// Exercise real import and the real pipeline's mandatory refusal without
+    /// consulting ambient credentials, silently returning, swallowing a signing
+    /// error, or enqueuing installation on the machine running the tests.
+    func testImportAndMissingIdentityRefusalPreserveTheSourceWithoutInstalling() async throws {
         let testIPA = try createTestIPA()
-        defer { try? FileManager.default.removeItem(at: testIPA) }
-
-        let importExpectation = XCTestExpectation(description: "IPA import completes")
-        var importedApp: AppInfoPresentable?
-
+        defer { try? FileManager.default.removeItem(at: testIPA.deletingLastPathComponent()) } // try? ok: synthetic archive cleanup
+        let completed = expectation(description: "Synthetic IPA import completes")
+        var imported: AppInfoPresentable?
         PackageImportService.importPackage(testIPA) { result in
             switch result {
-            case .success(let app):
-                importedApp = app
-                importExpectation.fulfill()
-            case .failure(let error):
-                XCTFail("Import failed: \(error)")
-                importExpectation.fulfill()
+            case .success(let app): imported = app
+            case .failure(let error): XCTFail("Synthetic import failed: \(error)")
             }
+            completed.fulfill()
         }
+        await fulfillment(of: [completed], timeout: 30)
+        let app = try XCTUnwrap(imported)
+        defer { XCTAssertTrue(Storage.shared.deleteApp(for: app), "Only the test-created library artifact may be removed.") }
+        let snapshot = try CoreDataWorkspaceRepository(storage: Storage.shared).appRecord(app)
+        let bundle = try XCTUnwrap(snapshot.bundleURL)
+        let original = try SigningResolutionSession.sourceFingerprint(in: bundle)
+        var options = Options.defaultOptions
+        options.automaticallyResolveSigningIdentity = false
+        options.post_installAppAfterSigned = false
+        let review = try SigningResolutionSession.review(bundle: bundle, options: options,
+            inventory: [], preferredIdentity: nil, deviceUDID: nil)
+        XCTAssertFalse(review.isReady)
+        XCTAssertNil(review.authorization)
+        XCTAssertTrue(review.components.contains { $0.status == .invalid })
+        XCTAssertTrue(review.components.flatMap(\.issues).contains { $0.contains("Import") })
 
-        await fulfillment(of: [importExpectation], timeout: 30)
-        guard let app = importedApp else {
-            XCTFail("No app imported")
-            return
+        let outcome = await SigningPipeline().run(SigningRequest(app: snapshot, options: options, icon: nil, certificate: nil)) { _ in
+            XCTFail("A missing identity must refuse before reporting an execution stage.")
         }
-
-        // 2. Verify signing can be initiated (requires certificate)
-        let certificates = Storage.shared.getAllCertificates()
-        guard let cert = certificates.first(where: { !$0.revoked && ($0.expiration ?? .distantFuture) > Date() }) else {
-            // No valid certificate - this is expected in test environment
-            // The test verifies the pipeline wiring, not actual signing
-            return
+        switch outcome {
+        case .success: XCTFail("A synthetic import without an identity must never produce a signed artifact.")
+        case .failure(let error): XCTAssertEqual(error as? SigningIdentityPolicy.Rejection, .missingCertificate)
         }
-
-        let signExpectation = XCTestExpectation(description: "Signing completes")
-        var signedApp: Signed?
-
-        PackageSigningCoordinator.signPackage(
-            app,
-            using: OptionsManager.shared.options,
-            icon: nil,
-            certificate: cert,
-            requestID: "test-pipeline-\(UUID().uuidString)"
-        ) { result in
-            switch result {
-            case .success(let signed):
-                signedApp = signed
-                signExpectation.fulfill()
-            case .failure:
-                // Signing may fail for various reasons in test environment
-                // The important thing is the pipeline was invoked
-                signExpectation.fulfill()
-            }
-        }
-
-        await fulfillment(of: [signExpectation], timeout: 60)
-
-        // 3. Verify InstallQueue can enqueue the app
-        if let signed = signedApp {
-            let queueExpectation = XCTestExpectation(description: "InstallQueue enqueues app")
-            
-            InstallQueue.shared.enqueue(signed)
-            
-            // Give the queue a moment to process
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            
-            XCTAssertNotNil(InstallQueue.shared.current)
-            queueExpectation.fulfill()
-            
-            await fulfillment(of: [queueExpectation], timeout: 5)
-            
-            // Clean up
-            InstallQueue.shared.clear()
-        }
+        XCTAssertEqual(original, try SigningResolutionSession.sourceFingerprint(in: bundle))
+        XCTAssertEqual(snapshot.identifier, "com.vexsign.test.pipeline")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: testIPA.path))
     }
 
     /// Tests that UnifiedTaskCenter correctly tracks the pipeline stages
     func testUnifiedTaskCenterPipelineTracking() async throws {
         let center = UnifiedTaskCenter.shared
-        center.clearHistory()
+        let subject = "model-only-pipeline-" + UUID().uuidString
         
         // Start a download task
-        let downloadTask = center.begin(kind: .download, title: "TestApp.ipa", phase: .downloading, subjectID: "test-download")
+        let downloadTask = center.begin(kind: .download, title: "TestApp.ipa", phase: .downloading, subjectID: subject + "-download")
         XCTAssertEqual(downloadTask.phase, .downloading)
         
         // Transition through pipeline
@@ -106,7 +71,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         XCTAssertEqual(downloadTask.phase, .completed)
         
         // Start a sign task
-        let signTask = center.begin(kind: .sign, title: "TestApp", subtitle: "Signing", phase: .signing, subjectID: "test-app-uuid")
+        let signTask = center.begin(kind: .sign, title: "TestApp", subtitle: "Signing", phase: .signing, subjectID: subject)
         XCTAssertEqual(signTask.phase, .signing)
         
         center.transition(signTask, to: .signed, progress: 1)
@@ -114,7 +79,7 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         XCTAssertEqual(signTask.phase, .completed)
         
         // Start an install task
-        let installTask = center.begin(kind: .install, title: "TestApp", subtitle: "Installing", phase: .preparingInstallation, subjectID: "test-app-uuid")
+        let installTask = center.begin(kind: .install, title: "TestApp", subtitle: "Installing", phase: .preparingInstallation, subjectID: subject)
         XCTAssertEqual(installTask.phase, .preparingInstallation)
         
         center.transition(installTask, to: .waitingForIOS)
@@ -125,7 +90,9 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         
         // Verify history contains all stages
         let history = center.history
-        XCTAssertGreaterThanOrEqual(history.count, 3)
+        for task in [downloadTask, signTask, installTask] {
+            XCTAssertTrue(history.contains { $0.id == task.id })
+        }
     }
 
     /// Tests AppOperationRegistry correctly manages ownership across pipeline stages
@@ -164,48 +131,26 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         XCTAssertNotNil(registry.acquireCleanup())
     }
 
-    /// Creates a minimal test IPA for pipeline testing
+    /// Non-runnable generated Mach-O data, not a dummy text executable or an
+    /// Apple-signed fixture. Import inspection must not claim authenticated signing.
     private func createTestIPA() throws -> URL {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("TestPipeline-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        
-        let payloadDir = tempDir.appendingPathComponent("Payload")
-        let appDir = payloadDir.appendingPathComponent("TestApp.app")
-        try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
-        
-        // Minimal Info.plist
-        let infoPlist = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>CFBundleIdentifier</key>
-            <string>com.vexsign.test.pipeline</string>
-            <key>CFBundleName</key>
-            <string>TestApp</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>CFBundleExecutable</key>
-            <string>TestApp</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>MinimumOSVersion</key>
-            <string>16.0</string>
-            <key>LSRequiresIPhoneOS</key>
-            <true/>
-        </dict>
-        </plist>
-        """
-        try infoPlist.write(to: appDir.appendingPathComponent("Info.plist"), atomically: true, encoding: .utf8)
-        
-        // Create a dummy executable
-        try "dummy".write(to: appDir.appendingPathComponent("TestApp"), atomically: true, encoding: .utf8)
-        
-        let ipaURL = tempDir.appendingPathComponent("TestApp.ipa")
-        try AppArchiver.zip(payload: payloadDir, to: ipaURL, compression: .defaultCompression) { _ in }
-        
-        return ipaURL
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("TestPipeline-" + UUID().uuidString)
+        let payload = directory.appendingPathComponent("Payload")
+        let bundle = payload.appendingPathComponent("TestApp.app")
+        do {
+            try SigningRegressionFixture.bundle(at: bundle, identifier: "com.vexsign.test.pipeline")
+            var info = try XCTUnwrap(SignatureVerifier.readInfo(at: bundle))
+            info["CFBundleName"] = "Synthetic pipeline fixture"
+            info["CFBundleVersion"] = "1"
+            info["CFBundleShortVersionString"] = "1.0"
+            try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+                .write(to: bundle.appendingPathComponent("Info.plist"))
+            let ipa = directory.appendingPathComponent("TestApp.ipa")
+            try AppArchiver.zip(payload: payload, to: ipa, compression: .defaultCompression) { _ in }
+            return ipa
+        } catch {
+            try? FileManager.default.removeItem(at: directory) // try? ok: retain the original fixture-creation failure
+            throw error
+        }
     }
 }

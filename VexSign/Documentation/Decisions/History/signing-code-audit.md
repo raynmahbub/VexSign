@@ -1,5 +1,12 @@
 # Signing code-side audit and device handoff
 
+> Historical snapshot. Current imported-identity/component validation, mandatory
+> checks, fresh cryptographic verification and compact library deletion are
+> described in the [signing/library follow-up](../../Architecture/signing-library-reliability.md).
+> Older selection, override and structural-verifier statements below are not the
+> current policy or acceptance evidence. Apple/device validation of the follow-up
+> remains pending.
+
 Updated 2026-11-08. This records source inspection and portable checks, **not** a
 successful Xcode build, native-engine execution or device installation.
 

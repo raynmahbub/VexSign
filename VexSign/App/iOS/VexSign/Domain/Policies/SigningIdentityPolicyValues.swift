@@ -12,8 +12,9 @@ enum SigningIdentityPolicy {
 	}
 
     static func rejection(for certificate: CertificateRecord, now: Date = Date()) -> Rejection? {
-        if certificate.revoked { return .certificateRevoked }
-        return rejection(certificateExpiry: certificate.expiration, now: now)
+        // The management row carries its primary profile's expiry, not the
+        // actual leaf's. A row alone cannot establish certificate validity.
+        return certificate.revoked ? .certificateRevoked : nil
     }
 
 	/// The signing certificate's own end date, when a status check has read it.

@@ -22,6 +22,16 @@ private enum SigningSheet: String, Identifiable {
 	var id: String { rawValue }
 }
 
+/// Any option, selected identity or inventory change invalidates the visible approval
+/// immediately, even before SwiftUI starts the replacement asynchronous inspection.
+private struct SigningReadinessInput: Equatable {
+    let options: Options
+    let certificate: CertificateRecord?
+    let inventory: [CertificateRecord]
+    let refresh: UUID
+    let prepared: Bool
+}
+
 // MARK: - View
 struct SigningView: View {
     @EnvironmentObject var services: AppContainer
@@ -41,8 +51,12 @@ struct SigningView: View {
     @State private var _signatureVerified = false
     @State private var _signingError: String?
     @State private var _compatibilityRemovedComponents: [String] = []
-	@State private var _preflightResult: PreflightResult?
+    @State private var _readiness = SigningReadiness.checking(requiresIdentity: true)
+    @State private var _readinessInput: SigningReadinessInput?
+    @State private var _readinessRefresh = UUID()
+    @Environment(\.scenePhase) private var _scenePhase
 	@State private var _presentedSheet: SigningSheet?
+    @State private var _reviewedAuthorization: SigningResolutionAuthorization?
 	@State private var _signAfterReview = false
     /// Set when the user leaves the preflight sheet through "Sign Anyway".
     @State private var _signOverridingBlockingIssues = false
@@ -64,20 +78,7 @@ struct SigningView: View {
 		return certificates[_temporaryCertificate]
 	}
 
-	private func _provisioningIdentifier() -> String? {
-		guard
-			let cert = _selectedCert(),
-			let decoded = cert.profile,
-			let appId = decoded.Entitlements?["application-identifier"]?.value as? String
-		else {
-			return nil
-		}
 
-		let bundleId = appId.drop { $0 != "." }.dropFirst()
-		guard !bundleId.isEmpty, !bundleId.contains("*") else { return nil }
-		return String(bundleId)
-	}
-	
 	var app: AppInfoPresentable
 	
 	init(app: AppInfoPresentable, installAfterSigning: Bool = false) {
@@ -116,34 +117,51 @@ struct SigningView: View {
 		return SigningWorkflowSnapshot(trace: trace)
 	}
 
-	/// The ten-step checklist: the two checks this screen makes, plus the run.
-	private var _checklistEvidence: SigningChecklistEvidence {
-		let identity: SigningChecklistEvidence.Check
-		if _temporaryOptions.signingOption != .default {
-			identity = .notNeeded
-		} else if let certificate = _selectedCert() {
-			if let rejection = SigningIdentityPolicy.rejection(for: certificate) {
-				identity = .failed(rejection.message)
-			} else {
-				identity = .passed
-			}
-		} else {
-			identity = .failed(SigningIdentityPolicy.Rejection.missingCertificate.message)
-		}
+    private var _inspectionInput: SigningReadinessInput {
+        .init(options: _temporaryOptions, certificate: _selectedCert(), inventory: certificates,
+              refresh: _readinessRefresh, prepared: _prepared)
+    }
 
-		let preflight: SigningChecklistEvidence.Check
-		if let result = _preflightResult {
-			if let blocking = result.issues.first(where: { $0.severity == .blocking }) {
-				preflight = .failed(blocking.title)
-			} else {
-				preflight = result.isEmpty ? .passed : .passedWithWarnings(result.issues.count)
-			}
-		} else {
-			preflight = .notRun
-		}
+    private var _currentReadiness: SigningReadiness {
+        guard _isSigning || _readinessInput == _inspectionInput else {
+            return .checking(requiresIdentity: _temporaryOptions.signingOption == .default)
+        }
+        return _readiness
+    }
 
-		return SigningChecklistEvidence(identity: identity, preflight: preflight, run: _workflowSnapshot)
-	}
+    /// Show the actual app/profile requirement, not only a generic failure title.
+    private var _readinessDetail: String? {
+        let readiness = _currentReadiness
+        if let failure = readiness.auditFailure { return failure }
+        if let issue = readiness.preflight.issues.first(where: \.isMandatory) {
+            return [issue.detail, issue.remediation].compactMap { $0 }.joined(separator: "\n")
+        }
+        if let finding = readiness.evidence?.report.blocking.first { return finding.detail }
+        if let component = readiness.resolution?.components.first(where: { $0.status != .valid }) {
+            return ([component.bundleIdentifier] + component.issues).joined(separator: "\n")
+        }
+        return nil
+    }
+
+    /// Identity and setup rows consume the same completed inspection as the action
+    /// panel and review sheet. A selected row alone can no longer pass the first row.
+    private var _checklistEvidence: SigningChecklistEvidence {
+        let readiness = _currentReadiness
+        let identity: SigningChecklistEvidence.Check
+        if !readiness.requiresIdentity { identity = .notNeeded }
+        else if readiness.isChecking || readiness.resolution == nil { identity = .notRun }
+        else if readiness.identitiesValidated { identity = .passed }
+        else { identity = .failed(_readinessDetail ?? .localized("Compatible identities and profiles are required for every retained component.")) }
+
+        let preflight: SigningChecklistEvidence.Check
+        switch readiness.state {
+        case .checking: preflight = .notRun
+        case .blocked: preflight = .failed(_readinessDetail ?? .localized("Signing inspection did not establish compatibility. Review the component requirements."))
+        case .ready: preflight = .passed
+        case .warning: preflight = .passedWithWarnings(readiness.warningCount)
+        }
+        return SigningChecklistEvidence(identity: identity, preflight: preflight, run: _workflowSnapshot)
+    }
 
 	// MARK: Body
     var body: some View {
@@ -151,6 +169,18 @@ struct SigningView: View {
 			ScrollViewReader { proxy in
                 Form {
                     Section {
+                        Label(_currentReadiness.state.title, systemImage: _currentReadiness.state.symbol)
+                            .foregroundStyle(_currentReadiness.state.color)
+                            .accessibilityIdentifier("signing.readiness.state")
+                        if let detail = _readinessDetail, _currentReadiness.state == .blocked {
+                            Text(LogRedaction.redact(detail)).font(.footnote).textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text(.localized("Original Bundle Identifiers are preserved. Import compatible profiles and their matching identities; changing an identifier is not a provisioning fix."))
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button(.localized("Check Again")) { _readinessRefresh = UUID() }
+                            .disabled(_currentReadiness.isChecking)
+                            .accessibilityIdentifier("signing.readiness.refresh")
                         SigningChecklistView(evidence: _checklistEvidence)
                     }
                     if let error = _signingError {
@@ -166,8 +196,7 @@ struct SigningView: View {
 					SigningCustomizationView(
 						app: app,
 						options: $_temporaryOptions,
-						appIcon: $appIcon,
-						identifierSuggestion: _provisioningIdentifier()
+						appIcon: $appIcon
 					)
 					_cert()
 					SigningAdvancedView(
@@ -245,8 +274,10 @@ struct SigningView: View {
                 if _signAfterReview {
                     _signAfterReview = false
                     let current = services.signing.preflight(app: app, options: _temporaryOptions, certificate: _selectedCert())
-                    guard _reviewedSetup?.matches(options: _temporaryOptions,
-                        certificateUUID: _selectedCert()?.uuid, issues: current.issues) == true else {
+                    guard _currentReadiness.canApprove,
+                          _reviewedAuthorization == _currentReadiness.resolution?.authorization,
+                          _reviewedSetup?.matches(options: _temporaryOptions,
+                            certificateUUID: _selectedCert()?.uuid, issues: current.issues) == true else {
                         Toast.info(.localized("Signing setup changed. Review it again before starting."))
                         return
                     }
@@ -257,28 +288,16 @@ struct SigningView: View {
                     Group {
                         switch sheet {
                         case .preflight:
-                            Group {
-                                if let result = _preflightResult {
-                                    SigningPreflightReviewView(
-                                        app: app, options: _temporaryOptions, certificate: _selectedCert(), result: result,
-                                        reviewOptions: { _presentedSheet = nil },
-                                        sign: { overridingBlockingIssues in
-                                            _signAfterReview = true
-                                            _signOverridingBlockingIssues = overridingBlockingIssues
-                                            _presentedSheet = nil
-                                        }
-                                    )
-                                } else {
-                                    VStack(spacing: 16) {
-                                        ProgressView()
-                                        Text(.localized("Preparing signing review…"))
-                                        Button(.localized("Close")) { _presentedSheet = nil }
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .navigationTitle(.localized("Ready to Sign"))
-                                    .navigationBarTitleDisplayMode(.inline)
+                            SigningPreflightReviewView(
+                                app: app, options: $_temporaryOptions, certificate: _selectedCert(),
+                                readiness: _currentReadiness,
+                                reviewOptions: { _presentedSheet = nil },
+                                refresh: { _readinessRefresh = UUID() },
+                                sign: { overridingBlockingIssues, authorization in
+                                    _approveReview(overridingBlockingIssues: overridingBlockingIssues,
+                                                   authorization: authorization)
                                 }
-                            }
+                            )
                             .presentationDetents([.large])
                             .presentationDragIndicator(.visible)
                         case .logs:
@@ -297,6 +316,12 @@ struct SigningView: View {
                 let base = LibraryAppWorkflowAction.signingOptions(from: services.signingPreferences.options, installAfterSigning: installAfterSigning)
                 _temporaryOptions = services.signing.resolve(base, for: app)
             }
+        .task(id: _inspectionInput) { [input = _inspectionInput] in
+            await _inspectReadiness(input)
+        }
+        .onChange(of: _scenePhase) { _, phase in
+            if phase == .active, !_isSigning { _readinessRefresh = UUID() }
+        }
         .interactiveDismissDisabled(_isSigning)
         .onDisappear { UIApplication.shared.endEditing() }
     }
@@ -318,6 +343,10 @@ extension SigningView {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
+            }
+            if !_isSigning {
+                Label(_currentReadiness.state.title, systemImage: _currentReadiness.state.symbol)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(_currentReadiness.state.color)
             }
             if _signingError != nil {
                 Label(.localized("Signing failed. Review the details above or open logs."), systemImage: "exclamationmark.triangle")
@@ -349,7 +378,17 @@ extension SigningView {
                     .font(.headline).frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
+            .disabled(!_currentReadiness.canApprove)
+            .accessibilityHint(Text(.localized("Requires a completed compatible component review. Signing never bypasses provisioning requirements.")))
             .accessibilityIdentifier(A11y.Signing.start)
+            if !_currentReadiness.canApprove {
+                Button { _start() } label: {
+                    Label(.localized("Review Signing Issues"), systemImage: "checklist")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("signing.reviewIssues")
+            }
         }
         if _isSigning || _signingError != nil || _wasCancelled {
             Button { _presentedSheet = .logs } label: {
@@ -363,6 +402,12 @@ extension SigningView {
 	@ViewBuilder
 	private func _cert() -> some View {
 		NBSection(.localized("Signing")) {
+            Toggle("Automatically find compatible identities", isOn: Binding(
+                get: { _temporaryOptions.automaticallyResolveSigningIdentity != false },
+                set: { _temporaryOptions.automaticallyResolveSigningIdentity = $0 }
+            ))
+            Text("Automatic resolution checks every imported profile. The selected identity is a preference, not an authorization. Turn Automatic off to require that identity. Original Bundle Identifiers are preserved.")
+                .font(.caption).foregroundStyle(.secondary)
 			if let cert = _selectedCert() {
 				NavigationLink {
 					CertificatesView(selectedCert: $_temporaryCertificate, target: _compatibilityTarget)
@@ -385,32 +430,53 @@ extension SigningView {
 
 // MARK: - Extension: View (import)
 extension SigningView {
-	private func _start() {
-		guard
-			_selectedCert() != nil || _temporaryOptions.signingOption != .default
-		else {
-			UIAlertController.showAlertWithOk(
-				title: .localized("No Certificate"),
-				message: .localized("Please go to settings and import a valid certificate"),
-				isCancel: true
-			)
-			return
-		}
-
-		NBHaptic.tap()
-
-		// Preflight: catch bundle id, plist, dylib and certificate problems before the long sign.
-		let preflight = services.signing.preflight(
-			app: app,
-			options: _temporaryOptions,
-			certificate: _selectedCert()
-		)
+    private func _start() {
+        NBHaptic.tap()
+        _signAfterReview = false
         _signOverridingBlockingIssues = false
-        _preflightResult = preflight
+        _reviewedAuthorization = nil
+        _reviewedSetup = nil
+        _presentedSheet = .preflight
+    }
+
+    private func _approveReview(overridingBlockingIssues: Bool, authorization: SigningResolutionAuthorization?) {
+        let readiness = _currentReadiness
+        guard readiness.canApprove, authorization == readiness.resolution?.authorization else {
+            Toast.info(.localized("Signing setup changed. Review it again before starting."))
+            _readinessRefresh = UUID()
+            return
+        }
         _reviewedSetup = SigningPreflightSnapshot(options: _temporaryOptions,
-            certificateUUID: _selectedCert()?.uuid, issues: preflight.issues)
-		_presentedSheet = .preflight
-	}
+            certificateUUID: _selectedCert()?.uuid, issues: readiness.preflight.issues)
+        _reviewedAuthorization = authorization
+        _signAfterReview = true
+        _signOverridingBlockingIssues = overridingBlockingIssues
+        _presentedSheet = nil
+    }
+
+    /// Cancellation and the input-key comparison prevent late results from an old
+    /// identity/options inspection re-enabling approval for the current setup.
+    @MainActor
+    private func _inspectReadiness(_ input: SigningReadinessInput) async {
+        guard input.prepared, !_isSigning else { return }
+        _readinessInput = input
+        _readiness = .checking(requiresIdentity: input.options.signingOption == .default)
+        do { try await Task.sleep(for: .milliseconds(250)) }
+        catch { return }
+        guard !Task.isCancelled, input == _inspectionInput else { return }
+        let preflight = services.signing.preflight(app: app, options: input.options, certificate: input.certificate)
+        do {
+            let evidence = try await services.signing.inspect(app: app, options: input.options, certificate: input.certificate)
+            try Task.checkCancellation()
+            guard input == _inspectionInput, !_isSigning else { return }
+            _readiness = .init(requiresIdentity: input.options.signingOption == .default,
+                preflight: preflight, evidence: evidence, auditFailure: nil)
+        } catch {
+            guard !Task.isCancelled, input == _inspectionInput, !_isSigning else { return }
+            _readiness = .init(requiresIdentity: input.options.signingOption == .default,
+                preflight: preflight, evidence: nil, auditFailure: LogRedaction.redact(error.localizedDescription))
+        }
+    }
 
 	/// Stops the run in flight. The pipeline notices between stages (and inside the long bundle
 	/// walk), removes everything it copied, and reports back as cancelled — so the sheet stays
@@ -452,6 +518,7 @@ extension SigningView {
 			certificate: runCertificate,
 			overridesBlockingPreflightIssues: overridingBlockingIssues,
             requestID: requestID,
+            reviewedAuthorization: _reviewedAuthorization,
             onStage: { stage in
                 let previousStep = _currentStage.map { SigningWorkspaceStep(stage: $0) }
                 _currentStage = stage
@@ -476,6 +543,7 @@ extension SigningView {
 			case .failure(let error):
 				// Keep the sheet open so the user can fix and retry.
 				_isSigning = false
+                _readinessRefresh = UUID()
 
 				if error is CancellationError {
 					// Stopping on purpose is not a failure, and the run has already cleaned up

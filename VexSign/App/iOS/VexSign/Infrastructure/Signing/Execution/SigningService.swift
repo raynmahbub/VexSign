@@ -28,7 +28,7 @@ final class SigningService {
 	/// Every entry point — the signing sheet, batch, Update All, Shortcuts, self-update —
 	/// asks this, so none of them can disagree about whether a run is possible, or why it is
 	/// not. Enforcement stays where it was: the identity rule lives in the pipeline, and the
-	/// sheet's "Sign Anyway" still covers profile and entitlement compatibility.
+    /// sheet's "Sign Anyway" never excuses mandatory profile or entitlement failures.
 	func capability(for request: SigningRequest) -> SigningCapability {
 		SigningCapabilityResolver.report(
 			app: request.app,

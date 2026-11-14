@@ -8,6 +8,9 @@ extension BundleExecutableAudit.Finding {
             case .malformed: return .localized("Mach-O slice bounds or load commands are invalid or unsupported: %@", arguments: path)
             case .encrypted: return .localized("An executable slice declares encryption. Re-signing does not decrypt it: %@", arguments: path)
             case .unsupportedDeviceBinary: return .localized("An iOS bundle has no arm64 iOS-device executable slice: %@", arguments: path)
+            case .discoveryIncomplete: return .localized("The signing manifest could not be completely established: %@", arguments: path)
+            case .unexpectedFileType: return .localized("The Mach-O file type does not match this component's signing role: %@", arguments: path)
+            case .unsupportedCompanionBinary: return .localized("A Watch component has no supported Watch-device executable slice: %@", arguments: path)
             case .unknownPlatform: return .localized("The executable platform could not be established: %@", arguments: path)
             }
         }

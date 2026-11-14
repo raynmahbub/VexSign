@@ -5,6 +5,10 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <limits>
+#include <cmath>
+#include <sstream>
+#include <locale>
+#include <algorithm>
 using namespace std;
 
 #ifdef _WIN32
@@ -421,7 +425,7 @@ string jvalue::as_string() const
 #ifdef _WIN32
 		::snprintf(buf, 256, "%lld", m_value.v_date);
 #else
-		::snprintf(buf, 256, "%ld", m_value.v_date);	
+		::snprintf(buf, 256, "%ld", m_value.v_date);
 #endif
 		return buf;
 	}
@@ -992,6 +996,7 @@ bool jvalue::read_plist(const char* pdoc, size_t len /*= 0*/, string* pstrerr /*
 	jpreader reader;
 	bool bret = reader.parse(pdoc, len, *this, is_binary);
 	if (!bret) {
+        clear(); // A caller ignoring failure must not consume a partial tree.
 		if (NULL != pstrerr) {
 			reader.error(*pstrerr);
 		}
@@ -2059,6 +2064,86 @@ string jwriter::vstring2html(const char* pstr)
 
 }
 
+namespace {
+bool plistSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
+
+bool xmlScalar(uint32_t value) {
+    return value == 9 || value == 10 || value == 13 || (value >= 0x20 && value <= 0xd7ff) ||
+        (value >= 0xe000 && value <= 0xfffd) || (value >= 0x10000 && value <= 0x10ffff);
+}
+
+bool appendXMLScalar(string& output, uint32_t value) {
+    if (!xmlScalar(value)) return false;
+    if (value < 0x80) output.push_back(static_cast<char>(value));
+    else if (value < 0x800) {
+        output.push_back(static_cast<char>(0xc0 | (value >> 6)));
+        output.push_back(static_cast<char>(0x80 | (value & 0x3f)));
+    } else if (value < 0x10000) {
+        output.push_back(static_cast<char>(0xe0 | (value >> 12)));
+        output.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3f)));
+        output.push_back(static_cast<char>(0x80 | (value & 0x3f)));
+    } else {
+        output.push_back(static_cast<char>(0xf0 | (value >> 18)));
+        output.push_back(static_cast<char>(0x80 | ((value >> 12) & 0x3f)));
+        output.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3f)));
+        output.push_back(static_cast<char>(0x80 | (value & 0x3f)));
+    }
+    return true;
+}
+
+bool validXMLUTF8(const char* bytes, size_t length) {
+    for (size_t index = 0; index < length;) {
+        const uint8_t first = static_cast<uint8_t>(bytes[index++]);
+        uint32_t scalar = first;
+        size_t following = 0;
+        uint32_t minimum = 0;
+        if (first < 0x80) {}
+        else if (first >= 0xc2 && first <= 0xdf) { following = 1; scalar &= 0x1f; minimum = 0x80; }
+        else if (first >= 0xe0 && first <= 0xef) { following = 2; scalar &= 0x0f; minimum = 0x800; }
+        else if (first >= 0xf0 && first <= 0xf4) { following = 3; scalar &= 7; minimum = 0x10000; }
+        else return false;
+        if (following > length - index) return false;
+        for (size_t count = 0; count < following; ++count) {
+            const uint8_t next = static_cast<uint8_t>(bytes[index++]);
+            if ((next & 0xc0) != 0x80) return false;
+            scalar = (scalar << 6) | (next & 0x3f);
+        }
+        if (scalar < minimum || !xmlScalar(scalar)) return false;
+    }
+    return true;
+}
+
+bool plistUTCDate(const string& text, time_t& result) {
+    // XML plist dates are UTC. mktime normalizes invalid calendars and applies
+    // the host timezone, so it must never admit signing-profile dates here.
+    if (text.size() != 20 || text[4] != '-' || text[7] != '-' || text[10] != 'T' ||
+        text[13] != ':' || text[16] != ':' || text[19] != 'Z') return false;
+    auto number = [&](size_t offset, size_t count) -> int {
+        int value = 0;
+        for (size_t index = offset; index < offset + count; ++index) {
+            if (text[index] < '0' || text[index] > '9') return -1;
+            value = value * 10 + text[index] - '0';
+        }
+        return value;
+    };
+    const int year = number(0, 4), month = number(5, 2), day = number(8, 2);
+    const int hour = number(11, 2), minute = number(14, 2), second = number(17, 2);
+    const bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    static const int monthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > monthDays[month - 1] + (month == 2 && leap) ||
+        hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return false;
+    const int64_t priorYear = year - 1;
+    int64_t days = 365 * priorYear + priorYear / 4 - priorYear / 100 + priorYear / 400 - 719162;
+    for (int current = 1; current < month; ++current) days += monthDays[current - 1] + (current == 2 && leap);
+    days += day - 1;
+    const int64_t seconds = days * 86400 + hour * 3600 + minute * 60 + second;
+    if (static_cast<long double>(seconds) < static_cast<long double>(numeric_limits<time_t>::lowest()) ||
+        static_cast<long double>(seconds) > static_cast<long double>(numeric_limits<time_t>::max())) return false;
+    result = static_cast<time_t>(seconds);
+    return true;
+}
+} // namespace
+
 //////////////////////////////////////////////////////////////////////////
 jpreader::jpreader()
 {
@@ -2079,38 +2164,45 @@ jpreader::jpreader()
 
 bool jpreader::parse(const char* pdoc, size_t len, jvalue& root, bool* is_binary)
 {
-	root.clear();
-	if (NULL == pdoc) {
-		return false;
-	}
-
-	if (len < 30) {
-		return false;
-	}
-
-	if (0 == ::memcmp(pdoc, "bplist00", 8)) {
-		if (NULL != is_binary) {
-			*is_binary = true;
-		}
-		return parse_binary(pdoc, len, root);
-	} else {
-		if (NULL != is_binary) {
-			*is_binary = false;
-		}
-		m_pbegin = pdoc;
-		m_pend = m_pbegin + len;
-		m_pcursor = m_pbegin;
-		m_perror = m_pbegin;
-		m_strerr = "null";
-
-		ptoken token;
-		_read_token(token);
-		return _read_value(root, token);
-	}
+    root.clear();
+    struct ClearOnFailure {
+        jvalue& value; bool succeeded = false;
+        ~ClearOnFailure() { if (!succeeded) value.clear(); }
+    } output{root};
+    m_pbegin = m_pend = m_pcursor = m_perror = NULL;
+    m_strerr = "Invalid or unsupported plist";
+    if (is_binary) *is_binary = false;
+    if (!pdoc || len == 0 || len > 64 * 1024 * 1024) return false;
+    m_depth = 0; m_remaining = 200000; m_has_plist = false;
+    if (len >= 8 && memcmp(pdoc, "bplist00", 8) == 0) {
+        if (is_binary) *is_binary = true;
+        output.succeeded = parse_binary(pdoc, len, root);
+        return output.succeeded;
+    }
+    m_pbegin = pdoc; m_pend = pdoc + len; m_pcursor = m_perror = pdoc;
+    if (!validXMLUTF8(pdoc, len)) return false;
+    if (len >= 3 && memcmp(pdoc, "\xef\xbb\xbf", 3) == 0) m_pcursor += 3;
+    ptoken token;
+    if (!_read_token(token) || !_read_value(root, token)) return false;
+    if (m_has_plist) {
+        ptoken end;
+        if (!_read_token(end) || end.type != ptoken::E_PTOKEN_END) return false;
+    }
+    _skip_spaces();
+    while (m_pcursor != m_pend) {
+        string label;
+        if (!_read_label(label) || (label != "<!comment>" && label != "<?instruction>")) return false;
+        _skip_spaces();
+    }
+    output.succeeded = true;
+    return output.succeeded;
 }
 
 bool jpreader::_read_value(jvalue& pval, ptoken& token)
 {
+    if (m_depth >= 64 || m_remaining == 0) return false;
+    ++m_depth; --m_remaining;
+    struct Depth { size_t& value; ~Depth() { --value; } } depth{m_depth};
 	switch (token.type) {
 	case ptoken::E_PTOKEN_TRUE:
 		pval = true;
@@ -2133,15 +2225,10 @@ bool jpreader::_read_value(jvalue& pval, ptoken& token)
 	case ptoken::E_PTOKEN_DATA_NULL:
 		pval = jvalue(jvalue::E_DATA);
 		break;
-	case ptoken::E_PTOKEN_DATE_NULL:
-		pval = jvalue(jvalue::E_DATE);
-		break;
-	case ptoken::E_PTOKEN_INTEGER_NULL:
-		pval = jvalue(jvalue::E_INT);
-		break;
-	case ptoken::E_PTOKEN_REAL_NULL:
-		pval = jvalue(jvalue::E_FLOAT);
-		break;
+    case ptoken::E_PTOKEN_DATE_NULL:
+    case ptoken::E_PTOKEN_INTEGER_NULL:
+    case ptoken::E_PTOKEN_REAL_NULL:
+        return false;
 	case ptoken::E_PTOKEN_NUMBER:
 		return _decode_number(token, pval);
 		break;
@@ -2154,26 +2241,31 @@ bool jpreader::_read_value(jvalue& pval, ptoken& token)
 	case ptoken::E_PTOKEN_DATE:
 	{
 		string strval;
-		_decode_string(token, strval);
-
-		tm ft = { 0 };
-		::sscanf_s(strval.c_str(), "%04d-%02d-%02dT%02d:%02d:%02dZ", &ft.tm_year, &ft.tm_mon, &ft.tm_mday, &ft.tm_hour, &ft.tm_min, &ft.tm_sec);
-		ft.tm_mon -= 1;
-		ft.tm_year -= 1900;
-		pval.assign_date(mktime(&ft));
+        time_t date;
+        if (!_decode_string(token, strval) || !plistUTCDate(strval, date)) return false;
+        pval.assign_date(date);
 	}
 	break;
-	case ptoken::E_PTOKEN_DATA:
-	{
-		string strval;
-		_decode_string(token, strval);
-		pval.assign_data(strval.c_str());
-	}
-	break;
+    case ptoken::E_PTOKEN_DATA:
+    {
+        // XML plist data permits only XML whitespace between canonical base64
+        // characters. Normalize it here, not in the general strict decoder.
+        string encoded;
+        for (const char* cursor = token.pbegin; cursor != token.pend; ++cursor) {
+            const char c = *cursor;
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n') encoded.push_back(c);
+        }
+        jbase64 codec;
+        int length = 0;
+        const char* bytes = codec.decode(encoded.c_str(), static_cast<int>(encoded.size()), &length);
+        if (!encoded.empty() && length == 0) return _add_error("Invalid plist base64 data", token.pbegin);
+        pval.assign_data(bytes, static_cast<size_t>(length));
+    }
+    break;
 	case ptoken::E_PTOKEN_STRING:
 	{
 		string strval;
-		_decode_string(token, strval);
+        if (!_decode_string(token, strval)) return false;
 		pval = strval.c_str();
 	}
 	break;
@@ -2186,40 +2278,77 @@ bool jpreader::_read_value(jvalue& pval, ptoken& token)
 
 bool jpreader::_read_label(string& label)
 {
-	_skip_spaces();
-
-	char c = *m_pcursor++;
-	if ('<' != c) {
-		return false;
-	}
-
-	label.clear();
-	label.reserve(10);
-	label += c;
-
-	bool bEnd = false;
-	while (m_pcursor != m_pend) {
-		c = *m_pcursor++;
-		if ('>' == c) {
-			if ('/' == *(m_pcursor - 1) || '?' == *(m_pcursor - 1)) {
-				label += *(m_pcursor - 1);
-			}
-
-			label += c;
-			break;
-		} else if (' ' == c) {
-			bEnd = true;
-		} else if (!bEnd) {
-			label += c;
-		}
-	}
-
-	if ('>' != c) {
-		label.clear();
-		return false;
-	}
-
-	return (!label.empty());
+    _skip_spaces();
+    if (m_pcursor == m_pend || *m_pcursor++ != '<') return false;
+    const char* start = m_pcursor;
+    auto begins = [&](const char* text, size_t length) {
+        return length <= static_cast<size_t>(m_pend - start) && memcmp(start, text, length) == 0;
+    };
+    if (begins("!--", 3)) {
+        const char* end = std::search(start + 3, m_pend, "-->", "-->" + 3);
+        if (end == m_pend || std::search(start + 3, end, "--", "--" + 2) != end) return false;
+        m_pcursor = end + 3; label = "<!comment>"; return true;
+    }
+    if (begins("?", 1)) {
+        const char* end = std::search(start + 1, m_pend, "?>", "?>" + 2);
+        if (end == m_pend) return false;
+        // No external resource is fetched. Unknown encodings are unsupported;
+        // the bytes were already validated as UTF-8 before tokenization.
+        const string instruction(start + 1, end);
+        const size_t encoding = instruction.find("encoding");
+        if (encoding != string::npos) {
+            const size_t equals = instruction.find('=', encoding + 8);
+            if (equals == string::npos) return false;
+            const size_t quote = instruction.find_first_not_of(" \t\r\n", equals + 1);
+            if (quote == string::npos || (instruction[quote] != '\'' && instruction[quote] != '"')) return false;
+            const size_t close = instruction.find(instruction[quote], quote + 1);
+            if (close == string::npos) return false;
+            const string charset = instruction.substr(quote + 1, close - quote - 1);
+            if (charset != "UTF-8" && charset != "utf-8") return false;
+        }
+        m_pcursor = end + 2; label = "<?instruction>"; return true;
+    }
+    if (begins("!DOCTYPE", 8)) {
+        if (m_depth != 0 || m_has_plist) return false;
+        // Accept the ordinary plist declaration, never an internal entity DTD.
+        const char* cursor = start + 8;
+        if (cursor == m_pend || !plistSpace(*cursor)) return false;
+        while (cursor != m_pend && plistSpace(*cursor)) ++cursor;
+        if (m_pend - cursor < 5 || memcmp(cursor, "plist", 5) != 0) return false;
+        cursor += 5;
+        if (cursor == m_pend || (!plistSpace(*cursor) && *cursor != '>')) return false;
+        char quote = 0;
+        for (; cursor != m_pend; ++cursor) {
+            const char current = *cursor;
+            if (quote) { if (current == quote) quote = 0; }
+            else if (current == '\'' || current == '"') quote = current;
+            else if (current == '[' || current == '<') return false;
+            else if (current == '>') { m_pcursor = cursor + 1; label = "<!doctype>"; return true; }
+        }
+        return false;
+    }
+    bool closing = false;
+    if (m_pcursor != m_pend && *m_pcursor == '/') { closing = true; ++m_pcursor; }
+    const char* name = m_pcursor;
+    while (m_pcursor != m_pend && ((*m_pcursor >= 'a' && *m_pcursor <= 'z') || (*m_pcursor >= 'A' && *m_pcursor <= 'Z'))) ++m_pcursor;
+    if (m_pcursor == name) return false;
+    const string tag(name, m_pcursor);
+    _skip_spaces();
+    if (tag == "plist" && !closing && m_pcursor != m_pend && *m_pcursor != '/' && *m_pcursor != '>') {
+        if (m_pend - m_pcursor < 7 || memcmp(m_pcursor, "version", 7) != 0) return false;
+        m_pcursor += 7; _skip_spaces();
+        if (m_pcursor == m_pend || *m_pcursor++ != '=') return false;
+        _skip_spaces();
+        if (m_pcursor == m_pend || (*m_pcursor != '\'' && *m_pcursor != '"')) return false;
+        const char quote = *m_pcursor++;
+        if (m_pend - m_pcursor < 4 || memcmp(m_pcursor, "1.0", 3) != 0 || m_pcursor[3] != quote) return false;
+        m_pcursor += 4; _skip_spaces();
+    }
+    bool empty = false;
+    if (!closing && m_pcursor != m_pend && *m_pcursor == '/') { empty = true; ++m_pcursor; }
+    if (m_pcursor == m_pend || *m_pcursor++ != '>') return false;
+    label = string("<") + (closing ? "/" : "") + tag + (empty ? "/" : "") + ">";
+    return true;
 }
 
 void jpreader::_end_label(ptoken& token, const char* end_label)
@@ -2233,15 +2362,19 @@ void jpreader::_end_label(ptoken& token, const char* end_label)
 
 bool jpreader::_read_token(ptoken& token)
 {
-	string label;
-	if (!_read_label(label)) {
-		token.type = ptoken::E_PTOKEN_ERROR;
-		return false;
-	}
-
-	if ('?' == label.at(1) || '!' == label.at(1)) {
-		return _read_token(token);
-	}
+    // Skip prolog/doctype without recursive calls controlled by input length.
+    for (;;) {
+    string label;
+    if (!_read_label(label) || label.size() < 3) {
+        token.type = ptoken::E_PTOKEN_ERROR;
+        return false;
+    }
+    if ('?' == label[1] || '!' == label[1]) continue;
+    if ("<plist>" == label) {
+        if (m_depth != 0 || m_has_plist) return false;
+        m_has_plist = true;
+        continue;
+    }
 
 	if ("<dict>" == label) {
 		token.type = ptoken::E_PTOKEN_DICTIONARY_BEGIN;
@@ -2272,19 +2405,23 @@ bool jpreader::_read_token(ptoken& token)
 		token.pend = m_pcursor;
 		_end_label(token, "</data>");
 	} else if ("<integer>" == label) {
+        token.real = false;
 		token.pbegin = m_pcursor;
 		token.type = _read_number() ? ptoken::E_PTOKEN_NUMBER : ptoken::E_PTOKEN_ERROR;
 		token.pend = m_pcursor;
 		_end_label(token, "</integer>");
 	} else if ("<real>" == label) {
+        token.real = true;
 		token.pbegin = m_pcursor;
 		token.type = _read_number() ? ptoken::E_PTOKEN_NUMBER : ptoken::E_PTOKEN_ERROR;
 		token.pend = m_pcursor;
 		_end_label(token, "</real>");
-	} else if ("<true/>" == label) {
+	} else if ("<true/>" == label || "<true>" == label) {
 		token.type = ptoken::E_PTOKEN_TRUE;
-	} else if ("<false/>" == label) {
+        if (label == "<true>") _end_label(token, "</true>");
+	} else if ("<false/>" == label || "<false>" == label) {
 		token.type = ptoken::E_PTOKEN_FALSE;
+        if (label == "<false>") _end_label(token, "</false>");
 	} else if ("<dict/>" == label) {
 		token.type = ptoken::E_PTOKEN_DICTIONARY_NULL;
 	} else if ("<array/>" == label) {
@@ -2297,10 +2434,11 @@ bool jpreader::_read_token(ptoken& token)
 		token.type = ptoken::E_PTOKEN_INTEGER_NULL;
 	} else if ("<real/>" == label) {
 		token.type = ptoken::E_PTOKEN_REAL_NULL;
+    } else if ("<key/>" == label) {
+        token.type = ptoken::E_PTOKEN_KEY;
+        token.pbegin = token.pend = m_pcursor;
 	} else if ("<string/>" == label) {
 		token.type = ptoken::E_PTOKEN_STRING_NULL;
-	} else if ("<plist>" == label) {
-		return _read_token(token);
 	} else if ("</plist>" == label || "<plist/>" == label) {
 		token.type = ptoken::E_PTOKEN_END;
 	} else {
@@ -2308,6 +2446,7 @@ bool jpreader::_read_token(ptoken& token)
 	}
 
 	return true;
+    }
 }
 
 void jpreader::_skip_spaces()
@@ -2324,15 +2463,7 @@ void jpreader::_skip_spaces()
 
 bool jpreader::_read_number()
 {
-	while (m_pcursor != m_pend) {
-		char c = *m_pcursor;
-		if ((c >= '0' && c <= '9') || (c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-')) {
-			++m_pcursor;
-		} else {
-			break;
-		}
-	}
-	return true;
+    return _read_string(); // Grammar/type/range are checked on the entire token.
 }
 
 bool jpreader::_read_string()
@@ -2343,7 +2474,7 @@ bool jpreader::_read_string()
 		}
 		m_pcursor++;
 	}
-	return ('<' == *m_pcursor);
+    return m_pcursor != m_pend && '<' == *m_pcursor;
 }
 
 bool jpreader::_read_dictionary(jvalue& pval)
@@ -2367,8 +2498,9 @@ bool jpreader::_read_dictionary(jvalue& pval)
 			return false;
 		}
 
+        if (pval.has(strkey)) return false;
 		ptoken val;
-		_read_token(val);
+        if (!_read_token(val)) return false;
 		if (!_read_value(pval[strkey.c_str()], val)) {
 			return false;
 		}
@@ -2378,86 +2510,112 @@ bool jpreader::_read_dictionary(jvalue& pval)
 
 bool jpreader::_read_array(jvalue& pval)
 {
-	pval = jvalue(jvalue::E_ARRAY);
-
-	size_t index = 0;
-	while (true) {
-		ptoken elem;
-		_read_token(elem);
-		if (ptoken::E_PTOKEN_ARRAY_END == elem.type) {
-			return true;
-		} else if (ptoken::E_PTOKEN_KEY == elem.type) { //dictionary, found in ipod nano 1
-			string strkey = "";
-			if (!_decode_string(elem, strkey)) {
-				return false;
-			}
-			ptoken tval;
-			_read_token(tval);
-			if (!_read_value(pval[index++][strkey.c_str()], tval)) {
-				return false;
-			}
-		} else {
-			if (!_read_value(pval[index++], elem)) {
-				return false;
-			}
-		}
-	}
-
-	return true;
+    pval = jvalue(jvalue::E_ARRAY);
+    for (;;) {
+        ptoken token;
+        if (!_read_token(token)) return false;
+        if (token.type == ptoken::E_PTOKEN_ARRAY_END) return true;
+        jvalue child;
+        if (!_read_value(child, token)) return false;
+        pval.push_back(child);
+    }
 }
 
 bool jpreader::_decode_number(ptoken& token, jvalue& pval)
 {
-	int64_t val = 0;
-	bool is_negative = false;
-	const char* pcursor = token.pbegin;
-	if ('-' == *pcursor) {
-		pcursor++;
-		is_negative = true;
-	}
-	for (const char* p = pcursor; p != token.pend; p++) {
-		char c = *p;
-		if ('.' == c || 'e' == c || 'E' == c) {
-			return _decode_double(token, pval);
-		} else if (c < '0' || c > '9') {
-			return _add_error("'" + string(token.pbegin, token.pend) + "' is not a number.", token.pbegin);
-		} else {
-			val = val * 10 + (c - '0');
-		}
-	}
-	pval = is_negative ? -val : val;
-	return true;
+    if (token.real) return _decode_double(token, pval);
+    const char* cursor = token.pbegin;
+    const char* end = token.pend;
+    while (cursor != end && plistSpace(*cursor)) ++cursor;
+    while (cursor != end && plistSpace(end[-1])) --end;
+    bool negative = false;
+    if (cursor != end && (*cursor == '-' || *cursor == '+')) negative = *cursor++ == '-';
+    if (cursor == end) return false;
+    const uint64_t limit = static_cast<uint64_t>(numeric_limits<int64_t>::max()) + (negative ? 1ULL : 0ULL);
+    uint64_t value = 0;
+    for (; cursor != end; ++cursor) {
+        if (*cursor < '0' || *cursor > '9') return false;
+        const uint64_t digit = static_cast<uint64_t>(*cursor - '0');
+        if (value > (limit - digit) / 10) return false;
+        value = value * 10 + digit;
+    }
+    pval = negative ? (value == (1ULL << 63) ? numeric_limits<int64_t>::min() : -static_cast<int64_t>(value)) : static_cast<int64_t>(value);
+    return true;
 }
 
 bool jpreader::_decode_double(ptoken& token, jvalue& pval)
 {
-	const size_t buf_len = 64;
-	size_t len = size_t(token.pend - token.pbegin);
-	if (len < buf_len) {
-		char buf[buf_len] = { 0 };
-		::memcpy(buf, token.pbegin, len);
-		buf[len] = 0;
-		double val = 0;
-		if (1 == sscanf_s(buf, "%lf", &val)) {
-			pval = val;
-			return true;
-		}
-	}
-	return _add_error("'" + string(token.pbegin, token.pend) + "' is too large or not a number.", token.pbegin);
+    const char* cursor = token.pbegin;
+    const char* end = token.pend;
+    while (cursor != end && plistSpace(*cursor)) ++cursor;
+    while (cursor != end && plistSpace(end[-1])) --end;
+    if (cursor == end || end - cursor > 128) return false;
+    const char* start = cursor;
+    if (*cursor == '+' || *cursor == '-') ++cursor;
+    bool digits = false;
+    while (cursor != end && *cursor >= '0' && *cursor <= '9') { digits = true; ++cursor; }
+    if (cursor != end && *cursor == '.') {
+        ++cursor;
+        while (cursor != end && *cursor >= '0' && *cursor <= '9') { digits = true; ++cursor; }
+    }
+    if (!digits) return false;
+    if (cursor != end && (*cursor == 'e' || *cursor == 'E')) {
+        ++cursor;
+        if (cursor != end && (*cursor == '+' || *cursor == '-')) ++cursor;
+        const char* exponent = cursor;
+        while (cursor != end && *cursor >= '0' && *cursor <= '9') ++cursor;
+        if (cursor == exponent) return false;
+    }
+    if (cursor != end) return false;
+    istringstream stream(string(start, end));
+    stream.imbue(locale::classic());
+    double value;
+    if (!(stream >> noskipws >> value) || !stream.eof() || !isfinite(value)) return false;
+    pval = value;
+    return true;
 }
 
-bool jpreader::_decode_string(ptoken& token, string& strdec)
+bool jpreader::_decode_string(ptoken& token, string& output)
 {
-	const char* pcursor = token.pbegin;
-	const char* pend = token.pend;
-	strdec.reserve(size_t(token.pend - token.pbegin) + 6);
-	while (pcursor != pend) {
-		char c = *pcursor++;
-		if ('\n' != c && '\r' != c && '\t' != c) {
-			strdec += c;
-		}
-	}
-	return true;
+    const char* cursor = token.pbegin;
+    const char* end = token.pend;
+    output.clear(); output.reserve(static_cast<size_t>(end - cursor));
+    while (cursor != end) {
+        const char current = *cursor++;
+        if (current == '&') {
+            const char* terminator = std::find(cursor, end, ';');
+            if (terminator == end || terminator - cursor > 16) return false;
+            const string entity(cursor, terminator);
+            if (entity == "amp") output.push_back('&');
+            else if (entity == "lt") output.push_back('<');
+            else if (entity == "gt") output.push_back('>');
+            else if (entity == "quot") output.push_back('"');
+            else if (entity == "apos") output.push_back('\'');
+            else if (!entity.empty() && entity[0] == '#') {
+                size_t index = 1;
+                const uint32_t base = index < entity.size() && entity[index] == 'x' ? (++index, 16) : 10;
+                if (index == entity.size()) return false;
+                uint32_t scalar = 0;
+                for (; index < entity.size(); ++index) {
+                    const char c = entity[index];
+                    const uint32_t digit = c >= '0' && c <= '9' ? c - '0' :
+                        (base == 16 && c >= 'a' && c <= 'f' ? c - 'a' + 10 :
+                         (base == 16 && c >= 'A' && c <= 'F' ? c - 'A' + 10 : 16));
+                    if (digit >= base || scalar > (0x10ffff - digit) / base) return false;
+                    scalar = scalar * base + digit;
+                }
+                if (!appendXMLScalar(output, scalar)) return false;
+            } else return false;
+            cursor = terminator + 1;
+        } else if (current == '\r') {
+            if (cursor != end && *cursor == '\n') ++cursor;
+            output.push_back('\n'); // XML end-of-line normalization, not whitespace deletion.
+        } else {
+            if (current == ']' && end - cursor >= 2 && cursor[0] == ']' && cursor[1] == '>') return false;
+            output.push_back(current);
+        }
+    }
+    return true;
 }
 
 bool jpreader::_add_error(const string& message, const char* ploc)
@@ -2469,14 +2627,18 @@ bool jpreader::_add_error(const string& message, const char* ploc)
 
 void jpreader::error(string& strmsg) const
 {
+    if (!m_pbegin || !m_pend || !m_perror || m_perror < m_pbegin || m_perror > m_pend) {
+        strmsg = "Invalid or unsupported plist";
+        return;
+    }
 	strmsg = "";
 	int row = 1;
 	const char* pcursor = m_pbegin;
 	const char* plast = m_pbegin;
-	while (pcursor < m_perror && pcursor <= m_pend) {
+	while (pcursor < m_perror && pcursor < m_pend) {
 		char c = *pcursor++;
 		if (c == '\r' || c == '\n') {
-			if (c == '\r' && *pcursor == '\n') {
+			if (c == '\r' && pcursor < m_pend && *pcursor == '\n') {
 				pcursor++;
 			}
 			row++;
@@ -2489,310 +2651,185 @@ void jpreader::error(string& strmsg) const
 }
 
 //////////////////////////////////////////////////////////////////////////
-uint32_t jpreader::_get_uint24_from_be(const char* v)
+uint32_t jpreader::_get_uint24_from_be(const char* value)
 {
-	uint32_t ret = 0;
-	::memcpy(&ret, v, 3);
-	jpwriter::_byte_convert((uint8_t*)&ret, sizeof(ret));
-	return ret;
+    return static_cast<uint32_t>(_get_uint_val(value, 3));
 }
 
-uint64_t jpreader::_get_uint_val(const char* v, size_t size)
+uint64_t jpreader::_get_uint_val(const char* value, size_t size)
 {
-	if (8 == size)
-		return jpwriter::_swap(*((uint64_t*)v));
-	else if (4 == size)
-		return jpwriter::_swap(*((uint32_t*)v));
-	else if (3 == size)
-		return _get_uint24_from_be(v);
-	else if (2 == size)
-		return jpwriter::_swap(*((uint16_t*)v));
-	else
-		return *((uint8_t*)v);
+    // Binary plist object/offset tables are not naturally aligned. Byte reads
+    // avoid undefined unaligned word accesses on both Apple and portable hosts.
+    uint64_t result = 0;
+    for (size_t index = 0; index < size; ++index)
+        result = (result << 8) | static_cast<unsigned char>(value[index]);
+    return result;
 }
 
-bool jpreader::_read_uint_size(const char*& pcur, size_t& size)
+bool jpreader::_read_uint_size(const char*& cursor, size_t& size)
 {
-	jvalue temp;
-	_read_binary_value(pcur, temp);
-	if (temp.is_int()) {
-		size = (size_t)temp.as_int64();
-		return true;
-	}
-	assert(0);
-	return false;
+    if (cursor >= m_poffset_table) return false;
+    const uint8_t marker = static_cast<uint8_t>(*cursor++);
+    if ((marker & 0xf0) != NS_NUMBER_INT || (marker & 0x0f) > 3) return false;
+    const size_t width = size_t(1) << (marker & 0x0f);
+    if (width > static_cast<size_t>(m_poffset_table - cursor)) return false;
+    const uint64_t value = _get_uint_val(cursor, width);
+    cursor += width;
+    if (value > std::numeric_limits<size_t>::max()) return false;
+    size = static_cast<size_t>(value);
+    return true;
 }
 
-bool jpreader::_read_unicode(const char* pcursor, size_t size, jvalue& pv)
+bool jpreader::_read_unicode(const char* cursor, size_t size, jvalue& value)
 {
-	if (0 == size) {
-		pv = "";
-		return false;
-	}
-
-	uint16_t* unistr = (uint16_t*)::malloc(2 * size);
-	if (NULL == unistr) {
-		return false;
-	}
-
-	::memcpy(unistr, pcursor, 2 * size);
-	for (size_t i = 0; i < size; i++) {
-		jpwriter::_byte_convert((uint8_t*)(unistr + i), 2);
-	}
-
-	char* outbuf = (char*)::malloc(3 * (size + 1));
-	if (NULL == outbuf) {
-		return false;
-	}
-
-	size_t p = 0;
-	size_t i = 0;
-	uint16_t wc = 0;
-	while (i < size) {
-		wc = unistr[i++];
-		if (wc >= 0x800) {
-			outbuf[p++] = (char)(0xE0 + ((wc >> 12) & 0xF));
-			outbuf[p++] = (char)(0x80 + ((wc >> 6) & 0x3F));
-			outbuf[p++] = (char)(0x80 + (wc & 0x3F));
-		} else if (wc >= 0x80) {
-			outbuf[p++] = (char)(0xC0 + ((wc >> 6) & 0x1F));
-			outbuf[p++] = (char)(0x80 + (wc & 0x3F));
-		} else {
-			outbuf[p++] = (char)(wc & 0x7F);
-		}
-	}
-
-	outbuf[p] = 0;
-	pv = outbuf;
-	::free(outbuf);
-	outbuf = NULL;
-
-	::free(unistr);
-	unistr = NULL;
-	return true;
+    if (size > static_cast<size_t>(m_poffset_table - cursor) / 2) return false;
+    string output;
+    for (size_t index = 0; index < size; ++index) {
+        uint32_t scalar = static_cast<uint32_t>(_get_uint_val(cursor + index * 2, 2));
+        if (scalar >= 0xd800 && scalar <= 0xdbff) {
+            if (++index >= size) return false;
+            uint32_t low = static_cast<uint32_t>(_get_uint_val(cursor + index * 2, 2));
+            if (low < 0xdc00 || low > 0xdfff) return false;
+            scalar = 0x10000 + ((scalar - 0xd800) << 10) + low - 0xdc00;
+        } else if (scalar >= 0xdc00 && scalar <= 0xdfff) return false;
+        // This legacy value representation uses NUL-terminated strings. Reject
+        // embedded NUL rather than silently changing dictionary keys/values.
+        if (scalar == 0) return false;
+        if (scalar < 0x80) output.push_back(static_cast<char>(scalar));
+        else if (scalar < 0x800) {
+            output.push_back(static_cast<char>(0xc0 | (scalar >> 6)));
+            output.push_back(static_cast<char>(0x80 | (scalar & 0x3f)));
+        } else if (scalar < 0x10000) {
+            output.push_back(static_cast<char>(0xe0 | (scalar >> 12)));
+            output.push_back(static_cast<char>(0x80 | ((scalar >> 6) & 0x3f)));
+            output.push_back(static_cast<char>(0x80 | (scalar & 0x3f)));
+        } else {
+            output.push_back(static_cast<char>(0xf0 | (scalar >> 18)));
+            output.push_back(static_cast<char>(0x80 | ((scalar >> 12) & 0x3f)));
+            output.push_back(static_cast<char>(0x80 | ((scalar >> 6) & 0x3f)));
+            output.push_back(static_cast<char>(0x80 | (scalar & 0x3f)));
+        }
+    }
+    value = output;
+    return true;
 }
 
-bool jpreader::_read_binary_value(const char*& pcursor, jvalue& pv)
+bool jpreader::_read_binary_value(const char*& cursor, jvalue& value)
 {
-	uint8_t c = *pcursor++;
-	uint8_t type = c & 0xF0;
-	uint8_t	value = c & 0x0F;
-
-	switch (type) {
-	case BPLIST_NULL:
-	{
-		switch (value) {
-		case BPLIST_NULL:
-			pv = jvalue(jvalue::E_NULL);
-			break;
-		case NS_NUMBER_FALSE:
-			pv = false;
-			break;
-		case NS_NUMBER_TRUE:
-			pv = true;
-			break;
-		case NS_URL_BASE_STRING:
-		case NS_URL_STRING:
-		case NS_UUID:
-			pv = jvalue(jvalue::E_NULL);
-			break;
-		default:
-			pv = jvalue(jvalue::E_NULL);
-			break;
-		}
-	}
-	break;
-	case NS_NUMBER_INT:
-	{
-		uint8_t size = 1 << value;
-		switch (size) {
-			case sizeof(uint8_t) :
-				case sizeof(uint16_t) :
-				case sizeof(uint32_t) :
-				case sizeof(uint64_t) :
-				pv = (int64_t)_get_uint_val(pcursor, size);
-				break;
-				default:
-					pv = 0;
-					break;
-		};
-		pcursor += size;
-	}
-	break;
-	case NS_NUMBER_REAL:
-	{
-		if (2 == value) {
-			float real = 0;
-			::memcpy(&real, pcursor, sizeof(float));
-			pv = (double)jpwriter::_swap(real);
-		} else if (3 == value) {
-			double real = 0;
-			::memcpy(&real, pcursor, sizeof(double));
-			pv = jpwriter::_swap(real);
-		} else {
-			return false;
-		}
-	}
-	break;
-	case NS_DATE:
-	{
-		if (3 == value) {
-			double date = 0;
-			::memcpy(&date, pcursor, sizeof(double));
-			date = jpwriter::_swap(date);
-			pv.assign_date(((time_t)date) + 978278400);
-		}
-	}
-	break;
-	case NS_DATA:
-	{
-		size_t size = value;
-		if (0x0F == value) {
-			if (!_read_uint_size(pcursor, size)) {
-				return false;
-			}
-		}
-		pv.assign_data((const uint8_t*)pcursor, size);
-	}
-	break;
-	case NS_STRING_ASCII:
-	case NS_STRING_UTF8:
-	{
-		size_t size = value;
-		if (0x0F == value) {
-			if (!_read_uint_size(pcursor, size)) {
-				return false;
-			}
-		}
-
-		string strval;
-		strval.append(pcursor, size);
-		strval.append(1, 0);
-		pv = strval.c_str();
-	}
-	break;
-	case NS_STRING_UNICODE:
-	{
-		size_t size = value;
-		if (0x0F == value) {
-			if (!_read_uint_size(pcursor, size)) {
-				return false;
-			}
-		}
-
-		_read_unicode(pcursor, size, pv);
-	}
-	break;
-	case NS_ARRAY:
-	case NS_SET:
-	{
-		size_t size = value;
-		if (0x0F == value) {
-			if (!_read_uint_size(pcursor, size)) {
-				return false;
-			}
-		}
-
-		pv = jvalue(jvalue::E_ARRAY);
-		for (size_t i = 0; i < size; i++) {
-			uint64_t index = _get_uint_val((const char*)pcursor + i * m_object_ref_size, m_object_ref_size);
-			if (index < m_num_objects) {
-				const char* paddr = (m_pbegin + _get_uint_val(m_poffset_table + index * m_offset_table_offset_size, m_offset_table_offset_size));
-				_read_binary_value(paddr, pv[i]);
-			} else {
-				assert(0);
-				return false;
-			}
-		}
-	}
-	break;
-	case NS_DICTIONARY:
-	{
-		size_t size = value;
-		if (0x0F == value) {
-			if (!_read_uint_size(pcursor, size)) {
-				return false;
-			}
-		}
-
-		if (jvalue::E_OBJECT != pv.type()) {
-			pv = jvalue(jvalue::E_OBJECT);
-		}
-
-		for (size_t i = 0; i < size; i++) {
-			jvalue jkey;
-			jvalue jval;
-
-			uint64_t key_index = _get_uint_val((const char*)pcursor + i * m_object_ref_size, m_object_ref_size);
-			uint64_t value_index = _get_uint_val((const char*)pcursor + (i + size) * m_object_ref_size, m_object_ref_size);
-
-			if (key_index < m_num_objects) {
-				const char* paddr = (m_pbegin + _get_uint_val(m_poffset_table + key_index * m_offset_table_offset_size, m_offset_table_offset_size));
-				_read_binary_value(paddr, jkey);
-			}
-
-			if (value_index < m_num_objects) {
-				const char* paddr = (m_pbegin + _get_uint_val(m_poffset_table + value_index * m_offset_table_offset_size, m_offset_table_offset_size));
-				_read_binary_value(paddr, jval);
-			}
-
-			if (jkey.is_string() && !jval.is_null()) {
-				pv[jkey.as_cstr()] = jval;
-			}
-		}
-	}
-	break;
-	case BPLIST_UID:
-	{
-		uint8_t size = value + 1;
-		switch (size) {
-			case sizeof(uint8_t) :
-				case sizeof(uint16_t) :
-				case sizeof(uint32_t) :
-				case sizeof(uint64_t) :
-				pv = (int64_t)_get_uint_val(pcursor, size);
-				break;
-				default:
-					pv = 0;
-					break;
-		};
-		pcursor += size;
-	}
-	break;
-	case BPLIST_FILL:
-	{
-
-	}
-	break;
-	default:
-	{
-		assert(0);
-		return false;
-	}
-	break;
-	}
-
-	return true;
+    if (cursor < m_pbegin + 8 || cursor >= m_poffset_table || m_depth >= 64 || m_remaining == 0) return false;
+    ++m_depth; --m_remaining;
+    struct Depth { size_t& value; ~Depth() { --value; } } depth{m_depth};
+    const uint8_t marker = static_cast<uint8_t>(*cursor++);
+    const uint8_t type = marker & 0xf0, small = marker & 0x0f;
+    auto available = [&](size_t length) { return length <= static_cast<size_t>(m_poffset_table - cursor); };
+    auto object = [&](uint64_t index, jvalue& output) {
+        if (index >= m_num_objects) return false;
+        const uint64_t offset = _get_uint_val(m_poffset_table + index * m_offset_table_offset_size, m_offset_table_offset_size);
+        if (offset < 8 || offset >= static_cast<uint64_t>(m_poffset_table - m_pbegin)) return false;
+        const char* address = m_pbegin + static_cast<size_t>(offset);
+        return _read_binary_value(address, output);
+    };
+    if (type == BPLIST_NULL) {
+        if (small == 0) { value = jvalue(); return true; }
+        if (small == NS_NUMBER_FALSE || small == NS_NUMBER_TRUE) { value = small == NS_NUMBER_TRUE; return true; }
+        return false;
+    }
+    if (type == NS_NUMBER_INT) {
+        if (small > 3) return false;
+        const size_t width = size_t(1) << small;
+        if (!available(width)) return false;
+        value = static_cast<int64_t>(_get_uint_val(cursor, width)); cursor += width;
+        return true;
+    }
+    if (type == NS_NUMBER_REAL || type == NS_DATE) {
+        if ((small != 2 && small != 3) || (type == NS_DATE && small != 3)) return false;
+        const size_t width = size_t(1) << small;
+        if (!available(width)) return false;
+        double number = 0;
+        if (width == 4) {
+            uint32_t bits = static_cast<uint32_t>(_get_uint_val(cursor, 4));
+            float real; memcpy(&real, &bits, 4); number = real;
+        } else {
+            uint64_t bits = _get_uint_val(cursor, 8); memcpy(&number, &bits, 8);
+        }
+        cursor += width;
+        if (!std::isfinite(number)) return false;
+        if (type == NS_DATE) {
+            number += 978307200.0; // 2001-01-01 00:00:00 UTC, not a local timezone.
+            if (number < static_cast<double>(std::numeric_limits<time_t>::lowest()) ||
+                number >= static_cast<double>(std::numeric_limits<time_t>::max())) return false;
+            value.assign_date(static_cast<time_t>(number));
+        } else value = number;
+        return true;
+    }
+    size_t size = small;
+    if (small == 0x0f && !_read_uint_size(cursor, size)) return false;
+    switch (type) {
+    case NS_DATA:
+        if (!available(size)) return false;
+        value.assign_data(cursor, size); cursor += size;
+        return true;
+    case NS_STRING_ASCII:
+        if (!available(size) || memchr(cursor, 0, size)) return false;
+        if (type == NS_STRING_ASCII) {
+            for (size_t index = 0; index < size; ++index) if (static_cast<unsigned char>(cursor[index]) > 0x7f) return false;
+        }
+        value = string(cursor, size); cursor += size;
+        return true;
+    case NS_STRING_UNICODE:
+        if (size > static_cast<size_t>(m_poffset_table - cursor) / 2 || !_read_unicode(cursor, size, value)) return false;
+        cursor += size * 2;
+        return true;
+    case NS_ARRAY:
+        if (size > m_remaining || size > static_cast<size_t>(m_poffset_table - cursor) / m_object_ref_size) return false;
+        value = jvalue(jvalue::E_ARRAY);
+        for (size_t index = 0; index < size; ++index) {
+            jvalue child;
+            if (!object(_get_uint_val(cursor + index * m_object_ref_size, m_object_ref_size), child)) return false;
+            value.push_back(child);
+        }
+        cursor += size * m_object_ref_size;
+        return true;
+    case NS_DICTIONARY:
+        if (size > m_remaining / 2 || size > static_cast<size_t>(m_poffset_table - cursor) / m_object_ref_size / 2) return false;
+        value = jvalue(jvalue::E_OBJECT);
+        for (size_t index = 0; index < size; ++index) {
+            jvalue key, child;
+            if (!object(_get_uint_val(cursor + index * m_object_ref_size, m_object_ref_size), key) || !key.is_string() || value.has(key.as_cstr()) ||
+                !object(_get_uint_val(cursor + (index + size) * m_object_ref_size, m_object_ref_size), child)) return false;
+            value[key.as_cstr()] = child;
+        }
+        cursor += size * m_object_ref_size * 2;
+        return true;
+    default: return false; // UID/URL/UUID/custom types are not signing property lists.
+    }
 }
 
-bool jpreader::parse_binary(const char* pbdoc, size_t len, jvalue& pv)
+bool jpreader::parse_binary(const char* bytes, size_t length, jvalue& value)
 {
-	m_pbegin = pbdoc;
-
-	m_ptrailer = m_pbegin + len - 26;
-
-	m_offset_table_offset_size = m_ptrailer[0];
-	m_object_ref_size = m_ptrailer[1];
-	m_num_objects = _get_uint_val(m_ptrailer + 2, 8);
-	m_top_object_offset = _get_uint_val(m_ptrailer + 10, 8);
-
-	if (0 == m_num_objects) {
-		return false;
-	}
-
-	m_poffset_table = m_pbegin + _get_uint_val(m_ptrailer + 18, 8);
-	const char* pval = (m_pbegin + _get_uint_val(m_poffset_table + m_offset_table_offset_size * m_top_object_offset, m_offset_table_offset_size));
-	return _read_binary_value(pval, pv);
+    value.clear();
+    if (!bytes || length < 40 || length > 64 * 1024 * 1024 || memcmp(bytes, "bplist00", 8) != 0) return false;
+    m_pbegin = bytes; m_pend = bytes + length; m_ptrailer = m_pend - 32;
+    m_perror = bytes; m_strerr = "Invalid or unsupported binary plist";
+    m_depth = 0; m_remaining = 200000;
+    m_offset_table_offset_size = static_cast<uint8_t>(m_ptrailer[6]);
+    m_object_ref_size = static_cast<uint8_t>(m_ptrailer[7]);
+    m_num_objects = _get_uint_val(m_ptrailer + 8, 8);
+    m_top_object_offset = _get_uint_val(m_ptrailer + 16, 8);
+    const uint64_t table = _get_uint_val(m_ptrailer + 24, 8);
+    if (m_offset_table_offset_size < 1 || m_offset_table_offset_size > 8 || m_object_ref_size < 1 || m_object_ref_size > 8 ||
+        m_num_objects == 0 || m_num_objects > 200000 || m_top_object_offset >= m_num_objects ||
+        table < 9 || table > length - 32 || m_num_objects > (length - 32 - table) / m_offset_table_offset_size) return false;
+    m_poffset_table = bytes + static_cast<size_t>(table);
+    for (uint64_t index = 0; index < m_num_objects; ++index) {
+        const uint64_t offset = _get_uint_val(m_poffset_table + index * m_offset_table_offset_size, m_offset_table_offset_size);
+        if (offset < 8 || offset >= table) return false;
+    }
+    const uint64_t root = _get_uint_val(m_poffset_table + m_top_object_offset * m_offset_table_offset_size, m_offset_table_offset_size);
+    const char* cursor = bytes + static_cast<size_t>(root);
+    if (_read_binary_value(cursor, value)) return true;
+    value.clear();
+    return false;
 }
 
 jpwriter::jpwriter()
@@ -3173,7 +3210,7 @@ int64_t jpwriter::_write_value_to_binary(const jvalue& pval, vector<bplist_objec
 		}
 	} else if (pval.is_date()) {
 		object.type = jpreader::NS_DATE;
-		double dval = _swap((double)(pval.as_date() - 978278400));
+		double dval = _swap((double)(pval.as_date() - 978307200));
 		uint8_t type = jpreader::NS_DATE | 3;
 		object.data.append((const char*)&type, 1);
 		object.data.append((const char*)&dval, sizeof(double));

@@ -66,6 +66,10 @@ struct Options: Codable, Equatable {
 	/// When explicitly enabled, removes app extensions the selected profile cannot sign.
 	/// Covered extensions, Watch apps, and extensions with unknown coverage are preserved.
 	var autoRemoveUnsupportedExtensions: Bool
+    /// Nil/true evaluates all imported identities. False restricts to the manually selected identity.
+    var automaticallyResolveSigningIdentity: Bool?
+    /// Per-component manual choices; valid candidates only, never bypasses.
+    var componentSigningPreferences: [String: ComponentSigningPreference]?
 	/// Gives each signed app a keychain group derived from its bundle id so apps can't read each other's entries
 	var keychainIsolation: Bool
 	/// Signs with JIT entitlements (`dynamic-codesigning`). Only PPQ certificates can carry them.
@@ -126,7 +130,7 @@ struct Options: Codable, Equatable {
 		gameMode: false,
 		ipadFullscreen: false,
 		removeURLScheme: false,
-		removeProvisioning: true,
+		removeProvisioning: false,
 		changeLanguageFilesForCustomDisplayName: false,
 		injectIntoExtensions: false,
 		removeAppExtensions: false,
@@ -238,6 +242,8 @@ extension Options {
 		injectIntoExtensions = try c.decodeIfPresent(Bool.self, forKey: .injectIntoExtensions) ?? d.injectIntoExtensions
 		removeAppExtensions = try c.decodeIfPresent(Bool.self, forKey: .removeAppExtensions) ?? d.removeAppExtensions
 		autoRemoveUnsupportedExtensions = try c.decodeIfPresent(Bool.self, forKey: .autoRemoveUnsupportedExtensions) ?? d.autoRemoveUnsupportedExtensions
+        automaticallyResolveSigningIdentity = try c.decodeIfPresent(Bool.self, forKey: .automaticallyResolveSigningIdentity)
+        componentSigningPreferences = try c.decodeIfPresent([String: ComponentSigningPreference].self, forKey: .componentSigningPreferences)
 		keychainIsolation = try c.decodeIfPresent(Bool.self, forKey: .keychainIsolation) ?? d.keychainIsolation
 		enableJIT = try c.decodeIfPresent(Bool.self, forKey: .enableJIT) ?? d.enableJIT
 		fixFilePicker = try c.decodeIfPresent(Bool.self, forKey: .fixFilePicker) ?? d.fixFilePicker
@@ -264,10 +270,12 @@ extension Options {
     func withoutPerAppFields() -> Options {
         var result = self
         result.appName = nil; result.appIdentifier = nil; result.appVersion = nil; result.tweakInjections = nil
+        result.componentSigningPreferences = nil
         return result
     }
     mutating func resetPerApp(autoInject: [TweakInjectionSpec]) {
         appName = nil; appIdentifier = nil; appVersion = nil; appEntitlementsFile = nil
         infoPlistOverrides = nil; infoPlistRemovals = nil; tweakInjections = autoInject
+        componentSigningPreferences = nil
     }
 }

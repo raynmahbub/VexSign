@@ -89,6 +89,7 @@ enum ProfileApplicationIdentifierMatcher {
 	static func parse(_ applicationIdentifier: String) -> Result<AuthorizedIdentifier, Malformation> {
 		let value = applicationIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !value.isEmpty else { return .failure(.empty) }
+        guard value == applicationIdentifier else { return .failure(.invalidCharacters) }
 		guard let dot = value.firstIndex(of: ".") else { return .failure(.missingPrefix) }
 
 		let prefix = String(value[..<dot])
@@ -114,6 +115,10 @@ enum ProfileApplicationIdentifierMatcher {
 		return .success(AuthorizedIdentifier(prefix: prefix, pattern: pattern))
 	}
 
+    static func isValidBundleIdentifier(_ value: String) -> Bool {
+        _isIdentifierText(value, allowsTrailingDot: false)
+    }
+
 	// MARK: Matching
 
 	/// Whether the profile authorizes a bundle identifier, which never carries a prefix.
@@ -123,7 +128,7 @@ enum ProfileApplicationIdentifierMatcher {
 		case .failure(let malformation):
 			return Match(outcome: .malformedProfile(malformation), authorized: nil, bundleIdentifier: identifier)
 		case .success(let authorized):
-			guard _isIdentifierText(identifier, allowsTrailingDot: false) else {
+			guard identifier == bundleIdentifier, _isIdentifierText(identifier, allowsTrailingDot: false) else {
 				return Match(outcome: .malformedIdentifier, authorized: authorized, bundleIdentifier: identifier)
 			}
 			return Match(outcome: _compare(authorized, identifier), authorized: authorized, bundleIdentifier: identifier)
@@ -138,7 +143,7 @@ enum ProfileApplicationIdentifierMatcher {
 		case .failure(let malformation):
 			return Match(outcome: .malformedProfile(malformation), authorized: nil, bundleIdentifier: value)
 		case .success(let authorized):
-			guard let dot = value.firstIndex(of: ".") else {
+			guard value == entitlementValue, let dot = value.firstIndex(of: ".") else {
 				return Match(outcome: .malformedIdentifier, authorized: authorized, bundleIdentifier: value)
 			}
 			let prefix = String(value[..<dot])
@@ -166,13 +171,11 @@ enum ProfileApplicationIdentifierMatcher {
 
 	/// Non-empty, no whitespace, no asterisk and no empty component.
 	///
-	/// Apple documents letters, digits, hyphen and period, but repackaged apps do ship
-	/// identifiers with other characters and a wildcard App ID still covers them. Rejecting
-	/// those here would refuse apps that sign and install, so only text that cannot be an
-	/// identifier under any reading is refused.
+    /// ASCII letters, digits, hyphens and periods only, at most 255 bytes.
+    /// UI whitespace normalization never authorizes malformed on-disk metadata.
 	private static func _isIdentifierText(_ text: String, allowsTrailingDot: Bool) -> Bool {
 		guard !text.isEmpty else { return false }
-		guard !text.contains(where: { $0.isWhitespace || $0.isNewline || $0 == "*" }) else {
+		guard text.utf8.count <= 255, text.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == ".") }) else {
 			return false
 		}
 		var components = text.split(separator: ".", omittingEmptySubsequences: false)

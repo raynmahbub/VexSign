@@ -60,6 +60,7 @@ let package = Package(
 			],
 			linkerSettings: [
 				.linkedFramework("OpenSSL"),
+                .linkedFramework("Security"),
 			]
 		),
 		.target(

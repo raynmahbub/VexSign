@@ -15,6 +15,8 @@ bool ZFile::IsRegularFile(const char* path)
 void* ZFile::MapFile(const char* path, size_t offset, size_t size, size_t* psize, bool ro)
 {
 	void* base = NULL;
+    if (psize) *psize = 0;
+    if (!path) return NULL;
 
 #ifdef _WIN32
 
@@ -42,30 +44,29 @@ void* ZFile::MapFile(const char* path, size_t offset, size_t size, size_t* psize
 
 #else
 
-	int fd = open(path, ro ? O_RDONLY : O_RDWR);
-	if (fd <= 0) {
-		if(chmod(path, 0755) == 0) {
-			fd = open(path, ro ? O_RDONLY : O_RDWR);
-		}
-	}
-	
-	if (fd > 0) {
-		if (size <= 0) {
-			struct stat st = { 0 };
-			fstat(fd, &st);
-			size = st.st_size;
-		}
-
-		if (NULL != psize) {
-			*psize = size;
-		}
-
-		base = mmap(NULL, size, ro ? PROT_READ : PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
-		if (MAP_FAILED == base) {
-			base = NULL;
-		}
-		close(fd);
-	}
+    // Mapping is an inspection/mutation primitive, not a permission repair.
+    // fd 0 is valid; never chmod or create a file because opening it failed.
+    int flags = ro ? O_RDONLY : O_RDWR;
+#ifdef O_NOFOLLOW
+    flags |= O_NOFOLLOW;
+#endif
+#ifdef O_CLOEXEC
+    flags |= O_CLOEXEC;
+#endif
+    int fd = open(path, flags);
+    if (fd < 0) return NULL;
+    struct stat st = { 0 };
+    if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 &&
+        static_cast<uint64_t>(offset) < static_cast<uint64_t>(st.st_size)) {
+        const uint64_t available = static_cast<uint64_t>(st.st_size) - offset;
+        if (size == 0 && available <= SIZE_MAX) size = static_cast<size_t>(available);
+        if (size > 0 && size <= available) {
+            base = mmap(NULL, size, ro ? PROT_READ : PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
+            if (base == MAP_FAILED) base = NULL;
+            if (base && psize) *psize = size;
+        }
+    }
+    close(fd);
 
 #endif
 
@@ -90,7 +91,7 @@ bool ZFile::UnmapFile(void* base, size_t size)
 
 bool ZFile::WriteFile(const char* szFile, const char* szData, size_t sLen)
 {
-	if (NULL == szFile) {
+	if (NULL == szFile || (sLen > 0 && szData == NULL)) {
 		return false;
 	}
 
@@ -108,8 +109,9 @@ bool ZFile::WriteFile(const char* szFile, const char* szData, size_t sLen)
 				written += ret;
 			}
 		}
-		fclose(fp);
-		return (written == to_write);
+        const bool complete = written == to_write && ferror(fp) == 0;
+        const int closed = fclose(fp); // Includes errors from a delayed stdio flush.
+        return complete && closed == 0;
 	} else {
 		ZLog::ErrorV("WriteFile: Failed in fopen! %s, %s\n", szFile, strerror(errno));
 	}
@@ -135,29 +137,35 @@ bool ZFile::WriteFileV(const char* szData, size_t sLen, const char* szPath, ...)
 
 bool ZFile::ReadFile(const char* szFile, string& strData)
 {
-	strData.clear();
-	FILE* fp = NULL;
-	_fopen64(fp, szFile, "rb");
-	if (NULL != fp) {
-		_fseeki64(fp, 0, SEEK_END);
-		int64_t to_read = _ftelli64(fp);
-		_fseeki64(fp, 0, SEEK_SET);
-		to_read = (to_read > 0 ? to_read : 0);
-		strData.resize((size_t)to_read);
-		if (strData.capacity() >= (size_t)to_read) {
-			int64_t readed = 0;
-			while (readed < to_read) {
-				size_t ret = fread(&(strData[(size_t)readed]), 1, (size_t)(to_read - readed), fp);
-				if (ret <= 0) {
-					break;
-				}
-				readed += ret;
-			}
-		}
-		fclose(fp);
-		return (strData.size() == to_read);
-	}
-	return false;
+    strData.clear();
+    if (!szFile) return false;
+    FILE* fp = NULL;
+    _fopen64(fp, szFile, "rb");
+    if (!fp) return false;
+#ifndef _WIN32
+    struct stat st = { 0 };
+    if (fstat(fileno(fp), &st) != 0 || !S_ISREG(st.st_mode)) { fclose(fp); return false; }
+#endif
+    bool complete = false;
+    if (_fseeki64(fp, 0, SEEK_END) == 0) {
+        const int64_t length = _ftelli64(fp);
+        if (length >= 0 && static_cast<uint64_t>(length) <= strData.max_size() && _fseeki64(fp, 0, SEEK_SET) == 0) {
+            try {
+                strData.resize(static_cast<size_t>(length));
+                size_t read = 0;
+                while (read < strData.size()) {
+                    const size_t count = fread(&strData[read], 1, strData.size() - read, fp);
+                    if (count == 0) break;
+                    read += count;
+                }
+                // Resizing a buffer is not proof that all bytes were read.
+                complete = read == strData.size() && ferror(fp) == 0 && fgetc(fp) == EOF && ferror(fp) == 0;
+            } catch (const std::exception&) { complete = false; }
+        }
+    }
+    const int closed = fclose(fp);
+    if (!complete || closed != 0) { strData.clear(); return false; }
+    return true;
 }
 
 bool ZFile::ReadFileV(string& strData, const char* szPath, ...)
@@ -168,24 +176,22 @@ bool ZFile::ReadFileV(string& strData, const char* szPath, ...)
 
 bool ZFile::AppendFile(const char* szFile, const char* szData, size_t sLen)
 {
-	FILE* fp = NULL;
-	_fopen64(fp, szFile, "ab+");
-	if (NULL != fp) {
-		int64_t towrite = sLen;
-		while (towrite > 0) {
-			int64_t nwrite = fwrite(szData + (sLen - towrite), 1, towrite, fp);
-			if (nwrite <= 0) {
-				break;
-			}
-			towrite -= nwrite;
-		}
-
-		fclose(fp);
-		return (towrite > 0) ? false : true;
-	} else {
-		ZLog::ErrorV("AppendFile: Failed in fopen! %s, %s\n", szFile, strerror(errno));
-	}
-	return false;
+    if (!szFile || (sLen > 0 && !szData)) return false;
+    FILE* fp = NULL;
+    _fopen64(fp, szFile, "ab+");
+    if (!fp) {
+        ZLog::ErrorV("AppendFile: Failed in fopen! %s, %s\n", szFile, strerror(errno));
+        return false;
+    }
+    size_t written = 0;
+    while (written < sLen) {
+        const size_t count = fwrite(szData + written, 1, sLen - written, fp);
+        if (count == 0) break;
+        written += count;
+    }
+    const bool complete = written == sLen && ferror(fp) == 0;
+    const int closed = fclose(fp);
+    return complete && closed == 0;
 }
 
 bool ZFile::AppendFile(const char* szFile, const string& strData)
@@ -198,9 +204,8 @@ bool ZFile::IsFolder(const char* szFolder)
 #ifdef _WIN32
 	return ::PathIsDirectoryA(szFolder);
 #else
-	struct stat st;
-	stat(szFolder, &st);
-	return S_ISDIR(st.st_mode);
+    struct stat st = { 0 };
+    return szFolder && stat(szFolder, &st) == 0 && S_ISDIR(st.st_mode);
 #endif
 }
 
@@ -277,7 +282,7 @@ bool ZFile::RemoveFolder(const char* szFolder)
 	shfs.fFlags |= (FOF_SILENT | FOF_NOERRORUI);
 	return (0 == ::SHFileOperationA(&shfs));
 #else
-	return nftw(szFolder, RemoveFolderCallBack, 64, FTW_DEPTH | FTW_PHYS);
+	return 0 == nftw(szFolder, RemoveFolderCallBack, 64, FTW_DEPTH | FTW_PHYS);
 #endif
 }
 
@@ -338,35 +343,40 @@ bool ZFile::CopyFile(const char* szSrcFile, const char* szDestFile)
 	return ::CopyFileA(szSrcFile, szDestFile, FALSE) ? true : false;
 #else 
 
-	int src_id = -1;
-	int dest_fd = -1;
-	ssize_t sum_readed = 0;
-	ssize_t sum_written = 0;
-	src_id = open(szSrcFile, O_RDONLY);
-	if (-1 != src_id) {
-		dest_fd = open(szDestFile, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-		if (-1 != dest_fd) {
-			char buffer[4096];
-			ssize_t bytes_read = read(src_id, buffer, sizeof(buffer));
-			while (bytes_read > 0) {
-				sum_readed += bytes_read;
-				ssize_t bytes_written = write(dest_fd, buffer, bytes_read);
-				if (bytes_written != bytes_read) {
-					break;
-				}
-				sum_written += bytes_written;
-				bytes_read = read(src_id, buffer, sizeof(buffer));
-			}
-			close(dest_fd);
-		}
-		close(src_id);
-	}
-
-	if (-1 == src_id || -1 == dest_fd || sum_readed != sum_written) {
-		return false;
-	}
-
-	return true;
+    if (!szSrcFile || !szDestFile) return false;
+    int readFlags = O_RDONLY, writeFlags = O_CREAT | O_WRONLY;
+#ifdef O_NOFOLLOW
+    readFlags |= O_NOFOLLOW; writeFlags |= O_NOFOLLOW;
+#endif
+#ifdef O_CLOEXEC
+    readFlags |= O_CLOEXEC; writeFlags |= O_CLOEXEC;
+#endif
+    const int source = open(szSrcFile, readFlags);
+    if (source < 0) return false;
+    struct stat from = { 0 }, to = { 0 };
+    if (fstat(source, &from) != 0 || !S_ISREG(from.st_mode)) { close(source); return false; }
+    // Check identity before truncation: copying a file onto itself must not
+    // erase it, including when two paths are hard links to the same inode.
+    const int target = open(szDestFile, writeFlags, 0644);
+    if (target < 0) { close(source); return false; }
+    bool complete = fstat(target, &to) == 0 && S_ISREG(to.st_mode) &&
+        !(from.st_dev == to.st_dev && from.st_ino == to.st_ino) && ftruncate(target, 0) == 0;
+    char buffer[64 * 1024];
+    while (complete) {
+        ssize_t count;
+        do { count = read(source, buffer, sizeof(buffer)); } while (count < 0 && errno == EINTR);
+        if (count < 0) { complete = false; break; }
+        if (count == 0) break;
+        ssize_t written = 0;
+        while (written < count) {
+            ssize_t next;
+            do { next = write(target, buffer + written, count - written); } while (next < 0 && errno == EINTR);
+            if (next <= 0) { complete = false; break; }
+            written += next;
+        }
+    }
+    const int targetClosed = close(target), sourceClosed = close(source);
+    return complete && targetClosed == 0 && sourceClosed == 0;
 
 #endif
 }

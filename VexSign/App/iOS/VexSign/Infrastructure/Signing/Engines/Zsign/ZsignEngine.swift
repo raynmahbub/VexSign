@@ -85,10 +85,9 @@ enum ZsignEngine {
 		}
 	}
 
-	/// The reason the engine would refuse this identity, or nil when it looks acceptable.
-	///
-	/// Pure and cheap: it reads what the caller already has on disk, and answers the same
-	/// question `ZSignAsset::Init` answers a moment later — just with a sentence attached.
+    /// Cheap diagnostic only: nil does not authenticate a profile, establish
+    /// certificate validity, or prove private-key access. Mandatory inventory
+    /// admission and execution-time proof remain in SigningResolutionSession.
 	static func identityProblem(
 		provisioningProfile: Data?,
 		certificate: Data?,
@@ -107,7 +106,7 @@ enum ZsignEngine {
 		}
 
 		let named = (profile.DeveloperCertificates ?? []).map { SigningIdentity.fingerprint(of: $0) }
-		guard named.isEmpty || named.contains(SigningIdentity.fingerprint(of: leafCertificate)) else {
+        guard !named.isEmpty, named.contains(SigningIdentity.fingerprint(of: leafCertificate)) else {
 			return .certificateNotInProfile
 		}
 		return nil
@@ -131,6 +130,9 @@ enum ZsignEngine {
 			adhoc: request.isAdHoc,
 			removeProvision: request.engineEmbedProvision,
 			nestedProvisions: request.isAdHoc ? [:] : request.nestedProvisionPaths,
+            nestedAssets: request.isAdHoc ? [:] : request.nestedAssets.mapValues {
+                ["p12": $0.p12Path, "password": $0.password, "entitlements": $0.entitlementsPath]
+            },
 			completion: { _, error in
 				engineError = error
 			}

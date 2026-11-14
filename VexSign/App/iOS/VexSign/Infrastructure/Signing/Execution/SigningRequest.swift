@@ -14,11 +14,9 @@ struct SigningRequest: Identifiable {
 	let options: Options
 	let icon: UIImage?
 	let certificate: CertificatePair?
-	/// True when the caller is the signing sheet after the user accepted blocking preflight
-	/// issues ("Sign Anyway"). Post-sign profile/entitlement compatibility failures
-    /// may be accepted, but structural failures and ignored options still reject output. Every path that never
-	/// shows the preflight sheet — batch, Update All, automation, self-update — leaves this
-	/// false and keeps the strict behaviour.
+    /// Explicit consent to nonmandatory preflight risks only. Authentication,
+    /// identifier/profile compatibility, required capabilities and final signature
+    /// verification cannot be bypassed, regardless of this flag.
 	let overridesBlockingPreflightIssues: Bool
 	/// Lines the caller needs in this run's log, written as warnings once the run has started.
 	///
@@ -26,6 +24,7 @@ struct SigningRequest: Identifiable {
 	/// starting is gone before the user can read it. A run that reuses saved settings uses this
 	/// to say what it could not reuse.
 	let notices: [String]
+    var authorization: SigningResolutionAuthorization? = nil
 
 	init(
 		id: String = UUID().uuidString,

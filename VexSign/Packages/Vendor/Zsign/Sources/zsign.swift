@@ -73,9 +73,10 @@ public enum Zsign {
 		adhoc: Bool = false,
 		removeProvision: Bool = false,
 		nestedProvisions: [String: String] = [:],
+        nestedAssets: [String: [String: String]] = [:],
 		completion: ((Bool, Error?) -> Void)? = nil
 	) -> Bool {
-		if zsignWithNestedProvisions(
+		if zsignWithNestedAssets(
 			appPath,
 			provisionPath,
 			p12Path,
@@ -87,6 +88,7 @@ public enum Zsign {
 			adhoc,
 			removeProvision,
 			nestedProvisions,
+            nestedAssets,
 			completion.map { callback in
 				{ success, error in
 					callback(success, error)

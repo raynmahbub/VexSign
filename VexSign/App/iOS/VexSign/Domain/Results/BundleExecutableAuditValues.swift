@@ -1,12 +1,12 @@
 import Foundation
 
 enum BundleExecutableAudit {
-    enum Problem: String, Sendable { case unreadable, malformed, encrypted, unsupportedDeviceBinary, unknownPlatform }
+    enum Problem: String, Sendable { case unreadable, malformed, encrypted, unsupportedDeviceBinary, unknownPlatform, unsupportedCompanionBinary, discoveryIncomplete, unexpectedFileType }
     struct Finding: Identifiable, Equatable, Sendable {
         let path: String
         let problem: Problem
         var id: String { path + ":" + problem.rawValue }
-        var isBlocking: Bool { problem != .unknownPlatform }
+        var isBlocking: Bool { true }
 
     }
     struct Report: Sendable {
@@ -20,4 +20,5 @@ enum BundleExecutableAudit {
 struct SigningReviewEvidence: Sendable {
     let report: BundleExecutableAudit.Report
     let requiredBytes: Int64
+    var resolution: SigningResolutionReview? = nil
 }

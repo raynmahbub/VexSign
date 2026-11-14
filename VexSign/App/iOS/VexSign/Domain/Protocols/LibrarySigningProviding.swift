@@ -7,6 +7,7 @@ struct LibrarySigningRequest {
     let certificateID: String?
     let overridesBlockingPreflightIssues: Bool
     let notices: [String]
+    var authorization: SigningResolutionAuthorization? = nil
 }
 
 enum LibrarySigningEvent {

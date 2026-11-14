@@ -4,7 +4,12 @@
 class ZSignAsset
 {
 public:
-	ZSignAsset();
+    ZSignAsset();
+    ~ZSignAsset();
+    ZSignAsset(const ZSignAsset&) = delete;
+    ZSignAsset& operator=(const ZSignAsset&) = delete;
+    /// Compatibility of a public leaf with this pinned backend's issuer set.
+    static bool SupportsSigningCertificate(const string& der);
 
 public:
 	bool Init(const string& strCertFile, 

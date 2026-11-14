@@ -91,17 +91,17 @@ extension LibraryView {
 
     func selectedApps() -> [AppInfoPresentable] {
         getAllApps().filter { app in
-            guard let uuid = app.uuid else { return false }
-            return _selectedAppUUIDs.contains(uuid)
+            guard let id = app.workspaceIdentity else { return false }
+            return _selectedAppUUIDs.contains(id)
         }
     }
 
     func _beginSelection(with app: AppInfoPresentable) {
-        guard let uuid = app.uuid else { return }
+        guard let id = app.workspaceIdentity else { return }
 
         withAnimation {
             _editMode = .active
-            _selectedAppUUIDs = [uuid]
+            _selectedAppUUIDs = [id]
         }
     }
 
@@ -135,16 +135,12 @@ extension LibraryView {
 // MARK: - Extension: Bulk Delete
 extension LibraryView {
     func bulkDeleteSelectedApps() {
-        var failed = 0
-        for app in selectedApps() where !services.library.delete(app) {
-            failed += 1
-        }
-
-        if failed > 0 {
-            Toast.error(
-                String.localized("Couldn't delete %lld app(s). They are still in the Library; try again.", arguments: Int64(failed)),
-                duration: .sticky
-            )
+        let apps = selectedApps()
+        guard !apps.isEmpty else { return }
+        // One staged transaction: cancel/save failure cannot leave a half-deleted batch.
+        guard services.library.delete(apps) else {
+            Toast.error(.localized("Deletion could not be completed. Your app records were kept; recovery files, if any, are retained."), duration: .sticky)
+            return
         }
 
         _selectedAppUUIDs.removeAll()
@@ -167,7 +163,7 @@ extension LibraryView {
 
     var areAllAppsSelected: Bool {
         let allApps = getAllApps()
-        let allUUIDs = Set(allApps.compactMap { $0.uuid })
+        let allUUIDs = Set(allApps.compactMap { $0.workspaceIdentity })
         return !allUUIDs.isEmpty && _selectedAppUUIDs == allUUIDs
     }
 
@@ -176,7 +172,7 @@ extension LibraryView {
             _selectedAppUUIDs.removeAll()
         } else {
             let allApps = getAllApps()
-            _selectedAppUUIDs = Set(allApps.compactMap { $0.uuid })
+            _selectedAppUUIDs = Set(allApps.compactMap { $0.workspaceIdentity })
         }
     }
 }

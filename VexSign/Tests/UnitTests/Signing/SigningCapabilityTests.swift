@@ -210,7 +210,8 @@ final class SigningCapabilityTests: XCTestCase {
 			$0.kind == .dylib && $0.hasExecutable && $0.isStructurallyComplete
 		})
 		XCTAssertTrue(plan.profileBoundComponents.isEmpty)
-		XCTAssertTrue(plan.validationIssues().isEmpty)
+        XCTAssertTrue(plan.validationIssues().contains { $0.severity == .blocking && $0.detail.contains("Notes.txt") },
+            "A loose Mach-O cannot be passed off as an ordinary resource by changing its filename.")
 	}
 
 	func testPlanSkipsLinkedDylibsAndDirectoriesNamedDylib() throws {
@@ -227,10 +228,11 @@ final class SigningCapabilityTests: XCTestCase {
 
 		let plan = SigningPlan.make(appBundle: app)
 		XCTAssertEqual(plan.components.map(\.path), ["Real.dylib"])
-		XCTAssertTrue(plan.validationIssues().isEmpty)
+        XCTAssertEqual(plan.discoveryIssues.count, 2)
+        XCTAssertTrue(plan.validationIssues().allSatisfy { $0.severity == .blocking })
 	}
 
-	func testPlanAdvisesWhenADylibIsNotExecutable() throws {
+	func testPlanBlocksWhenADylibIsNotReadableMachO() throws {
 		let app = try _makeApp()
 		try _makeFile(at: app, path: "NotExecutable.dylib", executable: false)
 
@@ -240,8 +242,8 @@ final class SigningCapabilityTests: XCTestCase {
 		XCTAssertFalse(component.hasExecutable)
 		XCTAssertFalse(component.isStructurallyComplete)
 		let issue = try XCTUnwrap(plan.validationIssues().first)
-		XCTAssertEqual(issue.code, .nestedComponentInvalid)
-		XCTAssertEqual(issue.severity, .advisory)
+		XCTAssertEqual(issue.code, .executableUnavailable)
+		XCTAssertEqual(issue.severity, .blocking)
 	}
 
 	func testPlanIsSignedDeepestFirstAndStableBetweenRuns() throws {
@@ -329,14 +331,14 @@ final class SigningCapabilityTests: XCTestCase {
 		XCTAssertEqual(issue.severity, .blocking)
 	}
 
-	func testPlanDoesNotBlockOnAFrameworkWithoutAnExecutable() throws {
+	func testPlanBlocksAnIncompleteFrameworkWithoutPositiveResourceOnlyEvidence() throws {
 		let app = try _makeApp()
 		try _makeBundle(at: app, path: "Frameworks/Thin.framework", identifier: "com.example.thin", executable: nil)
 
 		let issues = SigningPlan.make(appBundle: app).validationIssues()
 		let issue = try XCTUnwrap(issues.first)
-		XCTAssertEqual(issue.severity, .advisory)
-		XCTAssertTrue(SigningCapability(issues: issues).canProceed)
+		XCTAssertEqual(issue.severity, .blocking)
+		XCTAssertFalse(SigningCapability(issues: issues).canProceed)
 	}
 
 	// MARK: - Helpers
@@ -400,7 +402,7 @@ final class SigningCapabilityTests: XCTestCase {
 			at: url.deletingLastPathComponent(),
 			withIntermediateDirectories: true
 		)
-		XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: Data([0xCF, 0xFA, 0xED, 0xFE])))
+        try (executable ? SigningRegressionFixture.machO(fileType: 6) : Data("ordinary non-code file".utf8)).write(to: url)
 		if executable {
 			try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
 		}

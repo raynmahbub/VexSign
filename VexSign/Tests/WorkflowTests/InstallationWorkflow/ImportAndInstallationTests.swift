@@ -395,13 +395,12 @@ final class ImportAndInstallationTests: XCTestCase {
         return url
     }
 
-    func testProfileReaderIgnoresBinaryCMSTrailer() throws {
+    func testProfileReaderRejectsXMLHiddenInAMalformedCMSEnvelope() throws {
         var envelope = Data([0x30, 0x82, 0xff, 0x00])
         envelope.append(try profileData())
         envelope.append(Data([0xff, 0xfe, 0x00, 0x30]))
         let certificate = CertificateReader(try temporaryFile(envelope)).decoded
-        XCTAssertEqual(certificate?.Name, "Test Profile")
-        XCTAssertNil(certificate?.derEncodedProfile)
+        XCTAssertNil(certificate, "Finding an XML substring inside unrelated bytes does not authenticate provisioning.")
     }
 
     func testProfileReaderRejectsTruncatedAndEmptyFiles() throws {

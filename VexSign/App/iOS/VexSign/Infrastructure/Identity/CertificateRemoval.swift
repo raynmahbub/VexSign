@@ -30,6 +30,10 @@ enum CertificateRemoval {
         saveDeletion: (NSManagedObjectContext) throws -> Void = { try $0.save() },
         saveRestoration: @escaping (NSManagedObjectContext) throws -> Void = { try $0.save() }) -> Bool {
         guard cert.managedObjectContext === storage.context, !cert.isDeleted, !cert.objectID.isTemporaryID else { return false }
+        guard !AppOperationRegistry.shared.isBusy(SigningIdentityStore.leaseKey(reference: cert.objectID.uriRepresentation().absoluteString)) else {
+            Toast.info("This identity or one of its profiles is in use by a signing run. Wait for it to finish before deleting it.")
+            return false
+        }
         let offer: (Snapshot, StagedAppDeletion?)?
         do { offer = try _prepareUndo(for: cert, storage: storage) }
         catch {

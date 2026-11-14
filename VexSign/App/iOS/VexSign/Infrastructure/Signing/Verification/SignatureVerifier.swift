@@ -4,20 +4,11 @@
 //
 //  Post-sign inspection of a bundle VexSign has just produced.
 //
-//  Nothing here re-derives a signature or recomputes hashes over the whole bundle: that
-//  would cost seconds on a large app and duplicate what installd does anyway. It answers a
-//  narrower and still useful question — "is what landed on disk the thing we meant to make?"
-//  — using structural evidence that is cheap to read:
-//
-//    * the main executable and every nested Mach-O carry an LC_CODE_SIGNATURE load command;
-//    * `_CodeSignature/CodeResources` exists where the bundle says it is signed;
-//    * the profile the bundle embeds is the one that covers its bundle identifier;
-//    * the entitlements sealed into the executable are granted by that profile;
-//    * the profile has not expired.
-//
-//  Unknown evidence remains a warning. Definite structural/profile mismatches are
-//  failures and must stop a freshly signed bundle from being registered as successful.
-//  This is structural inspection, not cryptographic or on-device acceptance.
+//  Fresh device-signing output is admitted only after independent per-image
+//  CodeDirectory/page/special-slot/CMS and resource-envelope verification against
+//  the exact authenticated component plan. Import-only inspection is explicitly
+//  structural evidence and is never described as cryptographically verified.
+//  Neither result is a claim that a physical device accepted installation.
 //
 
 import Foundation
@@ -51,7 +42,9 @@ enum SignatureVerifier {
             case requestedIdentifierMismatch
 			case nestedIdentifierUncovered
 			case entitlementUnreadable
-			case entitlementNotGranted
+            case entitlementNotGranted
+            case manifestInvalid, expectedAssetsMissing, signatureInvalid, resourceSealInvalid
+            case signerMismatch, profileChanged, inspectionOnly
 		}
 
 		let code: Code
@@ -96,6 +89,15 @@ enum SignatureVerifier {
             throw Rejection(errorDescription: summary)
         }
 
+        /// Import inspection may be incomplete. Fresh device-signing output may
+        /// not be registered on that weaker result, even with a preflight override.
+        func requireVerified() throws {
+            try requireAcceptable()
+            guard verdict.isVerified else {
+                throw Rejection(errorDescription: .localized("Fresh signing verification is incomplete. Import a complete IPA and compatible current signing assets; this output has not been registered."))
+            }
+        }
+
 		/// The result as one of a fixed set of answers, for a caller that has to decide
 		/// what it may say about the bundle.
 		enum Verdict: String, Equatable {
@@ -115,7 +117,7 @@ enum SignatureVerifier {
 
 		/// Codes that mean "this could not be read", as opposed to "this is wrong".
 		private static let evidenceGaps: Set<Issue.Code> = [
-			.profileUnreadable, .profileIdentifierUnknown, .entitlementUnreadable
+			.profileUnreadable, .profileIdentifierUnknown, .entitlementUnreadable, .inspectionOnly
 		]
 
 		var verdict: Verdict {
@@ -162,13 +164,14 @@ enum SignatureVerifier {
 
 	// MARK: Expectation
 
-	/// What the caller believes it just produced. Verification is only meaningful relative to
-	/// that: a bundle signed with `removeProvisioning` has no profile on purpose.
+    /// What the caller produced. Device-signing acceptance requires authenticated
+    /// per-component assets and embedded profiles; import/ad-hoc inspection must
+    /// never be promoted to fresh device-signature acceptance.
 	struct Expectation {
 		/// False for a modify-only run, where nothing was signed and nothing should be expected.
 		var expectsSignature: Bool
-		/// False when the caller deliberately strips the profile, or is checking a bundle
-		/// signed elsewhere (which may be ad-hoc and profile-free).
+        /// False only for inspection of imported/ad-hoc/modify-only output, not
+        /// permission to omit profiles from fresh device-signing output.
 		var requiresEmbeddedProfile: Bool
 		/// The identifier the user asked for, when there is one. A mismatch with the produced
 		/// bundle means the signing options did not take effect.
@@ -178,7 +181,8 @@ enum SignatureVerifier {
 		/// False when checking a bundle signed elsewhere. Such an app may legitimately carry
 		/// an expired signing certificate — iOS accepts a signature made while the
 		/// certificate was valid — and "install without signing" must not be blocked for it.
-		var expectsFreshSignature: Bool
+        var expectsFreshSignature: Bool
+        var assets: [String: AssetExpectation] = [:]
 
 		static let freshlySigned = Expectation(
 			expectsSignature: true,
@@ -197,37 +201,12 @@ enum SignatureVerifier {
 
 	// MARK: Keys
 
-	/// Entitlements that are rewritten on purpose by VexSign itself, or that iOS derives
-	/// rather than validates against the profile's list. A difference here is worth saying
-	/// out loud, but it is not proof the app will fail — and every one of these would
-	/// otherwise block a bundle that installs perfectly well.
-	/// Shared with `ProfileCompatibility`, which must not block on the same keys for the same
-	/// reason: a preflight that disagrees with the verifier is a preflight nobody trusts.
-	static var tolerantEntitlementKeys: Set<String> {
-		Set(
-			[
-				"application-identifier",
-				"com.apple.application-identifier",
-				"com.apple.developer.team-identifier",
-				"get-task-allow",
-				"keychain-access-groups"
-			] + EntitlementBuilder.jitEntitlementKeys
-		)
-	}
+    /// No requested security capability is merely tolerated. A changed identity
+    /// is planned before signing and independently authorized by its own profile.
+    static var tolerantEntitlementKeys: Set<String> { [] }
 
-	/// Every folder the signed tree can hold nested code in.
-	///
-	/// `Watch` belongs here because the pinned engine signs by *path suffix*, not by folder name:
-	/// `ZBundle::GetObjectsToSign` recurses the whole tree into any `.app`/`.appex`/`.framework`/
-	/// `.xctest` it finds (`VexSign/Packages/Vendor/Zsign/src/bundle.cpp:81-100`), so a retained `Watch/*.app` is
-	/// signed exactly like a PlugIn — and `_removeWatchIfNeeded` keeps every watch app that has an
-	/// Info.plist. `NestedBundleAudit` already scans `Watch` for profile coverage ("Watch apps ...
-	/// remain in the target and must still be covered"). Without it here, the post-sign report was
-	/// blind to the one nested bundle that both of those steps treat as load-bearing: an uncovered
-	/// or unsigned watch companion verified clean, then failed on the device with nothing in the
-	/// log to explain why.
-	private static let nestedBundleFolders = ["Frameworks", "PlugIns", "Extensions", "Watch"]
-	private static let nestedBundleExtensions: Set<String> = ["framework", "appex", "app", "bundle"]
+    // Both fresh and imported inspection discover nested code through SigningPlan.
+    // There is no folder allowlist that could hide a deeper extension/framework.
 
 	// MARK: Verify
 
@@ -264,8 +243,18 @@ enum SignatureVerifier {
 			)
 		}
 
-		if expectation.expectsSignature {
-			issues += _signatureIssues(in: bundleURL, executable: executable, expectation: expectation)
+        if expectation.expectsSignature && expectation.expectsFreshSignature {
+            if let declared = expectation.declaredBundleIdentifier, declared != producedIdentifier {
+                issues.append(.init(code: .requestedIdentifierMismatch, severity: .failure,
+                    detail: "The produced Bundle Identifier differs from the explicit signing request."))
+            }
+            issues += freshSealIssues(in: bundleURL, assets: expectation.assets)
+            return Report(bundlePath: bundleURL.path, issues: issues, duration: Date().timeIntervalSince(started))
+        }
+        if expectation.expectsSignature {
+            issues.append(.init(code: .inspectionOnly, severity: .warning,
+                detail: "This imported signature was structurally inspected, not authenticated against a VexSign signing plan. Device installation and trust have not been established."))
+            issues += _signatureIssues(in: bundleURL, executable: executable, expectation: expectation)
 		}
 
 		issues += _profileIssues(
@@ -322,12 +311,10 @@ enum SignatureVerifier {
 			}
 		}
 
-		// A nested bundle without its own signature fails the whole install, but report it as a
-		// warning: zsign's handling of some third-party frameworks is outside VexSign's control,
-		// and owns the per-extension profile story.
+        // Structural failures remain blocking even for imported signatures. The
+        // inspectionOnly warning still prevents any cryptographic trust claim.
 		for nested in _nestedBundles(in: bundleURL) {
-			let isSigned = Bundle(url: nested)
-				.flatMap(\.executableURL)
+            let isSigned = SigningInputValidation.executable(in: nested)
 				.map { MachOEntitlements.hasCodeSignature(forExecutableAt: $0) } ?? false
 
 			guard !isSigned else { continue }
@@ -335,13 +322,23 @@ enum SignatureVerifier {
 			issues.append(
 				Issue(
 					code: .unsignedNestedBundle,
-					severity: .warning,
-					detail: .localized("%@ has no code signature.", arguments: nested.lastPathComponent),
+					severity: .failure,
+                    detail: .localized("%@ has no code signature.", arguments: nested.lastPathComponent),
 					subject: nested.lastPathComponent
 				)
 			)
 		}
 
+        let plan = SigningPlan.make(appBundle: bundleURL)
+        for issue in plan.validationIssues() where issue.severity == .blocking {
+            issues.append(.init(code: .manifestInvalid, severity: .failure, detail: issue.detail))
+        }
+        for component in plan.components where component.kind == .dylib {
+            if !MachOEntitlements.hasCodeSignature(forExecutableAt: bundleURL.appendingPathComponent(component.path)) {
+                issues.append(.init(code: .unsignedExecutable, severity: .failure,
+                    detail: component.path + " has no readable code signature.", subject: component.path))
+            }
+        }
 		return issues
 	}
 
@@ -409,8 +406,8 @@ enum SignatureVerifier {
 			issues.append(
 				Issue(
 					code: .profileUnreadable,
-					severity: .warning,
-					detail: .localized("Could not read the embedded profile, so its contents were not checked.")
+					severity: .failure,
+                    detail: .localized("Could not read the embedded profile, so its contents were not checked.")
 				)
 			)
 			return issues
@@ -473,7 +470,8 @@ enum SignatureVerifier {
 	) -> [Issue] {
 		var issues: [Issue] = []
 
-		for nested in _nestedBundles(in: bundleURL) {
+        for component in SigningPlan.make(appBundle: bundleURL).profileBoundComponents {
+            let nested = bundleURL.appendingPathComponent(component.path)
 			guard
 				let identifier = readInfo(at: nested)?["CFBundleIdentifier"] as? String,
 				identifier != appIdentifier,
@@ -504,82 +502,16 @@ enum SignatureVerifier {
 
 	// MARK: Entitlements
 
-	private static func _entitlementIssues(signed: [String: Any]?, granted: [String: Any]) -> [Issue] {
-		guard let signed, !signed.isEmpty else {
-			return [
-				Issue(
-					code: .entitlementUnreadable,
-					severity: .warning,
-					detail: .localized("Could not read the entitlements sealed into the executable.")
-				)
-			]
-		}
-
-		var issues: [Issue] = []
-
-		for (key, value) in signed.sorted(by: { $0.key < $1.key }) {
-			let severity: Issue.Severity = tolerantEntitlementKeys.contains(key) ? .warning : .failure
-
-			guard let grantedValue = granted[key] else {
-				issues.append(
-					Issue(
-						code: .entitlementNotGranted,
-						severity: severity,
-						detail: .localized("The profile does not grant %@.", arguments: key)
-					)
-				)
-				continue
-			}
-
-			if let signedArray = value as? [Any] {
-				// A subset is fine: the profile may grant more than this app asks for. Only an
-				// element the profile never grants is a problem.
-				let grantedElements = Set((grantedValue as? [Any] ?? []).map { _describe($0) })
-				let missing = signedArray
-					.compactMap { $0 as? String }
-					.filter { !grantedElements.contains($0) }
-
-				if !missing.isEmpty {
-					issues.append(
-						Issue(
-							code: .entitlementNotGranted,
-							severity: severity,
-							detail: .localized(
-								"The profile does not grant %@ for %@.",
-								arguments: key, missing.joined(separator: ", ")
-							)
-						)
-					)
-				}
-			} else if _describe(value) != _describe(grantedValue) {
-				issues.append(
-					Issue(
-						code: .entitlementNotGranted,
-						severity: severity,
-						detail: .localized(
-							"%@ is signed as %@ but the profile grants %@.",
-							arguments: key, _describe(value), _describe(grantedValue)
-						)
-					)
-				)
-			}
-		}
-
-		return issues
-	}
-
-	private static func _describe(_ value: Any) -> String {
-		switch value {
-		case let bool as Bool:
-			return bool ? "true" : "false"
-		case let string as String:
-			return string
-		case let number as NSNumber:
-			return number.stringValue
-		default:
-			return String(describing: value)
-		}
-	}
+    private static func _entitlementIssues(signed: [String: Any]?, granted: [String: Any]) -> [Issue] {
+        guard let signed else {
+            return [.init(code: .entitlementUnreadable, severity: .failure,
+                detail: .localized("Could not read the entitlements sealed into the executable."))]
+        }
+        return ProfileEntitlementAuthorization.failures(requested: signed, grants: granted).map { key in
+            .init(code: .entitlementNotGranted, severity: .failure,
+                detail: .localized("The profile does not grant %@.", arguments: key))
+        }
+    }
 
 	// MARK: Identifiers
 
@@ -617,7 +549,7 @@ enum SignatureVerifier {
     /// Read mutable bundle metadata without Foundation's per-path Bundle cache.
     static func readInfo(at bundleURL: URL) -> [String: Any]? {
         do {
-            let data = try Data(contentsOf: bundleURL.appendingPathComponent("Info.plist"))
+            let data = try CertificateInputReader.read(bundleURL.appendingPathComponent("Info.plist"))
             let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
             return object as? [String: Any]
         } catch {
@@ -630,7 +562,7 @@ enum SignatureVerifier {
 	private static func _bundleURL(at url: URL) -> URL? {
 		let fm = FileManager.default
 
-		if url.pathExtension == "app" {
+		if url.pathExtension.lowercased() == "app" {
 			var isDirectory: ObjCBool = false
 			if fm.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
 				return url
@@ -648,28 +580,14 @@ enum SignatureVerifier {
 		}
 
 		return contents
-			.filter { $0.pathExtension == "app" }
+			.filter { $0.pathExtension.lowercased() == "app" }
 			.sorted { $0.lastPathComponent < $1.lastPathComponent }
 			.first
 	}
 
-	private static func _nestedBundles(in bundleURL: URL) -> [URL] {
-		let fm = FileManager.default
-		var nested: [URL] = []
-
-		for folder in nestedBundleFolders {
-			let directory = bundleURL.appendingPathComponent(folder)
-			guard
-				let contents = try? fm.contentsOfDirectory(
-					at: directory,
-					includingPropertiesForKeys: [.isDirectoryKey],
-					options: [.skipsHiddenFiles]
-				)
-			else { continue }
-
-			nested += contents.filter { nestedBundleExtensions.contains($0.pathExtension.lowercased()) }
-		}
-
-		return nested.sorted { $0.lastPathComponent < $1.lastPathComponent }
-	}
+    private static func _nestedBundles(in bundleURL: URL) -> [URL] {
+        SigningPlan.make(appBundle: bundleURL).components
+            .filter { $0.kind != .dylib && !$0.isResourceOnly }
+            .map { bundleURL.appendingPathComponent($0.path) }
+    }
 }

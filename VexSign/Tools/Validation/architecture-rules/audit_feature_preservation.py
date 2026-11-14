@@ -376,6 +376,18 @@ def protected_input(path: str) -> bool:
         or ".xcdatamodeld/" in path)
 
 
+def reviewed_security_linkage(old: str, before: bytes, after: bytes) -> bool:
+    """Only one reviewed public-framework link may differ from a protected input.
+
+    This is a byte-exact transformation, not a mutable hash baseline or a blanket
+    vendor exception. No pins, dependencies, targets, flags, or license text change.
+    """
+    marker = b'\t\t\t\t.linkedFramework("OpenSSL"),\n'
+    addition = b'                .linkedFramework("Security"),\n'
+    return (old == "Packages/Vendor/Zsign/Package.swift" and before.count(marker) == 1
+        and after == before.replace(marker, marker + addition, 1))
+
+
 def bridging_header_preservation(old: str, new: str, before: bytes, after: bytes,
                                  paths: dict[str, str], originals: dict) -> dict:
     includes = []
@@ -474,8 +486,12 @@ def audit(parse_swift: bool = False) -> dict:
             if not path_only:
                 failures.append(f"Attribution/index content changed beyond repository paths: {old}")
         if protected_input(old):
-            protected.append({"path": new, "identical": before == after, "sha256Before": digest(before), "sha256After": digest(after)})
-            if before != after:
+            reviewed = reviewed_security_linkage(old, before, after)
+            evidence = {"path": new, "identical": before == after, "sha256Before": digest(before), "sha256After": digest(after)}
+            if reviewed:
+                evidence["reviewedChange"] = "Public Security framework linkage only; upstream package/pins unchanged"
+            protected.append(evidence)
+            if before != after and not reviewed:
                 failures.append(f"Protected input bytes changed: {old}")
         if old == "Packages/Vendor/manifest.json":
             path_only = relocate_path(json.loads(before), paths) == json.loads(after)

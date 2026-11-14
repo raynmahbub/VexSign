@@ -35,7 +35,9 @@ private:
 	bool GetSignFolderInfo(const string& strFolder, jvalue& jvNode, bool bGetName = false);
 
 private:
-	bool GenerateCodeResources(const string& strFolder, jvalue& jvCodeRes);
+    bool GenerateCodeResources(const string& strFolder, jvalue& jvCodeRes);
+    ZSignAsset* AssetForPath(const string& relativePath);
+    map<string, ZSignAsset*> m_mapPathAssets;
 
 private:
 	bool			m_bForceSign;

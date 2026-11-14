@@ -4,9 +4,9 @@
   "originalFiles": 1375,
   "mappedFiles": 1375,
   "relocatedFiles": 1322,
-  "byteIdenticalOriginals": 943,
-  "rewrittenTextOriginals": 432,
-  "addedFiles": 191,
+  "byteIdenticalOriginals": 897,
+  "rewrittenTextOriginals": 478,
+  "addedFiles": 216,
   "binaryFilesPreserved": 35,
   "licenseAndAttributionFilesPreserved": 10,
   "licenseTexts": [
@@ -207,9 +207,10 @@
     },
     {
       "path": "VexSign/Packages/Vendor/Zsign/Package.swift",
-      "identical": true,
+      "identical": false,
       "sha256Before": "cec84a96df1f5a62cc2d35889d893b93e105de6f3bca7dd2b8abe9226424a2d7",
-      "sha256After": "cec84a96df1f5a62cc2d35889d893b93e105de6f3bca7dd2b8abe9226424a2d7"
+      "sha256After": "97cb530bc9ca8c46c18e546edc9d83344344ce6d3e41aca5fe2fb3938f017b67",
+      "reviewedChange": "Public Security framework linkage only; upstream package/pins unchanged"
     },
     {
       "path": "VexSign/Services/Cloud/Anisette/Package.swift",
@@ -751,7 +752,7 @@
   ],
   "swiftGrammarComparison": {
     "baseFiles": 959,
-    "currentFiles": 1139,
+    "currentFiles": 1158,
     "baseFindings": 25,
     "currentFindings": 25,
     "newFindingSignatures": [],

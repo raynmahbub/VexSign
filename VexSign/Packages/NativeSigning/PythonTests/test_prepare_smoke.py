@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 import tempfile
 import unittest
+import copy
 
 HERE = Path(__file__).resolve().parents[1]
 REPO = Path(__file__).resolve().parents[4]
@@ -80,6 +81,28 @@ class PreparationTests(unittest.TestCase):
             self.assertRegex(spec['manifest_sha256'], r'^[0-9a-f]{64}$')
         self.assertIn('swift-asn1', lock['packages'])
         self.assertIn('openssl', lock['packages'])
+
+    def test_app_manifest_review_keeps_the_upstream_download_digest_independent(self):
+        lock = json.loads((HERE / "inputs.lock.json").read_text())
+        upstream = lock['packages']['zsign-package']['manifest_sha256']
+        review = json.loads((HERE / 'app-vendored-zsign-review.json').read_text())
+        self.assertEqual(review['upstream_sha256'], upstream)
+        self.assertNotEqual(review['sha256'], upstream)
+        self.assertRegex(review['sha256'], r'^[0-9a-f]{64}$')
+        # Only public Security linkage was added to the app manifest. This
+        # reverse transformation pins the local review to the upstream bytes.
+        manifest = (REPO / 'VexSign/Packages/Vendor/Zsign/Package.swift').read_bytes()
+        added = b'                .linkedFramework("Security"),\n'
+        self.assertEqual(manifest.count(added), 1)
+        self.assertEqual(module.digest(manifest.replace(added, b'')), upstream)
+        changed_review = copy.deepcopy(review)
+        changed_review['sha256'] = '0' * 64
+        with self.assertRaisesRegex(ValueError, 'manifest changed'):
+            module.check_app_baseline(lock, app_review=changed_review)
+        changed = copy.deepcopy(lock)
+        changed['packages']['zsign-package']['manifest_sha256'] = '0' * 64
+        with self.assertRaisesRegex(ValueError, 'upstream baseline'):
+            module.check_app_baseline(changed)
 
     def test_installed_codec_and_tests_match_first_party_source_hashes(self):
         hashes = module.install_smoke_sources(self.root)

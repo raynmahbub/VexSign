@@ -208,6 +208,20 @@ jobs:
           # conforming to the subset the parser accepts; drift fails here.
           python3 VexSign/Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
 
+      # Exercise the real C++ engine with synthetic Mach-O/CMS data. No Apple
+      # credentials or device result is inferred; the iOS Security bridge remains
+      # in the simulator test job. Normal CI never rewrites the public fixture.
+      - name: Native signing core · ASan and UBSan
+        env:
+          VEXSIGN_NATIVE_SANITIZERS: '1'
+        run: |
+          set -euo pipefail
+          pkg-config --atleast-version=3 openssl || {
+            echo "::error::OpenSSL 3 development files are required on ubuntu-24.04."
+            exit 1
+          }
+          python3 VexSign/Tools/Validation/security-validation/test_native_signing_core.py
+
       # swiftformat for consistent code style. The runner image ships Swift but not
       # the formatter, so the pinned release is built once per run.
       - name: Install swiftformat
