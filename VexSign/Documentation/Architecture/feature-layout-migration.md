@@ -130,11 +130,11 @@ checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 23-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 23 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 25-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 25 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
 | Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
-| Error / singleton / concurrency guards | 169 unjustified optional-error sites (13 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
+| Error / singleton / concurrency guards | 168 unjustified optional-error sites (14 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
 | Localization | Catalogue sync and 12 helper tests passed; three missing keys added without pruning translations |
 | Original-file preservation | 1,375 Git originals accounted for; 1,322 relocations; no missing file, changed binary/license, executable-mode loss or removed real public/historical URL; exact counts in the linked JSON audit |
 | Swift grammar comparison | 959 original vs 1,139 current Swift files; the same 25 known grammar findings and no new finding signatures. One known finding moved with the file-coordination extraction. This is **not** `swiftc` or type checking |
@@ -147,12 +147,14 @@ checks are not release or physical-device evidence.
 | Physical-device operation | **Not run:** no new device-acceptance evidence |
 | Docker image / deployment | **Not run:** service source/build tests are not deployment proof |
 
-Ten new native test files contain 71 XCTest methods for fake-provider signing,
+Ten new native test files contain 74 XCTest methods for fake-provider signing,
 account consent/serialization, backup release/serialization and retired presentation
 callbacks, library identity/prevalidation, task/companion intent, observation
 lifetime, deadline ownership and Core Data projection admission. Typed foreign-store,
 foreign-context, temporary, pending/committed-deleted and detached app rows are covered
-alongside valid own-store projections and temporary workspace-read recovery. A fake
+alongside valid own-store projections and temporary workspace-read recovery. Three
+profile-snapshot tests cover absent vs empty grants, typed entitlement values and
+comparison without managed-row refetches. A fake
 restore owner can return a committed summary after cancellation without inventing
 rollback; the retired screen still cannot present it. Fourteen Direct Install cases
 cover overlapping admission, retirement/task cancellation after registration,
@@ -160,7 +162,7 @@ lease retention until the worker returns, accepted handoff preservation, unknown
 routing, hidden-screen callbacks, stale/double confirmation, captured mode and the
 actual guest outcome. Existing certificate/recovery files add 13 methods for transaction/undo-insert failure, nil-date/relink behavior,
 replacement UUID ownership, unavailable stores, interrupted undo, failed
-re-stage/erasure and durable journal retention. **There is not yet a successful native compile/test result for these 84 added
+re-stage/erasure and durable journal retention. **There is not yet a successful native compile/test result for these 87 added
 methods.** The first simulator job stopped during app compilation before tests
 could run. Source-reading fixtures fail
 when an expected implementation file is absent; they do not silently skip
@@ -180,6 +182,7 @@ merged, released or deployed.
 | `5b16d1b`, [CI 43604528974](https://github.com/raynmahbub/VexSign/actions/runs/43604528974) | Quick gates passed and the report-only concurrency job completed. iOS build and simulator test jobs still stopped during app compilation; compiler exit 65 is now captured correctly. New actor-warning annotations are enforced rather than silently ignored. No simulator tests ran. |
 | `5b16d1b`, [native link smoke 43605185577](https://github.com/raynmahbub/VexSign/actions/runs/43605185577) | Pinned isolated graph preparation, CMS fixture digest check, synthetic native unit regressions, generic arm64 iOS device linking and arm64 iOS Simulator linking all passed. Full combined-host packaging and the optional alternate dependency candidates were intentionally skipped. No Apple login/provisioning or capability promotion occurred. |
 | `8066c11`, [CI 43605987685](https://github.com/raynmahbub/VexSign/actions/runs/43605987685) | Quick gates passed and the report-only concurrency job completed. iOS build reported an unavailable Core Data notification member. The simulator build reported a missing clone-sheet container binding and missing NimbleViews import for the installation fallback browser. No simulator tests ran. |
+| `2828c00`, [CI 43608316611](https://github.com/raynmahbub/VexSign/actions/runs/43608316611) | Quick gates passed and the report-only concurrency job completed. Debug compilation failed in downloaded-file row inference; three newly enforced warnings were also reported. The simulator build found an entitlement helper still expecting managed certificate rows instead of immutable certificate records. No simulator tests ran (xcresult total 0). |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -221,7 +224,25 @@ once the setup error was established. The unsupported flag was removed from both
 commands; regression checks prevent its reintroduction. Compiler exit capture
 and the unchanged warnings gate remain enabled.
 
-The separate native-signing smoke success does not compile the app's 84 added
+At `2828c00`, the [next native run](https://github.com/raynmahbub/VexSign/actions/runs/43608316611)
+reached the downloaded-file rows. The build exposed their call to a nonexistent
+`DownloadedFileItem.formattedSize` property (also present in the original source),
+which led SwiftUI to report misleading binding/ForEach inference errors. Rows
+now explicitly consume immutable `DownloadedFileItem` values and format their
+numeric size in Presentation using the existing file-size formatter. Three newly
+enforced warning sites are repaired without expanding the baseline: modern
+`onChange` syntax, a bundle-presence check without an unused URL binding, and an
+explicitly discarded validation statistic. Backup tree validation still throws
+and is awaited; its failure is never suppressed. Tweak scan failures now show an
+error instead of being rendered as a successful empty scan. The simulator then
+reported three entitlement views passing immutable `CertificateRecord` values to
+the legacy managed-row helper; that helper now reads only the selected record's
+profile snapshot, without a persistence refetch or raw `CertificatePair` escape.
+Three added XCTest methods cover missing/empty grants and value comparison.
+These follow-up changes need a new native run; the completed `2828c00` run
+executed zero simulator tests.
+
+The separate native-signing smoke success does not compile the app's 87 added
 XCTest methods; those still require a successful `VexSignTests` simulator job.
 Native Apple-account signing remains `.notIntegrated` after synthetic/link tests.
 

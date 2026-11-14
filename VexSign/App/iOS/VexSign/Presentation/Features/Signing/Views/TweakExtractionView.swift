@@ -449,10 +449,14 @@ struct TweakAppExtractPickerView: View {
 	}
 
 	private func _scan(_ app: AppInfoPresentable) {
-		guard let appURL = app.bundleURL else {
+		guard app.bundleURL != nil else {
 			Toast.error(.localized("Couldn't open that app"), duration: .long)
 			return
 		}
-		_scanned = ScannedApp(candidates: (try? services.tweaks.scan(app: app)) ?? [])
+		do {
+			_scanned = ScannedApp(candidates: try services.tweaks.scan(app: app))
+		} catch {
+			services.platform.notifyError(error.localizedDescription, sticky: true)
+		}
 	}
 }

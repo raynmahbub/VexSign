@@ -93,7 +93,7 @@ private struct DownloadsTabContent: View {
             }
         }
         .onAppear { viewModel.refreshStagedFiles() }
-        .onChange(of: downloadManager.downloads.count) { _ in viewModel.refreshStagedFiles() }
+        .onChange(of: downloadManager.downloads.count) { _, _ in viewModel.refreshStagedFiles() }
         .undoableRemovalBanner()
     }
 
@@ -280,7 +280,7 @@ private struct DownloadsTabContent: View {
     // MARK: - Downloaded / Finished IPAs
     private var downloadedFilesSection: some View {
         Section {
-            ForEach(viewModel.downloadedFiles) { item in
+            ForEach(viewModel.downloadedFiles) { (item: DownloadedFileItem) in
                 HStack(spacing: 12) {
                     Image(systemName: "doc.zipper")
                         .font(.title2)
@@ -293,7 +293,7 @@ private struct DownloadsTabContent: View {
                             .lineLimit(1)
 
                         HStack(spacing: 6) {
-                            Text(item.formattedSize)
+                            Text(item.size.formattedFileSize)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Text("•")

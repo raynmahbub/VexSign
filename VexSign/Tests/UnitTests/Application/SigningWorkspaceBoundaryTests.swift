@@ -57,6 +57,38 @@ final class SigningWorkspaceBoundaryTests: XCTestCase {
         }
     }
 
+    private func certificateWithEntitlements(_ entitlements: [String: Any]?, hasProfile: Bool = true) -> CertificateRecord {
+        let profile = Certificate(AppIDName: "Fixture", CreationDate: Date(), Platform: ["iOS"],
+            Entitlements: entitlements?.mapValues { AnyCodable($0) }, ExpirationDate: Date().addingTimeInterval(3600),
+            Name: "Fixture", TeamIdentifier: ["ABCDE12345"], TeamName: "Fixture", TimeToLive: 1,
+            UUID: "fixture-profile", Version: 1)
+        return CertificateRecord(id: "fixture-certificate", uuid: nil, nickname: nil, date: nil,
+            expiration: nil, isDefault: false, ppQCheck: false, revoked: false,
+            profile: hasProfile ? profile : nil, additionalProfilePatterns: [])
+    }
+
+    func testEntitlementReferenceRequiresTheSelectedProfileSnapshot() {
+        XCTAssertNil(PlistDiff.grantedEntitlements(for: nil))
+        XCTAssertNil(PlistDiff.grantedEntitlements(for: certificateWithEntitlements([:], hasProfile: false)))
+        XCTAssertNil(PlistDiff.grantedEntitlements(for: certificateWithEntitlements(nil)))
+        XCTAssertEqual(PlistDiff.flaggedCount(in: ["unknown": true], against: nil), 0)
+    }
+
+    func testEntitlementSnapshotUnwrapsValuesWithoutRefetchingCertificateRows() throws {
+        let values: [String: Any] = ["application-identifier": "ABCDE12345.com.example.fixture",
+            "get-task-allow": false, "groups": ["group.fixture"], "nested": ["enabled": true]]
+        let granted = try XCTUnwrap(PlistDiff.grantedEntitlements(for: certificateWithEntitlements(values)))
+        XCTAssertTrue(NSDictionary(dictionary: granted).isEqual(NSDictionary(dictionary: values)))
+        XCTAssertEqual(PlistDiff.flaggedCount(in: values, against: granted), 0)
+        XCTAssertEqual(PlistDiff.flaggedCount(in: ["get-task-allow": true, "ungranted": true], against: granted), 2)
+    }
+
+    func testAnEmptyProfileReferenceIsNotTreatedAsNoCertificate() throws {
+        let granted = try XCTUnwrap(PlistDiff.grantedEntitlements(for: certificateWithEntitlements([:])))
+        XCTAssertTrue(granted.isEmpty)
+        XCTAssertEqual(PlistDiff.flaggedCount(in: ["ungranted": true], against: granted), 1)
+    }
+
     func testDuplicateAdmissionDoesNotRetireTheFirstInvocation() throws {
         let provider = Provider()
         let useCase = SigningWorkspaceUseCase(provider: provider)

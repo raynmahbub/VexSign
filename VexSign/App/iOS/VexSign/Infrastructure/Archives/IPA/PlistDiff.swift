@@ -29,12 +29,10 @@ enum PlistDiff {
 		}
 	}
 
-	static func grantedEntitlements(for certificate: CertificatePair?) -> [String: Any]? {
-		guard
-			let certificate,
-			let entitlements = Storage.shared.getProvisionFileDecoded(for: certificate)?.Entitlements
-		else { return nil }
-		return entitlements.mapValues { $0.value }
+	/// Presentation already owns an immutable profile snapshot. Never refetch a
+	/// managed row here or read a different certificate than the selected record.
+	static func grantedEntitlements(for certificate: CertificateRecord?) -> [String: Any]? {
+		certificate?.profile?.Entitlements?.mapValues { $0.value }
 	}
 
 	/// NSString/NSNumber/NSArray/NSDictionary all implement `isEqual:` correctly, including nested arrays/dicts.

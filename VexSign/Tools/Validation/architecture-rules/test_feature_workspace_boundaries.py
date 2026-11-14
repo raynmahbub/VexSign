@@ -115,6 +115,29 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.require("Presentation/Features/Library/Views/Install/InstallQueueWindow.swift",
             "import NimbleViews", "SafariRepresentableView(url: url)")
 
+    def test_download_rows_render_immutable_values_and_tweak_scan_failures_are_not_empty_success(self):
+        downloads = self.require("Presentation/Features/Downloads/Views/DownloadsTabView.swift",
+            "(item: DownloadedFileItem)", "Text(item.size.formattedFileSize)",
+            ".onChange(of: downloadManager.downloads.count) { _, _ in")
+        self.assertNotIn("item.formattedSize", downloads)
+        scan = self.require("Presentation/Features/Signing/Views/TweakExtractionView.swift",
+            "guard app.bundleURL != nil", "ScannedApp(candidates: try services.tweaks.scan(app: app))",
+            "services.platform.notifyError(error.localizedDescription, sticky: true)")
+        self.assertNotIn("try? services.tweaks.scan", scan)
+        validation = code("Infrastructure/Backups/BackupManager.swift")
+        self.assertIn("_ = try LibraryBackupSupport.validateTree(root)", validation)
+        self.assertNotIn("try? LibraryBackupSupport.validateTree(root)", validation)
+
+    def test_entitlement_comparison_consumes_the_selected_immutable_profile_not_managed_rows(self):
+        diff = self.require("Infrastructure/Archives/IPA/PlistDiff.swift",
+            "for certificate: CertificateRecord?", "certificate?.profile?.Entitlements?.mapValues { $0.value }")
+        self.assertNotIn("CertificatePair", diff)
+        self.assertNotIn("Storage", diff)
+        for path in ["Shared/SigningAdvancedView.swift", "Entitlements/SigningEntitlementsView.swift",
+                     "Entitlements/SigningEntitlementsEditorView.swift"]:
+            self.require("Presentation/Features/Signing/Views/" + path,
+                "var certificate: CertificateRecord?", "PlistDiff.grantedEntitlements(for: certificate)")
+
     def test_stream_termination_releases_subscriptions_and_producers_hop_to_their_owner(self):
         self.require("Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
             "forName: .NSManagedObjectContextObjectsDidChange, object: context, queue: .main",

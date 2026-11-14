@@ -395,7 +395,7 @@ final class BackupManager {
                 }
                 let validation = Task.detached {
                     try Task.checkCancellation()
-                    try LibraryBackupSupport.validateTree(root)
+                    _ = try LibraryBackupSupport.validateTree(root)
                     try Task.checkCancellation()
                 }
                 try await withTaskCancellationHandler {
