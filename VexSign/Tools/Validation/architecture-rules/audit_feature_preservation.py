@@ -316,10 +316,24 @@ def project_preservation(before: bytes, after: bytes, paths: dict[str, str], blo
         checked_settings.append({"id": key, "name": config["name"], "settingCount": len(expected), "changedSettingKeys": changed})
 
     groups = objects_of(previous, {"PBXFileSystemSynchronizedRootGroup"})
+    resource_type_repairs = []
     for key, group in groups.items():
         new_group = current.get(key, {})
         if new_group.get("path") != relocate_path(group["path"], paths) or group.get("exceptions", []) != new_group.get("exceptions", []):
             failures.append(f"Xcode synchronized group identity/path changed unexpectedly: {key}")
+        expected_types = {}
+        for relative, file_type in group.get("explicitFileTypes", {}).items():
+            destination = relocate_path(posixpath.join(group["path"], relative), paths)
+            expected_types[posixpath.relpath(destination, new_group["path"])] = file_type
+        if key == "3379C1BB2DA869A1004372DA":
+            # The Debian AR payload must be copied for TweakHandler, not fed to
+            # ld as a Mach-O static library. No asset bytes or target changes.
+            expected_types["Resources/ellekit.deb"] = "file"
+            resource_type_repairs.append({"group": key, "path": "Resources/ellekit.deb", "fileType": "file"})
+        if expected_types != new_group.get("explicitFileTypes", {}):
+            failures.append(f"Xcode resource file type changed beyond the reviewed Debian payload repair: {key}")
+        if {k: v for k, v in group.items() if k not in ("path", "exceptions", "explicitFileTypes")} != {k: v for k, v in new_group.items() if k not in ("path", "exceptions", "explicitFileTypes")}:
+            failures.append(f"Xcode synchronized group metadata changed unexpectedly: {key}")
         for exception in group.get("exceptions", []):
             old = previous[exception]
             new = current.get(exception, {})
@@ -349,6 +363,7 @@ def project_preservation(before: bytes, after: bytes, paths: dict[str, str], blo
         "targets": [{"id": key, "name": item["name"], "productName": item["productName"], "productType": item["productType"]} for key, item in targets.items()],
         "configurations": checked_settings,
         "packageReferencesAndProducts": len(packages), "synchronizedGroups": len(groups),
+        "reviewedResourceTypeRepairs": resource_type_repairs,
         "unchangedBuildProductAndDependencyObjects": len(unchanged),
         "failures": failures,
         "limitation": "Declared setting values, includes and metadata only; not Xcode expansion, compilation or bundle placement.",

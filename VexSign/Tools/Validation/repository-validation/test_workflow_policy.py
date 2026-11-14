@@ -207,6 +207,33 @@ class WorkflowPolicyTests(unittest.TestCase):
         result = self._warning_gate([path], [known])
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
+    def test_unlocated_linker_failure_survives_a_long_resource_log_tail(self):
+        reporter = runpy.run_path(str(ROOT / '.github/scripts/xcodebuild_report.py'))
+        lines = ["Ld fixture.debug.dylib", "ld: archive member 'debian-binary' not a mach-o file in 'ellekit.deb'"]
+        lines.extend(["CopyStringsFile " + "resource" * 90] * 90)
+        contexts = reporter['failure_log_contexts'](lines)
+        self.assertTrue(any("archive member 'debian-binary'" in context for context in contexts))
+        self.assertTrue(all(len(context) < 2800 for context in contexts))
+
+    def test_unparsed_failure_keeps_final_api_annotation_bounded_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            log = root / 'build.log'
+            log.write_text(('CopyStringsFile ' + 'resource' * 90 + '\n') * 90 + 'opaque final tool detail\n')
+            observed = root / 'observed.json'
+            result = subprocess.run([
+                sys.executable, str(ROOT / '.github/scripts/xcodebuild_report.py'),
+                '--log', str(log), '--build-exit', '65', '--warnings-as-errors', 'true',
+                '--baseline-out', str(observed), '--workspace', str(ROOT),
+            ], env={key: value for key, value in os.environ.items() if key not in ('GITHUB_OUTPUT', 'GITHUB_STEP_SUMMARY')},
+                text=True, capture_output=True)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            annotations = [line for line in result.stdout.splitlines() if line.startswith('::error')]
+            self.assertEqual(len(annotations), 1)
+            self.assertIn('opaque final tool detail', annotations[0])
+            self.assertLess(len(annotations[0]), 3000)
+            self.assertFalse(observed.exists(), 'Failed builds must not offer a smaller warning baseline')
+
     def test_native_pipeline_captures_failure_status_under_the_actions_errexit_shell(self):
         workflow = (WORKFLOWS / 'ci.yml').read_text()
         for job, step in [('build', 'Build (Debug)'), ('tests', 'Run tests')]:
@@ -797,6 +824,9 @@ class WorkflowPolicyTests(unittest.TestCase):
             app.mkdir(parents=True)
             executable = app / 'VexSign'
             executable.write_bytes(b'fixture only, not an executable')
+            payload = app / 'ellekit.deb'
+            original_payload = (ROOT / 'VexSign/App/iOS/VexSign/Resources/ellekit.deb').read_bytes()
+            payload.write_bytes(original_payload)
             info = {'DTPlatformName': 'iphoneos', 'CFBundleExecutable': 'VexSign',
                     'CFBundleShortVersionString': '1.2.3', 'CFBundleVersion': '42'}
             env = {**os.environ, 'PATH': str(bin_path) + os.pathsep + os.environ['PATH'],
@@ -811,6 +841,7 @@ class WorkflowPolicyTests(unittest.TestCase):
             with zipfile.ZipFile(staging / 'VexSign-unsigned.ipa') as archive:
                 self.assertIn('Payload/VexSign.app/Info.plist', archive.namelist())
                 self.assertIn('Payload/VexSign.app/VexSign', archive.namelist())
+                self.assertEqual(archive.read('Payload/VexSign.app/ellekit.deb'), original_payload)
                 self.assertNotIn('BUILD.json', archive.namelist())
             metadata = json.loads((staging / 'BUILD.json').read_text())
             self.assertEqual(metadata['commit'], 'a' * 40)
@@ -820,15 +851,22 @@ class WorkflowPolicyTests(unittest.TestCase):
             for line in (staging / 'SHA256SUMS').read_text().splitlines():
                 digest, name = line.split('  ')
                 self.assertEqual(digest, hashlib.sha256((staging / name).read_bytes()).hexdigest())
-            for problem in ('simulator', 'missing-executable'):
+            for problem in ('simulator', 'missing-executable', 'missing-resource', 'changed-resource'):
                 with self.subTest(problem=problem):
-                    shutil.rmtree(staging)
+                    shutil.rmtree(staging, ignore_errors=True)
+                    info['DTPlatformName'] = 'iphoneos'
+                    executable.write_bytes(b'fixture only, not an executable')
+                    payload.write_bytes(original_payload)
                     if problem == 'simulator': info['DTPlatformName'] = 'iphonesimulator'
-                    else:
-                        info['DTPlatformName'] = 'iphoneos'
-                        executable.unlink()
-                    self.assertNotEqual(run().returncode, 0)
+                    elif problem == 'missing-executable': executable.unlink()
+                    elif problem == 'missing-resource': payload.unlink()
+                    else: payload.write_bytes(b'changed payload')
+                    rejection = run()
+                    self.assertNotEqual(rejection.returncode, 0)
                     self.assertFalse((staging / 'VexSign-unsigned.ipa').exists())
+                    if problem in ('missing-resource', 'changed-resource'):
+                        self.assertIn('byte-identical resource', rejection.stdout)
+                        self.assertFalse(staging.exists())
 
     def test_release_checks_use_explicit_python_and_shared_xcode_selector(self):
         release = block((WORKFLOWS / "release.yml").read_text(), 'build', 2)

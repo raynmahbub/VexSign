@@ -197,6 +197,9 @@
 				3371F6492DA92A1800281AC6 /* Exceptions for "VexSign" folder in "VexSign" target */,
 				3A2F0F082E96DD09009DE4CE /* Exceptions for "VexSign" folder in "VexSignWidgetExtensionExtension" target */,
 			);
+			explicitFileTypes = {
+				"Resources/ellekit.deb" = file;
+			};
 			path = VexSign/App/iOS/VexSign;
 			sourceTree = "<group>";
 		};

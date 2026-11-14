@@ -551,6 +551,13 @@
     ],
     "packageReferencesAndProducts": 26,
     "synchronizedGroups": 7,
+    "reviewedResourceTypeRepairs": [
+      {
+        "group": "3379C1BB2DA869A1004372DA",
+        "path": "Resources/ellekit.deb",
+        "fileType": "file"
+      }
+    ],
     "unchangedBuildProductAndDependencyObjects": 72,
     "failures": [],
     "limitation": "Declared setting values, includes and metadata only; not Xcode expansion, compilation or bundle placement."

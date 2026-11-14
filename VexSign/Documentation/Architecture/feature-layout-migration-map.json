@@ -7578,7 +7578,7 @@
     "render.yaml"
   ],
   "relocatedFileCount": 1322,
-  "status": "published as PR #243; native findings through 6d3242c repaired in follow-up source; portable checks, companion builds and isolated native unit/device/simulator link smoke passed at their recorded revisions; full iOS build/XCTest revalidation and device acceptance pending",
+  "status": "published as PR #243; compiler findings through 6d3242c repaired; 4879a1b reached linking and exposed the Debian payload classification, repaired in follow-up metadata; portable/companion/isolated native link results remain revision-specific; full iOS build/XCTest revalidation and device acceptance pending",
   "limitations": [
     "Portable source/grammar checks are not Swift type checking or device acceptance. Revision-specific GitHub Actions findings are recorded in feature-layout-migration.md.",
     "Existing Swift packages and companion targets are retained, not replaced by empty example modules.",
@@ -7626,7 +7626,8 @@
     "packages": "Retain existing package identities and manifests; do not add placeholder VexSign* modules.",
     "companions": "Retain tvOS, visionOS, watchOS, widget and host integration targets, bundle IDs and product names.",
     "configuration": "Move actual build inputs and entitlements under Configuration; extract unchanged project settings into xcconfig files.",
-    "legacyPresentation": "Consumed feature ports remove all currently guarded Presentation storage/Core Data/I/O/engine-owner matches. Original expanded baseline review and previous rule/file lists remain preserved in history; source guards are not exhaustive or native acceptance."
+    "legacyPresentation": "Consumed feature ports remove all currently guarded Presentation storage/Core Data/I/O/engine-owner matches. Original expanded baseline review and previous rule/file lists remain preserved in history; source guards are not exhaustive or native acceptance.",
+    "nativeResourceTypes": "Native linker rejected ellekit.deb as a Mach-O static archive at 4879a1b. Explicit generic-file classification copies the unchanged runtime resource. Only this path/type repair is admitted by the preservation auditor; device app packaging compares its bundled bytes with the original payload."
   },
   "addedFiles": [
     "VexSign/App/iOS/VexSign/App/Bootstrap/AppPreferencesBootstrap.swift",

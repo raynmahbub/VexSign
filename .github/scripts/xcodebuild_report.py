@@ -180,6 +180,23 @@ def annotate(kind: str, msg: str, rel: str | None = None, line: int | None = Non
     print(head + msg)
 
 
+def failure_log_contexts(lines: list[str]) -> list[str]:
+    """Keep unlocated linker/script failures even when later resource chatter
+    pushes them out of the log tail. Each annotation stays under GitHub's cap.
+    This is diagnostic-only and never changes the compiler or warning verdict.
+    """
+    marker = re.compile(r"^ld:|^clang(?:\+\+)?:|\berror:|fatal error|nonzero exit|"
+                        r"linker command failed|the following build commands failed|\*\* (?:BUILD|TEST) FAILED", re.I)
+    locations = [index for index, line in enumerate(lines) if marker.search(line)]
+    contexts = []
+    for index in locations[-6:]:
+        detail = [f"log line {index + 1}: {lines[index].strip()[:900]}"]
+        detail.extend(line.strip()[:180] for line in lines[max(0, index - 2):index] if line.strip())
+        detail.extend(line.strip()[:180] for line in lines[index + 1:index + 5] if line.strip())
+        contexts.append("\n".join(detail))
+    return contexts
+
+
 def main() -> int:
     args = parse_args()
     first_party = [item.strip() for item in args.first_party.split(",") if item.strip()]
@@ -372,8 +389,15 @@ def main() -> int:
 
     if build_failed and not errors and not bare_errors:
         tail = [line for line in lines if line.strip()][-60:]
-        annotate("error", "Failed without a parsed diagnostic. Log tail:\n" +
-                 "\n".join(line[:500] for line in tail), title="Unparsed build/test failure")
+        contexts = failure_log_contexts(lines)
+        if contexts:
+            for context in contexts:
+                annotate("error", context, title="Unparsed build/test failure context")
+        else:
+            # The summary retains the full tail; the API-visible annotation
+            # must not lose its final (usually actionable) lines to truncation.
+            annotate("error", "Failed without a parsed diagnostic. Final log lines:\n" +
+                     "\n".join(line[:180] for line in tail[-12:]), title="Unparsed build/test failure")
         out.append("### Log tail (build failed without a parseable diagnostic)")
         out.append("")
         out.append("```text")

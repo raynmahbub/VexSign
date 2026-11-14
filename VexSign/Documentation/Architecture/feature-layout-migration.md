@@ -130,10 +130,10 @@ checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 27-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 27 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 28-case workspace-boundary source suite and 24 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 28 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
-| Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
+| Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. One reviewed generic-resource file-type override is audited below. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
 | Error / singleton / concurrency guards | 168 unjustified optional-error sites (14 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
 | Localization | Catalogue sync and 12 helper tests passed; three missing keys added without pruning translations |
 | Original-file preservation | 1,375 Git originals accounted for; 1,322 relocations; no missing file, changed binary/license, executable-mode loss or removed real public/historical URL; exact counts in the linked JSON audit |
@@ -186,6 +186,7 @@ merged, released or deployed.
 | `8066c11`, [CI 43605987685](https://github.com/raynmahbub/VexSign/actions/runs/43605987685) | Quick gates passed and the report-only concurrency job completed. iOS build reported an unavailable Core Data notification member. The simulator build reported a missing clone-sheet container binding and missing NimbleViews import for the installation fallback browser. No simulator tests ran. |
 | `2828c00`, [CI 43608316611](https://github.com/raynmahbub/VexSign/actions/runs/43608316611) | Quick gates passed and the report-only concurrency job completed. Debug compilation failed in downloaded-file row inference; three newly enforced warnings were also reported. The simulator build found an entitlement helper still expecting managed certificate rows instead of immutable certificate records. No simulator tests ran (xcresult total 0). |
 | `6d3242c`, [CI 43609954036](https://github.com/raynmahbub/VexSign/actions/runs/43609954036) | Quick gates passed and the report-only concurrency job completed. Debug compilation found overlapping read/write access to the optional signing task context. Simulator compilation found an archive adapter attempting to observe a nonexistent journal publisher. No simulator tests ran (xcresult total 0). |
+| `4879a1b`, [CI 43611504148](https://github.com/raynmahbub/VexSign/actions/runs/43611504148) | Quick gates passed and the report-only concurrency job completed. Debug failed without a parsed source diagnostic. Simulator compilation reached the linker, which rejected `ellekit.deb` as a Mach-O static archive. No simulator tests ran (xcresult total 0). |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -256,6 +257,25 @@ still cancels the subscription. A native archive edit/undo stream regression was
 added; portable regressions enforce owner wiring and ordering. These repairs
 require another full native run, not inference from the prior failed build.
 
+At `4879a1b` the simulator's linker reported the AR member `debian-binary` inside
+`Resources/ellekit.deb` as non-Mach-O. The unchanged Debian archive is consumed
+by `TweakHandler` at runtime, not a library to link. An explicit `file` type in
+the existing synchronized app group corrects that classification without changing
+any binary, target/product, build-setting value or membership exception. Its
+SHA256 remains `588ad56c5de5585ca2d66e385cc8f25b4c1d77d5e8fc52baec6d69cb3fa3343d`.
+The preservation auditor now rejects all other unreviewed resource-type/folder
+metadata changes. CI additionally compares the bundled device-app resource bytes
+before packaging its disposable unsigned test IPA; omitting the resource is not
+an acceptable way to make linking pass. Native revalidation is still required.
+
+The Debug failure's unparsed log-tail annotation was truncated before its useful
+final lines. Direct log downloads redirect to an unreachable artifact host in
+this workspace. The reporter now surfaces bounded contexts around unlocated
+linker/script failures and keeps the final fallback annotation within GitHub's
+message cap. The complete tail still goes to the summary, compiler failures
+still fail, and no warning baseline or vendor exclusion is changed. Two offline
+regressions cover noisy resource tails and failed-build baseline refusal.
+
 The separate native-signing smoke success does not compile the app's 88 added
 XCTest methods; those still require a successful `VexSignTests` simulator job.
 Native Apple-account signing remains `.notIntegrated` after synthetic/link tests.
@@ -281,7 +301,7 @@ python3 VexSign/Tools/Validation/architecture-rules/audit_feature_preservation.p
 
 The preservation audit is read-only (apart from an explicitly requested JSON
 report) and requires the recorded original Git revision locally; it never
-fetches, stages or changes a baseline. Its 22 offline fixture tests run in normal
+fetches, stages or changes a baseline. Its 24 offline fixture tests run in normal
 verification/CI without needing that historical Git object. The JSON records its
 exact file, legal-index, protected-input, target/configuration and grammar
 findings. The two intentionally incomplete URL-prefix sentinels from the old

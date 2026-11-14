@@ -135,6 +135,29 @@ class PreservationAuditorTests(unittest.TestCase):
         self.current["objects"]["EXCEPTION"]["membershipExceptions"] = []
         self.assertTrue(any("target-relative membership" in failure for failure in self.compare()["failures"]))
 
+    def test_only_the_reviewed_debian_payload_type_override_is_admitted(self):
+        group_id = "3379C1BB2DA869A1004372DA"
+        for project in (self.base, self.current):
+            project["objects"][group_id] = project["objects"].pop("GROUP")
+        group = self.current["objects"][group_id]
+        group["explicitFileTypes"] = {"Resources/ellekit.deb": "file"}
+        result = self.compare()
+        self.assertEqual(result["failures"], [])
+        self.assertEqual(result["reviewedResourceTypeRepairs"],
+            [{"group": group_id, "path": "Resources/ellekit.deb", "fileType": "file"}])
+        for value in ({}, {"Resources/ellekit.deb": "archive.ar"},
+                      {"Resources/ellekit.deb": "file", "Infrastructure/Owner.swift": "file"}):
+            group["explicitFileTypes"] = value
+            self.assertTrue(any("resource file type" in failure for failure in self.compare()["failures"]))
+
+    def test_unreviewed_synchronized_file_types_and_folder_metadata_are_rejected(self):
+        group = self.current["objects"]["GROUP"]
+        group["explicitFileTypes"] = {"Hidden.swift": "file"}
+        self.assertTrue(any("resource file type" in failure for failure in self.compare()["failures"]))
+        del group["explicitFileTypes"]
+        group["explicitFolders"] = ["Infrastructure"]
+        self.assertTrue(any("synchronized group metadata" in failure for failure in self.compare()["failures"]))
+
     def test_changed_shell_command_is_not_excused_as_path_relocation(self):
         self.current["objects"]["SCRIPT"]["shellScript"] += "echo unexpected-command\n"
         self.assertTrue(any("shell-script phase" in failure for failure in self.compare()["failures"]))

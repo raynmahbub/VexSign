@@ -115,6 +115,18 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.require("Presentation/Features/Library/Views/Install/InstallQueueWindow.swift",
             "import NimbleViews", "SafariRepresentableView(url: url)")
 
+    def test_bundled_debian_payload_is_generic_resource_not_a_linker_archive(self):
+        project = (ROOT / "VexSign.xcodeproj/project.pbxproj").read_text()
+        self.assertRegex(project, r'explicitFileTypes = \{\s*"Resources/ellekit\.deb" = file;\s*\};')
+        payload = (APP / "Resources/ellekit.deb").read_bytes()
+        self.assertTrue(payload.startswith(b"!<arch>\n"))
+        self.assertIn(b"debian-binary", payload[:128])
+        self.require("Infrastructure/Signing/Transformation/TweakHandler.swift",
+            'Bundle.main.url(forResource: "ellekit", withExtension: "deb")')
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn('cmp -s "${GITHUB_WORKSPACE}/VexSign/App/iOS/VexSign/Resources/ellekit.deb" "${APP}/ellekit.deb"', workflow)
+        self.assertIn("Built app must bundle the original ellekit.deb as a byte-identical resource.", workflow)
+
     def test_download_rows_render_immutable_values_and_tweak_scan_failures_are_not_empty_success(self):
         downloads = self.require("Presentation/Features/Downloads/Views/DownloadsTabView.swift",
             "(item: DownloadedFileItem)", "Text(item.size.formattedFileSize)",
