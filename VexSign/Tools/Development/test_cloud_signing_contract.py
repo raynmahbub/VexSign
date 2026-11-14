@@ -25,8 +25,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 OPENAPI = ROOT / "VexSign/Services/Cloud/openapi.json"
-CLIENT = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift"
-UPLOAD_BODY = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Cloud/CloudUploadBody.swift"
+CLIENT = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift"
+UPLOAD_BODY = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Engines/Cloud/CloudUploadBody.swift"
 CONTRACT_TESTS = ROOT / "VexSign/Tests/UnitTests/Signing/CloudSigningContractTests.swift"
 
 APP = (ROOT / "VexSign/Services/Cloud/API/Routes/app.ts").read_text()

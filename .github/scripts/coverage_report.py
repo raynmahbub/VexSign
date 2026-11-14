@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Only first-party app code is interesting; dependencies and the test bundle
 # itself would dominate the "least covered" list otherwise.
-FIRST_PARTY_PREFIXES = ("VexSign/App/iOS/VexSign/",)
+FIRST_PARTY_PREFIXES = ("VexSign/App/iOS/",)
 EXCLUDE_MARKERS = ("/SourcePackages/", "/Checkouts/", "VexSignTests", ".xctest")
 
 
@@ -60,7 +60,7 @@ def summarise(report: dict, limit: int = 20) -> tuple[float, int, int, list[dict
             if lines == 0:
                 continue
             files.append({
-                "name": name.split("VexSign/App/iOS/VexSign/")[-1] if "VexSign/App/iOS/VexSign/" in name else name,
+                "name": name.split("VexSign/App/iOS/")[-1] if "VexSign/App/iOS/" in name else name,
                 "covered": int(file_report.get("coveredLines", 0)),
                 "executable": lines,
                 "percent": float(file_report.get("lineCoverage", 0.0)) * 100.0,

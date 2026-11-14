@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import runpy
 import subprocess
 import sys
 import unittest
@@ -16,25 +17,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 SOURCE = ROOT / "VexSign"
-APP = SOURCE / "App/iOS/VexSign"
+APP = SOURCE / "App/iOS"
 MAP = SOURCE / "Documentation/Architecture/feature-layout-migration-map.json"
 PBX = ROOT / "VexSign.xcodeproj/project.pbxproj"
 WORKSPACE = ROOT / "VexSign.xcworkspace/contents.xcworkspacedata"
 LAYERS = {"App", "Presentation", "Application", "Domain", "Infrastructure", "Platform", "Security", "Resources"}
 SKIP = {".git", "node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".build", ".swiftpm"}
 ALIASES = (
-    ("VexSign/Resources/Assets/Branding/icon.png", "icon.png"),
-    ("VexSign/Resources/Templates/RepositoryMetadata/app-repo.json", "app-repo.json"),
-    ("VexSign/Resources/Templates/RepositoryMetadata/repos.json", "repos.json"),
+    ("VexSign/Resources/Assets/icon.png", "icon.png"),
+    ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
+    ("VexSign/Resources/Templates/repos.json", "repos.json"),
     ("VexSign/Configuration/Signing/license_plist.yml", "license_plist.yml"),
     ("VexSign/Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )
 GROUPS = {
-    "3379C1BB2DA869A1004372DA": "VexSign/App/iOS/VexSign",
+    "3379C1BB2DA869A1004372DA": "VexSign/App/iOS",
     "AABA5D1A2DB3C87800BFCD2C": "VexSign/Tests",
-    "3A2F0EE82E96DA5A009DE4CE": "VexSign/App/Extensions/WidgetExtension",
-    "C0FFEE000000000000000001": "VexSign/App/TV/VexSignTV",
-    "C0FFEE00000000000000000D": "VexSign/App/Vision/VexSignVision",
+    "3A2F0EE82E96DA5A009DE4CE": "VexSign/App/WidgetExtension",
+    "C0FFEE000000000000000001": "VexSign/App/TV",
+    "C0FFEE00000000000000000D": "VexSign/App/Vision",
     "C0FFEE000000000000000019": "VexSign/App/Watch/VexSignWatch",
     "C0FFEE000000000000000025": "VexSign/App/Watch/VexSignWatchWidgets",
 }
@@ -56,6 +57,25 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
         self.assertFalse((SOURCE / "VexSign").exists(), "unnecessary wrapper nesting")
         for name in ("README.md", "Makefile", "LICENSE", "LICENSE_ELLEKIT", "THIRD_PARTY_NOTICES.md", ".github", "VexSign.xcodeproj", "VexSign.xcworkspace"):
             self.assertTrue((ROOT / name).exists(), name)
+
+    def test_flat_platform_roots_and_preserved_watch_hierarchy(self):
+        app = SOURCE / "App"
+        self.assertEqual({p.name for p in app.iterdir()},
+                         {"iOS", "TV", "Vision", "WidgetExtension", "Watch", "SharedPlatformInfo"})
+        for platform, entry_point in (
+            ("TV", "VexSignTVApp.swift"),
+            ("Vision", "VexSignVisionApp.swift"),
+            ("WidgetExtension", "VexSignWidgetExtensionBundle.swift"),
+        ):
+            self.assertTrue((app / platform / entry_point).is_file(), platform)
+            self.assertTrue((app / platform / "Assets.xcassets/Contents.json").is_file(), platform)
+        for legacy in ("iOS/VexSign", "TV/VexSignTV", "Vision/VexSignVision", "Extensions"):
+            self.assertFalse((app / legacy).exists(), f"redundant app wrapper remains: {legacy}")
+        self.assertEqual({p.name for p in (app / "Watch").iterdir()},
+                         {"VexSignWatch", "VexSignWatchWidgets"})
+        self.assertTrue((app / "Watch/VexSignWatch/VexSignWatchApp.swift").is_file())
+        self.assertTrue((app / "Watch/VexSignWatchWidgets/VexSignWatchWidgetBundle.swift").is_file())
+        self.assertTrue((app / "SharedPlatformInfo/Companion-Info.plist").is_file())
 
     def test_application_has_only_the_specified_layers_and_real_feature_folders(self):
         self.assertEqual({p.name for p in APP.iterdir() if p.is_dir()}, LAYERS)
@@ -81,6 +101,50 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
             self.assertRegex(entry["sha256Before"], r"^[0-9a-f]{64}$")
             self.assertNotIn("..", Path(entry["new"]).parts)
         self.assertEqual(sum(e["old"] != e["new"] for e in entries), data["relocatedFileCount"])
+
+    def test_whole_repository_has_only_reviewed_tool_owned_wrappers(self):
+        # Inventory files, not just known source roots. Include dotfiles and new
+        # files; ignore deleted index paths and Git-ignored dependency/build data.
+        listed = subprocess.check_output([
+            "git", "ls-files", "--cached", "--others", "--exclude-standard", "-z",
+        ], cwd=ROOT)
+        paths = sorted({p.decode() for p in listed.split(b"\0") if p and (ROOT / p.decode()).exists()})
+        children = {}
+        for path in paths:
+            parts = Path(path).parts
+            for index in range(1, len(parts)):
+                children.setdefault("/".join(parts[:index]), set()).add(parts[index])
+        wrappers = {
+            parent: next(iter(names)) for parent, names in children.items()
+            if len(names) == 1 and parent + "/" + next(iter(names)) in children
+        }
+        policy = runpy.run_path(str(ROOT / ".github/scripts/quick_check.py"))
+        required = policy["PRESERVED_DIRECTORY_WRAPPERS"]
+        self.assertEqual(wrappers, {parent: child for parent, (child, _) in required.items()})
+        self.assertEqual(len(required), 4, "Each new tool-layout exception needs a reviewed rationale")
+        self.assertTrue(all(reason for _, reason in required.values()))
+        self.assertEqual(policy["layout_findings"](paths), [])
+
+    def test_single_target_package_uses_flat_sources_without_renaming_the_module(self):
+        package = SOURCE / "Packages/AltSourceKit"
+        manifest = (package / "Package.swift").read_text()
+        self.assertRegex(manifest, r'\.target\(\s*name: "AltSourceKit",\s*path: "Sources"\)')
+        self.assertIn('targets: ["AltSourceKit"]', manifest)
+        self.assertFalse((package / "Sources/AltSourceKit").exists())
+        self.assertEqual(len(list((package / "Sources").rglob("*.swift"))), 7)
+
+    def test_flattened_project_wrappers_are_not_reintroduced(self):
+        for relative in (
+            "App/iOS/Presentation/Features/About/Views",
+            "App/iOS/Presentation/Features/Diagnostics/Views",
+            "App/iOS/Presentation/Features/Onboarding/Views",
+            "App/iOS/Presentation/Features/Updates/Views",
+            "Documentation/Features/Design", "Documentation/Workflows/Distribution",
+            "Integrations/EmbeddedContainer", "Resources/Assets/Branding",
+            "Resources/Templates/RepositoryMetadata", "Services/Cloud/Security/Authentication",
+            "Services/WebManager/Dashboard/Assets",
+        ):
+            self.assertFalse((SOURCE / relative).exists(), relative)
 
     def test_no_placeholder_modules_or_empty_source_scaffolding(self):
         for path in SOURCE.rglob("*"):
@@ -212,6 +276,19 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
         for macro, relative in re.findall(r"(\$\((?:SRCROOT|PROJECT_DIR)\)/|\$\{(?:SRCROOT|PROJECT_DIR)\}/)([^\s\";\\]+)", pbx):
             self.assertTrue((ROOT / relative).exists(), macro + relative)
 
+    def test_bridging_header_includes_resolve_inside_the_flat_ios_root(self):
+        header = SOURCE / "Configuration/Build/iOS/VexSign-Bridging-Header.h"
+        includes = re.findall(r'^\s*#(?:include|import)\s+"([^"]+)"', header.read_text(), re.M)
+        self.assertEqual(len(includes), 3)
+        resolved = {(header.parent / relative).resolve() for relative in includes}
+        self.assertEqual(resolved, {
+            APP / "Infrastructure/Archives/IPA/MachO/MachOUtils.h",
+            APP / "Platform/Apple/Device/iconPoc.h",
+            APP / "Platform/Compatibility/EmbeddedContainerRuntime.h",
+        })
+        for path in resolved:
+            self.assertTrue(path.is_file(), str(path))
+
     def test_local_swiftpm_and_workspace_references_resolve(self):
         checked = 0
         for manifest in (SOURCE / "Packages").rglob("Package.swift"):
@@ -228,7 +305,7 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
         web = SOURCE / "Services/WebManager"
         cloud = SOURCE / "Services/Cloud"
         self.assertIn("$(IMAGE) VexSign/Services/WebManager", (ROOT / "Makefile").read_text())
-        for name in ("API/main.py", "Configuration/requirements.txt", "Configuration/data/revoked_certs.json", "Dashboard/Assets/icon.png", "Dockerfile"):
+        for name in ("API/main.py", "Configuration/requirements.txt", "Configuration/data/revoked_certs.json", "Dashboard/icon.png", "Dockerfile"):
             self.assertTrue((web / name).is_file(), name)
         service_tests = list((web / "Tests").glob("test_*.py"))
         self.assertGreaterEqual(len(service_tests), 7)

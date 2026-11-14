@@ -8,24 +8,24 @@ The shared architecture brief asks for six logical layers, one owner per core sy
 
 The current repository already had:
 
-- a pure `VexSign/App/iOS/VexSign/Domain/` layer and `AppContainer.live()` composition root;
+- a pure `VexSign/App/iOS/Domain/` layer and `AppContainer.live()` composition root;
 - `SigningService`, `SigningHandler`, `SigningPlan`, `NestedBundleAudit`, `ProfileCompatibility` and `SignatureVerifier`;
 - `UnifiedTaskCenter`, `TaskHistoryJournal`, `DownloadManager`, `Storage`, `InstallQueue`, `AppInstaller` and `DeviceCapabilityResolver`;
 - architecture boundary tests, but no complete machine-readable owner map and no ratchet for legacy Presentation coupling.
 
 Concrete source inspection found real, historical violations:
 
-- `VexSign/App/iOS/VexSign/Application/Shared/WorkspaceSupportUseCase.swift` imported UIKit, presented `UIAlertController`, read `UIDevice`, `UserDefaults`, `SigningModeManager.shared`, `PairingBridge`, `MobileGestalt` and `FileManager.default`;
-- `VexSign/App/iOS/VexSign/Application/Accounts/AnisetteProviderUseCase.swift` still imports `NativeSigning`;
-- many `VexSign/App/iOS/VexSign/` files import CoreData, use `@FetchRequest`/`Storage.shared`, call `DirectInstaller`/`InstallQueue` directly, or call `URLSession.shared`;
-- two `VexSign/App/iOS/VexSign/Presentation/` coordinators still touch `Storage.shared` or `FileManager.default`.
+- `VexSign/App/iOS/Application/Shared/WorkspaceSupportUseCase.swift` imported UIKit, presented `UIAlertController`, read `UIDevice`, `UserDefaults`, `SigningModeManager.shared`, `PairingBridge`, `MobileGestalt` and `FileManager.default`;
+- `VexSign/App/iOS/Application/Accounts/AnisetteProviderUseCase.swift` still imports `NativeSigning`;
+- many `VexSign/App/iOS/` files import CoreData, use `@FetchRequest`/`Storage.shared`, call `DirectInstaller`/`InstallQueue` directly, or call `URLSession.shared`;
+- two `VexSign/App/iOS/Presentation/` coordinators still touch `Storage.shared` or `FileManager.default`.
 
 Those legacy couplings are real but too broad to remove safely in one Linux-only pass without Xcode/simulator proof. Deleting or mass-moving them would violate the brief's incremental-migration rule.
 
 ## Decision
 
 1. **Freeze the architecture, not the folder tree.** Add [`../architecture/dependency-rules.md`](../../Architecture/dependency-rules.md) and [`../architecture/component-map.json`](../../Architecture/component-map.json). The map uses the six requested layers and records responsibilities, dependencies, public interfaces, state ownership, concurrency, persistence, tests, failure modes and refactoring requirements for 24 major components plus the 14 named core systems.
-2. **Fix one Application-layer violation end to end.** Introduce pure `WorkspaceSupportSnapshot` and `WorkspaceSupportEnvironmentProviding` in `VexSign/App/iOS/VexSign/Domain/`, move UIKit/device/defaults/folder facts into `UIKitWorkspaceSupportEnvironmentAdapter`, inject that port through `AppContainer`, and make `WorkspaceSupportUseCase` depend only on Foundation, NimbleExtensions and explicit contracts.
+2. **Fix one Application-layer violation end to end.** Introduce pure `WorkspaceSupportSnapshot` and `WorkspaceSupportEnvironmentProviding` in `VexSign/App/iOS/Domain/`, move UIKit/device/defaults/folder facts into `UIKitWorkspaceSupportEnvironmentAdapter`, inject that port through `AppContainer`, and make `WorkspaceSupportUseCase` depend only on Foundation, NimbleExtensions and explicit contracts.
 3. **Ratchet the remaining legacy coupling.** Add [`../../Tools/Architecture/test_architecture_excellence.py`](../../../Tools/Validation/architecture-rules/test_architecture_excellence.py) and [`../../Tools/Architecture/architecture-drift-baseline.json`](../../../Tools/Validation/architecture-rules/architecture-drift-baseline.json). The guard fails when a new file joins a violation class; `--report` shows new/removed entries; `--write-baseline` is manual and reviewable.
 4. **Wire the guard into both gates.** `make verify` and `.github/workflows/ci.yml` run the new unittest. The existing `VexSign/Tools/Validation/architecture-rules/test_architecture_boundaries.py` additionally forbids UIKit/CoreData/IDeviceSwift/AltSourceKit imports in Application and asserts the WorkspaceSupport port boundary.
 5. **Keep source-specific decisions licensed and honest.** [`../research/source-guided-architecture-decisions.md`](../Research/source-guided-architecture-decisions.md) records pinned external sources for signing, download/sign progress, bootstrap, guest runtime, deep-link/log privacy and OCSP policy. No GPL/AGPL/custom-licence source was copied.

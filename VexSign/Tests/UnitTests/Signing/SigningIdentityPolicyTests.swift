@@ -145,7 +145,7 @@ final class SigningIdentityPolicyTests: XCTestCase {
 	/// how the old, preflight-only check looked.
 	@MainActor
 	func testThePipelineAsksTheIdentityPolicyBeforeStarting() throws {
-		let source = try RepositorySourceFixture.read("VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningPipeline.swift")
+		let source = try RepositorySourceFixture.read("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningPipeline.swift")
 		let pipeline = try XCTUnwrap(source.range(of: "struct SigningPipeline"))
 		let run = String(source[pipeline.lowerBound...])
 
@@ -165,9 +165,9 @@ final class SigningIdentityPolicyTests: XCTestCase {
 		// Batch, AutoSign, Shortcuts and self-update all funnel through `PackageSigningCoordinator.signPackage`,
 		// which builds a `SigningRequest` for `SigningService`. If that stops being true, the
 		// gate is no longer on those paths and this test should fail.
-		let sources = ["VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchJobRunner.swift",
-					   "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/AutoSignManager.swift",
-					   "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PackageSigningCoordinator.swift"]
+		let sources = ["VexSign/App/iOS/Infrastructure/Tasks/BatchJobRunner.swift",
+					   "VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift",
+					   "VexSign/App/iOS/Infrastructure/Signing/Execution/PackageSigningCoordinator.swift"]
 		for path in sources {
 			let source = try RepositorySourceFixture.read(path)
 			XCTAssertTrue(source.contains("PackageSigningCoordinator.signPackage(") || source.contains("SigningRequest("), path)

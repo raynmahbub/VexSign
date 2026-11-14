@@ -24,17 +24,17 @@ ROOT = Path(__file__).resolve().parents[4]
 # (file, the line that must precede the request, why it is in scope)
 BOUNDED_REQUESTS = [
     (
-        "VexSign/App/iOS/VexSign/Infrastructure/Updates/SelfUpdateManager.swift",
+        "VexSign/App/iOS/Infrastructure/Updates/SelfUpdateManager.swift",
         "URLRequest(url: finalURL)",
         "self-update release pages; the update screen waits on the first page",
     ),
     (
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryCatalogService.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositoryCatalogService.swift",
         "X-GitHub-Api-Version",
         "resolving a GitHub release source while a repository is being added",
     ),
     (
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryDirectoryClient.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift",
         "VexSignAPI.reposListURL",
         "the repository catalog behind the add-source screen",
     ),
@@ -76,10 +76,10 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                     )
 
     def test_directory_transport_keeps_redirect_credential_and_size_bounds(self) -> None:
-        source = (ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryDirectoryClient.swift").read_text()
+        source = (ROOT / "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift").read_text()
         for required in ("URLSessionConfiguration.ephemeral", "maximumBytes", "sameOrigin", "redirects <= 5", "X-API-Key", "try Task.checkCancellation()", "session.invalidateAndCancel()"):
             self.assertIn(required, source)
-        ui = (ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Repositories/Views/SourcesAddView+Repositories.swift").read_text()
+        ui = (ROOT / "VexSign/App/iOS/Presentation/Features/Repositories/Views/SourcesAddView+Repositories.swift").read_text()
         self.assertNotIn("URLSession", ui, "transport must not move back into the screen")
 
     def test_cloud_signing_requests_that_are_reachable_are_bounded(self) -> None:
@@ -88,7 +88,7 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
         # request it makes, and the upload session carries a resource timeout for a 2 GiB body.
         # The requests used to be assembled inline here, which is why this test looked for the
         # property inside the method; it now follows it to the builder instead.
-        source = (ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift").read_text()
+        source = (ROOT / "VexSign/App/iOS/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift").read_text()
         start = source.find("func checkHealth()")
         self.assertNotEqual(start, -1, "checkHealth is the reachable cloud request")
         health = source[start:]

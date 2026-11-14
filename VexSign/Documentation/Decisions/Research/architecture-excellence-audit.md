@@ -23,7 +23,7 @@ This document is the consolidated record for the requested final deliverables. T
 
 ### Verified strengths, not documentation claims
 
-- `VexSign/App/iOS/VexSign/Domain/` is Foundation-only and contains narrow boundary protocols.
+- `VexSign/App/iOS/Domain/` is Foundation-only and contains narrow boundary protocols.
 - `AppContainer.live()` is an explicit composition root with `@Environment` injection.
 - One signing pipeline exists: `SigningService` → `SigningHandler`/`ZsignEngine`, with `SigningPlan`, `NestedBundleAudit`, `ProfileCompatibility` and `SignatureVerifier`.
 - One task model exists: `UnifiedTaskCenter`, `UnifiedTaskModels/Policies/Artifacts`, `TaskHistoryJournal`, `TaskReceipt` and `TaskTrace`.
@@ -93,10 +93,10 @@ Permanent rules enforced by `VexSign/Tools/Validation/architecture-rules/test_ar
 
 | File | Change |
 | --- | --- |
-| `VexSign/App/iOS/VexSign/Domain/Protocols/WorkspaceSupportContracts.swift` | New Foundation-only `WorkspaceSupportSnapshot` and `WorkspaceSupportEnvironmentProviding` port. |
-| `VexSign/App/iOS/VexSign/Application/Shared/WorkspaceSupportUseCase.swift` | Removed `import UIKit`, `UIAlertController`, `UIDevice`, `UserDefaults`, `SigningModeManager.shared`, `PairingBridge`, `MobileGestalt`, `FileManager.default`; now formats an injected non-secret snapshot and delegates presentation/folder URLs through ports. |
-| `VexSign/App/iOS/VexSign/Platform/Apple/Device/UIKitWorkspaceSupportEnvironmentAdapter.swift` | New UIKit adapter that owns device/defaults/pairing/signing-mode facts and alert presentation. |
-| `VexSign/App/iOS/VexSign/App/Composition/AppContainer.swift` | Injects the new adapter explicitly into the composition root and the support use-case factory. |
+| `VexSign/App/iOS/Domain/Protocols/WorkspaceSupportContracts.swift` | New Foundation-only `WorkspaceSupportSnapshot` and `WorkspaceSupportEnvironmentProviding` port. |
+| `VexSign/App/iOS/Application/Shared/WorkspaceSupportUseCase.swift` | Removed `import UIKit`, `UIAlertController`, `UIDevice`, `UserDefaults`, `SigningModeManager.shared`, `PairingBridge`, `MobileGestalt`, `FileManager.default`; now formats an injected non-secret snapshot and delegates presentation/folder URLs through ports. |
+| `VexSign/App/iOS/Platform/Apple/Device/UIKitWorkspaceSupportEnvironmentAdapter.swift` | New UIKit adapter that owns device/defaults/pairing/signing-mode facts and alert presentation. |
+| `VexSign/App/iOS/App/Composition/AppContainer.swift` | Injects the new adapter explicitly into the composition root and the support use-case factory. |
 | `VexSign/Tools/Validation/architecture-rules/test_architecture_boundaries.py` | Forbids additional Application platform imports and asserts the support-port boundary. |
 | `VexSign/Tools/Validation/architecture-rules/test_architecture_excellence.py`, `VexSign/Tools/Validation/architecture-rules/architecture-drift-baseline.json` | New ownership-map/drift guard and reviewed legacy baseline. |
 | `Makefile`, `.github/workflows/ci.yml` | Run the new guard locally and in CI's quick/docs regressions step. |

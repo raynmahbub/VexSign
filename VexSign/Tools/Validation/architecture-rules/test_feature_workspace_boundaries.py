@@ -10,7 +10,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[4]
-APP = ROOT / "VexSign/App/iOS/VexSign"
+APP = ROOT / "VexSign/App/iOS"
 
 
 def code(path: str) -> str:
@@ -158,7 +158,7 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.require("Infrastructure/Signing/Transformation/TweakHandler.swift",
             'Bundle.main.url(forResource: "ellekit", withExtension: "deb")')
         workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-        self.assertIn('cmp -s "${GITHUB_WORKSPACE}/VexSign/App/iOS/VexSign/Resources/ellekit.deb" "${APP}/ellekit.deb"', workflow)
+        self.assertIn('cmp -s "${GITHUB_WORKSPACE}/VexSign/App/iOS/Resources/ellekit.deb" "${APP}/ellekit.deb"', workflow)
         self.assertIn("Built app must bundle the original ellekit.deb as a byte-identical resource.", workflow)
 
     def test_download_rows_render_immutable_values_and_tweak_scan_failures_are_not_empty_success(self):
@@ -362,7 +362,7 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertRegex(runtime, r"try Task.checkCancellation\(\)\s*//[^\n]*\n\s*//[^\n]*\n\s*return VEXEmbeddedRuntimeStageIPA\(local\)")
 
     def test_onboarding_and_explorer_cancellation_use_the_existing_import_owner(self):
-        self.require("Presentation/Features/Onboarding/Views/OnboardingView.swift", "services.library.importPackage(url)", "importTask?.cancel()")
+        self.require("Presentation/Features/Onboarding/OnboardingView.swift", "services.library.importPackage(url)", "importTask?.cancel()")
         self.require("Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift", "PackageImportService.importPackage(source)", "cancellation.adopt(worker)")
         self.require("Infrastructure/Archives/IPA/IPAWorkspace.swift", "cancellation.adopt(worker)", "isCancellationRequested: { cancellation.isSet }", "guard !Task.isCancelled else")
 

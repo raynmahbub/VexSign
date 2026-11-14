@@ -11,8 +11,8 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[3]
-DOWNLOAD_IMPORT = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager+PackageImport.swift"
-DUPLICATE_REVIEW = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift"
+DOWNLOAD_IMPORT = ROOT / "VexSign/App/iOS/Infrastructure/Downloads/DownloadManager+PackageImport.swift"
+DUPLICATE_REVIEW = ROOT / "VexSign/App/iOS/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift"
 ANISETTE_CLIENT = ROOT / "VexSign/Packages/NativeSigning/Authentication/HTTPSAnisetteProvider.swift"
 ANISETTE_MOCK = ROOT / "VexSign/Services/Cloud/Anisette/main.swift"
 ANISETTE_README = ROOT / "VexSign/Services/Cloud/Anisette/README.md"
@@ -20,9 +20,9 @@ MAIN_ENTITLEMENTS = ROOT / "VexSign/Configuration/Entitlements/iOS/VexSign.entit
 WIDGET_ENTITLEMENTS = ROOT / "VexSign/Configuration/Entitlements/VexSignWidgetExtension/VexSignWidgetExtension.entitlements"
 WATCH_ENTITLEMENTS = ROOT / "VexSign/Configuration/Entitlements/VexSignWatch/VexSignWatch.entitlements"
 WATCH_WIDGET_ENTITLEMENTS = ROOT / "VexSign/Configuration/Entitlements/VexSignWatchWidgets/VexSignWatchWidgets.entitlements"
-MANIFEST_SERVICE = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/OTA/ManifestService.swift"
-APP_INSTALLER = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift"
-LOG_REDACTION = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift"
+MANIFEST_SERVICE = ROOT / "VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ManifestService.swift"
+APP_INSTALLER = ROOT / "VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift"
+LOG_REDACTION = ROOT / "VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift"
 LOG_REDACTION_TESTS = ROOT / "VexSign/Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift"
 BASE64_STAGING = ROOT / "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/FileManager/FileManager+shortcuts.swift"
 BASE64_STAGING_TESTS = ROOT / "VexSign/Tests/SecurityTests/URLValidation/DeepLinkBase64StagingTests.swift"

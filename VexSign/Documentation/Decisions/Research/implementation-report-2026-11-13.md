@@ -38,8 +38,8 @@ defects and one CI-wide failure:
 
 | File | Change |
 | --- | --- |
-| `VexSign/App/iOS/VexSign/Application/Accounts/AnisetteProviderUseCase.swift` | Default `factory` is now `nil`; the `@MainActor` singleton is resolved inside the isolated initializer. Injection seam preserved for tests/composition root. |
-| `VexSign/App/iOS/VexSign/Application/Shared/DeepLinkRouterUseCase.swift` | Added `CoordinatedFileCopyFailure: LocalizedError`; `copyCoordinatedFile` returns `Result<Void, CoordinatedFileCopyFailure>` and the failure text is presented through `localizedDescription`. |
+| `VexSign/App/iOS/Application/Accounts/AnisetteProviderUseCase.swift` | Default `factory` is now `nil`; the `@MainActor` singleton is resolved inside the isolated initializer. Injection seam preserved for tests/composition root. |
+| `VexSign/App/iOS/Application/Shared/DeepLinkRouterUseCase.swift` | Added `CoordinatedFileCopyFailure: LocalizedError`; `copyCoordinatedFile` returns `Result<Void, CoordinatedFileCopyFailure>` and the failure text is presented through `localizedDescription`. |
 | `VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py` | New portable guard: no isolated `.shared` default arguments in `Application`, no `Result<..., String>` anywhere in `VexSign`, both repaired patterns present, and the guard is wired into `Makefile`/CI. |
 | `Makefile`, `.github/workflows/ci.yml` | Run the new guard in `make verify` and the CI quick job. |
 
@@ -54,8 +54,8 @@ defects and one CI-wide failure:
 
 | File | Change |
 | --- | --- |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/OTA/ManifestService.swift` | Added network-free `select(candidates:serves:)`; only a positively verified XML-plist endpoint is returned. Cancellation stops the probe loop. `resolve(for:payload:)` delegates to it. |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift` | `_serveForOTA` now refuses the install with the existing user-visible error when `resolve` returns `nil`, instead of starting the server with an unverified external manifest. |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ManifestService.swift` | Added network-free `select(candidates:serves:)`; only a positively verified XML-plist endpoint is returned. Cancellation stops the probe loop. `resolve(for:payload:)` delegates to it. |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift` | `_serveForOTA` now refuses the install with the existing user-visible error when `resolve` returns `nil`, instead of starting the server with an unverified external manifest. |
 | `VexSign/Tests/UnitTests/Application/ManifestServiceResolutionTests.swift` | XCTest cases: no serving endpoint → `nil`, first verified endpoint wins, empty candidate list, no later probes after success. |
 | `VexSign/Tools/Development/test_integration_contracts.py` | Source contract: no `candidates.first` fallback, cancellation check present, installer guards `nil`. |
 
@@ -63,7 +63,7 @@ defects and one CI-wide failure:
 
 | File | Change |
 | --- | --- |
-| `VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift` | Added an escaped key alternation for certificate/session payloads, pairing secrets, serials, cellular/network identifiers, Apple account/anisette headers, device names and UDIDs. New rules cover plist `<key>` blocks, JSON/header `Key: value` / `Key=value`, Swift `Key = value` lines, keyed 40-hex UDIDs, modern 8-16 hex UDIDs, and email local parts (domain retained). All rules require a key/header/userinfo or a recognisable identifier shape; bare hashes and ordinary diagnostics stay readable. |
+| `VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift` | Added an escaped key alternation for certificate/session payloads, pairing secrets, serials, cellular/network identifiers, Apple account/anisette headers, device names and UDIDs. New rules cover plist `<key>` blocks, JSON/header `Key: value` / `Key=value`, Swift `Key = value` lines, keyed 40-hex UDIDs, modern 8-16 hex UDIDs, and email local parts (domain retained). All rules require a key/header/userinfo or a recognisable identifier shape; bare hashes and ordinary diagnostics stay readable. |
 | `VexSign/Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift` | New XCTest cases for account/pairing JSON, anisette headers, device identifiers/names, email masking with domain, bare-hash non-redaction, and idempotency with an account value. |
 | `VexSign/Tools/Development/test_integration_contracts.py` | Source contract for the key list, escaped alternation, UDID rule and the new Swift tests. |
 
@@ -126,11 +126,11 @@ diagnostics are fixed, but a fresh green CI run is still outstanding.
 
 Modified: `.github/workflows/ci.yml`, `Makefile`, `CHANGELOG.md`, `VexSign/Documentation/Decisions/Research/FEATURE_MATRIX.md`,
 `VexSign/Packages/NimbleKit/Sources/NimbleExtensions/FileManager/FileManager+shortcuts.swift`,
-`VexSign/App/iOS/VexSign/Application/Accounts/AnisetteProviderUseCase.swift`,
-`VexSign/App/iOS/VexSign/Application/Shared/DeepLinkRouterUseCase.swift`,
-`VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift`,
-`VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/OTA/ManifestService.swift`,
-`VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift`,
+`VexSign/App/iOS/Application/Accounts/AnisetteProviderUseCase.swift`,
+`VexSign/App/iOS/Application/Shared/DeepLinkRouterUseCase.swift`,
+`VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift`,
+`VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ManifestService.swift`,
+`VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift`,
 `VexSign/Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift`, `VexSign/Services/WebManager/API/url_guard.py`,
 `VexSign/Services/WebManager/Tests/test_signer_decoder_installer.py`, `VexSign/Tools/Development/test_integration_contracts.py`.
 

@@ -377,14 +377,14 @@ def install_smoke_sources(work):
     hashes = {}
     # Compile the app's actual lifecycle implementation, not a second model.
     for name in ['AppleAccountAuthenticationState', 'AppleAccountSessionCoordinator', 'AppleAccountSessionRepository']:
-        source = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Accounts" / (name + '.swift')
+        source = ROOT / "VexSign/App/iOS/Infrastructure/Accounts" / (name + '.swift')
         destination = work / 'Sources/NativeSigningLinkSmoke' / source.name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
         hashes[str(source.relative_to(ROOT))] = digest(destination.read_bytes())
     # Include actual platform storage byte-for-byte, not test-only substitutes.
     for relative in ['Secrets/AppleAccountCredentialStore.swift', 'Secrets/AppleAccountResumeJournalStore.swift', 'Storage/AppleAccountStorageRuntimePolicy.swift']:
-        source = ROOT / "VexSign/App/iOS/VexSign/Security" / relative
+        source = ROOT / "VexSign/App/iOS/Security" / relative
         destination = work / 'Sources/NativeSigningLinkSmoke' / source.name
         shutil.copy2(source, destination)
         hashes[str(source.relative_to(ROOT))] = digest(destination.read_bytes())

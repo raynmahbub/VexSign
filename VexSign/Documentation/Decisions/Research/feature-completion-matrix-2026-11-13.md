@@ -62,7 +62,7 @@ Xcode build, or a feature that is still gated.
 | Local OTA server + `itms-services` handoff | `Implemented · Integrated · Tested` | `ServerInstaller`, `ManifestService`, `AppInstaller`; external manifest now must be positively verified. |
 | Pairing-file / idevice transport with diagnostics | `Implemented · Integrated · Tested` | `PairingBridge`, `HeartbeatManager`, `DeviceConnectivity`, setup health UI. |
 | Device-app removal with read-back | `Implemented · Integrated · Tested · Blocked (Device-verified)` | `DeviceAppRemoval`; "Removed" only on observed absence. |
-| Computer-free bootstrap explanation with prerequisites | `Implemented · Integrated` | `VexSign/Documentation/Workflows/Distribution/bootstrap.md`, capability strings, `SigningMethodCapabilities.swift`. |
+| Computer-free bootstrap explanation with prerequisites | `Implemented · Integrated` | `VexSign/Documentation/Workflows/bootstrap.md`, capability strings, `SigningMethodCapabilities.swift`. |
 | Production-signed TestFlight / Ad Hoc / Enterprise / MDM / marketplace portal | `Not implemented` | Requires App Store Connect, signing credentials, HTTPS portal, protected Ed25519 release key. |
 | Arbitrary IPA self-install from an unsigned release IPA | `Not implemented` | Ordinary iOS apps cannot self-install; release workflow publishes an unsigned IPA. |
 | iOS 27+ `siboot` / PC-created pairing prerequisite enforcement | `Gated` | Upstream prerequisite recorded; VexSign does not claim unrestricted computer-free install. |

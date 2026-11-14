@@ -29,7 +29,7 @@ set -eu
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)"
 cd "$ROOT"
 
-JSON_FILE="VexSign/Resources/Templates/RepositoryMetadata/app-repo.json"
+JSON_FILE="VexSign/Resources/Templates/app-repo.json"
 
 handle_error() {
   echo "Error: $1" >&2

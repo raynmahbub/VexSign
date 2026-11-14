@@ -139,6 +139,14 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Changed
 
+- Flattened platform source roots to `VexSign/App/{iOS,TV,Vision,WidgetExtension}/`
+  and twelve further single-child wrappers in feature views, package sources,
+  services, resources, documentation and integrations. The
+  [repository audit](VexSign/Documentation/Architecture/repository-layout-audit.md)
+  records all moves and four retained tool-owned chains. Multi-child folders,
+  Watch/shared platform-info paths, target/module names, bundle identifiers and
+  schemes are unchanged. All affected inputs, automation and path baselines
+  follow the new layout; portable checks do not replace an Apple build.
 - Scheduled "sign and queue" passes now sign only while that permission is
   active. Without it they notify instead. If you already use "sign and queue",
   allow background signing once to keep it; runs you start yourself are
@@ -866,8 +874,8 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   update status, recent apps and a compact workspace-tools card. It uses the
   shared design tokens and collapses empty sections instead of showing dead
   cards.
-- A documented design system (`VexSign/Documentation/Features/Design/DESIGN.md`) and reusable Home components
-  under `VexSign/App/iOS/VexSign/Presentation/`, including contrast-aware surfaces, responsive
+- A documented design system (`VexSign/Documentation/Features/DESIGN.md`) and reusable Home components
+  under `VexSign/App/iOS/Presentation/`, including contrast-aware surfaces, responsive
   action tiles and accessible setup/status rows.
 - A professional repository front page, architecture/build/design guides,
   documentation index and security policy.
@@ -958,7 +966,7 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Experimental / not included as a stable combined artifact
 
-- Added the native-primary VexSign/App/iOS/VexSign/LiveContainer/SideStore bootstrap and packaging
+- Added the native-primary VexSign/App/iOS/LiveContainer/SideStore bootstrap and packaging
   candidate, explicit session controls, separate OpenSSL namespaces, preserved
   runtime settings/legal panes and collision-checked localization merging.
 - The combined host is not device-accepted and is not the standalone release IPA.

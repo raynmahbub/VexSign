@@ -63,7 +63,7 @@ file or URL, live validation, and export.
 | `POST /api/Tools/repo/export` | `{"draft": {…}, "format": "altstore"\|"flat"\|"apps"}` | `filename`, pretty `json`, `errorCount` |
 | `POST /api/Tools/repo/ota` | `{"app": {…}, "manifestURL", "displayImageURL", "fullSizeImageURL"}` | manifest plist, `installLink` |
 
-The validation rules mirror `VexSign/App/iOS/VexSign/Domain/Services/RepositoryValidator.swift`
+The validation rules mirror `VexSign/App/iOS/Domain/Services/RepositoryValidator.swift`
 (missing identifiers, non-http(s) URLs, unparseable dates, duplicate screenshots,
 duplicate bundle ids), so a feed that passes here imports cleanly in the app.
 `altstore` emits `versions[]` history, `flat` the legacy flat repository schema,

@@ -45,12 +45,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 
 # Repository-relative so `evaluate` can run against a scratch checkout in tests.
-CAPABILITIES = Path("VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift")
-MANAGER = Path("VexSign/App/iOS/VexSign/Infrastructure/Accounts/NativeSigningManager.swift")
-FLOW = Path("VexSign/App/iOS/VexSign/Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
+CAPABILITIES = Path("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift")
+MANAGER = Path("VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift")
+FLOW = Path("VexSign/App/iOS/Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
 BACKEND = Path("VexSign/Packages/NativeSigning/Authentication/NativeAccountBackend.swift")
-AUTOMATION = Path("VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift")
-SIGNING_METHOD = Path("VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningMethod.swift")
+AUTOMATION = Path("VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift")
+SIGNING_METHOD = Path("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethod.swift")
 HANDOFF_DOC = Path("VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md")
 EVIDENCE_RELATIVE = Path("VexSign/Documentation/DeviceTesting/evidence/native-signing-promotion.json")
 
@@ -152,9 +152,9 @@ def evaluate(root: Path = ROOT) -> tuple[list[str], dict[str, str]]:
     #    a candidate list. The names are the hazard: a maintainer reads a scheduled
     #    "renew" step, assumes renewal ships, and later reports it as working.
     renewal_claims = {
-        "VexSign/App/iOS/VexSign/Infrastructure/Accounts/NativeSigningManager.swift": MANAGER,
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift": AUTOMATION,
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningMethod.swift": SIGNING_METHOD,
+        "VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift": MANAGER,
+        "VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift": AUTOMATION,
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethod.swift": SIGNING_METHOD,
     }
 
     #    Only real code counts. The explanations of *why* the claims were removed name the

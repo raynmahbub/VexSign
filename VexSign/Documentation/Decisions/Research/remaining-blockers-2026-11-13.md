@@ -36,7 +36,7 @@ exact dependency and a concrete next action. No blocker is hidden behind a roadm
 | Field | Value |
 | --- | --- |
 | Status | `Not implemented` |
-| Evidence | `VexSign/Documentation/Workflows/Distribution/bootstrap.md`: release workflow publishes an **unsigned** IPA; no TestFlight upload, Ad Hoc portal, Enterprise/MDM enrollment, eligible marketplace distribution, stable HTTPS portal, or production release trust key exists. |
+| Evidence | `VexSign/Documentation/Workflows/bootstrap.md`: release workflow publishes an **unsigned** IPA; no TestFlight upload, Ad Hoc portal, Enterprise/MDM enrollment, eligible marketplace distribution, stable HTTPS portal, or production release trust key exists. |
 | Exact dependency | App Store Connect app record/enrollment, distribution signing credentials, protected GitHub environments, a signed archive/export per channel, HTTPS artifact/manifest hosting with correct MIME types, a mobile-first portal, a protected Ed25519 release-signing key with the public key embedded in the app, and device-specific eligibility validation. |
 | Next action | Choose one legitimate channel, configure credentials outside CI/test artifacts, implement and test the signed export + portal + trust envelope, then validate from physical Safari. Keep the honest "no self-install from unsigned IPA" wording until then. |
 
@@ -72,7 +72,7 @@ exact dependency and a concrete next action. No blocker is hidden behind a roadm
 | Field | Value |
 | --- | --- |
 | Status | `Blocked` |
-| Evidence | `VexSign/Documentation/Workflows/Distribution/bootstrap.md`: release verifier has no production trust key; existing GitHub checksums are not an authenticity guarantee. |
+| Evidence | `VexSign/Documentation/Workflows/bootstrap.md`: release verifier has no production trust key; existing GitHub checksums are not an authenticity guarantee. |
 | Exact dependency | Protected Ed25519 signing key, public key embedded in the app, signed release envelopes, key rotation/compromise procedure, and verifier tests with tamper cases. |
 | Next action | Create the key outside the repository, publish the public half, implement envelope verification, and add negative tests. Never commit private key material. |
 

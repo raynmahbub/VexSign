@@ -47,7 +47,7 @@ class AutopilotTests(unittest.TestCase):
 
     def test_sensitive_and_unrelated_files_rejected(self):
         for path in ('.github/workflows/release.yml', 'VexSign/Packages/NativeSigning/Package.swift',
-                     'VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift', 'VexSign/Services/Cloud/API/main.ts'):
+                     'VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift', 'VexSign/Services/Cloud/API/main.ts'):
             self.assertFalse(controller.eligible(self.pr(), self.files(path), 'main'))
 
     def test_fork_human_draft_and_deleted_files_rejected(self):
@@ -67,7 +67,7 @@ class AutopilotTests(unittest.TestCase):
         pr['user']['login'] = 'github-actions[bot]'
         pr['head']['ref'] = 'automation/release-listing'
         self.assertTrue(controller.eligible(pr, self.files('app-repo.json'), 'main'))
-        self.assertFalse(controller.eligible(pr, self.files('VexSign/App/iOS/VexSign/App.swift'), 'main'))
+        self.assertFalse(controller.eligible(pr, self.files('VexSign/App/iOS/App.swift'), 'main'))
         pr['head']['ref'] = 'automation/unknown'
         self.assertFalse(controller.eligible(pr, self.files('app-repo.json'), 'main'))
 

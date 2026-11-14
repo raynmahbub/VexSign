@@ -68,20 +68,20 @@ class AnisetteOverlayTests(unittest.TestCase):
                 module.apply_anisette_v3_overlay(self.deps, {'anisette_v3_overlay': specs})
 
     def test_platform_and_package_keychain_enumeration_cannot_drift(self):
-        platform = (REPO / "VexSign/App/iOS/VexSign/Security/Secrets/AppleAccountResumeJournalStore.swift").read_bytes()
+        platform = (REPO / "VexSign/App/iOS/Security/Secrets/AppleAccountResumeJournalStore.swift").read_bytes()
         native = (HERE / "Security/AppleAccountResumeJournalStore.swift").read_bytes()
         self.assertEqual(platform, native)
         self.assertIn(b'(errSecUnimplemented, [])', native)
         self.assertIn(b'return (errSecDecode, [])', native)
 
     def test_provisioning_ui_never_simulates_signing_or_guesses_registration_ids(self):
-        source = (REPO / "VexSign/App/iOS/VexSign/Presentation/Features/Accounts/Views/ProvisioningFlowView.swift").read_text()
+        source = (REPO / "VexSign/App/iOS/Presentation/Features/Accounts/Views/ProvisioningFlowView.swift").read_text()
         self.assertNotIn('simulate completion', source)
         self.assertNotIn('Task.sleep', source)
         self.assertNotIn('registeredDeviceID: "auto"', source)
         self.assertNotIn('plan.existingAppIdentifiers.first', source)
-        adapter = (REPO / "VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccountWorkspaceAdapter.swift").read_text()
-        policy = (REPO / "VexSign/App/iOS/VexSign/Application/Accounts/AppleAccountWorkspaceUseCase.swift").read_text()
+        adapter = (REPO / "VexSign/App/iOS/Infrastructure/Accounts/AppleAccountWorkspaceAdapter.swift").read_text()
+        policy = (REPO / "VexSign/App/iOS/Application/Accounts/AppleAccountWorkspaceUseCase.swift").read_text()
         self.assertIn('appRegistration: appRegistration', adapter)
         self.assertIn('deviceRegistration: deviceRegistration', adapter)
         self.assertLess(adapter.index('try await manager.requireProfileOperations()'), adapter.index('try await manager.provisioningPreflight('))
@@ -93,7 +93,7 @@ class AnisetteOverlayTests(unittest.TestCase):
         self.assertIn('.interactiveDismissDisabled(isProvisioning)', source)
 
     def test_background_discovery_cannot_manufacture_mutation_approvals(self):
-        source = (REPO / "VexSign/App/iOS/VexSign/Infrastructure/Accounts/NativeSigningManager.swift").read_text()
+        source = (REPO / "VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift").read_text()
         marker = 'func refreshRenewalCandidates()'
         self.assertIn(marker, source, 'the read-only renewal refresh no longer exists under its honest name')
         renewal = source.split(marker, 1)[1].split('// MARK: - Backend Initialization', 1)[0]

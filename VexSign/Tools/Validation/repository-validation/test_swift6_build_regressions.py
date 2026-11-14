@@ -15,8 +15,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-APPLICATION = ROOT / "VexSign/App/iOS/VexSign/Application"
-VEXSIGN = ROOT / "VexSign/App/iOS/VexSign"
+APPLICATION = ROOT / "VexSign/App/iOS/Application"
+VEXSIGN = ROOT / "VexSign/App/iOS"
 ANISETTE_USE_CASE = APPLICATION / "Accounts/AnisetteProviderUseCase.swift"
 DEEP_LINK_ROUTER = APPLICATION / "Shared/DeepLinkRouterUseCase.swift"
 

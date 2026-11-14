@@ -26,7 +26,7 @@ Status vocabulary:
 
 Examined at source level:
 
-- This repository: `VexSign/App/iOS/VexSign/`, `VexSign/Tests/` (124 test files), `VexSign/Packages/AltSourceKit/`,
+- This repository: `VexSign/App/iOS/`, `VexSign/Tests/` (124 test files), `VexSign/Packages/AltSourceKit/`,
   `VexSign/Packages/Vendor/IDeviceKitten/`, `.github/workflows/`, `VexSign/Tools/`.
 - `altstoreio/AltStore` — `AltStoreCore/Model/StoreApp.swift` read in full where it decides
   which release is current (`versions.first`, `latestSupportedVersion`, `isSupported`), plus its
@@ -209,7 +209,7 @@ release to an iOS 18 device. The download completed, the import completed, and t
 failed — the failure arriving minutes later, with no mention that the source also published a
 compatible release further down the list.
 
-After the change (`VexSign/Packages/AltSourceKit/Sources/AltSourceKit/Models/ASRepository.swift`):
+After the change (`VexSign/Packages/AltSourceKit/Sources/Models/ASRepository.swift`):
 
 - `OSVersion` is `Comparable` (component-wise) and exposes `OSVersion.running`, computed once so
   a list render does not re-read the system version per row.

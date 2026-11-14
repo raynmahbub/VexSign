@@ -72,7 +72,7 @@ final class CertificateRemovalDurabilityTests: XCTestCase {
 	/// capturable from a unit test without a custom log handler.
 	@MainActor
 	func testTheFileRemovalFailureIsReportedNotSwallowed() throws {
-		let source = try RepositorySourceFixture.read("VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage+Certificate.swift")
+		let source = try RepositorySourceFixture.read("VexSign/App/iOS/Infrastructure/Persistence/Database/Storage+Certificate.swift")
 		let start = try XCTUnwrap(source.range(of: "func deleteCertificate(for cert: CertificatePair)"))
 		let body = String(source[start.lowerBound...])
 
@@ -100,7 +100,7 @@ final class CertificateRemovalDurabilityTests: XCTestCase {
 	func testTheStagedImportCleanupReportsAFailureToo() throws {
 		// The same directory is written by `CertificateFileHandler.copy()` before the row
 		// exists, so a failed import leaves a private key behind with no row to own it.
-		let source = try RepositorySourceFixture.read("VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateFileHandler.swift")
+		let source = try RepositorySourceFixture.read("VexSign/App/iOS/Infrastructure/Identity/CertificateFileHandler.swift")
 		let start = try XCTUnwrap(source.range(of: "func clean()"))
 		let body = String(source[start.lowerBound...].prefix(900))
 

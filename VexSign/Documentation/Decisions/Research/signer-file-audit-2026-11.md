@@ -38,9 +38,9 @@ relative to RyukSign at the pinned revision, not a claim about the whole project
 
 | Upstream file | VexSign counterpart | Finding and disposition |
 | --- | --- | --- |
-| `RyukSign/Utilities/Handlers/TweakAnalyzer.swift` | `VexSign/App/iOS/VexSign/Infrastructure/Signing/Transformation/TweakAnalyzer.swift` | Both analysis paths write ar members by their names. VexSign's existing logging differs; neither file established name containment. |
-| `RyukSign/Utilities/Handlers/TweakHandler.swift` | `VexSign/App/iOS/VexSign/Infrastructure/Signing/Transformation/TweakHandler.swift` | Both materialize ar members for tweak injection. Central validation is necessary because there are two consumers. |
-| `RyukSign/Utilities/ARDecompression/AR.swift` | `VexSign/App/iOS/VexSign/Infrastructure/Archives/Extraction/AR.swift` | VexSign's reader had length checks but accepted path-bearing names and duplicates. It now rejects unsafe names and case-insensitive duplicates and recognizes the conventional trailing slash on short ar names. The size comparison avoids adding an untrusted length to an offset. |
+| `RyukSign/Utilities/Handlers/TweakAnalyzer.swift` | `VexSign/App/iOS/Infrastructure/Signing/Transformation/TweakAnalyzer.swift` | Both analysis paths write ar members by their names. VexSign's existing logging differs; neither file established name containment. |
+| `RyukSign/Utilities/Handlers/TweakHandler.swift` | `VexSign/App/iOS/Infrastructure/Signing/Transformation/TweakHandler.swift` | Both materialize ar members for tweak injection. Central validation is necessary because there are two consumers. |
+| `RyukSign/Utilities/ARDecompression/AR.swift` | `VexSign/App/iOS/Infrastructure/Archives/Extraction/AR.swift` | VexSign's reader had length checks but accepted path-bearing names and duplicates. It now rejects unsafe names and case-insensitive duplicates and recognizes the conventional trailing slash on short ar names. The size comparison avoids adding an untrusted length to an offset. |
 | — | `VexSign/Tests/SecurityTests/ArchiveTraversal/ARArchiveSafetyTests.swift` | New parser tests cover ordinary names, ar terminators, traversal, duplicate names and a truncated member. They have not been run under XCTest here. |
 
 The parser changes are VexSign changes, not a source-code import from the

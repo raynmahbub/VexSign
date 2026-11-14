@@ -11,7 +11,7 @@ a valid feed looks like:
     POST /api/Tools/repo/export    draft + format -> source.json / apps.json
     POST /api/Tools/repo/ota       one app -> OTA manifest + itms-services link
 
-The validation rules mirror `VexSign/App/iOS/VexSign/Domain/Services/RepositoryValidator.swift`
+The validation rules mirror `VexSign/App/iOS/Domain/Services/RepositoryValidator.swift`
 (missing identifiers, insecure URLs, unparseable dates, duplicate screenshots,
 duplicate bundle ids) so a feed that passes here also imports cleanly in the app.
 

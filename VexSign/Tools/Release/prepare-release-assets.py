@@ -51,7 +51,7 @@ def prepare(output, version, channel, repository):
               'The app icon and preview are also attached.\n')
     (output / 'CHANGELOG.md').write_text(intro + notes + ending)
     shutil.copyfile(ROOT / "icon.png", output / 'VexSign-icon.png')
-    shutil.copyfile(ROOT / "VexSign/Documentation/Features/Design/assets/home-preview.svg", output / 'Home-layout-preview.svg')
+    shutil.copyfile(ROOT / "VexSign/Documentation/Features/assets/home-preview.svg", output / 'Home-layout-preview.svg')
     with ipas[0].open('rb') as handle:
         digest = hashlib.file_digest(handle, 'sha256').hexdigest()
     metadata = dict(schema_version=1, version=version, channel=channel, repository=repository,

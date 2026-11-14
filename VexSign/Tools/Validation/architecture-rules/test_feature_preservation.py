@@ -27,12 +27,12 @@ class PreservationAuditorTests(unittest.TestCase):
         self.mapping = {
             "baseCommit": "synthetic-only", "branch": "fixture",
             "directoryMappings": {
-                "App/iOS/VexSign": "VexSign/App/iOS/VexSign",
+                "App/iOS/VexSign": "VexSign/App/iOS",
                 "Packages": "VexSign/Packages",
             },
             "fileMappings": [
                 {"old": "App/iOS/VexSign/Resources/Info.plist", "new": "VexSign/Configuration/Build/iOS/Info.plist"},
-                {"old": "App/iOS/VexSign/Companion/Shared.swift", "new": "VexSign/App/iOS/VexSign/Infrastructure/Devices/Shared.swift"},
+                {"old": "App/iOS/VexSign/Companion/Shared.swift", "new": "VexSign/App/iOS/Infrastructure/Devices/Shared.swift"},
                 {"old": "Tools/Development/FilePickerFix.m", "new": "VexSign/Configuration/Build/FilePickerFix.m"},
             ],
         }
@@ -57,7 +57,7 @@ class PreservationAuditorTests(unittest.TestCase):
         self.current = deepcopy(self.base)
         self.paths = preservation.relocations(self.mapping)
         objects = self.current["objects"]
-        objects["GROUP"]["path"] = "VexSign/App/iOS/VexSign"
+        objects["GROUP"]["path"] = "VexSign/App/iOS"
         objects["EXCEPTION"]["membershipExceptions"] = ["Infrastructure/Devices/Shared.swift"]
         objects["LOCAL"]["relativePath"] = "VexSign/Packages/Fixture"
         objects["CONFIG"]["buildSettings"] = preservation.relocate_path(objects["CONFIG"]["buildSettings"], self.paths)
@@ -172,10 +172,10 @@ class PreservationAuditorTests(unittest.TestCase):
         before = b'#include "Header.h"\n#import "../Companion/Host.h"\n'
         old = "App/iOS/VexSign/Supporting/Header.h"
         new = "VexSign/Configuration/Build/iOS/Header.h"
-        paths = {"App/iOS/VexSign/Utilities/Header.h": "VexSign/App/iOS/VexSign/Platform/Header.h",
-                 "App/iOS/VexSign/Companion/Host.h": "VexSign/App/iOS/VexSign/Platform/Host.h"}
+        paths = {"App/iOS/VexSign/Utilities/Header.h": "VexSign/App/iOS/Platform/Header.h",
+                 "App/iOS/VexSign/Companion/Host.h": "VexSign/App/iOS/Platform/Host.h"}
         originals = {path: ("100644", b"synthetic-header") for path in paths}
-        after = b'#include "../../../App/iOS/VexSign/Platform/Header.h"\n#import "../../../App/iOS/VexSign/Platform/Host.h"\n'
+        after = b'#include "../../../App/iOS/Platform/Header.h"\n#import "../../../App/iOS/Platform/Host.h"\n'
         result = preservation.bridging_header_preservation(old, new, before, after, paths, originals)
         self.assertTrue(result["onlyIncludePathsChanged"])
         self.assertEqual(len(result["includes"]), 2)
@@ -203,7 +203,7 @@ class PreservationAuditorTests(unittest.TestCase):
             "LICENSE": base_blobs["LICENSE"],
             "THIRD_PARTY_NOTICES.md": preservation.relocate_references(base_blobs["THIRD_PARTY_NOTICES.md"].decode(), self.paths).encode(),
             "VexSign/Configuration/Build/iOS/Info.plist": base_blobs["App/iOS/VexSign/Resources/Info.plist"],
-            "VexSign/App/iOS/VexSign/Infrastructure/Devices/Shared.swift": base_blobs["App/iOS/VexSign/Companion/Shared.swift"],
+            "VexSign/App/iOS/Infrastructure/Devices/Shared.swift": base_blobs["App/iOS/VexSign/Companion/Shared.swift"],
             "VexSign/Configuration/Build/FilePickerFix.m": base_blobs["Tools/Development/FilePickerFix.m"],
             "Documentation/guide.md": base_blobs["Documentation/guide.md"],
             preservation.PRESERVATION_REPORT: b"{}\n",
@@ -265,6 +265,34 @@ class PreservationAuditorTests(unittest.TestCase):
         ]:
             with self.subTest(old=old, changed=changed):
                 self.assertFalse(preservation.reviewed_security_linkage(old, before, changed))
+
+    def test_flat_package_source_review_admits_only_the_exact_source_path_addition(self):
+        before = b'header\n.target(\n            name: "AltSourceKit"),\nfooter\n'
+        after = before.replace(b'name: "AltSourceKit"),', b'name: "AltSourceKit",\n            path: "Sources"),')
+        path = "Packages/AltSourceKit/Package.swift"
+        self.assertTrue(preservation.reviewed_flat_package_sources(path, before, after))
+        for old, changed in (
+            ("Packages/Other/Package.swift", after), (path, before),
+            (path, after + b'new dependency'), (path, after.replace(b'AltSourceKit', b'NewModule')),
+            (path, after.replace(b'"Sources"', b'"Different"')),
+            (path, after.replace(b'footer', b'swiftSettings: [.unsafeFlags(["-Ounchecked"])],')),
+        ):
+            with self.subTest(old=old, changed=changed):
+                self.assertFalse(preservation.reviewed_flat_package_sources(old, before, changed))
+
+    def test_flat_package_source_change_is_audited_without_resetting_original_hashes(self):
+        path = "Packages/AltSourceKit/Package.swift"
+        before = b'.target(\n            name: "AltSourceKit"),\n'
+        after = before.replace(b'name: "AltSourceKit"),', b'name: "AltSourceKit",\n            path: "Sources"),')
+        files = {path: (before, after)}
+        result = self.fixture_audit(additional_files=files)
+        self.assertEqual(result["failures"], [])
+        evidence = next(row for row in result["protectedInputs"] if row["path"] == path)
+        self.assertEqual(evidence["sha256Before"], preservation.digest(before))
+        self.assertFalse(evidence["identical"])
+        self.assertIn("flattened Sources", evidence["reviewedChange"])
+        tampered = self.fixture_audit(lambda root, _: (root / path).write_bytes(after + b'extra target'), additional_files=files)
+        self.assertTrue(any("Protected input bytes changed" in failure for failure in tampered["failures"]))
 
     def dependency_lock_fixture(self):
         before = b'{"resolved":"https://registry.npmjs.org/example/-/example-1.0.0.tgz"}\n'

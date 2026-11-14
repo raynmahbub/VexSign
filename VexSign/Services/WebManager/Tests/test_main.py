@@ -33,6 +33,14 @@ def client():
         yield test_client
 
 
+def test_static_icon_uses_the_flat_dashboard_directory(client):
+    expected = Path(__file__).resolve().parents[1] / "Dashboard/icon.png"
+    response = client.get("/static/icon.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == expected.read_bytes()
+
+
 def test_validate_accepts_lowercase_and_padded_keys(client):
     response = client.post(
         "/api/validate",

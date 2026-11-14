@@ -4,7 +4,7 @@ import { generateKeyPairSync, createSign, randomBytes } from 'node:crypto';
 import { buildApp } from '../API/Routes/app.js';
 import type { Config } from '../Configuration/config.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
-import { capability } from '../Security/Authentication/security.js';
+import { capability } from '../Security/security.js';
 
 const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const encryptionKey = randomBytes(32).toString('hex');

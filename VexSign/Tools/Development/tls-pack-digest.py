@@ -8,7 +8,7 @@ newline:
 
     sha256( pem.strip() + "\\n" + crt.strip() + "\\n" + cn.strip() )
 
-Keeping the rule this small is deliberate: `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/TLS/LocalTLSIdentity.swift`
+Keeping the rule this small is deliberate: `VexSign/App/iOS/Infrastructure/Devices/Installation/TLS/LocalTLSIdentity.swift`
 computes the same value in the app, and `VexSign/Tests/SecurityTests/CertificateValidation/LocalTLSIdentityTests.swift`
 holds both to it.
 

@@ -2,7 +2,7 @@
 
 The physical source owners are **App, Presentation, Application, Domain,
 Infrastructure, Platform, Security and Resources** under
-`VexSign/App/iOS/VexSign/`. External integrations (existing packages/services/host)
+`VexSign/App/iOS/`. External integrations (existing packages/services/host)
 and Tooling have separate repository owners. This is one existing app target,
 not eight manufactured Swift modules. Existing package compilation boundaries
 are retained.

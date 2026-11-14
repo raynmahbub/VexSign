@@ -29,49 +29,49 @@
       "name": "SigningOrchestrator",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift"
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift"
       ],
       "responsibility": "One shared signing pipeline.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Planning/SigningPlan.swift",
         "VexSign/Tests/UnitTests/Signing/SigningServiceTests.swift",
-        "VexSign/App/iOS/VexSign/Application/Signing/RunSigningUseCase.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningPipeline.swift",
-        "VexSign/App/iOS/VexSign/Application/Signing/SigningWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/LibrarySigningAdapter.swift"
+        "VexSign/App/iOS/Application/Signing/RunSigningUseCase.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningPipeline.swift",
+        "VexSign/App/iOS/Application/Signing/SigningWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/LibrarySigningAdapter.swift"
       ]
     },
     {
       "name": "IdentityManager",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/IdentityVault.swift",
-        "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateStatusManager.swift"
+        "VexSign/App/iOS/Infrastructure/Identity/IdentityVault.swift",
+        "VexSign/App/iOS/Security/Certificates/CertificateSecrets.swift",
+        "VexSign/App/iOS/Infrastructure/Identity/CertificateStatusManager.swift"
       ],
       "responsibility": "Certificate/key import, secure storage and status monitoring.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/IdentityVault.swift",
-        "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift",
+        "VexSign/App/iOS/Infrastructure/Identity/IdentityVault.swift",
+        "VexSign/App/iOS/Security/Certificates/CertificateSecrets.swift",
         "VexSign/Tests/SecurityTests/CertificateValidation/CertificateRevocationTests.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateRemoval.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage+Certificate.swift"
+        "VexSign/App/iOS/Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
+        "VexSign/App/iOS/Infrastructure/Identity/CertificateRemoval.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/Storage+Certificate.swift"
       ]
     },
     {
       "name": "ProvisioningValidator",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/NestedBundleAudit.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Verification/NestedBundleAudit.swift",
         "VexSign/Packages/NativeSigning/Provisioning/NativeProvisioningProfileValidator.swift"
       ],
       "responsibility": "File-backed compatibility checks plus strict experimental native CMS/profile validation; pure matcher remains Domain.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
         "VexSign/Packages/NativeSigning/Provisioning/NativeProvisioningProfileValidator.swift",
         "VexSign/Tests/UnitTests/Signing/ProfileCompatibilityTests.swift"
       ]
@@ -80,16 +80,16 @@
       "name": "ApplicationRegistry",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift"
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/Storage.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift"
       ],
       "responsibility": "Canonical app lifecycle records; permanent, nondeleted app snapshots are admitted only from the owning context before relationship access.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/Storage.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift",
         "VexSign/Tests/PerformanceTests/StorageConcurrencyTests.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
-        "VexSign/App/iOS/VexSign/Domain/Entities/WorkspaceSnapshot.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
+        "VexSign/App/iOS/Domain/Entities/WorkspaceSnapshot.swift",
         "VexSign/Tests/UnitTests/Persistence/CoreDataWorkspaceRepositoryTests.swift"
       ]
     },
@@ -97,20 +97,20 @@
       "name": "InstallationCoordinator",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueue.swift"
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/InstallQueue.swift"
       ],
       "responsibility": "Install routing, queueing and result verification.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueueCore.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/InstallQueueCore.swift",
         "VexSign/Tests/WorkflowTests/InstallationWorkflow/InstallConfirmationTests.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallationQueueAdapter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchJobRunner.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchSigningAdapter.swift",
-        "VexSign/App/iOS/VexSign/Application/Installation/DirectPackageInstallUseCase.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/DirectPackageInstallationAdapter.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Installation/ViewModels/DirectInstallViewModel.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/InstallationQueueAdapter.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/BatchJobRunner.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/BatchSigningAdapter.swift",
+        "VexSign/App/iOS/Application/Installation/DirectPackageInstallUseCase.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/DirectPackageInstallationAdapter.swift",
+        "VexSign/App/iOS/Presentation/Features/Installation/ViewModels/DirectInstallViewModel.swift",
         "VexSign/Tests/UnitTests/Application/DirectInstallWorkspaceBoundaryTests.swift"
       ]
     },
@@ -118,11 +118,11 @@
       "name": "DeviceCapabilityResolver",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/DeviceConnectivity.swift"
+        "VexSign/App/iOS/Infrastructure/Devices/Transport/DeviceConnectivity.swift"
       ],
       "responsibility": "Capability answers separated from device trust evidence.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/DeviceConnectivity.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Transport/DeviceConnectivity.swift",
         "VexSign/Tests/UnitTests/Devices/DeviceConnectivityTests.swift"
       ]
     },
@@ -130,29 +130,29 @@
       "name": "UnifiedTaskCenter",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift"
+        "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskCenter.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskModels.swift"
       ],
       "responsibility": "Single long-running task state.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskPolicies.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskCenter.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskPolicies.swift",
         "VexSign/Tests/UnitTests/Application/UnifiedTaskPolicyTests.swift",
-        "VexSign/App/iOS/VexSign/Application/Tasks/TaskWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskWorkspaceAdapter.swift"
+        "VexSign/App/iOS/Application/Tasks/TaskWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/TaskWorkspaceAdapter.swift"
       ]
     },
     {
       "name": "PersistentTaskJournal",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift",
-        "VexSign/App/iOS/VexSign/Domain/Services/TaskHistoryQuery.swift"
+        "VexSign/App/iOS/Infrastructure/Tasks/TaskHistoryJournal.swift",
+        "VexSign/App/iOS/Domain/Services/TaskHistoryQuery.swift"
       ],
       "responsibility": "Durable checkpoints, history and recovery records.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskTrace.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/TaskHistoryJournal.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/TaskTrace.swift",
         "VexSign/Tests/UnitTests/Application/TaskHistoryJournalTests.swift"
       ]
     },
@@ -160,29 +160,29 @@
       "name": "RepositoryManager",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositorySyncEngine.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryCatalogService.swift"
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositorySyncEngine.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositoryCatalogService.swift"
       ],
       "responsibility": "Source discovery, ETag refresh and catalog integrity.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositorySyncEngine.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositorySyncEngine.swift",
         "VexSign/Packages/AltSourceKit",
         "VexSign/Tests/UnitTests/Repositories/SourceFeedLoaderTests.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/SourceCatalogStore.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryWorkspaceAdapter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryDirectoryClient.swift"
+        "VexSign/App/iOS/Infrastructure/Repositories/SourceCatalogStore.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositoryWorkspaceAdapter.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift"
       ]
     },
     {
       "name": "DownloadManager",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager.swift"
+        "VexSign/App/iOS/Infrastructure/Downloads/DownloadManager.swift"
       ],
       "responsibility": "Validated download lifecycle and recovery.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager+Recovery.swift",
+        "VexSign/App/iOS/Infrastructure/Downloads/DownloadManager.swift",
+        "VexSign/App/iOS/Infrastructure/Downloads/DownloadManager+Recovery.swift",
         "VexSign/Tests/UnitTests/Persistence/DownloadRecoveryJournalTests.swift"
       ]
     },
@@ -190,13 +190,13 @@
       "name": "ArtifactStorage",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Archives",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift"
+        "VexSign/App/iOS/Infrastructure/Archives",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/PostSignArtifacts.swift"
       ],
       "responsibility": "Filesystem artifacts, bounded extraction and atomic staging.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Archives",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift",
+        "VexSign/App/iOS/Infrastructure/Archives",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/PostSignArtifacts.swift",
         "VexSign/Tests/UnitTests/Signing/PostSignArtifactsTests.swift"
       ]
     },
@@ -204,18 +204,18 @@
       "name": "BackupRestoreCoordinator",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupManager.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupRestorePlan.swift"
+        "VexSign/App/iOS/Infrastructure/Backups/BackupManager.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupRestorePlan.swift"
       ],
       "responsibility": "Encrypted backup, restore admission and verification.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupManager.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupCrypto.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupManager.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupCrypto.swift",
         "VexSign/Tests/UnitTests/Persistence/BackupRestorePolicyTests.swift",
-        "VexSign/App/iOS/VexSign/Application/Backups/BackupWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupWorkspaceAdapter.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Views/BackupView.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Models/BackupPresentationState.swift",
+        "VexSign/App/iOS/Application/Backups/BackupWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupWorkspaceAdapter.swift",
+        "VexSign/App/iOS/Presentation/Features/Backups/Views/BackupView.swift",
+        "VexSign/App/iOS/Presentation/Features/Backups/Models/BackupPresentationState.swift",
         "VexSign/Tests/UnitTests/Application/BackupWorkspaceBoundaryTests.swift"
       ]
     },
@@ -223,13 +223,13 @@
       "name": "AutomationCoordinator",
       "layer": "External integrations",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift",
-        "VexSign/App/iOS/VexSign/Platform/iOS/AppIntents"
+        "VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift",
+        "VexSign/App/iOS/Platform/iOS/AppIntents"
       ],
       "responsibility": "Background grants, Shortcuts and automation entry points.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift",
-        "VexSign/App/iOS/VexSign/Platform/iOS/AppIntents",
+        "VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift",
+        "VexSign/App/iOS/Platform/iOS/AppIntents",
         "VexSign/Tests/UnitTests/Application/AutomationAvailabilityTests.swift"
       ]
     },
@@ -237,14 +237,14 @@
       "name": "DiagnosticService",
       "layer": "Infrastructure",
       "owner": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/SubsystemDiagnosticsLog.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift"
+        "VexSign/App/iOS/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
+        "VexSign/App/iOS/Infrastructure/Diagnostics/SubsystemDiagnosticsLog.swift",
+        "VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift"
       ],
       "responsibility": "Redacted structured diagnostics and support exports.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift",
+        "VexSign/App/iOS/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
+        "VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift",
         "VexSign/Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift"
       ]
     }
@@ -279,13 +279,13 @@
       ],
       "refactoringRequirement": "Keep all new dependencies explicit; avoid adding static shared state to AppContainer.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/App/VexSignApp.swift",
-        "VexSign/App/iOS/VexSign/App/Composition/AppContainer.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Shared/Models/AppContainerEnvironment.swift",
+        "VexSign/App/iOS/App/VexSignApp.swift",
+        "VexSign/App/iOS/App/Composition/AppContainer.swift",
+        "VexSign/App/iOS/Presentation/Shared/Models/AppContainerEnvironment.swift",
         "VexSign/Tests/UnitTests/Application/CleanArchitectureLayerTests.swift",
-        "VexSign/App/iOS/VexSign/App/Bootstrap/AppPreferencesBootstrap.swift",
-        "VexSign/App/iOS/VexSign/App/Lifecycle/AppDelegate.swift",
-        "VexSign/App/iOS/VexSign/App/Lifecycle/AppLifecycleCoordinator.swift"
+        "VexSign/App/iOS/App/Bootstrap/AppPreferencesBootstrap.swift",
+        "VexSign/App/iOS/App/Lifecycle/AppDelegate.swift",
+        "VexSign/App/iOS/App/Lifecycle/AppLifecycleCoordinator.swift"
       ]
     },
     {
@@ -319,13 +319,13 @@
       ],
       "refactoringRequirement": "Incrementally move baseline view coupling behind view models/use cases; do not mass-move files.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Presentation",
-        "VexSign/App/iOS/VexSign",
-        "VexSign/App/iOS/VexSign/Presentation",
+        "VexSign/App/iOS/Presentation",
+        "VexSign/App/iOS",
+        "VexSign/App/iOS/Presentation",
         "VexSign/Tools/Validation/architecture-rules/architecture-drift-baseline.json",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Tasks/ViewModels/TaskWorkspaceModel.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Signing/ViewModels/SigningWorkspaceModel.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Devices/ViewModels/CompanionArchiveModel.swift"
+        "VexSign/App/iOS/Presentation/Features/Tasks/ViewModels/TaskWorkspaceModel.swift",
+        "VexSign/App/iOS/Presentation/Features/Signing/ViewModels/SigningWorkspaceModel.swift",
+        "VexSign/App/iOS/Presentation/Features/Devices/ViewModels/CompanionArchiveModel.swift"
       ]
     },
     {
@@ -361,20 +361,20 @@
       ],
       "refactoringRequirement": "Keep Application free of concrete globals and platform/SDK I/O. Legacy feature workflows remain ratcheted at their existing owners until incrementally ported.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Application",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/SubsystemBoundaries.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/WorkspaceSupportContracts.swift",
+        "VexSign/App/iOS/Application",
+        "VexSign/App/iOS/Domain/Protocols/SubsystemBoundaries.swift",
+        "VexSign/App/iOS/Domain/Protocols/WorkspaceSupportContracts.swift",
         "VexSign/Tests/UnitTests/Application/WorkspaceSupportArchitectureTests.swift",
-        "VexSign/App/iOS/VexSign/Application/Signing/RunSigningUseCase.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/DirectInstallationProviding.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/AnisetteConfigurationProviding.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/IncomingFilesProviding.swift",
-        "VexSign/App/iOS/VexSign/Application/Signing/SigningWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Application/Library/LibraryUseCase.swift",
-        "VexSign/App/iOS/VexSign/Application/Accounts/AppleAccountWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Application/Backups/BackupWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Application/Tasks/TaskWorkspaceUseCase.swift",
-        "VexSign/App/iOS/VexSign/Application/Installation/CompanionArchiveUseCase.swift"
+        "VexSign/App/iOS/Application/Signing/RunSigningUseCase.swift",
+        "VexSign/App/iOS/Domain/Protocols/DirectInstallationProviding.swift",
+        "VexSign/App/iOS/Domain/Protocols/AnisetteConfigurationProviding.swift",
+        "VexSign/App/iOS/Domain/Protocols/IncomingFilesProviding.swift",
+        "VexSign/App/iOS/Application/Signing/SigningWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Application/Library/LibraryUseCase.swift",
+        "VexSign/App/iOS/Application/Accounts/AppleAccountWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Application/Backups/BackupWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Application/Tasks/TaskWorkspaceUseCase.swift",
+        "VexSign/App/iOS/Application/Installation/CompanionArchiveUseCase.swift"
       ]
     },
     {
@@ -415,16 +415,16 @@
       ],
       "refactoringRequirement": "Keep Domain pure; add contracts only when an existing workflow needs an explicit seam.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Domain/Entities/DomainContracts.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/SubsystemBoundaries.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/WorkspaceSupportContracts.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/SigningEngine.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/SigningWork.swift",
-        "VexSign/App/iOS/VexSign/Domain/Results/SigningWorkflowEvent.swift",
-        "VexSign/App/iOS/VexSign/Domain/Entities/WorkspaceSnapshot.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/TaskWorkspaceProviding.swift",
-        "VexSign/App/iOS/VexSign/Domain/Protocols/AppleAccountWorkspaceProviding.swift",
-        "VexSign/App/iOS/VexSign/Domain/Entities/BackupWorkspace.swift"
+        "VexSign/App/iOS/Domain/Entities/DomainContracts.swift",
+        "VexSign/App/iOS/Domain/Protocols/SubsystemBoundaries.swift",
+        "VexSign/App/iOS/Domain/Protocols/WorkspaceSupportContracts.swift",
+        "VexSign/App/iOS/Domain/Protocols/SigningEngine.swift",
+        "VexSign/App/iOS/Domain/Protocols/SigningWork.swift",
+        "VexSign/App/iOS/Domain/Results/SigningWorkflowEvent.swift",
+        "VexSign/App/iOS/Domain/Entities/WorkspaceSnapshot.swift",
+        "VexSign/App/iOS/Domain/Protocols/TaskWorkspaceProviding.swift",
+        "VexSign/App/iOS/Domain/Protocols/AppleAccountWorkspaceProviding.swift",
+        "VexSign/App/iOS/Domain/Entities/BackupWorkspace.swift"
       ]
     },
     {
@@ -464,14 +464,14 @@
       ],
       "refactoringRequirement": "Preserve one pipeline; provider differences belong in identity acquisition and plan inputs, not duplicate engines.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Zsign/ZsignEngine.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningPipeline.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Zsign/ZsignAdapter.swift",
-        "VexSign/App/iOS/VexSign/Application/Signing/RunSigningUseCase.swift"
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Planning/SigningPlan.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Verification/SignatureVerifier.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Engines/Zsign/ZsignEngine.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningPipeline.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Engines/Zsign/ZsignAdapter.swift",
+        "VexSign/App/iOS/Application/Signing/RunSigningUseCase.swift"
       ]
     },
     {
@@ -509,8 +509,8 @@
       "refactoringRequirement": "Do not promote native signing or claim computer-free install without device/CMS evidence.",
       "sourceEvidence": [
         "VexSign/Packages/NativeSigning",
-        "VexSign/App/iOS/VexSign/Infrastructure/Accounts/NativeSigningManager.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift",
+        "VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift",
         "VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md"
       ]
     },
@@ -548,11 +548,11 @@
       ],
       "refactoringRequirement": "Preserve TLS/TLS-validation requirements; do not copy AGPL/GPL validator implementations.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Security/Secrets/SecureSecretStore.swift",
-        "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/IdentityVault.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/OCSP",
-        "VexSign/App/iOS/VexSign/Infrastructure/Identity/CertificateStatusManager.swift"
+        "VexSign/App/iOS/Security/Secrets/SecureSecretStore.swift",
+        "VexSign/App/iOS/Security/Certificates/CertificateSecrets.swift",
+        "VexSign/App/iOS/Infrastructure/Identity/IdentityVault.swift",
+        "VexSign/App/iOS/Infrastructure/Identity/OCSP",
+        "VexSign/App/iOS/Infrastructure/Identity/CertificateStatusManager.swift"
       ]
     },
     {
@@ -586,9 +586,9 @@
       ],
       "refactoringRequirement": "Keep filesystem inspection in Infrastructure and move only genuinely pure policies into Domain.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/NestedBundleAudit.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Verification/ProfileCompatibility.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Verification/NestedBundleAudit.swift",
+        "VexSign/App/iOS/Infrastructure/Signing/Planning/SigningPlan.swift",
         "VexSign/Tests/UnitTests/Signing/NestedBundleAuditTests.swift"
       ]
     },
@@ -628,10 +628,10 @@
       ],
       "refactoringRequirement": "Preserve one archive/artifact owner; do not add a second storage abstraction.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Archives",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadIntegrity.swift",
-        "VexSign/App/iOS/VexSign/Security/Validation/FileIntegrity.swift"
+        "VexSign/App/iOS/Infrastructure/Archives",
+        "VexSign/App/iOS/Infrastructure/Signing/Execution/PostSignArtifacts.swift",
+        "VexSign/App/iOS/Infrastructure/Downloads/DownloadIntegrity.swift",
+        "VexSign/App/iOS/Security/Validation/FileIntegrity.swift"
       ]
     },
     {
@@ -668,11 +668,11 @@
       ],
       "refactoringRequirement": "Keep one canonical registry; schema migrations require device/simulator rehearsal before uniqueness constraints.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage+Shared.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/Storage.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/Storage+Shared.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Repositories/ImportDuplicateReview.swift",
+        "VexSign/App/iOS/Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
         "VexSign/Tests/UnitTests/Persistence/CoreDataWorkspaceRepositoryTests.swift"
       ]
     },
@@ -711,11 +711,11 @@
       ],
       "refactoringRequirement": "Do not spawn independent progress engines; preserve operation-specific recovery semantics.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift",
-        "VexSign/App/iOS/VexSign/Domain/Services/TaskHistoryQuery.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskTrace.swift"
+        "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskCenter.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskModels.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/TaskHistoryJournal.swift",
+        "VexSign/App/iOS/Domain/Services/TaskHistoryQuery.swift",
+        "VexSign/App/iOS/Infrastructure/Tasks/TaskTrace.swift"
       ]
     },
     {
@@ -753,10 +753,10 @@
       ],
       "refactoringRequirement": "Keep one download manager; route all URL validation through the security gateway.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Downloads/DownloadManager+PackageImport.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositorySyncEngine.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryCatalogService.swift",
+        "VexSign/App/iOS/Infrastructure/Downloads/DownloadManager.swift",
+        "VexSign/App/iOS/Infrastructure/Downloads/DownloadManager+PackageImport.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositorySyncEngine.swift",
+        "VexSign/App/iOS/Infrastructure/Repositories/RepositoryCatalogService.swift",
         "VexSign/Packages/AltSourceKit"
       ]
     },
@@ -800,14 +800,14 @@
       ],
       "refactoringRequirement": "Do not promise universal computer-free install; capability answers must stay distinct from success evidence.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueue.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/DeviceConnectivity.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/TLS/LocalTLSIdentity.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation",
-        "VexSign/App/iOS/VexSign/Application/Installation/DirectPackageInstallUseCase.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/DirectPackageInstallationAdapter.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Installation/ViewModels/DirectInstallViewModel.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/InstallQueue.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Transport/DeviceConnectivity.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/TLS/LocalTLSIdentity.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation",
+        "VexSign/App/iOS/Application/Installation/DirectPackageInstallUseCase.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/DirectPackageInstallationAdapter.swift",
+        "VexSign/App/iOS/Presentation/Features/Installation/ViewModels/DirectInstallViewModel.swift",
         "VexSign/Tests/UnitTests/Application/DirectInstallWorkspaceBoundaryTests.swift"
       ]
     },
@@ -844,8 +844,8 @@
       ],
       "refactoringRequirement": "Keep OTA endpoint verification positive and authorization explicit.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/OTA/ManifestService.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Networking/WebManager/WebManagerServer.swift",
+        "VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ManifestService.swift",
+        "VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer.swift",
         "VexSign/Services/WebManager/API/url_guard.py",
         "VexSign/Services/WebManager/Tests/test_signer_decoder_installer.py"
       ]
@@ -882,13 +882,13 @@
       ],
       "refactoringRequirement": "Keep companion targets read-only; do not duplicate signing/install state.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Platform/iOS/AppIntents",
-        "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BackgroundAutomation.swift",
-        "VexSign/App/Extensions/WidgetExtension",
+        "VexSign/App/iOS/Platform/iOS/AppIntents",
+        "VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift",
+        "VexSign/App/WidgetExtension",
         "VexSign/App/Watch/VexSignWatch",
         "VexSign/App/Watch/VexSignWatchWidgets",
-        "VexSign/App/TV/VexSignTV",
-        "VexSign/App/Vision/VexSignVision"
+        "VexSign/App/TV",
+        "VexSign/App/Vision"
       ]
     },
     {
@@ -929,13 +929,13 @@
       ],
       "refactoringRequirement": "Preserve encryption/validation and redaction-before-export; no unauthenticated restore.",
       "sourceEvidence": [
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupManager.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupRestorePlan.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Backups/BackupCrypto.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
-        "VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Views/BackupView.swift",
-        "VexSign/App/iOS/VexSign/Presentation/Features/Backups/Models/BackupPresentationState.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupManager.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupRestorePlan.swift",
+        "VexSign/App/iOS/Infrastructure/Backups/BackupCrypto.swift",
+        "VexSign/App/iOS/Infrastructure/Diagnostics/DiagnosticBundleExporter.swift",
+        "VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift",
+        "VexSign/App/iOS/Presentation/Features/Backups/Views/BackupView.swift",
+        "VexSign/App/iOS/Presentation/Features/Backups/Models/BackupPresentationState.swift",
         "VexSign/Tests/UnitTests/Application/BackupWorkspaceBoundaryTests.swift"
       ]
     },
@@ -1011,8 +1011,8 @@
       "refactoringRequirement": "Do not describe a configured API as an operational production service.",
       "sourceEvidence": [
         "VexSign/Services/Cloud",
-        "VexSign/App/iOS/VexSign/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift",
-        "VexSign/Documentation/Workflows/Distribution/CLOUD_SERVICES.md"
+        "VexSign/App/iOS/Infrastructure/Signing/Engines/Cloud/CloudSigningClient.swift",
+        "VexSign/Documentation/Workflows/CLOUD_SERVICES.md"
       ]
     },
     {
@@ -1036,7 +1036,7 @@
       "existingTests": [
         "EmbeddedContainerRuntimeTests.swift",
         "RuntimeCapabilityReportTests.swift",
-        "VexSign/Integrations/EmbeddedContainer/tests"
+        "VexSign/Integrations/tests"
       ],
       "failureModes": [
         "Runtime unavailable",
@@ -1046,10 +1046,10 @@
       ],
       "refactoringRequirement": "Preserve license obligations and capability gates; no AGPL/GPL source copying.",
       "sourceEvidence": [
-        "VexSign/Integrations/EmbeddedContainer",
+        "VexSign/Integrations",
         "VexSign/Packages/SideSign",
-        "VexSign/App/iOS/VexSign/Platform/Compatibility/EmbeddedContainerRuntime.swift",
-        "VexSign/App/iOS/VexSign/Platform/Compatibility/RuntimeCapabilityReport.swift"
+        "VexSign/App/iOS/Platform/Compatibility/EmbeddedContainerRuntime.swift",
+        "VexSign/App/iOS/Platform/Compatibility/RuntimeCapabilityReport.swift"
       ]
     },
     {
@@ -1179,7 +1179,7 @@
         "QA_DEVICE_ACCEPTANCE.md"
       ],
       "publicInterfaces": [
-        "VexSign/Documentation/Workflows/Distribution/bootstrap.md",
+        "VexSign/Documentation/Workflows/bootstrap.md",
         "VexSign/Documentation/DeviceTesting/DEVICE_TESTING.md",
         "VexSign/Documentation/Security/THREAT_MODEL.md"
       ],
@@ -1198,7 +1198,7 @@
       ],
       "refactoringRequirement": "Never promote Device-verified status without real iPhone evidence.",
       "sourceEvidence": [
-        "VexSign/Documentation/Workflows/Distribution",
+        "VexSign/Documentation/Workflows",
         "VexSign/Documentation/DeviceTesting/DEVICE_TESTING.md",
         "VexSign/Documentation/DeviceTesting/QA_DEVICE_ACCEPTANCE.md",
         "VexSign/Documentation/Security/THREAT_MODEL.md"

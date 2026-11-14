@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="VexSign/Resources/Assets/Branding/icon.png" alt="VexSign icon" width="96">
+  <img src="VexSign/Resources/Assets/icon.png" alt="VexSign icon" width="96">
   <h1>VexSign</h1>
   <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
   <p>
@@ -8,7 +8,7 @@
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
   <p><a href="#download">Download</a> · <a href="VexSign/Documentation/README.md">Guides</a> · <a href="VexSign/Documentation/Development/BUILD.md">Build</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
-  <a href="VexSign/Documentation/Features/Design/assets/hero.svg"><img src="VexSign/Documentation/Features/Design/assets/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%"></a>
+  <a href="VexSign/Documentation/Features/assets/hero.svg"><img src="VexSign/Documentation/Features/assets/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%"></a>
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -215,7 +215,7 @@ See [web tools](VexSign/Documentation/Development/WEBTOOLS.md) for endpoints and
 This repository also contains optional services and experimental tooling beyond the everyday signing workflow:
 
 - **Native account provisioning:** experimental Apple-account authentication/provisioning and anisette-provider configuration; not a complete, device-validated Apple ID signer.
-- **Guest-host packaging:** a separately built LiveContainer/SideStore prototype with pinned inputs; not the normal VexSign IPA. See [current scope](VexSign/Integrations/EmbeddedContainer/README.md).
+- **Guest-host packaging:** a separately built LiveContainer/SideStore prototype with pinned inputs; not the normal VexSign IPA. See [current scope](VexSign/Integrations/README.md).
 
 - **Python backend:** premium key validation, device binding, recovery, gated feeds, admin key management and IPA catalog endpoints. See [`VexSign/Services/WebManager/API/`](VexSign/Services/WebManager/API).
 - **Native cloud bridge:** endpoint/token configuration and connection testing, with client methods for remote signing jobs. Requires a compatible deployed backend.
@@ -238,8 +238,8 @@ For upstream changes and porting considerations, see the
 
 Download an IPA or add the VexSign source to a compatible signer:
 
-[![Download IPA](VexSign/Documentation/Features/Design/assets/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
-[![Add Source](VexSign/Documentation/Features/Design/assets/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+[![Download IPA](VexSign/Documentation/Features/assets/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
+[![Add Source](VexSign/Documentation/Features/assets/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
 
 - **Stable:** the download button opens the latest stable release; choose its IPA asset.
 - **Nightly:** browse [all releases](https://github.com/raynmahbub/VexSign/releases) for dated pre-releases.
@@ -275,7 +275,7 @@ https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json
 ```
 
 Read [Free Apple ID setup](VexSign/Documentation/Security/FREE_APPLE_ID_SETUP.md),
-[installation/companion limits](VexSign/Documentation/Workflows/Distribution/COMPANION_SIGNING.md) and
+[installation/companion limits](VexSign/Documentation/Workflows/COMPANION_SIGNING.md) and
 [Web Manager setup](VexSign/Documentation/Development/WEBTOOLS.md) before enabling those flows.
 
 ## Build & test
@@ -300,10 +300,15 @@ See [Build](VexSign/Documentation/Development/BUILD.md) for toolchain selection 
 
 Project content lives under `VexSign/`: `App`, `Packages`, `Services`, `Tests`,
 `Resources`, `Documentation`, `Tools` and `Configuration`. The iOS app at
-`VexSign/App/iOS/VexSign/` separates App composition/lifecycle, feature-oriented
+`VexSign/App/iOS/` separates App composition/lifecycle, feature-oriented
 Presentation, Application workflows, Domain contracts, Infrastructure adapters,
-Platform, Security and bundled Resources. Existing companion targets and the
-experimental host integration are retained.
+Platform, Security and bundled Resources. TV, Vision and widget sources live
+directly in `VexSign/App/{TV,Vision,WidgetExtension}/`; `Watch/` (both existing
+targets) and `SharedPlatformInfo/` retain their hierarchy. Existing target names,
+bundle identifiers, schemes and the experimental host integration are retained.
+The [repository layout audit](VexSign/Documentation/Architecture/repository-layout-audit.md)
+records the package/service/resource/documentation cleanup and the four exact
+tool-owned wrapper exceptions. Multi-child folders are not flattened.
 
 Domain/Application are Foundation-only; migrated workflows use injected ports.
 Legacy UI-to-storage/service coupling is still tracked, not claimed to be fully

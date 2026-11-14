@@ -118,11 +118,11 @@ class PreparationTests(unittest.TestCase):
                 self.assertIn(module.digest(source.read_bytes()), staged,
                               f'Production implementation missing from smoke graph: {source.relative_to(HERE)}')
         for relative, checksum in hashes.items():
-            source = (REPO if relative.startswith('VexSign/App/iOS/VexSign/') else HERE) / relative
+            source = (REPO if relative.startswith('VexSign/App/iOS/') else HERE) / relative
             self.assertEqual(module.digest(source.read_bytes()), checksum)
         for name in ['AppleAccountAuthenticationState', 'AppleAccountSessionCoordinator', 'AppleAccountSessionRepository']:
             self.assertEqual((self.root / 'Sources/NativeSigningLinkSmoke' / (name + '.swift')).read_bytes(),
-                             (REPO / "VexSign/App/iOS/VexSign/Infrastructure/Accounts" / (name + '.swift')).read_bytes())
+                             (REPO / "VexSign/App/iOS/Infrastructure/Accounts" / (name + '.swift')).read_bytes())
         self.assertEqual(
             (self.root / 'Sources/NativeSigningLinkSmoke/SideSignSessionCodec.swift').read_bytes(),
             (HERE / "Codec/SideSignSessionCodec.swift").read_bytes())
@@ -140,16 +140,16 @@ class PreparationTests(unittest.TestCase):
         module.install_smoke_sources(self.root)
         for relative in ['Secrets/AppleAccountCredentialStore.swift', 'Secrets/AppleAccountResumeJournalStore.swift', 'Storage/AppleAccountStorageRuntimePolicy.swift']:
             actual = (self.root / 'Sources/NativeSigningLinkSmoke' / Path(relative).name).read_bytes()
-            self.assertEqual(actual, (REPO / "VexSign/App/iOS/VexSign/Security" / relative).read_bytes())
+            self.assertEqual(actual, (REPO / "VexSign/App/iOS/Security" / relative).read_bytes())
             self.assertNotIn(b'import NimbleExtensions', actual)
         self.assertTrue((self.root / 'Tests/NativeSigningCodecTests/NativeAccountBackendTests.swift').is_file())
         self.assertIn('accountBackendFactory', (self.root / 'Sources/NativeSigningLinkSmoke/LinkSmoke.swift').read_text())
         bridge = (self.root / 'Sources/NativeSigningLinkSmoke/SideSignAccountBridge.swift').read_text()
         self.assertIn('private let lifetime: (any NativeAccountBackendLifetime)?', bridge)
         # Foundation extraction must not silently orphan the four localized errors.
-        vault = (REPO / "VexSign/App/iOS/VexSign/Security/Secrets/AppleAccountCredentialStore.swift").read_text()
+        vault = (REPO / "VexSign/App/iOS/Security/Secrets/AppleAccountCredentialStore.swift").read_text()
         keys = re.findall(r'NSLocalizedString\("([^"\n]+)"', vault)
-        catalogue = json.loads((REPO / "VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings").read_text())['strings']
+        catalogue = json.loads((REPO / "VexSign/App/iOS/Resources/Localization/Localizable.xcstrings").read_text())['strings']
         self.assertEqual(len(keys), 4)
         self.assertTrue(all(key in catalogue for key in keys))
 
@@ -504,7 +504,7 @@ class PreparationTests(unittest.TestCase):
         module.check_codec_baseline(lock)
         self.assertIn('sdkRevision = "' + lock['sidesign']['commit'] + '"', codec)
         self.assertIn('maximumBytes = 1024 * 1024', codec)
-        vault = (REPO / "VexSign/App/iOS/VexSign/Security/Secrets/AppleAccountCredentialStore.swift").read_text()
+        vault = (REPO / "VexSign/App/iOS/Security/Secrets/AppleAccountCredentialStore.swift").read_text()
         self.assertIn('maximumSessionBytes: Int { 1024 * 1024 }', vault)
 
     def test_sdk_revision_change_requires_a_codec_review(self):

@@ -27,9 +27,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/App/iOS/VexSign/**'
+      - 'VexSign/App/iOS/**'
       - 'VexSign/Tests/**'
-      - 'VexSign/App/Extensions/WidgetExtension/**'
+      - 'VexSign/App/WidgetExtension/**'
       - 'VexSign/App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
@@ -53,11 +53,11 @@ on:
       - 'VexSign/Integrations/**'
       - 'VexSign/Resources/**'
       - 'VexSign/Documentation/**'
-      - 'VexSign/Integrations/EmbeddedContainer/*.py'
-      - 'VexSign/Integrations/EmbeddedContainer/tests/**'
-      - 'VexSign/Integrations/EmbeddedContainer/HostOverlay/**'
-      - 'VexSign/Integrations/EmbeddedContainer/patches/**'
-      - 'VexSign/Integrations/EmbeddedContainer/inputs.lock.json'
+      - 'VexSign/Integrations/*.py'
+      - 'VexSign/Integrations/tests/**'
+      - 'VexSign/Integrations/HostOverlay/**'
+      - 'VexSign/Integrations/patches/**'
+      - 'VexSign/Integrations/inputs.lock.json'
       - 'VexSign/Packages/NativeSigning/**'
       - 'VexSign/Packages/SideSign/**'
       - '.github/scripts/**'
@@ -68,9 +68,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/App/iOS/VexSign/**'
+      - 'VexSign/App/iOS/**'
       - 'VexSign/Tests/**'
-      - 'VexSign/App/Extensions/WidgetExtension/**'
+      - 'VexSign/App/WidgetExtension/**'
       - 'VexSign/App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
@@ -94,11 +94,11 @@ on:
       - 'VexSign/Integrations/**'
       - 'VexSign/Resources/**'
       - 'VexSign/Documentation/**'
-      - 'VexSign/Integrations/EmbeddedContainer/*.py'
-      - 'VexSign/Integrations/EmbeddedContainer/tests/**'
-      - 'VexSign/Integrations/EmbeddedContainer/HostOverlay/**'
-      - 'VexSign/Integrations/EmbeddedContainer/patches/**'
-      - 'VexSign/Integrations/EmbeddedContainer/inputs.lock.json'
+      - 'VexSign/Integrations/*.py'
+      - 'VexSign/Integrations/tests/**'
+      - 'VexSign/Integrations/HostOverlay/**'
+      - 'VexSign/Integrations/patches/**'
+      - 'VexSign/Integrations/inputs.lock.json'
       - 'VexSign/Packages/NativeSigning/**'
       - 'VexSign/Packages/SideSign/**'
       - '.github/scripts/**'
@@ -401,7 +401,7 @@ jobs:
           test -f "${APP}/Info.plist"
           # A .deb uses the AR container format but is a runtime resource, not
           # a Mach-O static library. Prove the file-type repair still bundles it.
-          if ! cmp -s "${GITHUB_WORKSPACE}/VexSign/App/iOS/VexSign/Resources/ellekit.deb" "${APP}/ellekit.deb"; then
+          if ! cmp -s "${GITHUB_WORKSPACE}/VexSign/App/iOS/Resources/ellekit.deb" "${APP}/ellekit.deb"; then
             echo "::error::Built app must bundle the original ellekit.deb as a byte-identical resource."
             exit 1
           fi

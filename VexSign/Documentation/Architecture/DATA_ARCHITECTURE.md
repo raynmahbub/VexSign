@@ -3,7 +3,7 @@
 VexSign keeps its library in one Core Data store. This note records what the store actually
 guarantees, what it does not, and the read-only audit that reports the difference. It is
 written against the source, not against intentions: every statement below was checked in
-`VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/`, `VexSign/App/iOS/VexSign/` and `VexSign/App/iOS/VexSign/`.
+`VexSign/App/iOS/Infrastructure/Persistence/Database/`, `VexSign/App/iOS/` and `VexSign/App/iOS/`.
 
 ## What the store is
 
@@ -51,7 +51,7 @@ including a restore that brings the database back without its artifacts.
 
 ## `LibraryIntegrityAudit`
 
-`VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift` checks those six states over a
+`VexSign/App/iOS/Infrastructure/Persistence/Database/LibraryIntegrityAudit.swift` checks those six states over a
 snapshot of rows. It is pure: it takes `[Row]` and a set of known certificate uuids, and
 returns a `Report`. It does not fetch, mutate, delete or repair anything — repairing a
 library is a separate, user-visible operation and is deliberately not part of this type.

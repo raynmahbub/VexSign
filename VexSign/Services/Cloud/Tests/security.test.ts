@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { seal, unseal, capability, verifyCapability, escapeMarkup, permittedWebhook } from '../Security/Authentication/security.js';
+import { seal, unseal, capability, verifyCapability, escapeMarkup, permittedWebhook } from '../Security/security.js';
 import { artifactMetadata, signRequest, batchRequest } from '../API/DTOs/contracts.js';
 import { installLink, installPage, manifest } from '../API/Controllers/ota.js';
 import { signerResult, invokeSigner } from '../Signing/CloudSigningCoordinator/signer.js';

@@ -9,7 +9,7 @@ import shutil
 HERE = Path(__file__).resolve().parents[0]
 ROOT = Path(__file__).resolve().parents[3]
 INPUTS = HERE / "ServerCompatibility"
-FACTORY = Path('VexSign/App/iOS/VexSign/Infrastructure/Networking/WebManager/ServerApplicationFactory.swift')
+FACTORY = Path('VexSign/App/iOS/Infrastructure/Networking/WebManager/ServerApplicationFactory.swift')
 APP_PINS = ROOT / "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 
 

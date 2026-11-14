@@ -200,7 +200,7 @@
 			explicitFileTypes = {
 				"Resources/ellekit.deb" = file;
 			};
-			path = VexSign/App/iOS/VexSign;
+			path = VexSign/App/iOS;
 			sourceTree = "<group>";
 		};
 		3A2F0EE82E96DA5A009DE4CE /* VexSignWidgetExtension */ = {
@@ -208,7 +208,7 @@
 			exceptions = (
 				3A2F0EFC2E96DA5D009DE4CE /* Exceptions for "VexSignWidgetExtension" folder in "VexSignWidgetExtensionExtension" target */,
 			);
-			path = VexSign/App/Extensions/WidgetExtension;
+			path = VexSign/App/WidgetExtension;
 			sourceTree = "<group>";
 		};
 		AABA5D1A2DB3C87800BFCD2C /* VexSignTests */ = {
@@ -218,12 +218,12 @@
 		};
 		C0FFEE000000000000000001 /* VexSignTV */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VexSign/App/TV/VexSignTV;
+			path = VexSign/App/TV;
 			sourceTree = "<group>";
 		};
 		C0FFEE00000000000000000D /* VexSignVision */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VexSign/App/Vision/VexSignVision;
+			path = VexSign/App/Vision;
 			sourceTree = "<group>";
 		};
 		C0FFEE000000000000000019 /* VexSignWatch */ = {
@@ -939,7 +939,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/App/iOS/VexSign/Resources",
+					"$(PROJECT_DIR)/VexSign/App/iOS/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -1007,7 +1007,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/App/iOS/VexSign/Resources",
+					"$(PROJECT_DIR)/VexSign/App/iOS/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -1132,7 +1132,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/App/iOS/VexSign/Resources",
+					"$(PROJECT_DIR)/VexSign/App/iOS/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;
@@ -1273,7 +1273,7 @@ packageReferences = (
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/VexSign/App/iOS/VexSign/Resources",
+					"$(PROJECT_DIR)/VexSign/App/iOS/Resources",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.2.1;

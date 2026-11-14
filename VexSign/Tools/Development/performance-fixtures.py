@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic, non-installable fixture corpus. Outputs belong outside Git.
 
-The portable hash benchmark measures this host, NOT VexSign/App/iOS/VexSign/iOS import performance.
+The portable hash benchmark measures this host, NOT VexSign/App/iOS/iOS import performance.
 No executable, private key, profile, copyrighted IPA, or device result is generated.
 """
 import argparse

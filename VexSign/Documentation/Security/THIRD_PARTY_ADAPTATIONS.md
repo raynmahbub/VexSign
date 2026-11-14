@@ -11,7 +11,7 @@ licenses and dependency acknowledgements. See [LICENSE](../../../LICENSE),
 - **Source:** [`KorSign/Utilities/Handlers/ArchiveHandler.swift`](https://github.com/korboybeats/KorSign/blob/f20892f43177476ef769b2ac76fc038f87d963ec/KorSign/Utilities/Handlers/ArchiveHandler.swift), `exportStem` and the collision-handling portion of `moveToArchive`.
 - **Original file notice:** Created by samara on 22.04.2025; subsequent work by KorSign contributors.
 - **License:** GNU General Public License version 3; license text is preserved in the repository's [LICENSE](../../../LICENSE).
-- **VexSign location:** `VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/IPAExportNaming.swift`.
+- **VexSign location:** `VexSign/App/iOS/Infrastructure/Archives/IPA/IPAExportNaming.swift`.
 - **Adapted:** 2026-11-08.
 
 ### Modifications and integration
@@ -38,7 +38,7 @@ existing shared functionality was not duplicated simply to claim another port.
 - **Source:** `ArchiveHandler.archive(compressForTransfer:)` selects `.BestSpeed`
   for pairing transfers when the selected level is `.NoCompression`.
 - **License:** GNU GPL version 3; see [LICENSE](../../../LICENSE).
-- **VexSign location:** `VexSign/App/iOS/VexSign/Infrastructure/Archives/Extraction/ArchiveTransferPolicy.swift`.
+- **VexSign location:** `VexSign/App/iOS/Infrastructure/Archives/Extraction/ArchiveTransferPolicy.swift`.
 - **Adapted:** 2026-11-08.
 
 The policy is extracted into a testable helper with bounds checking for invalid

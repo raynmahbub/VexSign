@@ -47,14 +47,14 @@ from pathlib import Path
 # Swift "targets" as they exist on disk. Duplicate names/types are only a
 # problem inside one module, so each directory is checked on its own.
 SWIFT_MODULES: dict[str, str] = {
-    "VexSign": "VexSign/App/iOS/VexSign",
-    "VexSignWidgetExtension": "VexSign/App/Extensions/WidgetExtension",
-    "VexSignTV": "VexSign/App/TV/VexSignTV",
-    "VexSignVision": "VexSign/App/Vision/VexSignVision",
+    "VexSign": "VexSign/App/iOS",
+    "VexSignWidgetExtension": "VexSign/App/WidgetExtension",
+    "VexSignTV": "VexSign/App/TV",
+    "VexSignVision": "VexSign/App/Vision",
     "VexSignWatch": "VexSign/App/Watch/VexSignWatch",
     "VexSignWatchWidgets": "VexSign/App/Watch/VexSignWatchWidgets",
     "VexSignTests": "VexSign/Tests",
-    "AltSourceKit": "VexSign/Packages/AltSourceKit/Sources/AltSourceKit",
+    "AltSourceKit": "VexSign/Packages/AltSourceKit/Sources",
     "NimbleExtensions": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions",
     "NimbleJSON": "VexSign/Packages/NimbleKit/Sources/NimbleJSON",
     "NimbleViews": "VexSign/Packages/NimbleKit/Sources/NimbleViews",
@@ -98,34 +98,30 @@ SKIP_DIRS = {".git", ".build", "Zsign", "IDeviceKitten", "packages", "Payload", 
              "_upstream_vexsign", "_VexSign", "node_modules", "dist", "__pycache__",
              ".pytest_cache", ".venv", "DerivedData", ".swiftpm"}
 
-# Architecture boundaries, platform target roots and required tool layouts are
-# intentional even when they currently contain one real child. This is not a
-# blanket exemption for arbitrary single-child chains beneath VexSign/.
+# Category roots are stable ownership boundaries, not disposable module names.
+# Everything below them follows the same wrapper rule. Exceptions are exact
+# tool-owned parent/child pairs, not blanket feature/vendor/Xcode exemptions.
 OWNERSHIP_ROOTS = {"VexSign"} | {
     "VexSign/" + name for name in
     ("App", "Integrations", "Packages", "Resources", "Services", "Tools", "Documentation", "Configuration")
 }
-APP_ROOT = "VexSign/App/iOS/VexSign"
-BLUEPRINT_WRAPPERS = {
-    "VexSign/App/" + name for name in ("iOS", "TV", "Vision", "Watch", "Extensions")
-} | {
-    APP_ROOT, "VexSign/Tests", "VexSign/App/TV/VexSignTV", "VexSign/App/Vision/VexSignVision",
-    "VexSign/Services/WebManager", "VexSign/Services/Cloud", "VexSign/Services/Cloud/Anisette",
-    "VexSign/Packages/Vendor", "VexSign/Documentation/VexSign.docc",
-    "VexSign/Documentation/Features", "VexSign/Documentation/Workflows",
-    "VexSign/Resources/Assets", "VexSign/Resources/Templates",
-    "VexSign/Services/Cloud/Security", "VexSign/Services/WebManager/Dashboard",
-} | {
-    APP_ROOT + "/" + name for name in
-    ("App", "Presentation", "Application", "Domain", "Infrastructure", "Platform", "Security", "Resources",
-     "Presentation/Features", "Presentation/DesignSystem", "Presentation/Shared")
+APP_ROOT = "VexSign/App/iOS"
+LEGACY_APP_WRAPPERS = {
+    APP_ROOT + "/VexSign": APP_ROOT,
+    "VexSign/App/TV/VexSignTV": "VexSign/App/TV",
+    "VexSign/App/Vision/VexSignVision": "VexSign/App/Vision",
+    "VexSign/App/Extensions": "VexSign/App",
 }
-
-
-def is_feature_role_boundary(parent: str, child: str) -> bool:
-    prefix = APP_ROOT + "/Presentation/Features/"
-    return (parent.startswith(prefix) and "/" not in parent[len(prefix):]
-            and child in {"Views", "Components", "ViewModels", "Models"})
+PRESERVED_DIRECTORY_WRAPPERS = {
+    "VexSign.xcodeproj/project.xcworkspace/xcshareddata": (
+        "swiftpm", "Xcode-owned package-resolution metadata location"),
+    "VexSign.xcodeproj/xcshareddata": (
+        "xcschemes", "Xcode discovers shared schemes at this location"),
+    "VexSign.xcworkspace/xcshareddata": (
+        "swiftpm", "Xcode-owned workspace package-resolution metadata location"),
+    "VexSign/Packages/Vendor/IDeviceKitten/Sources": (
+        "IDeviceSwift", "Vendored manifest's default source-target layout; retain upstream snapshot"),
+}
 
 TEXT_EXTS = {".swift", ".m", ".mm", ".h", ".c", ".cpp", ".plist", ".entitlements", ".json", ".xcstrings", ".strings",
              ".stringsdict", ".pbxproj", ".xcscheme", ".xcworkspacedata", ".md", ".yml", ".yaml", ".xcconfig",
@@ -221,9 +217,13 @@ def context_lines(path: Path, line: int, radius: int = 2) -> list[str]:
 def layout_findings(paths: list[str]) -> list[Finding]:
     """Check project-owned path hygiene without flattening standard tool layouts."""
     findings = []
+    for legacy, destination in LEGACY_APP_WRAPPERS.items():
+        if any(path == legacy or path.startswith(legacy + "/") for path in paths):
+            findings.append(Finding("repository-layout", "error",
+                f"Redundant app wrapper {legacy}; place its target contents directly under {destination}/.",
+                legacy, 1, 1))
     children: dict[str, set[str]] = defaultdict(set)
     spellings: dict[str, str] = {}
-    packages = {p.rsplit("/", 1)[0] for p in paths if p.endswith("/Package.swift")}
     for path in sorted(paths):
         parts = path.split("/")
         for index, name in enumerate(parts):
@@ -246,14 +246,11 @@ def layout_findings(paths: list[str]) -> list[Finding]:
         child = next(iter(names))
         if parent + "/" + child not in children:
             continue  # A directory with a single FILE is fine.
-        if (parent in OWNERSHIP_ROOTS or parent == "Vendor"
-                or parent.startswith(("Vendor/", "VexSign/Packages/Vendor/"))
-                or parent in BLUEPRINT_WRAPPERS
-                or is_feature_role_boundary(parent, child)
-                or any(p.endswith((".xcodeproj", ".xcworkspace")) for p in parent.split("/"))):
-            continue  # Preserve ownership roots, upstream/Xcode-owned hierarchies.
-        if parent.endswith("/Sources") and parent.rsplit("/", 1)[0] in packages:
-            continue  # SwiftPM requires Sources/<target>; it is not redundant.
+        if parent in OWNERSHIP_ROOTS:
+            continue
+        required_child, _ = PRESERVED_DIRECTORY_WRAPPERS.get(parent, (None, None))
+        if child == required_child:
+            continue  # Only the reviewed tool-owned edge, never its descendants.
         findings.append(Finding("repository-layout", "error",
             f"Redundant single-child folder chain {parent}/{child}; flatten it unless required by a tool layout.",
             parent, 1, 1))
@@ -654,16 +651,62 @@ def run_self_tests() -> int:
             findings = layout_findings(["VexSign/Tools/Development/FilePickerFix/FilePickerFix.m"])
             self.assertTrue(any("single-child" in f.message for f in findings))
 
-        def test_standard_layouts_preserved(self):
-            paths = ["Kit/Package.swift", "Kit/Sources/Kit/File.swift",
-                     "VexSign/Packages/Vendor/Bridge/Sources/Target/File.swift",
-                     "App.xcodeproj/xcshareddata/xcschemes/App.xcscheme",
-                     "App.xcworkspace/xcshareddata/swiftpm/Package.resolved"]
+        def test_reviewed_tool_layouts_preserved(self):
+            paths = [parent + "/" + child + "/File" for parent, (child, _) in
+                     PRESERVED_DIRECTORY_WRAPPERS.items()]
+            paths += ["VexSign.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+                      "VexSign.xcworkspace/contents.xcworkspacedata",
+                      "VexSign/Packages/Vendor/manifest.json",
+                      "VexSign/Packages/Vendor/IDeviceKitten/Package.swift"]
             self.assertEqual(layout_findings(paths), [])
+            self.assertTrue(all(reason for _, reason in PRESERVED_DIRECTORY_WRAPPERS.values()))
 
-        def test_required_layer_and_feature_role_boundaries_preserved(self):
+        def test_tool_wrapper_exceptions_do_not_hide_arbitrary_descendant_nesting(self):
+            for parent, (child, _) in PRESERVED_DIRECTORY_WRAPPERS.items():
+                with self.subTest(parent=parent):
+                    findings = layout_findings([parent + "/" + child + "/Extra/File"])
+                    self.assertTrue(any(f.file == parent + "/" + child for f in findings))
+
+        def test_former_blueprint_exemptions_cannot_hide_wrappers(self):
+            for parent, child in (
+                (APP_ROOT + "/Presentation/Features/About", "Views"),
+                ("VexSign/Documentation/Features", "Design"),
+                ("VexSign/Services/Cloud/Security", "Authentication"),
+                ("VexSign/Services/WebManager/Dashboard", "Assets"),
+                ("VexSign/Packages/AltSourceKit/Sources", "AltSourceKit"),
+                ("VexSign/Resources/Templates", "RepositoryMetadata"),
+            ):
+                with self.subTest(parent=parent):
+                    findings = layout_findings([parent + "/" + child + "/File"])
+                    self.assertTrue(any(f.file == parent for f in findings))
+
+        def test_flat_platform_roots_and_existing_watch_targets_preserved(self):
+            self.assertEqual(layout_findings([
+                APP_ROOT + "/App/VexSignApp.swift",
+                APP_ROOT + "/Domain/Contract.swift",
+                "VexSign/App/TV/VexSignTVApp.swift",
+                "VexSign/App/Vision/VexSignVisionApp.swift",
+                "VexSign/App/WidgetExtension/VexSignWidgetExtensionBundle.swift",
+                "VexSign/App/Watch/VexSignWatch/VexSignWatchApp.swift",
+                "VexSign/App/Watch/VexSignWatchWidgets/VexSignWatchWidgetBundle.swift",
+                "VexSign/App/SharedPlatformInfo/Companion-Info.plist",
+            ]), [])
+
+        def test_legacy_app_wrappers_are_rejected_even_with_multiple_children(self):
+            for legacy in LEGACY_APP_WRAPPERS:
+                with self.subTest(legacy=legacy):
+                    findings = layout_findings([
+                        legacy + "/App/Entry.swift", legacy + "/Resources/Contents.json",
+                    ])
+                    self.assertTrue(any(f.file == legacy and "Redundant app wrapper" in f.message
+                                        for f in findings))
+
+        def test_multi_child_layers_and_feature_roles_are_preserved(self):
             self.assertEqual(layout_findings([
                 APP_ROOT + "/Presentation/Features/Signing/Views/SigningView.swift",
+                APP_ROOT + "/Presentation/Features/Signing/Models/SigningModel.swift",
+                APP_ROOT + "/Presentation/Features/Home/HomeView.swift",
+                APP_ROOT + "/Presentation/Navigation.swift",
                 APP_ROOT + "/App/VexSignApp.swift",
             ]), [])
             findings = layout_findings([APP_ROOT + "/Presentation/Features/Signing/Views/Misc/Helpers/Code.swift"])

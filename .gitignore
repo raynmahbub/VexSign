@@ -26,7 +26,7 @@ pending_notes.txt
 DEV.md
 bk
 manifest-worker
-VexSign/App/iOS/VexSign/Resources/SelfUpdateConfig.plist
+VexSign/App/iOS/Resources/SelfUpdateConfig.plist
 
 # Signing material and secrets
 *.p12

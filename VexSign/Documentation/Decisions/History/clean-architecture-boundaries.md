@@ -6,25 +6,25 @@ Accepted — applied incrementally alongside existing `Backend/` services and ve
 
 ## Context
 
-VexSign grew feature screens rapidly across `VexSign/App/iOS/VexSign/` and `VexSign/App/iOS/VexSign/App/VexSignApp.swift`. Several SwiftUI views directly instantiated `URLSession.shared.download(from:)`, bypassed URL/SSRF and HTTP status/size policies, queried Core Data (`@FetchRequest` / `Storage.shared`) during struct initialization, or contained static reset/persistence/network helpers mixed with UI layout.
+VexSign grew feature screens rapidly across `VexSign/App/iOS/` and `VexSign/App/iOS/App/VexSignApp.swift`. Several SwiftUI views directly instantiated `URLSession.shared.download(from:)`, bypassed URL/SSRF and HTTP status/size policies, queried Core Data (`@FetchRequest` / `Storage.shared`) during struct initialization, or contained static reset/persistence/network helpers mixed with UI layout.
 
 At the same time, core signing and telemetry contracts (`SigningService`, `CleanupManager.finishSign`, `UnifiedTaskCenter`, `InstallStatusPresentation`, and `VexSign.xcodeproj`'s `PBXFileSystemSynchronizedRootGroup`) are covered by strict behavioral tests and workflow trace gates.
 
 ## Decisions
 
-1. **Pure Domain & Dependency Inversion (`VexSign/App/iOS/VexSign/Domain/`)**
+1. **Pure Domain & Dependency Inversion (`VexSign/App/iOS/Domain/`)**
    - `DomainContracts.swift` and `SubsystemBoundaries.swift` depend exclusively on `Foundation` and never touch `SwiftUI`, `UIKit`, `CoreData`, `Nuke`, `.shared` singletons, or `FileManager.default`.
    - All cross-boundary interactions (security policy validation, validated transfers, workspace resets, staged downloads, diagnostics, privacy vault, certificate catalog, and platform UI hooks) are modeled via narrow protocols.
 
-2. **Explicit Composition Root (`VexSign/App/iOS/VexSign/App/Composition/AppContainer.swift`)**
+2. **Explicit Composition Root (`VexSign/App/iOS/App/Composition/AppContainer.swift`)**
    - `VexSignApp` owns `@StateObject private var appContainer = AppContainer.live()` and propagates it via `.environmentObject(appContainer)` and `.environment(\.appContainer, appContainer)` without adding a new `static shared` singleton.
    - Use cases (`DirectPackageInstallUseCase`, `FirmwareDownloadUseCase`, `WorkspaceResetUseCase`, `DeepLinkRouterUseCase`, `AnisetteProviderUseCase`, `WorkspaceSupportUseCase`) compose domain ports cleanly and are directly testable with mock implementations.
 
-3. **Security & Error Boundaries (`VexSign/App/iOS/VexSign/`, `VexSign/App/iOS/VexSign/`)**
+3. **Security & Error Boundaries (`VexSign/App/iOS/`, `VexSign/App/iOS/`)**
    - `DirectInstallSheet`, `IPSWBrowserView`, and `DownloadsTabView` no longer invoke raw `URLSession.shared` directly. All direct package and firmware downloads pass through `SecurityPolicyGateway` (`PackageDownloadURLPolicy` + HTTPS enforcement for firmware) and `TransferSecuritySession` (ephemeral session, `PackageDownloadRedirectDelegate` hop validation, HTTP `200..<300` status verification, bounded timeouts, and byte caps).
    - `ErrorBoundary` maps technical errors into user-safe `VexSignError` messages while `SubsystemDiagnosticsLog` redacts URLs and paths via `FileLogger` / `LogRedaction`.
 
-4. **Incremental View Extraction (`VexSign/App/iOS/VexSign/Presentation/`)**
+4. **Incremental View Extraction (`VexSign/App/iOS/Presentation/`)**
    - Coupled views (`DirectInstallSheet`, `IPSWBrowserView`, `ResetView`, `DiagnosticsCenterView`, `HiddenAppsSettingsView`, `SpecificAppLockSettingsView`, `FavoritesAndAutoUpdatesSettingsView`, `DownloadsTabView`, `HomeView+Actions`, `CertificatesView`, `AnisetteProviderConfigView`, `SettingsView`) delegate logic to Presentation ViewModels/Coordinators and Application Use Cases while preserving existing UX, accessibility identifiers, and localization keys.
 
 5. **Independent VexSign Subsystem Consolidation (`Infrastructure/Repositories/`, `Views/Common/Vex*`)**

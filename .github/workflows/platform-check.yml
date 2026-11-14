@@ -5,20 +5,20 @@ name: Platform check
 # simulator-agnostic builds: they prove the sources type-check per SDK.
 #
 # The companions mirror the iPhone app (VexSign/Documentation/Development/PLATFORMS.md), so this also guards
-# VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/* and the shared Keychain primitive, compiled into the
+# VexSign/App/iOS/Infrastructure/Devices/Transport/* and the shared Keychain primitive, compiled into the
 # iOS, tvOS and visionOS targets — a change that breaks only one shows up here, not on a device.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/App/TV/VexSignTV/**'
-      - 'VexSign/App/Vision/VexSignVision/**'
+      - 'VexSign/App/TV/**'
+      - 'VexSign/App/Vision/**'
       - 'VexSign/App/**'
       - 'VexSign/Packages/**'
-      - 'VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/**'
-      - 'VexSign/App/iOS/VexSign/Security/Secrets/SecureSecretStore.swift'
-      - 'VexSign/App/iOS/VexSign/Security/Network/LocalNetworkHost.swift'
+      - 'VexSign/App/iOS/Infrastructure/Devices/Transport/**'
+      - 'VexSign/App/iOS/Security/Secrets/SecureSecretStore.swift'
+      - 'VexSign/App/iOS/Security/Network/LocalNetworkHost.swift'
       - 'VexSign/App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
@@ -33,13 +33,13 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/App/TV/VexSignTV/**'
-      - 'VexSign/App/Vision/VexSignVision/**'
+      - 'VexSign/App/TV/**'
+      - 'VexSign/App/Vision/**'
       - 'VexSign/App/**'
       - 'VexSign/Packages/**'
-      - 'VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/**'
-      - 'VexSign/App/iOS/VexSign/Security/Secrets/SecureSecretStore.swift'
-      - 'VexSign/App/iOS/VexSign/Security/Network/LocalNetworkHost.swift'
+      - 'VexSign/App/iOS/Infrastructure/Devices/Transport/**'
+      - 'VexSign/App/iOS/Security/Secrets/SecureSecretStore.swift'
+      - 'VexSign/App/iOS/Security/Network/LocalNetworkHost.swift'
       - 'VexSign/App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'

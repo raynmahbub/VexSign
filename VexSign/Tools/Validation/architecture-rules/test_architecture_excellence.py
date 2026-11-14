@@ -84,51 +84,51 @@ REQUIRED_COMPONENT_FIELDS = (
 # drift, not a substitute for Xcode compilation or device acceptance.
 RULES: dict[str, dict[str, object]] = {
     "domain_forbidden_imports": {
-        "roots": ("VexSign/App/iOS/VexSign/Domain",),
+        "roots": ("VexSign/App/iOS/Domain",),
         "patterns": (r"^\s*import\s+(SwiftUI|UIKit|CoreData|Nuke|NativeSigning|IDeviceSwift|AltSourceKit|SwiftSoup)\b",),
     },
     "application_platform_imports": {
-        "roots": ("VexSign/App/iOS/VexSign/Application",),
+        "roots": ("VexSign/App/iOS/Application",),
         "patterns": (r"^\s*import\s+(SwiftUI|UIKit|CoreData|Nuke|IDeviceSwift|AltSourceKit|SwiftSoup)\b",),
     },
     "application_external_integration_imports": {
-        "roots": ("VexSign/App/iOS/VexSign/Application",),
+        "roots": ("VexSign/App/iOS/Application",),
         "patterns": (r"^\s*import\s+(NativeSigning|IDeviceSwift|AltSourceKit|SwiftSoup)\b",),
     },
     "presentation_direct_storage": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"Storage\.shared", r"@FetchRequest", r"^\s*import\s+CoreData\b", r"FileManager\.default"),
     },
     "views_coredata_imports": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"^\s*import\s+CoreData\b",),
     },
     "views_direct_storage": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"Storage\.shared", r"@FetchRequest"),
     },
     "views_direct_install": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"DirectInstaller\.shared\.install", r"InstallQueue\.shared\.enqueue", r"AppInstaller\.shared"),
     },
     "views_direct_signing": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"SigningService", r"SigningHandler", r"ZsignEngine", r"PackageImportService\.importPackage"),
     },
     "presentation_file_io": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"\b(?:Data|String)\s*\(contentsOf:", r"\bFileHandle\s*\(", r"\.write\(to:", r"contentsOfDirectory\("),
     },
     "presentation_consumed_engine_owners": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"\b(?:UnifiedTaskCenter|NativeSigningManager|BackupManager|BackupCrypto|CloudSigningClient|AppCloner|TweakManager|EntitlementsManager|OptionsManager|CertificateRemoval|CertificateExporter)\b",),
     },
     "presentation_managed_record_types": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"(?:\b(?:as[?!]?|is)\s+|:\s*|->\s*)(?:any\s+)?\[?(?:Signed|Imported|CertificatePair|AltSource)\b",),
     },
     "views_urlsession_shared": {
-        "roots": ("VexSign/App/iOS/VexSign/Presentation",),
+        "roots": ("VexSign/App/iOS/Presentation",),
         "patterns": (r"URLSession\.shared",),
     },
 }
@@ -230,23 +230,23 @@ class ArchitectureExcellenceTests(unittest.TestCase):
     def test_rules_detect_synthetic_violations(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "VexSign/App/iOS/VexSign/Domain").mkdir(parents=True)
-            (root / "VexSign/App/iOS/VexSign/Application").mkdir(parents=True)
-            (root / "VexSign/App/iOS/VexSign/Presentation/Features/Test/Views").mkdir(parents=True)
-            (root / "VexSign/App/iOS/VexSign/Domain/Bad.swift").write_text("import SwiftUI\n", encoding="utf-8")
-            (root / "VexSign/App/iOS/VexSign/Application/Bad.swift").write_text("import UIKit\n", encoding="utf-8")
-            (root / "VexSign/App/iOS/VexSign/Presentation/Features/Test/Views/Bad.swift").write_text(
+            (root / "VexSign/App/iOS/Domain").mkdir(parents=True)
+            (root / "VexSign/App/iOS/Application").mkdir(parents=True)
+            (root / "VexSign/App/iOS/Presentation/Features/Test/Views").mkdir(parents=True)
+            (root / "VexSign/App/iOS/Domain/Bad.swift").write_text("import SwiftUI\n", encoding="utf-8")
+            (root / "VexSign/App/iOS/Application/Bad.swift").write_text("import UIKit\n", encoding="utf-8")
+            (root / "VexSign/App/iOS/Presentation/Features/Test/Views/Bad.swift").write_text(
                 "import CoreData\nStorage.shared\nURLSession.shared\nData(contentsOf: url)\nlet row: CertificatePair\nUnifiedTaskCenter.shared\n", encoding="utf-8"
             )
-            (root / "VexSign/App/iOS/VexSign/Presentation/Features/Test/Views/Good.swift").write_text(
+            (root / "VexSign/App/iOS/Presentation/Features/Test/Views/Good.swift").write_text(
                 "let isSigned: Bool\napp.isSigned\nfunc value(isSigned: Bool) {}\n", encoding="utf-8"
             )
             found = compute_violations(root)
-            self.assertEqual(found["presentation_managed_record_types"], ["VexSign/App/iOS/VexSign/Presentation/Features/Test/Views/Bad.swift"])
-            self.assertIn("VexSign/App/iOS/VexSign/Domain/Bad.swift", found["domain_forbidden_imports"])
-            self.assertIn("VexSign/App/iOS/VexSign/Application/Bad.swift", found["application_platform_imports"])
+            self.assertEqual(found["presentation_managed_record_types"], ["VexSign/App/iOS/Presentation/Features/Test/Views/Bad.swift"])
+            self.assertIn("VexSign/App/iOS/Domain/Bad.swift", found["domain_forbidden_imports"])
+            self.assertIn("VexSign/App/iOS/Application/Bad.swift", found["application_platform_imports"])
             for rule in ("views_coredata_imports", "views_direct_storage", "views_urlsession_shared", "presentation_file_io", "presentation_consumed_engine_owners", "presentation_managed_record_types"):
-                self.assertIn("VexSign/App/iOS/VexSign/Presentation/Features/Test/Views/Bad.swift", found[rule])
+                self.assertIn("VexSign/App/iOS/Presentation/Features/Test/Views/Bad.swift", found[rule])
 
     def test_component_map_covers_layers_and_core_systems(self) -> None:
         data = json.loads(COMPONENT_MAP.read_text(encoding="utf-8"))

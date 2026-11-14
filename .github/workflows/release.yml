@@ -281,7 +281,8 @@ jobs:
       - name: Restore Swift packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/App/iOS/VexSign/SourcePackages
+          # Makefile's TMP is <TMPDIR>/VexSign, independent of the source layout.
+          path: ${{ runner.temp }}/VexSign/SourcePackages
           key: spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-

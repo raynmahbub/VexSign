@@ -28,7 +28,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SOURCES = ROOT / "VexSign/App/iOS/VexSign"
+SOURCES = ROOT / "VexSign/App/iOS"
 BASELINE = ROOT / "VexSign/Tools/Validation/security-validation/concurrency-baseline.json"
 
 PATTERNS = {

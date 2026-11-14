@@ -86,7 +86,7 @@ small integrations over importing overlapping managers and undocumented guarante
 See [comparison notes](public-signer-comparison.md),
 [adaptation notices](../../Security/THIRD_PARTY_ADAPTATIONS.md),
 [device acceptance](../../DeviceTesting/DEVICE_TESTING.md), and
-[embedded-host limitations](../../../Integrations/EmbeddedContainer/README.md).
+[embedded-host limitations](../../../Integrations/README.md).
 
 ## Additional discovery: user-supplied zsign topic
 

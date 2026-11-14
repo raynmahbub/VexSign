@@ -10,31 +10,32 @@ versioned with the code.
 | [Build from source](Development/BUILD.md) | You want to compile VexSign, run the tests or understand the CI order. |
 | [Free Apple ID setup](Security/FREE_APPLE_ID_SETUP.md) | You are signing with a free Apple ID and need the provisioning walkthrough. |
 | [Platforms](Development/PLATFORMS.md) | You need to know what works on iPhone, iPad, Apple TV, Watch and Vision Pro. |
-| [Companion signing](Workflows/Distribution/COMPANION_SIGNING.md) | You are signing or installing for another device. |
+| [Companion signing](Workflows/COMPANION_SIGNING.md) | You are signing or installing for another device. |
 
 ## Understand the system
 
 | Guide | Use it when |
 | --- | --- |
 | [Architecture](Architecture/ARCHITECTURE.md) | You are changing the app shell, task pipeline, storage or packages. |
+| [Repository layout audit](Architecture/repository-layout-audit.md) | You need every flattened directory, retained tool-layout exception and current layout-verification limit. |
 | [Dependency rules and diagrams](Architecture/dependency-rules.md) | You need the physical layer/feature owners, inward dependency direction, diagrams or drift-ratchet rules. |
 | [Feature-layer migration](Architecture/feature-layout-migration.md) · [ADR-0001](Decisions/ADR-0001-feature-layered-source-tree.md) | You need the current main-source layout, complete original-file mapping, preserved compatibility and native/device acceptance limits. |
 | [Component map](Architecture/component-map.json) | You need the machine-readable owner, dependency, concurrency, persistence and test inventory. |
 | [Architecture excellence audit](Decisions/Research/architecture-excellence-audit.md) | You need the initial audit, migration evidence, security/performance findings, limitations and assessment. |
 | [Source-guided decisions](Decisions/Research/source-guided-architecture-decisions.md) | You need pinned upstream evidence for specific feature boundaries and licence notes. |
 | [Architecture drift ADR](Decisions/History/architecture-excellence-drift-guard.md) | You need the accepted migration decision and gate discipline. |
-| [Design](Features/Design/DESIGN.md) | You are adding a screen or component and need the visual and accessibility rules. |
+| [Design](Features/DESIGN.md) | You are adding a screen or component and need the visual and accessibility rules. |
 | [Native signing architecture](Architecture/NATIVE_SIGNING_ARCHITECTURE.md) | You are working on the experimental on-device account and provisioning backend. |
 | [Free Apple ID handoff](Security/NATIVE_SIGNING_HANDOFF.md) | You are wiring (or reviewing) the join between native provisioning and the signer — read this before promising a Free Apple ID flow. |
 | [Signing and import reliability](Decisions/History/native-signing-and-import.md) | You need native execution ownership, input validation, extraction guarantees and their acceptance tests. |
 | [Web tools](Development/WEBTOOLS.md) | You are integrating with the browser manager, API or WebDAV. |
 | [Source signing](Architecture/SOURCE_SIGNING.md) | You publish a repository and want signed source metadata. |
-| [Distribution architecture and audit](Workflows/Distribution/architecture.md) | You need the iOS bootstrap/signing feasibility matrix and phased repository map. |
-| [iPhone-only bootstrap](Workflows/Distribution/bootstrap.md) | You need to understand which initial installation routes are actually available. |
-| [TestFlight / OTA / signing](Workflows/Distribution/testflight.md) · [OTA](Workflows/Distribution/ota.md) · [on-device signing](Workflows/Distribution/on-device-signing.md) | You are implementing or validating a specific Apple distribution/signing route. |
-| [Apple account limitations](Workflows/Distribution/apple-account-limitations.md) · [security](Workflows/Distribution/security.md) | You need Personal Team limits, trust boundaries and security requirements. |
-| [GitHub Actions / releases / device acceptance](Workflows/Distribution/github-actions.md) · [release process](Workflows/Distribution/release-process.md) · [device testing](Workflows/Distribution/device-testing.md) | You are configuring CI, cutting a release or planning physical-device validation. |
-| [Distribution troubleshooting](Workflows/Distribution/troubleshooting.md) | You need help diagnosing download, profile, signing or installation failures. |
+| [Distribution architecture and audit](Workflows/architecture.md) | You need the iOS bootstrap/signing feasibility matrix and phased repository map. |
+| [iPhone-only bootstrap](Workflows/bootstrap.md) | You need to understand which initial installation routes are actually available. |
+| [TestFlight / OTA / signing](Workflows/testflight.md) · [OTA](Workflows/ota.md) · [on-device signing](Workflows/on-device-signing.md) | You are implementing or validating a specific Apple distribution/signing route. |
+| [Apple account limitations](Workflows/apple-account-limitations.md) · [security](Workflows/security.md) | You need Personal Team limits, trust boundaries and security requirements. |
+| [GitHub Actions / releases / device acceptance](Workflows/github-actions.md) · [release process](Workflows/release-process.md) · [device testing](Workflows/device-testing.md) | You are configuring CI, cutting a release or planning physical-device validation. |
+| [Distribution troubleshooting](Workflows/troubleshooting.md) | You need help diagnosing download, profile, signing or installation failures. |
 
 ## Operate and ship
 
@@ -61,8 +62,8 @@ versioned with the code.
 - `make verify` is the fast gate; it must pass on every change.
 - New user-facing text needs a `Localizable.xcstrings` entry; `VexSign/Tools/Validation/repository-validation/sync-strings.py --write`
   adds missing English keys.
-- New screens use the tokens in `VexSign/App/iOS/VexSign/Presentation/DesignSystem/Colors/Theme.swift` and the
-  components in `VexSign/App/iOS/VexSign/Presentation/`.
+- New screens use the tokens in `VexSign/App/iOS/Presentation/DesignSystem/Colors/Theme.swift` and the
+  components in `VexSign/App/iOS/Presentation/`.
 - Third-party source lives in `VexSign/Packages/Vendor/` with its licence and pinned commit.
   See [VexSign/Packages/Vendor/README.md](../Packages/Vendor/README.md).
 
@@ -74,7 +75,7 @@ Keep deployment instructions beside the component they describe:
 - [Cloud signing service](../Services/Cloud/README.md)
 - [Anisette protocol mock](../Services/Cloud/Anisette/README.md)
 - [Native signing package](../Packages/NativeSigning/README.md)
-- [Experimental embedded container](../Integrations/EmbeddedContainer/README.md)
+- [Experimental embedded container](../Integrations/README.md)
 - [Vendored dependencies and licenses](../Packages/Vendor/README.md)
 - [Third-party code adaptations](Security/THIRD_PARTY_ADAPTATIONS.md)
 
