@@ -323,6 +323,9 @@ jobs:
       - name: Build (Debug)
         id: build
         run: |
+          # Actions starts bash with -e. Capture the real xcodebuild verdict
+          # before exiting so diagnostics never receive an "unknown" status.
+          set +e
           set -uo pipefail
           xcodebuild \
             -workspace VexSign.xcworkspace \
@@ -517,6 +520,9 @@ jobs:
         env:
           SIM_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
+          # Actions starts bash with -e. Capture the real xcodebuild verdict
+          # before exiting so diagnostics never receive an "unknown" status.
+          set +e
           set -uo pipefail
           xcodebuild \
             -workspace VexSign.xcworkspace \

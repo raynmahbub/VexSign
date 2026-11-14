@@ -63,6 +63,27 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
             "context.fetch(Signed.fetchRequest()).map { try adapter.appRecord($0) }",
             "context.fetch(Imported.fetchRequest()).map { try adapter.appRecord($0) }")
 
+    def test_update_toggle_reads_immutable_library_snapshots_on_their_owner(self):
+        source = self.require("Infrastructure/Updates/UpdateMatchingPreferences.swift",
+            "Storage.shared.getSignedApps()", "Storage.shared.getImportedApps()")
+        self.assertRegex(source, r"@MainActor\s+func toggleAutoUpdate\(for uuid: String\)")
+        storage = code("Infrastructure/Persistence/Database/Storage+Shared.swift")
+        for method in ["getSignedApps", "getImportedApps"]:
+            self.assertRegex(storage, r"@MainActor\s+func " + method + r"\(\)",
+                "Fix consumers rather than weakening the persistence executor boundary")
+
+    def test_scheduled_certificate_monitoring_uses_the_shared_inspection_owner_not_a_view_model(self):
+        maintenance = self.require("Infrastructure/Tasks/EcosystemMaintenance.swift",
+            "try await CertificateInspector.inspectAll(online: true)", "report.errors.isEmpty",
+            "for cert in report.certificates", "guard !Task.isCancelled else { return }")
+        self.assertNotIn("CertificateDashboardViewModel", maintenance)
+        self.require("Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
+            "try await CertificateInspector.inspectAll(storage: storage, online: online)")
+        inspector = self.require("Infrastructure/Identity/CertificateInspector.swift",
+            "storage.getAllCertificates()", "try Task.checkCancellation()", "CertificateHealthReport(certificates: health, errors: errors)")
+        self.assertRegex(inspector, r"@MainActor\s+static func inspectAll")
+        self.assertEqual(inspector.count("storage.getAllCertificates()"), 1)
+
     def test_stream_termination_releases_subscriptions_and_producers_hop_to_their_owner(self):
         for path in ["Infrastructure/Tasks/TaskWorkspaceAdapter.swift", "Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
                      "Infrastructure/Tasks/BatchSigningAdapter.swift", "Infrastructure/Signing/Engines/Cloud/CloudConfigurationAdapter.swift"]:

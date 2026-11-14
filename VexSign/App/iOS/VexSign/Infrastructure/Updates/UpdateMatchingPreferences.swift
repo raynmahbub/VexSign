@@ -178,6 +178,7 @@ final class UpdateMatchingPreferences: ObservableObject {
     /// Makes the first per-app opt-out meaningful even while the default is
     /// "all eligible apps": materialize every other eligible library UUID as
     /// the allowlist, then continue toggling explicit membership.
+    @MainActor
     func toggleAutoUpdate(for uuid: String) {
         var allUUIDs = Set(Storage.shared.getSignedApps().compactMap(\.uuid))
         allUUIDs.formUnion(Storage.shared.getImportedApps().compactMap(\.uuid))

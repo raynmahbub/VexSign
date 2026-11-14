@@ -15,8 +15,8 @@ licenses, package pins, target identities or existing execution engines.
 - **Decision:** [ADR-0001](../Decisions/ADR-0001-feature-layered-source-tree.md).
 - **Current guide:** [architecture](ARCHITECTURE.md) and [dependency rules](dependency-rules.md).
 
-All original files have unique existing destinations: 953 remain byte-identical
-and 422 text originals are rewritten. Focused extractions and validation/docs add
+All original files have unique existing destinations: 951 remain byte-identical
+and 424 text originals are rewritten. Focused extractions and validation/docs add
 191 files without replacing the original inventory or its recorded hashes. The
 inventory includes this working tree's added/rewritten files, not an earlier
 checkpoint; rerun the audit after any further edits.
@@ -122,16 +122,18 @@ cast. CI never regenerates a baseline to make a check pass.
 
 ## Validation record
 
-The following checks were rerun for this local working tree after the final
-projection, backup-presentation and direct-install lifetime follow-up. They are not results for a newly
-created commit or release.
+The following portable checks were rerun after the projection, backup and
+direct-install lifetime follow-ups. The native-CI repair also reran `make verify`
+and the full preservation/grammar audit. The service results are the earlier
+completed local checkpoint; they were not rerun for the CI-only repairs. These
+checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 17-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 17 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 19-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 19 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
-| Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. No native build |
+| Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
 | Error / singleton / concurrency guards | 169 unjustified optional-error sites (13 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
 | Localization | Catalogue sync and 12 helper tests passed; three missing keys added without pruning translations |
 | Original-file preservation | 1,375 Git originals accounted for; 1,322 relocations; no missing file, changed binary/license, executable-mode loss or removed real public/historical URL; exact counts in the linked JSON audit |
@@ -141,7 +143,7 @@ created commit or release.
 | WebManager | 216 tests passed in the checkout and 216 in an isolated component copy; one upstream Starlette/httpx deprecation warning per run; optional cryptography test dependency installed, no skips |
 | Cloud | TypeScript build, 14 tests and contract generation passed; OpenAPI and package-lock bytes remain identical to the original revision |
 | `git diff --check` | Passed |
-| Xcode build / XCTest / simulator / companion SDK builds | **Not run:** no Swift/Apple toolchain in this Linux workspace |
+| Local Xcode build / XCTest / simulator | **Not run locally:** no Swift/Apple toolchain in this Linux workspace; remote revision-specific results follow below |
 | Physical-device operation | **Not run:** no new device-acceptance evidence |
 | Docker image / deployment | **Not run:** service source/build tests are not deployment proof |
 
@@ -158,11 +160,42 @@ lease retention until the worker returns, accepted handoff preservation, unknown
 routing, hidden-screen callbacks, stale/double confirmation, captured mode and the
 actual guest outcome. Existing certificate/recovery files add 13 methods for transaction/undo-insert failure, nil-date/relink behavior,
 replacement UUID ownership, unavailable stores, interrupted undo, failed
-re-stage/erasure and durable journal retention. **All 84 added native methods remain
-uncompiled and unexecuted here.** Source-reading fixtures fail
+re-stage/erasure and durable journal retention. **There is not yet a successful native compile/test result for these 84 added
+methods.** The first simulator job stopped during app compilation before tests
+could run. Source-reading fixtures fail
 when an expected implementation file is absent; they do not silently skip
 migration breakage. In particular, fixture/source passes are not delayed-OCSP,
 UIKit, real protected-database, host-copy or actual installer callback acceptance.
+
+### Published revision-specific native CI
+
+The user authorized branch-only commit/push, PR creation and native-CI repairs;
+[PR #243](https://github.com/raynmahbub/VexSign/pull/243) is open. Nothing was
+merged, released or deployed.
+
+| Revision and run | Observed result |
+| --- | --- |
+| `45d708d`, [CI 43602852762](https://github.com/raynmahbub/VexSign/actions/runs/43602852762) | Quick syntax/resources/gates passed. The first-party concurrency **report-only** job completed successfully; that does not promote concurrency checking to an enforcing gate. iOS unsigned Debug build and simulator test jobs failed during app compilation. No simulator tests ran. |
+| `45d708d`, [companion 43602889231](https://github.com/raynmahbub/VexSign/actions/runs/43602889231) | Existing TV/tvOS, Vision/visionOS and Watch/watchOS unsigned Debug builds all passed. This is companion compilation evidence, not iOS/XCTest/device acceptance. |
+
+The iOS build reported nonisolated calls to `getSignedApps()` and
+`getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
+simulator build reported the removed `CertificateDashboardViewModel` reference
+in scheduled maintenance (and its dependent `.revoked` inference error).
+The repair keeps the snapshot readers main-actor isolated, annotates their UI
+caller, and moves the existing adapter inspection pass into
+`CertificateInspector.inspectAll` so both maintenance and the dashboard use
+one non-UI inspection owner. Its report/error, cancellation and OCSP semantics
+are retained.
+
+CI follow-up also restores first-party warning classification under `VexSign/`
+without changing the warning baseline, warning counts or vendor exclusions.
+Regression tests exercise a new warning failing, an existing baseline warning
+passing, and a historical path refusing to whitelist a relocated warning.
+Build/test pipelines now capture the real compiler exit status under Actions'
+`bash -e` shell before exiting; a portable failing-compiler fixture checks both
+pipelines. These repairs require a new native run; the previous failed run is
+not acceptance of them.
 
 Reproduce the portable checks from the repository root:
 

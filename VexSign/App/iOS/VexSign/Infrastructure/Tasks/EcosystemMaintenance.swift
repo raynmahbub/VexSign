@@ -42,11 +42,18 @@ enum EcosystemMaintenance {
         guard !Task.isCancelled, defaults.bool(forKey: "VexSign.ecosystem.certificateMonitoring") else { return }
         let lastCheck = UserDefaults.standard.object(forKey: "VexSign.ecosystem.lastCertificateCheck") as? Date ?? .distantPast
         guard Date().timeIntervalSince(lastCheck) >= 86_400 else { return }
-        let model = CertificateDashboardViewModel()
-        await model.refresh(online: true)
+        let report: CertificateHealthReport
+        do {
+            report = try await CertificateInspector.inspectAll(online: true)
+        } catch is CancellationError {
+            return
+        } catch {
+            FileLogger.error("Scheduled certificate inspection could not complete: \(error.localizedDescription)", category: "certificates")
+            return
+        }
         guard !Task.isCancelled else { return }
-        if model.errors.isEmpty { UserDefaults.standard.set(Date(), forKey: "VexSign.ecosystem.lastCertificateCheck") }
-        for cert in model.certificates where cert.daysRemaining <= 14 || cert.revocation == .revoked {
+        if report.errors.isEmpty { UserDefaults.standard.set(Date(), forKey: "VexSign.ecosystem.lastCertificateCheck") }
+        for cert in report.certificates where cert.daysRemaining <= 14 || cert.revocation == .revoked {
             let content = UNMutableNotificationContent()
             content.title = "Certificate Health Alert"
             content.body = cert.revocation == .revoked ? "\(cert.name) has been revoked." : "\(cert.name): \(cert.daysRemaining) days until profile expiry."

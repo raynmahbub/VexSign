@@ -164,6 +164,68 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertEqual(match['col'], column)
             self.assertIn('assertion failed', match['msg'])
 
+    def _warning_gate(self, paths, baseline):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            log, known = root / 'build.log', root / 'known.json'
+            log.write_text(''.join(f'{ROOT / path}:12:3: warning: Fixture compiler warning\n' for path in paths))
+            known.write_text(json.dumps({'warnings': baseline}))
+            return subprocess.run([
+                sys.executable, str(ROOT / '.github/scripts/xcodebuild_report.py'),
+                '--log', str(log), '--build-exit', '0', '--warnings-as-errors', 'true',
+                '--baseline', str(known), '--baseline-out', str(root / 'observed.json'),
+                '--summary', str(root / 'summary.md'), '--workspace', str(ROOT),
+            ], text=True, capture_output=True)
+
+    def test_migrated_warning_roots_keep_first_party_and_vendor_boundaries(self):
+        reporter = runpy.run_path(str(ROOT / '.github/scripts/xcodebuild_report.py'))
+        is_owned, roots = reporter['is_first_party'], reporter['DEFAULT_FIRST_PARTY']
+        for path in ['VexSign/App/iOS/VexSign/File.swift', 'VexSign/Tests/Test.swift',
+                     'VexSign/Packages/NimbleKit/Sources/File.swift', 'VexSign/Packages/AltSourceKit/File.swift',
+                     'VexSign/Integrations/EmbeddedContainer/File.swift']:
+            self.assertTrue(is_owned(path, roots), path)
+        for path in [None, 'VexSign/Packages/Vendor/Dependency/File.swift', 'Packages/Vendor/Dependency/File.swift',
+                     'VexSign/.build/File.swift', 'VexSign/SourcePackages/checkouts/Dependency/File.swift',
+                     'VexSign/Services/Cloud/node_modules/Dependency/File.swift', 'Elsewhere/File.swift']:
+            self.assertFalse(is_owned(path, roots), path)
+
+    def test_migrated_unbaselined_warning_cannot_silently_bypass_the_gate(self):
+        path = 'VexSign/App/iOS/VexSign/Infrastructure/File.swift'
+        result = self._warning_gate([path], [])
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(path, result.stdout)
+        self.assertIn('Fixture compiler warning', result.stdout)
+
+    def test_migrated_warning_baselines_and_vendor_exclusions_are_not_relaxed(self):
+        path = 'VexSign/App/iOS/VexSign/Infrastructure/File.swift'
+        known = {'file': path, 'message': 'Fixture compiler warning', 'count': 1}
+        result = self._warning_gate([path, 'VexSign/Packages/Vendor/Dependency/File.swift'], [known])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # A historical path cannot accidentally whitelist a newly relocated warning.
+        known['file'] = 'App/iOS/VexSign/Infrastructure/File.swift'
+        result = self._warning_gate([path], [known])
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
+    def test_native_pipeline_captures_failure_status_under_the_actions_errexit_shell(self):
+        workflow = (WORKFLOWS / 'ci.yml').read_text()
+        for job, step in [('build', 'Build (Debug)'), ('tests', 'Run tests')]:
+            with self.subTest(job=job), tempfile.TemporaryDirectory() as folder:
+                source = block(workflow, job, 2)
+                source = source.split('      - name: ' + step + '\n', 1)[1].split('      - name:', 1)[0]
+                script = '\n'.join(line[10:] for line in block(source, 'run', 8).splitlines()[1:])
+                # Exercise the actual prologue and verdict-handling suffix with
+                # a portable failed compiler stand-in, under GitHub's shell flags.
+                prefix = script.split('\nxcodebuild ', 1)[0] + '\n'
+                suffix = script[script.index('status=${PIPESTATUS[0]}'):]
+                output = Path(folder) / 'outputs'
+                result = subprocess.run(['bash', '--noprofile', '--norc', '-e', '-o', 'pipefail', '-c',
+                    prefix + 'bash -c "exit 65" | cat\n' + suffix],
+                    env={**os.environ, 'GITHUB_OUTPUT': str(output)}, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 65, result.stdout + result.stderr)
+                self.assertEqual(output.read_text(), 'exit_code=65\n')
+                self.assertIn('status 65', result.stdout)
+
     def test_platform_build_uses_job_owned_package_and_temporary_paths(self):
         text = (WORKFLOWS / "platform-check.yml").read_text()
         self.assertIn('TMPDIR: ${{ runner.temp }}/', text)

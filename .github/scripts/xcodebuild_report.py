@@ -45,7 +45,9 @@ BARE_ERROR_RE = re.compile(r"^(?:xcodebuild: )?error: (?P<msg>.*)$")
 # Summary heading. The build job uses the default; the test job passes its
 # own so a test run does not report itself as a build.
 DEFAULT_TITLE = "Build"
-DEFAULT_FIRST_PARTY = ["App", "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources", "Documentation"]
+# Keep historical log roots readable, but classify the migrated ownership root
+# too. A relocation must never silently disable the first-party warning gate.
+DEFAULT_FIRST_PARTY = ["VexSign", "App", "Packages", "Extensions", "Integrations", "Services", "Tools", "Resources", "Documentation"]
 MAX_ANNOTATIONS = 200
 MAX_LISTED = 80
 
@@ -156,7 +158,8 @@ def is_first_party(rel: str | None, first_party: list[str]) -> bool:
     parts = rel.split("/")
     if any(marker in parts for marker in ("DerivedData", "SourcePackages", ".build", "node_modules")):
         return False
-    if parts[:2] == ["Packages", "Vendor"]:
+    owned_parts = parts[1:] if parts[:1] == ["VexSign"] else parts
+    if owned_parts[:2] == ["Packages", "Vendor"]:
         return False
     return parts[0] in first_party
 

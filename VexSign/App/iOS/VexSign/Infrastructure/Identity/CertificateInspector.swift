@@ -1,7 +1,32 @@
 import Foundation
 import Security
+import NimbleExtensions
 
 enum CertificateInspector {
+    /// The dashboard and scheduled monitoring share the same inspection pass.
+    /// Managed rows stay on the storage owner; only file URLs and immutable
+    /// inputs cross into the existing detached inspector below.
+    @MainActor
+    static func inspectAll(storage: Storage = .shared, online: Bool) async throws -> CertificateHealthReport {
+        let rows = storage.getAllCertificates()
+        var health: [CertificateHealth] = []
+        var errors: [String] = []
+        for certificate in rows {
+            try Task.checkCancellation()
+            guard !certificate.isDeleted, let id = certificate.uuid,
+                  let p12 = storage.getFile(.certificate, from: certificate),
+                  let profile = storage.getFile(.provision, from: certificate) else { continue }
+            let name = certificate.nickname ?? .localized("Certificate")
+            do {
+                let inspected = try await CertificateInspector.inspect(id: id, name: name, p12: p12,
+                    password: try certificate.requireSigningPassword(), profile: profile, online: online)
+                health.append(inspected)
+            } catch is CancellationError { throw CancellationError() }
+            catch { errors.append(name + ": " + error.localizedDescription) }
+        }
+        return CertificateHealthReport(certificates: health, errors: errors)
+    }
+
     /// Reads a profile's descriptive payload, NOT proof of its CMS signature.
     /// Signing eligibility still belongs to the existing signing preflight.
     static func inspect(id: String, name: String, p12: URL, password: String, profile: URL, online: Bool) async throws -> CertificateHealth {

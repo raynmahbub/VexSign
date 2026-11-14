@@ -7155,6 +7155,7 @@
     ".github/pull_request_template.md",
     ".github/scripts/coverage_report.py",
     ".github/scripts/quick_check.py",
+    ".github/scripts/xcodebuild_report.py",
     ".github/workflows/ci-repair-assistant.yml",
     ".github/workflows/ci.yml",
     ".github/workflows/docs.yml",
@@ -7259,6 +7260,7 @@
     "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift",
     "VexSign/App/iOS/VexSign/Infrastructure/Updates/AppUpdateChecker.swift",
     "VexSign/App/iOS/VexSign/Infrastructure/Updates/UpdateAllManager.swift",
+    "VexSign/App/iOS/VexSign/Infrastructure/Updates/UpdateMatchingPreferences.swift",
     "VexSign/App/iOS/VexSign/Platform/Apple/Device/CompanionBridge.swift",
     "VexSign/App/iOS/VexSign/Platform/Compatibility/EmbeddedContainerRuntime.swift",
     "VexSign/App/iOS/VexSign/Platform/Compatibility/RuntimeCapabilityReport.swift",
@@ -7574,12 +7576,12 @@
     "render.yaml"
   ],
   "relocatedFileCount": 1322,
-  "status": "local feature/layer migration implemented and portably validated; Xcode/XCTest/simulator/device acceptance pending; uncommitted and unpublished",
+  "status": "published as PR #243; iOS compiler findings from 45d708d repaired in follow-up source; portable checks passed; new native rerun and device acceptance pending",
   "limitations": [
-    "No SwiftPM resolution, Xcode build, simulator XCTest, physical-device test, Docker build or live Render deployment has been performed in this Linux sandbox.",
+    "Portable source/grammar checks are not Swift type checking or device acceptance. Revision-specific GitHub Actions findings are recorded in feature-layout-migration.md.",
     "Existing Swift packages and companion targets are retained, not replaced by empty example modules.",
     "All currently guarded Presentation storage/Core Data/I/O/engine-owner matches are zero through consumed ports; original review/history are retained. Source and grammar checks do not establish exhaustive semantic decoupling or native acceptance.",
-    "No commit, push, pull request, merge, release or deployment is authorized by this implementation request."
+    "The user authorized committing/pushing only arena/bf87c593-vexsign, opening a pull request to main, and monitoring/fixing native CI. No merge, release or deployment is authorized."
   ],
   "membershipExceptions": {
     "C0FFEE00000000000000000C": [
