@@ -82,13 +82,31 @@ def public_url_error(raw: str, *, resolve_dns: bool = True) -> str | None:
     if not url:
         return "Give an http:// or https:// URL."
 
-    parsed = urlparse(url)
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return "That address is not a valid URL."
     if parsed.scheme.lower() not in ("http", "https"):
         return "Only http:// and https:// addresses are accepted."
     if parsed.username is not None or parsed.password is not None:
         return "URLs with embedded credentials are not accepted."
 
-    host = (parsed.hostname or "").strip().rstrip(".").lower()
+    # `urlparse().port` raises for out-of-range and non-numeric ports. Validate it
+    # before either the DNS-resolution path or the fast path: a malformed port used
+    # to escape the fast path entirely and crash the DNS path with an uncaught
+    # ValueError, turning a user-supplied URL into a 500 on public endpoints.
+    try:
+        explicit_port = parsed.port
+    except ValueError:
+        return "That address has an invalid port."
+    if explicit_port == 0:
+        return "That address has an invalid port."
+    port = explicit_port or (443 if parsed.scheme.lower() == "https" else 80)
+
+    try:
+        host = (parsed.hostname or "").strip().rstrip(".").lower()
+    except ValueError:
+        return "That address has an invalid hostname."
     if not host:
         return "That address has no hostname."
     if host in BLOCKED_HOSTNAMES or any(host.endswith(suffix) for suffix in BLOCKED_SUFFIXES):
@@ -107,7 +125,6 @@ def public_url_error(raw: str, *, resolve_dns: bool = True) -> str | None:
     if not resolve_dns:
         return None
 
-    port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
     try:
         addresses = _resolve_ips(host, port)
     except (socket.gaierror, OSError, ValueError):

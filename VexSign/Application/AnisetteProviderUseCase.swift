@@ -10,8 +10,12 @@ final class AnisetteProviderUseCase {
     private let synchronizeManager: () async -> Void
     private let probeDescriptor: (AnisetteProviderDescriptor) async throws -> Void
 
+    /// The default argument must stay `nil`: Swift evaluates default arguments in a
+    /// nonisolated context, and `AnisetteProviderFactory.shared` is `@MainActor`-isolated.
+    /// Resolve the singleton inside the isolated initializer instead, while keeping the
+    /// injection seam available to tests and the composition root.
     init(
-        factory: AnisetteProviderFactory = .shared,
+        factory: AnisetteProviderFactory? = nil,
         synchronizeManager: @escaping () async -> Void = { await NativeSigningManager.shared.synchronizeProvider() },
         probeDescriptor: @escaping (AnisetteProviderDescriptor) async throws -> Void = { descriptor in
             if descriptor.protocolKind == .v3 {
@@ -23,7 +27,7 @@ final class AnisetteProviderUseCase {
             }
         }
     ) {
-        self.factory = factory
+        self.factory = factory ?? AnisetteProviderFactory.shared
         self.synchronizeManager = synchronizeManager
         self.probeDescriptor = probeDescriptor
     }

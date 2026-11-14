@@ -53,9 +53,27 @@ extension FileManager {
 		try content.write(to: path, atomically: true, encoding: .utf8)
 	}
 	
-	public func decodeAndWrite(base64: String, pathComponent: String) -> URL? {
-		let raw = base64.replacingOccurrences(of: " ", with: "+")
-		guard let data = Data(base64Encoded: raw) else { return nil }
+	/// Decodes a base64 payload carried by a deep link and stages it in a unique
+	/// temporary file. External certificate/profile callbacks use both standard
+	/// base64 and base64url, and are often sent without padding or with line
+	/// breaks. Normalise those forms, bound the decoded size so a hostile link
+	/// cannot allocate unbounded memory, and keep the staged write best-effort:
+	/// the caller validates the resulting file before importing anything.
+	public func decodeAndWrite(base64: String, pathComponent: String, maxBytes: Int = 16 << 20) -> URL? {
+		var cleaned = base64
+			.filter { !$0.isWhitespace }
+			.replacingOccurrences(of: "-", with: "+")
+			.replacingOccurrences(of: "_", with: "/")
+		guard !cleaned.isEmpty else { return nil }
+		let remainder = cleaned.count % 4
+		if remainder != 0 {
+			cleaned += String(repeating: "=", count: 4 - remainder)
+		}
+		guard
+			let data = Data(base64Encoded: cleaned),
+			!data.isEmpty,
+			data.count <= maxBytes
+		else { return nil }
 		let dir = self.temporaryDirectory.appendingPathComponent(UUID().uuidString + pathComponent)
 		try? data.write(to: dir) // try? ok: best-effort write to temp directory; caller validates file existence
 		return dir

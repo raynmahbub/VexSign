@@ -406,7 +406,18 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 
 		if _serverMethod == 1 {
 			viewModel.status = .sendingManifest
-			server.manifestUrl = await ManifestService.resolve(for: app, payload: server.payloadEndpoint)
+			let manifestUrl = await ManifestService.resolve(for: app, payload: server.payloadEndpoint)
+			guard !_hasFinished, !Task.isCancelled else { return }
+			guard let manifestUrl else {
+				// Every manifest endpoint failed its positive probe. Do not open an
+				// `itms-services` link to an unverified endpoint and call it a request.
+				_handleServerFailure(
+					packageUrl: packageUrl,
+					Self.error(.localized("Could not build the installation link, check your connection and try again."))
+				)
+				return
+			}
+			server.manifestUrl = manifestUrl
 		}
 
         guard !_hasFinished, !Task.isCancelled else { return }

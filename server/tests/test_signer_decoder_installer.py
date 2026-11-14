@@ -11,6 +11,7 @@ factory. Nothing here touches the network.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import sys
@@ -616,3 +617,139 @@ def test_url_guard_blocks_dns_resolution_to_private_ip(client, monkeypatch):
     assert response.status_code == 422
     assert "not a public IP" in response.json()["detail"]
     assert seen == []
+
+
+# ---------------------------------------------------------------------------
+# URL guard: malformed ports must be refused on both the fast path and the
+# DNS-resolution path. Before the fix the fast path returned None and the DNS
+# path raised an uncaught ValueError, producing HTTP 500 at public endpoints.
+# ---------------------------------------------------------------------------
+
+MALFORMED_PORT_URLS = (
+    "https://example.com:99999/app.ipa",
+    "https://example.com:65536/app.ipa",
+    "https://example.com:-1/app.ipa",
+    "https://example.com:abc/app.ipa",
+    "https://example.com:+80/app.ipa",
+    "https://example.com:0x50/app.ipa",
+    "https://example.com:80:90/app.ipa",
+    "https://[::1]:99999/app.ipa",
+)
+
+PORT_ZERO_URLS = (
+    "https://example.com:0/app.ipa",
+    "https://example.com:00000/app.ipa",
+    "http://example.com:0/feed.json",
+)
+
+
+@pytest.mark.parametrize("url", MALFORMED_PORT_URLS + PORT_ZERO_URLS)
+@pytest.mark.parametrize("resolve_dns", [False, True])
+def test_url_guard_rejects_invalid_ports_on_every_path(url, resolve_dns, monkeypatch):
+    def resolver(host, port):
+        return {ipaddress.ip_address("93.184.216.34")}
+
+    monkeypatch.setattr(url_guard, "_resolve_ips", resolver)
+    assert url_guard.public_url_error(url, resolve_dns=resolve_dns) == "That address has an invalid port."
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://[::1:80/app.ipa",
+        "https://[::1",
+        "https://[::1]x/app.ipa",
+    ),
+)
+def test_url_guard_rejects_malformed_ipv6_urls(url):
+    assert url_guard.public_url_error(url, resolve_dns=False) == "That address is not a valid URL."
+
+
+@pytest.mark.parametrize(
+    "url,expected_port",
+    (
+        ("https://example.com/app.ipa", 443),
+        ("http://example.com/app.ipa", 80),
+        ("https://example.com:8443/app.ipa", 8443),
+        ("http://example.com:8080/app.ipa", 8080),
+        ("https://example.com:65535/app.ipa", 65535),
+        ("https://example.com:/app.ipa", 443),
+    ),
+)
+def test_url_guard_accepts_valid_ports_and_resolves_them(url, expected_port, monkeypatch):
+    seen: list[int] = []
+
+    def resolver(host, port):
+        seen.append(port)
+        return {ipaddress.ip_address("93.184.216.34")}
+
+    monkeypatch.setattr(url_guard, "_resolve_ips", resolver)
+    assert url_guard.public_url_error(url, resolve_dns=True) is None
+    assert seen == [expected_port]
+
+
+def test_url_guard_still_blocks_private_dns_with_explicit_port(monkeypatch):
+    monkeypatch.setattr(
+        url_guard, "_resolve_ips", lambda host, port: {ipaddress.ip_address("10.0.0.1")}
+    )
+    refusal = url_guard.public_url_error(
+        "https://rebind.example:8443/feed.json", resolve_dns=True
+    )
+    assert refusal is not None
+    assert "not a public IP" in refusal
+
+
+def test_probe_rejects_initial_malformed_port(client):
+    response = client.post(
+        "/api/tools/install/probe",
+        json={"ipaURL": "https://example.com:99999/app.ipa"},
+    )
+    assert response.status_code == 422
+    assert "invalid port" in response.json()["detail"]
+
+
+def test_decoder_rejects_initial_malformed_port(client):
+    response = client.post(
+        "/api/tools/repo/decode",
+        json={"source": "https://example.com:99999/feed.json"},
+    )
+    assert response.status_code == 422
+    assert "invalid port" in response.json()["detail"]
+
+
+def test_probe_blocks_redirect_with_malformed_port(client, monkeypatch):
+    seen: list[str] = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(
+            302, headers={"location": "https://example.com:99999/app.ipa"}
+        )
+
+    monkeypatch.setattr(app_installer, "_make_client", mock_factory(handler))
+    response = client.post(
+        "/api/tools/install/probe",
+        json={"ipaURL": "https://example.com/app.ipa"},
+    )
+    assert response.status_code == 422
+    assert "invalid port" in response.json()["detail"]
+    assert seen == ["https://example.com/app.ipa"]
+
+
+def test_decoder_blocks_redirect_with_malformed_port(client, monkeypatch):
+    seen: list[str] = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(
+            302, headers={"location": "https://example.com:99999/feed.json"}
+        )
+
+    monkeypatch.setattr(repo_decoder, "_make_client", mock_factory(handler))
+    response = client.post(
+        "/api/tools/repo/decode",
+        json={"source": "https://example.com/feed.json"},
+    )
+    assert response.status_code == 422
+    assert "invalid port" in response.json()["detail"]
+    assert seen == ["https://example.com/feed.json"]

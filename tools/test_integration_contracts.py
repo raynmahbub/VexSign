@@ -20,6 +20,12 @@ MAIN_ENTITLEMENTS = ROOT / "VexSign/Supporting Files/VexSign.entitlements"
 WIDGET_ENTITLEMENTS = ROOT / "VexSignWidgetExtension/VexSignWidgetExtension.entitlements"
 WATCH_ENTITLEMENTS = ROOT / "VexSignWatch/VexSignWatch.entitlements"
 WATCH_WIDGET_ENTITLEMENTS = ROOT / "VexSignWatchWidgets/VexSignWatchWidgets.entitlements"
+MANIFEST_SERVICE = ROOT / "VexSign/Backend/Server/ManifestService.swift"
+APP_INSTALLER = ROOT / "VexSign/Backend/Observable/AppInstaller.swift"
+LOG_REDACTION = ROOT / "VexSign/Utilities/Logging/LogRedaction.swift"
+LOG_REDACTION_TESTS = ROOT / "VexSignTests/LogRedactionTests.swift"
+BASE64_STAGING = ROOT / "NimbleKit/Sources/NimbleExtensions/FileManager/FileManager+shortcuts.swift"
+BASE64_STAGING_TESTS = ROOT / "VexSignTests/DeepLinkBase64StagingTests.swift"
 
 
 def _keys(block: str) -> set[str]:
@@ -100,6 +106,77 @@ class EntitlementContractTests(unittest.TestCase):
         )
         if not has_consumer:
             self.assertNotIn("com.apple.developer.networking.networkextension", _plist(MAIN_ENTITLEMENTS))
+
+
+class ManifestResolutionContractTests(unittest.TestCase):
+    def test_no_unverified_manifest_fallback(self) -> None:
+        source = MANIFEST_SERVICE.read_text()
+        self.assertNotIn("return candidates.first", source)
+        self.assertIn("return await select(candidates: candidates, serves: _serves)", source)
+        self.assertIn("static func select(", source)
+        self.assertIn("if Task.isCancelled { return nil }", source)
+        self.assertRegex(
+            source,
+            re.compile(r"for candidate in candidates \{.*?return nil\s*\}", re.DOTALL),
+        )
+
+    def test_installer_refuses_when_manifest_resolution_fails(self) -> None:
+        source = APP_INSTALLER.read_text()
+        block = source.split("if _serverMethod == 1 {", 1)[1].split("await server.start()", 1)[0]
+        self.assertIn("let manifestUrl = await ManifestService.resolve(", block)
+        self.assertIn("guard let manifestUrl else {", block)
+        self.assertIn("_handleServerFailure(", block)
+        self.assertLess(block.index("guard let manifestUrl else {"), block.index("server.manifestUrl = manifestUrl"))
+
+
+class LogRedactionContractTests(unittest.TestCase):
+    def test_account_pairing_and_device_key_rules_are_present(self) -> None:
+        source = LOG_REDACTION.read_text()
+        for key in (
+            "certificateP12", "certificatePassword", "adiPb", "appleID",
+            "anisetteAdiBlob", "private_key", "alt_irk", "HostPrivateKey",
+            "SerialNumber", "UniqueChipID", "X-Apple-I-MD", "DeviceName",
+            "UniqueDeviceID", "UDID", "remotepairing_udid",
+        ):
+            self.assertIn(f'"{key}"', source, f"missing redaction key {key}")
+        self.assertIn("sensitiveKeyAlternation", source)
+        self.assertIn("NSRegularExpression.escapedPattern(for: $0)", source)
+        self.assertIn(r"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}\b", source)
+        self.assertIn(r"(?i)(?<![\w-])", source)
+
+    def test_swift_tests_exercise_the_new_rules(self) -> None:
+        tests = LOG_REDACTION_TESTS.read_text()
+        for name in (
+            "testAccountAndPairingJSONKeysAreRedacted",
+            "testAppleAccountAndAnisetteHeadersAreRedacted",
+            "testDeviceIdentifiersAndNamesAreRedacted",
+            "testEmailAddressesAreMaskedButDomainSurvives",
+            "testBareHashesAreNotMistakenForUDIDs",
+        ):
+            self.assertIn(name, tests)
+
+
+class DeepLinkBase64ContractTests(unittest.TestCase):
+    def test_normalization_and_size_bound_are_present(self) -> None:
+        source = BASE64_STAGING.read_text()
+        self.assertIn(".filter { !$0.isWhitespace }", source)
+        self.assertIn('.replacingOccurrences(of: "-", with: "+")', source)
+        self.assertIn('.replacingOccurrences(of: "_", with: "/")', source)
+        self.assertIn("data.count <= maxBytes", source)
+        self.assertIn("maxBytes: Int = 16 << 20", source)
+        self.assertIn("String(repeating: \"=\", count: 4 - remainder)", source)
+
+    def test_swift_tests_exercise_every_form(self) -> None:
+        tests = BASE64_STAGING_TESTS.read_text()
+        for name in (
+            "testStandardBase64IsStaged",
+            "testMissingPaddingIsAccepted",
+            "testWhitespaceIsIgnored",
+            "testBase64URLAlphabetIsAccepted",
+            "testOversizedPayloadIsRejected",
+            "testInvalidBase64IsRejected",
+        ):
+            self.assertIn(name, tests)
 
 
 if __name__ == "__main__":

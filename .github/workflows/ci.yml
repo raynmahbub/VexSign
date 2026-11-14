@@ -229,6 +229,7 @@ jobs:
           python3 tools/test_build_provenance.py
           python3 tools/test_package_graph.py
           python3 tools/test_coverage_report.py
+          python3 tools/test_swift6_build_regressions.py
 
       - name: Upload findings
         if: always()

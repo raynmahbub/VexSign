@@ -89,6 +89,45 @@ final class LogRedactionTests: XCTestCase {
 	func testRedactionIsIdempotent() {
 		let once = LogRedaction.redact("password=hunter2 and token=abc123")
 		XCTAssertEqual(LogRedaction.redact(once), once)
+		let account = LogRedaction.redact("appleID=jane.appleseed@example.com")
+		XCTAssertEqual(LogRedaction.redact(account), account)
+	}
+
+	// MARK: - Account, pairing and device material
+
+	func testAccountAndPairingJSONKeysAreRedacted() {
+		let line = #"{"certificateP12":"MIIKOAIBAzCCCf4","certificatePassword":"not-a-real-password","adiPb":"c2VjcmV0"}"#
+		assertRedacted(line, "MIIKOAIBAzCCCf4")
+		assertRedacted(line, "not-a-real-password")
+		assertRedacted(line, "c2VjcmV0")
+	}
+
+	func testAppleAccountAndAnisetteHeadersAreRedacted() {
+		assertRedacted("X-Apple-I-MD: AAAABBBBCCCCDDDD", "AAAABBBBCCCCDDDD")
+		assertRedacted("appleID=jane.appleseed@example.com", "jane.appleseed@example.com")
+		assertRedacted(#"{"anisetteAdiBlob":"bWFjaGluZQ=="}"#, "bWFjaGluZQ==")
+	}
+
+	func testDeviceIdentifiersAndNamesAreRedacted() {
+		assertRedacted("SerialNumber: F2LXK0AAHG7F", "F2LXK0AAHG7F")
+		assertRedacted("UDID: 00008120-001E348201E8001E", "00008120-001E348201E8001E")
+		assertRedacted("DeviceName = Jane's iPhone", "Jane's iPhone")
+		assertRedacted(
+			"UniqueDeviceID = 0123456789abcdef0123456789abcdef01234567",
+			"0123456789abcdef0123456789abcdef01234567"
+		)
+	}
+
+	func testEmailAddressesAreMaskedButDomainSurvives() {
+		let output = LogRedaction.redact("contact jane.appleseed@example.com for help")
+		XCTAssertFalse(output.contains("jane.appleseed"))
+		XCTAssertTrue(output.contains("@example.com"), "the domain is useful: \(output)")
+		XCTAssertTrue(output.contains(LogRedaction.marker))
+	}
+
+	func testBareHashesAreNotMistakenForUDIDs() {
+		let line = "commit 0123456789abcdef0123456789abcdef01234567"
+		XCTAssertEqual(LogRedaction.redact(line), line)
 	}
 
 	/// Several secrets on one line are all masked, not just the first match.
