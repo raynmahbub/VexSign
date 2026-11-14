@@ -7584,7 +7584,7 @@
     "render.yaml"
   ],
   "relocatedFileCount": 1322,
-  "status": "published as PR #243; 853238a unsigned iOS Debug/warnings/resource-byte/IPA checks passed and simulator host now launches; XCTest observed 1908 total, 1900 passed, six failed and two skipped; simulator ad-hoc signing and private-path redaction repairs pending native validation; physical-device acceptance pending",
+  "status": "published as PR #243; full CI 43622715168 at 9aa3046 passed quick gates, unsigned iOS Debug/warnings/resource-byte/IPA checks and simulator XCTest; report-only concurrency job completed; physical-device/combined-host acceptance and PR mergeability remain separate; nothing merged, released or deployed",
   "limitations": [
     "Portable source/grammar checks are not Swift type checking or device acceptance. Revision-specific GitHub Actions findings are recorded in feature-layout-migration.md.",
     "Existing Swift packages and companion targets are retained, not replaced by empty example modules.",

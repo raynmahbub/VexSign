@@ -167,10 +167,13 @@ checks that completed edit/undo operations update immutable snapshots through
 the existing workspace publisher. Two discovery cases additionally cover accepted
 intent/signal ordering and provider refusal without a success signal. Two further native methods pin private device/simulator path redaction without
 hiding error codes or public URL paths, for 92 added methods in the current tree.
-**At `853238a` the app launches and XCTest runs: 1,908 tests total, 1,900 passed,
-six failed and two skipped.** The Keychain-dependent certificate cases are among
-the failures; this is not a claim that all 92 current added methods pass. The two
-new path-redaction methods and simulator-signing repair still need a native rerun. Source-reading fixtures fail
+**At `9aa3046`, the full `VexSignTests` simulator job and all CI jobs pass.**
+This validates app launch and the selected suite containing the 92 added methods,
+including the Keychain-dependent certificate cases and two path-redaction cases.
+The earlier `853238a` run's 1,908 total / 1,900 passed / six failed / two skipped
+counts below describe that failed revision, not the final successful run; exact
+final per-test totals were not recovered separately from the passing job verdict.
+Source-reading fixtures fail
 when an expected implementation file is absent; they do not silently skip
 migration breakage. In particular, fixture/source passes are not delayed-OCSP,
 UIKit, real protected-database, host-copy or actual installer callback acceptance.
@@ -194,6 +197,7 @@ merged, released or deployed.
 | `c249f3b`, [CI 43613459987](https://github.com/raynmahbub/VexSign/actions/runs/43613459987) | Unsigned iOS Debug build, unchanged warnings gate, bundled-resource byte comparison, unsigned test IPA packaging/upload and download-integrity check all passed. Quick gates passed and the report-only concurrency job completed. Simulator compiled the app, then found three stale `DiscoveryViewModel(downloads:)` constructions in the test target. No simulator tests ran (xcresult total 0). |
 | `703550d`, [CI 43615782485](https://github.com/raynmahbub/VexSign/actions/runs/43615782485) | Unsigned iOS Debug build, unchanged warnings gate, resource-byte comparison and unsigned test IPA packaging/download checks passed again. Quick gates passed and the report-only concurrency job completed. Both simulator app and test bundle compiled, but the app trapped before XCTest established a connection. The xcresult reports one host-bootstrap failure, zero passed tests; no authored XCTest method is established as executed. |
 | `853238a`, [CI 43618845284](https://github.com/raynmahbub/VexSign/actions/runs/43618845284) | Unsigned iOS Debug/warnings/resource-byte/IPA checks passed. Simulator app now launches and connects to XCTest: 1,908 total, 1,900 passed, six failed, two skipped. Five certificate cases hit the unsigned host’s missing Keychain entitlement (`-34018`); the remaining assertion exposed an unredacted local path in a store-recovery notice. No startup trap was reported. The overall run failed, not accepted as green. |
+| `9aa3046`, [CI 43622715168](https://github.com/raynmahbub/VexSign/actions/runs/43622715168) | **Full run passed.** Quick syntax/resources/gates passed (3m11s); unsigned iOS Debug, unchanged warnings gate, resource-byte comparison and test-IPA checks passed (9m31s); the full `VexSignTests` simulator job passed (20m49s); report-only concurrency completed (1m59s). The simulator host uses a local ad-hoc signature without Apple credentials. This is branch/XCTest evidence, not physical-device installation or Release/combined-host acceptance. |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -316,7 +320,7 @@ line. Missing-environment and other fatal messages survive unrelated log chatter
 Three additional fixtures exercise those paths (54 workflow-policy tests total);
 crash reporting still cannot turn a failed compiler/test run into success.
 
-The six remaining simulator failures are not compiler/launch errors. Five
+The six failures at `853238a` were not compiler/launch errors. Five
 certificate durability/undo cases need real Keychain writes and fail in the
 unsigned simulator host (`errSecMissingEntitlement`, status `-34018`). CI and
 `make test` now request a **local ad-hoc simulator signature** (`-`), without an
@@ -330,11 +334,21 @@ device/simulator container roots could remain in a shared recovery notice.
 `LogRedaction` now masks those specific filesystem forms, retaining the diagnostic
 text/error code and leaving the same segments inside HTTP URLs readable. Two
 native cases and a portable production-pattern fixture pin redaction, negative
-URL cases and idempotence. Both repairs require a new full native run.
+URL cases and idempotence. Both repairs are validated by the full successful
+`9aa3046` native run; no test was disabled or converted into a skip to pass it.
 
-The separate native-signing smoke success does not compile the app's 92 added
-XCTest methods; complete acceptance still requires a successful `VexSignTests` simulator job.
-Native Apple-account signing remains `.notIntegrated` after synthetic/link tests.
+The separate native-signing smoke is not a substitute for the now-passing app
+XCTest job. Neither result establishes physical-device/combined-host acceptance
+or promotes native Apple-account signing beyond `.notIntegrated`.
+
+The unsigned device test artifact for the validated code revision is available
+from [the successful run](https://github.com/raynmahbub/VexSign/actions/runs/43622715168/artifacts/14125770356),
+named `VexSign-unsigned-9aa3046b41d08583a852b01a9f75666e9afee294-43622715168-1`.
+It is a disposable Debug test IPA, **not a signed release**; it must be re-signed
+with a valid compatible identity/profile before device installation. No physical
+device was connected here, and an already installed older artifact does not gain
+these fixes. This evidence-only documentation follow-up changes no execution or
+build input from `9aa3046`.
 
 GitHub reports PR #243 as conflicting with main at `725a276`, while read-only
 local merge-tree diagnostics are clean. No merge/rebase/base sync was applied,
