@@ -27,7 +27,12 @@ Xcode and the iOS 17+ deployment target. Configure your own development team for
 
 Project content lives under `VexSign/`. Keep the Xcode project/workspace,
 `.github/`, root entry points and legal files where their tools expect them.
-The iOS app is `VexSign/App/iOS/VexSign/`:
+The iOS app is `VexSign/App/iOS/`. TV, Vision and widget sources live directly in
+`VexSign/App/{TV,Vision,WidgetExtension}/`, without an extra target-name wrapper.
+Keep both targets under `VexSign/App/Watch/` and the shared platform plist under
+`VexSign/App/SharedPlatformInfo/` at their existing paths.
+
+The iOS source layers are:
 
 - `App/`: scenes, bootstrap, dependency composition, lifecycle and app navigation.
 - `Presentation/Features/<Feature>/`: views, components, view models and UI models
@@ -50,6 +55,11 @@ Keep genuine packages in `VexSign/Packages/`, optional services in
 `VexSign/Services/`, existing test categories in `VexSign/Tests/`, and nonsecret
 build/signing inputs in `VexSign/Configuration/`. Do not create empty example
 packages, placeholder feature/suite folders or another catchall manager.
+Single-child directory wrappers should be flattened; preserve parents with real
+sibling files/subfolders and the exact tool-owned exceptions documented in the
+[repository layout audit](VexSign/Documentation/Architecture/repository-layout-audit.md).
+Single-file directories are not wrapper chains. Do not manufacture siblings to
+silence the layout check or rename targets/modules to match folder names.
 
 See the [architecture guide](VexSign/Documentation/Architecture/ARCHITECTURE.md),
 [dependency rules](VexSign/Documentation/Architecture/dependency-rules.md) and
@@ -92,8 +102,8 @@ rebuild with an explicit deployment target (for example `15.0`).
 - Prefer small, testable components and dependency injection over new global singletons.
 - Do not add silent `try?` at user-visible failure boundaries.
 - Preserve strict-concurrency boundaries; document any justified exception.
-- Edit `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --write`), then run `make verify`.
-- Follow [Design](VexSign/Documentation/Features/Design/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `VexSign/App/iOS/VexSign/Presentation/` instead of adding another card style.
+- Edit `VexSign/App/iOS/Resources/Localization/Localizable.xcstrings` with Xcode's String Catalog editor (or run `python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --write`), then run `make verify`.
+- Follow [Design](VexSign/Documentation/Features/DESIGN.md) for colour, type, spacing, motion and accessibility. Reuse the components in `VexSign/App/iOS/Presentation/` instead of adding another card style.
 - Keep documentation concise and update only guides affected by the change.
 
 ## Releases

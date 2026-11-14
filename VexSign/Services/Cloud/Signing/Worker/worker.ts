@@ -10,7 +10,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { loadConfig } from '../../Configuration/config.js';
 import { infrastructure } from '../../Storage/infrastructure.js';
-import { unseal, permittedWebhook } from '../../Security/Authentication/security.js';
+import { unseal, permittedWebhook } from '../../Security/security.js';
 import { invokeSigner, type SignerInput } from '../CloudSigningCoordinator/signer.js';
 
 const config = loadConfig(); const infra = infrastructure(config);

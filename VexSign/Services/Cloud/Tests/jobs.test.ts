@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { submitJobs, APIError, type Submission } from '../Signing/JobQueue/jobs.js';
 import type { Infrastructure } from '../Storage/infrastructure.js';
-import { unseal } from '../Security/Authentication/security.js';
+import { unseal } from '../Security/security.js';
 
 const request: Submission = { ipaId: 'ipa-a', p12Id: 'p12-a', provisionId: 'provision-a', password: 'sensitive-test-value', idempotencyKey: 'idempotency-a' };
 function database(options: { owned?: boolean; active?: number; prior?: Record<string, unknown> } = {}) {

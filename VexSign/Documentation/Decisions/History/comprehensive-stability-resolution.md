@@ -114,9 +114,9 @@ the reporter ran.
 **Result at `v1.2.1` (`e930ceb`):**
 
 ```
-VexSign/App/iOS/VexSign/Presentation/Features/Home/Views/AppStoreRepositoryRows.swift:83   let count = repository?.apps.count ?? source.appsCount
-VexSign/App/iOS/VexSign/Presentation/Features/Home/Views/AppStoreRepositoryRows.swift:202  var appsCount: Int {
-VexSign/App/iOS/VexSign/Presentation/Features/Home/Views/AppStoreRepositoryRows.swift:203      (value(forKey: "apps") as? Set<NSManagedObject>)?.count ?? 0
+VexSign/App/iOS/Presentation/Features/Home/Views/AppStoreRepositoryRows.swift:83   let count = repository?.apps.count ?? source.appsCount
+VexSign/App/iOS/Presentation/Features/Home/Views/AppStoreRepositoryRows.swift:202  var appsCount: Int {
+VexSign/App/iOS/Presentation/Features/Home/Views/AppStoreRepositoryRows.swift:203      (value(forKey: "apps") as? Set<NSManagedObject>)?.count ?? 0
 ```
 
 - `source` is an `AltSource`. At that tag, and today, the entity has exactly `date`, `iconURL`,

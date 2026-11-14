@@ -17,10 +17,10 @@ different obligations.
 | `AltSourceKit` | MIT | [`VexSign/Packages/AltSourceKit/LICENSE`](VexSign/Packages/AltSourceKit/LICENSE) |
 | `NimbleKit` | MIT | [`VexSign/Packages/NimbleKit/LICENSE`](VexSign/Packages/NimbleKit/LICENSE) |
 | `SideSign` | GNU AGPL version 3.0 | [`VexSign/Packages/SideSign/LICENSE`](VexSign/Packages/SideSign/LICENSE) |
-| `EmbeddedContainer` sources | GNU AGPL version 3.0 | [`VexSign/Integrations/EmbeddedContainer/LICENSE`](VexSign/Integrations/EmbeddedContainer/LICENSE) |
+| `EmbeddedContainer` sources | GNU AGPL version 3.0 | [`VexSign/Integrations/LICENSE`](VexSign/Integrations/LICENSE) |
 | `VexSign/Packages/Vendor/Zsign` | MIT, plus an Apache-2.0 component notice | [`VexSign/Packages/Vendor/Zsign/LICENSE`](VexSign/Packages/Vendor/Zsign/LICENSE), [`VexSign/Packages/Vendor/Zsign/LICENSE_LC`](VexSign/Packages/Vendor/Zsign/LICENSE_LC) |
 | `VexSign/Packages/Vendor/IDeviceKitten` | MIT | [`VexSign/Packages/Vendor/IDeviceKitten/LICENSE`](VexSign/Packages/Vendor/IDeviceKitten/LICENSE) |
-| Anisette server attribution | See bundled notice for applicable terms | [`VexSign/App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt`](VexSign/App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt) |
+| Anisette server attribution | See bundled notice for applicable terms | [`VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt`](VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt) |
 
 `VexSign/Packages/Vendor/README.md` and `VexSign/Packages/Vendor/manifest.json` identify the vendored upstream
 projects, pins, and retained notices. Some package manifests also resolve

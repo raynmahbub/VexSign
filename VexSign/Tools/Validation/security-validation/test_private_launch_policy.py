@@ -14,7 +14,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[4]
 LAUNCH = ROOT / "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/UIApplication/UIApplication+open_private.swift"
-ADAPTER = ROOT / "VexSign/App/iOS/VexSign/Platform/Apple/Device/AppLauncher.swift"
+ADAPTER = ROOT / "VexSign/App/iOS/Platform/Apple/Device/AppLauncher.swift"
 # A relaunch on the way out calls `exit(0)` half a second later: there is no user left to inform,
 # so it is the one place allowed to discard the answer.
 INTERNAL_CALLER = ROOT / "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/UIApplication/UIApplication+suspend.swift"

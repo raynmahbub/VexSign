@@ -2,14 +2,14 @@
   "_comment": "Every concurrency escape in the app target, with the invariant that makes it safe. Enforced by VexSign/Tools/Validation/security-validation/test_concurrency_audit.py: a new escape with no entry fails the build gate, as does an entry whose file no longer has an escape. `make strict-concurrency` is the compiler half; this is the reasoning half.",
   "escapes": [
     {
-      "file": "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppOperationRegistry.swift",
+      "file": "VexSign/App/iOS/Infrastructure/Devices/Installation/AppOperationRegistry.swift",
       "symbol": "AppOperationRegistry.Lease",
       "kind": "unchecked-sendable",
       "invariant": "Immutable stored closure. It runs in `deinit`, which may happen on any thread; the closure only calls back into the lock-protected registry, which is safe from any thread. The release is synchronous (the earlier actor version hopped through a `Task`, which left the owner entry alive briefly after the lease was dropped and let `acquireCleanup` refuse a pass that should have succeeded). No other state.",
       "risk": "low"
     },
     {
-      "file": "VexSign/App/iOS/VexSign/Infrastructure/Downloads/Download.swift",
+      "file": "VexSign/App/iOS/Infrastructure/Downloads/Download.swift",
       "symbol": "Download",
       "kind": "unchecked-sendable",
       "invariant": "@Published properties are written on the main thread only. The verification path in DownloadManager+PackageImport.swift runs on a utility queue but wraps every model mutation in DispatchQueue.main.async, and both URLSessions deliver delegate callbacks on delegateQueue .main. The reference is passed across boundaries; the fields are not written there. A worker reading the fields directly (rather than a copied snapshot) would be unsound - BackgroundDownloadMonitor reads them on @MainActor and copies values for exactly this reason.",
@@ -17,14 +17,14 @@
       "watch": "This is the escape most likely to stop being true. Any new off-main writer must be paired with a main-actor hop, not a direct assignment."
     },
     {
-      "file": "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift",
+      "file": "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskModels.swift",
       "symbol": "UnifiedTask",
       "kind": "unchecked-sendable",
       "invariant": "The owning UnifiedTaskCenter is @MainActor and there are no detached or global-queue tasks in the file; every mutation goes through the center on the main actor. The Sendable conformance exists so a reference can be handed to async signing/install work, not so those can mutate it.",
       "risk": "low"
     },
     {
-      "file": "VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/AppFileHandler.swift",
+      "file": "VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift",
       "symbol": "AppFileHandler",
       "kind": "unchecked-sendable",
       "invariant": "One import's private scratch object; `_ipa`, `uniqueWorkDirPayload` and `_didAddToDatabase` are mutated only from its own sequential async methods (copy -> extract -> move -> addDatabase -> clean). The only cross-thread touch is `download.unpackageProgress`, wrapped in DispatchQueue.main.async at the extract progress callback.",
@@ -32,21 +32,21 @@
       "watch": "Safe only while the pipeline stays sequential per instance. Two steps run concurrently on one handler would race on `_ipa` and `uniqueWorkDirPayload`."
     },
     {
-      "file": "VexSign/App/iOS/VexSign/Application/Shared/RemovalUndoLease.swift",
+      "file": "VexSign/App/iOS/Application/Shared/RemovalUndoLease.swift",
       "symbol": "RemovalUndoLease",
       "kind": "unchecked-sendable",
       "invariant": "Its callback/deadline/resolution state is reachable only under NSLock. Every offer/undo/expire path requires the main thread, the certificate owners call MainActor.assumeIsolated only there, and callbacks execute outside the lock. Copies of the Sendable display token may cross executors but cannot invoke callbacks off-main. Deinit invokes no callback. Expiry clears all secret-capturing closures independently of retained UI tokens. Removing the main-thread preconditions or accessing callbacks without the lock would invalidate the escape.",
       "risk": "medium"
     },
     {
-      "file": "VexSign/App/iOS/VexSign/Infrastructure/Repositories/RepositoryDirectoryClient.swift",
+      "file": "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift",
       "symbol": "RepositoryDirectoryRedirectPolicy",
       "kind": "unchecked-sendable",
       "invariant": "The origin URL is immutable. The only mutable field, redirect count, is read/written under NSLock; the delegate completion is called after unlocking. Redirect admission uses a copied count and same-origin comparison, never request credential mutation from a separate thread. Adding a mutable credential/session field or moving the completion under the lock would require a new review.",
       "risk": "medium"
     },
     {
-      "file": "VexSign/App/iOS/VexSign/Infrastructure/Observation/StreamObservationCancellation.swift",
+      "file": "VexSign/App/iOS/Infrastructure/Observation/StreamObservationCancellation.swift",
       "symbol": "StreamObservationCancellation",
       "kind": "unchecked-sendable",
       "invariant": "Only subscription ownership crosses executors. Taking and clearing the AnyCancellable array is serialized by NSLock; cancellation happens once, outside the lock, and deinit uses the same path. No subscription is added after initialization. Producer closures hop to their owning MainActor before reading manager state. Reading subscriptions unlocked, cancelling under the lock, or mutating a manager directly from termination would break the invariant.",

@@ -331,8 +331,8 @@ See [CHANGELOG.md](../../../CHANGELOG.md) for release notes.
 The provider editor now includes all 22 entries from
 [SideStore's public server catalogue](https://github.com/SideStore/anisette-servers/blob/3cd273b679bbb7777e9d585e49fdfa239cf21486/servers.json),
 pinned to revision `3cd273b679bbb7777e9d585e49fdfa239cf21486` and reviewed on
-2026-11-06. The snapshot is `VexSign/App/iOS/VexSign/Resources/AnisetteServers.json`; its upstream
-AGPL-3.0 license is retained in `VexSign/App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt`.
+2026-11-06. The snapshot is `VexSign/App/iOS/Resources/AnisetteServers.json`; its upstream
+AGPL-3.0 license is retained in `VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt`.
 These are community-operated endpoints, not VexSign-operated or endorsed services.
 No availability, privacy-policy or operator-identity verification is claimed.
 

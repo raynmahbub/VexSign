@@ -25,7 +25,7 @@ time this report was written **no current-branch CI run had completed**. All `Bu
 | `make verify` | exit 0; `swiftc not found - Swift syntax check skipped` advisory; NativeSigning 74 OK; EmbeddedContainer 31 OK |
 | `python3 -m unittest discover -s tools -p 'test_*.py'` | 298 OK |
 | `python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v` | 74 OK |
-| `python3 -m unittest discover -s VexSign/Integrations/EmbeddedContainer/tests -v` | 31 OK |
+| `python3 -m unittest discover -s VexSign/Integrations/tests -v` | 31 OK |
 | `/tmp/vexvenv/bin/python -m pytest -q VexSign/Services/WebManager/Tests` | `179 passed, 1 skipped` |
 | `cd cloud-signing && npm ci --no-audit --no-fund && npm test` | exit 0; 178 packages; `14 pass / 0 fail / 0 skipped` |
 | `grep -rInE 'TODO\|FIXME\|XXX' --include='*.swift' VexSign \| wc -l` | 0 |
@@ -49,8 +49,8 @@ Checks API annotations (job check-runs `132189888675`, `132189888809`):
 
 | Location | Level / title | Message |
 | --- | --- | --- |
-| `VexSign/App/iOS/VexSign/Application/Accounts/AnisetteProviderUseCase.swift:14` | failure / `New warning (treated as error)` | `main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode` |
-| `VexSign/App/iOS/VexSign/Application/Shared/DeepLinkRouterUseCase.swift:233` | failure / `Compiler error` | `type 'String' does not conform to protocol 'Error'` |
+| `VexSign/App/iOS/Application/Accounts/AnisetteProviderUseCase.swift:14` | failure / `New warning (treated as error)` | `main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode` |
+| `VexSign/App/iOS/Application/Shared/DeepLinkRouterUseCase.swift:233` | failure / `Compiler error` | `type 'String' does not conform to protocol 'Error'` |
 | `.github/workflows/ci.yml:1` (test job) | log | `Testing cancelled because the build failed`, `result=unknown totalTestCount=0 passedTests=0 failedTests=0 skippedTests=0 expectedFailures=0` |
 
 `gh api repos/raynmahbub/App/iOS/VexSign/actions/runs/43513058621/artifacts` listed build/test artifacts,
@@ -78,7 +78,7 @@ not current-branch proof.
 | 6 | `cd cloud-signing && npm test` | `14 pass / 0 fail / 0 skipped` |
 | 7 | `make test-cloud` | exit 0; `npm run build`, `npm test` 14/14, `npm run contracts`, `git diff --exit-code -- VexSign/Services/Cloud/openapi.json` clean |
 | 8 | `python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v` | 74 OK |
-| 9 | `python3 -m unittest discover -s VexSign/Integrations/EmbeddedContainer/tests -v` | 31 OK |
+| 9 | `python3 -m unittest discover -s VexSign/Integrations/tests -v` | 31 OK |
 | 10 | `python3 VexSign/Tools/Validation/repository-validation/check-docs.py && python3 VexSign/Tools/Validation/repository-validation/test_docs.py` | documentation file links OK; README download/CI assertions OK |
 | 11 | tree-sitter parse of every edited/new Swift file | 0 new syntax errors; two pre-existing parser limitations confirmed against `HEAD` in `DeepLinkRouterUseCase.swift` and `AppInstaller.swift` |
 

@@ -66,7 +66,7 @@ def _source_path(path: str) -> bool:
         and ".." not in pure.parts
         and pure.as_posix() == path
         and path.endswith(".swift")
-        and (path.startswith("VexSign/App/iOS/VexSign/") or path.startswith("VexSign/Tests/"))
+        and (path.startswith("VexSign/App/iOS/") or path.startswith("VexSign/Tests/"))
     )
 
 

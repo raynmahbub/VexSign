@@ -33,9 +33,9 @@ REPORT = {
     "targets": [{
         "name": "VexSign.app",
         "files": [
-            file_report("/runner/work/project/VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift", 5, 50),
-            file_report("/runner/work/project/VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/FileLogger.swift", 25, 30),
-            file_report("/runner/work/project/VexSign/App/iOS/VexSign/Domain/Empty.swift", 0, 0),
+            file_report("/runner/work/project/VexSign/App/iOS/Infrastructure/Persistence/Database/Storage.swift", 5, 50),
+            file_report("/runner/work/project/VexSign/App/iOS/Infrastructure/Diagnostics/FileLogger.swift", 25, 30),
+            file_report("/runner/work/project/VexSign/App/iOS/Domain/Empty.swift", 0, 0),
             file_report("/runner/DerivedData/SourcePackages/checkouts/Nuke/Sources/Task.swift", 0, 400),
             file_report("/runner/work/project/VexSign/Tests/UnitTests/Application/SomeTests.swift", 0, 200),
         ],
@@ -47,8 +47,8 @@ class FilteringTests(unittest.TestCase):
     def test_dependencies_and_test_bundles_are_excluded(self):
         self.assertFalse(coverage.is_first_party("/x/SourcePackages/checkouts/Nuke/Sources/Task.swift"))
         self.assertFalse(coverage.is_first_party("/x/VexSign/Tests/UnitTests/Application/SomeTests.swift"))
-        self.assertFalse(coverage.is_first_party("/x/VexSign/App/iOS/VexSign/Thing.h"))
-        self.assertTrue(coverage.is_first_party("/x/VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/Storage.swift"))
+        self.assertFalse(coverage.is_first_party("/x/VexSign/App/iOS/Thing.h"))
+        self.assertTrue(coverage.is_first_party("/x/VexSign/App/iOS/Infrastructure/Persistence/Database/Storage.swift"))
 
     def test_summary_uses_totals_and_sorts_worst_first(self):
         percent, covered, executable, files = coverage.summarise(REPORT)

@@ -6,17 +6,17 @@
   "relocatedFiles": 1322,
   "byteIdenticalOriginals": 895,
   "rewrittenTextOriginals": 480,
-  "addedFiles": 216,
+  "addedFiles": 217,
   "binaryFilesPreserved": 35,
   "licenseAndAttributionFilesPreserved": 10,
   "licenseTexts": [
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt",
+      "path": "VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt",
       "identical": true,
       "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
     },
     {
-      "path": "VexSign/Integrations/EmbeddedContainer/LICENSE",
+      "path": "VexSign/Integrations/LICENSE",
       "identical": true,
       "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
     },
@@ -86,19 +86,19 @@
       "sha256After": "bad58ff37e7ff02379d478cd8d7d2a34ce3c8655e1eaa469da49c5ef69fed473"
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/VexSign.xcdatamodeld/.xccurrentversion",
+      "path": "VexSign/App/iOS/Infrastructure/Persistence/Database/VexSign.xcdatamodeld/.xccurrentversion",
       "identical": true,
       "sha256Before": "8873a68daa8a4feca7c8d321d224635d93a9f16deb99849efc177e3b8c8e96f7",
       "sha256After": "8873a68daa8a4feca7c8d321d224635d93a9f16deb99849efc177e3b8c8e96f7"
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/VexSign.xcdatamodeld/VexSign.xcdatamodel/Contents",
+      "path": "VexSign/App/iOS/Infrastructure/Persistence/Database/VexSign.xcdatamodeld/VexSign.xcdatamodel/Contents",
       "identical": true,
       "sha256Before": "94265505a382283fcda3b0453b950f51bfb9dcacb91a46275bde2a99580599b7",
       "sha256After": "94265505a382283fcda3b0453b950f51bfb9dcacb91a46275bde2a99580599b7"
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Platform/Apple/Files/FileManager+documents.swift",
+      "path": "VexSign/App/iOS/Platform/Apple/Files/FileManager+documents.swift",
       "identical": true,
       "sha256Before": "a8892482e0d2446e8d51ffe09fe0be0e8feeafb5b9eee029daca38aae21fa384",
       "sha256After": "a8892482e0d2446e8d51ffe09fe0be0e8feeafb5b9eee029daca38aae21fa384"
@@ -110,7 +110,7 @@
       "sha256After": "223b15e806b34f7df667a0bfd160a8ceb26190a4d50cfb6b0e33fcb4bc5b7918"
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Settings.bundle/Root.plist",
+      "path": "VexSign/App/iOS/Resources/Settings.bundle/Root.plist",
       "identical": true,
       "sha256Before": "4c1d44916e6a4671330e1885fe120f257cf5b14edd2be93e3560b18ddc0490ca",
       "sha256After": "4c1d44916e6a4671330e1885fe120f257cf5b14edd2be93e3560b18ddc0490ca"
@@ -158,16 +158,17 @@
       "sha256After": "0601866775db83d3dc718aef1d04006a71277d25d7a34f727933e3219fe93d76"
     },
     {
-      "path": "VexSign/Integrations/EmbeddedContainer/inputs.lock.json",
+      "path": "VexSign/Integrations/inputs.lock.json",
       "identical": true,
       "sha256Before": "eb28623d6bd5d82dd8a938ade56e0d25dce7485e75824cc5bdc6b3e79752cfc9",
       "sha256After": "eb28623d6bd5d82dd8a938ade56e0d25dce7485e75824cc5bdc6b3e79752cfc9"
     },
     {
       "path": "VexSign/Packages/AltSourceKit/Package.swift",
-      "identical": true,
+      "identical": false,
       "sha256Before": "eb720efe72243d99f65ac05a0884f07ba5ab67e1df6a7e35fc570715845b81b1",
-      "sha256After": "eb720efe72243d99f65ac05a0884f07ba5ab67e1df6a7e35fc570715845b81b1"
+      "sha256After": "5c1ef23b16188b0035831a1fda97718930e859b30ce5207135207b131b651f12",
+      "reviewedChange": "Explicit flattened Sources path only; module/product/dependencies unchanged"
     },
     {
       "path": "VexSign/Packages/NativeSigning/Package.swift",
@@ -264,15 +265,15 @@
       "includes": [
         {
           "original": "App/iOS/VexSign/Utilities/MachO/MachOUtils.h",
-          "destination": "VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/MachO/MachOUtils.h"
+          "destination": "VexSign/App/iOS/Infrastructure/Archives/IPA/MachO/MachOUtils.h"
         },
         {
           "original": "App/iOS/VexSign/Utilities/iconPoc.h",
-          "destination": "VexSign/App/iOS/VexSign/Platform/Apple/Device/iconPoc.h"
+          "destination": "VexSign/App/iOS/Platform/Apple/Device/iconPoc.h"
         },
         {
           "original": "App/iOS/VexSign/Backend/Companion/EmbeddedContainerRuntime.h",
-          "destination": "VexSign/App/iOS/VexSign/Platform/Compatibility/EmbeddedContainerRuntime.h"
+          "destination": "VexSign/App/iOS/Platform/Compatibility/EmbeddedContainerRuntime.h"
         }
       ],
       "onlyIncludePathsChanged": true
@@ -281,17 +282,17 @@
   "rootCompatibilityAliases": [
     {
       "alias": "icon.png",
-      "canonical": "VexSign/Resources/Assets/Branding/icon.png",
+      "canonical": "VexSign/Resources/Assets/icon.png",
       "identical": true
     },
     {
       "alias": "app-repo.json",
-      "canonical": "VexSign/Resources/Templates/RepositoryMetadata/app-repo.json",
+      "canonical": "VexSign/Resources/Templates/app-repo.json",
       "identical": true
     },
     {
       "alias": "repos.json",
-      "canonical": "VexSign/Resources/Templates/RepositoryMetadata/repos.json",
+      "canonical": "VexSign/Resources/Templates/repos.json",
       "identical": true
     },
     {
@@ -568,143 +569,143 @@
   },
   "originalAppResources": [
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt",
+      "path": "VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/AnisetteServers.json",
+      "path": "VexSign/App/iOS/Resources/AnisetteServers.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/AppIcon.icon/Assets/51106560.png",
+      "path": "VexSign/App/iOS/Resources/Assets/AppIcon.icon/Assets/51106560.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/AppIcon.icon/Assets/vexsign-overlay.png",
+      "path": "VexSign/App/iOS/Resources/Assets/AppIcon.icon/Assets/vexsign-overlay.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/AppIcon.icon/Assets/vexsign.png",
+      "path": "VexSign/App/iOS/Resources/Assets/AppIcon.icon/Assets/vexsign.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/AppIcon.icon/icon.json",
+      "path": "VexSign/App/iOS/Resources/Assets/AppIcon.icon/icon.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/AppIcon.appiconset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/AppIcon.appiconset/vexsign.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/AppIcon.appiconset/vexsign.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/AppIcon.appiconset/vexsign_dark.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/AppIcon.appiconset/vexsign_dark.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/AppIcon.appiconset/vexsign_tint.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/AppIcon.appiconset/vexsign_tint.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/AppLogo.imageset/AppLogo.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/AppLogo.imageset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/AppLogo.imageset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/App_Unknown.imageset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/App_Unknown.imageset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/App_Unknown.imageset/unknown2.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/App_Unknown.imageset/unknown2.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Cert.imageset/Cert.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Cert.imageset/Cert.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Cert.imageset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Cert.imageset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Glyph.imageset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Glyph.imageset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Glyph.imageset/vexsign.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Glyph.imageset/vexsign.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/LaunchLogo.imageset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/LaunchLogo.imageset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/LaunchLogo.imageset/LaunchLogo.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/LaunchLogo.imageset/LaunchLogo.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Repositories.imageset/Contents.json",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Repositories.imageset/Contents.json",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Assets.xcassets/Repositories.imageset/nekofiles_folder.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Assets.xcassets/Repositories.imageset/nekofiles_folder.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/Donor@2x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/Donor@2x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/Donor@3x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/Donor@3x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V0@2x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V0@2x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V0@3x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V0@3x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V1@2x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V1@2x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V1@3x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V1@3x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V1Mac@2x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V1Mac@2x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V1Mac@3x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V1Mac@3x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V2Mac@2x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V2Mac@2x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Main/V2Mac@3x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Main/V2Mac@3x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Wing/Wing@2x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Wing/Wing@2x.png",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Assets/Icons/Wing/Wing@3x.png",
+      "path": "VexSign/App/iOS/Resources/Assets/Icons/Wing/Wing@3x.png",
       "identical": true
     },
     {
@@ -712,35 +713,35 @@
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Launch Screen.storyboard",
+      "path": "VexSign/App/iOS/Resources/Launch Screen.storyboard",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings",
+      "path": "VexSign/App/iOS/Resources/Localization/Localizable.xcstrings",
       "identical": false
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Settings.bundle/Root.plist",
+      "path": "VexSign/App/iOS/Resources/Settings.bundle/Root.plist",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/Settings.bundle/en.lproj/Root.strings",
+      "path": "VexSign/App/iOS/Resources/Settings.bundle/en.lproj/Root.strings",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/WebManager.html",
+      "path": "VexSign/App/iOS/Resources/WebManager.html",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/ellekit.deb",
+      "path": "VexSign/App/iOS/Resources/ellekit.deb",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/interface-feedback.wav",
+      "path": "VexSign/App/iOS/Resources/interface-feedback.wav",
       "identical": true
     },
     {
-      "path": "VexSign/App/iOS/VexSign/Resources/vexsign_extension.png",
+      "path": "VexSign/App/iOS/Resources/vexsign_extension.png",
       "identical": true
     }
   ],
@@ -933,14 +934,14 @@
       ]
     },
     "currentFlaggedFiles": {
-      "VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift": [
+      "VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift": [
         {
           "line": 898,
           "kind": "!",
           "signature": "!:model.status = .completed(.success(()))"
         }
       ],
-      "VexSign/App/iOS/VexSign/Infrastructure/Networking/WebManager/WebManagerServer.swift": [
+      "VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer.swift": [
         {
           "line": 509,
           "kind": "!",
@@ -957,7 +958,7 @@
           "signature": "!:return request.eventLoop.makeSucceededFuture(())"
         }
       ],
-      "VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchJobRunner.swift": [
+      "VexSign/App/iOS/Infrastructure/Tasks/BatchJobRunner.swift": [
         {
           "line": 133,
           "kind": "!",
@@ -974,7 +975,7 @@
           "signature": "!:return .success(())"
         }
       ],
-      "VexSign/App/iOS/VexSign/Infrastructure/Updates/UpdateAllManager.swift": [
+      "VexSign/App/iOS/Infrastructure/Updates/UpdateAllManager.swift": [
         {
           "line": 229,
           "kind": "!",
@@ -986,14 +987,14 @@
           "signature": "!:return .success(())"
         }
       ],
-      "VexSign/App/iOS/VexSign/Platform/Apple/Files/CoordinatedIncomingFilesAdapter.swift": [
+      "VexSign/App/iOS/Platform/Apple/Files/CoordinatedIncomingFilesAdapter.swift": [
         {
           "line": 45,
           "kind": "!",
           "signature": "!:return .success(())"
         }
       ],
-      "VexSign/App/iOS/VexSign/Presentation/Features/Downloads/Views/DownloadOverlaySheetViewController.swift": [
+      "VexSign/App/iOS/Presentation/Features/Downloads/Views/DownloadOverlaySheetViewController.swift": [
         {
           "line": 36,
           "kind": "ERROR",

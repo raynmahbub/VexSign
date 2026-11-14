@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-VEXSIGN = ROOT / "VexSign/App/iOS/VexSign"
+VEXSIGN = ROOT / "VexSign/App/iOS"
 
 
 def _strip_comments(text: str) -> str:
@@ -109,7 +109,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
 
     def test_refactored_views_no_longer_hold_network_persistence_or_business_logic(self) -> None:
         strict_view_checks: dict[str, tuple[str, ...]] = {
-            "VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/DirectInstallSheet.swift": (
+            "VexSign/App/iOS/Presentation/Features/Library/Views/DirectInstallSheet.swift": (
                 "URLSession.shared",
                 "FileManager.default",
                 "AppOperationRegistry.shared",
@@ -119,13 +119,13 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 "FR.handlePackageFile",
                 "UIAlertController",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Files/Views/IPSWBrowserView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Files/Views/IPSWBrowserView.swift": (
                 "URLSession.shared",
                 "FileManager.default",
                 "BackgroundTaskManager",
                 "IPSWBrowser.",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Settings/Views/Reset/ResetView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Settings/Views/Reset/ResetView.swift": (
                 "static func ",
                 "Storage.shared",
                 "TweakManager.shared",
@@ -134,24 +134,24 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 "UIApplication.shared",
                 "import Nuke",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Updates/Views/FavoritesAndAutoUpdatesSettingsView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Updates/FavoritesAndAutoUpdatesSettingsView.swift": (
                 "import CoreData",
                 "@FetchRequest",
                 "Storage.shared",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Settings/Views/Security/HiddenAppsSettingsView.swift": (
-                "import CoreData",
-                "@FetchRequest",
-                "AppLockManager.shared",
-                "Storage.shared",
-            ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Settings/Views/Security/SpecificAppLockSettingsView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Settings/Views/Security/HiddenAppsSettingsView.swift": (
                 "import CoreData",
                 "@FetchRequest",
                 "AppLockManager.shared",
                 "Storage.shared",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/About/Views/DiagnosticsCenterView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Settings/Views/Security/SpecificAppLockSettingsView.swift": (
+                "import CoreData",
+                "@FetchRequest",
+                "AppLockManager.shared",
+                "Storage.shared",
+            ),
+            "VexSign/App/iOS/Presentation/Features/About/DiagnosticsCenterView.swift": (
                 "import CoreData",
                 "@FetchRequest",
                 "CredentialMigrationDiagnostics.shared",
@@ -160,12 +160,12 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 "DiagnosticBundleExporter",
                 "UIActivityViewController",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Downloads/Views/DownloadsTabView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Downloads/Views/DownloadsTabView.swift": (
                 "contentsOfDirectory",
                 "UIPasteboard.general",
                 "UIApplication.open",
             ),
-            "VexSign/App/iOS/VexSign/Presentation/Features/Accounts/Views/AnisetteProviderConfigView.swift": (
+            "VexSign/App/iOS/Presentation/Features/Accounts/Views/AnisetteProviderConfigView.swift": (
                 "HTTPSAnisetteProvider",
                 "NativeV3AnisetteProvider",
                 "AnisetteServerCatalog.bundled",

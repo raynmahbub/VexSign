@@ -24,11 +24,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-SIGNING_STAGES = ROOT / "VexSign/App/iOS/VexSign/Domain/Enums/SigningStage.swift"
-TASK_TRACE = ROOT / "VexSign/App/iOS/VexSign/Domain/Entities/TaskSigningTrace.swift"
-JOURNAL = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskHistoryJournal.swift"
-MODELS = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskModels.swift"
-TASK_CENTER = ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Tasks/Views/TaskCenterView.swift"
+SIGNING_STAGES = ROOT / "VexSign/App/iOS/Domain/Enums/SigningStage.swift"
+TASK_TRACE = ROOT / "VexSign/App/iOS/Domain/Entities/TaskSigningTrace.swift"
+JOURNAL = ROOT / "VexSign/App/iOS/Infrastructure/Tasks/TaskHistoryJournal.swift"
+MODELS = ROOT / "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskModels.swift"
+TASK_CENTER = ROOT / "VexSign/App/iOS/Presentation/Features/Tasks/Views/TaskCenterView.swift"
 
 # Append only. These strings are in every task record ever written.
 FROZEN_STAGES = [
@@ -122,7 +122,7 @@ class TaskHistoryResilienceTests(unittest.TestCase):
     # ---- The user is told ---------------------------------------------------------------
 
     def test_every_journal_issue_has_a_message(self) -> None:
-        source = (ROOT / "VexSign/App/iOS/VexSign/Domain/Enums/TaskHistoryIssue.swift").read_text()
+        source = (ROOT / "VexSign/App/iOS/Domain/Enums/TaskHistoryIssue.swift").read_text()
         names = [name.strip() for line in re.findall(r"case ([\w, ]+)\n", source) for name in line.split(",")]
         self.assertTrue(names)
         centre = TASK_CENTER.read_text()

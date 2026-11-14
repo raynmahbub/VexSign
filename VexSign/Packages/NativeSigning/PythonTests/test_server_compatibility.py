@@ -97,8 +97,8 @@ class ServerCompatibilityPreparationTests(unittest.TestCase):
             module.verify(self.work, review)
 
     def test_real_callers_keep_https_guard_and_distinct_server_policy(self):
-        installer = (module.ROOT / 'VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/TLS/ServerInstaller+TLS.swift').read_text()
-        manager = (module.ROOT / 'VexSign/App/iOS/VexSign/Infrastructure/Networking/WebManager/WebManagerServer.swift').read_text()
+        installer = (module.ROOT / 'VexSign/App/iOS/Infrastructure/Devices/Installation/TLS/ServerInstaller+TLS.swift').read_text()
+        manager = (module.ROOT / 'VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer.swift').read_text()
         self.assertIn('guard let configuration = try tls() else { throw LocalInstallError.missingTLS }', installer)
         self.assertIn('transport = .https(configuration)', installer)
         self.assertLess(installer.index('transport = .https(configuration)'), installer.index('ServerApplicationFactory.make'))

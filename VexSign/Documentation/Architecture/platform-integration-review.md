@@ -4,11 +4,11 @@ This is a partial engineering review of checkout `f05d4a1bd0fc7b27d9013e30187020
 
 ## Repository map
 
-- iOS application and SwiftUI presentation: `VexSign/App/iOS/VexSign/`; Core Data storage: `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Database/`. The project has VexSign, TV, visionOS, watch, widget and test targets. The iOS deployment target is 17.0; the CI workflow notes an iOS 26 SDK requirement.
-- Signing: existing `VexSign/App/iOS/VexSign/FR+Signing.swift`, signing handlers and vendored `VexSign/Packages/Vendor/Zsign`; `VexSign/Packages/NativeSigning/` adds account, identity, profile and output-verification components. Its account handoff is explicitly gated and does not itself replace normal signing.
+- iOS application and SwiftUI presentation: `VexSign/App/iOS/`; Core Data storage: `VexSign/App/iOS/Infrastructure/Persistence/Database/`. The project has VexSign, TV, visionOS, watch, widget and test targets. The iOS deployment target is 17.0; the CI workflow notes an iOS 26 SDK requirement.
+- Signing: existing `VexSign/App/iOS/FR+Signing.swift`, signing handlers and vendored `VexSign/Packages/Vendor/Zsign`; `VexSign/Packages/NativeSigning/` adds account, identity, profile and output-verification components. Its account handoff is explicitly gated and does not itself replace normal signing.
 - Sources and discovery: `SourcesViewModel`, `SourceFeedLoader`, `RepositorySnapshotCache`, `DiscoveryViewModel`, `AppUpdateChecker`. A separate `RepositorySyncEngine` and SQLite `EcosystemDatabase` exist for repository-builder/ecosystem flows; these are distinct cache paths and are not evidence of a unified source service.
 - Downloads/import: `DownloadManager`, `DownloadIntegrity`, and storage import handlers; signing and installation report into `UnifiedTaskCenter` in some workflows. A universal task integration has not been established.
-- Security-sensitive storage: `VexSign/App/iOS/VexSign/` and `VexSign/Packages/NativeSigning/Security/`; archive handling and safety policy live under `VexSign/App/iOS/VexSign/`. Backups, device flows, external runtimes and installation have existing implementations, but their complete end-to-end behavior was not audited here.
+- Security-sensitive storage: `VexSign/App/iOS/` and `VexSign/Packages/NativeSigning/Security/`; archive handling and safety policy live under `VexSign/App/iOS/`. Backups, device flows, external runtimes and installation have existing implementations, but their complete end-to-end behavior was not audited here.
 - Existing CI includes `.github/workflows/ci.yml`, `platform-check.yml`, `services.yml` and `release.yml`. `make verify` covers portable project and policy checks. Swift/Xcode builds and simulator tests require a macOS runner.
 
 ## Implementation map

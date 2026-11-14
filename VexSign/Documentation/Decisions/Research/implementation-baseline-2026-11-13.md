@@ -31,7 +31,7 @@ command completed; it is not a claim that a missing platform toolchain ran.
 | `make verify` | exit 0; portable VexSign/Documentation/policy/project/graph/localization/error/singleton/concurrency/native-handoff/CMS/workflow checks passed; `swiftc not found - Swift syntax check skipped` advisory; NativeSigning Python 74 OK; EmbeddedContainer Python 31 OK |
 | `python3 -m unittest discover -s tools -p 'test_*.py'` | 298 OK |
 | `python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v` | 74 OK |
-| `python3 -m unittest discover -s VexSign/Integrations/EmbeddedContainer/tests -v` | 31 OK |
+| `python3 -m unittest discover -s VexSign/Integrations/tests -v` | 31 OK |
 | `/tmp/vexvenv/bin/python -m pytest -q VexSign/Services/WebManager/Tests` | exit 0, `179 passed, 1 skipped` (one Starlette/httpx deprecation warning) |
 | `cd cloud-signing && npm ci --no-audit --no-fund && npm test` | exit 0; 178 packages installed; 14 pass / 0 fail / 0 skipped |
 | `grep -rInE 'TODO|FIXME|XXX' --include='*.swift' VexSign \| wc -l` | 0 |
@@ -57,12 +57,12 @@ The current-HEAD push run `43513058621` (`c67fab28`, 2026-11-13T21:42:22Z) had:
 Check-run annotations for jobs `132189888675` and `132189888809` identified two
 Swift 6 compile errors, not a flaky macOS runner:
 
-1. `VexSign/App/iOS/VexSign/Application/Accounts/AnisetteProviderUseCase.swift:14` —
+1. `VexSign/App/iOS/Application/Accounts/AnisetteProviderUseCase.swift:14` —
    `main actor-isolated static property 'shared' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode`.
    The default argument `factory: AnisetteProviderFactory = .shared` is evaluated
    outside the `@MainActor` initializer context while `AnisetteProviderFactory.shared`
    is `@MainActor`-isolated.
-2. `VexSign/App/iOS/VexSign/Application/Shared/DeepLinkRouterUseCase.swift:233` —
+2. `VexSign/App/iOS/Application/Shared/DeepLinkRouterUseCase.swift:233` —
    `type 'String' does not conform to protocol 'Error'`.
    `copyCoordinatedFile(...) -> Result<Void, String>` uses `String` as the
    `Failure` type; Swift 6 requires `Failure: Error`.
@@ -98,13 +98,13 @@ malformed-port test in `VexSign/Services/WebManager/Tests` at baseline.
 
 ## Other baseline findings carried into implementation
 
-- `VexSign/App/iOS/VexSign/Infrastructure/ManifestService.resolve` returns `candidates.first`
+- `VexSign/App/iOS/Infrastructure/ManifestService.resolve` returns `candidates.first`
   when no endpoint serves. The only call site is
-  `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift:409`; the resulting external
+  `VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift:409`; the resulting external
   install URL is used by `ServerInstaller+Compute.iTunesLinkExternal`. This is
   a candidate defect: a failed remote-manifest probe should not silently fall
   back to an unrelated endpoint. It needs a test before any behavior change.
-- `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallConfirmation.swift:520` contains
+- `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallConfirmation.swift:520` contains
   `try? await Task.sleep(...)`. The enclosing `confirm`/monitor loops check
   `Task.isCancelled`, and a cancelled sleep returns promptly; this is an
   unverified cancellation candidate, not a confirmed bug.
@@ -114,7 +114,7 @@ malformed-port test in `VexSign/Services/WebManager/Tests` at baseline.
   pinned Apple roots and strict fail-closed checks. Do not promote the feature
   without genuine Apple CMS, negative/tamper, signing and physical-device
   evidence.
-- The release workflow publishes an **unsigned** IPA. `VexSign/Documentation/Workflows/Distribution/bootstrap.md`
+- The release workflow publishes an **unsigned** IPA. `VexSign/Documentation/Workflows/bootstrap.md`
   correctly says an ordinary iOS app cannot self-install from an unsigned IPA;
   TestFlight, Ad Hoc, Enterprise, MDM and eligible marketplace routes require
   external signing/eligibility. The experimental free-account path is gated and

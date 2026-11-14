@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
-import { seal } from '../../Security/Authentication/security.js';
+import { seal } from '../../Security/security.js';
 import type { SignRequest } from '../../API/DTOs/contracts.js';
 
 export class APIError extends Error {

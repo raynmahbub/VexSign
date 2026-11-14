@@ -39,22 +39,22 @@ other nine areas are harder to trust, so it was fixed first.
 compiles six files copied **byte-for-byte out of the app target**:
 
 ```
-VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccountAuthenticationState.swift
-VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccountSessionCoordinator.swift
-VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccountSessionRepository.swift
-VexSign/App/iOS/VexSign/Security/Secrets/AppleAccountCredentialStore.swift
-VexSign/App/iOS/VexSign/Security/Secrets/AppleAccountResumeJournalStore.swift
-VexSign/App/iOS/VexSign/Security/Storage/AppleAccountStorageRuntimePolicy.swift
+VexSign/App/iOS/Infrastructure/Accounts/AppleAccountAuthenticationState.swift
+VexSign/App/iOS/Infrastructure/Accounts/AppleAccountSessionCoordinator.swift
+VexSign/App/iOS/Infrastructure/Accounts/AppleAccountSessionRepository.swift
+VexSign/App/iOS/Security/Secrets/AppleAccountCredentialStore.swift
+VexSign/App/iOS/Security/Secrets/AppleAccountResumeJournalStore.swift
+VexSign/App/iOS/Security/Storage/AppleAccountStorageRuntimePolicy.swift
 ```
 
 `swift test --package-path .build/native-signing-smoke` runs in `embedded-container.yml`, and
 `VexSign/Packages/NativeSigning/Tests/NativeAccountBackendTests.swift` exercises those files. But the workflow's
-`push`/`pull_request` path filters listed `VexSign/App/iOS/VexSign/AppleAccount*.swift` and **not**
-`VexSign/App/iOS/VexSign/Infrastructure/AppleAccount*.swift`.
+`push`/`pull_request` path filters listed `VexSign/App/iOS/AppleAccount*.swift` and **not**
+`VexSign/App/iOS/Infrastructure/AppleAccount*.swift`.
 
 Matching the copied list against the filters with `fnmatch` gave three files covered and three not
 covered. So a pull request touching only `AppleAccountSessionCoordinator.swift` ran `ci.yml`
-(whose `VexSign/App/iOS/VexSign/**` filter runs no native test at all) and skipped the one job that compiles the
+(whose `VexSign/App/iOS/**` filter runs no native test at all) and skipped the one job that compiles the
 file it changed. The structural cause is that the copied-file list lives in Python and the trigger
 list lives in YAML, with nothing tying them together.
 
@@ -63,7 +63,7 @@ job runs `-scheme VexSignTests` only.
 
 ### Fix
 
-* `.github/workflows/embedded-container.yml` — added `VexSign/App/iOS/VexSign/Infrastructure/AppleAccount*.swift`
+* `.github/workflows/embedded-container.yml` — added `VexSign/App/iOS/Infrastructure/AppleAccount*.swift`
   to both the `push` and `pull_request` filters.
 * `VexSign/Tools/Validation/repository-validation/test_workflow_policy.py` — two tests. The first **derives** the copied-app-file list from
   `prepare_smoke.py` by parsing it, checks each file exists, and asserts every one is matched by a
@@ -96,7 +96,7 @@ Three files still touch private API. Two were already correct:
 * `VexSign/Packages/NimbleKit/.../NBVariableBlurView.swift` is public-API only (`UIVisualEffectView` with
   `.systemMaterial`, gradient-mask fallback to `effectView.mask = nil`) and is already pinned by
   `VexSign/Tools/Validation/security-validation/test_public_blur_policy.py`.
-* `VexSign/App/iOS/VexSign/Platform/Apple/Device/MobileGestalt.swift` resolves `MGCopyAnswer` through `dlopen`/`dlsym`, closes
+* `VexSign/App/iOS/Platform/Apple/Device/MobileGestalt.swift` resolves `MGCopyAnswer` through `dlopen`/`dlsym`, closes
   the handle in `deinit`, and returns `nil` when the symbol is absent.
 
 The third, `UIApplication+open_private.swift`, had two defects:
@@ -123,7 +123,7 @@ The third, `UIApplication+open_private.swift`, had two defects:
   `openApplicationWithBundleID:`, and dispatches that selector through its real calling convention
   (`@convention(c) (AnyObject, Selector, NSString) -> Void`) rather than `perform(_:with:)`, which
   would reinterpret the method's primitive `BOOL` return as an object pointer.
-* **`VexSign/App/iOS/VexSign/Platform/Apple/Device/AppLauncher.swift`** (new) is the adapter every user-facing launch goes
+* **`VexSign/App/iOS/Platform/Apple/Device/AppLauncher.swift`** (new) is the adapter every user-facing launch goes
   through. It reports an empty identifier and an unavailable private API with `Toast.error`, so a
   `false` reaches a person instead of being dropped.
 * `InstallCardView.swift`, `InstallQueueWindow.swift` (two sites) and `LibraryCellView.swift` now
@@ -515,7 +515,7 @@ The candidate was `EmbeddedContainerRuntime.stageIPA`, which copies the IPA into
 `Caches/VexSignEmbeddedImports/<uuid>/Import.ipa`, validates it, hands the path to the host, and
 then deletes the whole staging directory in a `defer`. If the host retained only the path, that
 would be a use-after-delete. It does not: `VEXEmbeddedRuntimeStageIPA` is a synchronous
-`objc_msgSend` into `LCSharedUtils.vexSignStageIPA:` (`VexSign/Integrations/EmbeddedContainer/patches/combined-host.patch:58`),
+`objc_msgSend` into `LCSharedUtils.vexSignStageIPA:` (`VexSign/Integrations/patches/combined-host.patch:58`),
 which — inside `@synchronized(self)` — canonicalizes and resolves symlinks, requires the path to be
 a regular `.ipa` **inside** the resolved home directory, refuses if an import is already pending,
 copies the file into `Documents/Inbox/VexSign-<uuid>.ipa`, persists that path in
@@ -544,15 +544,15 @@ Production (9 files, +186/−13):
 |------|--------|
 | `.github/workflows/embedded-container.yml` | +2 path filters (`push` and `pull_request`) for the app files the smoke package compiles |
 | `VexSign/Packages/NimbleKit/.../UIApplication+open_private.swift` | `openApp` guards both selectors, dispatches through `@convention(c)`, returns `Bool`, `@discardableResult` |
-| `VexSign/App/iOS/VexSign/Platform/Apple/Device/AppLauncher.swift` | **New** adapter; reports launch failure to the user |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Install/InstallCardView.swift` | Launch through `AppLauncher` |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Install/InstallQueueWindow.swift` | Launch through `AppLauncher` (2 sites) |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/LibraryCellView.swift` | Launch through `AppLauncher` |
-| `VexSign/App/iOS/VexSign/Security/Archives/ArchiveSafetyValidator.swift` | Duplicate-destination detection + `.duplicateEntry(String)` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift` | `nestedBundleFolders` gains `Watch` |
+| `VexSign/App/iOS/Platform/Apple/Device/AppLauncher.swift` | **New** adapter; reports launch failure to the user |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Install/InstallCardView.swift` | Launch through `AppLauncher` |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Install/InstallQueueWindow.swift` | Launch through `AppLauncher` (2 sites) |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/LibraryCellView.swift` | Launch through `AppLauncher` |
+| `VexSign/App/iOS/Security/Archives/ArchiveSafetyValidator.swift` | Duplicate-destination detection + `.duplicateEntry(String)` |
+| `VexSign/App/iOS/Infrastructure/Signing/Verification/SignatureVerifier.swift` | `nestedBundleFolders` gains `Watch` |
 | `VexSign/Packages/SideSign/Sources/Certificates/PKCS12Parser.swift` | Reject an absent/empty private key; stop double-wrapping `CertificateError` |
 
-Plus `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings` (3 keys added by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write`)
+Plus `VexSign/App/iOS/Resources/Localization/Localizable.xcstrings` (3 keys added by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write`)
 and `Makefile` (2 new gates wired into `verify`).
 
 Tests and gates (5 files, +263):
@@ -705,6 +705,6 @@ These extend the 20 acceptance steps in the first report. None of them has been 
    cleanup, and import on the next host launch. Staging a second IPA before the first is consumed
    must be refused, not queued silently.
 7. **Area 10 — CI.** From a branch, change only
-   `VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccountSessionCoordinator.swift` and open a pull request.
+   `VexSign/App/iOS/Infrastructure/Accounts/AppleAccountSessionCoordinator.swift` and open a pull request.
    `embedded-container.yml` must now appear in the check list and run
    `swift test --package-path .build/native-signing-smoke`. Before this fix it did not.

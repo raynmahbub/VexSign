@@ -7,7 +7,7 @@ download stack was restructured.
 
 ## What was wrong
 
-`VexSign/App/iOS/VexSign/App/Lifecycle/AppDelegate+BackgroundTasks.swift` had two writers for one `BGTask`
+`VexSign/App/iOS/App/Lifecycle/AppDelegate+BackgroundTasks.swift` had two writers for one `BGTask`
 completion:
 
 | Handler | Expiration handler | Worker |
@@ -36,7 +36,7 @@ three handlers were the remaining instances.
 
 ## What changed
 
-New, testable pieces in `VexSign/App/iOS/VexSign/Infrastructure/`:
+New, testable pieces in `VexSign/App/iOS/Infrastructure/`:
 
 - `BackgroundTaskCompletionGate` — the only caller of `setTaskCompleted`.
   First `finish(success:)` wins; later attempts are counted and dropped.

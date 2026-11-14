@@ -17,7 +17,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[4]
-SOURCES = ROOT / "VexSign/App/iOS/VexSign"
+SOURCES = ROOT / "VexSign/App/iOS"
 VALIDATOR = SOURCES / "Security/Archives/ArchiveSafetyValidator.swift"
 
 # The calls that write an untrusted archive to disk.

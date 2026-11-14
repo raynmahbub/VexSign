@@ -13,7 +13,7 @@ involved. Statements about LiveContainer come from reading its code, not from ru
 | --- | --- | --- |
 | **A. Native VexSign** | The ordinary app: import, sign, install to a device, manage a library, talk to repositories. | Anyone with the ordinary IPA. |
 | **B. Signed application** | The result VexSign produces. A signed IPA installs on a provisioned device via `installd`/OTA. Signing does **not** make an app runnable inside VexSign. | Devices covered by the profile. |
-| **C. External execution environment** | LiveContainer, built as a combined host with VexSign inside it (`VexSign/Integrations/EmbeddedContainer/build.py`). The guest runs inside the host process, not as an installed app. | Only the combined package, on a device that can install it. |
+| **C. External execution environment** | LiveContainer, built as a combined host with VexSign inside it (`VexSign/Integrations/build.py`). The guest runs inside the host process, not as an installed app. | Only the combined package, on a device that can install it. |
 | **D. Restricted** | Launching arbitrary executables, JIT without an authorised mechanism, inventing entitlements, silent installation, unlimited free-account provisioning, indefinite background execution. | Nobody, through public APIs. |
 
 The line that matters: **B does not imply C**. An IPA VexSign signed is a candidate for `installd`;
@@ -46,7 +46,7 @@ needs the combined host; **restricted** = not implementable through public APIs.
 ## LiveContainer interoperability findings
 
 VexSign's integration with LiveContainer is **embedding, not cooperation**: the combined package
-builds the upstream targets from a pinned commit (`VexSign/Integrations/EmbeddedContainer/inputs.lock.json`,
+builds the upstream targets from a pinned commit (`VexSign/Integrations/inputs.lock.json`,
 `9108ae624ea001f7d7696d48407f890b48fa2653`) and reproduces the upstream packaging layout.
 
 What that means for an external, independently installed LiveContainer:
@@ -83,7 +83,7 @@ installed or runnable app.
 
 ## What this pass implemented
 
-`RuntimeCapabilityReport` (`VexSign/App/iOS/VexSign/Platform/`) turns the three flags that used to be
+`RuntimeCapabilityReport` (`VexSign/App/iOS/Platform/`) turns the three flags that used to be
 read one at a time — `isGuestBuild`, `isPrimaryHost`, `VEXEmbeddedRuntimeAvailable()` — into one
 table: environment plus every runtime operation with an honest reason when it is unavailable.
 
@@ -131,7 +131,7 @@ documented value shapes.
 ## Device testing still required
 
 Everything in model C. The combined host has never been device-accepted (`VexSign/Documentation/DeviceTesting/DEVICE_TESTING.md`
-holds the ladders, and `VexSign/Integrations/EmbeddedContainer/README.md` says the same in its own words): guest import
+holds the ladders, and `VexSign/Integrations/README.md` says the same in its own words): guest import
 of a small test IPA, a 32-bit guest, an encrypted guest (must be refused), a guest whose tweak
 loader cannot be injected, session switching both ways, and a relaunch afterwards.
 
@@ -143,4 +143,4 @@ loader cannot be injected, session switching both ways, and a relaunch afterward
 - `RuntimeCapabilityReport` is currently surfaced only in diagnostics; the settings screen still
   reads the flags directly for its buttons.
 - Native-primary self-update, native archive handling and dyld compatibility remain unvalidated
-  beyond the structural tests listed in `VexSign/Integrations/EmbeddedContainer/README.md`.
+  beyond the structural tests listed in `VexSign/Integrations/README.md`.

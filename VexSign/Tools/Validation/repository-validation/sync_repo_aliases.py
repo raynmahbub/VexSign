@@ -15,9 +15,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 ALIASES = (
-    ("VexSign/Resources/Assets/Branding/icon.png", "icon.png"),
-    ("VexSign/Resources/Templates/RepositoryMetadata/app-repo.json", "app-repo.json"),
-    ("VexSign/Resources/Templates/RepositoryMetadata/repos.json", "repos.json"),
+    ("VexSign/Resources/Assets/icon.png", "icon.png"),
+    ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
+    ("VexSign/Resources/Templates/repos.json", "repos.json"),
     ("VexSign/Configuration/Signing/license_plist.yml", "license_plist.yml"),
     ("VexSign/Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )

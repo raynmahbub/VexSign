@@ -17,7 +17,7 @@ A plain clone is enough. The signing engine and device bridge are vendored
 under [`VexSign/Packages/Vendor/`](../../Packages/Vendor/README.md); other packages resolve through SwiftPM.
 
 The Xcode workspace/project remain at the repository root. Main project content
-is under `VexSign/`; app sources are `VexSign/App/iOS/VexSign/` and synchronized
+is under `VexSign/`; app sources are `VexSign/App/iOS/` and synchronized
 test sources are `VexSign/Tests/`. Build/signing/entitlement inputs are under
 `VexSign/Configuration/`. Preserve synchronized membership exceptions and bundled
 resources when moving files; do not add an extra source-root wrapper in Xcode.
@@ -182,7 +182,7 @@ python -m pip install -r VexSign/Services/WebManager/Configuration/requirements.
 make test-server
 
 # Cloud: Node 22; npm ci respects the committed lockfile.
-(cd cloud-signing && npm ci)
+(cd VexSign/Services/Cloud && npm ci)
 make test-cloud
 ```
 
@@ -206,9 +206,12 @@ compile syntax without importing/running code; shell checks use `bash -n`.
 Generated/untracked ignored trees are not inventoried. The checker includes its
 own offline regressions (`quick_check.py --self-test`), with no extra workflow.
 
-SwiftPM `Sources/<target>`, Xcode workspace/project metadata and pinned `VexSign/Packages/Vendor/`
-layouts are intentional exceptions: GitHub may still compact those in its browser.
-Do not flatten required tool layouts or add placeholder files just to hide arrows.
+The [repository-wide audit](../Architecture/repository-layout-audit.md) records
+every flattened wrapper and the four exact retained Xcode/vendored-tool edges.
+There are no blanket feature-role, service, resource or vendor exemptions.
+`AltSourceKit` uses `path: "Sources"` for its unchanged module after flattening;
+NimbleKit's multi-target `Sources/` and the vendored default target layout remain.
+Do not flatten tool-owned metadata or add placeholder files just to hide arrows.
 Swift syntax parsing remains in CI's Swift container; full SDK builds, simulator
 results and [physical-device acceptance](../DeviceTesting/DEVICE_TESTING.md) remain separate gates.
 No static check can guarantee a perfect build on every Xcode/device combination.
@@ -217,7 +220,7 @@ No static check can guarantee a perfect build on every Xcode/device combination.
 Developer entry points are grouped in `VexSign/Tools/`: `bootstrap.sh`, `device-smoke.sh`,
 `update-repo.sh`, verification tools and their tests. Prefer `make help` for the
 supported commands; no generated files or placeholder directory markers belong
-in these folders. Presentation graphics belong in `VexSign/Documentation/Features/Design/assets/`. Root `icon.png`
+in these folders. Presentation graphics belong in `VexSign/Documentation/Features/assets/`. Root `icon.png`
 and repository feeds are retained as published compatibility URLs; `render.yaml`
 and `license_plist.yml` remain where their consumers discover them.
 
@@ -250,7 +253,7 @@ manual-only and does not replace ordinary VexSign releases or implement the fina
 VexSign-primary architecture. New combined test artifacts retain for **14 days**;
 logs retain for **3 days**. The artifact contains the IPA, integration sources,
 `.build.json` metadata and `.checksums.txt`. Follow the
-[combined-build instructions](../../Integrations/EmbeddedContainer/README.md) for re-signing,
+[combined-build instructions](../../Integrations/README.md) for re-signing,
 first-run setup and physical-device acceptance. A successful build or an
 **Imported guest** badge does not prove a device installation, guest launch,
 Apple login or renewal.

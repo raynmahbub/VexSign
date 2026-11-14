@@ -6,14 +6,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/Integrations/EmbeddedContainer/**'
-      - 'VexSign/App/iOS/VexSign/Platform/Apple/Device/PrimaryHostEntry.swift'
+      - 'VexSign/Integrations/**'
+      - 'VexSign/App/iOS/Platform/Apple/Device/PrimaryHostEntry.swift'
       - 'VexSign/Configuration/Build/iOS/Info.plist'
       - 'VexSign.xcodeproj/**'
       - 'VexSign/Packages/NativeSigning/**'
       - 'VexSign/Packages/SideSign/Sources/**'
-      - 'VexSign/App/iOS/VexSign/Security/Secrets/AppleAccount*.swift'
-      - 'VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccount*.swift'
+      - 'VexSign/App/iOS/Security/Secrets/AppleAccount*.swift'
+      - 'VexSign/App/iOS/Infrastructure/Accounts/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/quick_check.py'
@@ -27,14 +27,14 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/Integrations/EmbeddedContainer/**'
-      - 'VexSign/App/iOS/VexSign/Platform/Apple/Device/PrimaryHostEntry.swift'
+      - 'VexSign/Integrations/**'
+      - 'VexSign/App/iOS/Platform/Apple/Device/PrimaryHostEntry.swift'
       - 'VexSign/Configuration/Build/iOS/Info.plist'
       - 'VexSign.xcodeproj/**'
       - 'VexSign/Packages/NativeSigning/**'
       - 'VexSign/Packages/SideSign/Sources/**'
-      - 'VexSign/App/iOS/VexSign/Security/Secrets/AppleAccount*.swift'
-      - 'VexSign/App/iOS/VexSign/Infrastructure/Accounts/AppleAccount*.swift'
+      - 'VexSign/App/iOS/Security/Secrets/AppleAccount*.swift'
+      - 'VexSign/App/iOS/Infrastructure/Accounts/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/quick_check.py'
@@ -129,9 +129,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            ${{ runner.temp }}/App/iOS/VexSign/SourcePackages
+            ${{ runner.temp }}/VexSign/SourcePackages
             ~/Library/Caches/org.swift.swiftpm
-          key: spm-combined-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'VexSign/Integrations/EmbeddedContainer/inputs.lock.json', 'VexSign/Packages/NativeSigning/inputs.lock.json') }}
+          key: spm-combined-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'VexSign/Integrations/inputs.lock.json', 'VexSign/Packages/NativeSigning/inputs.lock.json') }}
       - name: Install packaging tool
         run: command -v ldid >/dev/null 2>&1 || brew install ldid
       - name: Native unit regressions (synthetic accounts only)
@@ -196,7 +196,7 @@ jobs:
           HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
           set -uo pipefail
-          python3 VexSign/Integrations/EmbeddedContainer/build.py --mode "$HOST_MODE" \
+          python3 VexSign/Integrations/build.py --mode "$HOST_MODE" \
             --vexsign-ipa "packages/VexSign-${{ steps.native_input.outputs.app_version }}.ipa" \
             2>&1 | tee "$RUNNER_TEMP/combined-build.log"
           status=$?

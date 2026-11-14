@@ -1,6 +1,47 @@
 # Feature-oriented source migration
 
-## Current signing/library follow-up
+## Repository-wide wrapper cleanup
+
+The current [repository layout audit](repository-layout-audit.md) extends the
+platform pass below to all source, service, package, resource, documentation,
+test, tool and configuration owners. Twelve further project-owned wrappers are
+flattened; only four exact Xcode/vendored-tool wrapper chains remain. Multi-child
+parents, target/module identities, dependency locks and original migration
+hashes are retained. The audit records every changed directory, current
+validation and the unavailable Apple/Docker checks.
+
+## Platform-root flattening (initial pass checkpoint)
+
+Starting from `9513903b3f9604b8d8ce2d5e78d6eb6c46922c93`, app sources and assets
+live directly in `VexSign/App/{iOS,TV,Vision,WidgetExtension}/`. Redundant
+app-name directories and the widget's `Extensions` wrapper are removed.
+`VexSign/App/Watch/{VexSignWatch,VexSignWatchWidgets}/` and
+`VexSign/App/SharedPlatformInfo/` remain at their existing paths.
+
+The four moves retain all **806 files**: 805 are byte-identical; the only content
+edit inside the moved trees updates a source-path comment. Target/product names,
+bundle identifiers, schemes, membership exceptions and runtime behavior are
+unchanged. Xcode synchronized roots, all four iOS resource-library search paths
+and bridge-relative includes follow the flattened layout. Plists, entitlements
+and the bridge header remain centralized under `VexSign/Configuration/`.
+CI filters, lint/coverage settings, preparation/source-reading fixtures,
+documentation and path-based baselines use the new roots. Package-download
+caches used by `make` follow its runner-local `VexSign/SourcePackages` directory,
+not the source-tree layout. New layout regressions reject the removed wrappers.
+
+Validation for this follow-up: `make verify`, portable Xcode metadata/input
+checks and the original-Git preservation audit pass. The optional Swift grammar
+comparison retains 25 pre-existing findings with no new signatures; it is not
+Swift type checking. **No Apple build or `make test`/XCTest was run: macOS/Xcode
+are unavailable here.** Earlier revision-specific CI/device results below do not
+verify this layout follow-up.
+
+The migration JSON retains its original revision, branch, original paths and
+all 1,375 before-hashes as provenance; current destinations and derived evidence
+follow the flattened tree. The separate root-layout history describes its older
+stage and is not a current-path consumer.
+
+## Signing/library checkpoint
 
 The signing/library commit `bf063e7`, based on `8daf7e7`, contains the
 [signing/library reliability follow-up](signing-library-reliability.md), including
@@ -58,7 +99,7 @@ Rerun the audit after further edits.
 1. Main content is under `VexSign/{App,Packages,Services,Tests,Resources,
    Documentation,Tools,Configuration}`. The EmbeddedContainer integration and
    TV/Vision/Watch/widget companions are retained, not removed to fit a diagram.
-2. The iOS app at `VexSign/App/iOS/VexSign/` has App, Presentation, Application,
+2. The iOS app at `VexSign/App/iOS/` has App, Presentation, Application,
    Domain, Infrastructure, Platform, Security and Resources owners. Populated
    feature folders replace generic Views/Managers roots. Shared tab/navigation
    presentation remains separate from App routing/composition.
@@ -104,9 +145,9 @@ than treated as success.
 
 | Public/root file | Canonical owner under `VexSign/` |
 | --- | --- |
-| `icon.png` | `Resources/Assets/Branding/icon.png` |
-| `app-repo.json` | `Resources/Templates/RepositoryMetadata/app-repo.json` |
-| `repos.json` | `Resources/Templates/RepositoryMetadata/repos.json` |
+| `icon.png` | `Resources/Assets/icon.png` |
+| `app-repo.json` | `Resources/Templates/app-repo.json` |
+| `repos.json` | `Resources/Templates/repos.json` |
 | `license_plist.yml` | `Configuration/Signing/license_plist.yml` |
 | `render.yaml` | `Services/WebManager/Configuration/render.yaml` |
 

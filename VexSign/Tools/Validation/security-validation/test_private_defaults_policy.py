@@ -20,9 +20,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[4]
 # First-party sources only; VexSign/Packages/Vendor/ and the pinned packages are upstream code.
-SOURCE_ROOTS = ("VexSign/App/iOS/VexSign", "VexSign/App/TV/VexSignTV", "VexSign/App/Vision/VexSignVision",
+SOURCE_ROOTS = ("VexSign/App/iOS", "VexSign/App/TV", "VexSign/App/Vision",
                 "VexSign/App/Watch/VexSignWatch", "VexSign/App/Watch/VexSignWatchWidgets",
-                "VexSign/App/Extensions/WidgetExtension")
+                "VexSign/App/WidgetExtension")
 APPLE_PREFIX = "com.apple."
 
 # `UserDefaults.standard.set(value, forKey: "com.apple.…")` and the subscript form.
@@ -63,7 +63,7 @@ class PrivateDefaultsPolicyTests(unittest.TestCase):
     def test_the_legacy_solarium_key_is_cleared_not_set(self):
         # The key must not survive in a container an earlier build wrote it into, which is
         # why the removal is asserted rather than only the absence of a write.
-        source = _strip_comments((ROOT / "VexSign/App/iOS/VexSign/App/Bootstrap/AppPreferencesBootstrap.swift").read_text(encoding="utf-8"))
+        source = _strip_comments((ROOT / "VexSign/App/iOS/App/Bootstrap/AppPreferencesBootstrap.swift").read_text(encoding="utf-8"))
         self.assertIn('removeObject(forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")', source)
         self.assertNotIn('set(true, forKey: "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck")', source)
 

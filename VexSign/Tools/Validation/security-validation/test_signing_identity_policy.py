@@ -20,13 +20,13 @@ import unittest
 ROOT = Path(__file__).resolve().parents[4]
 PKCS12 = ROOT / "VexSign/Packages/SideSign/Sources/Certificates/PKCS12Parser.swift"
 KEYSTORE = ROOT / "VexSign/Packages/SideSign/Sources/Models/KeyStore.swift"
-VERIFIER = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift"
-AUDIT = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/NestedBundleAudit.swift"
+VERIFIER = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Verification/SignatureVerifier.swift"
+AUDIT = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Verification/NestedBundleAudit.swift"
 ENGINE = ROOT / "VexSign/Packages/Vendor/Zsign/src/bundle.cpp"
-PLAN = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningPlan.swift"
-EXECUTABLE_AUDIT = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/BundleExecutableAudit.swift"
-SEALS = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier+Seals.swift"
-SESSION = ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/SigningResolutionSession.swift"
+PLAN = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Planning/SigningPlan.swift"
+EXECUTABLE_AUDIT = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Verification/BundleExecutableAudit.swift"
+SEALS = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Verification/SignatureVerifier+Seals.swift"
+SESSION = ROOT / "VexSign/App/iOS/Infrastructure/Signing/Planning/SigningResolutionSession.swift"
 
 
 def _quoted(pattern: str, source: str) -> list[str]:
@@ -120,8 +120,8 @@ class NestedBundlePolicyTests(unittest.TestCase):
 
 class SigningReadinessWiringTests(unittest.TestCase):
     def test_checklist_action_and_review_share_one_completed_readiness_policy(self):
-        screen = (ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningView.swift").read_text()
-        review = (ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
+        screen = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift").read_text()
+        review = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
         self.assertIn("let readiness = _currentReadiness", screen)
         self.assertIn("readiness: _currentReadiness", screen)
         self.assertIn(".disabled(!_currentReadiness.canApprove)", screen)
@@ -133,8 +133,8 @@ class SigningReadinessWiringTests(unittest.TestCase):
         self.assertIn("Review Signing Issues", screen)
 
     def test_changed_inputs_and_cancelled_inspections_cannot_enable_an_old_approval(self):
-        screen = (ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningView.swift").read_text()
-        review = (ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
+        screen = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift").read_text()
+        review = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningPreflightReviewView.swift").read_text()
         for token in ["_readinessInput == _inspectionInput", ".task(id: _inspectionInput)",
                       "input == _inspectionInput", "!Task.isCancelled", "_reviewedAuthorization == _currentReadiness.resolution?.authorization"]:
             self.assertIn(token, screen)
@@ -144,10 +144,10 @@ class SigningReadinessWiringTests(unittest.TestCase):
             "A second independently owned inspection can disagree with the main action panel")
 
     def test_profile_mismatch_diagnostics_name_the_actual_authorization_without_renaming(self):
-        source = (ROOT / "VexSign/App/iOS/VexSign/Domain/Services/CompatibleIdentityResolver.swift").read_text()
+        source = (ROOT / "VexSign/App/iOS/Domain/Services/CompatibleIdentityResolver.swift").read_text()
         for token in ["profile.Name", "appID", "target.bundleIdentifier", "identifiers will not be changed"]:
             self.assertIn(token, source)
-        screen = (ROOT / "VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningView.swift").read_text()
+        screen = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift").read_text()
         self.assertIn("[issue.detail, issue.remediation]", screen)
         self.assertIn("component.issues", screen)
 
@@ -156,7 +156,7 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
     """Source wiring only; behavioral Security/Core Data cases live in XCTest."""
 
     def test_inventory_cannot_turn_an_unavailable_keychain_into_an_empty_password(self):
-        source = (ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Identity/SigningIdentityStore.swift").read_text()
+        source = (ROOT / "VexSign/App/iOS/Infrastructure/Identity/SigningIdentityStore.swift").read_text()
         self.assertIn("password = try passwordReader(row)", source)
         self.assertIn("currentPassword = try passwordReader(row)", source)
         self.assertNotIn('row.signingPassword ?? ""', source)
@@ -164,7 +164,7 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertIn("if hasValidUUID", source)
 
     def test_password_migration_never_saves_the_callers_context_or_lossily_decodes_a_secret(self):
-        source = (ROOT / "VexSign/App/iOS/VexSign/Security/Certificates/CertificateSecrets.swift").read_text()
+        source = (ROOT / "VexSign/App/iOS/Security/Certificates/CertificateSecrets.swift").read_text()
         self.assertIn("String(data: stored, encoding: .utf8)", source)
         self.assertNotIn("String(decoding: stored", source)
         self.assertIn("transaction.performAndWait", source)
@@ -173,8 +173,8 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertNotIn("try context.save()", source)
 
     def test_fresh_signatures_require_the_complete_verdict_before_registration(self):
-        handler = (ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift").read_text()
-        verifier = (ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Signing/Verification/SignatureVerifier.swift").read_text()
+        handler = (ROOT / "VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift").read_text()
+        verifier = (ROOT / "VexSign/App/iOS/Infrastructure/Signing/Verification/SignatureVerifier.swift").read_text()
         self.assertIn("try report.requireVerified()", handler)
         self.assertLess(handler.index("try _verifySignedBundle("), handler.index("try await self.move()"))
         self.assertIn("func requireVerified() throws", verifier)

@@ -33,7 +33,7 @@ Where each responsibility already lives. Each has one owner; none was duplicated
 | Updates | `AppUpdateChecker`, `SkippedUpdatesManager` | Ignored versions already exist. |
 | Backup | `Backend/Observable/BackupManager` | Present; not read in depth. |
 | Navigation | `Presentation/Features/TabEnum`, `TabBarPreferences` (stored version 4) | Five tabs, default Library / App Store / Home / Downloads / Settings, pinned by tests. |
-| LiveContainer | `VexSign/Integrations/EmbeddedContainer/`, `Platform`, `VexSign/Documentation/Architecture/RUNTIME_MODELS.md` | Kept separate from installed apps. |
+| LiveContainer | `VexSign/Integrations/`, `Platform`, `VexSign/Documentation/Architecture/RUNTIME_MODELS.md` | Kept separate from installed apps. |
 | Persistence | Core Data `VexSign.xcdatamodeld` via `Infrastructure/Persistence/Database` | Not changed. |
 
 Not read in depth: the bodies of `AppInstaller`, `NativeSigningManager`, `DeviceConnectivity`,
@@ -60,7 +60,7 @@ at the same path with identical contents, against `claration/feather` (102 files
 | iPASide | `6b72139` | MIT | Dart and Python, not Swift. | Not portable as code; account flow not implemented here. |
 | Sideloader | `631abcc` | GPL-3.0 | D language desktop tool. | Not portable as code. |
 | SideInstaller | `7d77e5b` | custom, non-commercial | Rust and Swift. | License incompatible with GPL: concepts only. |
-| LiveContainer | `9d6ea09` | AGPL-3.0 | Already integrated through `VexSign/Integrations/EmbeddedContainer/`. | No change. |
+| LiveContainer | `9d6ea09` | AGPL-3.0 | Already integrated through `VexSign/Integrations/`. | No change. |
 | SideStore / AltStore | `4f3d18d` / `56854e6` | AGPL-3.0 | Source format reference; `AltSourceKit` consumes it. | No change. |
 | zsign | `9299685` | MIT | Vendored in `VexSign/Packages/Vendor/Zsign`. | No change. The vendored copy was not diffed against this head. |
 | libimobiledevice, libusbmuxd, ideviceinstaller | `fa0f791`, `93eb168`, `1762d5f` | GPL-2.0 / LGPL-2.1 | C libraries. | Not read beyond the tree. |

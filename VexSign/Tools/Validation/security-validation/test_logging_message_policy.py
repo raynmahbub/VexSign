@@ -42,7 +42,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-SWIFT_ROOTS = [ROOT / "VexSign/App/iOS/VexSign", ROOT / "VexSign/Packages/NativeSigning", ROOT / "VexSign/Packages/NimbleKit", ROOT / "VexSign/Packages/SideSign"]
+SWIFT_ROOTS = [ROOT / "VexSign/App/iOS", ROOT / "VexSign/Packages/NativeSigning", ROOT / "VexSign/Packages/NimbleKit", ROOT / "VexSign/Packages/SideSign"]
 
 # `Logger.misc.fault(`, `Logger.signing.error(`, `logger.info(` ...
 LOG_CALL = re.compile(r"\bLogger\.\w+\.(?:trace|debug|info|notice|warning|error|fault|critical)\s*\(")
@@ -175,7 +175,7 @@ def private_redactions(text: str) -> list[str]:
 
 class LoggingMessagePolicyTests(unittest.TestCase):
     def test_container_path_redaction_preserves_error_codes_and_public_urls(self):
-        source = (ROOT / 'VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift').read_text()
+        source = (ROOT / 'VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift').read_text()
         rule = re.search(r'// Local container paths.*?pattern: #"(.*?)"#,', source, re.DOTALL)
         self.assertIsNotNone(rule, 'The production container-path rule must exist')
         pattern = re.compile(rule.group(1))

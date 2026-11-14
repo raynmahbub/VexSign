@@ -177,7 +177,7 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/repository-validation/test_coverage_report.py
 	@python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
 	@echo "== embedded-container packaging =="
-	@python3 -m unittest discover -s VexSign/Integrations/EmbeddedContainer/tests -v
+	@python3 -m unittest discover -s VexSign/Integrations/tests -v
 	@echo "== native-signing preparation =="
 	@python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v
 

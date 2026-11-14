@@ -32,7 +32,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SOURCES = ROOT / "VexSign/App/iOS/VexSign"
+SOURCES = ROOT / "VexSign/App/iOS"
 AUDIT = ROOT / "VexSign/Tools/Validation/security-validation/concurrency-audit.json"
 
 PATTERNS = {
@@ -122,13 +122,13 @@ def check(found, escapes):
 def self_test():
     """The gate is only worth running if it fails on drift. Prove it with fixtures."""
     escape = {
-        "file": "VexSign/App/iOS/VexSign/A.swift",
+        "file": "VexSign/App/iOS/A.swift",
         "symbol": "A",
         "kind": "unchecked-sendable",
         "invariant": "reason",
         "risk": "low",
     }
-    found = {"VexSign/App/iOS/VexSign/A.swift": [(1, "unchecked-sendable")]}
+    found = {"VexSign/App/iOS/A.swift": [(1, "unchecked-sendable")]}
     failures = []
 
     def expect_reject(label, found_fixture, entries):

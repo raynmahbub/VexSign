@@ -22,9 +22,9 @@ ROOT = Path(__file__).resolve().parents[4]
 MAP = ROOT / "VexSign/Documentation/Architecture/feature-layout-migration-map.json"
 PRESERVATION_REPORT = "VexSign/Documentation/Architecture/feature-migration-preservation.json"
 ROOT_ALIASES = {
-    "icon.png": "VexSign/Resources/Assets/Branding/icon.png",
-    "app-repo.json": "VexSign/Resources/Templates/RepositoryMetadata/app-repo.json",
-    "repos.json": "VexSign/Resources/Templates/RepositoryMetadata/repos.json",
+    "icon.png": "VexSign/Resources/Assets/icon.png",
+    "app-repo.json": "VexSign/Resources/Templates/app-repo.json",
+    "repos.json": "VexSign/Resources/Templates/repos.json",
     "license_plist.yml": "VexSign/Configuration/Signing/license_plist.yml",
     "render.yaml": "VexSign/Services/WebManager/Configuration/render.yaml",
 }
@@ -398,6 +398,19 @@ def reviewed_security_linkage(old: str, before: bytes, after: bytes) -> bool:
         and after == before.replace(marker, marker + addition, 1))
 
 
+def reviewed_flat_package_sources(old: str, before: bytes, after: bytes) -> bool:
+    """Only make the unchanged single module's relocated source root explicit.
+
+    Byte-exact transformation: no product/target/module name, dependency, pin,
+    platform, flag, or other manifest content can change under this exception.
+    Original source-file hashes and destinations are audited independently.
+    """
+    marker = b'.target(\n            name: "AltSourceKit"),'
+    replacement = b'.target(\n            name: "AltSourceKit",\n            path: "Sources"),'
+    return (old == "Packages/AltSourceKit/Package.swift" and before.count(marker) == 1
+        and after == before.replace(marker, replacement, 1))
+
+
 def reviewed_main_dependency_lock(old: str, before: bytes, after: bytes) -> bool:
     """Admit only the exact lock already published on the integrated main revision.
 
@@ -509,17 +522,20 @@ def audit(parse_swift: bool = False) -> dict:
                 failures.append(f"Attribution/index content changed beyond repository paths: {old}")
         if protected_input(old):
             reviewed = reviewed_security_linkage(old, before, after)
+            flat_sources = reviewed_flat_package_sources(old, before, after)
             main_lock = reviewed_main_dependency_lock(old, before, after)
             evidence = {"path": new, "identical": before == after, "sha256Before": digest(before), "sha256After": digest(after)}
             if reviewed:
                 evidence["reviewedChange"] = "Public Security framework linkage only; upstream package/pins unchanged"
+            if flat_sources:
+                evidence["reviewedChange"] = "Explicit flattened Sources path only; module/product/dependencies unchanged"
             if main_lock:
                 evidence["reviewedChange"] = "Exact incoming main dependency lock; original migration hash retained"
                 evidence["sourceRevision"] = REVIEWED_MAIN_DEPENDENCY_LOCK["revision"]
                 evidence["sourcePath"] = old
                 superseded_dependency_urls.update(set(URL.findall(before.decode())) - set(URL.findall(after.decode())))
             protected.append(evidence)
-            if before != after and not (reviewed or main_lock):
+            if before != after and not (reviewed or flat_sources or main_lock):
                 failures.append(f"Protected input bytes changed: {old}")
         if old == "Packages/Vendor/manifest.json":
             path_only = relocate_path(json.loads(before), paths) == json.loads(after)

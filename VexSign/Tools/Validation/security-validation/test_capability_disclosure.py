@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[4]
 INFO = ROOT / "VexSign/Configuration/Build/iOS/Info.plist"
 ENTITLEMENTS = ROOT / "VexSign/Configuration/Entitlements/iOS/VexSign.entitlements"
 DISCLOSURE = ROOT / "VexSign/Documentation/DeviceTesting/BETA_READINESS.md"
-BACKGROUND_MANAGER = ROOT / "VexSign/App/iOS/VexSign/Platform/Apple/Background/BackgroundTaskManager.swift"
+BACKGROUND_MANAGER = ROOT / "VexSign/App/iOS/Platform/Apple/Background/BackgroundTaskManager.swift"
 README = ROOT / "README.md"
 
 

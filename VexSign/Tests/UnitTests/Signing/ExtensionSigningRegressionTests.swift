@@ -243,7 +243,7 @@ final class ExtensionSigningRegressionTests: XCTestCase {
 	func testTheDestructiveMigrationFlagIsGone() throws {
 		// The flag's only purpose was to force the toggle on once. Keeping it would let the
 		// behaviour come back by accident.
-		let text = try RepositorySourceFixture.read("VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/OptionsManager.swift")
+		let text = try RepositorySourceFixture.read("VexSign/App/iOS/Infrastructure/Signing/Planning/OptionsManager.swift")
 		XCTAssertFalse(text.contains("auto_remove_unsupported_extensions_migrated"))
 		XCTAssertFalse(text.contains("loadedOptions.autoRemoveUnsupportedExtensions = true"))
 	}

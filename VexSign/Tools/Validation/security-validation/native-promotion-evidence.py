@@ -171,7 +171,7 @@ def production_selects_apple_cms(root: Path = ROOT) -> bool:
 
 
 def capability_claim(root: Path = ROOT) -> str:
-    path = root / 'VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift'
+    path = root / 'VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift'
     if not path.is_file():
         return 'missing'
     claim = re.search(r'nativeAppleAccountSigning:\s*\.(\w+)', path.read_text())

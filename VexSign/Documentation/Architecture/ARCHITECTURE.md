@@ -29,7 +29,7 @@ repository/
 ├── app-repo.json, repos.json, icon.png, license_plist.yml, render.yaml
 └── VexSign/
     ├── App/
-    │   ├── iOS/VexSign/
+    │   ├── iOS/
     │   │   ├── App/
     │   │   ├── Presentation/
     │   │   ├── Application/
@@ -38,9 +38,9 @@ repository/
     │   │   ├── Platform/
     │   │   ├── Security/
     │   │   └── Resources/
-    │   ├── Extensions/WidgetExtension/
-    │   ├── TV/VexSignTV/
-    │   ├── Vision/VexSignVision/
+    │   ├── WidgetExtension/
+    │   ├── TV/
+    │   ├── Vision/
     │   ├── Watch/{VexSignWatch,VexSignWatchWidgets}/
     │   └── SharedPlatformInfo/
     ├── Packages/                    genuine existing compilation boundaries
@@ -50,7 +50,7 @@ repository/
     ├── Documentation/
     ├── Tools/{Scripts,Validation,Development,Release}/
     ├── Configuration/{Build,Signing,Entitlements}/
-    └── Integrations/EmbeddedContainer/ existing experimental host build
+    └── Integrations/                existing experimental host build
 ```
 
 The five root compatibility files remain byte-identical to their canonical
@@ -58,14 +58,19 @@ owners under `VexSign/`; published feed URLs and commit-pinned URLs are not
 rewritten. Root project/workspace locations, target identities, product names,
 package identities, licenses and companion apps are preserved.
 
+The [repository layout audit](repository-layout-audit.md) lists every wrapper
+removed across all owners and the four retained tool-owned chains. Parents with
+legitimate sibling files/subfolders are preserved; a directory containing one
+file is not a redundant directory wrapper.
+
 ## Layers
 
-Paths below are relative to `VexSign/App/iOS/VexSign/`.
+Paths below are relative to `VexSign/App/iOS/`.
 
 | Owner | Actual contents and responsibility |
 | --- | --- |
 | **App** | `VexSignApp.swift` declares scenes and injects `AppContainer.live()`. `Bootstrap/AppPreferencesBootstrap` registers/migrates nonsecret preferences. `Lifecycle/AppDelegate` and `AppLifecycleCoordinator` own startup/foreground/background hooks. `Composition/` wires concrete adapters; `Navigation/` owns workspace routing. |
-| **Presentation** | `DesignSystem/`, `Shared/{Components,Models,ViewModels,Navigation}/`, and `Features/<Feature>/{Views,ViewModels,Models}` where real code exists. Includes Home, Library, Import, Signing, Certificates, Accounts, Devices, Repositories, Downloads, Updates, Tasks, Backups, Diagnostics, Settings, Customization, Onboarding and About, plus the existing Files and Installation features. No empty role folders are manufactured. |
+| **Presentation** | `DesignSystem/`, `Shared/{Components,Models,ViewModels,Navigation}/`, and `Features/<Feature>/`. Single-role features keep Swift files directly in the feature root; `{Views,ViewModels,Models,Components}` folders remain when they have real siblings. Includes Home, Library, Import, Signing, Certificates, Accounts, Devices, Repositories, Downloads, Updates, Tasks, Backups, Diagnostics, Settings, Customization, Onboarding and About, plus the existing Files and Installation features. No empty role folders are manufactured. |
 | **Application** | Focused `Accounts`, `Backups`, `Builder`, `Downloads`, `Files`, `Installation`, `Library`, `Repositories`, `Signing`, `Tasks` and `Shared` use cases. They depend on Domain ports and Foundation, not UIKit, Core Data, NativeSigning, concrete singletons, filesystem APIs or network sessions. |
 | **Domain** | `Entities`, `ValueObjects`, `Enums`, `Protocols`, `Services`, `Results`: pure models, deterministic validation/parsing, `SigningEngine`, generic `SigningWork`, transfer/configuration/installation/workspace ports. No SDK, database, UI, bundle-loading or HTTP implementation. |
 | **Infrastructure** | Existing implementations grouped by Signing (Engines/Planning/Verification/Transformation/Execution), Archives, Identity, Accounts, Devices, Repositories, Downloads, Updates, Persistence, Backups, Networking, Diagnostics and Tasks. Adapters reuse the authoritative implementations. |
@@ -211,7 +216,7 @@ and [native account handoff](../Security/NATIVE_SIGNING_HANDOFF.md).
 ## README feature coverage
 
 This is implementation/source presence, not native or device acceptance.
-App-relative paths below share the prefix `VexSign/App/iOS/VexSign/`.
+App-relative paths below share the prefix `VexSign/App/iOS/`.
 
 | README area | Existing implementation owners |
 | --- | --- |
@@ -224,11 +229,11 @@ App-relative paths below share the prefix `VexSign/App/iOS/VexSign/`.
 | Repository builder, WebDAV and device-local web tools | `Presentation/Features/Repositories/`, `Infrastructure/Networking/WebManager/`, `VexSign/Services/WebManager/` |
 | Update rules and self-update | `Infrastructure/Updates/`, `Presentation/Features/Updates/` |
 | App lock, credentials, privacy and URL/archive policies | `Security/`, `Platform/`, `Presentation/Features/Settings/` |
-| Automation, Shortcuts, task history and Live Activities | `Infrastructure/Tasks/`, `Platform/iOS/AppIntents/`, `Presentation/Features/Tasks/`, `VexSign/App/Extensions/` |
+| Automation, Shortcuts, task history and Live Activities | `Infrastructure/Tasks/`, `Platform/iOS/AppIntents/`, `Presentation/Features/Tasks/`, `VexSign/App/WidgetExtension/` |
 | Encrypted backups, cleanup, analytics and diagnostic export | `Infrastructure/{Backups,Persistence,Diagnostics}/`, `Presentation/Features/{Backups,Diagnostics}/` |
 | Appearance, tint, icons, accessibility and navigation | `Presentation/DesignSystem/`, `Presentation/Shared/Navigation/`, `Presentation/Features/Customization/`, `App/Navigation/` |
 | TV, Vision and Watch companions | `VexSign/App/{TV,Vision,Watch}/`, `Infrastructure/Devices/Transport/` |
-| Experimental account provisioning, cloud and guest host | `Infrastructure/Accounts/`, `VexSign/Packages/NativeSigning/`, `Infrastructure/Signing/Engines/Cloud/`, `VexSign/Services/Cloud/`, `VexSign/Integrations/EmbeddedContainer/` |
+| Experimental account provisioning, cloud and guest host | `Infrastructure/Accounts/`, `VexSign/Packages/NativeSigning/`, `Infrastructure/Signing/Engines/Cloud/`, `VexSign/Services/Cloud/`, `VexSign/Integrations/` |
 
 Native Apple-account signing remains `.notIntegrated` until its strict native
 CMS, production-wiring and physical-device evidence gates pass. The anisette

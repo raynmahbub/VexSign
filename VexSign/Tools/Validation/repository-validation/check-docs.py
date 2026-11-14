@@ -28,7 +28,7 @@ def broken_links(root):
             seen.add(path)
     for component in ('VexSign/Services/WebManager', 'VexSign/Services/Cloud',
                       'VexSign/Services/Cloud/Anisette', 'VexSign/Packages/NativeSigning',
-                      'VexSign/Integrations/EmbeddedContainer', 'VexSign/Packages/Vendor'):
+                      'VexSign/Integrations', 'VexSign/Packages/Vendor'):
         path = root / component / 'README.md'
         if path.exists():
             files.append(path)

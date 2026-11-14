@@ -2,7 +2,7 @@
 """Keep Localizable.xcstrings in step with the literals the app asks for.
 
 Every `"…".localized(…)` / `String.localized("…")` call is a catalogue key. When a key is missing
-from `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings`, iOS falls back to the literal — which works in
+from `VexSign/App/iOS/Resources/Localization/Localizable.xcstrings`, iOS falls back to the literal — which works in
 English and silently breaks every other language, so the drift is invisible until someone runs the
 app in German.
 
@@ -29,8 +29,8 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-CATALOGUE = ROOT / "VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings"
-SOURCE_ROOT = ROOT / "VexSign/App/iOS/VexSign"
+CATALOGUE = ROOT / "VexSign/App/iOS/Resources/Localization/Localizable.xcstrings"
+SOURCE_ROOT = ROOT / "VexSign/App/iOS"
 
 # Foundation `NSLocalizedString("…", comment:)` is also recognized.
 # `.localized("…")` covers `String.localized("…")`, `LocalizedStringKey.localized("…")` and

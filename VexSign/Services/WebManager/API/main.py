@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """VexSign Premium API — drop-in backend for the app's premium key flow.
 
-Implements the exact contract `PremiumManager` (VexSign/App/iOS/VexSign)
+Implements the exact contract `PremiumManager` (VexSign/App/iOS)
 expects:
 
     POST /api/validate    header: X-API-Key, JSON body: {"device_uuid": "..."}
@@ -330,7 +330,7 @@ def self_hosted_ipa(filename: str) -> FileResponse:
 
 @app.get("/static/icon.png", include_in_schema=False)
 def icon() -> FileResponse:
-    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "Dashboard", "Assets", "icon.png"))
+    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "Dashboard", "icon.png"))
 
 
 def _public_endpoints() -> list[str]:
@@ -463,5 +463,5 @@ def root(
     return {
         "service": "VexSign Premium API",
         "endpoints": endpoints,
-        "appSetting": f'static let apiBaseURL = "{base}/api"  // VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/VexSignAPI.swift',
+        "appSetting": f'static let apiBaseURL = "{base}/api"  // VexSign/App/iOS/Infrastructure/Archives/IPA/VexSignAPI.swift',
     }

@@ -1,5 +1,5 @@
 import type { ArtifactMetadata } from '../DTOs/contracts.js';
-import { escapeMarkup as e } from '../../Security/Authentication/security.js';
+import { escapeMarkup as e } from '../../Security/security.js';
 export function installLink(manifest: string): string {
   return `itms-services://?${new URLSearchParams({ action: 'download-manifest', url: manifest })}`;
 }

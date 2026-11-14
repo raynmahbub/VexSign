@@ -38,7 +38,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-SWIFT_ROOTS = [ROOT / "VexSign/App/iOS/VexSign", ROOT / "VexSign/Packages/NativeSigning", ROOT / "VexSign/Packages/NimbleKit", ROOT / "VexSign/Packages/SideSign"]
+SWIFT_ROOTS = [ROOT / "VexSign/App/iOS", ROOT / "VexSign/Packages/NativeSigning", ROOT / "VexSign/Packages/NimbleKit", ROOT / "VexSign/Packages/SideSign"]
 SKIP_DIRS = {"Vendor", ".build", "build", "DerivedData", "Pods", "node_modules", ".git"}
 
 # `private`/`fileprivate` followed by optional modifiers and then `func|var|let`.
@@ -156,18 +156,18 @@ def private_members_by_type(path: Path) -> dict[str, tuple[str, str]]:
 
 
 MODULE_ROOTS = {
-    "VexSign/App/iOS/VexSign": "VexSign",
+    "VexSign/App/iOS": "VexSign",
     "VexSign/Tests": "VexSignTests",
-    "VexSign/App/TV/VexSignTV": "VexSignTV",
-    "VexSign/App/Vision/VexSignVision": "VexSignVision",
-    "VexSign/App/Extensions/WidgetExtension": "VexSignWidgetExtension",
+    "VexSign/App/TV": "VexSignTV",
+    "VexSign/App/Vision": "VexSignVision",
+    "VexSign/App/WidgetExtension": "VexSignWidgetExtension",
     "VexSign/App/Watch/VexSignWatch": "VexSignWatch",
     "VexSign/App/Watch/VexSignWatchWidgets": "VexSignWatchWidgets",
     "VexSign/Packages/NimbleKit": "NimbleKit",
     "VexSign/Packages/AltSourceKit": "AltSourceKit",
     "VexSign/Packages/NativeSigning": "NativeSigning",
     "VexSign/Packages/SideSign": "SideSign",
-    "VexSign/Integrations/EmbeddedContainer": "EmbeddedContainer",
+    "VexSign/Integrations": "EmbeddedContainer",
 }
 
 

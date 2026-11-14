@@ -13,7 +13,7 @@ import type { Config } from '../../Configuration/config.js';
 import type { Infrastructure } from '../../Storage/infrastructure.js';
 import { artifactMetadata, batchRequest, checkRequest, jobView, queueCounts, signRequest, uuid } from '../DTOs/contracts.js';
 import { APIError, submitJobs, type Submission } from '../../Signing/JobQueue/jobs.js';
-import { capability, permittedWebhook, verifyCapability } from '../../Security/Authentication/security.js';
+import { capability, permittedWebhook, verifyCapability } from '../../Security/security.js';
 import { installLink, installPage, manifest } from '../Controllers/ota.js';
 
 const MAX_IPA = 2 * 1024 ** 3;

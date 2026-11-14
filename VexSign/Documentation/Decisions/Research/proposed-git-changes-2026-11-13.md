@@ -65,8 +65,8 @@ and the reference-investigation status before any source change.
 
 ### 2. `fix(build): resolve Swift 6 diagnostics in application use cases`
 
-Files: `VexSign/App/iOS/VexSign/Application/Accounts/AnisetteProviderUseCase.swift`,
-`VexSign/App/iOS/VexSign/Application/Shared/DeepLinkRouterUseCase.swift`,
+Files: `VexSign/App/iOS/Application/Accounts/AnisetteProviderUseCase.swift`,
+`VexSign/App/iOS/Application/Shared/DeepLinkRouterUseCase.swift`,
 `VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py`, `Makefile`, `.github/workflows/ci.yml`.
 
 Message body: move the `@MainActor` singleton lookup out of a nonisolated default argument;
@@ -83,8 +83,8 @@ add unit and redirect-hop regressions for probe and decoder endpoints.
 
 ### 4. `fix(install): refuse unverified external OTA manifests`
 
-Files: `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/OTA/ManifestService.swift`,
-`VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift`,
+Files: `VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ManifestService.swift`,
+`VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift`,
 `VexSign/Tests/UnitTests/Application/ManifestServiceResolutionTests.swift`,
 `VexSign/Tools/Development/test_integration_contracts.py`.
 
@@ -94,7 +94,7 @@ the existing user-visible error when no endpoint serves; add XCTest and source c
 
 ### 5. `fix(privacy): redact account, pairing and device identifiers in shared logs`
 
-Files: `VexSign/App/iOS/VexSign/Infrastructure/Diagnostics/LogRedaction.swift`,
+Files: `VexSign/App/iOS/Infrastructure/Diagnostics/LogRedaction.swift`,
 `VexSign/Tests/SecurityTests/CredentialRedaction/LogRedactionTests.swift`, `VexSign/Tools/Development/test_integration_contracts.py`.
 
 Message body: add an escaped key alternation and rules for plist/JSON/header/Swift-line forms,

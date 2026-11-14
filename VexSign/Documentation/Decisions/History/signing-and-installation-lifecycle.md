@@ -340,26 +340,26 @@ Production (20 files):
 
 | File | Change |
 |---|---|
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift` | `SigningStage: Codable`; `SigningEvent.signatureVerified` + `isTerminal`; `SigningWork` contract; `SigningPipeline` wiring |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift` | `onSignatureVerified`, fired only after `_verifySignedBundle` returns |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskTrace.swift` | `TaskSigningTrace`; optional `TaskContext.signingTrace`; recording helpers |
-| `VexSign/App/iOS/VexSign/FR.swift` | `onVerified:` parameter; records stage, verification and outcome on the task |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift` | `latestSigningTask(subjectID:)`, `signingTrace(subjectID:)` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskReceipt.swift` | signing-stage and verification lines |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningWorkflowView.swift` | `SigningWorkflowSnapshot`; evidence-only `status(_:)`; legacy wrapper retained |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningView.swift` | `_signingSucceeded`, `_signatureVerified`, `_workflowSnapshot`, observed task center, reset in `_beginSign` |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Info/LibraryInfoView.swift` | persisted-trace workflow panel; shared task lookup |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstalledAppProbe.swift` | `InstalledState.installing`, `isTransient`, `.title` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallConfirmation.swift` | exhaustive `.installing` case in `record(probe:)` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Repositories/LibraryStatusStore.swift` | `InstallationAttempt`, attempt registry, lifecycle API, overlay in three places, read fence, `.active` badge tone |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueue.swift` | attempt registration and fencing, `runGeneration`, scheduled-work guards, `FailureKind`, `InstallQueueSurface` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift` | `_armPromptDeadline()` and its cancellation in `deinit`/`stop()`/`_finish()` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallerStatusAdapter.swift` | pure `displayedPercentage` |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Install/InstallQueueWindow.swift` | sheet renders from `InstallQueueSurface`; `_summary` extracted |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Install/InstallCardView.swift` | app name and honest percentage on the card |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/LibraryCellView.swift` | `.active` tint; "Open" gated on `!isTransient` |
-| `VexSign/App/iOS/VexSign/Presentation/Shared/Models/AccessibilityIdentifiers.swift` | `Signing.workflow`, `Install.appName` |
-| `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings` | 7 new keys, appended by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write` as `extractionState: manual` — no machine translation |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift` | `SigningStage: Codable`; `SigningEvent.signatureVerified` + `isTerminal`; `SigningWork` contract; `SigningPipeline` wiring |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift` | `onSignatureVerified`, fired only after `_verifySignedBundle` returns |
+| `VexSign/App/iOS/Infrastructure/Tasks/TaskTrace.swift` | `TaskSigningTrace`; optional `TaskContext.signingTrace`; recording helpers |
+| `VexSign/App/iOS/FR.swift` | `onVerified:` parameter; records stage, verification and outcome on the task |
+| `VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskCenter.swift` | `latestSigningTask(subjectID:)`, `signingTrace(subjectID:)` |
+| `VexSign/App/iOS/Infrastructure/Tasks/TaskReceipt.swift` | signing-stage and verification lines |
+| `VexSign/App/iOS/Presentation/Features/Signing/Views/SigningWorkflowView.swift` | `SigningWorkflowSnapshot`; evidence-only `status(_:)`; legacy wrapper retained |
+| `VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift` | `_signingSucceeded`, `_signatureVerified`, `_workflowSnapshot`, observed task center, reset in `_beginSign` |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Info/LibraryInfoView.swift` | persisted-trace workflow panel; shared task lookup |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstalledAppProbe.swift` | `InstalledState.installing`, `isTransient`, `.title` |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallConfirmation.swift` | exhaustive `.installing` case in `record(probe:)` |
+| `VexSign/App/iOS/Infrastructure/Persistence/Repositories/LibraryStatusStore.swift` | `InstallationAttempt`, attempt registry, lifecycle API, overlay in three places, read fence, `.active` badge tone |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallQueue.swift` | attempt registration and fencing, `runGeneration`, scheduled-work guards, `FailureKind`, `InstallQueueSurface` |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift` | `_armPromptDeadline()` and its cancellation in `deinit`/`stop()`/`_finish()` |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallerStatusAdapter.swift` | pure `displayedPercentage` |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Install/InstallQueueWindow.swift` | sheet renders from `InstallQueueSurface`; `_summary` extracted |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Install/InstallCardView.swift` | app name and honest percentage on the card |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/LibraryCellView.swift` | `.active` tint; "Open" gated on `!isTransient` |
+| `VexSign/App/iOS/Presentation/Shared/Models/AccessibilityIdentifiers.swift` | `Signing.workflow`, `Install.appName` |
+| `VexSign/App/iOS/Resources/Localization/Localizable.xcstrings` | 7 new keys, appended by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write` as `extractionState: manual` — no machine translation |
 
 Tests (4 files):
 
@@ -847,34 +847,34 @@ Production (28 files; the four marked *new* use no UIKit, which is what lets the
 
 | File | Change |
 |---|---|
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Transformation/OneShotTweakFiles.swift` | *new* — staging, missing-file error, replay notice |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Transformation/TweakHandler.swift` | names a missing file, injects copies, removes its staging directory |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift` | `.signing` reported when customization ends; `disinject()` before the audit |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningProfileStore.swift` | `replayable()`, `oneShotFileNames`, applied on save and read |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/NamedSigningProfileStore.swift` | `withoutOneShotFiles()` on capture, save, import and load |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Planning/PreflightChecks.swift` | blocking "Tweak file unavailable" |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningService.swift` | `SigningRequest.notices`, logged after the console reset |
-| `VexSign/App/iOS/VexSign/FR.swift` | `notices:` parameter |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/AutoSignManager.swift` | `overridingBlockingIssues`; replay notices |
-| `VexSign/App/iOS/VexSign/Infrastructure/Updates/UpdateAllManager.swift` | replay notices when options are preserved |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningView.swift` | discards staged files after a successful run |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppOperationRegistry.swift` | `hasActiveOperations` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Cache/CleanupManager.swift` | `automaticCategories(_:operationsActive:)` — replaced by `CleanupPassPolicy.plan` in Follow-up 2 |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningRecordIdentity.swift` | *new* — which runs describe a copy |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/UnifiedTaskCenter.swift` | `signingRecords(forCopy:)` |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Info/LibraryInfoView.swift` | per-copy record rows; forwards "Sign Anyway"; replay notice in the review |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/LibraryCellView.swift` | context-menu re-sign reports its result |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningWorkflowView.swift` | title and identifier parameters |
-| `VexSign/App/iOS/VexSign/Presentation/Shared/Models/AccessibilityIdentifiers.swift` | `Signing.attemptWorkflow` |
-| `VexSign/App/iOS/VexSign/Domain/Policies/InstallVerificationPolicy.swift` | *new* — check schedule, cap and status wording |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallDeadlineBudget.swift` | *new* — a deadline counted in running time |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallConfirmation.swift` | `evidenceGrace`, `monitoringBackstop`, deadline helpers; watcher uses the policy |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppInstaller.swift` | `.utility` watcher, `verificationAttempt`, monitoring backstop, budgeted deadlines |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/InstallQueue.swift` | declined install closes its own record; check count recorded |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskTrace.swift` | optional `TaskContext.verificationAttempts` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/TaskReceipt.swift` | signing-attempt outcome sentence; `Installation checks`; new evidence reason |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Install/InstallCardView.swift` | counted verification label |
-| `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings` | 10 new keys, appended by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write` as `extractionState: manual` — English values, no machine translation |
+| `VexSign/App/iOS/Infrastructure/Signing/Transformation/OneShotTweakFiles.swift` | *new* — staging, missing-file error, replay notice |
+| `VexSign/App/iOS/Infrastructure/Signing/Transformation/TweakHandler.swift` | names a missing file, injects copies, removes its staging directory |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift` | `.signing` reported when customization ends; `disinject()` before the audit |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningProfileStore.swift` | `replayable()`, `oneShotFileNames`, applied on save and read |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/NamedSigningProfileStore.swift` | `withoutOneShotFiles()` on capture, save, import and load |
+| `VexSign/App/iOS/Infrastructure/Signing/Planning/PreflightChecks.swift` | blocking "Tweak file unavailable" |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift` | `SigningRequest.notices`, logged after the console reset |
+| `VexSign/App/iOS/FR.swift` | `notices:` parameter |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift` | `overridingBlockingIssues`; replay notices |
+| `VexSign/App/iOS/Infrastructure/Updates/UpdateAllManager.swift` | replay notices when options are preserved |
+| `VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift` | discards staged files after a successful run |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/AppOperationRegistry.swift` | `hasActiveOperations` |
+| `VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupManager.swift` | `automaticCategories(_:operationsActive:)` — replaced by `CleanupPassPolicy.plan` in Follow-up 2 |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningRecordIdentity.swift` | *new* — which runs describe a copy |
+| `VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskCenter.swift` | `signingRecords(forCopy:)` |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Info/LibraryInfoView.swift` | per-copy record rows; forwards "Sign Anyway"; replay notice in the review |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/LibraryCellView.swift` | context-menu re-sign reports its result |
+| `VexSign/App/iOS/Presentation/Features/Signing/Views/SigningWorkflowView.swift` | title and identifier parameters |
+| `VexSign/App/iOS/Presentation/Shared/Models/AccessibilityIdentifiers.swift` | `Signing.attemptWorkflow` |
+| `VexSign/App/iOS/Domain/Policies/InstallVerificationPolicy.swift` | *new* — check schedule, cap and status wording |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallDeadlineBudget.swift` | *new* — a deadline counted in running time |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallConfirmation.swift` | `evidenceGrace`, `monitoringBackstop`, deadline helpers; watcher uses the policy |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift` | `.utility` watcher, `verificationAttempt`, monitoring backstop, budgeted deadlines |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/InstallQueue.swift` | declined install closes its own record; check count recorded |
+| `VexSign/App/iOS/Infrastructure/Tasks/TaskTrace.swift` | optional `TaskContext.verificationAttempts` |
+| `VexSign/App/iOS/Infrastructure/Tasks/TaskReceipt.swift` | signing-attempt outcome sentence; `Installation checks`; new evidence reason |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Install/InstallCardView.swift` | counted verification label |
+| `VexSign/App/iOS/Resources/Localization/Localizable.xcstrings` | 10 new keys, appended by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write` as `extractionState: manual` — English values, no machine translation |
 
 Tests (9 files):
 
@@ -1440,24 +1440,24 @@ lets them be unit-tested):
 
 | File | Change |
 |---|---|
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/PostSignArtifacts.swift` | *new* — the rule for the two copies of a run; the review wording |
-| `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Cache/CleanupPolicy.swift` | *new* — `CleanupPassPolicy`, `SignedCopyRetention` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Devices/Installation/AppOperationRegistry.swift` | `claimProduction`, `confirmProduction`, `knowsProduction` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningCompletionAction.swift` | `keepsSignedApp` removed |
-| `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Cache/CleanupManager.swift` | `finishSign`, `sweepAfterSigning`; `delete` reports only what was deleted; every pass defers through `CleanupPassPolicy`; `CleanupSummary.deferred` and `deferralNotice`; `PostSignArtifacts.Settings.stored(in:)`. `runAfterSign`, `deletesSourceAfterSign` and `automaticCategories` removed |
-| `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Cache/CleanupHistory.swift` | `pruneDuplicateSignedApps` on `SignedCopyRetention`; busy copies left out; a refused deletion is not reported |
-| `VexSign/App/iOS/VexSign/Infrastructure/Persistence/Cache/StorageManager.swift` | `LibrarySnapshot.productions`; `owns` asks it |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/AutoSignManager.swift` | `finishSign`, origin `.savedSettings` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Updates/UpdateAllManager.swift` | `finishSign`, origin `.update` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Tasks/BatchJobRunner.swift` | `finishSign`, origin `.batch`; one `sweepAfterSigning()` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/IPAWorkspace.swift` | `finishSign`, origin `.explorer` |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Signing/Views/SigningView.swift` | `finishSign`, origin `.sheet` |
-| `VexSign/App/iOS/VexSign/Infrastructure/Signing/Execution/SigningHandler.swift` | claims its output in `init`, confirms it after the row is committed |
-| `VexSign/App/iOS/VexSign/Infrastructure/Archives/IPA/AppFileHandler.swift` | the same for an import |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Settings/Views/Cleanup/CleanupView.swift` | After Signing and Rules footers; Clean Now shows the deferral |
-| `VexSign/App/iOS/VexSign/Platform/iOS/AppIntents/VexSignIntents.swift` | the Clean Now action reports the deferral |
-| `VexSign/App/iOS/VexSign/Presentation/Features/Library/Views/Info/LibraryInfoView.swift` | the review line comes from the rule |
-| `VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings` | 5 new keys, appended by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write` as `extractionState: manual` — English values, no machine translation. The 3 keys of the sentences they replace are removed: they were `manual` entries with an English value only, no source names them any more, and the weekly maintenance job prunes only keys Xcode has marked stale. They were removed with the tool's own writer, so the rest of the file is unchanged |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/PostSignArtifacts.swift` | *new* — the rule for the two copies of a run; the review wording |
+| `VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupPolicy.swift` | *new* — `CleanupPassPolicy`, `SignedCopyRetention` |
+| `VexSign/App/iOS/Infrastructure/Devices/Installation/AppOperationRegistry.swift` | `claimProduction`, `confirmProduction`, `knowsProduction` |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningCompletionAction.swift` | `keepsSignedApp` removed |
+| `VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupManager.swift` | `finishSign`, `sweepAfterSigning`; `delete` reports only what was deleted; every pass defers through `CleanupPassPolicy`; `CleanupSummary.deferred` and `deferralNotice`; `PostSignArtifacts.Settings.stored(in:)`. `runAfterSign`, `deletesSourceAfterSign` and `automaticCategories` removed |
+| `VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupHistory.swift` | `pruneDuplicateSignedApps` on `SignedCopyRetention`; busy copies left out; a refused deletion is not reported |
+| `VexSign/App/iOS/Infrastructure/Persistence/Cache/StorageManager.swift` | `LibrarySnapshot.productions`; `owns` asks it |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift` | `finishSign`, origin `.savedSettings` |
+| `VexSign/App/iOS/Infrastructure/Updates/UpdateAllManager.swift` | `finishSign`, origin `.update` |
+| `VexSign/App/iOS/Infrastructure/Tasks/BatchJobRunner.swift` | `finishSign`, origin `.batch`; one `sweepAfterSigning()` |
+| `VexSign/App/iOS/Infrastructure/Archives/IPA/IPAWorkspace.swift` | `finishSign`, origin `.explorer` |
+| `VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift` | `finishSign`, origin `.sheet` |
+| `VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift` | claims its output in `init`, confirms it after the row is committed |
+| `VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift` | the same for an import |
+| `VexSign/App/iOS/Presentation/Features/Settings/Views/Cleanup/CleanupView.swift` | After Signing and Rules footers; Clean Now shows the deferral |
+| `VexSign/App/iOS/Platform/iOS/AppIntents/VexSignIntents.swift` | the Clean Now action reports the deferral |
+| `VexSign/App/iOS/Presentation/Features/Library/Views/Info/LibraryInfoView.swift` | the review line comes from the rule |
+| `VexSign/App/iOS/Resources/Localization/Localizable.xcstrings` | 5 new keys, appended by `VexSign/Tools/Validation/repository-validation/sync-strings.py --write` as `extractionState: manual` — English values, no machine translation. The 3 keys of the sentences they replace are removed: they were `manual` entries with an English value only, no source names them any more, and the weekly maintenance job prunes only keys Xcode has marked stale. They were removed with the tool's own writer, so the rest of the file is unchanged |
 
 Tests (6 files):
 

@@ -131,7 +131,7 @@ def prepare(work, lock, candidate, combined):
         raise ValueError('IDeviceKit manifest changed')
     (work / 'Package.swift').write_text(root_manifest)
     shutil.copy2(HERE / "Smoke/AppDependencyImports.swift", work / 'Sources/NativeSigningLinkSmoke/AppDependencyImports.swift')
-    shutil.copy2(ROOT / "VexSign/App/iOS/VexSign/Infrastructure/Networking/WebManager/ServerApplicationFactory.swift", work / 'Sources/NativeSigningLinkSmoke/ServerApplicationFactory.swift')
+    shutil.copy2(ROOT / "VexSign/App/iOS/Infrastructure/Networking/WebManager/ServerApplicationFactory.swift", work / 'Sources/NativeSigningLinkSmoke/ServerApplicationFactory.swift')
     # Hash every active SDK/local-package file, not only the logging patch sites.
     # Unused local Crypto/ASN1/OpenSSL copies remain from base preparation but
     # are NOT referenced by any manifest; the shared identity is remote only.

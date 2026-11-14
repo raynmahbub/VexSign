@@ -11,10 +11,10 @@
 # Only first-party Swift is linted. Submodules ship their own tooling and the
 # generated/vendored directories are not ours to fix.
 included:
-  - VexSign/App/iOS/VexSign
-  - VexSign/App/Extensions/WidgetExtension
+  - VexSign/App/iOS
+  - VexSign/App/WidgetExtension
   - VexSign/Tests
-  - VexSign/Packages/AltSourceKit/Sources/AltSourceKit
+  - VexSign/Packages/AltSourceKit/Sources
   - VexSign/Packages/NimbleKit/Sources
 
 excluded:

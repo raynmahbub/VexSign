@@ -115,7 +115,7 @@ The pages are also reachable from the app: **Settings → Ecosystem → Web Tool
 
 This optional component keeps its entry points in `API/`, nonsecret deployment
 inputs/reference data in `Configuration/`, tests in `Tests/` and the served icon
-in `Dashboard/Assets/`. `PREMIUM_FEED_FILE` still overrides the default
+in `Dashboard/`. `PREMIUM_FEED_FILE` still overrides the default
 `Configuration/premium.json`; no real feed, secret or deployment is added here.
 The normal local iOS signing workflow does not require this backend.
 

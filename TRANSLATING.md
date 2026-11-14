@@ -1,7 +1,7 @@
 # Translating VexSign
 
 Thanks for helping make VexSign usable in more languages. Translations live in
-[`VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings`](VexSign/App/iOS/VexSign/Resources/Localization/Localizable.xcstrings),
+[`VexSign/App/iOS/Resources/Localization/Localizable.xcstrings`](VexSign/App/iOS/Resources/Localization/Localizable.xcstrings),
 a standard Xcode String Catalog. The catalog's source language is English; the
 currently represented locales include Arabic, Czech, German, Spanish, French,
 Indonesian, Italian, Polish, Russian, Turkish, Vietnamese, and Simplified

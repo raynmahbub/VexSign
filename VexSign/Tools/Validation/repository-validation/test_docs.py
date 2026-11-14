@@ -32,8 +32,8 @@ class DocumentationTests(unittest.TestCase):
         readme = (checker.ROOT / 'README.md').read_text()
         self.assertIn('## Download', readme)
         for name in ('download-ipa.svg', 'add-source.svg'):
-            self.assertIn('VexSign/Documentation/Features/Design/assets/' + name, readme)
-            ET.parse(checker.ROOT / 'VexSign/Documentation/Features/Design/assets' / name)
+            self.assertIn('VexSign/Documentation/Features/assets/' + name, readme)
+            ET.parse(checker.ROOT / 'VexSign/Documentation/Features/assets' / name)
         self.assertIn('https://github.com/raynmahbub/VexSign/releases/latest', readme)
         self.assertIn('VexSign-unsigned-', readme)
         self.assertIn('14 days', readme)

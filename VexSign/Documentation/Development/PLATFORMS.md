@@ -14,7 +14,7 @@ None of them signs, installs or stores apps, and none of them pretends to.
 
 ## Shared code
 
-`VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/` is compiled into several targets through the same
+`VexSign/App/iOS/Infrastructure/Devices/Transport/` is compiled into several targets through the same
 membership-exception mechanism the widget extension already uses:
 
 | File | iOS | tvOS | visionOS | watchOS | watch widget |
@@ -32,7 +32,7 @@ Anything that touches UIKit, Core Data or the signer stays in the iOS target.
 
 ## Apple TV
 
-`VexSign/App/TV/VexSignTV/` — one screen, focus-first: certificate hero card, four count tiles,
+`VexSign/App/TV/` — one screen, focus-first: certificate hero card, four count tiles,
 pending updates, library grid.
 
 **Connection and pairing:** open VexSign on the iPhone → *Settings → Web Manager*;
@@ -88,7 +88,7 @@ good snapshot on screen instead of blanking.
 
 ## Apple Vision Pro
 
-`VexSign/App/Vision/VexSignVision/` — a spatial window: certificate panel and counts on the left,
+`VexSign/App/Vision/` — a spatial window: certificate panel and counts on the left,
 updates and library in a scrollable glass column on the right, with an ornament
 holding *Refresh* and *Connection*. Same client, same endpoints, same store as
 Apple TV; only the views differ.
@@ -145,8 +145,8 @@ xcodebuild -workspace VexSign.xcworkspace -scheme VexSignWatch \
 ```
 
 `.github/workflows/platform-check.yml` runs exactly these three builds on macOS
-runners whenever a companion target, `VexSign/App/iOS/VexSign/Infrastructure/Devices/Transport/`, the shared
-`VexSign/App/iOS/VexSign/Security/Secrets/SecureSecretStore.swift`, `VexSign/App/SharedPlatformInfo/`, or the project file changes.
+runners whenever a companion target, `VexSign/App/iOS/Infrastructure/Devices/Transport/`, the shared
+`VexSign/App/iOS/Security/Secrets/SecureSecretStore.swift`, `VexSign/App/SharedPlatformInfo/`, or the project file changes.
 
 The watch app is embedded in the iPhone app by an *Embed Watch Content* build
 phase on the `VexSign` target, and the watch widget is embedded in the watch app
@@ -157,7 +157,7 @@ the watch pair with it.
 
 - **No signing anywhere but iOS.** Zsign, the certificate store and `installd`
   are iOS-only. A companion that claimed to sign would be lying.
-- **No app icons in the new asset catalogs.** `VexSign/App/TV/VexSignTV/`, `VexSign/App/Vision/VexSignVision/`,
+- **No app icons in the new asset catalogs.** `VexSign/App/TV/`, `VexSign/App/Vision/`,
   `VexSign/` and `VexSign/` ship an empty `Assets.xcassets`;
   Xcode uses its placeholder icon. Add real icons before shipping.
 - **Provisioning.** The new targets use `CODE_SIGN_STYLE = Manual` with an empty
