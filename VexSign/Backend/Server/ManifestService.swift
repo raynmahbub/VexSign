@@ -17,15 +17,25 @@ enum ManifestService {
 	
 	static func resolve(for app: AppInfoPresentable, payload: URL) async -> URL? {
 		let candidates = endpoints.compactMap { _url(endpoint: $0, app: app, payload: payload) }
-		
+		return await select(candidates: candidates, serves: _serves)
+	}
+
+	/// Network-free selection rule used by `resolve`. Only a manifest endpoint that
+	/// positively answered with an XML plist may become an `itms-services` URL.
+	/// Returning an unverified candidate after every probe failed used to hand iOS
+	/// a dead manifest link, which is indistinguishable from a real install request.
+	static func select(
+		candidates: [URL],
+		serves: (URL) async -> Bool
+	) async -> URL? {
 		for candidate in candidates {
-			if await _serves(candidate) {
+			if Task.isCancelled { return nil }
+			if await serves(candidate) {
 				return candidate
 			}
 			Logger.misc.error("Manifest endpoint unusable: \(candidate.host ?? "?", privacy: .public)")
 		}
-		
-		return candidates.first
+		return nil
 	}
 	
 	private static func _url(endpoint: String, app: AppInfoPresentable, payload: URL) -> URL? {
