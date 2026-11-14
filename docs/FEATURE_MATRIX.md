@@ -1,5 +1,11 @@
 # Feature matrix and gap analysis
 
+> The 2026-11-13 implementation pass produced a Definition-of-Done status
+> matrix with `Implemented`, `Integrated`, `Tested`, `Build-verified`,
+> `Device-verified`, `Gated`, `Blocked` and `Not implemented`:
+> [feature completion matrix](research/feature-completion-matrix-2026-11-13.md).
+> This document remains the earlier source-level comparison.
+
 What VexSign can actually do, compared against the storage/signing ecosystem it interoperates
 with, and what is missing. Every status here is derived from reading this repository's source —
 no build, test run or device interaction happened while it was written (see

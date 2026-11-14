@@ -21,9 +21,27 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   device.
 - Permission for background signing (Settings, Automation). You allow it for the
   selected certificate for 1, 7 or 30 days and can turn it off at any time.
+- Regression tests for Swift 6 build errors, manifest endpoint selection,
+  server URL ports, extended log redaction, and deep-link base64 staging.
 
 ### Fixed
 
+- The app target compiles under Swift 6 diagnostics again: the Anisette provider
+  use case no longer evaluates a main-actor singleton in a default argument, and
+  shared-file import failures now use a real `Error` type instead of `String`.
+  Portable source guards cover both regressions; a fresh macOS CI build is
+  required to confirm the compile on this branch.
+- Public server URL probes reject malformed ports and malformed IPv6 URLs on
+  both the DNS and fast paths, so a hostile redirect can no longer crash the
+  probe/decode endpoints or skip port validation.
+- External OTA installs no longer fall back to an unverified manifest endpoint.
+  Every candidate must return an XML plist, and the install is refused with an
+  error when none does.
+- Shared diagnostic logs now redact imported certificate/session payloads,
+  pairing secrets, hardware identifiers, device names, UDIDs and the local part
+  of email addresses, while keeping ordinary errors and domains readable.
+- Certificate/profile base64 deep links accept standard base64, base64url,
+  missing padding and whitespace, and reject oversized payloads before staging.
 - Task history written before the build fields existed loads again. One such
   record used to make the whole history unreadable.
 - Concurrent first writes to the library can no longer each create their own
