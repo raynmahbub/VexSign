@@ -72,7 +72,7 @@ final class CoreDataWorkspaceRepository: WorkspaceCatalogProviding, LibraryRepos
         let context = storage.context
         return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let token = NotificationCenter.default.addObserver(
-                forName: NSManagedObjectContext.objectsDidChangeNotification, object: context, queue: .main
+                forName: .NSManagedObjectContextObjectsDidChange, object: context, queue: .main
             ) { _ in
                 // Leave the context notification before fetching, and let a transaction's
                 // insert/update/merge notifications coalesce into a single snapshot.

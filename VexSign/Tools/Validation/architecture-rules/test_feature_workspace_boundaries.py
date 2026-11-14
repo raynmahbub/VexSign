@@ -108,7 +108,17 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertIn("catch { self.error = error.localizedDescription }", eviction)
         self.assertNotRegex(eviction, r"catch\s*\{\s*error\s*=")
 
+    def test_library_clone_and_install_fallback_keep_their_explicit_dependencies(self):
+        clone = self.require("Presentation/Features/Library/Views/AppCloneSheet.swift",
+            "services.library.clone(")
+        self.assertRegex(clone, r"@EnvironmentObject\s+(?:private\s+)?var services: AppContainer")
+        self.require("Presentation/Features/Library/Views/Install/InstallQueueWindow.swift",
+            "import NimbleViews", "SafariRepresentableView(url: url)")
+
     def test_stream_termination_releases_subscriptions_and_producers_hop_to_their_owner(self):
+        self.require("Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
+            "forName: .NSManagedObjectContextObjectsDidChange, object: context, queue: .main",
+            "StreamObservationCancellation", "continuation.onTermination", "Task { @MainActor")
         for path in ["Infrastructure/Tasks/TaskWorkspaceAdapter.swift", "Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
                      "Infrastructure/Tasks/BatchSigningAdapter.swift", "Infrastructure/Signing/Engines/Cloud/CloudConfigurationAdapter.swift"]:
             self.require(path, "bufferingNewest(1)", "StreamObservationCancellation", "continuation.onTermination", "Task { @MainActor")

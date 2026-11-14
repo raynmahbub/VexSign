@@ -130,8 +130,8 @@ checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 22-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 22 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 23-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 23 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
 | Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
 | Error / singleton / concurrency guards | 169 unjustified optional-error sites (13 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
@@ -178,6 +178,8 @@ merged, released or deployed.
 | `45d708d`, [CI 43602852762](https://github.com/raynmahbub/VexSign/actions/runs/43602852762) | Quick syntax/resources/gates passed. The first-party concurrency **report-only** job completed successfully; that does not promote concurrency checking to an enforcing gate. iOS unsigned Debug build and simulator test jobs failed during app compilation. No simulator tests ran. |
 | `45d708d`, [companion 43602889231](https://github.com/raynmahbub/VexSign/actions/runs/43602889231) | Existing TV/tvOS, Vision/visionOS and Watch/watchOS unsigned Debug builds all passed. This is companion compilation evidence, not iOS/XCTest/device acceptance. |
 | `5b16d1b`, [CI 43604528974](https://github.com/raynmahbub/VexSign/actions/runs/43604528974) | Quick gates passed and the report-only concurrency job completed. iOS build and simulator test jobs still stopped during app compilation; compiler exit 65 is now captured correctly. New actor-warning annotations are enforced rather than silently ignored. No simulator tests ran. |
+| `5b16d1b`, [native link smoke 43605185577](https://github.com/raynmahbub/VexSign/actions/runs/43605185577) | Pinned isolated graph preparation, CMS fixture digest check, synthetic native unit regressions, generic arm64 iOS device linking and arm64 iOS Simulator linking all passed. Full combined-host packaging and the optional alternate dependency candidates were intentionally skipped. No Apple login/provisioning or capability promotion occurred. |
+| `8066c11`, [CI 43605987685](https://github.com/raynmahbub/VexSign/actions/runs/43605987685) | Quick gates passed and the report-only concurrency job completed. iOS build reported an unavailable Core Data notification member. The simulator build reported a missing clone-sheet container binding and missing NimbleViews import for the installation fallback browser. No simulator tests ran. |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -204,6 +206,26 @@ workspace ID for nonisolated `Identifiable` access, and certificate adapter
 defaults are resolved inside its main-actor initializer, not in default-argument
 expressions. These follow-up repairs need another native run; neither failed
 run is acceptance of them.
+
+The next repair uses the SDK's `.NSManagedObjectContextObjectsDidChange`
+notification name while preserving the exact-context filter, main-actor hop and
+observation teardown. The clone sheet declares its inherited container, and the
+installation fallback imports the existing NimbleViews browser wrapper rather
+than replacing it. Native build/test commands continue collecting independent
+compiler errors after a failed build task, while retaining their nonzero verdict
+and the unchanged warnings gate. Portable source regressions and the full
+preservation/grammar audit pass; these changes still require native revalidation.
+
+The separate native-signing smoke success does not compile the app's 84 added
+XCTest methods; those still require a successful `VexSignTests` simulator job.
+Native Apple-account signing remains `.notIntegrated` after synthetic/link tests.
+
+GitHub reports PR #243 as conflicting with main at `725a276`, while read-only
+local merge-tree diagnostics are clean. No merge/rebase/base sync was applied,
+and no current-main service dependency update was silently copied over the
+protected original pins. The manually dispatched runs test the named branch
+revision, not a PR merge commit. Mergeability and physical-device acceptance
+remain separate from those branch results.
 
 Reproduce the portable checks from the repository root:
 

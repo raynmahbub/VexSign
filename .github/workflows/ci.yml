@@ -336,6 +336,7 @@ jobs:
             -resultBundlePath "$RESULT_BUNDLE" \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            -continueBuildingAfterErrors \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -536,6 +537,7 @@ jobs:
             -parallel-testing-worker-count 2 \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            -continueBuildingAfterErrors \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \

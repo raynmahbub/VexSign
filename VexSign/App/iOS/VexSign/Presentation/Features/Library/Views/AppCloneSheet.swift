@@ -13,6 +13,7 @@ import NimbleExtensions
 import NimbleViews
 
 struct AppCloneSheet: View {
+    @EnvironmentObject private var services: AppContainer
 	let app: AppInfoPresentable
 
 	@Environment(\.dismiss) private var _dismiss

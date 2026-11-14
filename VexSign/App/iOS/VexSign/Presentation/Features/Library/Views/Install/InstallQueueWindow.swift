@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import NimbleExtensions
+import NimbleViews
 
 // MARK: - View: Host
 struct InstallQueueHostView: View {
