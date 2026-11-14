@@ -147,7 +147,10 @@ enum PackageSigningCoordinator {
                     log.success(.localized("Signed successfully"))
                     SigningLiveActivityManager.shared.complete(appName: request.name)
                     task.context?.artifactID = signed.uuid
-                    task.context?.confirmationReason = task.context?.signingTrace?.verified == true
+                    // Read the value before mutating the optional context: Swift's
+                    // writeback access must not overlap another read of that value.
+                    let signatureWasVerified = task.context?.signingTrace?.verified == true
+                    task.context?.confirmationReason = signatureWasVerified
                         ? "signature-verified-and-artifact-registered" : "artifact-registered-without-signature-verdict"
                     // Signing completed. This is the artifact being registered — never evidence
                     // that anything was installed.

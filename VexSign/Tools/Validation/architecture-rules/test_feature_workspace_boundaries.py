@@ -148,6 +148,19 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         owner = self.require("Infrastructure/Observation/StreamObservationCancellation.swift", "NSLock()", "subscriptions = []", "lock.unlock()", "current.forEach { $0.cancel() }")
         self.assertLess(owner.index("lock.unlock()"), owner.index("current.forEach { $0.cancel() }"))
 
+    def test_archive_stream_observes_the_workspace_owner_not_its_plain_change_journal(self):
+        adapter = self.require("Infrastructure/Archives/IPA/ArchiveWorkspaceAdapter.swift",
+            "workspace.objectWillChange.sink", "Task { @MainActor", "continuation.yield(self.state())",
+            "StreamObservationCancellation(subscription)", "continuation.onTermination")
+        self.assertNotIn("journal?.objectWillChange", adapter)
+        self.require("Infrastructure/Archives/IPA/IPAWorkspace.swift",
+            "final class IPAWorkspace: ObservableObject", "journal.record(change: change)",
+            "if reverted { markDirty() }", "if reverted > 0 { markDirty() }", "journal?.clearAll()")
+        actions = code("Infrastructure/Archives/IPA/IPAExplorerActions.swift")
+        for method in ["createFolder", "importFiles", "save", "rename", "replace", "delete"]:
+            body = actions.split("static func " + method, 1)[1].split("static func ", 1)[0]
+            self.assertLess(body.index("workspace.journalChange"), body.index("workspace.markDirty()"))
+
     def test_direct_install_admission_outlives_cancelled_workers_without_undoing_commits(self):
         source = self.require("Application/Installation/DirectPackageInstallUseCase.swift",
             "guard !working else { throw ArchitectureDomainError.duplicateOrBusyOperation }",
@@ -245,6 +258,15 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.require("Presentation/Features/Signing/Views/SigningView.swift", "for: app, requestID: requestID",
             "deletesSource: runOptions.post_deleteAppAfterSigned, requestID: requestID")
         self.require("Infrastructure/Signing/Execution/NamedSigningProfileStore.swift", "JSONEncoder().encode(profiles.map { $0.withoutOneShotFiles() })")
+
+    def test_signing_artifact_trace_reads_verification_before_optional_context_writeback(self):
+        source = self.require("Infrastructure/Signing/Execution/PackageSigningCoordinator.swift",
+            "let signatureWasVerified = task.context?.signingTrace?.verified == true",
+            "task.context?.confirmationReason = signatureWasVerified",
+            '"signature-verified-and-artifact-registered" : "artifact-registered-without-signature-verdict"')
+        self.assertLess(source.index("let signatureWasVerified"), source.index("task.context?.confirmationReason ="))
+        self.assertNotIn("task.context?.confirmationReason = task.context?", source)
+        self.assertIn("never evidence\n                    // that anything was installed", source)
 
     def test_account_approvals_and_closed_cms_gate_remain_separate(self):
         self.require("Application/Accounts/AppleAccountWorkspaceUseCase.swift", "guard approval.isComplete", "guard consentGiven", "guard !provisioning", "try Task.checkCancellation()")

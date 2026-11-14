@@ -159,6 +159,38 @@ final class IPAExplorerOwnershipTests: XCTestCase {
         XCTAssertTrue(workspace.journal?.changes.isEmpty == true)
     }
 
+    func testArchiveSnapshotStreamReflectsJournalEditAndUndoFromItsWorkspaceOwner() async throws {
+        let workspace = try archiveWorkspace(blockUndoStorage: false)
+        let journal = try XCTUnwrap(workspace.journal)
+        defer { try? FileManager.default.removeItem(at: journal.root) } // try? ok: test teardown only
+        let storage = Storage(inMemory: true)
+        let adapter = ArchiveWorkspaceAdapter(workspace: workspace, repository: CoreDataWorkspaceRepository(storage: storage))
+        let edited = expectation(description: "workspace emitted committed journal edit")
+        let undone = expectation(description: "workspace emitted completed undo")
+        let changes = adapter.changes()
+        let consumer = Task { @MainActor in
+            var sawEdit = false
+            for await state in changes {
+                if !sawEdit, state.changes.count == 1, state.changeCount > 0 {
+                    sawEdit = true
+                    edited.fulfill()
+                } else if sawEdit, state.changes.isEmpty {
+                    undone.fulfill()
+                    return
+                }
+            }
+        }
+        defer { consumer.cancel() }
+        let file = workspace.appURL.appendingPathComponent("observed.txt")
+        try Data("before".utf8).write(to: file)
+        try adapter.save(data: Data("after".utf8), to: file)
+        await fulfillment(of: [edited], timeout: 2)
+        XCTAssertTrue(adapter.undoChange(at: file))
+        await fulfillment(of: [undone], timeout: 2)
+        XCTAssertEqual(try Data(contentsOf: file), Data("before".utf8))
+        XCTAssertTrue(adapter.state().changes.isEmpty)
+    }
+
     func testImportBatchDoesNotReacquireItsOwnLease() throws {
         let (storage, _, workspace) = try fixture()
         defer { withExtendedLifetime(storage) {} }

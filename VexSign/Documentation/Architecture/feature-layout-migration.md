@@ -130,8 +130,8 @@ checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 25-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 25 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 27-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 27 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
 | Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
 | Error / singleton / concurrency guards | 168 unjustified optional-error sites (14 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
@@ -160,9 +160,11 @@ rollback; the retired screen still cannot present it. Fourteen Direct Install ca
 cover overlapping admission, retirement/task cancellation after registration,
 lease retention until the worker returns, accepted handoff preservation, unknown
 routing, hidden-screen callbacks, stale/double confirmation, captured mode and the
-actual guest outcome. Existing certificate/recovery files add 13 methods for transaction/undo-insert failure, nil-date/relink behavior,
+actual guest outcome. Existing archive/certificate/recovery files add 14 methods for transaction/undo-insert failure, nil-date/relink behavior,
 replacement UUID ownership, unavailable stores, interrupted undo, failed
-re-stage/erasure and durable journal retention. **There is not yet a successful native compile/test result for these 87 added
+re-stage/erasure and durable journal retention. An archive stream regression
+checks that completed edit/undo operations update immutable snapshots through
+the existing workspace publisher. **There is not yet a successful native compile/test result for these 88 added
 methods.** The first simulator job stopped during app compilation before tests
 could run. Source-reading fixtures fail
 when an expected implementation file is absent; they do not silently skip
@@ -183,6 +185,7 @@ merged, released or deployed.
 | `5b16d1b`, [native link smoke 43605185577](https://github.com/raynmahbub/VexSign/actions/runs/43605185577) | Pinned isolated graph preparation, CMS fixture digest check, synthetic native unit regressions, generic arm64 iOS device linking and arm64 iOS Simulator linking all passed. Full combined-host packaging and the optional alternate dependency candidates were intentionally skipped. No Apple login/provisioning or capability promotion occurred. |
 | `8066c11`, [CI 43605987685](https://github.com/raynmahbub/VexSign/actions/runs/43605987685) | Quick gates passed and the report-only concurrency job completed. iOS build reported an unavailable Core Data notification member. The simulator build reported a missing clone-sheet container binding and missing NimbleViews import for the installation fallback browser. No simulator tests ran. |
 | `2828c00`, [CI 43608316611](https://github.com/raynmahbub/VexSign/actions/runs/43608316611) | Quick gates passed and the report-only concurrency job completed. Debug compilation failed in downloaded-file row inference; three newly enforced warnings were also reported. The simulator build found an entitlement helper still expecting managed certificate rows instead of immutable certificate records. No simulator tests ran (xcresult total 0). |
+| `6d3242c`, [CI 43609954036](https://github.com/raynmahbub/VexSign/actions/runs/43609954036) | Quick gates passed and the report-only concurrency job completed. Debug compilation found overlapping read/write access to the optional signing task context. Simulator compilation found an archive adapter attempting to observe a nonexistent journal publisher. No simulator tests ran (xcresult total 0). |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -242,7 +245,18 @@ Three added XCTest methods cover missing/empty grants and value comparison.
 These follow-up changes need a new native run; the completed `2828c00` run
 executed zero simulator tests.
 
-The separate native-signing smoke success does not compile the app's 87 added
+The `6d3242c` follow-up separates reading the signing-verification verdict from
+writing the task's confirmation reason, preserving the distinction between
+registered artifacts and verified installation while satisfying Swift's exclusive
+access rule. Archive observation now subscribes only to `IPAWorkspace`'s existing
+publisher: the plain change journal never had its own publisher. The existing
+workspace publishes after successful file edits and undo/reset, plus rebuild and
+progress; a main-actor hop reads the post-mutation snapshot and stream teardown
+still cancels the subscription. A native archive edit/undo stream regression was
+added; portable regressions enforce owner wiring and ordering. These repairs
+require another full native run, not inference from the prior failed build.
+
+The separate native-signing smoke success does not compile the app's 88 added
 XCTest methods; those still require a successful `VexSignTests` simulator job.
 Native Apple-account signing remains `.notIntegrated` after synthetic/link tests.
 

@@ -40,8 +40,9 @@ final class ArchiveWorkspaceAdapter: ArchiveWorkspaceProviding {
     func changes() -> AsyncStream<ArchiveWorkspaceState> {
         AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             continuation.yield(state())
-            let journal = workspace.journal?.objectWillChange.eraseToAnyPublisher() ?? Empty<Void, Never>(completeImmediately: false).eraseToAnyPublisher()
-            let subscription = workspace.objectWillChange.merge(with: journal).sink { [weak self] _ in
+            // IPAWorkspace publishes completed edits, undo/reset, rebuild and
+            // progress. Its plain journal is not a second observation owner.
+            let subscription = workspace.objectWillChange.sink { [weak self] _ in
                 Task { @MainActor in
                     guard let self else { return }
                     continuation.yield(self.state())
