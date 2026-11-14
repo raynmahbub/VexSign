@@ -3,7 +3,11 @@ import Foundation
 @MainActor
 final class DiscoveryUseCase {
     private let provider: DiscoveryCatalogProviding
-    init(provider: DiscoveryCatalogProviding) { self.provider = provider }
+    private let policy: SecurityPolicyValidating
+    init(provider: DiscoveryCatalogProviding, policy: SecurityPolicyValidating) {
+        self.provider = provider
+        self.policy = policy
+    }
     func cachedApps() async throws -> [DiscoveryApp] { try await provider.cachedApps() }
     func signals() async throws -> DiscoverySignals { try await provider.signals() }
     func refresh(force: Bool) async throws -> [DiscoveryApp]? {
@@ -16,5 +20,11 @@ final class DiscoveryUseCase {
         return unique
     }
     func saveSignals(_ signals: DiscoverySignals) async throws { try await provider.saveSignals(signals) }
-    func download(_ app: DiscoveryApp) throws { try provider.download(app) }
+    func download(_ app: DiscoveryApp) throws {
+        guard let url = app.download else { throw URLError(.badURL) }
+        // Admit the intent before touching a provider or recording popularity.
+        // The infrastructure adapter independently retains its transport gate.
+        try policy.validatePackageDownloadURL(url)
+        try provider.download(app)
+    }
 }

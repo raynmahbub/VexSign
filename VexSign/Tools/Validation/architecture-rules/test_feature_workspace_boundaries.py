@@ -108,6 +108,19 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertIn("catch { self.error = error.localizedDescription }", eviction)
         self.assertNotRegex(eviction, r"catch\s*\{\s*error\s*=")
 
+    def test_discovery_admission_consumes_the_shared_policy_before_its_provider(self):
+        source = self.require("Application/Repositories/DiscoveryUseCase.swift",
+            "private let policy: SecurityPolicyValidating", "guard let url = app.download",
+            "try policy.validatePackageDownloadURL(url)", "try provider.download(app)")
+        self.assertLess(source.index("guard let url = app.download"), source.index("try policy.validatePackageDownloadURL"))
+        self.assertLess(source.index("try policy.validatePackageDownloadURL"), source.index("try provider.download(app)"))
+        self.require("App/Composition/AppContainer.swift", "DiscoveryUseCase(provider: discovery, policy: securityPolicy)")
+        self.require("Infrastructure/Repositories/RepositoryDiscoveryAdapter.swift", "try security.validatePackageDownloadURL(url)")
+        fixture = (ROOT / "VexSign/Tests/UnitTests/Repositories/DiscoveryViewModelTests.swift").read_text()
+        self.assertIn("FakeCatalog: DiscoveryCatalogProviding", fixture)
+        self.assertIn("DiscoveryUseCase(provider: provider, policy: SecurityPolicyGateway())", fixture)
+        self.assertNotIn("DiscoveryViewModel(downloads:", fixture)
+
     def test_library_clone_and_install_fallback_keep_their_explicit_dependencies(self):
         clone = self.require("Presentation/Features/Library/Views/AppCloneSheet.swift",
             "services.library.clone(")

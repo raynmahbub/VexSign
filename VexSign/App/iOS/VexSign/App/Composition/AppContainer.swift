@@ -120,7 +120,7 @@ final class AppContainer: ObservableObject {
         self.certificates = CertificateWorkspaceModel(useCase: CertificateWorkspaceUseCase(provider: certificateWorkspace), workspace: workspace, platform: platform)
         self.signingPreferences = SigningPreferencesModel(useCase: SigningPreferencesUseCase(provider: signingPreferences), platform: platform)
         self.batchProvider = batchProvider
-        self.discovery = DiscoveryViewModel(useCase: DiscoveryUseCase(provider: discovery))
+        self.discovery = DiscoveryViewModel(useCase: DiscoveryUseCase(provider: discovery, policy: securityPolicy))
         self.securityPolicy = securityPolicy
         self.transferService = transferService
         self.platform = platform

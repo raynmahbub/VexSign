@@ -46,7 +46,7 @@ final class ArchiveLimitsTests: XCTestCase {
             try archive.addEntry(
                 with: entry.path,
                 type: .file,
-                uncompressedSize: UInt32(entry.size),
+                uncompressedSize: Int64(entry.size),
                 modificationDate: Date(),
                 permissions: 0o644,
                 compressionMethod: entry.method,

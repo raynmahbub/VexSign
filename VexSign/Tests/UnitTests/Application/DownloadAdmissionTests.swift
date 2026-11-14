@@ -247,7 +247,7 @@ final class DownloadAdmissionTests: XCTestCase {
             }
         }
 
-        try withManager(protocolClass: NotFoundDownloadProtocol.self) { manager in
+        withManager(protocolClass: NotFoundDownloadProtocol.self) { manager in
             let delegate = Delegate(errorExpectation)
             manager.errorDelegate = delegate
 
