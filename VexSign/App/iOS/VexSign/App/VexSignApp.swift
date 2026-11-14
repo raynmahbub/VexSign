@@ -85,23 +85,6 @@ struct VexSignApp: App {
                     }
                 }
             }
-            .environmentObject(appContainer)
-            .environmentObject(appContainer.cloudConfiguration)
-            .environmentObject(appContainer.tasks)
-            .environmentObject(appContainer.appleAccount)
-            .environmentObject(appContainer.workspace)
-            .environmentObject(appContainer.sources)
-            .environmentObject(appContainer.certificates)
-            .environmentObject(appContainer.signingPreferences)
-            .environmentObject(appContainer.discovery)
-            .environmentObject(appContainer.installationQueue)
-            .environmentObject(appContainer.files)
-            .environmentObject(appContainer.tweaks)
-            .environmentObject(appContainer.entitlements)
-            .environmentObject(appContainer.repositoryBuilder)
-            .environmentObject(appContainer.fileBrowser)
-            .environment(\.appContainer, appContainer)
-            .environmentObject(appearance)
             .modifier(VexWorkspaceTypography())
             .modifier(VexWorkspaceAccessibility())
             .tint(Theme.tint)
@@ -161,30 +144,33 @@ struct VexSignApp: App {
                 _showOnboarding = true
             }
             .sheet(isPresented: $_showOnboarding) {
-                // Sheets observe the same immutable workspace and application models.
                 OnboardingView()
-                    .environmentObject(appContainer)
-            .environmentObject(appContainer.workspace)
-            .environmentObject(appContainer.sources)
-            .environmentObject(appContainer.certificates)
-            .environmentObject(appContainer.signingPreferences)
-            .environmentObject(appContainer.discovery)
-            .environmentObject(appContainer.installationQueue)
-                    .environment(\.appContainer, appContainer)
             }
             .sheet(isPresented: $selfUpdate.presentUpdatePrompt) {
                 if let release = selfUpdate.available {
                     SelfUpdateSheet(release: release)
-                        .environmentObject(appContainer)
+                }
+            }
+            // Keep the dependency scope outside every overlay and presentation.
+            // An environment modifier only reaches the subtree before it: the
+            // always-built installation pill must receive its queue even idle.
+            .environmentObject(appContainer)
+            .environmentObject(appContainer.cloudConfiguration)
+            .environmentObject(appContainer.tasks)
+            .environmentObject(appContainer.appleAccount)
             .environmentObject(appContainer.workspace)
             .environmentObject(appContainer.sources)
             .environmentObject(appContainer.certificates)
             .environmentObject(appContainer.signingPreferences)
             .environmentObject(appContainer.discovery)
             .environmentObject(appContainer.installationQueue)
-                        .environment(\.appContainer, appContainer)
-                }
-            }
+            .environmentObject(appContainer.files)
+            .environmentObject(appContainer.tweaks)
+            .environmentObject(appContainer.entitlements)
+            .environmentObject(appContainer.repositoryBuilder)
+            .environmentObject(appContainer.fileBrowser)
+            .environment(\.appContainer, appContainer)
+            .environmentObject(appearance)
         }
     }
 

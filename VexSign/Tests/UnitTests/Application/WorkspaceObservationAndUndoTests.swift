@@ -37,9 +37,9 @@ final class WorkspaceObservationAndUndoTests: XCTestCase {
         let terminated = expectation(description: "stream consumer terminated")
         provider.terminated = terminated
         var model: WorkspaceViewModel? = WorkspaceViewModel(useCase: WorkspaceCatalogUseCase(repository: provider))
-        weak var observed = model
+        let wasReleased = { [weak model] in model == nil }
         model = nil
-        XCTAssertNil(observed)
+        XCTAssertTrue(wasReleased(), "The stream consumer must not retain its discarded model")
         await fulfillment(of: [terminated], timeout: 2)
     }
 

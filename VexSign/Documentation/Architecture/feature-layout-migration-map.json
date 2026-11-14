@@ -7155,6 +7155,7 @@
     ".github/pull_request_template.md",
     ".github/scripts/coverage_report.py",
     ".github/scripts/quick_check.py",
+    ".github/scripts/surface_test_failures.py",
     ".github/scripts/xcodebuild_report.py",
     ".github/workflows/ci-repair-assistant.yml",
     ".github/workflows/ci.yml",
@@ -7581,7 +7582,7 @@
     "render.yaml"
   ],
   "relocatedFileCount": 1322,
-  "status": "published as PR #243; c249f3b unsigned iOS Debug/warnings/resource-byte/IPA checks passed; simulator then found stale discovery test construction, repaired with inward-port/policy fixtures; portable/companion/isolated native link results remain revision-specific; full XCTest and device acceptance pending",
+  "status": "published as PR #243; 703550d unsigned iOS Debug/warnings/resource-byte/IPA checks passed and simulator app/test bundle compiled; test host trapped before XCTest connected; repaired root overlay/presentation environment scope and crash diagnostics; new native validation and physical-device acceptance pending",
   "limitations": [
     "Portable source/grammar checks are not Swift type checking or device acceptance. Revision-specific GitHub Actions findings are recorded in feature-layout-migration.md.",
     "Existing Swift packages and companion targets are retained, not replaced by empty example modules.",

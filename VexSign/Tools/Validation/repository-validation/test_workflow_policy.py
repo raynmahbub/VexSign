@@ -164,6 +164,48 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertEqual(match['col'], column)
             self.assertIn('assertion failed', match['msg'])
 
+    def test_startup_crash_stack_reads_multiline_ips_after_apple_metadata(self):
+        import json
+        reporter = runpy.run_path(str(ROOT / '.github/scripts/surface_test_failures.py'))
+        payload = {'faultingThread': 0, 'threads': [{'triggered': True, 'frames': [
+            {'symbol': '_assertionFailure'}, {'symbol': 'EnvironmentObject.error()'},
+            {'symbol': 'InstallQueuePill.body.getter'},
+        ]}]}
+        with tempfile.TemporaryDirectory() as folder:
+            report = Path(folder) / 'VexSign.ips'
+            report.write_text(json.dumps({'app_name': 'VexSign', 'bug_type': '309'}) + '\n' +
+                              json.dumps(payload, indent=2) + '\n')
+            self.assertEqual(reporter['crash_payload'](report.read_text()), payload)
+            self.assertEqual(reporter['crash_stack'](folder),
+                '_assertionFailure <- EnvironmentObject.error() <- InstallQueuePill.body.getter')
+            payload['faultingThread'] = -1
+            payload['threads'].append({'frames': [{'symbol': 'unrelated thread'}]})
+            report.write_text(json.dumps(payload))
+            self.assertIn('InstallQueuePill.body.getter', reporter['crash_stack'](folder))
+
+    def test_startup_crash_stack_reads_plain_text_and_ignores_malformed_exports(self):
+        reporter = runpy.run_path(str(ROOT / '.github/scripts/surface_test_failures.py'))
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / 'A-malformed.ips').write_text('{bad json\n}')
+            (Path(folder) / 'VexSign.crash').write_text(
+                'Process: VexSign\n\nThread 0 Crashed:\n'
+                '0   libswiftCore.dylib    0x00000001 _assertionFailure + 100\n'
+                '1   SwiftUI              0x00000002 EnvironmentObject.error() + 48\n\n'
+                'Thread 1:\n0   libdispatch.dylib    0x00000003 unrelated\n')
+            self.assertEqual(reporter['crash_payload']('{bad json'), {})
+            self.assertEqual(reporter['crash_stack'](folder),
+                '_assertionFailure + 100 <- EnvironmentObject.error() + 48')
+
+    def test_startup_fatal_environment_message_survives_test_failure_chatter(self):
+        reporter = runpy.run_path(str(ROOT / '.github/scripts/surface_test_failures.py'))
+        with tempfile.TemporaryDirectory() as folder:
+            log = Path(folder) / 'test.log'
+            log.write_text('SwiftUI/EnvironmentObject.swift: Fatal error: No ObservableObject of type InstallationQueueModel found.\n' +
+                           'Simulator logging chatter\n' * 100 + '** TEST FAILED **\nTesting started\n')
+            contexts = reporter['log_context'](str(log))
+            self.assertTrue(any('No ObservableObject of type InstallationQueueModel' in line for line in contexts))
+            self.assertTrue(all(len(line) <= 400 for line in contexts))
+
     def _warning_gate(self, paths, baseline):
         import json
         with tempfile.TemporaryDirectory() as folder:

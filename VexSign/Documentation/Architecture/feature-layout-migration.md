@@ -15,8 +15,8 @@ licenses, package pins, target identities or existing execution engines.
 - **Decision:** [ADR-0001](../Decisions/ADR-0001-feature-layered-source-tree.md).
 - **Current guide:** [architecture](ARCHITECTURE.md) and [dependency rules](dependency-rules.md).
 
-All original files have unique existing destinations: 951 remain byte-identical
-and 424 text originals are rewritten. Focused extractions and validation/docs add
+All original files have unique existing destinations: 945 remain byte-identical
+and 430 text originals are rewritten. Focused extractions and validation/docs add
 191 files without replacing the original inventory or its recorded hashes. The
 inventory includes this working tree's added/rewritten files, not an earlier
 checkpoint; rerun the audit after any further edits.
@@ -130,8 +130,8 @@ checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 29-case workspace-boundary source suite and 24 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 29 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 30-case workspace-boundary source suite and 24 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 30 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
 | Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. One reviewed generic-resource file-type override is audited below. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
 | Error / singleton / concurrency guards | 168 unjustified optional-error sites (14 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
@@ -165,9 +165,10 @@ replacement UUID ownership, unavailable stores, interrupted undo, failed
 re-stage/erasure and durable journal retention. An archive stream regression
 checks that completed edit/undo operations update immutable snapshots through
 the existing workspace publisher. Two discovery cases additionally cover accepted
-intent/signal ordering and provider refusal without a success signal. **There is not yet a successful native compile/test result for these 90 added
-methods.** The first simulator job stopped during app compilation before tests
-could run. Source-reading fixtures fail
+intent/signal ordering and provider refusal without a success signal. **The app and test bundle compile at `703550d`, but none of these 90 added
+methods has a successful native execution result yet.** That simulator host
+trapped before XCTest could connect; its one reported infrastructure failure
+is not an executed application test. Source-reading fixtures fail
 when an expected implementation file is absent; they do not silently skip
 migration breakage. In particular, fixture/source passes are not delayed-OCSP,
 UIKit, real protected-database, host-copy or actual installer callback acceptance.
@@ -189,6 +190,7 @@ merged, released or deployed.
 | `6d3242c`, [CI 43609954036](https://github.com/raynmahbub/VexSign/actions/runs/43609954036) | Quick gates passed and the report-only concurrency job completed. Debug compilation found overlapping read/write access to the optional signing task context. Simulator compilation found an archive adapter attempting to observe a nonexistent journal publisher. No simulator tests ran (xcresult total 0). |
 | `4879a1b`, [CI 43611504148](https://github.com/raynmahbub/VexSign/actions/runs/43611504148) | Quick gates passed and the report-only concurrency job completed. Debug failed without a parsed source diagnostic. Simulator compilation reached the linker, which rejected `ellekit.deb` as a Mach-O static archive. No simulator tests ran (xcresult total 0). |
 | `c249f3b`, [CI 43613459987](https://github.com/raynmahbub/VexSign/actions/runs/43613459987) | Unsigned iOS Debug build, unchanged warnings gate, bundled-resource byte comparison, unsigned test IPA packaging/upload and download-integrity check all passed. Quick gates passed and the report-only concurrency job completed. Simulator compiled the app, then found three stale `DiscoveryViewModel(downloads:)` constructions in the test target. No simulator tests ran (xcresult total 0). |
+| `703550d`, [CI 43615782485](https://github.com/raynmahbub/VexSign/actions/runs/43615782485) | Unsigned iOS Debug build, unchanged warnings gate, resource-byte comparison and unsigned test IPA packaging/download checks passed again. Quick gates passed and the report-only concurrency job completed. Both simulator app and test bundle compiled, but the app trapped before XCTest established a connection. The xcresult reports one host-bootstrap failure, zero passed tests; no authored XCTest method is established as executed. |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -268,7 +270,8 @@ SHA256 remains `588ad56c5de5585ca2d66e385cc8f25b4c1d77d5e8fc52baec6d69cb3fa3343d
 The preservation auditor now rejects all other unreviewed resource-type/folder
 metadata changes. CI additionally compares the bundled device-app resource bytes
 before packaging its disposable unsigned test IPA; omitting the resource is not
-an acceptable way to make linking pass. Native revalidation is still required.
+an acceptable way to make linking pass. Device build/resource/IPA checks passed
+at `c249f3b` and `703550d`; simulator linking also passed at `703550d`.
 
 The Debug failure's unparsed log-tail annotation was truncated before its useful
 final lines. Direct log downloads redirect to an unreachable artifact host in
@@ -288,7 +291,26 @@ intact. The fake deliberately does not validate URLs, so the original invalid/mi
 URL tests still prove production admission rather than duplicating it in a mock.
 Accepted-intent/signal ordering and provider-refusal cases were added. The observed
 deprecated ZIP writer overload and redundant test `try` were also repaired without
-changing dependency pins. The new fixture source still needs native revalidation.
+changing dependency pins. The fixture source compiled at `703550d`, but the
+host launch trap prevented test execution.
+
+At `703550d`, the simulator host exited with a trap before XCTest connected,
+matching a launch-time failure rather than another compiler error. Review found
+the always-built `InstallQueuePill` was appended after the root environment
+modifiers, outside the subtree carrying its required `InstallationQueueModel`.
+The root dependency scope now wraps all overlays and sheets, including onboarding
+and self-update, instead of duplicating an incomplete model subset in the sheet
+closures. The shared production models and original execution owners are unchanged.
+A portable regression pins this ordering; native startup/test revalidation is
+pending and a physical-device crash log is still needed to establish that this
+is the user's device-specific failure. The observation-lifetime fixture also
+uses an equivalent weak capture instead of a compiler-warned weak local.
+
+Failure diagnostics now parse Apple's metadata-plus-multiline IPS records and
+older plain-text crash reports instead of attempting to decode only the last
+line. Missing-environment and other fatal messages survive unrelated log chatter.
+Three additional fixtures exercise those paths (54 workflow-policy tests total);
+crash reporting still cannot turn a failed compiler/test run into success.
 
 The separate native-signing smoke success does not compile the app's 90 added
 XCTest methods; those still require a successful `VexSignTests` simulator job.

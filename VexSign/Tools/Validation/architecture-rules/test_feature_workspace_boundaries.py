@@ -32,6 +32,23 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
             "LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared)",
             "CompanionArchiveAdapter(repository: workspaceRepository, sharing: sharing)")
 
+    def test_root_environment_wraps_overlays_and_presented_sheets(self):
+        shell = code("App/VexSignApp.swift")
+        scope = shell.index(".environmentObject(appContainer)")
+        # SwiftUI environment modifiers only reach their wrapped subtree. The
+        # always-built queue pill used to be appended outside that subtree and
+        # trapped on its first read of InstallationQueueModel, even when idle.
+        for child in ["InstallQueuePill()", "AppLockScreenView()", "OnboardingView()", "SelfUpdateSheet(release: release)"]:
+            self.assertLess(shell.index(child), scope, child + " must be inside the root dependency scope")
+        for model in ["appContainer", "appContainer.installationQueue", "appContainer.tweaks",
+                      "appContainer.files", "appContainer.workspace", "appearance"]:
+            token = ".environmentObject(" + model + ")"
+            self.assertEqual(shell.count(token), 1, "Use the same outer root scope for every presentation")
+            self.assertGreaterEqual(shell.index(token), scope)
+        self.assertGreater(shell.index(".environment(\\.appContainer, appContainer)"), scope)
+        self.require("Presentation/Features/Library/Views/Install/InstallQueueWindow.swift",
+            "@EnvironmentObject private var queue: InstallationQueueModel")
+
     def test_library_references_are_store_bound_and_wrong_signedness_fails_closed(self):
         self.require("Infrastructure/Persistence/Repositories/CoreDataWorkspaceRepository.swift",
             'reference.isSigned ? "Signed" : "Imported"', "managedObjectID(forURIRepresentation: uri)",
