@@ -1,0 +1,92 @@
+{
+  "description": "Reviewed legacy architecture violations; new files matching these rules fail the drift guard.",
+  "generatedAt": "2026-11-13",
+  "rules": {
+    "application_external_integration_imports": [
+      "App/iOS/VexSign/Application/AnisetteProviderUseCase.swift"
+    ],
+    "application_platform_imports": [],
+    "domain_forbidden_imports": [],
+    "presentation_direct_storage": [
+      "App/iOS/VexSign/Presentation/CertificatesCoordinator.swift",
+      "App/iOS/VexSign/Presentation/HomeActionCoordinator.swift"
+    ],
+    "views_coredata_imports": [
+      "App/iOS/VexSign/Views/Common/AppLibraryPicker.swift",
+      "App/iOS/VexSign/Views/Library/LibraryView.swift",
+      "App/iOS/VexSign/Views/Settings/OnboardingView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/DownloadButtonView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/SourceAppsView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceAppsCoordinator+Data.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceAppsCoordinator+TableView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceAppsTableRepresentableView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceTabBarView.swift",
+      "App/iOS/VexSign/Views/Sources/SourceHealthDashboardView.swift",
+      "App/iOS/VexSign/Views/Sources/SourcesView.swift",
+      "App/iOS/VexSign/Views/TabView/AppStoreView+Discover.swift",
+      "App/iOS/VexSign/Views/TabView/AppStoreView+Repositories.swift",
+      "App/iOS/VexSign/Views/TabView/AppStoreView.swift",
+      "App/iOS/VexSign/Views/TabView/HomeView.swift",
+      "App/iOS/VexSign/Views/Updates/PerAppUpdateRulesView.swift",
+      "App/iOS/VexSign/Views/Updates/UpdatesView.swift"
+    ],
+    "views_direct_install": [
+      "App/iOS/VexSign/Views/Library/LibraryCellView.swift",
+      "App/iOS/VexSign/Views/Library/LibraryView+BatchActions.swift",
+      "App/iOS/VexSign/Views/Signing/SigningView.swift"
+    ],
+    "views_direct_signing": [
+      "App/iOS/VexSign/Views/Settings/OnboardingView.swift",
+      "App/iOS/VexSign/Views/Signing/SigningView.swift"
+    ],
+    "views_direct_storage": [
+      "App/iOS/VexSign/Views/Common/AppLibraryPicker.swift",
+      "App/iOS/VexSign/Views/Common/UndoableRemoval.swift",
+      "App/iOS/VexSign/Views/Common/VexAppIconView.swift",
+      "App/iOS/VexSign/Views/FileManager/FileManagerActions.swift",
+      "App/iOS/VexSign/Views/Library/AppCustomizationSheet.swift",
+      "App/iOS/VexSign/Views/Library/Batch/BatchSignView.swift",
+      "App/iOS/VexSign/Views/Library/Info/LibraryInfoView.swift",
+      "App/iOS/VexSign/Views/Library/LibraryCellView.swift",
+      "App/iOS/VexSign/Views/Library/LibraryView+BatchActions.swift",
+      "App/iOS/VexSign/Views/Library/LibraryView.swift",
+      "App/iOS/VexSign/Views/Settings/About/DeviceDiagnosticsView.swift",
+      "App/iOS/VexSign/Views/Settings/Automation/AutomationView.swift",
+      "App/iOS/VexSign/Views/Settings/Automation/UnattendedSigningGrantSection.swift",
+      "App/iOS/VexSign/Views/Settings/Certificates/CertificatesCellView.swift",
+      "App/iOS/VexSign/Views/Settings/Certificates/CertificatesView.swift",
+      "App/iOS/VexSign/Views/Settings/Certificates/Info/CertificatesInfoView.swift",
+      "App/iOS/VexSign/Views/Settings/OnboardingView.swift",
+      "App/iOS/VexSign/Views/Settings/ProvisioningFlowView.swift",
+      "App/iOS/VexSign/Views/Settings/Security/AntiRevokeSettingsView.swift",
+      "App/iOS/VexSign/Views/Settings/SettingsView.swift",
+      "App/iOS/VexSign/Views/Settings/SetupHealthView.swift",
+      "App/iOS/VexSign/Views/Settings/Signing Options/SigningProfilesView.swift",
+      "App/iOS/VexSign/Views/Settings/Updates/UpdatesSettingsView.swift",
+      "App/iOS/VexSign/Views/Signing/Entitlements/SigningEntitlementsView.swift",
+      "App/iOS/VexSign/Views/Signing/InfoPlist/SigningInfoPlistView.swift",
+      "App/iOS/VexSign/Views/Signing/Shared/SigningAlternativeIconView.swift",
+      "App/iOS/VexSign/Views/Signing/Shared/SigningCustomizationView.swift",
+      "App/iOS/VexSign/Views/Signing/Shared/SigningDylibView.swift",
+      "App/iOS/VexSign/Views/Signing/Shared/SigningFrameworksView.swift",
+      "App/iOS/VexSign/Views/Signing/SigningPreflightReviewView.swift",
+      "App/iOS/VexSign/Views/Signing/SigningView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/DownloadButtonView.swift",
+      "App/iOS/VexSign/Views/Sources/Apps/SourceAppsView.swift",
+      "App/iOS/VexSign/Views/Sources/SourceHealthDashboardView.swift",
+      "App/iOS/VexSign/Views/Sources/SourcesAddView+Repositories.swift",
+      "App/iOS/VexSign/Views/Sources/SourcesAddView.swift",
+      "App/iOS/VexSign/Views/Sources/SourcesView.swift",
+      "App/iOS/VexSign/Views/TabView/AppStoreView+Repositories.swift",
+      "App/iOS/VexSign/Views/TabView/AppStoreView.swift",
+      "App/iOS/VexSign/Views/TabView/HomeView.swift",
+      "App/iOS/VexSign/Views/Tweaks/TweakExtractionView.swift",
+      "App/iOS/VexSign/Views/Tweaks/TweakInjectConfigView.swift",
+      "App/iOS/VexSign/Views/Updates/PerAppUpdateRulesView.swift",
+      "App/iOS/VexSign/Views/Updates/UpdatesView.swift"
+    ],
+    "views_urlsession_shared": [
+      "App/iOS/VexSign/Views/Sources/SourcesAddView+Repositories.swift"
+    ]
+  }
+}

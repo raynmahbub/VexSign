@@ -6,36 +6,42 @@ on:
   push:
     branches: [main]
     paths:
-      - 'EmbeddedContainer/**'
-      - 'VexSign/Backend/Companion/PrimaryHostEntry.swift'
-      - 'VexSign/Resources/Info.plist'
+      - 'Integrations/EmbeddedContainer/**'
+      - 'App/iOS/VexSign/Backend/Companion/PrimaryHostEntry.swift'
+      - 'App/iOS/VexSign/Resources/Info.plist'
       - 'VexSign.xcodeproj/**'
-      - 'NativeSigning/**'
-      - 'SideSign/Sources/**'
-      - 'VexSign/Security/AppleAccount*.swift'
-      - 'VexSign/Backend/Services/AppleAccount*.swift'
+      - 'Packages/NativeSigning/**'
+      - 'Packages/SideSign/Sources/**'
+      - 'App/iOS/VexSign/Security/AppleAccount*.swift'
+      - 'App/iOS/VexSign/Backend/Services/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/quick_check.py'
       - '.github/scripts/xcodebuild_report.py'
-      - 'SideSign/Package.swift'
+      - 'Packages/SideSign/Package.swift'
+      - 'App/**'
+      - 'Integrations/**'
+      - 'Packages/**'
       - '.github/workflows/embedded-container.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'EmbeddedContainer/**'
-      - 'VexSign/Backend/Companion/PrimaryHostEntry.swift'
-      - 'VexSign/Resources/Info.plist'
+      - 'Integrations/EmbeddedContainer/**'
+      - 'App/iOS/VexSign/Backend/Companion/PrimaryHostEntry.swift'
+      - 'App/iOS/VexSign/Resources/Info.plist'
       - 'VexSign.xcodeproj/**'
-      - 'NativeSigning/**'
-      - 'SideSign/Sources/**'
-      - 'VexSign/Security/AppleAccount*.swift'
-      - 'VexSign/Backend/Services/AppleAccount*.swift'
+      - 'Packages/NativeSigning/**'
+      - 'Packages/SideSign/Sources/**'
+      - 'App/iOS/VexSign/Security/AppleAccount*.swift'
+      - 'App/iOS/VexSign/Backend/Services/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/quick_check.py'
       - '.github/scripts/xcodebuild_report.py'
-      - 'SideSign/Package.swift'
+      - 'Packages/SideSign/Package.swift'
+      - 'App/**'
+      - 'Integrations/**'
+      - 'Packages/**'
       - '.github/workflows/embedded-container.yml'
   workflow_dispatch:
     inputs:
@@ -121,16 +127,16 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            ${{ runner.temp }}/VexSign/SourcePackages
+            ${{ runner.temp }}/App/iOS/VexSign/SourcePackages
             ~/Library/Caches/org.swift.swiftpm
-          key: spm-combined-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'EmbeddedContainer/inputs.lock.json', 'NativeSigning/inputs.lock.json') }}
+          key: spm-combined-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'Integrations/EmbeddedContainer/inputs.lock.json', 'Packages/NativeSigning/inputs.lock.json') }}
       - name: Install packaging tool
         run: command -v ldid >/dev/null 2>&1 || brew install ldid
       - name: Native unit regressions (synthetic accounts only)
         id: native_tests
         run: |
           set -uo pipefail
-          python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+          python3 Packages/NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
           status=$?
           if [ "$status" -eq 0 ]; then
             swift test --package-path .build/native-signing-smoke 2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
@@ -188,7 +194,7 @@ jobs:
           HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
           set -uo pipefail
-          python3 EmbeddedContainer/build.py --mode "$HOST_MODE" \
+          python3 Integrations/EmbeddedContainer/build.py --mode "$HOST_MODE" \
             --vexsign-ipa "packages/VexSign-${{ steps.native_input.outputs.app_version }}.ipa" \
             2>&1 | tee "$RUNNER_TEMP/combined-build.log"
           status=$?
@@ -259,28 +265,28 @@ jobs:
         if: inputs.server_compatibility
         run: |
           set -euo pipefail
-          python3 NativeSigning/prepare_server_compatibility.py
+          python3 Packages/NativeSigning/prepare_server_compatibility.py
           swift package --package-path .build/server-dependency-compatibility resolve
-          python3 NativeSigning/prepare_server_compatibility.py --verify-resolved
+          python3 Packages/NativeSigning/prepare_server_compatibility.py --verify-resolved
           swift test --package-path .build/server-dependency-compatibility --force-resolved-versions \
             2>&1 | tee "$RUNNER_TEMP/server-dependency-compatibility.log"
       - name: Optionally resolve the combined app-package and SDK candidate
         if: inputs.combined_dependencies
         run: |
           set -euo pipefail
-          python3 NativeSigning/prepare_combined_smoke.py
+          python3 Packages/NativeSigning/prepare_combined_smoke.py
           swift package --package-path .build/combined-signing-smoke resolve \
             2>&1 | tee "$RUNNER_TEMP/combined-signing-resolution.log"
-          python3 NativeSigning/prepare_combined_smoke.py \
+          python3 Packages/NativeSigning/prepare_combined_smoke.py \
             --verify-resolved .build/combined-signing-smoke/Package.resolved
       - name: Verify the CMS fixture still matches its recorded digest
         run: |
           set -euo pipefail
-          python3 NativeSigning/Fixtures/make_cms_fixture.py --check
+          python3 Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
       - name: Prepare pinned isolated package graph
         run: |
           set -euo pipefail
-          python3 NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+          python3 Packages/NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
       - name: Run native unit regressions without account operations
         if: inputs.unit_tests
         run: |

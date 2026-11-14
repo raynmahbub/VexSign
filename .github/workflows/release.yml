@@ -5,7 +5,7 @@ name: Release
 # Check build_only for an unpublished test IPA. The build job is read-only;
 # publishing runs in a separate protected job. CI-completion events only detect
 # version bumps; they cannot build. Configure the release environment first —
-# see docs/RELEASING.md. Device TLS is created on device.
+# see Documentation/RELEASING.md. Device TLS is created on device.
 
 on:
   workflow_run:
@@ -102,7 +102,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
           SOURCE_RUN: ${{ github.event.workflow_run.id }}
-        run: python3 tools/auto-stable-release.py
+        run: python3 Tools/Release/auto-stable-release.py
 
   build:
     if: >-
@@ -281,7 +281,7 @@ jobs:
       - name: Restore Swift packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/VexSign/SourcePackages
+          path: ${{ runner.temp }}/App/iOS/VexSign/SourcePackages
           key: spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             spm-release-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-
@@ -301,7 +301,7 @@ jobs:
           set -euo pipefail
 
           # Apple-compatible numeric version; SHA provenance stays in RELEASE.json.
-          BUILD_NUMBER="$(python3 tools/release-build-version.py)"
+          BUILD_NUMBER="$(python3 Tools/Release/release-build-version.py)"
           agvtool new-version -all "${BUILD_NUMBER}"
 
           # Keep the known third-party Unicorn deployment-version warning out
@@ -367,14 +367,14 @@ jobs:
             exit 1
           fi
 
-          EXPECTED_BUILD="$(python3 tools/release-build-version.py)"
+          EXPECTED_BUILD="$(python3 Tools/Release/release-build-version.py)"
           if [ "${BUILD}" != "${EXPECTED_BUILD}" ]; then
             echo "::error::Built CFBundleVersion does not match the numeric build version ${EXPECTED_BUILD}."
             exit 1
           fi
           # Check the actual IPA, including nested apps/extensions, not just staging.
           for ipa in upload/*.ipa; do
-            python3 tools/release-build-version.py \
+            python3 Tools/Release/release-build-version.py \
               --verify-ipa "$ipa" \
               --expected-marketing-version "$VERSION" \
               --expected-bundle-identifier com.vexsign.app \
@@ -388,7 +388,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Verify source revision and write IPA checksums
-        run: python3 tools/write-build-provenance.py --directory upload
+        run: python3 Tools/Release/write-build-provenance.py --directory upload
 
       # Every successful build-only or release run leaves a
       # downloadable IPA on the run page. This is how you test a change
@@ -414,7 +414,7 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          python3 tools/prepare-release-assets.py --output upload \
+          python3 Tools/Release/prepare-release-assets.py --output upload \
             --version "$VERSION" --channel "$CHANNEL" --repository "$RELEASE_REPOSITORY"
 
       - name: Package verified release assets

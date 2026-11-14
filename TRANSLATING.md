@@ -1,7 +1,7 @@
 # Translating VexSign
 
 Thanks for helping make VexSign usable in more languages. Translations live in
-[`VexSign/Resources/Localizable.xcstrings`](VexSign/Resources/Localizable.xcstrings),
+[`App/iOS/VexSign/Resources/Localizable.xcstrings`](App/iOS/VexSign/Resources/Localizable.xcstrings),
 a standard Xcode String Catalog. The catalog's source language is English; the
 currently represented locales include Arabic, Czech, German, Spanish, French,
 Indonesian, Italian, Polish, Russian, Turkish, Vietnamese, and Simplified
@@ -37,7 +37,7 @@ replacement that may change keys, placeholders, or Xcode's metadata.
 From the repository root:
 
 ```sh
-python3 tools/sync-strings.py --check
+python3 Tools/Development/sync-strings.py --check
 make verify
 ```
 

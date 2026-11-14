@@ -26,7 +26,7 @@ pending_notes.txt
 DEV.md
 bk
 manifest-worker
-VexSign/Resources/SelfUpdateConfig.plist
+App/iOS/VexSign/Resources/SelfUpdateConfig.plist
 
 # Signing material and secrets
 *.p12
@@ -46,15 +46,15 @@ cert.txt
 __pycache__/
 *.py[cod]
 .pytest_cache/
-server/*.db
-server/.venv/
-server/premium.json
+Services/API/server/*.db
+Services/API/server/.venv/
+Services/API/server/premium.json
 
 # Cloud signing
-cloud-signing/node_modules/
-cloud-signing/dist/
-cloud-signing/work/
-cloud-signing/*.log
+Services/CloudSigning/cloud-signing/node_modules/
+Services/CloudSigning/cloud-signing/dist/
+Services/CloudSigning/cloud-signing/work/
+Services/CloudSigning/cloud-signing/*.log
 
 # Private real-device acceptance observations
 device-acceptance.local.json

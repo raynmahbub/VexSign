@@ -4,27 +4,30 @@ name: Platform check
 # which `ci.yml` skips because it only builds the iOS scheme. Unsigned,
 # simulator-agnostic builds: they prove the sources type-check per SDK.
 #
-# The companions mirror the iPhone app (docs/PLATFORMS.md), so this also guards
-# VexSign/Companion/* and the shared Keychain primitive, compiled into the
+# The companions mirror the iPhone app (Documentation/Engineering/PLATFORMS.md), so this also guards
+# App/iOS/VexSign/Companion/* and the shared Keychain primitive, compiled into the
 # iOS, tvOS and visionOS targets — a change that breaks only one shows up here, not on a device.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'VexSignTV/**'
-      - 'VexSignVision/**'
-      - 'VexSignWatch/**'
-      - 'VexSignWatchWidgets/**'
-      - 'VexSign/Companion/**'
-      - 'VexSign/Security/SecureSecretStore.swift'
-      - 'VexSign/Utilities/Security/LocalNetworkHost.swift'
-      - 'PlatformInfo/**'
+      - 'App/TV/VexSignTV/**'
+      - 'App/Vision/VexSignVision/**'
+      - 'Extensions/Watch/VexSignWatch/**'
+      - 'Extensions/Watch/VexSignWatchWidgets/**'
+      - 'App/**'
+      - 'Extensions/**'
+      - 'Packages/**'
+      - 'App/iOS/VexSign/Companion/**'
+      - 'App/iOS/VexSign/Security/SecureSecretStore.swift'
+      - 'App/iOS/VexSign/Utilities/Security/LocalNetworkHost.swift'
+      - 'App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'NimbleKit/**'
-      - 'AltSourceKit/**'
-      - 'Vendor/**'
+      - 'Packages/NimbleKit/**'
+      - 'Packages/AltSourceKit/**'
+      - 'Packages/Vendor/**'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/prefetch_spm_artifacts.py'
       - '.github/scripts/xcodebuild_report.py'
@@ -32,19 +35,22 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'VexSignTV/**'
-      - 'VexSignVision/**'
-      - 'VexSignWatch/**'
-      - 'VexSignWatchWidgets/**'
-      - 'VexSign/Companion/**'
-      - 'VexSign/Security/SecureSecretStore.swift'
-      - 'VexSign/Utilities/Security/LocalNetworkHost.swift'
-      - 'PlatformInfo/**'
+      - 'App/TV/VexSignTV/**'
+      - 'App/Vision/VexSignVision/**'
+      - 'Extensions/Watch/VexSignWatch/**'
+      - 'Extensions/Watch/VexSignWatchWidgets/**'
+      - 'App/**'
+      - 'Extensions/**'
+      - 'Packages/**'
+      - 'App/iOS/VexSign/Companion/**'
+      - 'App/iOS/VexSign/Security/SecureSecretStore.swift'
+      - 'App/iOS/VexSign/Utilities/Security/LocalNetworkHost.swift'
+      - 'App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'NimbleKit/**'
-      - 'AltSourceKit/**'
-      - 'Vendor/**'
+      - 'Packages/NimbleKit/**'
+      - 'Packages/AltSourceKit/**'
+      - 'Packages/Vendor/**'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/prefetch_spm_artifacts.py'
       - '.github/scripts/xcodebuild_report.py'

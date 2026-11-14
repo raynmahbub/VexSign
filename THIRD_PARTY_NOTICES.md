@@ -14,15 +14,15 @@ different obligations.
 | --- | --- | --- |
 | VexSign app and repository-level work | GNU GPL version 3.0 (see top-level license and README) | [`LICENSE`](LICENSE) |
 | ElleKit-derived / ElleKit-related code | BSD 3-Clause | [`LICENSE_ELLEKIT`](LICENSE_ELLEKIT) |
-| `AltSourceKit` | MIT | [`AltSourceKit/LICENSE`](AltSourceKit/LICENSE) |
-| `NimbleKit` | MIT | [`NimbleKit/LICENSE`](NimbleKit/LICENSE) |
-| `SideSign` | GNU AGPL version 3.0 | [`SideSign/LICENSE`](SideSign/LICENSE) |
-| `EmbeddedContainer` sources | GNU AGPL version 3.0 | [`EmbeddedContainer/LICENSE`](EmbeddedContainer/LICENSE) |
-| `Vendor/Zsign` | MIT, plus an Apache-2.0 component notice | [`Vendor/Zsign/LICENSE`](Vendor/Zsign/LICENSE), [`Vendor/Zsign/LICENSE_LC`](Vendor/Zsign/LICENSE_LC) |
-| `Vendor/IDeviceKitten` | MIT | [`Vendor/IDeviceKitten/LICENSE`](Vendor/IDeviceKitten/LICENSE) |
-| Anisette server attribution | See bundled notice for applicable terms | [`VexSign/Resources/AnisetteServers-LICENSE.txt`](VexSign/Resources/AnisetteServers-LICENSE.txt) |
+| `AltSourceKit` | MIT | [`Packages/AltSourceKit/LICENSE`](Packages/AltSourceKit/LICENSE) |
+| `NimbleKit` | MIT | [`Packages/NimbleKit/LICENSE`](Packages/NimbleKit/LICENSE) |
+| `SideSign` | GNU AGPL version 3.0 | [`Packages/SideSign/LICENSE`](Packages/SideSign/LICENSE) |
+| `EmbeddedContainer` sources | GNU AGPL version 3.0 | [`Integrations/EmbeddedContainer/LICENSE`](Integrations/EmbeddedContainer/LICENSE) |
+| `Packages/Vendor/Zsign` | MIT, plus an Apache-2.0 component notice | [`Packages/Vendor/Zsign/LICENSE`](Packages/Vendor/Zsign/LICENSE), [`Packages/Vendor/Zsign/LICENSE_LC`](Packages/Vendor/Zsign/LICENSE_LC) |
+| `Packages/Vendor/IDeviceKitten` | MIT | [`Packages/Vendor/IDeviceKitten/LICENSE`](Packages/Vendor/IDeviceKitten/LICENSE) |
+| Anisette server attribution | See bundled notice for applicable terms | [`App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt`](App/iOS/VexSign/Resources/AnisetteServers-LICENSE.txt) |
 
-`Vendor/README.md` and `Vendor/manifest.json` identify the vendored upstream
+`Packages/Vendor/README.md` and `Packages/Vendor/manifest.json` identify the vendored upstream
 projects, pins, and retained notices. Some package manifests also resolve
 external dependencies or binary targets at build time; consult those manifests
 and the upstream license files for their terms. This table is not a complete
@@ -48,6 +48,6 @@ software bill of materials.
 
 When adding or updating third-party code, record the upstream project and exact
 revision, retain its license and notices, and update this document and
-[`Vendor/README.md`](Vendor/README.md) as appropriate. For a full legal
+[`Packages/Vendor/README.md`](Packages/Vendor/README.md) as appropriate. For a full legal
 interpretation, consult counsel familiar with software licensing and Apple
 platform distribution.

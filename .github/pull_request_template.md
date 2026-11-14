@@ -21,7 +21,7 @@ licensing rules, and SECURITY.md to report vulnerabilities privately.
 
 - [ ] `make verify` passes locally
 - [ ] `make test` (or targeted tests) covers the behavior change
-- [ ] New user-facing text added to `Localizable.xcstrings` (`python3 tools/sync-strings.py --write`) when applicable
+- [ ] New user-facing text added to `Localizable.xcstrings` (`python3 Tools/Development/sync-strings.py --write`) when applicable
 - [ ] Component checks run when relevant: Platform check, Server tests, Ecosystem contracts
 - [ ] `git diff --check` is clean
 

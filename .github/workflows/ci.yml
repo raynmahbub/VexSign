@@ -3,9 +3,9 @@ name: CI
 # Answers "is this commit good?" for every relevant push and PR.
 #
 #   quick   ~1 min · Linux: Swift syntax, resources, project
-#           structure and the repo gates in tools/. `tools/ci-scope.py` then
+#           structure and the repo gates in Tools/. `Tools/CI/ci-scope.py` then
 #           decides whether the macOS jobs are needed (portable-only diffs,
-#           e.g. docs or tools/*.py, skip them). Docs-only changes never
+#           e.g. docs or Tools/*.py, skip them). Docs-only changes never
 #           start this workflow at all — see docs.yml.
 #   build   macOS · unsigned Debug build, warnings gate (baseline in
 #           .github/build-warnings-baseline.json), 14-day test IPA.
@@ -27,27 +27,40 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/**'
-      - 'VexSignTests/**'
-      - 'VexSignWidgetExtension/**'
-      - 'PlatformInfo/**'
+      - 'App/iOS/VexSign/**'
+      - 'App/Tests/VexSignTests/**'
+      - 'Extensions/Widgets/VexSignWidgetExtension/**'
+      - 'App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'NimbleKit/**'
-      - 'AltSourceKit/**'
-      - 'Vendor/**'
+      - 'Packages/NimbleKit/**'
+      - 'Packages/AltSourceKit/**'
+      - 'Packages/Vendor/**'
       - 'Package.swift'
       - 'Package.resolved'
       - 'Makefile'
-      - 'Tweaks/**'
-      - 'tools/**'
-      - 'EmbeddedContainer/*.py'
-      - 'EmbeddedContainer/tests/**'
-      - 'EmbeddedContainer/HostOverlay/**'
-      - 'EmbeddedContainer/patches/**'
-      - 'EmbeddedContainer/inputs.lock.json'
-      - 'NativeSigning/**'
-      - 'SideSign/**'
+
+      # Published root compatibility aliases: changes must run the alias gate.
+      - 'app-repo.json'
+      - 'repos.json'
+      - 'icon.png'
+      - 'license_plist.yml'
+      - 'render.yaml'
+      - 'Tools/Development/**'
+      - 'Tools/**'
+      - 'App/**'
+      - 'Packages/**'
+      - 'Extensions/**'
+      - 'Integrations/**'
+      - 'Resources/**'
+      - 'Documentation/**'
+      - 'Integrations/EmbeddedContainer/*.py'
+      - 'Integrations/EmbeddedContainer/tests/**'
+      - 'Integrations/EmbeddedContainer/HostOverlay/**'
+      - 'Integrations/EmbeddedContainer/patches/**'
+      - 'Integrations/EmbeddedContainer/inputs.lock.json'
+      - 'Packages/NativeSigning/**'
+      - 'Packages/SideSign/**'
       - '.github/scripts/**'
       - '.github/build-warnings-baseline.json'
       - '.github/workflows/ci.yml'
@@ -55,27 +68,40 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/**'
-      - 'VexSignTests/**'
-      - 'VexSignWidgetExtension/**'
-      - 'PlatformInfo/**'
+      - 'App/iOS/VexSign/**'
+      - 'App/Tests/VexSignTests/**'
+      - 'Extensions/Widgets/VexSignWidgetExtension/**'
+      - 'App/SharedPlatformInfo/**'
       - 'VexSign.xcodeproj/**'
       - 'VexSign.xcworkspace/**'
-      - 'NimbleKit/**'
-      - 'AltSourceKit/**'
-      - 'Vendor/**'
+      - 'Packages/NimbleKit/**'
+      - 'Packages/AltSourceKit/**'
+      - 'Packages/Vendor/**'
       - 'Package.swift'
       - 'Package.resolved'
       - 'Makefile'
-      - 'Tweaks/**'
-      - 'tools/**'
-      - 'EmbeddedContainer/*.py'
-      - 'EmbeddedContainer/tests/**'
-      - 'EmbeddedContainer/HostOverlay/**'
-      - 'EmbeddedContainer/patches/**'
-      - 'EmbeddedContainer/inputs.lock.json'
-      - 'NativeSigning/**'
-      - 'SideSign/**'
+
+      # Published root compatibility aliases: changes must run the alias gate.
+      - 'app-repo.json'
+      - 'repos.json'
+      - 'icon.png'
+      - 'license_plist.yml'
+      - 'render.yaml'
+      - 'Tools/Development/**'
+      - 'Tools/**'
+      - 'App/**'
+      - 'Packages/**'
+      - 'Extensions/**'
+      - 'Integrations/**'
+      - 'Resources/**'
+      - 'Documentation/**'
+      - 'Integrations/EmbeddedContainer/*.py'
+      - 'Integrations/EmbeddedContainer/tests/**'
+      - 'Integrations/EmbeddedContainer/HostOverlay/**'
+      - 'Integrations/EmbeddedContainer/patches/**'
+      - 'Integrations/EmbeddedContainer/inputs.lock.json'
+      - 'Packages/NativeSigning/**'
+      - 'Packages/SideSign/**'
       - '.github/scripts/**'
       - '.github/build-warnings-baseline.json'
       - '.github/workflows/ci.yml'
@@ -150,7 +176,7 @@ jobs:
             exit 1
           }
 
-          python3 tools/ci-scope.py
+          python3 Tools/CI/ci-scope.py
 
       # swiftc -parse on every first-party file, duplicate types/file names,
       # broken plists/xcstrings, layout/script sanity — plus its own regressions.
@@ -164,20 +190,23 @@ jobs:
       # concurrency escapes.
       - name: Repository gates
         run: |
-          python3 tools/check-pbxproj.py
-          python3 tools/check-package-graph.py
-          python3 tools/sync-strings.py --check
-          python3 tools/test_sync_strings.py
-          python3 tools/error-discipline.py
-          python3 tools/singleton-freeze.py
-          python3 tools/concurrency-discipline.py
+          python3 Tools/CI/check-pbxproj.py
+          python3 Tools/CI/check-package-graph.py
+          python3 Tools/Development/sync_repo_aliases.py --check
+          python3 Tools/Development/test_repo_aliases.py
+          python3 Tools/Architecture/test_repository_layout.py
+          python3 Tools/Development/sync-strings.py --check
+          python3 Tools/Development/test_sync_strings.py
+          python3 Tools/Development/error-discipline.py
+          python3 Tools/Development/singleton-freeze.py
+          python3 Tools/Development/concurrency-discipline.py
           # A count is not a reason: every escape needs its invariant on record.
-          python3 tools/test_concurrency_audit.py --self-test
-          python3 tools/test_concurrency_audit.py
-          python3 tools/check-native-handoff.py
+          python3 Tools/Development/test_concurrency_audit.py --self-test
+          python3 Tools/Development/test_concurrency_audit.py
+          python3 Tools/Development/check-native-handoff.py
           # The CMS fixture is generated elsewhere (OpenSSL) and must keep
           # conforming to the subset the parser accepts; drift fails here.
-          python3 NativeSigning/Fixtures/make_cms_fixture.py --check
+          python3 Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
 
       # swiftformat for consistent code style. The runner image ships Swift but not
       # the formatter, so the pinned release is built once per run.
@@ -207,29 +236,30 @@ jobs:
       # Documentation links plus the offline regression suites.
       - name: Docs and regressions
         run: |
-          python3 tools/check-docs.py
-          python3 tools/test_docs.py
-          python3 tools/test_integration_contracts.py
-          python3 tools/test_architecture_boundaries.py
-          python3 tools/test_ci_repair_agent.py
-          python3 tools/test_device_acceptance.py
-          python3 tools/test_native_promotion_evidence.py
-          python3 tools/test_private_defaults_policy.py
-          python3 tools/test_archive_extraction_policy.py
-          python3 tools/test_network_timeout_policy.py
-          python3 tools/test_cloud_signing_contract.py
-          python3 tools/test_task_history_resilience.py
-          python3 tools/test_capability_disclosure.py
-          python3 tools/test_logging_message_policy.py
-          python3 tools/test_cross_file_privacy.py
-          python3 tools/test_release_assets.py
-          python3 tools/test_autopilot.py
-          python3 tools/test_workflow_policy.py
-          python3 tools/test_workflow_trace_policy.py
-          python3 tools/test_build_provenance.py
-          python3 tools/test_package_graph.py
-          python3 tools/test_coverage_report.py
-          python3 tools/test_swift6_build_regressions.py
+          python3 Tools/Development/check-docs.py
+          python3 Tools/Development/test_docs.py
+          python3 Tools/Development/test_integration_contracts.py
+          python3 Tools/Architecture/test_architecture_boundaries.py
+          python3 Tools/Architecture/test_architecture_excellence.py
+          python3 Tools/CI/test_ci_repair_agent.py
+          python3 Tools/Development/test_device_acceptance.py
+          python3 Tools/Development/test_native_promotion_evidence.py
+          python3 Tools/Development/test_private_defaults_policy.py
+          python3 Tools/Development/test_archive_extraction_policy.py
+          python3 Tools/Development/test_network_timeout_policy.py
+          python3 Tools/Development/test_cloud_signing_contract.py
+          python3 Tools/Development/test_task_history_resilience.py
+          python3 Tools/Development/test_capability_disclosure.py
+          python3 Tools/Development/test_logging_message_policy.py
+          python3 Tools/Development/test_cross_file_privacy.py
+          python3 Tools/Release/test_release_assets.py
+          python3 Tools/CI/test_autopilot.py
+          python3 Tools/CI/test_workflow_policy.py
+          python3 Tools/CI/test_workflow_trace_policy.py
+          python3 Tools/CI/test_build_provenance.py
+          python3 Tools/CI/test_package_graph.py
+          python3 Tools/CI/test_coverage_report.py
+          python3 Tools/CI/test_swift6_build_regressions.py
 
       - name: Upload findings
         if: always()
@@ -282,7 +312,7 @@ jobs:
             spm-${{ runner.os }}-
 
       - name: Release manifest signer tests
-        run: node --test tools/test-release-manifest.mjs
+        run: node --test Tools/Release/test-release-manifest.mjs
 
       # Unsigned generic iOS build: no certificates exist on the runner and
       # none are needed to prove the code compiles. libunicorn.a's deployment-
@@ -377,7 +407,7 @@ jobs:
           (
             cd "${STAGING}"
             ditto -c -k --keepParent Payload VexSign-unsigned.ipa
-            python3 "${GITHUB_WORKSPACE}/tools/release-build-version.py" --check-container VexSign-unsigned.ipa
+            python3 "${GITHUB_WORKSPACE}/Tools/Release/release-build-version.py" --check-container VexSign-unsigned.ipa
             shasum -a 256 VexSign-unsigned.ipa BUILD.json > SHA256SUMS
           )
 
@@ -585,7 +615,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # What still breaks under complete concurrency checking?
   # ---------------------------------------------------------------------------
-  # `tools/concurrency-discipline.py` in the quick job is a counting gate: it
+  # `Tools/Development/concurrency-discipline.py` in the quick job is a counting gate: it
   # stops escapes from spreading but proves nothing about isolation. This is the
   # compiler half, and it can only run on macOS — AltSourceKit imports SwiftUI.
   #

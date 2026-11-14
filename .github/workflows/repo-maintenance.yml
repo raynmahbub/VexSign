@@ -48,7 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: python3 tools/repository-autopilot.py
+        run: python3 Tools/CI/repository-autopilot.py
 
   hygiene:
     if: >-
@@ -73,15 +73,15 @@ jobs:
           python-version: '3.12'
 
       - name: Sync deterministic repository metadata
-        run: python3 tools/sync-strings.py --write
+        run: python3 Tools/Development/sync-strings.py --write
 
       # Only removes keys Xcode marked stale AND that no longer appear as a
       # literal anywhere in the app; in-use stale markings are left alone.
       - name: Prune dead localisation keys
-        run: python3 tools/sync-strings.py --prune-stale
+        run: python3 Tools/Development/sync-strings.py --prune-stale
 
       - name: Report translation coverage
-        run: python3 tools/sync-strings.py --report --markdown >> "$GITHUB_STEP_SUMMARY"
+        run: python3 Tools/Development/sync-strings.py --report --markdown >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate the result
         run: make verify
@@ -155,7 +155,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
-          python3 tools/check-xcode-packages.py --format markdown --fail-on-outdated > "$RUNNER_TEMP/report.md"
+          python3 Tools/CI/check-xcode-packages.py --format markdown --fail-on-outdated > "$RUNNER_TEMP/report.md"
           STATUS=$?
           set -e
           if [ "$STATUS" -eq 1 ]; then
@@ -177,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           TITLE='Xcode package audit: updates available'
-          BODY="$(printf 'An update candidate is available for one or more root Xcode SwiftPM packages. Exact pins require a requirement change; candidates are not necessarily build-tested.\n\n%s\n\nThis is a review prompt, not an automatic bump: root packages are pinned because they must build against the current Xcode and iOS SDK. Use the refresh procedure in `docs/MAINTENANCE.md`, then build and test on macOS.\n\nAudit run: %s/%s/actions/runs/%s\n' "$(cat "$RUNNER_TEMP/report.md")" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}")"
+          BODY="$(printf 'An update candidate is available for one or more root Xcode SwiftPM packages. Exact pins require a requirement change; candidates are not necessarily build-tested.\n\n%s\n\nThis is a review prompt, not an automatic bump: root packages are pinned because they must build against the current Xcode and iOS SDK. Use the refresh procedure in `Documentation/Engineering/MAINTENANCE.md`, then build and test on macOS.\n\nAudit run: %s/%s/actions/runs/%s\n' "$(cat "$RUNNER_TEMP/report.md")" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}")"
 
           EXISTING="$(gh issue list --state open --search 'Xcode package audit in:title' --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING" ]; then
