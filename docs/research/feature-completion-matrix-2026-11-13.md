@@ -105,7 +105,7 @@ Xcode build, or a feature that is still gated.
 | --- | --- | --- |
 | Portable `make verify` / docs / policy / workflow gates | `Implemented · Integrated · Tested` | `make verify` exit 0; 309 tool tests. |
 | Server pytest / cloud-signing Node tests / contracts | `Implemented · Integrated · Tested` | `215 passed, 1 skipped`; `14 pass`; `make test-cloud` drift check. |
-| Current-branch macOS `build` + `tests` CI run | `Blocked (Build-verified)` | Baseline run `43513058621` failed; fixes are in the working tree but no commit/push was made. |
-| Generic unsigned iOS build / simulator XCTest on current branch | `Blocked (Build-verified)` | Requires user-authorized commit/push. |
+| Current-branch macOS `build` + `tests` CI run | `Blocked (Build-verified)` | Baseline run `43513058621` failed; PR #235 was later opened and CI checks started, but no green result had been observed at the time this matrix was published. |
+| Generic unsigned iOS build / simulator XCTest on current branch | `Blocked (Build-verified)` | Requires a green PR-triggered macOS CI build and simulator XCTest run. |
 | Physical iPhone acceptance | `Blocked (Device-verified)` | See deliverable E; no fabricated results. |
-| Release / tag / deployment | `Not implemented` | User controls commits, pushes and releases; none executed. |
+| Release / tag / deployment | `Not implemented` | The user controls release actions; a PR was opened but no merge, release, tag or deployment was executed. |

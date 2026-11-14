@@ -1,9 +1,9 @@
 # Proposed Git changes — 2026-11-13
 
-Deliverable **G**. These are **proposals only**. In accordance with the user's standing
-instruction, no commit, push, pull request, merge, release, tag, visibility change, secret
-change or deployment was executed. The working tree on `arena/4777f732-vexsign` is the deliverable;
-the user controls the Git and release actions.
+Deliverable **G**. This document records the proposals as they stood while the work was an active
+working tree. The user later explicitly requested a pull request; the commits below were applied,
+`arena/4777f732-vexsign` was pushed, and PR #235 was opened. No merge, release, tag, visibility
+change, secret change or deployment was executed; those actions remain user-controlled.
 
 ## Proposed pull request
 
@@ -123,8 +123,8 @@ Files: `CHANGELOG.md`, `docs/FEATURE_MATRIX.md`,
 
 Message body: record the implementation report, pinned upstream investigation, Definition-of-Done
 matrix, exact test commands/results, physical-device acceptance procedure, remaining blockers and
-this PR/commit proposal. State honestly that no commit/push, CI run, release or device result was
-produced by the agent.
+this PR/commit proposal. State honestly that no release or device result was produced by the agent.
+This is the forward-compatible wording used when the seven proposed commits were executed.
 
 ## Changelog entry (already applied to `CHANGELOG.md`)
 

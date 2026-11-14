@@ -1,7 +1,9 @@
 # Repository implementation report — 2026-11-13
 
 **Branch:** `arena/4777f732-vexsign` (base `c67fab28e3e66bdd90b6df0464eb774d5aa5b1d3`).
-**Status:** active working tree; no commit, push, PR, merge, release, tag or deployment was made.
+**Status:** this report was authored while the changes were still an active working tree. At the
+user's later explicit request, the commits were pushed and PR #235 was opened. No merge, release,
+tag, deployment, secret change or visibility change was made.
 **Scope:** Phase 0 baseline, Phase 1 critical workflow repair, targeted Phase 4/6/8 reliability and
 security work, and the A–G deliverables. Native Apple-account promotion, physical-device
 acceptance and production bootstrap remain honestly gated (see

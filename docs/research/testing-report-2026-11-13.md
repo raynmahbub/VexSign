@@ -1,8 +1,10 @@
 # Testing report — 2026-11-13
 
 Deliverable **D**. Every command below was run from `/home/user/VexSign` unless noted. Results are
-for the working tree on `arena/4777f732-vexsign`; nothing was committed, pushed or released, so
-there is **no new current-branch GitHub Actions run**.
+for the working tree on `arena/4777f732-vexsign` before the user requested a pull request. The
+branch was subsequently pushed and PR #235 was opened, which started GitHub Actions runs; at the
+time this report was written **no current-branch CI run had completed**. All `Build-verified` and
+`Device-verified` statements below therefore remain gated.
 
 ## 1. Environment
 
@@ -101,11 +103,12 @@ The portable contracts, server pytest and Python simulations of the regex/base64
 ## 5. What was not verified
 
 - `Build-verified`: no macOS/Xcode compile, generic unsigned iOS build or simulator XCTest on the
-  current branch. The two compiler diagnostics are fixed and guarded, but a fresh green `ci.yml`
-  run requires the user to commit/push.
+  current branch had completed at publication. The two compiler diagnostics are fixed and guarded,
+  but a fresh green `ci.yml` run is required before promotion.
 - `Device-verified`: no physical iPhone, no real certificate/profile install, no launch
   confirmation, no force-quit fault injection, no device performance numbers. See deliverable E.
-- CI workflow runs after the change: none, because no commit/push was made.
+- CI workflow runs after the change: none had completed at the time of writing; PR-triggered
+  checks started after the user requested the PR and must be observed before promotion.
 - Full upstream source audit: see deliverable B's limits.
 - Production cloud signing, release trust key, TestFlight/Ad Hoc portal and native account
   promotion: intentionally gated, not tested as complete features.
@@ -121,5 +124,5 @@ The portable contracts, server pytest and Python simulations of the regex/base64
 | Server pytest | 215 | 0 | 1 | `cryptography` optional skip |
 | Cloud-signing Node | 14 | 0 | 0 | local |
 | Swift XCTest (new + existing) | not run | not run | not run | requires macOS CI |
-| Current-branch CI build/tests | not run | — | — | baseline run failed; no new run |
+| Current-branch CI build/tests | not completed | — | — | baseline run failed; PR-triggered runs started, results pending |
 | Physical device acceptance | not run | — | — | no device |

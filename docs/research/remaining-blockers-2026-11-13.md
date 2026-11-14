@@ -9,9 +9,9 @@ exact dependency and a concrete next action. No blocker is hidden behind a roadm
 | Field | Value |
 | --- | --- |
 | Status | `Blocked (Build-verified)` |
-| Evidence | Baseline `ci.yml` run `43513058621` on `c67fab28` failed `build` + `tests` with two Swift 6 diagnostics. The two diagnostics are fixed in the working tree and guarded by `tools/test_swift6_build_regressions.py`, but no new run exists. |
-| Exact dependency | User-controlled commit/push of `arena/4777f732-vexsign`; macOS-15 runner with Xcode selected by `.github/scripts/select_xcode.sh`; Swift package cache; `code-signing` disabled generic iOS build; simulator runtime. |
-| Next action | Commit/push the branch, trigger `ci.yml` (push or `workflow_dispatch` with `validation=full`), record run URL, confirm `quick`, `build`, `tests`, `concurrency` all succeed, and attach the `xcodebuild` / `xcresult` artifacts. Do not promote any `Blocked (Build-verified)` row until then. |
+| Evidence | Baseline `ci.yml` run `43513058621` on `c67fab28` failed `build` + `tests` with two Swift 6 diagnostics. The two diagnostics are fixed and guarded by `tools/test_swift6_build_regressions.py`. At the user's request the branch was pushed and PR #235 was opened; GitHub Actions checks started, but no green build/test result had been observed when this blocker list was published. |
+| Exact dependency | macOS-15 runner with Xcode selected by `.github/scripts/select_xcode.sh`; Swift package cache; `code-signing` disabled generic iOS build; simulator runtime; a completed green PR-triggered `ci.yml` run. |
+| Next action | Watch PR #235 checks, record the `ci.yml` run URL, confirm `quick`, `build`, `tests`, `concurrency` all succeed, and attach the `xcodebuild` / `xcresult` artifacts. Do not promote any `Blocked (Build-verified)` row until then. |
 
 ## 2. Physical iPhone acceptance
 
