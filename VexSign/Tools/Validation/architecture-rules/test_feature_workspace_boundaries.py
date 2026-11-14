@@ -84,6 +84,30 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertRegex(inspector, r"@MainActor\s+static func inspectAll")
         self.assertEqual(inspector.count("storage.getAllCertificates()"), 1)
 
+    def test_certificate_adapter_resolves_actor_owned_defaults_inside_its_initializer(self):
+        adapter = self.require("Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
+            "status: CertificateStatusManager? = nil", "checker: BatchCertChecker? = nil",
+            "self.status = status ?? .shared", "self.checker = checker ?? .shared")
+        self.assertIn("@MainActor\nfinal class CertificateWorkspaceAdapter", adapter)
+        self.assertNotRegex(adapter, r"(?:CertificateStatusManager|BatchCertChecker)\s*=\s*\.shared")
+
+    def test_archive_sheet_identity_is_immutable_and_failed_bulk_cleanup_does_not_report_success(self):
+        model = self.require("Presentation/Features/Import/ViewModels/ArchiveWorkspaceModel.swift",
+            "nonisolated let id: String", "self.id = initialState.id", "self.state = initialState")
+        self.assertNotIn("var id: String { state.id }", model)
+        cleanup = self.require("Presentation/Features/Settings/Views/Cleanup/CleanupView.swift",
+            "try services.archives.discardAll()", "services.platform.notifyError(error.localizedDescription, sticky: true)")
+        action = cleanup.split("try services.archives.discardAll()", 1)[1].split("} label:", 1)[0]
+        self.assertLess(action.index('Toast.success('), action.index('} catch {'))
+        self.assertNotIn('Toast.success(', action.split('} catch {', 1)[1])
+
+    def test_catalog_retention_failure_updates_the_model_error_not_the_caught_value(self):
+        source = code("Presentation/Features/Repositories/ViewModels/SourcesViewModel.swift")
+        eviction = source.split("func evictDeletedSources", 1)[1].split("func resetLoadingState", 1)[0]
+        self.assertIn("try useCase.retainConfiguredSources(sources)", eviction)
+        self.assertIn("catch { self.error = error.localizedDescription }", eviction)
+        self.assertNotRegex(eviction, r"catch\s*\{\s*error\s*=")
+
     def test_stream_termination_releases_subscriptions_and_producers_hop_to_their_owner(self):
         for path in ["Infrastructure/Tasks/TaskWorkspaceAdapter.swift", "Infrastructure/Identity/CertificateWorkspaceAdapter.swift",
                      "Infrastructure/Tasks/BatchSigningAdapter.swift", "Infrastructure/Signing/Engines/Cloud/CloudConfigurationAdapter.swift"]:

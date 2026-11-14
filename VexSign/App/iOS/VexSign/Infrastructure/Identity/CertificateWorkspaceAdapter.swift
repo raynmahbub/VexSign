@@ -12,11 +12,13 @@ final class CertificateWorkspaceAdapter: CertificateWorkspaceProviding {
     private var storage: Storage { repository.storage }
 
     init(repository: CoreDataWorkspaceRepository, sharing: TemporaryFileSharing,
-         status: CertificateStatusManager = .shared, checker: BatchCertChecker = .shared) {
+         status: CertificateStatusManager? = nil, checker: BatchCertChecker? = nil) {
         self.repository = repository
         self.sharing = sharing
-        self.status = status
-        self.checker = checker
+        // Default arguments are evaluated at the caller. Resolve actor-owned
+        // production defaults here, on this initializer's main actor instead.
+        self.status = status ?? .shared
+        self.checker = checker ?? .shared
     }
 
     func state() -> CertificateWorkspaceState {

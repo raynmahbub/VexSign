@@ -3,11 +3,17 @@ import Combine
 
 @MainActor
 final class ArchiveWorkspaceModel: ObservableObject, Identifiable {
+    // Sheet identity is the existing workspace's immutable ID, not a read of
+    // actor-isolated mutable presentation state through Identifiable.
+    nonisolated let id: String
     @Published private(set) var state: ArchiveWorkspaceState
     private let useCase: ArchiveWorkspaceUseCase
     private var observation: Task<Void, Never>?
     init(useCase: ArchiveWorkspaceUseCase) {
-        self.useCase = useCase; state = useCase.state()
+        let initialState = useCase.state()
+        self.useCase = useCase
+        self.id = initialState.id
+        self.state = initialState
         let changes = useCase.changes()
         observation = Task { @MainActor [weak self] in
             for await state in changes {
@@ -17,7 +23,6 @@ final class ArchiveWorkspaceModel: ObservableObject, Identifiable {
         }
     }
     deinit { observation?.cancel() }
-    var id: String { state.id }
     var appURL: URL { state.appURL }
     var containerURL: URL { state.containerURL }
     var name: String { state.name }

@@ -35,7 +35,7 @@ final class SourcesViewModel: ObservableObject {
     }
     func evictDeletedSources(valid sources: [RepositoryRecord]) {
         do { try useCase.retainConfiguredSources(sources); apply(useCase.state()) }
-        catch { error = error.localizedDescription }
+        catch { self.error = error.localizedDescription }
     }
     func resetLoadingState() { useCase.resetLoadingState(); apply(useCase.state()) }
     func isStale(_ source: RepositoryRecord) -> Bool {

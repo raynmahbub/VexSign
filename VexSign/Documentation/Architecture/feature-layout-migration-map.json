@@ -7576,7 +7576,7 @@
     "render.yaml"
   ],
   "relocatedFileCount": 1322,
-  "status": "published as PR #243; iOS compiler findings from 45d708d repaired in follow-up source; portable checks passed; new native rerun and device acceptance pending",
+  "status": "published as PR #243; iOS compiler/actor-warning findings from 45d708d and 5b16d1b repaired in follow-up source; portable checks passed; native rerun and device acceptance pending",
   "limitations": [
     "Portable source/grammar checks are not Swift type checking or device acceptance. Revision-specific GitHub Actions findings are recorded in feature-layout-migration.md.",
     "Existing Swift packages and companion targets are retained, not replaced by empty example modules.",

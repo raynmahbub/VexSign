@@ -154,8 +154,12 @@ extension CleanupView {
 					title: .localized("Clear IPA Explorer Workspaces?"),
 					message: .localized("Every IPA you unpacked in the IPA Explorer will be deleted. Apps in your library are not touched.")
 				) {
-					services.archives.discardAll()
-					Toast.success(.localized("Workspaces cleared"), systemImage: "trash")
+					do {
+						try services.archives.discardAll()
+						Toast.success(.localized("Workspaces cleared"), systemImage: "trash")
+					} catch {
+						services.platform.notifyError(error.localizedDescription, sticky: true)
+					}
 				}
 			} label: {
 				Label(.localized("Clear IPA Explorer Workspaces"), systemImage: "doc.zipper")

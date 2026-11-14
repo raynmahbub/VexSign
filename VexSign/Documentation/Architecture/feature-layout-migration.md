@@ -130,8 +130,8 @@ checks are not release or physical-device evidence.
 
 | Check | Observed result |
 | --- | --- |
-| `make verify` | Passed all portable command groups, including the 19-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
-| Layout / architecture | 19 layout, 7 original boundary, 19 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
+| `make verify` | Passed all portable command groups, including the 22-case workspace-boundary source suite and 22 preservation-auditor fixture tests |
+| Layout / architecture | 19 layout, 7 original boundary, 22 workspace-boundary and 8 architecture-ratchet tests passed; all 12 ratcheted categories have zero matches |
 | Normal quick check | 0 errors; 1 advisory warning because `swiftc` is unavailable; 53 resources checked and 0 Swift files compiler-parsed. The syntax-independent check in `make verify` explicitly skips the compiler |
 | Xcode/project/package preservation | Seven unchanged target objects/products; all 157 original object IDs retained, four xcconfig IDs added; all 32 declared configuration setting sets retained. Workspace/project retain 42 agreeing pins, SideSign retains six; all three resolved-pin files byte-identical. Native findings recorded separately below |
 | Error / singleton / concurrency guards | 169 unjustified optional-error sites (13 below the existing allowance), 63 singletons, 7 documented concurrency escapes; no file above its reviewed baseline |
@@ -177,6 +177,7 @@ merged, released or deployed.
 | --- | --- |
 | `45d708d`, [CI 43602852762](https://github.com/raynmahbub/VexSign/actions/runs/43602852762) | Quick syntax/resources/gates passed. The first-party concurrency **report-only** job completed successfully; that does not promote concurrency checking to an enforcing gate. iOS unsigned Debug build and simulator test jobs failed during app compilation. No simulator tests ran. |
 | `45d708d`, [companion 43602889231](https://github.com/raynmahbub/VexSign/actions/runs/43602889231) | Existing TV/tvOS, Vision/visionOS and Watch/watchOS unsigned Debug builds all passed. This is companion compilation evidence, not iOS/XCTest/device acceptance. |
+| `5b16d1b`, [CI 43604528974](https://github.com/raynmahbub/VexSign/actions/runs/43604528974) | Quick gates passed and the report-only concurrency job completed. iOS build and simulator test jobs still stopped during app compilation; compiler exit 65 is now captured correctly. New actor-warning annotations are enforced rather than silently ignored. No simulator tests ran. |
 
 The iOS build reported nonisolated calls to `getSignedApps()` and
 `getImportedApps()` in `UpdateMatchingPreferences.toggleAutoUpdate(for:)`. The
@@ -194,8 +195,15 @@ Regression tests exercise a new warning failing, an existing baseline warning
 passing, and a historical path refusing to whitelist a relocated warning.
 Build/test pipelines now capture the real compiler exit status under Actions'
 `bash -e` shell before exiting; a portable failing-compiler fixture checks both
-pipelines. These repairs require a new native run; the previous failed run is
-not acceptance of them.
+pipelines. The next run exposed a throwing archive-cleanup call and a caught-`error`
+shadowing assignment in `SourcesViewModel`. Cleanup now reports refusal/failure
+instead of emitting success, and catalog retention failure updates the model's
+error state explicitly. Three new concurrency warnings are repaired without
+expanding the baseline: the archive sheet captures its existing immutable
+workspace ID for nonisolated `Identifiable` access, and certificate adapter
+defaults are resolved inside its main-actor initializer, not in default-argument
+expressions. These follow-up repairs need another native run; neither failed
+run is acceptance of them.
 
 Reproduce the portable checks from the repository root:
 
