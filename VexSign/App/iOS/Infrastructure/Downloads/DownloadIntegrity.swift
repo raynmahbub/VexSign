@@ -181,11 +181,10 @@ enum DownloadIntegrity {
 extension ASRepository.App {
 	/// What this app's source declares about the download VexSign is about to start.
 	///
-	/// `App.size` is the size AltStore sources publish for the current download; a version entry can
-	/// carry its own. The format has no hash field yet, so a hash is only checked when a caller (a
-	/// manual URL with a published hash, or a future source field) supplies one.
+	/// The byte count must describe `currentDownloadUrl`, including when compatibility selection
+	/// chooses an older release. A top-level size for another URL is not an integrity promise for
+	/// that archive. The source schema has no hash field; hashes are checked only when supplied.
 	var downloadIntegrityExpectation: DownloadIntegrity.Expectation {
-		let versionBytes = currentAppVersion?.size.map { Int64($0) }
-		return DownloadIntegrity.Expectation(byteCount: size ?? versionBytes, sha256: nil)
+		DownloadIntegrity.Expectation(byteCount: currentDownloadSize, sha256: nil)
 	}
 }
