@@ -4,6 +4,9 @@ import NimbleExtensions
 /// The compact trailing reveal uses one store-bound open-row identity in every
 /// layout. Native leading workflow actions and context menus remain separate.
 enum LibraryGridSwipePolicy {
+    static func allowsAnimation(systemReduceMotion: Bool, requestedReduceMotion: Bool, animationsEnabled: Bool) -> Bool {
+        animationsEnabled && !systemReduceMotion && !requestedReduceMotion
+    }
     static func actionWidth(scaled: CGFloat) -> CGFloat {
         scaled.isFinite ? min(136, max(72, scaled)) : 82
     }
@@ -23,6 +26,9 @@ struct LibraryGridSwipeDelete: ViewModifier {
     let enabled: Bool
     let rowID: String
     @Binding var revealedRowID: String?
+    /// An embedding context may request less motion, never override the system's
+    /// read-only Reduce Motion setting to enable animations against user choice.
+    var reduceMotionRequested = false
     let onDelete: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var appearance = AppearanceStore.shared
@@ -31,7 +37,9 @@ struct LibraryGridSwipeDelete: ViewModifier {
 
     private var isOpen: Bool { revealedRowID == rowID }
     private var actionAnimation: Animation? {
-        reduceMotion || !appearance.animationsEnabled ? nil : .spring(response: 0.3, dampingFraction: 0.85)
+        LibraryGridSwipePolicy.allowsAnimation(systemReduceMotion: reduceMotion,
+            requestedReduceMotion: reduceMotionRequested, animationsEnabled: appearance.animationsEnabled)
+            ? .spring(response: 0.3, dampingFraction: 0.85) : nil
     }
     private var width: CGFloat { LibraryGridSwipePolicy.actionWidth(scaled: actionWidth) }
     private var reveal: CGFloat { min(width, max(0, (isOpen ? width : 0) - drag)) }

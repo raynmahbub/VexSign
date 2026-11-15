@@ -94,6 +94,15 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertIn("rowID: cert.id, revealedRowID: $_revealedCertificateID", source)
         self.assertNotIn("LibraryGridSwipeDelete(enabled: true) {", source)
 
+    def test_hosted_swipe_tests_do_not_write_the_read_only_system_accessibility_environment(self) -> None:
+        test = _source(ROOT / "VexSign/Tests/UnitTests/Persistence/LibrarySwipeLayoutTests.swift")
+        modifier = _source(VEXSIGN / "Presentation/Features/Library/Views/LibraryGridSwipeDelete.swift")
+        self.assertNotIn(r".environment(\.accessibilityReduceMotion", test)
+        self.assertIn("reduceMotionRequested: reduceMotion", test)
+        self.assertIn("systemReduceMotion: reduceMotion", modifier)
+        self.assertIn("animationsEnabled && !systemReduceMotion && !requestedReduceMotion", modifier)
+        self.assertIn("LibraryGridSwipePolicy.allowsAnimation(", modifier)
+
     def test_repository_gates_run_this_regression(self) -> None:
         command = "python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py"
         self.assertIn(command, (ROOT / "Makefile").read_text(encoding="utf-8"))

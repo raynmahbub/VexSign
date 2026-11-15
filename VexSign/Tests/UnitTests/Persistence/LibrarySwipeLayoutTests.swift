@@ -20,9 +20,8 @@ final class LibrarySwipeLayoutTests: XCTestCase {
         }
         .padding(.vertical, 8)
         .modifier(LibraryGridSwipeDelete(enabled: true, rowID: identity,
-            revealedRowID: .constant(open ? identity : nil), onDelete: {}))
+            revealedRowID: .constant(open ? identity : nil), reduceMotionRequested: reduceMotion, onDelete: {}))
         .environment(\.dynamicTypeSize, size)
-        .environment(\.accessibilityReduceMotion, reduceMotion)
         let host = UIHostingController(rootView: content)
         host.loadViewIfNeeded()
         return host.sizeThatFits(in: CGSize(width: width, height: 1_000))
@@ -45,6 +44,18 @@ final class LibrarySwipeLayoutTests: XCTestCase {
         }
     }
 
+    func testSystemAndCallerReducedMotionOrDisabledAnimationsAlwaysWin() {
+        XCTAssertTrue(LibraryGridSwipePolicy.allowsAnimation(systemReduceMotion: false,
+            requestedReduceMotion: false, animationsEnabled: true))
+        for (system, requested, enabled) in [(true, false, true), (false, true, true),
+                                             (true, true, true), (false, false, false)] {
+            XCTAssertFalse(LibraryGridSwipePolicy.allowsAnimation(systemReduceMotion: system,
+                requestedReduceMotion: requested, animationsEnabled: enabled))
+        }
+    }
+
+    // SwiftUI's system environment value is read-only. Exercise the same reduced
+    // motion policy via an additional request, without pretending to toggle iOS.
     func testReduceMotionHasTheSameStableLayoutAtAccessibilityTextSizes() {
         let animated = measure(width: 393, open: true, size: .accessibility5, reduceMotion: false)
         let reduced = measure(width: 393, open: true, size: .accessibility5, reduceMotion: true)
