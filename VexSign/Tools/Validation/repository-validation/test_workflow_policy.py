@@ -209,6 +209,21 @@ class WorkflowPolicyTests(unittest.TestCase):
             self.assertEqual(reporter['crash_stack'](folder),
                 '_assertionFailure + 100 <- EnvironmentObject.error() + 48')
 
+    def test_annotations_include_details_after_the_first_five_failed_tests(self):
+        import json
+        reporter = runpy.run_path(str(ROOT / '.github/scripts/surface_test_failures.py'))
+        with tempfile.TemporaryDirectory() as folder:
+            summary = Path(folder) / 'summary.json'
+            summary.write_text(json.dumps({'result': 'Failed', 'testFailures': [
+                {'testName': f'testCase{index}()', 'failureText': f'precise failure {index}',
+                 'sourceCodeContext': {'location': {'filePath': '/tmp/Fixture.swift', 'lineNumber': index}}}
+                for index in range(14)]}))
+            lines = reporter['summary_lines'](str(summary), str(Path(folder) / 'absent.json'))
+            details = [line for line in lines if line.startswith('DETAILS ')]
+            self.assertTrue(any('testCase13() @ Fixture.swift:13 — precise failure 13' in line for line in details))
+            self.assertTrue(all(len(line) <= 830 for line in details))
+            self.assertLess(len(details), 5)
+
     def test_startup_fatal_environment_message_survives_test_failure_chatter(self):
         reporter = runpy.run_path(str(ROOT / '.github/scripts/surface_test_failures.py'))
         with tempfile.TemporaryDirectory() as folder:

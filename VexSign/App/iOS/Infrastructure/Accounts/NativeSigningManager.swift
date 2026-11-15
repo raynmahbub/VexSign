@@ -70,17 +70,22 @@ struct NativeSigningHandoffCoordinator {
     private let temporaryDirectory: URL
     private let generatePassword: () throws -> String
     private let now: () -> Date
+    private let authenticateProfile: (Data, Date) throws -> Certificate
 
     init(
         taskCenter: UnifiedTaskCenter? = nil,
         temporaryDirectory: URL = FileManager.default.temporaryDirectory,
         generatePassword: (() throws -> String)? = nil,
-        now: @escaping () -> Date = { Date() }
+        now: @escaping () -> Date = { Date() },
+        authenticateProfile: @escaping (Data, Date) throws -> Certificate = {
+            try ProvisioningProfileParser.parse($0, now: $1)
+        }
     ) {
         self.taskCenter = taskCenter ?? .shared
         self.temporaryDirectory = temporaryDirectory
         self.generatePassword = generatePassword ?? Self.makePassword
         self.now = now
+        self.authenticateProfile = authenticateProfile
     }
 
     func run(
@@ -107,7 +112,12 @@ struct NativeSigningHandoffCoordinator {
             guard backendIsCurrent() else { throw CancellationError() }
             let provisionURL = directory.appendingPathComponent("native.mobileprovision")
             try Self.write(profileData, to: provisionURL)
-            guard let decoded = CertificateReader(provisionURL).decoded else {
+            let decoded: Certificate
+            do {
+                // The production default consumes and authenticates the entire
+                // CMS using the transaction's clock. No substring/plist fallback.
+                decoded = try authenticateProfile(profileData, now())
+            } catch {
                 throw NativeSigningError.provisioningFailed(.localized("The authenticated provisioning profile could not be read. Nothing was imported."))
             }
             taskCenter.transition(task, to: .extracting, progress: 0.4)

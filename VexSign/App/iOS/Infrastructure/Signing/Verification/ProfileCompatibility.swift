@@ -121,8 +121,9 @@ extension ProfileCompatibility {
 			}
 		}
 
-		// 4. Requested entitlements the profile does not grant. Keys VexSign rewrites for itself
-		// (keychain groups, JIT, team identifiers) are skipped — other checks own those.
+        // 4. Every requested security capability needs a grant. The compatibility
+        // surface has no rewrite/JIT/keychain exception; authenticated component
+        // resolution performs the full typed authorization before execution.
 		let granted = profile.Entitlements?.mapValues { $0.value } ?? [:]
 		for (key, value) in target.requestedEntitlements.sorted(by: { $0.key < $1.key }) {
 			guard !SignatureVerifier.tolerantEntitlementKeys.contains(key) else { continue }

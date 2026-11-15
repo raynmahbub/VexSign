@@ -235,7 +235,10 @@ final class BundleSignatureTests: XCTestCase {
 	}
 
 	func testAnAdHocSignatureHasNoCertificate() throws {
-		let url = try writeExecutable(superblob: makeSuperblob([(5, Data("entitlements".utf8))]))
+        // A display-reader fixture still needs correctly typed, readable slots;
+        // arbitrary text wrapped as CMS in the entitlement slot is malformed.
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("VexSignTests-\(UUID().uuidString)")
+        try SigningRegressionFixture.machO(entitlements: [:]).write(to: url)
 		defer { try? FileManager.default.removeItem(at: url) }
 
 		XCTAssertEqual(BundleSignature.read(executableAt: url), .noCertificates)
@@ -485,7 +488,9 @@ final class BundleSignatureTests: XCTestCase {
 		store.request(request)
 		try await waitUntil { probe.count == 1 }
 		probe.first.signal()
-		try await waitUntil { store.statuses["row"] != nil }
+        // request() publishes a Checking seed immediately. Wait for the actual
+        // read rather than treating that unfinished seed as a probe result.
+        try await waitUntil { store.statuses["row"]?.isKnown == true }
 		XCTAssertEqual(store.statuses["row"]?.installed, .notInstalled)
 		store.invalidate(bundleIdentifier: "example.app")
 		try await waitUntil { probe.count == 2 }
@@ -607,7 +612,9 @@ final class BundleSignatureTests: XCTestCase {
 	/// An arm64 Mach-O with one `LC_CODE_SIGNATURE` command, or a non-signature command.
 	private func machO(superblobLength: UInt32?, superblob: Data) -> Data {
 		let headerSize = 32
-		let commandSize = 16
+        // An unsigned image needs a complete command, not the truncated
+        // LC_SEGMENT_64 that the production parser correctly rejects.
+        let commandSize = superblobLength == nil ? 24 : 16
 
 		var data = Data()
 		data.append(u32le(0xfeed_facf)) // MH_MAGIC_64
@@ -625,8 +632,12 @@ final class BundleSignatureTests: XCTestCase {
 			data.append(u32le(UInt32(headerSize + commandSize)))
 			data.append(u32le(superblobLength))
 		} else {
-			data.append(u32le(0x19))    // LC_SEGMENT_64 — not a code signature
+			data.append(u32le(0x32))    // LC_BUILD_VERSION — not a code signature
 			data.append(u32le(UInt32(commandSize)))
+            data.append(u32le(2))       // PLATFORM_IOS
+            data.append(u32le(0x00110000))
+            data.append(u32le(0))
+            data.append(u32le(0))
 		}
 
 		data.append(superblob)

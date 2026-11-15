@@ -9,7 +9,7 @@
 //
 //   1. The preflight judged extensions by the identifier they had *before* the bundle-id
 //      rewrite. Both `SigningHandler._modifyPluginIdentifiers` and the pinned engine
-//      (`ZBundle::ModifyPluginsBundleId`) replace the old app id with the new one inside every
+//      (`ZBundle::ModifyPluginsBundleId`) replace the old app-id prefix in every
 //      nested bundle, so a profile covering the new id covers the renamed extensions too.
 //   2. "Sign Anyway" was offered by the preflight sheet and honoured by the post-sign
 //      verifier, but the nested-bundle audit threw regardless — so the override did nothing.
@@ -26,16 +26,20 @@ import XCTest
 final class ExtensionSigningRegressionTests: XCTestCase {
 	// MARK: - 1. Coverage is judged after the rewrite
 
-	func testRewriteMirrorsTheEngine() {
-		// ZUtil::StringReplace replaces every occurrence of the old base, not just a prefix.
+    func testRewriteUsesOnlyTheAppIdentifierPrefix() {
+        // Match the native engine's explicit rename: later substrings and
+        // unrelated identifiers cannot silently change their identity.
 		XCTAssertEqual(
 			NestedBundleAudit.rewrittenIdentifier("com.vendor.app.widget", from: "com.vendor.app", to: "com.me.app"),
 			"com.me.app.widget"
 		)
 		XCTAssertEqual(
 			NestedBundleAudit.rewrittenIdentifier("com.vendor.app.a.com.vendor.app", from: "com.vendor.app", to: "x"),
-			"x.a.x"
+			"x.a.com.vendor.app"
 		)
+        for identifier in ["com.vendor.application.widget", "org.other.com.vendor.app", "com.other.thing"] {
+            XCTAssertEqual(NestedBundleAudit.rewrittenIdentifier(identifier, from: "com.vendor.app", to: "x"), identifier)
+        }
 	}
 
 	func testRewriteIsANoOpWithoutARealChange() {

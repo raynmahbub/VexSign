@@ -138,7 +138,10 @@ final class NestedBundleAuditTests: XCTestCase {
 		let covered = try makeBundle("PlugIns/Compatible.appex", identifier: "com.example.app.widget")
 		let unsupportedNames = ["AirportNotifications", "Intents", "IntentsUI", "LiveActivitiesWidget", "RichNotifications"]
 		let unsupported = try unsupportedNames.map { name in
-			try makeBundle("PlugIns/\(name).appex", identifier: "org.example.extension.\(name)")
+            // Independent optional fixtures must not contain another one's full
+            // identifier (Intents used to be a prefix of IntentsUI). The real
+            // conservative reference scanner correctly refuses that ambiguity.
+			try makeBundle("PlugIns/\(name).appex", identifier: "org.example.extension.\(name).standalone")
 		}
 		let watchApp = try makeBundle("Watch/Example Watch.app", identifier: "org.example.watch")
 		let appInfo = appBundle.appendingPathComponent("Info.plist")
@@ -158,6 +161,15 @@ final class NestedBundleAuditTests: XCTestCase {
 		XCTAssertTrue(FileManager.default.fileExists(atPath: watchApp.path), "watch apps are not removable app extensions")
 		XCTAssertFalse(removed.contains { $0.bundle.kind == .watchApp })
 	}
+
+    func testAmbiguousSiblingIdentifierPreventsTheEntireRemovalTransaction() throws {
+        let first = try makeBundle("PlugIns/Intents.appex", identifier: "org.example.extension.intents")
+        let sibling = try makeBundle("PlugIns/IntentsUI.appex", identifier: "org.example.extension.intentsUI")
+        XCTAssertThrowsError(try NestedBundleAudit.removeUncoveredBundles(in: appBundle,
+            profilePattern: "TEAM12345.com.example.app.*"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sibling.path))
+    }
 
 	func testRemoveAppExtensionsStillRequiresWatchAppCoverage() throws {
 		try makeBundle("PlugIns/Widget.appex", identifier: "com.example.widget")

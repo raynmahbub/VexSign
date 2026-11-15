@@ -170,8 +170,9 @@ enum NestedBundleAudit {
 	/// The identifier a nested bundle will carry after the app's bundle id is changed.
 	///
 	/// Both `SigningHandler._modifyPluginIdentifiers` and the pinned engine
-	/// (`ZBundle::ModifyPluginsBundleId`, `VexSign/Packages/Vendor/Zsign/src/bundle.cpp:390`) rewrite every
-	/// nested `.app`/`.appex` by replacing the old app identifier with the new one. Coverage
+    /// (`ZBundle::ModifyPluginsBundleId`) rewrite the exact old app identifier or
+    /// its dot-delimited prefix in nested `.app`/`.appex` metadata. Occurrences in
+    /// an unrelated identifier or later in a suffix are not changed. Coverage
 	/// therefore has to be judged on the *result*: an extension that looks uncovered before
 	/// the rename is covered afterwards whenever the profile covers the new identifier.
 	/// Comparing the pre-rename value is what made a wildcard profile appear to reject

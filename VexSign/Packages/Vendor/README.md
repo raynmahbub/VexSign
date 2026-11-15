@@ -79,3 +79,14 @@ cancellation limits. The wrapper's MIT notice is not proof of complete binary
 or transitive license clearance. Source review is not a native build, Actions
 result or physical-device acceptance. On refresh, reapply or retire **all** local
 patches explicitly and review result ownership before changing capability gates.
+
+## Local Zsign identifier rewrite alignment
+
+The local `src/bundle.cpp` patch also aligns explicit nested bundle-ID renames
+with `NestedBundleAudit.rewrittenIdentifier`: only the exact old identifier or
+its dot-delimited leading prefix changes. An unrelated identifier, or a repeated
+old identifier later in the suffix, remains unchanged. The same rule applies to
+Watch companion/extension references. Production C++ regressions exercise a
+complete generated tree and its resulting page seals; Swift tests pin the same
+examples. This does not enable an automatic profile-driven rename, change the
+upstream pin or establish device acceptance. Preserve this patch on refresh.

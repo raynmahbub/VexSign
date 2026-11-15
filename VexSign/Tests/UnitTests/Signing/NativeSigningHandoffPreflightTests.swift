@@ -100,12 +100,10 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
     private func encodedProfile() throws -> Data {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .xml
-        // Only CertificateReader's extraction path is exercised here. NativeSigning's
-        // separate CMS tests authenticate synthetic CMS before this app-side preflight.
-        var bytes = Data([0x30, 0x03, 0x02, 0x01, 0x00])
-        bytes.append(try encoder.encode(profile()))
-        bytes.append(Data([0x00, 0x01, 0x02]))
-        return bytes
+        // Deliberately UNAUTHENTICATED bytes for the injected lifecycle seam.
+        // A separate regression below requires the production default to reject
+        // these same bytes before granting any private-key export.
+        return try encoder.encode(profile())
     }
 
     private func scratchRoot() throws -> URL {
@@ -117,7 +115,13 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
 
     private func coordinator(root: URL) -> NativeSigningHandoffCoordinator {
         NativeSigningHandoffCoordinator(temporaryDirectory: root,
-            generatePassword: { "fixture-password-not-a-secret" }, now: { self.now })
+            generatePassword: { "fixture-password-not-a-secret" }, now: { self.now },
+            authenticateProfile: { data, verificationTime in
+                XCTAssertEqual(verificationTime, self.now)
+                let metadata = try PropertyListDecoder().decode(Certificate.self, from: data)
+                XCTAssertEqual(metadata.UUID, self.profileUUID.uuidString)
+                return metadata // Test metadata only, never production trust.
+            })
     }
 
     private func recordedTask(profileUUID: UUID) throws -> UnifiedTask {
@@ -128,6 +132,31 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
     private func assertScratchRemoved(_ root: URL, file: StaticString = #filePath, line: UInt = #line) throws {
         let remaining = try FileManager.default.contentsOfDirectory(atPath: root.path)
         XCTAssertEqual(remaining, [], file: file, line: line)
+    }
+
+    func testDefaultAuthenticatorRejectsUnsignedProfileBeforePrivateKeyExport() async throws {
+        let root = try scratchRoot()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+        let bytes = try encodedProfile()
+        var identityExports = 0, imports = 0
+        // Deliberately do not inject authenticateProfile: exercise its real default.
+        let operation = NativeSigningHandoffCoordinator(temporaryDirectory: root, now: { self.now })
+        do {
+            try await operation.run(request: request(), exportProfile: { bytes },
+                backendIsCurrent: { true }, exportIdentity: { _ in
+                    identityExports += 1
+                    return Data([1])
+                }, importCertificate: { _, _, _, _ in imports += 1 })
+            XCTFail("Unsigned profile metadata must not authorize private-key export")
+        } catch NativeSigningError.provisioningFailed(_) {
+            // The source remains untrusted even if its target metadata matches.
+        }
+        XCTAssertEqual(identityExports, 0)
+        XCTAssertEqual(imports, 0)
+        try assertScratchRemoved(root)
+        let task = try recordedTask(profileUUID: profileUUID)
+        XCTAssertEqual(task.phase, .failed)
+        XCTAssertEqual(task.failureStage, .downloading)
     }
 
     func testSuccessfulHandoffUsesExactBytesProtectedFilesAndCleansScratch() async throws {
