@@ -59,7 +59,7 @@ final class RecoveryAndResourceTests: XCTestCase {
 
     func testUnavailableEvidenceStopsWithinBoundWithoutClaimingInstalled() {
         let zero = Date(timeIntervalSince1970: 0)
-        var engine = InstallConfirmation(expectation: .init(bundleIdentifier: "example.app"))
+        var engine = InstallConfirmation(expectation: .init(bundleIdentifier: "example.app", version: "1.0"))
         _ = engine.beginVerifying(at: zero)
         XCTAssertEqual(engine.record(probe: nil, at: zero.addingTimeInterval(29)), .verifying)
         XCTAssertEqual(engine.record(probe: nil, at: zero.addingTimeInterval(30)), .finished(.timedOutVerifying))
@@ -68,15 +68,15 @@ final class RecoveryAndResourceTests: XCTestCase {
 
     func testPositiveEvidenceBeforeDeadlineStillCompletes() {
         let zero = Date(timeIntervalSince1970: 0)
-        var engine = InstallConfirmation(expectation: .init(bundleIdentifier: "example.app"))
+        var engine = InstallConfirmation(expectation: .init(bundleIdentifier: "example.app", version: "1.0"))
         _ = engine.beginVerifying(at: zero)
         _ = engine.record(probe: nil, at: zero.addingTimeInterval(25))
-        XCTAssertEqual(engine.record(probe: InstalledApp(bundleIdentifier: "example.app", isInstalled: true),
+        XCTAssertEqual(engine.record(probe: InstalledApp(bundleIdentifier: "example.app", isInstalled: true, version: "1.0"),
             at: zero.addingTimeInterval(29)), .finished(.installed))
     }
 
     func testPairingMigrationFailuresKeepOriginalBytes() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let legacy = root.appendingPathComponent("pairing.plist")
@@ -94,7 +94,7 @@ final class RecoveryAndResourceTests: XCTestCase {
     }
 
     func testBlockedCertificateDestinationNeverDeletesLegacyIdentity() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
         let legacy = root.appendingPathComponent("Documents/Certificates")
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
@@ -109,7 +109,7 @@ final class RecoveryAndResourceTests: XCTestCase {
     }
 
     func testPartialCertificateMigrationCanResumeWithoutOverwrite() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
         let legacy = root.appendingPathComponent("Documents/Certificates")
         let destination = root.appendingPathComponent("Private/Certificates")

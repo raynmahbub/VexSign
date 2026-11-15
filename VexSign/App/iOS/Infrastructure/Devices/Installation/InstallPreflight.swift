@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - Model
@@ -32,6 +33,8 @@ struct InstallPreflightInputs: Equatable, Sendable {
     var hasTrustedServerCertificate: Bool = false
 	/// A process-local runtime, not an external app URL handler.
 	var hasEmbeddedRuntime: Bool = false
+    var osVersion: DeviceOSVersion = .current
+    var pairedInventoryAccepted = InstallationAppProxy.hasAcceptedInventoryBridge
 }
 
 // MARK: - Evaluation
@@ -58,8 +61,15 @@ enum InstallPreflight {
 				// The record cannot start a session, so this is not "unknown readiness" — it is a
 				// record that has to be replaced, and the sentence says which part is wrong.
 				return .missing(inputs.pairing.detail)
-			case .readable:
-				return .unknown(.localized("Pairing record found. Device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."))
+            case .readable, .validated:
+                if let format = inputs.pairing.format {
+                    do { try DeviceTransportPolicy.requireClassicRoute(format: format, version: inputs.osVersion) }
+                    catch { return .unavailable(error.localizedDescription) }
+                }
+                guard inputs.pairedInventoryAccepted else {
+                    return .unavailable(DeviceTransportError.inventoryBridgeUnavailable.localizedDescription)
+                }
+                return .unknown(.localized("Pairing record found. Device trust and VPN connectivity are checked when connecting; a readable record does not prove the device would accept the session."))
 			}
 
 		case .liveContainer:
@@ -102,7 +112,7 @@ enum InstallPreflight {
 			case .server:
 				return .localized("Uses a server on this device and itms-services://. Needs the certificate above and a reachable host.")
 			case .idevice:
-				return .localized("Writes the app over AFC and asks installd to install it. No certificate, no hosted server.")
+				return .localized("Uses AFC and Installation Proxy only after all device and exact-version verification gates pass. It does not require a local HTTPS certificate, but the app still needs valid signing and provisioning.")
 			case .liveContainer:
 				return .localized("Prepares a local guest import. Finish import and signing in the host; this is not an iOS device installation. Switching sessions requires confirmation.")
 			case .export:

@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import IDeviceSwift
 
 struct TaskContext: Codable, Equatable {
     var appVersion: String?
@@ -23,6 +24,23 @@ struct TaskContext: Codable, Equatable {
     /// Optional, not defaulted: the synthesized `Decodable` only tolerates a missing key for an
     /// optional, and history written before this field existed has to keep loading.
     var signingTrace: TaskSigningTrace?
+    /// Optional for backward compatibility. This dated observation is not a
+    /// reason-string success flag or a statement about current installed state.
+    var installedApplicationEvidence: InstalledApplicationEvidence?
+    var expectedDeviceBinding: DeviceSessionBinding?
+    var nativeAcknowledgedAt: Date?
+    var installationPackageSHA256: String?
+
+    func hasConfirmedInstallation(notAfter: Date) -> Bool {
+        guard installationMethod == "paired-device", confirmationReason == "device-confirmed-installed",
+              let identifier = expectedBundleIdentifier, let handoffAt, let nativeAcknowledgedAt,
+              handoffAt.timeIntervalSince1970.isFinite, nativeAcknowledgedAt.timeIntervalSince1970.isFinite,
+              notAfter.timeIntervalSince1970.isFinite, nativeAcknowledgedAt >= handoffAt, nativeAcknowledgedAt <= notAfter,
+              let digest = installationPackageSHA256, DeviceSessionBinding.isDigest(digest) else { return false }
+        return installedApplicationEvidence?.confirms(bundleIdentifier: identifier,
+            version: appVersion, build: appBuild, binding: expectedDeviceBinding,
+            notBefore: nativeAcknowledgedAt, notAfter: notAfter) == true
+    }
 
     mutating func recordFailure(_ error: Error) {
         let error = error as NSError
@@ -69,6 +87,7 @@ struct TaskContext: Codable, Equatable {
         case certificateReference, optionsFingerprint, artifactID
         case signingTaskID, importTaskID, confirmationReason, verificationAttempts
         case errorCategory, errorCode, signingTrace
+        case installedApplicationEvidence, expectedDeviceBinding, nativeAcknowledgedAt, installationPackageSHA256
         case clientVersion, sourceCommit
     }
 
@@ -99,6 +118,12 @@ struct TaskContext: Codable, Equatable {
         errorCategory = try container.decodeIfPresent(String.self, forKey: .errorCategory)
         errorCode = try container.decodeIfPresent(Int.self, forKey: .errorCode)
         signingTrace = try container.decodeIfPresent(TaskSigningTrace.self, forKey: .signingTrace)
+        // A malformed optional proof must not discard unrelated task history.
+        // Discarding it is fail-closed: hasConfirmedInstallation then returns false.
+        installedApplicationEvidence = try? container.decodeIfPresent(InstalledApplicationEvidence.self, forKey: .installedApplicationEvidence) // try? ok: corrupt optional evidence is discarded and cannot promote history
+        expectedDeviceBinding = try? container.decodeIfPresent(DeviceSessionBinding.self, forKey: .expectedDeviceBinding) // try? ok: corrupt optional evidence is discarded and cannot promote history
+        nativeAcknowledgedAt = try? container.decodeIfPresent(Date.self, forKey: .nativeAcknowledgedAt) // try? ok: corrupt optional evidence is discarded and cannot promote history
+        installationPackageSHA256 = try? container.decodeIfPresent(String.self, forKey: .installationPackageSHA256) // try? ok: corrupt optional evidence is discarded and cannot promote history
         clientVersion = try container.decodeIfPresent(String.self, forKey: .clientVersion) ?? ""
         sourceCommit = try container.decodeIfPresent(String.self, forKey: .sourceCommit) ?? ""
     }

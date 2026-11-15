@@ -13,6 +13,11 @@ existing check, and both fail silently:
 """
 
 from pathlib import Path
+import base64
+import hashlib
+import json
+import plistlib
+import struct
 import re
 import unittest
 
@@ -109,6 +114,16 @@ class NestedBundlePolicyTests(unittest.TestCase):
         self.assertIn("binding.first.size() > longest", source)
         self.assertIn("Missing explicit component signing inputs", source)
 
+    def test_explicit_native_renames_share_the_swift_prefix_boundary(self) -> None:
+        native = ENGINE.read_text()
+        self.assertIn('const string prefix = oldBase + "."', native)
+        self.assertIn('identifier.compare(0, prefix.size(), prefix)', native)
+        self.assertIn('newBase + identifier.substr(oldBase.size())', native)
+        self.assertEqual(native.count('= RewrittenBundleIdentifier('), 3)
+        rewrite = AUDIT.read_text().split('static func rewrittenIdentifier(', 1)[1].split('// MARK:', 1)[0]
+        self.assertIn('identifier.hasPrefix(oldBase + ".")', rewrite)
+        self.assertNotIn('replacingOccurrences', rewrite)
+
     def test_the_engine_signs_the_whole_tree_rather_than_a_fixed_folder_list(self) -> None:
         # If this ever stops being true, the folder lists above become the engine's real scope and
         # the two tests have to be rewritten against it.
@@ -152,8 +167,94 @@ class SigningReadinessWiringTests(unittest.TestCase):
         self.assertIn("component.issues", screen)
 
 
+class PublicSealFixtureTests(unittest.TestCase):
+    def test_public_fixture_cms_cdhash_plist_is_independently_readable(self):
+        # This is fixture validation, NOT a production CMS verifier or an Apple
+        # trust claim. The Objective-C++ bridge performs cryptographic checking.
+        value = json.loads((ROOT / "VexSign/Tests/Support/Fixtures/CodeSignatureCMSFixture.json").read_text())
+        executable = base64.b64decode(value['executable'], validate=True)
+        little = lambda at: struct.unpack_from('<I', executable, at)[0]
+        command = 32
+        signature = None
+        for _ in range(little(16)):
+            if little(command) == 0x1d:
+                signature = executable[little(command + 8):little(command + 8) + little(command + 12)]
+            command += little(command + 4)
+        self.assertIsNotNone(signature)
+        word = lambda at: struct.unpack_from('>I', signature, at)[0]
+        blobs = {}
+        for index in range(word(8)):
+            slot, offset = word(12 + index * 8), word(16 + index * 8)
+            blobs[slot] = signature[offset:offset + word(offset + 4)]
+
+        def children(encoded):
+            offset = 0
+            while offset < len(encoded):
+                tag = encoded[offset]
+                length = encoded[offset + 1]
+                header = 2
+                if length & 0x80:
+                    width = length & 0x7f
+                    self.assertTrue(1 <= width <= 4)
+                    length = int.from_bytes(encoded[offset + 2:offset + 2 + width], 'big')
+                    header += width
+                end = offset + header + length
+                self.assertLessEqual(end, len(encoded))
+                yield tag, encoded[offset + header:end]
+                offset = end
+
+        matches = []
+        def attributes(encoded, depth=0):
+            self.assertLessEqual(depth, 32)
+            for tag, content in children(encoded):
+                if tag == 0x30:
+                    fields = list(children(content))
+                    if fields and fields[0] == (0x06, bytes.fromhex('2a864886f763640901')):
+                        self.assertEqual(len(fields), 2)
+                        values = list(children(fields[1][1]))
+                        self.assertEqual(len(values), 1)
+                        self.assertEqual(values[0][0], 0x04)
+                        matches.append(values[0][1])
+                if tag & 0x20:
+                    attributes(content, depth + 1)
+        attributes(blobs[0x10000][8:])
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(plistlib.loads(matches[0]), {'cdhashes': [
+            hashlib.sha1(blobs[0]).digest(), hashlib.sha256(blobs[0x1000]).digest()[:20]]})
+
+
 class SigningCredentialAndOutputWiringTests(unittest.TestCase):
     """Source wiring only; behavioral Security/Core Data cases live in XCTest."""
+
+    def test_handoff_authentication_default_stays_closed_and_precedes_key_export(self):
+        source = (ROOT / "VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift").read_text()
+        body = source.split('struct NativeSigningHandoffCoordinator {', 1)[1].split('// MARK: - NativeSigningManager', 1)[0]
+        self.assertIn('try ProvisioningProfileParser.parse($0, now: $1)', body)
+        self.assertIn('decoded = try authenticateProfile(profileData, now())', body)
+        self.assertLess(body.index('decoded = try authenticateProfile('), body.index('try await exportIdentity(password)'))
+        self.assertIn('try NativeSigningHandoffPreflight.validate(decoded', body)
+        self.assertNotIn('CertificateReader(', body)
+        tests = (ROOT / "VexSign/Tests/UnitTests/Signing/NativeSigningHandoffPreflightTests.swift").read_text()
+        self.assertIn('testDefaultAuthenticatorRejectsUnsignedProfileBeforePrivateKeyExport', tests)
+        self.assertIn('authenticateProfile: { data, verificationTime in', tests)
+        self.assertNotIn('Data([0x30, 0x03, 0x02, 0x01, 0x00])', tests)
+
+    def test_account_signing_transition_requires_exact_imported_identity_and_separate_review(self):
+        source = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift").read_text()
+        self.assertIn('return accountHandoff.certificate(in: certificates)', source)
+        self.assertIn('guard accountHandoff.matches(app)', source)
+        self.assertIn('options.automaticallyResolveSigningIdentity = false', source)
+        self.assertIn('options.signingOption = .default', source)
+        self.assertIn('guard _accountHandoffIsCurrent else', source)
+        contract = (ROOT / 'VexSign/App/iOS/Domain/Protocols/AppleAccountWorkspaceProviding.swift').read_text()
+        for condition in ('matches.count == 1', '!candidate.revoked', 'candidate.profile?.ExpirationDate == expiresAt',
+                          'candidate.expiration.map({ $0 > now }) == true'):
+            self.assertIn(condition, contract)
+        importer = (ROOT / 'VexSign/App/iOS/Infrastructure/Identity/CertificateManagementService.swift').read_text()
+        self.assertLess(importer.index('try await handler.addToDatabase()'), importer.index('completion(.success(handler.certificateUUID))'))
+        manager = (ROOT / 'VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift').read_text()
+        self.assertIn('continuation.resume(with: $0)', manager)
+        self.assertIn('current.id == contextID', manager)
 
     def test_inventory_cannot_turn_an_unavailable_keychain_into_an_empty_password(self):
         source = (ROOT / "VexSign/App/iOS/Infrastructure/Identity/SigningIdentityStore.swift").read_text()

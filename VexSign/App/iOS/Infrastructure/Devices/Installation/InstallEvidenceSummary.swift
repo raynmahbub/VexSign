@@ -33,13 +33,15 @@ struct InstallEvidenceSummary: Equatable {
 		case recorded = "recorded"
 		/// Nothing was handed over before the attempt ended.
 		case notReached = "not-reached"
+        /// Legacy history has no trustworthy record of whether a handoff occurred.
+        case unknown = "not-recorded"
 		/// The method has no handoff to iOS (export, guest import).
 		case notApplicable = "not-applicable"
 	}
 
 	/// What is known about the app being on the device.
 	enum Confirmation: String, Equatable {
-		/// The device acknowledged the install or reported the app.
+		/// An exact installed-app/version read-back confirmed the requested artifact.
 		case confirmed = "confirmed-by-device"
 		/// The device reported a different version from the one sent.
 		case otherVersion = "device-reports-other-version"
@@ -57,7 +59,7 @@ struct InstallEvidenceSummary: Equatable {
 
 	/// Whether a source that could confirm the install existed for this attempt.
 	enum Verification: String, Equatable {
-		/// The paired device answers for itself.
+		/// A command acknowledgement ONLY; never exact-version confirmation.
 		case deviceAcknowledgement = "device-acknowledgement"
 		/// The app was looked up on the device.
 		case deviceLookup = "device-lookup"
@@ -96,7 +98,8 @@ struct InstallEvidenceSummary: Equatable {
 	///   - method: `TaskContext.installationMethod`.
 	///   - reason: `TaskContext.confirmationReason`.
 	///   - handedOff: whether a handoff time was recorded for the attempt.
-	static func resolve(method: String?, reason: String?, handedOff: Bool) -> InstallEvidenceSummary {
+    ///   - historical: decoded history cannot prove no handoff from an absent timestamp.
+	static func resolve(method: String?, reason: String?, handedOff: Bool, historical: Bool = false) -> InstallEvidenceSummary {
 		let transport: Transport
 		switch method {
 		case "OTA": transport = .overTheAir
@@ -115,7 +118,7 @@ struct InstallEvidenceSummary: Equatable {
 
 		let confirmation: Confirmation
 		switch reason {
-		case "native-installation-completed", "device-confirmed-installed":
+		case "device-confirmed-installed":
 			confirmation = .confirmed
 		case "device-reports-other-version":
 			confirmation = .otherVersion
@@ -123,7 +126,8 @@ struct InstallEvidenceSummary: Equatable {
 			confirmation = .notReported
 		case "install-start-not-observed":
 			confirmation = .notStarted
-		case "supported-installation-inventory-unavailable", "ota-completion-not-authoritative",
+        case "native-installation-completed", "paired-installed-version-not-verified", "paired-command-outcome-unknown", "historical-installation-not-verified", "exact-installation-evidence-missing",
+            "supported-installation-inventory-unavailable", "ota-completion-not-authoritative",
 			 "installation-evidence-unavailable", "installation-monitoring-deadline",
 			 "monitoring-stopped-install-may-continue", "process-exit-installation-unconfirmed":
 			confirmation = .unavailable
@@ -134,15 +138,16 @@ struct InstallEvidenceSummary: Equatable {
 		// A reason that can only be written after the package was delivered proves the
 		// handoff even when its time was not recorded.
 		let deliveredReasons: Set<String> = [
-			"native-installation-completed", "device-confirmed-installed", "device-reports-other-version",
+            "native-installation-completed", "paired-installed-version-not-verified", "paired-command-outcome-unknown", "device-confirmed-installed", "device-reports-other-version",
 			"supported-installation-inventory-unavailable", "ota-completion-not-authoritative"
 		]
-		let handoff: Handoff = handedOff || reason.map({ deliveredReasons.contains($0) }) == true ? .recorded : .notReached
+        let handoff: Handoff = handedOff || reason.map({ deliveredReasons.contains($0) }) == true
+            ? .recorded : (historical || reason == "historical-installation-not-verified" ? .unknown : .notReached)
 
 		let verification: Verification
 		switch (transport, confirmation) {
-		case (.pairedDevice, _):
-			verification = .deviceAcknowledgement
+        case (.pairedDevice, .unavailable) where ["native-installation-completed", "paired-installed-version-not-verified"].contains(reason ?? ""):
+            verification = .deviceAcknowledgement
 		case (_, .confirmed), (_, .otherVersion), (_, .notReported):
 			verification = .deviceLookup
 		default:
@@ -160,7 +165,7 @@ struct InstallEvidenceSummary: Equatable {
 		case .notApplicable:
 			retrySafety = .notApplicable
 		case .otherVersion, .notReported, .notStarted, .unavailable, .notReached:
-			retrySafety = handoff == .recorded ? .checkDeviceFirst : .safe
+			retrySafety = handoff == .notReached ? .safe : .checkDeviceFirst
 		}
 
 		return InstallEvidenceSummary(

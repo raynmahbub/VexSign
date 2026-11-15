@@ -10,6 +10,7 @@ extension UnifiedTaskKind {
 		case .install: .localized("Install")
 		case .update: .localized("Update")
 		case .export: .localized("Export")
+        case .deviceSetup: .localized("Device setup")
 		}
 	}
 
@@ -21,6 +22,7 @@ extension UnifiedTaskKind {
 		case .install: "iphone.badge.plus"
 		case .update: "arrow.triangle.2.circlepath"
 		case .export: "square.and.arrow.up.fill"
+        case .deviceSetup: "cable.connector"
 		}
 	}
 }
@@ -28,6 +30,10 @@ extension UnifiedTaskKind {
 extension UnifiedTaskPhase {
     var title: String {
 		switch self {
+        case .inspectingPairing: .localized("Inspecting pairing record")
+        case .checkingTransport: .localized("Checking local transport")
+        case .discoveringServices: .localized("Opening device services")
+        case .queryingDevice: .localized("Querying device authorization")
         case .importing: .localized("Importing")
         case .readyToSign: .localized("Ready to sign")
         case .signed: .localized("Signed")
@@ -59,7 +65,9 @@ extension TaskRecoveryGuide {
         case .signing:
             return .localized("Review certificate expiry, provisioning-profile scope, entitlements and injected tweaks. Use Activity Logs to identify the failing step before retrying.")
         case .installation:
-            return .localized("Review the selected installation method. Local HTTPS needs device trust and connectivity; idevice needs a valid pairing file and running VPN. Signing success alone does not prove installation succeeded.")
+            return .localized("Review the selected installation method. Local HTTPS needs device trust and connectivity. Paired installation remains gated until supported same-device inventory and exact-version confirmation are available; a record and VPN are not enough. Signing success alone does not prove installation succeeded.")
+        case .deviceSetup:
+            return .localized("Open Pairing file and VPN setup. Review the OS route, record format and intended device; activate the VPN yourself. A timed-out native call retains the transport until it retires. Never replace credentials or repeat pairing just to hide a dependency limitation.")
         case .general:
             return .localized("Review the recorded failure stage and Activity Logs, then restart the action from its original screen if retry is unavailable.")
         }

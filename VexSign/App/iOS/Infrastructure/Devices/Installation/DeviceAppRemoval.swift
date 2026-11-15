@@ -28,7 +28,14 @@ protocol DeviceAppUninstalling: Sendable {
 /// The installation service of the pairing session.
 struct PairedDeviceUninstaller: DeviceAppUninstalling {
 	func uninstall(bundleIdentifier: String) async throws {
-		try await InstallationAppProxy.deleteApp(for: bundleIdentifier)
+        let request = try await PairingBridge.installationRequest()
+        let control = DeviceInstallationControl()
+        do {
+            try await InstallationAppProxy.deleteApp(for: bundleIdentifier, request: request, control: control)
+        } catch {
+            if control.submittedAt != nil { throw DeviceTransportError.removalOutcomeUnknown }
+            throw error
+        }
 	}
 }
 
@@ -62,6 +69,9 @@ enum DeviceAppRemoval {
 		case removed
 		/// The device accepted the request, and its state could not be read back.
 		case requested
+        /// Submission began but the native response was lost. Acceptance itself
+        /// is unknown; do not reuse the acknowledged-request wording.
+        case outcomeUnknown
 		/// The device accepted the request and still reports the app as installed.
 		case stillInstalled
 		/// The device refused, or the session could not be opened. Nothing was removed.
@@ -72,6 +82,7 @@ enum DeviceAppRemoval {
 			switch self {
 			case .removed: .localized("Removed from the device")
 			case .requested: .localized("Removal requested")
+            case .outcomeUnknown: .localized("Removal outcome unknown")
 			case .stillInstalled: .localized("Still installed")
 			case .failed: .localized("Removal failed")
 			case .refused: .localized("Not removed")
@@ -84,6 +95,8 @@ enum DeviceAppRemoval {
 				.localized("The device no longer reports this app. The copy in your Library is untouched.")
 			case .requested:
 				.localized("The device accepted the request, but VexSign could not read back whether the app is gone. Check the Home Screen.")
+            case .outcomeUnknown:
+                .localized("A removal command may have reached the selected device, but its response was lost. Check the device before retrying. Neither acceptance nor removal is confirmed.")
 			case .stillInstalled:
 				.localized("The device accepted the request but still reports the app as installed. Check the Home Screen, or try again.")
 			case .failed(let reason):
@@ -128,7 +141,7 @@ enum DeviceAppRemoval {
 		bundleIdentifier: String,
 		ownBundleIdentifier: String? = Bundle.main.bundleIdentifier,
 		uninstaller: DeviceAppUninstalling = PairedDeviceUninstaller(),
-		probe: InstalledAppProbing = InstalledAppProbe(),
+		probe: InstalledAppProbing = UnavailableInstallationProbe(),
 		settle: Duration = .seconds(2)
 	) async -> Outcome {
 		if let refusal = refusal(for: bundleIdentifier, ownBundleIdentifier: ownBundleIdentifier) {
@@ -138,6 +151,8 @@ enum DeviceAppRemoval {
 
 		do {
 			try await uninstaller.uninstall(bundleIdentifier: identifier)
+        } catch DeviceTransportError.removalOutcomeUnknown {
+            return .outcomeUnknown
 		} catch {
 			FileLogger.error("Device removal failed for \(identifier): \(error.localizedDescription)", category: "install")
 			return .failed(error.localizedDescription)
@@ -149,10 +164,8 @@ enum DeviceAppRemoval {
 			// Cancelled while waiting: the request was already accepted, so say exactly that.
 			return .requested
 		}
-		let reading = await Task.detached(priority: .utility) {
-			probe.installedApp(for: identifier)
-		}.value
-		let result = outcome(after: reading)
+        let reading = await probe.installedAppWithTimeout(for: identifier)
+        let result = outcome(after: reading?.bundleIdentifier == identifier ? reading : nil)
 		FileLogger.log("Device removal for \(identifier): \(result.title)", category: "install")
 		return result
 	}

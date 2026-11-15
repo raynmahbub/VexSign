@@ -1,78 +1,124 @@
 //
 //  Heartbeat.swift
-//  Feather
+//  Feather / IDeviceKit (MIT). See LICENSE and VexSign's vendor patch review.
 //
-//  Created by samara on 23.04.2025.
-//
-
+// VexSign local maintenance: one serial native executor, operation-scoped sessions,
+// format-aware routing and no global/borrowed native handles. No autonomous pairing.
 import Foundation
-import UIKit.UIApplication
-import Combine
-import IDevice
 
-// MARK: - Class
-// ـ♡ﮩ٨ـ heartbeat ♪₊˚
-public class HeartbeatManager {
-	static public let shared = HeartbeatManager()
-	
-	typealias IdevicePairingFile = OpaquePointer
-	typealias RpPairingFileHandle = OpaquePointer
-	typealias TcpProviderHandle = OpaquePointer
-	typealias AdapterHandle = OpaquePointer
-	typealias RemoteServerHandle = OpaquePointer
-	typealias RsdHandshakeHandle = OpaquePointer
-	typealias HeartbeatClientHandle = OpaquePointer
-	
-	public var fileManager = FileManager.default
-	var provider: TcpProviderHandle?
-	public var heartbeatThread: Thread?
-	
-	public var sessionId: UInt32? = nil
-	public let ipAddress: String = "10.7.0.1"
-	public let port: UInt16 = UInt16(LOCKDOWN_PORT)
-	public let port_rsd: UInt16 = UInt16(49152)
-	
-	public let restartLock = NSLock()
-	public var isRestartInProgress = false
-	public var restartBackoffTime: TimeInterval = 1.0
-	public var restartWorkItem: DispatchWorkItem?
-	public var firstRun = false
-	
-	public var cancellable: AnyCancellable? // Combine
-	
-	// One important note is that if a user gets `InvalidHostID -9` from heartbeat
-	// we need to ask them to reimport a fresh pairingfile,
-	public init() {
-		#if DEBUG
-		idevice_init_logger(IdeviceLogLevel.init(3), Disabled, nil)
-		#endif
-		
-		if #available(iOS 17.4, *) {
-		} else {
-			// On first start, just be a normal run, on second and onwards
-			// we force restart it with a different sessionid
-			cancellable = NotificationCenter.default
-				.publisher(for: UIApplication.willEnterForegroundNotification)
-				.receive(on: DispatchQueue.main)
-				.sink { notification in
-					let forceRestart = self.firstRun
-					self.firstRun = true
-					self.start(forceRestart)
-				}
-		}
-	}
-	
-	public var isRsd: Bool {
-		if #available(iOS 17.4, *) {
-			true
-		} else {
-			false
-		}
-	}
-	
-	/// Returns (idevice) pairing file path
-	/// Migrates legacy Documents credentials into protected Application Support.
-	static public func pairingFile() -> String {
-		PairingFileStorage.path()
-	}
+public final class HeartbeatManager {
+    public static let shared = HeartbeatManager()
+    private let executor = DeviceOperationExecutor()
+    private init() {}
+
+    public static func pairingFile() -> String { PairingFileStorage.path() }
+    public var isBusy: Bool { executor.isBusy }
+
+    /// Source-compatible reset only. Sessions are fresh, explicit and scoped to
+    /// one operation; launch/foreground never initiates an unsolicited handshake.
+    public func start(_ forceRestart: Bool = false) {
+        if forceRestart { cancelDeviceOperations() }
+    }
+
+    public func cancelDeviceOperations() { executor.cancel() }
+
+    /// Local credential recovery only; never opens a socket or native session.
+    public func recoverPairingStorage() async throws {
+        try await serialized { _ -> Void in }
+    }
+
+    func serialized<Value>(_ work: @escaping (Progress) throws -> Value) async throws -> Value {
+        try await executor.run { cancellation in
+            try PairingFileStorage.prepare()
+            try DeviceServiceSession.check(cancellation)
+            return try work(cancellation)
+        }
+    }
+
+    func nativeOperation<Value>(waiterTimeout: TimeInterval = 30, _ work: @escaping (Progress) throws -> Value) async throws -> Value {
+        // The executor clamps all native deadlines to 0.01...300 seconds. An
+        // install may need the longer bound; a verification poll uses its budget.
+        try await executor.run(waiterTimeout: waiterTimeout) { cancellation in
+            try PairingFileStorage.prepare()
+            try DeviceServiceSession.check(cancellation)
+            return try work(cancellation)
+        }
+    }
+
+    public func currentPairingReview() async throws -> PairingRecordReview {
+        try await serialized { _ in
+            do {
+                let data = try PairingFileStorage.read(from: URL(fileURLWithPath: Self.pairingFile()))
+                let fingerprint = PairingRecordDocument.fingerprint(data)
+                do {
+                    return PairingRecordReview(metadata: try PairingRecordDocument.inspect(data), fingerprint: fingerprint, issue: nil)
+                } catch {
+                    return PairingRecordReview(metadata: nil, fingerprint: fingerprint,
+                        issue: (error as? PairingRecordError) ?? .malformed)
+                }
+            } catch {
+                return PairingRecordReview(metadata: nil, fingerprint: nil,
+                    issue: (error as? PairingRecordError) ?? .unreadable)
+            }
+        }
+    }
+
+    public func currentPairingRecord() async throws -> PairingRecordMetadata {
+        try await inspectPairingRecord(from: URL(fileURLWithPath: Self.pairingFile()))
+    }
+
+    /// Inspection shares recovery/admission with connection and never performs
+    /// an unbounded synchronous read on an app actor or presentation callback.
+    public func inspectPairingRecord(from url: URL) async throws -> PairingRecordMetadata {
+        try await serialized { _ in
+            try PairingRecordDocument.inspect(PairingFileStorage.read(from: url))
+        }
+    }
+
+    /// A bounded fingerprint can also review a malformed (but regular, <=2MiB)
+    /// legacy record for explicit replacement/deletion. It never validates it.
+    public func currentPairingFingerprint() async throws -> String {
+        try await serialized { _ in
+            PairingRecordDocument.fingerprint(try PairingFileStorage.read(from: URL(fileURLWithPath: Self.pairingFile())))
+        }
+    }
+
+    func configuredRequest() throws -> DeviceConnectionRequest {
+        let url = URL(fileURLWithPath: Self.pairingFile())
+        let metadata = try PairingRecordDocument.inspect(PairingFileStorage.read(from: url))
+        return DeviceConnectionRequest(pairingFile: url, expectedDeviceIdentifier: metadata.deviceIdentifier ?? "",
+            peerAddress: UserDefaults.standard.string(forKey: "VexSign.devicePeerAddress") ?? "10.7.0.1",
+            protocolConsent: UserDefaults.standard.bool(forKey: "VexSign.deviceProtocolConsent"))
+    }
+
+    public func queryDevice(request: DeviceConnectionRequest? = nil,
+                            reporting: @escaping (DeviceConnectionStage) -> Void = { _ in }) async throws -> AuthorizedDeviceSnapshot {
+        try await withDeviceSession(request: request, reporting: reporting) { session, _ in
+            guard let snapshot = session.snapshot else { throw DeviceTransportError.invalidDeviceResponse }
+            return snapshot
+        }
+    }
+
+    @discardableResult
+    public func importPairingRecord(from url: URL, replacing expectedSHA256: String? = nil) async throws -> PairingRecordMetadata {
+        try await serialized { cancellation in
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            let data = try PairingFileStorage.read(from: url)
+            try DeviceServiceSession.check(cancellation)
+            return try PairingFileStorage.install(data, at: URL(fileURLWithPath: Self.pairingFile()), replacing: expectedSHA256)
+        }
+    }
+
+    public func deletePairingRecord(expectedSHA256: String) async throws {
+        try await serialized { _ in
+            try PairingFileStorage.remove(at: URL(fileURLWithPath: Self.pairingFile()), expectedSHA256: expectedSHA256)
+        }
+    }
+
+    public func exportPairingRecord(expectedSHA256: String) async throws -> URL {
+        try await serialized { _ in
+            try PairingFileStorage.export(from: URL(fileURLWithPath: Self.pairingFile()), expectedSHA256: expectedSHA256)
+        }
+    }
 }

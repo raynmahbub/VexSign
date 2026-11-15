@@ -29,7 +29,7 @@ enum LogRedaction {
 		"certificateP12", "certificatePassword", "adiPb", "appleID",
 		"anisetteAdiBlob", "anisetteIdentifier", "adi_pb", "cpim", "spim", "ptm", "tk",
 		// Pairing and lockdown secrets.
-		"private_key", "alt_irk", "altIRK", "HostPrivateKey", "RootPrivateKey", "EscrowBag",
+		"private_key", "public_key", "alt_irk", "altIRK", "HostPrivateKey", "RootPrivateKey", "EscrowBag",
 		"HostCertificate", "RootCertificate", "DeviceCertificate", "SystemBUID", "HostID",
 		// Serials and hardware identifiers.
 		"MLBSerialNumber", "BasebandSerialNumber", "WirelessBoardSerialNumber", "ChipSerialNo",
@@ -95,6 +95,18 @@ enum LogRedaction {
 		// PEM blocks and plist pairing-key material can span multiple lines.
 		Rule(pattern: "(?s)-----BEGIN (?:[A-Z ]*PRIVATE KEY|CERTIFICATE)-----.*?-----END (?:[A-Z ]*PRIVATE KEY|CERTIFICATE)-----", template: marker),
 		Rule(pattern: #"(?is)<key>\s*(?:\#(sensitiveKeyAlternation))\s*</key>\s*<(?:data|string)>.*?</(?:data|string)>"#, template: marker),
+        // Rust/JSON byte arrays must be masked as a whole, not just their first
+        // token. Raw native protocol dictionaries must still never be logged.
+        Rule(
+            pattern: #"(?is)(?<![\w-])("?(?:\#(sensitiveKeyAlternation))"?\s*[:=]\s*)(?:Data\s*\(\s*)?\[[^\]]*\](?:\s*\))?"#,
+            template: "$1\(marker)"
+        ),
+        // Remote pairing's generic `identifier` is a HOST UUID. Do not redact
+        // ordinary bundle identifiers, taskID fields or unrelated bare hashes.
+        Rule(
+            pattern: #"(?i)(?<![\w-])("?identifier"?\s*[:=]\s*)(?:String\s*\(\s*)?"?[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}"?(?:\s*\))?(?![0-9a-f-])"#,
+            template: "$1\(marker)"
+        ),
 		Rule(pattern: "(?im)(\\b(?:set-cookie|cookie)\\s*:\\s*)[^\\r\\n]+", template: "$1\(marker)"),
 		// An email address anywhere: keep the domain (useful for support), hide the account.
 		Rule(

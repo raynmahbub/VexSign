@@ -19,6 +19,12 @@ enum AppLifecycleCoordinator {
     }
 
     static func launch() async {
+        do { try await PairingBridge.recoverLocalStorage() }
+        catch {
+            // Do not log a credential path or raw file-provider/native error.
+            // Bootstrap retries after unlock; it never falls back to Documents.
+            FileLogger.error("Pairing storage recovery deferred; unlock and review device bootstrap.", category: "bootstrap")
+        }
         await SelfUpdateManager.shared.checkOnLaunch()
         await EcosystemMaintenance.run()
         await CertificateExpiryMonitor.checkOnLaunch()

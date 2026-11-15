@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import IDeviceSwift
 @testable import VexSign
 
 final class DeviceAppRemovalTests: XCTestCase {
@@ -116,9 +117,17 @@ final class DeviceAppRemovalTests: XCTestCase {
 		XCTAssertEqual(outcome, .failed("device said no"))
 	}
 
+    func testLostRemovalResponseIsUnknownRatherThanAcceptedRejectedOrRemoved() async {
+        let outcome = await remove(uninstaller: Uninstaller(error: DeviceTransportError.removalOutcomeUnknown),
+            reading: InstalledApp(bundleIdentifier: "com.example.app", isInstalled: false))
+        XCTAssertEqual(outcome, .outcomeUnknown)
+        XCTAssertNotEqual(outcome.title, DeviceAppRemoval.Outcome.requested.title)
+        XCTAssertNotEqual(outcome.title, DeviceAppRemoval.Outcome.removed.title)
+    }
+
 	func testEveryOutcomeSaysSomething() {
 		let outcomes: [DeviceAppRemoval.Outcome] = [
-			.removed, .requested, .stillInstalled, .failed("x"),
+			.removed, .requested, .outcomeUnknown, .stillInstalled, .failed("x"),
 			.refused(.ownApp), .refused(.systemApp), .refused(.invalidIdentifier)
 		]
 		for outcome in outcomes {

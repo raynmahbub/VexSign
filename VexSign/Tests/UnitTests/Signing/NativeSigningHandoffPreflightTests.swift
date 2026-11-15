@@ -77,6 +77,32 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         }
     }
 
+    func testSigningTransitionPinsExactImportedProfileAndNeverFallsBackToAnotherCertificate() throws {
+        let app = FeatureBoundaryFixtures.app()
+        let reference = try LibraryAppReference(app: app)
+        let certificateUUID = UUID().uuidString
+        let handoff = AppleAccountSigningHandoff(app: reference, bundleIdentifier: app.identifier!,
+            certificateUUID: certificateUUID, profileUUID: profileUUID, expiresAt: now.addingTimeInterval(3600))
+        func row(_ uuid: String, revoked: Bool = false, metadata: Certificate? = nil) -> CertificateRecord {
+            .init(id: "fixture-certificate/" + uuid, uuid: uuid, nickname: nil, date: now,
+                expiration: now.addingTimeInterval(3600), isDefault: false, ppQCheck: false,
+                revoked: revoked, profile: metadata ?? profile(), additionalProfilePatterns: [])
+        }
+        let exact = row(certificateUUID)
+        let unrelated = row(UUID().uuidString)
+        XCTAssertEqual(handoff.certificate(in: [unrelated, exact], now: now)?.id, exact.id)
+        XCTAssertNil(handoff.certificate(in: [unrelated], now: now))
+        XCTAssertNil(handoff.certificate(in: [exact, exact], now: now), "Ambiguous UUID is not a preference")
+        XCTAssertNil(handoff.certificate(in: [row(certificateUUID, revoked: true)], now: now))
+        var substituted = profile(); substituted.UUID = UUID().uuidString
+        XCTAssertNil(handoff.certificate(in: [row(certificateUUID, metadata: substituted)], now: now))
+        XCTAssertNil(handoff.certificate(in: [exact], now: now.addingTimeInterval(3600)))
+        XCTAssertNil(handoff.certificate(in: [exact], now: Date(timeIntervalSince1970: .nan)))
+        XCTAssertTrue(handoff.matches(app))
+        XCTAssertFalse(handoff.matches(FeatureBoundaryFixtures.app(uuid: app.uuid, signed: true)))
+        XCTAssertFalse(handoff.matches(FeatureBoundaryFixtures.app(uuid: app.uuid, recordID: "another-record")))
+    }
+
     // MARK: - Transaction lifecycle
 
     private enum FixtureError: LocalizedError {
@@ -100,12 +126,10 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
     private func encodedProfile() throws -> Data {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .xml
-        // Only CertificateReader's extraction path is exercised here. NativeSigning's
-        // separate CMS tests authenticate synthetic CMS before this app-side preflight.
-        var bytes = Data([0x30, 0x03, 0x02, 0x01, 0x00])
-        bytes.append(try encoder.encode(profile()))
-        bytes.append(Data([0x00, 0x01, 0x02]))
-        return bytes
+        // Deliberately UNAUTHENTICATED bytes for the injected lifecycle seam.
+        // A separate regression below requires the production default to reject
+        // these same bytes before granting any private-key export.
+        return try encoder.encode(profile())
     }
 
     private func scratchRoot() throws -> URL {
@@ -117,7 +141,13 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
 
     private func coordinator(root: URL) -> NativeSigningHandoffCoordinator {
         NativeSigningHandoffCoordinator(temporaryDirectory: root,
-            generatePassword: { "fixture-password-not-a-secret" }, now: { self.now })
+            generatePassword: { "fixture-password-not-a-secret" }, now: { self.now },
+            authenticateProfile: { data, verificationTime in
+                XCTAssertEqual(verificationTime, self.now)
+                let metadata = try PropertyListDecoder().decode(Certificate.self, from: data)
+                XCTAssertEqual(metadata.UUID, self.profileUUID.uuidString)
+                return metadata // Test metadata only, never production trust.
+            })
     }
 
     private func recordedTask(profileUUID: UUID) throws -> UnifiedTask {
@@ -130,6 +160,31 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         XCTAssertEqual(remaining, [], file: file, line: line)
     }
 
+    func testDefaultAuthenticatorRejectsUnsignedProfileBeforePrivateKeyExport() async throws {
+        let root = try scratchRoot()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+        let bytes = try encodedProfile()
+        var identityExports = 0, imports = 0
+        // Deliberately do not inject authenticateProfile: exercise its real default.
+        let operation = NativeSigningHandoffCoordinator(temporaryDirectory: root, now: { self.now })
+        do {
+            let _: Void = try await operation.run(request: request(), exportProfile: { bytes },
+                backendIsCurrent: { true }, exportIdentity: { _ in
+                    identityExports += 1
+                    return Data([1])
+                }, importCertificate: { _, _, _, _ in imports += 1 })
+            XCTFail("Unsigned profile metadata must not authorize private-key export")
+        } catch NativeSigningError.provisioningFailed(_) {
+            // The source remains untrusted even if its target metadata matches.
+        }
+        XCTAssertEqual(identityExports, 0)
+        XCTAssertEqual(imports, 0)
+        try assertScratchRemoved(root)
+        let task = try recordedTask(profileUUID: profileUUID)
+        XCTAssertEqual(task.phase, .failed)
+        XCTAssertEqual(task.failureStage, .downloading)
+    }
+
     func testSuccessfulHandoffUsesExactBytesProtectedFilesAndCleansScratch() async throws {
         let root = try scratchRoot()
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
@@ -138,7 +193,8 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         let request = request()
         var profileExports = 0, identityExports = 0, imports = 0
 
-        try await coordinator(root: root).run(request: request, exportProfile: {
+        let committedUUID = UUID().uuidString
+        let result = try await coordinator(root: root).run(request: request, exportProfile: {
             profileExports += 1
             return profileData
         }, backendIsCurrent: { true }, exportIdentity: { password in
@@ -158,8 +214,10 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
             let directory = p12URL.deletingLastPathComponent()
             let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
             XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+            return committedUUID
         })
 
+        XCTAssertEqual(result, committedUUID)
         XCTAssertEqual(profileExports, 1)
         XCTAssertEqual(identityExports, 1)
         XCTAssertEqual(imports, 1)
@@ -178,7 +236,7 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         var identityExports = 0, imports = 0
 
         do {
-            try await coordinator(root: root).run(request: request(), exportProfile: {
+            let _: Void = try await coordinator(root: root).run(request: request(), exportProfile: {
                 throw FixtureError.profileExport
             }, backendIsCurrent: { true }, exportIdentity: { _ in
                 identityExports += 1
@@ -207,7 +265,7 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         var imports = 0
 
         do {
-            try await coordinator(root: root).run(request: request(), exportProfile: {
+            let _: Void = try await coordinator(root: root).run(request: request(), exportProfile: {
                 profileData
             }, backendIsCurrent: { true }, exportIdentity: { _ in
                 Data([0x50, 0x31, 0x32])
@@ -237,7 +295,7 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         var identityExports = 0, imports = 0
 
         do {
-            try await coordinator(root: root).run(request: request(), exportProfile: {
+            let _: Void = try await coordinator(root: root).run(request: request(), exportProfile: {
                 profileData
             }, backendIsCurrent: { true }, exportIdentity: { _ in
                 identityExports += 1
@@ -257,6 +315,45 @@ final class NativeSigningHandoffPreflightTests: XCTestCase {
         XCTAssertEqual(task.phase, .cancelled)
         XCTAssertNil(task.failureStage)
         XCTAssertNil(task.errorText)
+    }
+
+    func testProfileExpiryDuringKeyExportRefusesImportAndCleansScratch() async throws {
+        let root = try scratchRoot()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+        let bytes = try encodedProfile()
+        var currentTime = now
+        var imports = 0
+        let operation = NativeSigningHandoffCoordinator(temporaryDirectory: root,
+            generatePassword: { "fixture-only" }, now: { currentTime },
+            authenticateProfile: { data, _ in try PropertyListDecoder().decode(Certificate.self, from: data) })
+        do {
+            let _: Void = try await operation.run(request: request(), exportProfile: { bytes },
+                backendIsCurrent: { true }, exportIdentity: { _ in
+                    currentTime = self.now.addingTimeInterval(3600)
+                    return Data([1])
+                }, importCertificate: { _, _, _, _ in imports += 1 })
+            XCTFail("A profile expiring during export cannot be imported")
+        } catch NativeSigningError.provisioningFailed(_) {}
+        XCTAssertEqual(imports, 0)
+        try assertScratchRemoved(root)
+    }
+
+    func testAccountRevocationWhileExportingNeverImportsTheReturnedKey() async throws {
+        let root = try scratchRoot()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
+        let bytes = try encodedProfile()
+        var current = true
+        var imports = 0
+        do {
+            let _: Void = try await coordinator(root: root).run(request: request(), exportProfile: { bytes },
+                backendIsCurrent: { current }, exportIdentity: { _ in
+                    current = false
+                    return Data([1])
+                }, importCertificate: { _, _, _, _ in imports += 1 })
+            XCTFail("A revoked account cannot import a late exported key")
+        } catch is CancellationError {}
+        XCTAssertEqual(imports, 0)
+        try assertScratchRemoved(root)
     }
 
     func testPreCancelledHandoffDoesNotStartExportOrCreateFiles() async throws {

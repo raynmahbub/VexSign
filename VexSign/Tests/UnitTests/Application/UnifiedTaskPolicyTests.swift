@@ -10,6 +10,7 @@
 //
 
 import XCTest
+import NimbleExtensions
 @testable import VexSign
 
 final class UnifiedTaskPolicyTests: XCTestCase {
@@ -150,6 +151,57 @@ final class UnifiedTaskPolicyTests: XCTestCase {
         XCTAssertTrue(task.move(to: .installing))
         XCTAssertTrue(task.move(to: .verifying))
         XCTAssertTrue(task.move(to: .completed))
+    }
+
+    func testDeviceSetupQueryHasItsOwnOrderedStagesAndCannotBecomeAnInstall() {
+        let query = task(kind: .deviceSetup, subject: "device-bootstrap", phase: .queued)
+        XCTAssertFalse(query.move(to: .completed))
+        XCTAssertTrue(query.move(to: .inspectingPairing))
+        XCTAssertFalse(query.move(to: .queryingDevice))
+        XCTAssertTrue(query.move(to: .checkingTransport))
+        XCTAssertFalse(query.move(to: .completed))
+        XCTAssertFalse(query.move(to: .installing))
+        XCTAssertTrue(query.move(to: .discoveringServices))
+        XCTAssertFalse(query.move(to: .checkingTransport))
+        XCTAssertTrue(query.move(to: .queryingDevice))
+        XCTAssertTrue(query.move(to: .completed))
+        XCTAssertEqual(query.stageHistory.map(\.phase), [.queued, .inspectingPairing, .checkingTransport,
+                                                       .discoveringServices, .queryingDevice, .completed])
+        XCTAssertFalse(query.move(to: .queryingDevice))
+    }
+
+    func testLocalPairingLifecycleCanCompleteWithoutClaimingATransportQuery() {
+        let local = task(kind: .deviceSetup, subject: "device-bootstrap", phase: .queued)
+        XCTAssertTrue(local.move(to: .inspectingPairing))
+        local.context?.confirmationReason = "pairing-record-imported"
+        XCTAssertTrue(local.move(to: .completed))
+        XCTAssertEqual(local.stageHistory.map(\.phase), [.queued, .inspectingPairing, .completed])
+        XCTAssertEqual(local.displayPhaseTitle, String.localized("Setup action completed"))
+        XCTAssertTrue(TaskReceipt.report(for: local).contains("pairing-record-imported"))
+        XCTAssertFalse(TaskReceipt.report(for: local).contains("device-confirmed-installed"))
+    }
+
+    func testDeviceQueryFailureAndCancellationStayAtTheActualReachedStage() {
+        for phase in [UnifiedTaskPhase.inspectingPairing, .checkingTransport, .discoveringServices, .queryingDevice] {
+            let failed = task(kind: .deviceSetup, subject: "device-bootstrap", phase: phase)
+            XCTAssertTrue(failed.move(to: .failed))
+            XCTAssertEqual(failed.failureStage, phase)
+            XCTAssertEqual(TaskRecoveryGuide.resolve(kind: failed.kind, failureStage: phase), .deviceSetup)
+            XCTAssertFalse(failed.move(to: .completed))
+            let cancelled = task(kind: .deviceSetup, subject: "device-bootstrap", phase: phase)
+            XCTAssertTrue(cancelled.move(to: .cancelled))
+            XCTAssertFalse(cancelled.move(to: .completed))
+        }
+    }
+
+    func testProcessRecoveryDoesNotPromoteOrReplayAPartialDeviceQuery() {
+        let query = task(kind: .deviceSetup, subject: "device-bootstrap", phase: .queryingDevice)
+        query.recoverAfterRestart()
+        XCTAssertEqual(query.phase, .interrupted)
+        XCTAssertEqual(query.failureStage, .queryingDevice)
+        XCTAssertEqual(query.context?.confirmationReason, "interrupted-process-exit")
+        XCTAssertFalse(TaskRetryPolicy.canOffer(query.phase))
+        XCTAssertFalse(query.move(to: .completed))
     }
 
     func testInvalidTransitionDoesNotTouchTheRecord() {

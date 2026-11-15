@@ -24,10 +24,20 @@ enum TaskReceipt {
                 lines.append(label + ": " + value)
             }
         }
-        let reasons = ["import-registered", "signature-verified-and-artifact-registered", "artifact-registered-without-signature-verdict", "native-installation-completed", "device-confirmed-installed",
+        let reasons = ["import-registered", "signature-verified-and-artifact-registered", "artifact-registered-without-signature-verdict", "native-installation-completed", "paired-installed-version-not-verified", "paired-command-outcome-unknown", "historical-installation-not-verified", "device-confirmed-installed",
+                       "pairing-record-imported", "pairing-record-deleted", "pairing-export-prepared-not-received", "fresh-device-query-not-installation", "fresh-app-inventory-not-installation",
                        "device-reports-other-version", "device-did-not-report-installed-app", "install-start-not-observed",
                        "installation-evidence-unavailable", "installation-monitoring-deadline", "guest-prepared-not-installed", "exported-not-installed", "cancelled", "operation-failed", "interrupted-process-exit", "monitoring-stopped-install-may-continue", "process-exit-installation-unconfirmed", "supported-installation-inventory-unavailable", "ota-completion-not-authoritative"]
-        if let reason = context?.confirmationReason, reasons.contains(reason) { lines.append("Result evidence: " + reason) }
+        let exactObservationValid = context?.hasConfirmedInstallation(notAfter: task.updatedAt) == true
+        if let reason = context?.confirmationReason, reasons.contains(reason),
+           reason != "device-confirmed-installed" || exactObservationValid { lines.append("Result evidence: " + reason) }
+        if task.kind == .install, exactObservationValid, let evidence = context?.installedApplicationEvidence {
+            lines.append("Observed installed version/build: " + evidence.version + " (" + evidence.build + ")")
+            lines.append("Observation source: coredevice-appservice")
+            lines.append("Observed at: " + evidence.observedAt.ISO8601Format())
+            lines.append("Device/record binding: matched (identifiers omitted)")
+            if let digest = context?.installationPackageSHA256 { lines.append("Submitted archive SHA-256: " + digest) }
+        }
         // Delivery, handoff and confirmation as separate lines, so a delivered package is
         // not read as an installed app. Written once the attempt has stopped.
         if task.kind == .install, task.phase.isTerminal {
@@ -73,23 +83,32 @@ enum TaskReceipt {
 
     /// The separated install evidence for a task record.
     static func evidence(for task: UnifiedTask) -> InstallEvidenceSummary {
-        InstallEvidenceSummary.resolve(
+        let unverifiedClaim = task.context?.confirmationReason == "device-confirmed-installed"
+            && task.context?.hasConfirmedInstallation(notAfter: task.updatedAt) != true
+        return InstallEvidenceSummary.resolve(
             method: task.context?.installationMethod,
-            reason: task.context?.confirmationReason,
-            handedOff: task.context?.handoffAt != nil
+            reason: unverifiedClaim ? "exact-installation-evidence-missing" : task.context?.confirmationReason,
+            handedOff: task.context?.handoffAt != nil,
+            historical: task.restoredFromHistory || unverifiedClaim
         )
     }
 
     static func outcome(for task: UnifiedTask) -> String {
+        if task.kind == .deviceSetup {
+            return .localized("This receipt records a pairing setup action only. File validity, a device identity query, signing, provisioning and exact installed-version confirmation are separate. No private record, device identifier or companion receipt is exported.")
+        }
         if task.kind == .install && task.phase == .cancelled {
             return .localized("VexSign stopped its work and monitoring. An installation already accepted by iOS may continue; this report does not claim that iOS cancelled it.")
         }
+        if task.kind == .install, task.context?.confirmationReason == "historical-installation-not-verified" {
+            return .localized("This older task did not persist supported exact installed-version evidence. Its previous success label has been changed to unconfirmed. A missing handoff record does not prove nothing was sent; check the device before retrying.")
+        }
         if task.phase == .unconfirmed, task.kind == .install, evidence(for: task).transport == .overTheAir {
             // Say what is and is not known, and which method does give an answer.
-            return .localized("The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. The pairing-file installation method reports the device's own result.")
+            return .localized("The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. Paired installation also requires exact installed-version evidence and remains gated in this build.")
         }
         if task.phase == .unconfirmed {
-            return .localized("VexSign finished, but iOS did not expose installation status, so this receipt cannot say whether the app was installed. Check the Home Screen and the app details in Library before installing again. No reinstall was started.")
+            return .localized("VexSign has no supported exact installed-version result for this task. This receipt cannot say whether the app was installed. Check the Home Screen and app version before deciding whether to install again. No reinstall was started.")
         }
         if task.phase == .interrupted {
             return .localized("VexSign was interrupted. No signing or installation was restarted automatically. Check Signed Apps and the device before starting another attempt.")

@@ -40,20 +40,29 @@ enum SelfUpdateBlocker: String, Equatable {
 	case pairingMissing
 	/// The release has no IPA asset, so IDevice has nothing to download.
 	case noDownload
+    /// A remote updater must never receive the user's signing key/password.
+    case remoteSigningDisabled
+    /// Self replacement requires supported transport and exact-version evidence.
+    case pairedRouteUnavailable
 
-	/// Nothing in this app can clear it; only a different build can.
-	var isFinal: Bool { self == .combinedHost }
+    /// No picker change can enable self replacement in this build. In particular
+    /// do not route someone from missing pairing into remote key upload.
+    var isFinal: Bool { true }
 
 	var message: String {
 		switch self {
 		case .combinedHost:
 			return .localized("Install a verified combined-host update. A standalone VexSign IPA cannot update this combined runtime.")
 		case .serverNotConfigured:
-			return .localized("This build has no updater server address. Add one under Update settings, or install with IDevice instead.")
+			return .localized("No legacy updater address is configured. Remote self-update signing is disabled in this build even with an address; download the IPA and use local signing with an eligible external installer.")
 		case .pairingMissing:
-			return .localized("IDevice updates need a pairing file. Import one in Installation settings, or install from the server instead.")
+			return .localized("No pairing record was found. Review device bootstrap for compatible import and transport requirements. Paired self-update remains gated; use an eligible external installer.")
 		case .noDownload:
-			return .localized("This release has no downloadable IPA, so IDevice has nothing to install.")
+			return .localized("This release has no downloadable IPA. Choose a release with an IPA and use local signing or an eligible external installer.")
+        case .remoteSigningDisabled:
+            return .localized("Remote self-update signing is disabled: VexSign does not upload your certificate, private key or password to an updater. Download the release IPA, sign locally in Library, and use an eligible external installer to update VexSign.")
+        case .pairedRouteUnavailable:
+            return .localized("Paired self-update is unavailable in this build. It requires accepted same-device inventory, exact installed-version evidence and a supported self-replacement lifecycle. A pairing file, VPN or private suspend selector cannot supply those guarantees. Use an eligible external installer.")
 		}
 	}
 }
@@ -117,8 +126,6 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		static let serverURL = "VexSign.selfUpdateServerURL"
 	}
 
-	private var _downloadContinuation: CheckedContinuation<URL, Error>?
-	private var _progressHandler: ((Double) -> Void)?
 	private var _flow: Task<Void, Never>?
 
 	private override init() {
@@ -216,7 +223,8 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 			let scheme = components.scheme?.lowercased(),
 			scheme == "http" || scheme == "https",
 			let host = components.host,
-			!host.isEmpty
+			!host.isEmpty, components.user == nil, components.password == nil,
+            components.query == nil, components.fragment == nil
 		else { return nil }
 		return components.url
 	}
@@ -242,26 +250,19 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 			return SelfUpdatePlan(method: preferred, blocker: .combinedHost, alternative: nil)
 		}
 
-		func blocker(for method: SelfUpdateMethod) -> SelfUpdateBlocker? {
-			switch method {
-			case .server:
-				return serverConfigured ? nil : .serverNotConfigured
-			case .idevice:
-				if !hasPairing { return .pairingMissing }
-				return hasDownload ? nil : .noDownload
-			}
-		}
-
-		let alternative: SelfUpdateMethod = preferred == .server ? .idevice : .server
-		if let reason = blocker(for: preferred) {
-			return SelfUpdatePlan(
-				method: preferred,
-				blocker: reason,
-				alternative: blocker(for: alternative) == nil ? alternative : nil
-			)
-		}
-		return SelfUpdatePlan(method: preferred, blocker: nil, alternative: nil)
-	}
+        // Configuration/file presence never grants permission to export keys,
+        // authorize a native mutation, or call a command acknowledgement installed.
+        let blocker: SelfUpdateBlocker
+        switch preferred {
+        case .server:
+            blocker = .remoteSigningDisabled
+        case .idevice:
+            if !hasDownload { blocker = .noDownload }
+            else if !hasPairing { blocker = .pairingMissing }
+            else { blocker = .pairedRouteUnavailable }
+        }
+        return SelfUpdatePlan(method: preferred, blocker: blocker, alternative: nil)
+    }
 
 	/// The plan for the current device and configuration. `release` is optional because the Settings
 	/// screen asks "could this work at all?" before a release is chosen.
@@ -456,335 +457,12 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		installProgress = 0
 	}
 
-	@MainActor
-	func performUpdate(to release: SelfUpdateRelease) async {
-		let ready = plan(for: release)
-		if let blocker = ready.blocker {
-			// The other method working while the selected one cannot is a configuration mistake,
-			// not a failure: use what is ready instead of sending the user to Settings.
-			guard let alternative = ready.alternative else {
-				phase = .failed(blocker.message)
-				FileLogger.error("Update blocked [\(blocker.rawValue)] version=\(release.version)", category: "update")
-				return
-			}
-			FileLogger.log("Update method \(method.title) unavailable [\(blocker.rawValue)]; using \(alternative.title)", category: "update")
-			adopt(alternative)
-		}
-		guard let certificate = resolvedCertificate() else {
-			phase = .failed(.localized("No signing certificate selected. Choose one in Update settings."))
-			return
-		}
-
-		installProgress = 0
-		FileLogger.log("Update \(release.version) [\(method == .server ? "server" : "idevice")] cert=\(certificate.nickname ?? Storage.shared.getProvisionFileDecoded(for: certificate)?.Name ?? "?")", category: "update")
-
-		let keepAlive = BackgroundTaskManager(
-			taskName: "SelfUpdate",
-			expirationTitle: .localized("Update continuing"),
-			expirationBody: .localized("The update will continue when you reopen the app")
-		)
-		keepAlive.start()
-		defer { keepAlive.stop() }
-
-		do {
-			switch method {
-			case .server:
-				let installed = try await installViaServer(release: release, certificate: certificate)
-				phase = installed ? .done : .idle
-			case .idevice:
-				try await installViaIDevice(release: release, certificate: certificate)
-				phase = .done
-			}
-		} catch is CancellationError {
-			phase = .idle
-		} catch let error as URLError where error.code == .cancelled {
-			phase = .idle
-		} catch {
-			let reason = Self.describe(error)
-			Logger.misc.error("Self-update failed: \(reason)")
-			FileLogger.error("Failed: version=\(release.version) — \(reason)", category: "update")
-			phase = .failed(reason)
-		}
-	}
-
-	/// IDeviceSwift errors hide their text behind no LocalizedError, so reflect out the real message.
-	static func describe(_ error: Error) -> String {
-		var message: String?
-		var code: Int?
-		for child in Mirror(reflecting: error).children {
-			if child.label == "_message", let value = child.value as? String, !value.isEmpty { message = value }
-			if child.label == "_code", let value = child.value as? Int32 { code = Int(value) }
-		}
-		guard let message else { return error.localizedDescription }
-		if let code, code != 0, code != -7001 { return "\(message) (\(code))" }
-		return message
-	}
-
-	@MainActor
-	private func installViaServer(release: SelfUpdateRelease, certificate: CertificatePair) async throws -> Bool {
-		phase = .signing
-		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
-        let probe = InstalledAppProbe()
-        let baselineTask = Task.detached(priority: .utility) {
-            await probe.installedAppWithTimeout(for: bundleId)
-        }
-		let installURL = try await requestServerSign(version: release.version, certificate: certificate)
-		phase = .installing
-        let baseline = InstallWatcher.Baseline(app: await baselineTask.value)
-		guard await UIApplication.shared.open(installURL) else { return false }
-		return try await pollInstallProgress(expectedVersion: release.version, baseline: baseline)
-	}
-
-	/// Watches one OTA update to a verdict.
-	///
-	/// Returns true when the device reports the new version, false when the prompt was dismissed
-	/// (nothing installed, so the sheet can reset), and throws with an actionable reason when the
-	/// install started but the device does not show it. `progress == 0` used to be enough to call
-	/// this a success; it is not.
-	@MainActor
-	private func pollInstallProgress(expectedVersion: String, baseline: InstallWatcher.Baseline) async throws -> Bool {
-		guard let bundleId = Bundle.main.bundleIdentifier else { return false }
-
-		let probe = InstalledAppProbe()
-		let verdict = await InstallWatcher.watch(
-			InstallConfirmation(
-				expectation: .init(bundleIdentifier: bundleId, version: expectedVersion),
-				// The old loop gave the prompt 40 s before resetting the sheet; keep that.
-				limits: .init(start: 40, verify: 600, settle: 20)
-			),
-			probe: probe,
-			baseline: baseline,
-			progress: { await UIApplication.installProgress(for: bundleId, makeSynchronous: false) },
-			onUpdate: { [weak self] raw, phase in
-				guard let self else { return }
-				await MainActor.run {
-					switch phase {
-					case .waitingForStart:
-						self._setInstallProgress(0)
-					case .downloading:
-						self._setInstallProgress(min(1, max(0, ((raw ?? 0) - 0.6) / 0.3)))
-					case .verifying, .finished:
-						self._setInstallProgress(0.99)
-					}
-				}
-			}
-		)
-
-		switch verdict {
-		case .installed:
-			_setInstallProgress(1)
-			return true
-
-		case .installedOtherVersion(let version):
-			_setInstallProgress(1)
-			throw Self.updateError(.localized(
-				"The update installed, but the device still reports version %@.",
-				arguments: version ?? .localized("unknown")
-			))
-
-		case .cancelled, .timedOutWaiting:
-			// Nothing was installed: the prompt was dismissed, or never appeared.
-			return false
-
-		case .notInstalled, .timedOutVerifying:
-			throw Self.updateError(verdict.message ?? .localized("The update could not be confirmed."))
-		}
-	}
-
-	private static func updateError(_ message: String) -> Error {
-		NSError(domain: "SelfUpdate", code: -3, userInfo: [NSLocalizedDescriptionKey: message])
-	}
-
-	private func _setInstallProgress(_ value: Double) {
-		if installProgress != value { installProgress = value }
-	}
-
-	@MainActor
-	private func installViaIDevice(release: SelfUpdateRelease, certificate: CertificatePair) async throws {
-		guard let url = release.downloadURL else {
-			throw NSError(domain: "SelfUpdate", code: -1,
-						  userInfo: [NSLocalizedDescriptionKey: SelfUpdateBlocker.noDownload.message])
-		}
-
-		phase = .downloading(0)
-		let ipa = try await download(from: url)
-
-		phase = .importing
-		let imported = try await withCheckedThrowingContinuation { (c: CheckedContinuation<AppInfoPresentable, Error>) in
-			PackageImportService.importPackage(ipa) { c.resume(with: $0) }
-		}
-		try? FileManager.default.removeItem(at: ipa)
-
-		// A self-update must not leave its temp import/signed entries in the Library, whatever the outcome.
-		var scratch: [AppInfoPresentable] = [imported]
-		defer { scratch.forEach { Storage.shared.deleteApp(for: $0) } }
-
-		phase = .signing
-		var options = OptionsManager.shared.options
-		options.appIdentifier = Bundle.main.bundleIdentifier
-		options.appVersion = release.version
-		let signed = try await withCheckedThrowingContinuation { (c: CheckedContinuation<Signed, Error>) in
-			PackageSigningCoordinator.signPackage(imported, using: options, icon: nil, certificate: certificate) { result in
-				c.resume(with: result)
-			}
-		}
-		scratch.append(signed)
-
-		phase = .installing
-		let viewModel = InstallerStatusViewModel(isIdevice: true)
-		let handler = ArchiveHandler(app: signed, viewModel: viewModel)
-		try await handler.move()
-		let package = try await handler.archive()
-
-		scratch.forEach { Storage.shared.deleteApp(for: $0) }
-		scratch.removeAll()
-
-		let proxy = InstallationProxy(viewModel: viewModel)
-		try await proxy.install(at: package, suspend: true)
-	}
-
-	// MARK: - Server signing
-
-	private func requestServerSign(version: String, certificate: CertificatePair) async throws -> URL {
-		guard let base = serverBaseURL else {
-			throw NSError(domain: "SelfUpdate", code: -4,
-						  userInfo: [NSLocalizedDescriptionKey: SelfUpdateBlocker.serverNotConfigured.message])
-		}
-		guard
-			let p12URL = Storage.shared.getFile(.certificate, from: certificate),
-			let provisionURL = Storage.shared.getFile(.provision, from: certificate),
-			let p12Data = try? Data(contentsOf: p12URL),
-			let provisionData = try? Data(contentsOf: provisionURL)
-		else {
-			throw NSError(domain: "SelfUpdate", code: -5,
-						  userInfo: [NSLocalizedDescriptionKey: String.localized("Selected certificate files are missing.")])
-		}
-
-		let boundary = "VexSign-\(UUID().uuidString)"
-		var body = Data()
-		func field(_ name: String, _ value: String) {
-			body.append("--\(boundary)\r\n")
-			body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-			body.append("\(value)\r\n")
-		}
-		func file(_ name: String, _ filename: String, _ data: Data) {
-			body.append("--\(boundary)\r\n")
-			body.append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n")
-			body.append("Content-Type: application/octet-stream\r\n\r\n")
-			body.append(data)
-			body.append("\r\n")
-		}
-
-		field("version", version)
-		field("bundleId", Bundle.main.bundleIdentifier ?? "")
-		field("p12password", certificate.signingPassword ?? "")
-		file("p12", "certificate.p12", p12Data)
-		file("provision", "profile.mobileprovision", provisionData)
-		body.append("--\(boundary)--\r\n")
-
-		var request = URLRequest(url: base.appendingPathComponent("vexsign/sign"))
-		request.httpMethod = "POST"
-		request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
-		var lastError: Error = NSError(domain: "SelfUpdate", code: -6,
-									   userInfo: [NSLocalizedDescriptionKey: String.localized("The updater server returned no install link.")])
-
-		for attempt in 0..<2 {
-			let data: Data, response: URLResponse
-			do {
-				(data, response) = try await URLSession.shared.upload(for: request, from: body)
-			} catch {
-				lastError = error
-				if attempt == 0 { try? await Task.sleep(nanoseconds: 2_000_000_000); continue }
-				throw error
-			}
-
-			let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-			let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-
-			if (200..<300).contains(status) {
-				guard let install = json?["install"] as? String, let url = URL(string: install) else {
-					throw NSError(domain: "SelfUpdate", code: -6,
-								  userInfo: [NSLocalizedDescriptionKey: String.localized("The updater server returned no install link.")])
-				}
-				return url
-			}
-
-			let rawBody = String(data: data, encoding: .utf8)?.prefix(300) ?? ""
-			FileLogger.error("sign HTTP \(status): \(rawBody)", category: "update")
-			let code = json?["error"] as? String
-			lastError = NSError(domain: "SelfUpdate", code: status,
-								userInfo: [NSLocalizedDescriptionKey: Self.serverErrorMessage(status: status, code: code)])
-
-			let transient = [500, 502, 503].contains(status)
-			if transient && attempt == 0 {
-				try? await Task.sleep(nanoseconds: 2_000_000_000)
-				continue
-			}
-			throw lastError
-		}
-		throw lastError
-	}
-
-	private static func serverErrorMessage(status: Int, code: String?) -> String {
-		switch code {
-		case "unknown_version", "bad_version": return .localized("That version isn't a published release.")
-		case "bad_cert": return .localized("Couldn't read your certificate. Check the certificate and its password.")
-		case "bad_provision", "missing_provision": return .localized("Couldn't read your provisioning profile.")
-		case "missing_p12": return .localized("Selected certificate files are missing.")
-		case "bundle_not_allowed": return .localized("This build isn't permitted by the updater server.")
-		case "rate_limited": return .localized("The updater is busy. Try again in a moment.")
-		default:
-			if status == 429 { return .localized("The updater is busy. Try again in a moment.") }
-			return .localized("The update couldn't be prepared. Please try again.")
-		}
-	}
-
-	// MARK: - Download
-
-	private func download(from url: URL) async throws -> URL {
-		let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
-		_progressHandler = { [weak self] progress in
-			Task { @MainActor in self?.phase = .downloading(progress) }
-		}
-		return try await withCheckedThrowingContinuation { continuation in
-			_downloadContinuation = continuation
-			session.downloadTask(with: url).resume()
-		}
-	}
-}
-
-extension SelfUpdateManager: URLSessionDownloadDelegate {
-	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-					didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-		guard totalBytesExpectedToWrite > 0 else { return }
-		_progressHandler?(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
-	}
-
-	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-		let dest = FileManager.default.temporaryDirectory
-			.appendingPathComponent("SelfUpdate-\(downloadTask.taskIdentifier).ipa")
-		try? FileManager.default.removeItem(at: dest)
-		do {
-			try FileManager.default.moveItem(at: location, to: dest)
-			_downloadContinuation?.resume(returning: dest)
-		} catch {
-			_downloadContinuation?.resume(throwing: error)
-		}
-		_downloadContinuation = nil
-		session.invalidateAndCancel()
-	}
-
-	func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-		guard let error else { return }
-		_downloadContinuation?.resume(throwing: error)
-		_downloadContinuation = nil
-		session.invalidateAndCancel()
-	}
-}
-
-private extension Data {
-	mutating func append(_ string: String) {
-		append(Data(string.utf8))
-	}
+    @MainActor
+    func performUpdate(to release: SelfUpdateRelease) async {
+        let blocker = plan(for: release).blocker ?? .pairedRouteUnavailable
+        phase = .failed(blocker.message)
+        // No certificate lookup/export, private progress probe, undocumented
+        // suspend invocation, automatic method switch, or signing-key upload.
+        FileLogger.log("Self-update blocked [\(blocker.rawValue)]; use local signing and an eligible external installer.", category: "update")
+    }
 }

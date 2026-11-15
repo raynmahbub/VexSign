@@ -1,0 +1,105 @@
+name: Modern device bridge · source build
+
+# Experimental integration, not device acceptance or an IPA/release publisher.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'VexSign/Packages/DeviceBridge/**'
+      - 'VexSign/Packages/Vendor/IDeviceKitten/**'
+      - '.github/workflows/device-bridge.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'VexSign/Packages/DeviceBridge/**'
+      - 'VexSign/Packages/Vendor/IDeviceKitten/**'
+      - '.github/workflows/device-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-bridge-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  native:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    name: Rust · bounded enrollment and verify-only ABI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Offline source-boundary regressions
+        run: python3 VexSign/Packages/DeviceBridge/test_prepare.py
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Restore locked native downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .build/device-bridge
+          key: device-bridge-linux-rust-1.94.0-${{ hashFiles('VexSign/Packages/DeviceBridge/**') }}
+          restore-keys: device-bridge-linux-rust-1.94.0-
+      - name: Native unit tests · no device or credentials
+        run: |
+          set -euo pipefail
+          python3 VexSign/Packages/DeviceBridge/prepare.py --test 2>&1 | tee "$RUNNER_TEMP/device-bridge-native.log"
+      - name: Preserve native diagnostics and source provenance
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: device-bridge-native-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/device-bridge-native.log
+            .build/device-bridge/source-provenance.json
+          if-no-files-found: warn
+          retention-days: 3
+
+  apple:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    name: Apple · source-built XCFramework
+    needs: native
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        env:
+          REQUESTED_XCODE: ${{ vars.BUILD_XCODE || '' }}
+        run: bash .github/scripts/select_xcode.sh
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Restore locked native downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .build/device-bridge
+          key: device-bridge-apple-rust-1.94.0-${{ hashFiles('VexSign/Packages/DeviceBridge/**') }}
+          restore-keys: device-bridge-apple-rust-1.94.0-
+      - name: Build pinned native source and local tests
+        run: |
+          set -euo pipefail
+          python3 VexSign/Packages/DeviceBridge/prepare.py --build 2>&1 | tee "$RUNNER_TEMP/device-bridge-apple.log"
+      - name: Preserve unsigned framework and provenance · no product acceptance
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: device-bridge-apple-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/device-bridge-apple.log
+            .build/device-bridge/source-provenance.json
+            VexSign/Packages/Vendor/IDeviceKitten/.build/ModernDevice
+          if-no-files-found: warn
+          retention-days: 3

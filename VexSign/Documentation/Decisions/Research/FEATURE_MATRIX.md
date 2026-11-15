@@ -5,6 +5,11 @@
 > `Device-verified`, `Gated`, `Blocked` and `Not implemented`:
 > [feature completion matrix](feature-completion-matrix-2026-11-13.md).
 > This document remains the earlier source-level comparison.
+> For the later pairing/inventory/installation changes, the
+> [on-device implementation and acceptance status](../../Architecture/on-device-foundation-status.md)
+> supersedes the older D/F rows below. Private LaunchServices is no longer the
+> production authority; the positive-only device-bound CoreDevice adapter is
+> integrated in source and mutations remain independently gated.
 
 What VexSign can actually do, compared against the storage/signing ecosystem it interoperates
 with, and what is missing. Every status here is derived from reading this repository's source —
@@ -252,6 +257,12 @@ VexSign reports these as limits (see `DeviceConnectivity`'s capability matrix an
 ## Licensing and attribution
 
 `VexSign` and `THIRD_PARTY_NOTICES.md` carry the notices for vendored zsign (MIT),
-IDeviceKitten/IDeviceSwift (LGPL, vendored under `VexSign/Packages/Vendor/`), AltSourceKit and the local
-packages. This pass added **no third-party code**; the only changes are to first-party files
-(`AltSourceKit` is a first-party package in this repository) and to tests.
+IDeviceKitten/IDeviceSwift (MIT wrapper, vendored under `VexSign/Packages/Vendor/`), AltSourceKit and the local
+packages. The wrapper's unchanged `IDevice` binary target points to `jkcoxson/idevice`
+v0.1.57 (source declares MIT); the transitive binary-license closure has not been
+established. Do not confuse this wrapper with separately licensed libimobiledevice
+components or infer complete binary redistribution clearance from the wrapper notice.
+That earlier research pass added no third-party implementation. The current
+independently written foundation glue and local vendor modifications are documented
+separately in [the ownership/license review](../../../Packages/Vendor/IDeviceKitten/LOCAL_PATCH_REVIEW.md);
+do not infer that the vendored sources remain byte-identical to their upstream pin.

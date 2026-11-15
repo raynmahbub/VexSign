@@ -6,10 +6,10 @@
 //
 //  Two facts per library entry, both of which used to be guesses:
 //
-//    * whether the app is on the device, and in which version — from `InstalledAppProbe`, the
-//      same evidence uses to confirm an install, never from `canOpenURL(`scheme://`)`
-//      (which answers "no" for every app without a URL scheme, and "yes" long after the app
-//      was deleted);
+//    * whether the app is on the device, and in which version — only from supported
+//      installed-app evidence, never `canOpenURL` or a private LaunchServices guess.
+//      The production default is UnavailableInstallationProbe until the native
+//      inventory ABI and exact artifact/device evidence are accepted;
 //    * which certificate the stored bundle carries, and when it expires — from the bundle's own
 //      CMS signature, not from the `CertificatePair` row it happens to point at.
 //
@@ -21,6 +21,7 @@
 
 import Foundation
 import SwiftUI
+import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - Status
@@ -32,6 +33,8 @@ struct LibraryAppStatus: Equatable, Sendable {
 	var installed: InstalledState = .unknown
     /// A projection of the currently registered task, not an inventory verdict.
     var installationTaskPhase: UnifiedTaskPhase?
+    var deviceBinding: DeviceSessionBinding?
+    var installedEvidence: InstalledApplicationEvidence?
 	/// Independent host inventory, never substituted for the device probe.
 	var guest: ContainerGuestState = .unavailable
 	/// nil until the stored bundle's signature has been read; not needed for unsigned apps.
@@ -156,7 +159,10 @@ extension LibraryAppStatus {
 	/// Pure, so the wording can be tested without a device: this is where "unknown" has to stay
 	/// `Unknown` instead of quietly becoming "not installed".
 	func signatureRows(certificateRow: String? = nil) -> [(title: String, value: String)] {
-		var rows: [(title: String, value: String)] = [(.localized("On this device"), installationTitle)]
+		var rows: [(title: String, value: String)] = [(deviceBinding == nil ? .localized("On this device") : .localized("On selected device"), installationTitle)]
+        if let evidence = installedEvidence {
+            rows.append((.localized("Observed installed version/build"), evidence.version + " (" + evidence.build + ")"))
+        }
 
 		switch signature {
 		case .none:
@@ -202,6 +208,8 @@ final class LibraryStatusStore: ObservableObject {
 		let expectedVersion: String?
 		let bundleURL: URL?
 		let isSigned: Bool
+        var expectedBuild: String? = nil
+        var deviceBinding: DeviceSessionBinding? = nil
 	}
 
 	@Published private(set) var statuses: [String: LibraryAppStatus] = [:]
@@ -218,6 +226,7 @@ final class LibraryStatusStore: ObservableObject {
     // A just-confirmed install is stronger evidence than an immediately stale or
     // restricted inventory lookup. Keep this handoff short-lived, never persistent.
     private var confirmations: [String: (app: InstalledApp, date: Date)] = [:]
+    private var selectedDeviceBinding: DeviceSessionBinding?
 	/// Bumped by every new read, so a read already running when the device's answer
 	/// changed cannot publish the answer it was about to.
 	private var epoch: [String: Int] = [:]
@@ -241,7 +250,7 @@ final class LibraryStatusStore: ObservableObject {
 	nonisolated static let attemptTimeout: TimeInterval = 900
 
 	init(
-		probe: InstalledAppProbing = InstalledAppProbe(),
+		probe: InstalledAppProbing = UnavailableInstallationProbe(),
 		readGuest: @escaping @Sendable (String) -> ContainerGuestState = { EmbeddedContainerRuntime.guestState(for: $0) },
 		readSignature: @escaping @Sendable (URL) -> BundleSignature.State = { BundleSignature.read(bundleAt: $0) }
 	) {
@@ -266,12 +275,22 @@ final class LibraryStatusStore: ObservableObject {
 
 	/// Snapshot entry point also lets tests exercise refreshes without a persistent store.
 	func request(_ request: Request, maxAge: TimeInterval = defaultMaxAge, force: Bool = false) {
+        var request = request
+        if request.deviceBinding == nil { request.deviceBinding = selectedDeviceBinding }
+        if force, request.bundleURL != nil { request.expectedBuild = nil }
+        if !force, request.expectedBuild == nil, let previous = knownRequests[request.uuid],
+           previous.bundleURL == request.bundleURL, previous.bundleIdentifier == request.bundleIdentifier,
+           previous.expectedVersion == request.expectedVersion {
+            request.expectedBuild = previous.expectedBuild
+        }
 		let changed = knownRequests[request.uuid] != request
 		knownRequests[request.uuid] = request
-        var seeded = applyingConfirmation(to: statuses[request.uuid] ?? LibraryAppStatus(), request: request)
+        // A cached answer for another version/build/device is not this request's
+        // answer, even while the new read is still queued.
+        var seeded = applyingConfirmation(to: changed ? LibraryAppStatus() : (statuses[request.uuid] ?? LibraryAppStatus()), request: request)
         let stored = statuses[request.uuid]
         seeded = applyingActiveInstallation(to: seeded, request: request)
-        if seeded.installed != .unknown {
+        if changed || seeded.installed != .unknown {
             statuses[request.uuid] = seeded
         } else if stored?.installed.isTransient == true {
             // An attempt that expired with nobody left to end it: drop the transient state it
@@ -314,10 +333,36 @@ final class LibraryStatusStore: ObservableObject {
 		}
 	}
 
-    func recordConfirmedInstallation(bundleIdentifier: String, version: String?, now: Date = Date()) {
-        guard !bundleIdentifier.isEmpty else { return }
+    /// A changed selected target invalidates both cached confirmations and reads
+    /// already in flight. Device A's version must never become device B's badge.
+    func selectDevice(binding: DeviceSessionBinding?) {
+        guard binding != selectedDeviceBinding else { return }
+        let requests = Array(knownRequests.values)
+        let monitoredAttempts = attempts
+        invalidateAll()
+        // This changes evidence, not queue ownership. The attempt ID still owns
+        // its transient Installing projection until its installer ends it.
+        attempts = monitoredAttempts
+        selectedDeviceBinding = binding
+        for var request in requests {
+            request.deviceBinding = binding
+            self.request(request, force: true)
+        }
+    }
+
+    func recordInstalledApplicationObservation(_ application: InstalledApp, now: Date = Date()) {
+        guard application.isInstalled, !application.isPlaceholder,
+              let evidence = application.evidence, evidence.isWellFormed,
+              evidence.bundleIdentifier == application.bundleIdentifier,
+              evidence.version == application.version, evidence.build == application.build,
+              now.timeIntervalSince(evidence.observedAt) >= 0,
+              now.timeIntervalSince(evidence.observedAt) <= Self.defaultMaxAge else { return }
+        // A late completion cannot reselect a target after consent was revoked,
+        // a record was replaced/deleted, or the user chose another device.
+        guard selectedDeviceBinding == evidence.deviceBinding else { return }
+        let bundleIdentifier = application.bundleIdentifier
         confirmations = confirmations.filter { now.timeIntervalSince($0.value.date) >= 0 && now.timeIntervalSince($0.value.date) <= Self.defaultMaxAge }
-        confirmations[bundleIdentifier] = (InstalledApp(bundleIdentifier: bundleIdentifier, isInstalled: true, version: version), now)
+        confirmations[bundleIdentifier] = (application, evidence.observedAt)
         for request in Array(knownRequests.values) where request.bundleIdentifier == bundleIdentifier {
             var status = statuses[request.uuid] ?? LibraryAppStatus()
             status.bundleIdentifier = bundleIdentifier
@@ -336,11 +381,16 @@ final class LibraryStatusStore: ObservableObject {
     private func applyingConfirmation(to status: LibraryAppStatus, request: Request, now: Date = Date()) -> LibraryAppStatus {
         guard status.installed == .unknown, let identifier = request.bundleIdentifier,
               let receipt = confirmations[identifier],
+              let binding = request.deviceBinding, binding == selectedDeviceBinding,
+              receipt.app.evidence?.deviceBinding == binding,
               now.timeIntervalSince(receipt.date) >= 0,
               now.timeIntervalSince(receipt.date) <= Self.defaultMaxAge else { return status }
         var updated = status
         updated.bundleIdentifier = identifier
-        updated.installed = InstalledState.derive(from: receipt.app, expecting: request.expectedVersion)
+        updated.deviceBinding = binding
+        updated.installed = request.expectedBuild == nil ? .unknown : InstalledState.derive(
+            from: receipt.app, expecting: request.expectedVersion, build: request.expectedBuild, binding: binding)
+        updated.installedEvidence = updated.installed == .unknown ? nil : receipt.app.evidence
         updated.updatedAt = now
         return updated
     }
@@ -469,6 +519,8 @@ final class LibraryStatusStore: ObservableObject {
         }
         var updated = status
         updated.bundleIdentifier = identifier
+        updated.deviceBinding = request.deviceBinding
+        updated.installedEvidence = nil
         updated.installed = .installing
         updated.installationTaskPhase = attempt.taskPhase
         // Keep `isKnown` honest without claiming a device read happened.
@@ -499,7 +551,7 @@ final class LibraryStatusStore: ObservableObject {
 			uuid: uuid,
 			bundleIdentifier: app.identifier,
 			expectedVersion: app.version,
-			bundleURL: app.isSigned ? Storage.shared.getAppDirectory(for: app) : nil,
+			bundleURL: Storage.shared.getAppDirectory(for: app),
 			isSigned: app.isSigned
 		)
 	}
@@ -523,29 +575,34 @@ final class LibraryStatusStore: ObservableObject {
 
 		Task.detached(priority: .utility) { [weak self] in
 			let store = self
-			var collected: [(String, LibraryAppStatus)] = []
+			var collected: [(Request, LibraryAppStatus)] = []
 			collected.reserveCapacity(batch.count)
 
-			for request in batch {
+			for var request in batch {
+                if request.expectedBuild == nil, let bundle = request.bundleURL {
+                    request.expectedBuild = TaskContext.versionToken(SignatureVerifier.readInfo(at: bundle)?["CFBundleVersion"] as? String)
+                }
                 let candidate: InstalledApp?
                 if let identifier = request.bundleIdentifier, !identifier.isEmpty {
                     candidate = await probe.installedAppWithTimeout(for: identifier)
                 } else {
                     candidate = nil
                 }
-				collected.append((request.uuid, Self.resolve(request, installedApp: candidate,
+				collected.append((request, Self.resolve(request, installedApp: candidate,
                     readSignature: read, readGuest: readGuest)))
 			}
 			let results = collected
 
 			await MainActor.run {
 				guard let store, store.generation == generation else { return }
-				for (uuid, status) in results {
+				for (request, status) in results {
+                    let uuid = request.uuid
 					// An install finished while this read was running: its answer is the newer
 					// one, so drop this.
-					guard (store.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0) else { continue }
+					guard (store.epoch[uuid] ?? 0) == (epochs[uuid] ?? 0),
+                          store.knownRequests[uuid] != nil else { continue }
 					store.inflight.remove(uuid)
-                    guard let request = store.knownRequests[uuid] else { continue }
+                    store.knownRequests[uuid] = request
 					// Last writer wins, and the last writer is the installation lifecycle: an
 					// install can have started while this read was in flight, and its answer is
 					// the one that must not be overwritten by a mid-install device reading.
@@ -587,13 +644,20 @@ final class LibraryStatusStore: ObservableObject {
     ) -> LibraryAppStatus {
         var status = LibraryAppStatus()
         status.bundleIdentifier = request.bundleIdentifier
+        status.deviceBinding = request.deviceBinding
 
         if let identifier = request.bundleIdentifier, !identifier.isEmpty {
             status.guest = readGuest(identifier)
-            status.installed = InstalledState.derive(
-                from: candidate?.bundleIdentifier == identifier ? candidate : nil,
-                expecting: request.expectedVersion
-            )
+            let evidenceAge = candidate?.evidence.map { Date().timeIntervalSince($0.observedAt) }
+            if request.deviceBinding != nil && (request.expectedBuild == nil
+                || evidenceAge.map { $0 < 0 || $0 > Self.defaultMaxAge } != false) {
+                status.installed = .unknown
+            } else {
+                status.installed = InstalledState.derive(
+                    from: candidate?.bundleIdentifier == identifier ? candidate : nil,
+                    expecting: request.expectedVersion, build: request.expectedBuild, binding: request.deviceBinding)
+                if status.installed == .installed { status.installedEvidence = candidate?.evidence }
+            }
         }
 
         if let url = request.bundleURL {

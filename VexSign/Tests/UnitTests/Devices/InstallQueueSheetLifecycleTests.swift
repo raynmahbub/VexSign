@@ -320,15 +320,15 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 	}
 
 	func testAnInstallThatNeverStartedIsNotReportedAsInstalled() {
-		let unproven: [InstallConfirmation.Verdict] = [.notInstalled, .timedOutWaiting, .timedOutVerifying, .cancelled]
+		let unproven: [InstallConfirmation.Verdict] = [
+            .installedOtherVersion("1.0"), .installedOtherVersion(nil),
+            .notInstalled, .timedOutWaiting, .timedOutVerifying, .cancelled
+        ]
 		for verdict in unproven {
-			XCTAssertFalse(verdict.provesInstalled, "\(verdict) must never count as an install")
+			XCTAssertFalse(verdict.provesInstalled, "\(verdict) must never prove the requested installation")
 			XCTAssertFalse(verdict.diagnosticCode.isEmpty)
 		}
-		let proven: [InstallConfirmation.Verdict] = [.installed, .installedOtherVersion("1.0")]
-		for verdict in proven {
-			XCTAssertTrue(verdict.provesInstalled)
-		}
+        XCTAssertTrue(InstallConfirmation.Verdict.installed.provesInstalled)
 	}
 
 	func testAnUnboundedWaitProducesATerminalVerdictNotASuccess() {

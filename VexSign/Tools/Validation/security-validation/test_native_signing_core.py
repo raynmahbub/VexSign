@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes.util
+import hashlib
 from datetime import datetime
 import os
 import plistlib
@@ -97,7 +98,12 @@ def main() -> int:
             roundtrip = plistlib.loads((fixtures / "native-roundtrip.bplist").read_bytes())
             if roundtrip != reference or type(roundtrip["false"]) is not bool or type(roundtrip["zero"]) is not int or type(roundtrip["real"]) is not float:
                 raise RuntimeError("independent plistlib reader disagrees with the native binary writer")
-            print("Independent plistlib XML/binary interoperability: PASS", flush=True)
+            cdhashes = plistlib.loads((fixtures / "cms-cdhashes.plist").read_bytes())
+            expected_cdhashes = [hashlib.sha1((fixtures / "cms-primary.bin").read_bytes()).digest(),
+                                 hashlib.sha256((fixtures / "cms-alternate.bin").read_bytes()).digest()[:20]]
+            if cdhashes != {"cdhashes": expected_cdhashes}:
+                raise RuntimeError("independent plistlib reader disagrees with the synthetic CMS CDHash attribute")
+            print("Independent plistlib XML/binary and CMS CDHash interoperability: PASS", flush=True)
             return 0
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
         print("Native regressions could not complete: " + str(error), file=sys.stderr)

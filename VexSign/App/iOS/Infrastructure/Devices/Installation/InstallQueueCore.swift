@@ -169,8 +169,9 @@ final class InstallQueue: ObservableObject {
                 guard let self, let installer, self.installer === installer else { return }
                 task.context?.installationMethod = installer.installationMethodCode
                 if installer.hasHandedOffInstall && task.context?.handoffAt == nil {
-                    task.context?.handoffAt = Date()
+                    task.context?.handoffAt = installer.installationHandoffAt
                 }
+                task.context?.expectedDeviceBinding = installer.expectedDeviceBinding
                 UnifiedTaskCenter.shared.transition(task, to: phase)
                 if let active = self.activeInstallation {
                     LibraryStatusStore.shared.updateInstallationPhase(
@@ -178,6 +179,15 @@ final class InstallQueue: ObservableObject {
                 }
             }
             installer.onConfirmationReason = { reason in task.context?.confirmationReason = reason }
+            installer.onConfirmedApplication = { [weak installer] evidence in
+                guard let installer else { return }
+                task.context?.handoffAt = installer.installationHandoffAt
+                task.context?.nativeAcknowledgedAt = installer.nativeAcknowledgedAt
+                task.context?.expectedDeviceBinding = installer.expectedDeviceBinding
+                task.context?.installationPackageSHA256 = installer.installationPackageSHA256
+                task.context?.appBuild = installer.installationTarget?.build
+                task.context?.installedApplicationEvidence = evidence
+            }
         }
         installer.onPackaged = { [weak self, weak installer] in
             guard let self, let installer, self.installer === installer else { return }
@@ -309,7 +319,7 @@ final class InstallQueue: ObservableObject {
 		advanceScheduler.cancel()
 		failurePresentation = nil
 		outcomes[current.id] = .skipped
-        preserveDeliveryOnTeardown = installer?.hasHandedOffInstall == true
+        preserveDeliveryOnTeardown = installer?.stopPreparingForMonitoringEnd() == true
         if let task = unifiedTask {
             task.context?.confirmationReason = preserveDeliveryOnTeardown
                 ? "monitoring-stopped-install-may-continue" : "preparation-cancelled"
@@ -389,6 +399,15 @@ final class InstallQueue: ObservableObject {
     var latestReportTask: UnifiedTask?
 
 	private func _handle(_ result: Result<AppInstaller.Outcome, Error>, attemptID: String? = nil) {
+        if case .success(.installed) = result,
+           unifiedTask?.context?.hasConfirmedInstallation(notAfter: Date()) != true {
+            // Never delete a library copy, advance a success counter, or offer
+            // Open solely because a producer called its callback "installed".
+            unifiedTask?.context?.confirmationReason = "paired-installed-version-not-verified"
+            _handle(.failure(InstallConfirmation.Failure(verdict: .timedOutVerifying)), attemptID: attemptID)
+            return
+        }
+
 		// An installer completion is always terminal, so the monitored attempt ends here — before
 		// any branch presents, advances or resets. A confirmed install was already recorded by the
 		// installer, and ending the attempt is what lets that evidence become the published state.
@@ -401,7 +420,7 @@ final class InstallQueue: ObservableObject {
             _recordVerificationAttempts(on: task)
             if task.context?.confirmationReason == nil {
                 switch result {
-                case .success(.installed): task.context?.confirmationReason = "native-installation-completed"
+                case .success(.installed): task.context?.confirmationReason = "device-confirmed-installed"
                 case .success(.installedOtherVersion): task.context?.confirmationReason = "device-reports-other-version"
                 case .success(.guestImportPrepared): task.context?.confirmationReason = "guest-prepared-not-installed"
                 case .success(.exported): task.context?.confirmationReason = "exported-not-installed"
@@ -462,19 +481,11 @@ final class InstallQueue: ObservableObject {
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
 				UIActivityViewController.show(activityItems: [package])
 			}
-		case .success(.installedOtherVersion(let version)):
-            NBHaptic.notify(.success)
-			// The device proved an install, but not the version that was sent. That is a success
-			// with a footnote, so say the footnote.
-			if let current { outcomes[current.id] = .succeeded }
-			if let app = installer?.app { InstallCleanup.stage(app) }
-			Toast.info(.localized(
-				"Installed, but the device reports version %@.",
-				arguments: version ?? .localized("unknown")
-			))
-			_syncUnifiedTaskProgress()
-            _finishUnifiedTask()
-			_scheduleAdvance(after: 0.25, for: current?.id)
+        case .success(.installedOtherVersion(let version)):
+            // Defense in depth for a late/legacy producer. A different installed
+            // version is not completion of this artifact and must not delete it.
+            _handle(.failure(InstallConfirmation.Failure(verdict: .installedOtherVersion(version))), attemptID: attemptID)
+
 		case .success:
             NBHaptic.notify(.success)
             Toast.success(.localized("Installation completed"), systemImage: "checkmark.circle.fill")
@@ -636,8 +647,12 @@ final class InstallQueue: ObservableObject {
 	/// Keeps the number of device checks the installer made on the task record, so the report of
 	/// an install that waited on verification says how many times the device was asked.
 	private func _recordVerificationAttempts(on task: UnifiedTask) {
-		guard let checks = installer?.verificationAttempt, checks > 0 else { return }
-		task.context?.verificationAttempts = checks
+        guard let installer else { return }
+        if task.context?.handoffAt == nil { task.context?.handoffAt = installer.installationHandoffAt }
+        task.context?.nativeAcknowledgedAt = installer.nativeAcknowledgedAt
+        task.context?.expectedDeviceBinding = installer.expectedDeviceBinding
+        task.context?.installationPackageSHA256 = installer.installationPackageSHA256
+        if installer.verificationAttempt > 0 { task.context?.verificationAttempts = installer.verificationAttempt }
 	}
 
 	/// Closes the current attempt without rewriting earlier queue outcomes.

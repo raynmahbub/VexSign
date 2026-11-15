@@ -183,6 +183,8 @@ final class UnifiedTaskCenter: ObservableObject {
 		}
 		history.insert(task, at: 0)
 		if history.count > Self.historyLimit {
+            let discarded = Set(history.dropFirst(Self.historyLimit).map(\.id))
+            retryHandlers = retryHandlers.filter { !discarded.contains($0.key) }
 			history = Array(history.prefix(Self.historyLimit))
 		}
 		_persistHistory()
@@ -235,6 +237,8 @@ final class UnifiedTaskCenter: ObservableObject {
 			_loadHistory()
 			return
 		}
+        let retainedIDs = Set((tasks + history).map(\.id))
+        retryHandlers = retryHandlers.filter { retainedIDs.contains($0.key) }
 		pruneHistoryIcons()
 		// Capture values on the main actor; no mutable UnifiedTask crosses to IO.
 		let snapshots: [UnifiedTask.Snapshot] = (tasks + history).map { $0.snapshot }
@@ -308,6 +312,8 @@ final class UnifiedTaskCenter: ObservableObject {
 	/// Clears the persisted history (Settings → Diagnostics).
 	func clearHistory() {
         clearHistoryRequested = !historyLoaded
+        // Retry data belongs to stopped history entries, not a second live owner.
+        retryHandlers.removeAll()
         history = []
         _persistHistory()
 		objectWillChange.send()

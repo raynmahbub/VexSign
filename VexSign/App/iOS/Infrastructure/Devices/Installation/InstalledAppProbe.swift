@@ -8,10 +8,10 @@
 //  to zero. iOS rolls an install back when it rejects the signature or the provisioning
 //  profile, and the counter reaches zero either way — so the app celebrated failures.
 //
-//  This probe is the missing evidence: LaunchServices records and proxies report whether the
-//  bundle is on the device, its version, and whether it is still a placeholder. A positive-only
-//  registry fallback handles filtered per-app lookups; missing or ambiguous answers remain `nil`
-//  ("cannot tell") rather than becoming a guess of installed or absent.
+//  The evidence value/engine remain shared. Production consumers now default to
+//  UnavailableInstallationProbe: private LaunchServices selectors are not accepted
+//  as this workflow's authority. The legacy implementation is retained explicitly
+//  for compatibility/regression review, never selected as a silent fallback.
 //
 
 import Foundation
@@ -19,6 +19,7 @@ import Dispatch
 import os
 import NimbleExtensions
 import ObjectiveC
+import IDeviceSwift
 
 // MARK: - Evidence
 
@@ -31,6 +32,9 @@ struct InstalledApp: Equatable, Sendable {
 	let version: String?
 	let build: String?
 	let bundleURL: URL?
+    /// Nil for legacy/private lookups and synthetic readings. A paired attempt
+    /// requires this binding; a URL or matching version cannot substitute for it.
+    let evidence: InstalledApplicationEvidence?
 
 	init(
 		bundleIdentifier: String,
@@ -38,7 +42,8 @@ struct InstalledApp: Equatable, Sendable {
 		isPlaceholder: Bool = false,
 		version: String? = nil,
 		build: String? = nil,
-		bundleURL: URL? = nil
+		bundleURL: URL? = nil,
+        evidence: InstalledApplicationEvidence? = nil
 	) {
 		self.bundleIdentifier = bundleIdentifier
 		self.isInstalled = isInstalled
@@ -46,7 +51,15 @@ struct InstalledApp: Equatable, Sendable {
 		self.version = version
 		self.build = build
 		self.bundleURL = bundleURL
+        self.evidence = evidence
 	}
+
+    init(application: DeviceInstalledApplication) {
+        self.init(bundleIdentifier: application.bundleIdentifier, isInstalled: true,
+                  version: application.version, build: application.build,
+                  bundleURL: URL(fileURLWithPath: application.bundlePath),
+                  evidence: InstalledApplicationEvidence(application: application))
+    }
 }
 
 /// Where an app stands relative to the version we expect. The library renders this;
@@ -80,13 +93,24 @@ enum InstalledState: Equatable, Sendable {
 	/// Whether this state is a transient installation lifecycle state rather than a device answer.
 	var isTransient: Bool { self == .installing }
 
-	static func derive(from probe: InstalledApp?, expecting version: String?) -> InstalledState {
+	static func derive(from probe: InstalledApp?, expecting version: String?, build: String? = nil,
+                       binding: DeviceSessionBinding? = nil) -> InstalledState {
 		guard let probe else { return .unknown }
 		if probe.isPlaceholder { return .unknown }
+        if let binding {
+            guard probe.isInstalled, let build, !build.isEmpty,
+                  let evidence = probe.evidence, evidence.isWellFormed,
+                  evidence.deviceBinding == binding, evidence.bundleIdentifier == probe.bundleIdentifier,
+                  evidence.version == probe.version, evidence.build == probe.build,
+                  evidence.build == build else { return .unknown }
+        }
 		guard probe.isInstalled else { return .notInstalled }
 
-		// A version we cannot compare is not a mismatch.
-		guard let version, let deviceVersion = probe.version else { return .installed }
+        // Presence without comparable metadata cannot establish this library
+        // artifact. In particular, missing expected/device versions are not a match.
+        guard let version, !version.isEmpty, let deviceVersion = probe.version,
+              !deviceVersion.isEmpty else { return .unknown }
+        guard build == nil || (build?.isEmpty == false && probe.build == build) else { return .unknown }
 		return deviceVersion == version ? .installed : .installedOtherVersion(deviceVersion)
 	}
 
@@ -112,6 +136,33 @@ enum InstalledState: Equatable, Sendable {
 protocol InstalledAppProbing: Sendable {
 	/// `nil` when the device cannot answer — never a `false`/`true` guess.
 	func installedApp(for bundleIdentifier: String) -> InstalledApp?
+    /// A protocol requirement, so a native async adapter is dynamically selected
+    /// even when stored as InstalledAppProbing. Legacy test probes use the bounded
+    /// off-main default below; native calls never block a Swift cooperative thread.
+    func installedAppWithTimeout(for bundleIdentifier: String, timeout: TimeInterval) async -> InstalledApp?
+}
+
+/// Used only with an explicit, frozen target and reviewed record digest. This is
+/// not the default for OTA/library reads and never falls back to LaunchServices.
+struct PairedDeviceInstallationProbe: InstalledAppProbing {
+    let request: DeviceConnectionRequest
+    func installedApp(for bundleIdentifier: String) -> InstalledApp? { nil }
+
+    func installedAppWithTimeout(for bundleIdentifier: String, timeout: TimeInterval) async -> InstalledApp? {
+        guard !Task.isCancelled, request.binding != nil,
+              await MainActor.run(body: { PairingBridge.isSelectedForUse(request) }) else { return nil }
+        do {
+            guard let application = try await InstallationAppProxy.installedApplication(
+                for: bundleIdentifier, request: request, waiterTimeout: timeout),
+                  application.binding == request.binding, !Task.isCancelled,
+                  await MainActor.run(body: { PairingBridge.isSelectedForUse(request) }) else { return nil }
+            return InstalledApp(application: application)
+        } catch {
+            // Typed service/cancellation/timeout failures all mean unavailable
+            // evidence here, never an absent application or permission fallback.
+            return nil
+        }
+    }
 }
 
 /// Sandboxed iOS has no supported general-purpose app inventory. OTA verification

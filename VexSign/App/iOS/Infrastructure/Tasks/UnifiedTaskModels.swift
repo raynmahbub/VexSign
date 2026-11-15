@@ -37,12 +37,16 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 	var subjectID: String?
     var context: TaskContext?
     var stageHistory: [TaskStageEntry]
+    /// Runtime provenance of a decoded record, not fabricated submission proof.
+    /// Absence of a handoff timestamp in old history cannot establish no handoff.
+    private(set) var restoredFromHistory = false
 
     var displayPhaseTitle: String {
+        if phase == .completed && kind == .deviceSetup { return .localized("Setup action completed") }
         if phase == .completed && kind == .sign { return UnifiedTaskPhase.signed.title }
         if phase == .completed && kind == .importIPA { return UnifiedTaskPhase.readyToSign.title }
         if phase == .completed && kind == .install,
-           ["native-installation-completed", "device-confirmed-installed"].contains(context?.confirmationReason ?? "") {
+           context?.hasConfirmedInstallation(notAfter: updatedAt) == true {
             return .localized("Installed")
         }
         return phase.title
@@ -142,12 +146,35 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 			phase: UnifiedTaskPhase(rawValue: snapshot.phase) ?? .interrupted,
 			subjectID: snapshot.subjectID
 		)
+        task.restoredFromHistory = true
 		task.failureStage = snapshot.failureStage.flatMap { UnifiedTaskPhase(rawValue: $0) }
 		task.errorText = snapshot.errorText.map(LogRedaction.redact)
 		task.createdAt = snapshot.createdAt
 		task.updatedAt = snapshot.updatedAt
         task.context = snapshot.context
         task.stageHistory = snapshot.stageHistory ?? [.init(phase: task.phase, date: snapshot.updatedAt)]
+        if task.kind == .install, task.phase == .completed,
+           !["export", "guest-import"].contains(task.context?.installationMethod ?? ""),
+           !["exported-not-installed", "guest-prepared-not-installed"].contains(task.context?.confirmationReason ?? ""),
+           task.context?.hasConfirmedInstallation(notAfter: task.updatedAt) != true {
+            // Legacy schemas never persisted same-device exact version/build
+            // observations. New records retain a dated result only when metadata,
+            // expected device/record binding, archive digest and post-acknowledgement
+            // timing agree. Reason strings/command completion alone do not qualify.
+            if task.context == nil {
+                var unknown = TaskContext()
+                unknown.clientVersion = ""
+                unknown.sourceCommit = ""
+                task.context = unknown
+            }
+            if !["native-installation-completed", "paired-installed-version-not-verified"].contains(task.context?.confirmationReason ?? "") {
+                task.context?.confirmationReason = "historical-installation-not-verified"
+            }
+            task.phase = .unconfirmed
+            task.progress = -1
+            task.stageHistory.append(.init(phase: .unconfirmed, date: task.updatedAt))
+            if task.stageHistory.count > 256 { task.stageHistory.removeFirst(task.stageHistory.count - 256) }
+        }
 		return task
 	}
 }

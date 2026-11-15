@@ -1,5 +1,14 @@
 # Feature completion matrix — 2026-11-13
 
+> Historical source-level matrix, published before the later pairing/inventory
+> integration and branch CI repairs. For current implementation boundaries,
+> exact build/test conclusions and the independently closed mutation/account/
+> modern-host gates, use the
+> [on-device implementation and acceptance status](../../Architecture/on-device-foundation-status.md).
+> In particular, later unsigned iOS build passes do not establish simulator or
+> physical-device acceptance, and private LaunchServices is not the production
+> installed-state authority.
+
 Deliverable **C**. Statuses use the requested Definition-of-Done vocabulary. A row may carry
 several statuses; `Blocked (Build-verified, Device-verified)` means the code and portable tests
 exist but the named gates have not run. No row claims a physical-device result, a current-branch

@@ -235,7 +235,10 @@ final class BundleSignatureTests: XCTestCase {
 	}
 
 	func testAnAdHocSignatureHasNoCertificate() throws {
-		let url = try writeExecutable(superblob: makeSuperblob([(5, Data("entitlements".utf8))]))
+        // A display-reader fixture still needs correctly typed, readable slots;
+        // arbitrary text wrapped as CMS in the entitlement slot is malformed.
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("VexSignTests-\(UUID().uuidString)")
+        try SigningRegressionFixture.machO(entitlements: [:]).write(to: url)
 		defer { try? FileManager.default.removeItem(at: url) }
 
 		XCTAssertEqual(BundleSignature.read(executableAt: url), .noCertificates)
@@ -433,13 +436,14 @@ final class BundleSignatureTests: XCTestCase {
     @MainActor
     func testConfirmedInstallImmediatelyUpdatesVisibleAndLaterMountedRows() async throws {
         let store = LibraryStatusStore(probe: StubProbe(app: nil), readSignature: { _ in .noCodeSignature })
-        let request = LibraryStatusStore.Request(uuid: "visible", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: true)
+        store.selectDevice(binding: InstallationEvidenceTestFixtures.binding)
+        let request = LibraryStatusStore.Request(uuid: "visible", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: true, expectedBuild: "1")
         store.request(request)
         try await waitUntil { store.statuses["visible"]?.isKnown == true }
-        store.recordConfirmedInstallation(bundleIdentifier: "example.app", version: "1")
+        store.recordInstalledApplicationObservation(InstallationEvidenceTestFixtures.application(identifier: "example.app", version: "1", build: "1"))
         XCTAssertEqual(store.statuses["visible"]?.installed, .installed)
         let visibleSeed = store.statuses["visible"]?.updatedAt
-        let later = LibraryStatusStore.Request(uuid: "later", bundleIdentifier: "example.app", expectedVersion: "2", bundleURL: nil, isSigned: true)
+        let later = LibraryStatusStore.Request(uuid: "later", bundleIdentifier: "example.app", expectedVersion: "2", bundleURL: nil, isSigned: true, expectedBuild: "1")
         store.request(later)
         XCTAssertEqual(store.statuses["later"]?.installed, .installedOtherVersion("1"))
         let laterSeed = store.statuses["later"]?.updatedAt
@@ -454,12 +458,13 @@ final class BundleSignatureTests: XCTestCase {
     @MainActor
     func testConfirmedInstallDoesNotLeakToOtherIdentifiersOrSurviveReset() {
         let store = LibraryStatusStore(probe: StubProbe(app: nil))
-        store.recordConfirmedInstallation(bundleIdentifier: "example.app", version: "1")
-        let other = LibraryStatusStore.Request(uuid: "other", bundleIdentifier: "other.app", expectedVersion: "1", bundleURL: nil, isSigned: false)
+        store.selectDevice(binding: InstallationEvidenceTestFixtures.binding)
+        store.recordInstalledApplicationObservation(InstallationEvidenceTestFixtures.application(identifier: "example.app", version: "1", build: "1"))
+        let other = LibraryStatusStore.Request(uuid: "other", bundleIdentifier: "other.app", expectedVersion: "1", bundleURL: nil, isSigned: false, expectedBuild: "1")
         store.request(other)
         XCTAssertNotEqual(store.statuses["other"]?.installed, .installed)
         store.invalidateAll()
-        let request = LibraryStatusStore.Request(uuid: "reset", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: false)
+        let request = LibraryStatusStore.Request(uuid: "reset", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: false, expectedBuild: "1")
         store.request(request)
         XCTAssertNotEqual(store.statuses["reset"]?.installed, .installed)
     }
@@ -467,8 +472,9 @@ final class BundleSignatureTests: XCTestCase {
     @MainActor
     func testOldConfirmationCannotMarkAnAppInstalled() {
         let store = LibraryStatusStore(probe: StubProbe(app: nil))
-        store.recordConfirmedInstallation(bundleIdentifier: "example.app", version: "1", now: Date().addingTimeInterval(-60))
-        let request = LibraryStatusStore.Request(uuid: "expired", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: false)
+        store.selectDevice(binding: InstallationEvidenceTestFixtures.binding)
+        store.recordInstalledApplicationObservation(InstallationEvidenceTestFixtures.application(identifier: "example.app", version: "1", build: "1", at: Date().addingTimeInterval(-60)))
+        let request = LibraryStatusStore.Request(uuid: "expired", bundleIdentifier: "example.app", expectedVersion: "1", bundleURL: nil, isSigned: false, expectedBuild: "1")
         store.request(request)
         XCTAssertNotEqual(store.statuses["expired"]?.installed, .installed)
     }
@@ -482,7 +488,9 @@ final class BundleSignatureTests: XCTestCase {
 		store.request(request)
 		try await waitUntil { probe.count == 1 }
 		probe.first.signal()
-		try await waitUntil { store.statuses["row"] != nil }
+        // request() publishes a Checking seed immediately. Wait for the actual
+        // read rather than treating that unfinished seed as a probe result.
+        try await waitUntil { store.statuses["row"]?.isKnown == true }
 		XCTAssertEqual(store.statuses["row"]?.installed, .notInstalled)
 		store.invalidate(bundleIdentifier: "example.app")
 		try await waitUntil { probe.count == 2 }
@@ -604,7 +612,9 @@ final class BundleSignatureTests: XCTestCase {
 	/// An arm64 Mach-O with one `LC_CODE_SIGNATURE` command, or a non-signature command.
 	private func machO(superblobLength: UInt32?, superblob: Data) -> Data {
 		let headerSize = 32
-		let commandSize = 16
+        // An unsigned image needs a complete command, not the truncated
+        // LC_SEGMENT_64 that the production parser correctly rejects.
+        let commandSize = superblobLength == nil ? 24 : 16
 
 		var data = Data()
 		data.append(u32le(0xfeed_facf)) // MH_MAGIC_64
@@ -622,8 +632,12 @@ final class BundleSignatureTests: XCTestCase {
 			data.append(u32le(UInt32(headerSize + commandSize)))
 			data.append(u32le(superblobLength))
 		} else {
-			data.append(u32le(0x19))    // LC_SEGMENT_64 — not a code signature
+			data.append(u32le(0x32))    // LC_BUILD_VERSION — not a code signature
 			data.append(u32le(UInt32(commandSize)))
+            data.append(u32le(2))       // PLATFORM_IOS
+            data.append(u32le(0x00110000))
+            data.append(u32le(0))
+            data.append(u32le(0))
 		}
 
 		data.append(superblob)

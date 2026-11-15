@@ -28,6 +28,27 @@ external dependencies or binary targets at build time; consult those manifests
 and the upstream license files for their terms. This table is not a complete
 software bill of materials.
 
+## Device bootstrap/pairing foundation
+
+The IDeviceKitten wrapper remains pinned to
+`claration/IDeviceKit` commit `837cf1e14d4875771dd5ee1b754a4c86215c5db3` with its
+MIT license intact. Its six modified upstream Swift files and nine local additions
+are identified by SHA-256 in the vendor manifest; see the
+[local source/ownership review](VexSign/Packages/Vendor/IDeviceKitten/LOCAL_PATCH_REVIEW.md).
+The unchanged `IDevice` binary target is `jkcoxson/idevice` v0.1.57. Its source
+metadata declares MIT, but that is **not** an established transitive binary-license
+closure or binary ABI review. Review linked components and retain their notices
+before distribution. The wrapper is not LGPL; separately licensed
+libimobiledevice-family tools must not be conflated with this wrapper.
+
+SideInstaller was consulted only through its public README, technical notes and
+license at `82452dfd2a575b5a031145de2b22b98d4b7b3a76`. No implementation, binary,
+asset or protocol patch was copied or bundled. Its restrictive non-commercial /
+source-only terms are not treated as a reusable GPL dependency. LocalDevVPN is an
+optional external, user-installed and user-activated prerequisite, not bundled
+code; its source/license closure was not accepted by this work. Existing SideSign,
+Zsign and account/signing dependency boundaries are unchanged.
+
 ## Distribution considerations
 
 - Do not assume one license in this repository overrides another. The GPL-3.0

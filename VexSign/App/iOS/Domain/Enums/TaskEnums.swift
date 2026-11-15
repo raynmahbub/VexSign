@@ -7,11 +7,13 @@ enum UnifiedTaskKind: String, Codable, CaseIterable, Sendable {
 	case install
 	case update
 	case export
+    case deviceSetup
 
 }
 
 enum UnifiedTaskPhase: String, Codable, CaseIterable, Sendable {
 	case queued
+    case inspectingPairing, checkingTransport, discoveringServices, queryingDevice
 	case downloading
 	case extracting
     case importing, readyToSign, signed, preparingInstallation, waitingForIOS, verifying
@@ -35,6 +37,17 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable, Sendable {
     /// Queue installs can start a new item at preparation after verification.
     func canTransition(to next: Self, kind: UnifiedTaskKind) -> Bool {
         guard !isTerminal else { return false }
+        if kind == .deviceSetup {
+            if next == .failed || next == .cancelled || next == self { return true }
+            switch self {
+            case .queued: return next == .inspectingPairing
+            case .inspectingPairing: return next == .checkingTransport || next == .completed
+            case .checkingTransport: return next == .discoveringServices
+            case .discoveringServices: return next == .queryingDevice
+            case .queryingDevice: return next == .completed
+            default: return false
+            }
+        }
         if kind == .sign {
             if next == .failed || next == .cancelled || next == self { return true }
             switch self {
@@ -67,9 +80,10 @@ enum UnifiedTaskPhase: String, Codable, CaseIterable, Sendable {
 }
 
 enum TaskRecoveryGuide: Equatable {
-    case download, archive, signing, installation, general
+    case download, archive, signing, installation, deviceSetup, general
 
     static func resolve(kind: UnifiedTaskKind, failureStage: UnifiedTaskPhase?) -> Self {
+        if kind == .deviceSetup { return .deviceSetup }
         switch failureStage {
         case .downloading: return .download
         case .extracting, .importing, .readyToSign: return .archive
@@ -81,6 +95,7 @@ enum TaskRecoveryGuide: Equatable {
             case .importIPA: return .archive
             case .sign: return .signing
             case .install: return .installation
+            case .deviceSetup: return .deviceSetup
             case .update, .export: return .general
             }
         }

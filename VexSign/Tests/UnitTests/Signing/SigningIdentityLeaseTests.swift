@@ -33,7 +33,7 @@ final class SigningIdentityLeaseTests: XCTestCase {
         let keys = inputs.map { SigningIdentityStore.leaseKey(reference: $0.reference) }
         do {
             let leased = try SigningIdentityStore.leasedSnapshot(storage: storage)
-            withExtendedLifetime(leased.leases) {
+            try withExtendedLifetime(leased.leases) {
                 XCTAssertEqual(leased.inputs.map(\.reference), inputs.map(\.reference))
                 for key in keys {
                     XCTAssertTrue(AppOperationRegistry.shared.isBusy(key))
@@ -54,7 +54,7 @@ final class SigningIdentityLeaseTests: XCTestCase {
         let blocked = try XCTUnwrap(inputs.last)
         let key = SigningIdentityStore.leaseKey(reference: blocked.reference)
         let conflict = try AppOperationRegistry.shared.acquire(key)
-        withExtendedLifetime(conflict) {
+        try withExtendedLifetime(conflict) {
             XCTAssertThrowsError(try SigningIdentityStore.leasedSnapshot(storage: storage))
             for input in inputs where input.reference != blocked.reference {
                 XCTAssertFalse(AppOperationRegistry.shared.isBusy(SigningIdentityStore.leaseKey(reference: input.reference)))

@@ -129,7 +129,7 @@ final class StorageConcurrencyTests: XCTestCase {
 	@MainActor
 	func testDeletingAfterABackgroundInsertRemovesTheRow() async throws {
 		let id = try await Self.storage.addImported(
-			uuid: "imported-to-delete",
+			uuid: UUID().uuidString,
 			appName: "Delete Me",
 			appIdentifier: "com.example.delete"
 		)
@@ -157,7 +157,7 @@ final class StorageConcurrencyTests: XCTestCase {
 		}
 
 		let id = try await Self.storage.addSigned(
-			uuid: "signed-to-delete",
+			uuid: UUID().uuidString,
 			certificateID: certificateID,
 			appName: "Signed Delete Me",
 			appIdentifier: "com.example.signed.delete"
@@ -169,6 +169,16 @@ final class StorageConcurrencyTests: XCTestCase {
 		let remaining = try Self.storage.context.fetch(Signed.fetchRequest())
 		XCTAssertTrue(remaining.isEmpty, "The signed row must be gone after a main-queue delete")
 	}
+
+    @MainActor
+    func testDeletionRejectsInvalidArtifactUUIDAndKeepsTheRow() async throws {
+        let id = try await Self.storage.addImported(uuid: "not-an-artifact-uuid",
+            appName: "Invalid artifact", appIdentifier: "com.example.invalid")
+        let row: Imported = try XCTUnwrap(Self.storage.object(id))
+        XCTAssertFalse(Self.storage.deleteApp(for: row))
+        let remaining = try Self.storage.context.fetch(Imported.fetchRequest())
+        XCTAssertEqual(remaining.map(\.objectID), [id])
+    }
 
 	// MARK: - Object IDs
 

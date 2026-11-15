@@ -8,6 +8,7 @@ final class AppleAccountWorkspaceBoundaryTests: XCTestCase {
         var provisionCount = 0
         var checkCount = 0
         var imported: [UUID] = []
+        var handoff: AppleAccountSigningHandoff?
         var cancelled: [UUID] = []
         var started: XCTestExpectation?
         var pending: CheckedContinuation<AppleAccountProvisioningReceipt, Error>?
@@ -32,7 +33,11 @@ final class AppleAccountWorkspaceBoundaryTests: XCTestCase {
                 pending = continuation; started?.fulfill()
             }
         }
-        func importCertificate(receiptID: UUID) async throws { imported.append(receiptID) }
+        func importCertificate(receiptID: UUID) async throws -> AppleAccountSigningHandoff {
+            imported.append(receiptID)
+            guard let handoff else { throw AppleAccountWorkspaceError.missingReceipt }
+            return handoff
+        }
         func complete() {
             pending?.resume(returning: AppleAccountProvisioningReceipt(id: UUID(), profileUUID: UUID(), expiresAt: Date().addingTimeInterval(60)))
             pending = nil
@@ -78,15 +83,41 @@ final class AppleAccountWorkspaceBoundaryTests: XCTestCase {
         }
         await fulfillment(of: [started], timeout: 2)
         let receipt = AppleAccountProvisioningReceipt(id: UUID(), profileUUID: UUID(), expiresAt: Date().addingTimeInterval(60))
-        do { try await useCase.importCertificate(receipt, consentGiven: true); XCTFail("Concurrent key export") }
+        do { _ = try await useCase.importCertificate(receipt, consentGiven: true); XCTFail("Concurrent key export") }
         catch { XCTAssertEqual(error as? ArchitectureDomainError, .duplicateOrBusyOperation) }
         XCTAssertTrue(provider.imported.isEmpty)
         provider.complete()
         _ = try await operation.value
-        do { try await useCase.importCertificate(receipt, consentGiven: false); XCTFail("Provisioning approval is not key export consent") }
+        do { _ = try await useCase.importCertificate(receipt, consentGiven: false); XCTFail("Provisioning approval is not key export consent") }
         catch { XCTAssertEqual(error as? AppleAccountWorkspaceError, .approvalRequired) }
-        try await useCase.importCertificate(receipt, consentGiven: true)
+        let app = FeatureBoundaryFixtures.app()
+        let handoff = AppleAccountSigningHandoff(app: try LibraryAppReference(app: app),
+            bundleIdentifier: app.identifier!, certificateUUID: UUID().uuidString,
+            profileUUID: receipt.profileUUID, expiresAt: receipt.expiresAt)
+        provider.handoff = handoff
+        let imported = try await useCase.importCertificate(receipt, consentGiven: true)
+        XCTAssertEqual(imported, handoff)
         XCTAssertEqual(provider.imported, [receipt.id])
+    }
+
+    func testImportResultMustMatchTheReviewedProfileAndExpiry() async throws {
+        let provider = Provider()
+        let useCase = AppleAccountWorkspaceUseCase(provider: provider)
+        let receipt = AppleAccountProvisioningReceipt(id: UUID(), profileUUID: UUID(), expiresAt: Date().addingTimeInterval(300))
+        let app = FeatureBoundaryFixtures.app()
+        for (uuid, expiry, certificateUUID) in [
+            (UUID(), receipt.expiresAt, UUID().uuidString),
+            (receipt.profileUUID, receipt.expiresAt.addingTimeInterval(1), UUID().uuidString),
+            (receipt.profileUUID, receipt.expiresAt, "not-a-certificate-uuid")
+        ] {
+            provider.handoff = AppleAccountSigningHandoff(app: try LibraryAppReference(app: app),
+                bundleIdentifier: app.identifier!, certificateUUID: certificateUUID,
+                profileUUID: uuid, expiresAt: expiry)
+            do {
+                _ = try await useCase.importCertificate(receipt, consentGiven: true)
+                XCTFail("A substituted import result cannot open signing review")
+            } catch { XCTAssertEqual(error as? AppleAccountWorkspaceError, .missingReceipt) }
+        }
     }
 
     func testEmptyTeamChoiceCancelsTheSpecificAuthentication() async throws {

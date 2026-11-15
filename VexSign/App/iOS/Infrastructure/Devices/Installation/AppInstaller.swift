@@ -39,7 +39,18 @@ final class AppInstaller: ObservableObject {
     private var _hasServedPayload = false
     @Published private(set) var hasOpenedInstallHandoff = false
     @Published private(set) var hasStartedPairedInstall = false
-    var hasHandedOffInstall: Bool { hasOpenedInstallHandoff || hasStartedPairedInstall }
+    // Shared with the native worker so Stop and submission have one atomic order.
+    private let _pairedControl = DeviceInstallationControl()
+    private var _otaHandoffAt: Date?
+    var installationHandoffAt: Date? { _otaHandoffAt ?? _pairedControl.submittedAt }
+    var hasHandedOffInstall: Bool { hasOpenedInstallHandoff || installationHandoffAt != nil }
+
+    /// Freeze submission BEFORE the queue chooses its stopped/cancelled wording.
+    /// Main-actor UI callbacks cannot close the Stop/command race by themselves.
+    func stopPreparingForMonitoringEnd() -> Bool {
+        _pairedControl.stopBeforeSubmission()
+        return hasHandedOffInstall
+    }
     var isExport: Bool { _isSharing }
 
 
@@ -59,6 +70,16 @@ final class AppInstaller: ObservableObject {
     var onPackaged: (() -> Void)?
     var onWorkflowStage: ((UnifiedTaskPhase) -> Void)?
     var onConfirmationReason: ((String) -> Void)?
+    var onConfirmedApplication: ((InstalledApplicationEvidence) -> Void)?
+    private var _pairedRequest: DeviceConnectionRequest?
+    private var _pairedDevice: AuthorizedDeviceSnapshot?
+    private var _pairedSubmission: DeviceInstallationSubmission?
+    private var _pairedTarget: DeviceInstallationTarget?
+    private var _confirmedApplication: InstalledApp?
+    var expectedDeviceBinding: DeviceSessionBinding? { _pairedRequest?.binding }
+    var nativeAcknowledgedAt: Date? { _pairedSubmission?.acknowledgedAt }
+    var installationTarget: DeviceInstallationTarget? { _pairedSubmission?.target ?? _pairedTarget }
+    var installationPackageSHA256: String? { installationTarget?.packageSHA256 }
 
     /// Settings changed while prewarming? Discard the snapshot and build afresh.
     var preparationMatchesSettings: Bool {
@@ -93,7 +114,6 @@ final class AppInstaller: ObservableObject {
     private var _monitoringBackstopTask: Task<Void, Never>?
     private var _installBaselineTask: Task<Void, Never>?
     private var _runTask: Task<Void, Never>?
-    private var _fallbackTask: Task<Void, Never>?
     private var _confirmationTask: Task<Void, Never>?
     /// Bounds the window between opening iOS's install prompt and the payload being served.
     private var _promptDeadlineTask: Task<Void, Never>?
@@ -101,8 +121,6 @@ final class AppInstaller: ObservableObject {
 	private var _completion: ((Result<Outcome, Error>) -> Void)?
 	private var _hasFinished = false
     private var _sourceLease: AppOperationRegistry.Lease?
-	/// One idevice retry per install, so a genuinely broken pair doesn't loop.
-	private var _didAttemptIdeviceFallback = false
 	/// The device-side evidence that turns "progress ended" into an answer.
     private var _installBaseline: InstallWatcher.Baseline?
 	private let _probe: InstalledAppProbing
@@ -113,7 +131,7 @@ final class AppInstaller: ObservableObject {
     var installationMethodCode: String {
         if _isSharing { return "export" }
         if _installationMethod == 2 { return "guest-import" }
-        return _installationMethod == 1 || _didAttemptIdeviceFallback ? "paired-device" : "OTA"
+        return _installationMethod == 1 ? "paired-device" : "OTA"
     }
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
@@ -123,7 +141,7 @@ final class AppInstaller: ObservableObject {
 		app: AppInfoPresentable,
 		isSharing: Bool = false,
 		useLocalhost: Bool = false,
-		probe: InstalledAppProbing = InstalledAppProbe()
+		probe: InstalledAppProbing = UnavailableInstallationProbe()
 	) {
         if isSharing {
             _pipeline = nil
@@ -158,7 +176,6 @@ final class AppInstaller: ObservableObject {
 	deinit {
         _preparedPackage?.cancel()
         _runTask?.cancel()
-        _fallbackTask?.cancel()
         _confirmationTask?.cancel()
         _verificationDeadlineTask?.cancel()
         _monitoringBackstopTask?.cancel()
@@ -217,18 +234,20 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 
 	/// Stops without reporting an outcome; the caller has already moved on.
     func stop(preserveHandoff: Bool = false) {
+        _ = stopPreparingForMonitoringEnd()
         _hasFinished = true
         _sourceLease = nil
         onPackaged = nil
         onWorkflowStage = nil
         onConfirmationReason = nil
+        onConfirmedApplication = nil
         _preparedPackage?.cancel()
         _preparedPackage = nil
         _packageArchive = nil
         let server = _server
         _server = nil
         if let server {
-            if preserveHandoff && hasOpenedInstallHandoff && !_didAttemptIdeviceFallback {
+            if preserveHandoff && hasOpenedInstallHandoff {
                 // Stopping observation cannot withdraw an OTA request. Keep its server and
                 // archive alive for a bounded handoff window, including an in-flight transfer.
                 Task {
@@ -239,10 +258,8 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
                 Task { await server.stop() }
             }
         }
-        if !(preserveHandoff && hasStartedPairedInstall) { _runTask?.cancel() }
+        if !(preserveHandoff && _pairedControl.submittedAt != nil) { _runTask?.cancel() }
         _runTask = nil
-        if !(preserveHandoff && hasStartedPairedInstall) { _fallbackTask?.cancel() }
-        _fallbackTask = nil
         _confirmationTask?.cancel()
         _confirmationTask = nil
         _verificationDeadlineTask?.cancel()
@@ -282,17 +299,18 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 						readiness: InstallPreflight.readiness(for: method, .init()))))
 				}
 				if method == .idevice {
-					// A file that exists but cannot start a session is the same dead end as no
-					// file at all, and it used to fail later with a socket error. Inspect the
-					// record here so the run stops before the copy, naming what is wrong.
-					let pairing = PairingRecordInspector.inspect(
-						fileAt: URL(fileURLWithPath: HeartbeatManager.pairingFile())
-					)
-					guard pairing.isUsable else {
-						throw Self.error(pairing == .absent
-							? .localized("No pairing file. Import one in Settings → Installation → Pairing file and VPN setup, then connect the VPN.")
-							: pairing.detail)
-					}
+                    // Refuse before packaging or any native side effect. File
+                    // presence and command completion cannot verify an install.
+                    guard InstallationAppProxy.hasAcceptedInventoryBridge else {
+                        throw DeviceTransportError.inventoryBridgeUnavailable
+                    }
+                    let request = try await PairingBridge.installationRequest()
+                    let device = try await HeartbeatManager.shared.queryDevice(request: request)
+                    try Task.checkCancellation()
+                    guard PairingBridge.isSelectedForUse(request) else { throw DeviceTransportError.operationCancelled }
+                    _pairedRequest = request
+                    _pairedDevice = device
+                    LibraryStatusStore.shared.selectDevice(binding: request.binding)
 				}
 			}
             let prepared: PreparedInstallationPackage
@@ -305,6 +323,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             try Task.checkCancellation()
             guard !_hasFinished else { return }
             _packageArchive = prepared.archive
+            _pairedTarget = prepared.pairedTarget
             let packageUrl = prepared.url
             let exported = prepared.exported
             // Hold the lease through native uploads/staging even if Stop clears properties.
@@ -319,10 +338,25 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 
 			switch _installationMethod {
 			case 1:
+                guard let request = _pairedRequest, PairingBridge.isSelectedForUse(request),
+                      let target = prepared.pairedTarget else {
+                    throw DeviceTransportError.invalidDeviceResponse
+                }
+                _pairedSubmission = try await InstallationProxy(viewModel: viewModel)
+                    .install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""),
+                        request: request, target: target, control: _pairedControl, onSubmission: { [weak self] _ in
+                            Task { @MainActor [weak self] in
+                                guard let self, !self._hasFinished else { return }
+                                self.hasStartedPairedInstall = true
+                                self.onWorkflowStage?(.installing)
+                            }
+                        })
+                guard !_hasFinished, !Task.isCancelled else { return }
                 hasStartedPairedInstall = true
                 onWorkflowStage?(.installing)
-				try await InstallationProxy(viewModel: viewModel)
-					.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
+                installationPhase = .verifying
+                viewModel.beginDeviceVerification()
+                await _confirmIdeviceInstall()
 			case 2:
                 let worker = Task.detached(priority: .userInitiated) {
                     try EmbeddedContainerRuntime.stageIPA(packageUrl)
@@ -342,7 +376,14 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			}
 		} catch {
 			_progressTask?.cancel()
-			_finish(.failure(error))
+            if _installationMethod == 1, _pairedControl.submittedAt != nil {
+                // A lost command response or waiter timeout cannot prove a
+                // rejection. Never retry automatically or delete the staged copy
+                // while installd may still be reading it.
+                _finishConfirmed(.timedOutVerifying, reason: "paired-command-outcome-unknown")
+            } else {
+                _finish(.failure(error))
+            }
 		}
 	}
 
@@ -359,6 +400,8 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
         let isSharing = _isSharing
         let useShareSheet = _useShareSheet
         let compressForTransfer = !isSharing && _installationMethod == 1
+        let pairedDevice = _pairedDevice
+        let expectedIdentifier = app.identifier
         let sourceLease = _sourceLease
         let worker = Task.detached(priority: .utility) {
             defer { withExtendedLifetime(sourceLease) {} }
@@ -367,8 +410,26 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             let handler = ArchiveHandler(app: app, viewModel: viewModel, workspace: archive.directory)
             try await handler.move(from: source)
             try Task.checkCancellation()
+            let metadata: PairedInstallationValidation.Metadata?
+            if compressForTransfer {
+                guard let pairedDevice else { throw DeviceTransportError.invalidDeviceResponse }
+                let copiedBundle = archive.directory.appendingPathComponent("Payload", isDirectory: true)
+                    .appendingPathComponent(source.lastPathComponent, isDirectory: true)
+                metadata = try PairedInstallationValidation.verify(bundleAt: copiedBundle,
+                    expectedIdentifier: expectedIdentifier, expectedVersion: exportVersion, device: pairedDevice)
+            } else { metadata = nil }
             let package = try await handler.archive(compressForTransfer: compressForTransfer)
             try Task.checkCancellation()
+            let pairedTarget: DeviceInstallationTarget?
+            if let metadata {
+                guard let digest = try FileIntegrity.sha256(of: package, cancellationCheck: { try Task.checkCancellation() }),
+                      let target = DeviceInstallationTarget(bundleIdentifier: metadata.identifier,
+                        version: metadata.version, build: metadata.build, packageSHA256: digest,
+                        authorizationExpiresAt: metadata.authorizationExpiresAt, verifiedDeviceOS: metadata.verifiedDeviceOS) else {
+                    throw DeviceTransportError.serviceUnavailable("verified installation archive digest")
+                }
+                pairedTarget = target
+            } else { pairedTarget = nil }
             // Once zipped, the original library and IPA are enough; drop the extra Payload copy.
             try FileManager.default.removeItem(at: archive.directory.appendingPathComponent("Payload"))
             let exported: URL?
@@ -385,7 +446,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             } else {
                 exported = nil
             }
-            return PreparedInstallationPackage(url: package, exported: exported, archive: archive)
+            return PreparedInstallationPackage(url: package, exported: exported, archive: archive, pairedTarget: pairedTarget)
         }
         return try await withTaskCancellationHandler {
             try await worker.value
@@ -443,38 +504,12 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		}
 	}
 
-	/// One path for every local-server failure (server object failed to build,
-	/// failed startup, failed self check): try a wired idevice install when a
-	/// pairing exists, otherwise surface the cause with the actionable wording
-	/// and the Semi Local retry.
-	private func _handleServerFailure(packageUrl: URL, _ failure: Error) {
+    /// Failure of one transport never authorizes another. The user can select a
+    /// supported route in Settings and start a new attempt; no silent paired retry.
+    private func _handleServerFailure(packageUrl: URL, _ failure: Error) {
         guard !_hasFinished, !Task.isCancelled else { return }
-		let pairingExists = FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile())
-		if pairingExists {
-            _didAttemptIdeviceFallback = true
-            installationPhase = .downloading
-			FileLogger.log("Server setup failed (\(failure.localizedDescription)), falling back to idevice installation", category: "install")
-			SigningLog.shared.info(.localized("Server failed, falling back to idevice installation…"), category: "install")
-            let archive = _packageArchive
-            hasStartedPairedInstall = true
-            onWorkflowStage?(.installing)
-            _fallbackTask = Task {
-                defer { withExtendedLifetime(archive) {} }
-                do {
-                    try Task.checkCancellation()
-					try await InstallationProxy(viewModel: viewModel)
-						.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
-				} catch {
-					FileLogger.error("idevice fallback failed: \(error.localizedDescription)", category: "install")
-					_finish(.failure(error))
-				}
-			}
-			return
-		}
-		viewModel.status = .broken(_serverMethod == 0 ? ServerInstaller.LocalInstallError.unavailable(failure) : failure)
-	}
-
-	// MARK: Status
+        viewModel.status = .broken(_serverMethod == 0 ? ServerInstaller.LocalInstallError.unavailable(failure) : failure)
+    }
 
 	private func _handle(_ status: InstallerStatusViewModel.InstallerStatus) {
         guard !_hasFinished else { return }
@@ -484,7 +519,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		case .sendingManifest:
             // Manifest preparation can precede opening the system URL.
             if hasOpenedInstallHandoff { onWorkflowStage?(.waitingForIOS) }
-		case .sendingPayload:
+		case .sendingPayload where _installationMethod == 0:
             // Once streaming starts, the prompt timeout must not terminate a slow transfer.
             _promptDeadlineTask?.cancel()
             _promptDeadlineTask = nil
@@ -493,8 +528,8 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			isPresentingFallbackPage = false
             // Begin observing before the transfer completes; small installs can
             // finish before its HTTP completion callback reaches the main actor.
-            if _installationMethod == 0, !_didAttemptIdeviceFallback { _startProgressPolling() }
-		case .installing where _installationMethod == 0 && !_didAttemptIdeviceFallback:
+            if _installationMethod == 0 { _startProgressPolling() }
+		case .installing where _installationMethod == 0:
             _hasServedPayload = true
             if _probe is UnavailableInstallationProbe {
                 // Delivery is not installation. There is no supported general app inventory
@@ -513,7 +548,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             // already running keeps asking, bounded by its own limits and the monitoring
             // backstop, and its verdict ends the attempt. Stopping here ended every
             // over-the-air install as unconfirmed seconds after the download.
-            if _installationMethod == 0, !_didAttemptIdeviceFallback, case .success = result,
+            if _installationMethod == 0, case .success = result,
                !(_probe is UnavailableInstallationProbe) {
                 // A confirmed install publishes "completed" itself; that must not restart
                 // the watcher for an attempt that already has its answer.
@@ -527,7 +562,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			_progressTask = nil
 			// The IDevice path trusts installd's own phases; corroborate them with the device
 			// before telling the user it worked.
-			if _installationMethod == 1 || _didAttemptIdeviceFallback, case .success = result {
+			if _installationMethod == 1, case .success = result {
                 guard _confirmationTask == nil else { return }
                 // Native completion starts corroboration; it must not expose
                 // Completed or remove Skip while that check is still pending.
@@ -537,17 +572,19 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 				return
 			}
             // An OTA transport callback is not a native installation acknowledgement.
-            if _installationMethod == 0 && !_didAttemptIdeviceFallback, case .success = result {
+            if _installationMethod == 0, case .success = result {
                 _finishConfirmed(.timedOutVerifying, reason: "ota-completion-not-authoritative")
             } else {
-                _finish(result.map { .installed })
+                switch result {
+                case .failure(let error): _finish(.failure(error))
+                case .success:
+                    _finishConfirmed(.timedOutVerifying, reason: "installation-evidence-unavailable")
+                }
             }
 		case .broken(let error):
 			_progressTask?.cancel()
 			_progressTask = nil
-			// OTA got as far as serving and still failed: try installationproxy
-			// before reporting the error to the user.
-			if _attemptIdeviceFallback(after: error) { return }
+            // Stop this attempt, without changing transport or approval scope.
 			_finish(.failure(error))
 		default:
 			break
@@ -575,6 +612,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			}
 		}
 
+        _otaHandoffAt = Date()
         hasOpenedInstallHandoff = true
         onWorkflowStage?(.waitingForIOS)
 		// Bound the window this opens. iOS shows its own alert and never reports the answer
@@ -617,42 +655,30 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		}
 	}
 
-	/// Fallback for an OTA install that broke after the server was already up.
-	/// Needs a stored pairing (Settings → Tunnel & Pairing) and only runs once.
-	private func _attemptIdeviceFallback(after error: Error) -> Bool {
-		guard _installationMethod == 0, !_didAttemptIdeviceFallback else { return false }
-		guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else { return false }
-		guard let packageUrl = _server?.packageUrl else { return false }
-
-		_didAttemptIdeviceFallback = true
-        installationPhase = .downloading
-
-		FileLogger.log("OTA install failed (\(error.localizedDescription)), falling back to idevice installation", category: "install")
-		SigningLog.shared.info(.localized("Install failed, falling back to idevice installation…"), category: "install")
-
-		viewModel.status = .installing
-
-        let archive = _packageArchive
-        hasStartedPairedInstall = true
-        onWorkflowStage?(.installing)
-        _fallbackTask = Task {
-            defer { withExtendedLifetime(archive) {} }
-            do {
-                try Task.checkCancellation()
-                try await InstallationProxy(viewModel: viewModel)
-					.install(at: packageUrl, suspend: app.identifier == (Bundle.main.bundleIdentifier ?? ""))
-			} catch {
-				FileLogger.error("idevice fallback failed: \(error.localizedDescription)", category: "install")
-				_finish(.failure(error))
-			}
-		}
-
-		return true
-	}
-
 
 	private func _finish(_ result: Result<Outcome, Error>) {
 		guard !_hasFinished else { return }
+        if case .success(.installed) = result {
+            guard _installationMethod == 1, let submission = _pairedSubmission,
+                  let request = _pairedRequest, PairingBridge.isSelectedForUse(request),
+                  let application = _confirmedApplication, application.isInstalled, !application.isPlaceholder,
+                  application.bundleIdentifier == app.identifier, application.version == app.version,
+                  application.build == submission.target.build,
+                  submission.binding == _pairedRequest?.binding,
+                  application.evidence?.confirms(bundleIdentifier: submission.target.bundleIdentifier,
+                    version: submission.target.version, build: submission.target.build, binding: submission.binding,
+                    notBefore: submission.acknowledgedAt, notAfter: Date()) == true else {
+                // Defense in depth: never construct library evidence from the
+                // request, a private probe or a transport-only success callback.
+                onConfirmationReason?(_installationMethod == 1
+                    ? "paired-installed-version-not-verified" : "supported-installation-inventory-unavailable")
+                _confirmedApplication = nil
+                installationPhase = .finished(.timedOutVerifying)
+                viewModel.installProgress = 0.99
+                _finish(.failure(InstallConfirmation.Failure(verdict: .timedOutVerifying)))
+                return
+            }
+        }
         _hasFinished = true
         _sourceLease = nil
         _progressTask?.cancel()
@@ -672,11 +698,9 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
             // Publish the terminal card state after _hasFinished is set. Any
             // status observer delivery can no longer start a second confirmation.
             outcome.publishConfirmedCompletion(to: viewModel)
-            if let identifier = app.identifier {
-                let version: String?
-                if case .installedOtherVersion(let reported) = outcome { version = reported }
-                else { version = app.version }
-                LibraryStatusStore.shared.recordConfirmedInstallation(bundleIdentifier: identifier, version: version)
+            if let application = _confirmedApplication, let evidence = application.evidence {
+                onConfirmedApplication?(evidence)
+                LibraryStatusStore.shared.recordInstalledApplicationObservation(application)
             }
 			Task { await AnalyticsStore.shared.record(.appsInstalled) }
 		}
@@ -717,11 +741,11 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		// long as it likes.
 		_progressTask = Task.detached(priority: .utility) { [weak self] in
 			let installer = self
-			let verdict = await InstallWatcher.watch(
+			let observation = await InstallWatcher.watchObservation(
 				InstallConfirmation(expectation: expectation),
 				probe: probe,
                 baseline: baseline,
-				progress: { await UIApplication.installProgress(for: bundleID, makeSynchronous: false) },
+				progress: { nil }, // Never query private LaunchServices progress, even with an injected probe.
                 startTimeoutEnabled: { await installer?._hasServedPayload ?? true },
 				onUpdate: { raw, phase in
 					await MainActor.run {
@@ -738,7 +762,11 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			guard !Task.isCancelled else { return }
 
 			await MainActor.run {
-				installer?._finishConfirmed(verdict)
+                // Retain exactly what the watcher read. This is not permission
+                // to promote an unsupported OTA/private probe: _finish still
+                // enforces the independent method, binding and freshness checks.
+                installer?._confirmedApplication = observation.confirmedApplication
+				installer?._finishConfirmed(observation.verdict)
 			}
 		}
 	}
@@ -854,7 +882,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 
         case .installedOtherVersion:
             // Presence of another version does not prove this artifact was installed.
-            _finish(.failure(InstallConfirmation.Failure(verdict: .timedOutVerifying)))
+            _finish(.failure(InstallConfirmation.Failure(verdict: verdict)))
 
 		case .cancelled:
 			_finish(.success(.cancelled))
@@ -874,8 +902,8 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
         if _hasServedPayload { _startProgressPolling() }
     }
 
-    /// The paired device's acknowledged install command is final evidence.
-    /// Unlike OTA progress, it need not be re-proven through filtered local APIs.
+    /// A native command acknowledgement is NOT exact app/version evidence.
+    /// Keep corroboration with this owner, never with private LaunchServices.
 	private func _confirmIdeviceInstall() async {
         onWorkflowStage?(.verifying)
 		guard let bundleID = app.identifier, !bundleID.isEmpty else {
@@ -883,10 +911,28 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			return
 		}
 
-        // This method is only reached after InstallationProxy's blocking native
-        // install command returned without error. That device acknowledgement is
-        // authoritative; sandbox-filtered LaunchServices cannot veto it.
-        _finishConfirmed(.installed, reason: "native-installation-completed")
+        guard let submission = _pairedSubmission, let request = _pairedRequest,
+              let binding = request.binding, binding == submission.binding,
+              submission.target.bundleIdentifier == bundleID, submission.target.version == app.version,
+              submission.acknowledgedAt >= submission.submittedAt else {
+            _finishConfirmed(.timedOutVerifying, reason: "paired-installed-version-not-verified")
+            return
+        }
+        var limits = InstallConfirmation.Limits()
+        limits.unavailableEvidence = limits.verify
+        var confirmation = InstallConfirmation(expectation: .init(bundleIdentifier: bundleID,
+            version: submission.target.version, build: submission.target.build,
+            deviceBinding: binding, evidenceNotBefore: submission.acknowledgedAt), limits: limits)
+        _ = confirmation.beginVerifying(at: Date())
+        _armVerificationDeadline()
+        let verdict = await InstallWatcher.confirm(&confirmation,
+            probe: PairedDeviceInstallationProbe(request: request), policy: .pairedDevice,
+            onAttempt: { [weak self] attempt in
+                await MainActor.run { [weak self] in self?._handleVerificationAttempt(attempt) }
+            })
+        guard !_hasFinished, !Task.isCancelled else { return }
+        _confirmedApplication = confirmation.confirmedApplication
+        _finishConfirmed(verdict)
 	}
 }
 
@@ -902,9 +948,9 @@ extension AppInstaller.Outcome {
 	/// else is what was.
 	var countsAsInstall: Bool {
 		switch self {
-		case .installed, .installedOtherVersion:
+		case .installed:
 			true
-		case .cancelled, .exported, .guestImportPrepared:
+		case .installedOtherVersion, .cancelled, .exported, .guestImportPrepared:
 			false
 		}
 	}

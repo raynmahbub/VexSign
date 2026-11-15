@@ -322,7 +322,7 @@ private struct TaskRow: View {
             Button(.localized("Install Again")) { _ = center.retry(task, allowingUnconfirmedInstall: true) }
             Button(.localized("Cancel"), role: .cancel) {}
         } message: {
-            Text(.localized("The last attempt was handed to iOS and its result is unknown, so the app may already be installed. Check the Home Screen first."))
+            Text(.localized("The previous installation is not verified. A request may already have reached iOS even if no handoff was recorded. Check the Home Screen and app version before installing again."))
         }
 	}
 
@@ -333,7 +333,7 @@ private struct TaskRow: View {
         if task.phase == .unconfirmed {
             // Nothing is known to have failed, so do not send the user back through the
             // installation-method checklist first.
-            Text(.localized("Check the Home Screen and the app details in Library. iOS did not report the result, so the app may already be installed. Install again only if it is missing."))
+            Text(.localized("Check the Home Screen and app version. VexSign has no supported exact installed-version result for this task, and older handoff records may be missing. Review the device before deciding whether another install is needed."))
                 .font(.caption).foregroundStyle(.secondary)
         } else {
             Text(guide.detail).font(.caption).foregroundStyle(.secondary)
@@ -358,6 +358,12 @@ private struct TaskRow: View {
             NavigationLink(destination: InstallationView()) {
                 Label(.localized("Installation Engine"), systemImage: "arrow.down.app")
             }
+        case .deviceSetup:
+            NavigationLink {
+                Form { TunnelView() }.navigationTitle(.localized("Device bootstrap"))
+            } label: {
+                Label(.localized("Device bootstrap"), systemImage: "cable.connector")
+            }
         case .general:
             EmptyView()
         }
@@ -369,7 +375,8 @@ private struct TaskRow: View {
 	private var phaseColor: Color {
 		switch task.phase {
 		case .queued: return .secondary
-		case .downloading, .extracting, .signing, .installing, .importing, .readyToSign, .signed, .preparingInstallation, .waitingForIOS, .verifying: return Color.userTint
+		case .downloading, .extracting, .signing, .installing, .importing, .readyToSign, .signed, .preparingInstallation, .waitingForIOS, .verifying,
+            .inspectingPairing, .checkingTransport, .discoveringServices, .queryingDevice: return Color.userTint
 		case .paused: return .orange
 		case .completed: return .green
 		case .failed: return .orange

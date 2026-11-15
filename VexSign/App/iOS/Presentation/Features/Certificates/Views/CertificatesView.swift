@@ -34,6 +34,7 @@ struct CertificatesView: View {
 	/// the private key goes with it and cannot be recovered from VexSign afterwards.
 	@State private var _certPendingDeletion: CertificateRecord?
 	@State private var _isDeleteConfirmationPresenting = false
+    @State private var _revealedCertificateID: String?
 
 	// MARK: Fetch
 	@WorkspaceQuery(\.certificates, order: .newestFirst) private var _certificates: [CertificateRecord]
@@ -66,7 +67,7 @@ struct CertificatesView: View {
 			if !_certificates.isEmpty {
 				_healthHeader
 			}
-			ForEach(Array(_certificates.enumerated()), id: \.element.uuid) { index, cert in
+			ForEach(Array(_certificates.enumerated()), id: \.element.id) { index, cert in
 				_cellButton(for: cert, at: index)
 			}
 		}
@@ -251,7 +252,7 @@ extension CertificatesView {
 		.buttonStyle(.plain)
 		// Cards are not List rows, so the card swipe the Library grid uses reveals Delete.
 		// It only asks: the confirmation below is what removes anything.
-		.modifier(LibraryGridSwipeDelete(enabled: true) {
+        .modifier(LibraryGridSwipeDelete(enabled: true, rowID: cert.id, revealedRowID: $_revealedCertificateID) {
 			_certPendingDeletion = cert
 			_isDeleteConfirmationPresenting = true
 		})

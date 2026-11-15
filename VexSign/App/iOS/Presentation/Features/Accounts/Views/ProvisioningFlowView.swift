@@ -1,7 +1,8 @@
 // MARK: - ProvisioningFlowView
 /// Experimental provisioning and certificate-store handoff. Requires separate
-/// mutation/key-export approvals and a configured CMS verifier; does not start
-/// signing/installation or claim native account signing is integrated.
+/// mutation/key-export approvals and Apple's strict CMS verifier. A successful
+/// import offers an exact-identity transition to ordinary signing review; it
+/// never starts signing/installation or claims physical acceptance by itself.
 
 import SwiftUI
 import NimbleViews
@@ -10,6 +11,7 @@ import UniformTypeIdentifiers
 
 struct ProvisioningFlowView: View {
     @EnvironmentObject private var manager: AppleAccountWorkspaceModel
+    @EnvironmentObject private var services: AppContainer
     @Environment(\.dismiss) private var dismiss
 
     @State private var step: ProvisioningStep = .selectApp
@@ -25,6 +27,7 @@ struct ProvisioningFlowView: View {
     @State private var showDevicePicker = false
     @State private var createdProfile: AppleAccountProvisioningReceipt?
     @State private var certificateImported = false
+    @State private var signingHandoff: AppleAccountSigningHandoff?
     @State private var approveCertificate = false
     @State private var approveRegistration = false
     @State private var approveProfile = false
@@ -317,10 +320,32 @@ struct ProvisioningFlowView: View {
 
             Text(certificateImported
                 ? .localized("The Apple ID identity and profile are now available in Certificates. Select them in the existing signing flow; this step did not sign or install an app.")
-                : .localized("Only the provisioning profile was recorded. No app has been signed or installed. Native signing handoff is not enabled in this build."))
+                : .localized("Only the provisioning profile was recorded. No app has been signed or installed. Native Apple-account signing is experimental and not device-accepted. Import requires a separate key-export approval."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            if let handoff = signingHandoff {
+                if let app = services.workspace.snapshot.apps.first(where: { handoff.matches($0) }) {
+                    NavigationLink {
+                        SigningView(app: app, accountHandoff: handoff)
+                    } label: {
+                        Label(.localized("Review Signing with This Identity"), systemImage: "signature")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    NavigationLink {
+                        SigningView(app: app, installAfterSigning: true, accountHandoff: handoff)
+                    } label: {
+                        Label(.localized("Review Sign & Install"), systemImage: "arrow.down.app")
+                    }
+                    .buttonStyle(.bordered)
+                    Text(.localized("The next review is bound to this app and the identity just imported. Nothing is signed until you approve it there. Installation has separate transport and trust requirements; unavailable paired routes are not unlocked."))
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(.localized("The provisioned app changed or is no longer in the library. Nothing was signed. Select the current app and review provisioning again."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
 
             if !certificateImported {
                 Toggle(.localized("I consent to exporting this device-only private key once into VexSign's certificate store."), isOn: $approveKeyExport)
@@ -341,7 +366,7 @@ struct ProvisioningFlowView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(isProvisioning || !approveKeyExport)
 
-                Text(.localized("Experimental: production CMS verification and physical-device acceptance are still required before native Apple-account signing is considered integrated."))
+                Text(.localized("Experimental: strict Apple CMS verification is configured. Genuine current Apple-profile compatibility and physical-device acceptance remain unverified; unsupported profiles are refused, not decoded as trusted plists."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -360,7 +385,7 @@ struct ProvisioningFlowView: View {
         errorMessage = nil
         defer { isProvisioning = false }
         do {
-            try await manager.importCertificate(profile, consentGiven: approveKeyExport)
+            signingHandoff = try await manager.importCertificate(profile, consentGiven: approveKeyExport)
             certificateImported = true
             approveKeyExport = false
         } catch {

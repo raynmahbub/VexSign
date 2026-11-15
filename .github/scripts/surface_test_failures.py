@@ -178,10 +178,22 @@ def summary_lines(summary_path: str, tests_path: str) -> list[str]:
             # The assertion with its line lives here; print a couple so one run
             # explains itself without a second run.
             lines.append("RAW " + json.dumps(failure)[:700])
-        for failure in named[:5]:
-            title = str(failure.get("testName") or "?")[:200]
-            detail = str(failure.get("failureText") or "").replace("\n", " ")[:300]
-            lines.append("TEST " + title + (" — " + detail if detail else ""))
+        # Pack details too: emitting only the first five hid the reason for
+        # later failures whenever downloading the complete job log was blocked.
+        chunk = []
+        for failure in named:
+            title = str(failure.get("testName") or "?")[:140]
+            location = (failure.get("sourceCodeContext") or {}).get("location") or {}
+            if location.get("filePath"):
+                title += " @ " + os.path.basename(location["filePath"]) + ":" + str(location.get("lineNumber", "?"))
+            detail = str(failure.get("failureText") or "").replace("\n", " ")[:240]
+            entry = title + (" — " + detail if detail else "")
+            if chunk and len(" | ".join(chunk + [entry])) > 820:
+                lines.append("DETAILS " + " | ".join(chunk))
+                chunk = []
+            chunk.append(entry)
+        if chunk:
+            lines.append("DETAILS " + " | ".join(chunk))
     except Exception as error:
         lines.append("SUMMARY unavailable: " + str(error)[:160])
 
@@ -221,8 +233,8 @@ def log_context(path: str) -> list[str]:
 def emit(line: str) -> None:
     if line.startswith("STACK "):
         annotate("crash stack (callee <- caller): " + line[6:])
-    elif line.startswith("TEST "):
-        annotate(line[5:])
+    elif line.startswith("DETAILS "):
+        annotate(line[8:])
     elif line.startswith("SUMMARY "):
         annotate(line[8:])
     elif line.startswith("NAMES "):

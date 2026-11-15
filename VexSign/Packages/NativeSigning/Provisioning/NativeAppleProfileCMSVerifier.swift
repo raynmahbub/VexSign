@@ -5,8 +5,9 @@ import CryptoKit
 /// Public Security APIs only. Supported subset: definite-length DER CMS v1,
 /// attached data, one issuer/serial signer, SHA-256 and RSA PKCS#1 v1.5 (2048–4096).
 /// Unsupported BER/SHA-1/ECDSA/multi-signer/detached forms fail closed, not fallback.
-/// Written but NOT native-compiled or cryptographically validated yet; not selected
-/// by default and not a claim of compatibility with every Apple profile generation.
+/// Selected by the experimental account backend. Native synthetic regressions
+/// exercise parsing/cryptography; current genuine Apple profiles and the physical
+/// signing ladder remain separate acceptance requirements. Not full CMS compatibility.
 struct NativeAppleProfileCMSVerifier: NativeProfileCMSVerifying {
     private static let leafCN = "Apple iPhone OS Provisioning Profile Signing"
     private static let issuerCN = "Apple iPhone Certification Authority"

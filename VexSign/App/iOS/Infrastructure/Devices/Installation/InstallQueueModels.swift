@@ -30,7 +30,7 @@ extension InstallQueue {
 	    static func resolve(error: Error, needsTrust: Bool) -> FailureKind {
 	        if needsTrust { return .needsTrust }
 	        switch (error as? InstallConfirmation.Failure)?.verdict {
-	        case .some(.timedOutVerifying), .some(.notInstalled): return .unconfirmed
+	        case .some(.timedOutVerifying), .some(.notInstalled), .some(.installedOtherVersion): return .unconfirmed
 	        case .some(.timedOutWaiting): return .unconfirmed
 	        default: return .failed
 	        }

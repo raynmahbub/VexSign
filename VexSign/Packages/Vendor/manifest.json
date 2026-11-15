@@ -28,16 +28,119 @@
       ],
       "localPatches": [
         {
+          "path": "Sources/IDeviceSwift/Heartbeat/Heartbeat.swift",
+          "description": "Sole off-main serial admission for local lifecycle and native sessions; bounded format-aware inspection/import/delete/export with reviewed digests.",
+          "baseSHA256": "cfbb7681e245ea8114e02c0d276e47a39b7fe7d2829562275d6858a6212bd310",
+          "patchedSHA256": "3a434aab9a7883a10654e0699112cb4d0c51e50aed95c4d9d36192bdb699f524"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/Heartbeat+start.swift",
+          "description": "Operation-scoped native handles, byte-snapshot parsing, record recheck and deterministic session cleanup; no autonomous pairing.",
+          "baseSHA256": "4d11ef63974e18a08a29ce840c10bce8becb7f993819671ad5d262719ee5b1ed",
+          "patchedSHA256": "5eb953eec6d769388f245e73a12ed02588fc069876bf8b129b6c5d8e84e1582a"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/Heartbeat+checks.swift",
+          "description": "Bounded off-main endpoint diagnostics only, never socket-to-trust promotion.",
+          "baseSHA256": "43330b6c13656dbae380ae88873eab408493d6b25cdae297b2852f895f2e834a",
+          "patchedSHA256": "e70ebc719c9ed879cf9b942ccfec093253043c9d195820a7e0bc27ff5e493b1b"
+        },
+        {
           "path": "Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift",
-          "description": "Bounded pairing payload streaming, scoped FFI buffer access, file-handle cleanup and cancellation forwarding.",
+          "description": "No-follow bounded, rehashed AFC upload; exact target/expiry/OS checks and atomic Stop/command boundary; attempt-owned cleanup without deleting a possibly accepted payload; mutation gate retained.",
           "baseSHA256": "5497ecda8c7ceeb769dbb39d29787025e6da96fa29640d6ab10605ef3b08a5d4",
-          "patchedSHA256": "6f4b8552817c67643ace148172b3426be4f2de0a6c78e61ea60deb3dac5f27c9"
+          "patchedSHA256": "70c39df891d000706c8ec16c12b8bdd77a3718cb19a44ead274e962d750dd1e2"
         },
         {
           "path": "Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift",
-          "description": "deleteApp connects like listApps (pairing check, RSD tunnel) and frees the installation-proxy client on every path.",
+          "description": "Explicit-request positive-only CoreDevice inventory adaptation; mutation gate retained pending native binary/physical acceptance; no legacy pointer-array or private-inventory fallback.",
           "baseSHA256": "0f8b245ed3734262883fc25cc4d068edb67e3dc9892a61913f4b115979b7bdda",
-          "patchedSHA256": "a8884437ec4390be2bf21c6ed35c95c628fd5e5cc277a0a6558551ddfbb4b22c"
+          "patchedSHA256": "a4601a57b0fee7a36c1485083610e4493eb89cc1a1f05e11a642f6776f123213"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Trace/SystemLogManager.swift",
+          "description": "Scoped native stream ownership and matching cleanup; cancellation never frees a handle used by a blocking FFI call.",
+          "baseSHA256": "9a88d6750fde0fc596deae9515690c1038d397d1e1779e5327903c74eb132152",
+          "patchedSHA256": "aff169ece417889fed5f122c36461e246507e3086f8028b582f6e506d979fecd"
+        }
+      ],
+      "localAdditions": [
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/PairingFileStorage.swift",
+          "description": "Existing local storage owner hardened in place: bounded reads, canonical private roots, reviewed protected atomic lifecycle, migration and owned-name recovery.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "bdd734702b3e9521fc688fe580bdec30009ae1ef3860cf8f14c956e17765ee6c"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/PairingRecordDocument.swift",
+          "description": "Independently written flat classic/remote/combined record validator and redacted metadata; no conversion or device authorization.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "c7aae7e6f667b5c70cbec5e064e8e5ab81316fc4a05adf654f32251c63a5fb2a"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/PairingPlistEnvelope.swift",
+          "description": "Independently written bounded XML/binary preflight before Foundation/native parsing.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "a3ebbf7e933ae8812d238e751ffb8dcaaf3d14f54e4031ca75c19d99f3b8787c"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/DeviceTransportPolicy.swift",
+          "description": "Conservative OS/format restrictions, sanitized typed errors and point-in-time device-query values.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "bfc54b5687e2e35196d86a005ab4372957f4f909295830362bd65e31dea41afe"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/DeviceOperationExecutor.swift",
+          "description": "Single native admission slot retained until worker cleanup; bounded waiter and cooperative cancellation.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "46e37d832f6de1b201ee725596615aa88502c4b27ffe7996fc46177c5383d412"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/DeviceServiceSession.swift",
+          "description": "Scoped pinned-FFI client adapter for an explicitly consented classic-route identity/service query; modern remote and host routes blocked.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "a118b86b8b04f7b2043a5b9799650466124d7da926d9e898f19b4c8129406837"
+        },
+        {
+          "path": "Sources/IDeviceSwift/Heartbeat/DeviceServiceSession+Applications.swift",
+          "description": "Identity-checked CoreDevice App Service inventory using typed client/list destructors, strict bounded UTF-8, explicit request and no absence inference; binary/partial-failure acceptance pending.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "84451d5cc975545e6d52fc853a17fa5c96c3d51b1cbfea55372f2fa85cc8a72d"
+        },
+        {
+          "path": "Sources/IDeviceSwift/InstallationProxy/DeviceApplicationInventory.swift",
+          "description": "Independently written validated positive-only app metadata and opaque device/record binding; missing versions and omitted apps remain unknown.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "f158e1d19a6c03c3ebfad66e20e1f2babd3e94c5cc4f0d14bba153405523195d"
+        },
+        {
+          "path": "Sources/IDeviceSwift/InstallationProxy/DeviceInstallationSubmission.swift",
+          "description": "Exact verified archive/metadata/expiry/OS target, atomic Stop-versus-submission control and command acknowledgement distinct from installation evidence.",
+          "upstreamPathAbsent": true,
+          "license": "MIT",
+          "patchedSHA256": "68cdf98902ccbe948e4285bf5488f6ba34fa90b6427a624c7eb41af6f5f534e8"
+        }
+      ],
+      "localPatchReview": "LOCAL_PATCH_REVIEW.md",
+      "licenseSHA256": "d629cb986812f6ae413ac4fa2a7841a7174b61d58feff97da5deb6b7cbcc92d5",
+      "binaryDependencies": [
+        {
+          "name": "IDevice",
+          "version": "0.1.57",
+          "url": "https://github.com/jkcoxson/idevice/releases/download/v0.1.57/IDevice.xcframework.zip",
+          "swiftPMChecksum": "40cd5c769b60d1879a96c9caa27666037f9d5321844addec40ae99727b142d10",
+          "sourceRepository": "https://github.com/jkcoxson/idevice",
+          "sourceCommit": "99ea020acabd0579375a09fd690261ea6ca37f68",
+          "sourceDeclaredLicense": "MIT",
+          "reviewStatus": "Pinned source-only ownership review including typed CoreDevice inventory; binary headers/ABI, partial-failure ownership and full transitive license closure not accepted."
         }
       ]
     }

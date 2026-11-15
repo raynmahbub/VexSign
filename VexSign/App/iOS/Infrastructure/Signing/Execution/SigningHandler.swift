@@ -212,16 +212,12 @@ final class SigningHandler: NSObject {
         // The execution gate validates every retained component, including
         // nested identities and entitlements, against the actual modified tree.
 
-		if
-			_options.signingOption == .default,
-			let cert = appCertificate {
-            let certName = await MainActor.run {
-                cert.nickname ?? Storage.shared.getProvisionFileDecoded(for: cert)?.Name ?? .localized("certificate")
-            }
+        if _options.signingOption == .default {
+            guard let certName = await _certificateDisplayName() else { throw SigningFileHandlerError.missingCertifcate }
 			SigningLog.shared.info(.localized("Signing with %@", arguments: certName))
 			try await handler.sign()
             if let reference = handler.resolutionReview?.mainIdentityReference {
-                appCertificate = try await MainActor.run { try Storage.shared.managedCertificate(id: reference) }
+                try await _selectResolvedCertificate(reference: reference)
             }
             if let removed = handler.resolutionReview?.plannedRemovals, !removed.isEmpty {
                 onCompatibilityRemoved?(removed)
@@ -267,6 +263,19 @@ final class SigningHandler: NSObject {
         if injectedCount > 0 { await AnalyticsStore.shared.record(.tweaksInjected, count: injectedCount) }
     }
 	
+    /// The worker exchanges value metadata/identities with the view context, not
+    /// CertificatePair values through MainActor.run's Sendable result/closure.
+    @MainActor
+    private func _certificateDisplayName() -> String? {
+        guard let certificate = appCertificate, !certificate.isDeleted else { return nil }
+        return certificate.nickname ?? Storage.shared.getProvisionFileDecoded(for: certificate)?.Name ?? .localized("certificate")
+    }
+
+    @MainActor
+    private func _selectResolvedCertificate(reference: String) throws {
+        appCertificate = try Storage.shared.managedCertificate(id: reference)
+    }
+
     /// The final check on what was produced. Any failure stops the run before library
     /// registration or a success event: a bundle that failed here cannot be installed, so it
     /// is not kept, whether or not the preflight sheet was confirmed.

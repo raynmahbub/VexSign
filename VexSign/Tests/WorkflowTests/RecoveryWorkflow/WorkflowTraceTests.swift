@@ -82,10 +82,10 @@ final class WorkflowTraceTests: XCTestCase {
         task.move(to: .completed)
         task.errorText = "password=secret /private/var/key.p12"
         let report = TaskReceipt.report(for: task)
-        for value in ["1.2.3", "42", "8.0 (123)", "OTA", "device-confirmed-installed", "Elapsed:"] {
+        for value in ["1.2.3", "42", "8.0 (123)", "OTA", "Elapsed:"] {
             XCTAssertTrue(report.contains(value))
         }
-        for value in ["private-app", "private.invalid", "private-subject", "private-artifact", "secret", "key.p12"] {
+        for value in ["private-app", "private.invalid", "private-subject", "private-artifact", "secret", "key.p12", "device-confirmed-installed"] {
             XCTAssertFalse(report.contains(value))
         }
     }
@@ -107,7 +107,7 @@ final class WorkflowTraceTests: XCTestCase {
     }
 
     func testCertificateMigrationPreservesManagedIdentityAndCollisions() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
         let legacy = root.appendingPathComponent("Documents/Certificates")
         let destination = root.appendingPathComponent("Private/Certificates")
@@ -125,7 +125,7 @@ final class WorkflowTraceTests: XCTestCase {
     }
 
     func testPairingMigrationRetainsCredentialsPrivatelyAndIsIdempotent() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) } // try? ok: test teardown only
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let legacy = root.appendingPathComponent("pairingFile.plist")

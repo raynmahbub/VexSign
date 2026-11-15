@@ -230,16 +230,15 @@ struct SelfUpdateSheet: View {
 				_methodPicker
 			}
 
-			if _manager.method == .idevice && !_manager.hasPairing {
-				Button {
-					UIApplication.open("localdevvpn://enable?scheme=vexsign")
-				} label: {
-					Label(.localized("Connect to LocalDevVPN"), systemImage: "link")
-						.frame(maxWidth: .infinity)
-				}
-				.buttonStyle(.bordered)
-				.controlSize(.large)
-			}
+            if blocker != .combinedHost, let download = release.downloadURL {
+                Link(destination: download) {
+                    Label(.localized("Download IPA — sign locally or use an eligible installer"), systemImage: "arrow.down.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                Text(.localized("This opens the release download only. Verify its provenance, signing, provisioning and device eligibility before installation. No certificate or account credential is sent with this link."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
 
 			Button {
 				_manager.phase = .idle
@@ -314,9 +313,9 @@ struct SelfUpdateSheet: View {
 			} else {
 				if _manager.method == .idevice {
 					Button {
-						UIApplication.open("localdevvpn://enable?scheme=vexsign")
+						UIApplication.open("localdevvpn://")
 					} label: {
-						Label(.localized("Connect to LocalDevVPN"), systemImage: "link")
+						Label(.localized("Open LocalDevVPN"), systemImage: "link")
 							.frame(maxWidth: .infinity)
 					}
 					.buttonStyle(.borderedProminent)

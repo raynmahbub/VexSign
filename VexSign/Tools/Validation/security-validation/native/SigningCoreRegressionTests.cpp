@@ -198,8 +198,13 @@ static PublicSealFixture publicSealFixture() {
         true, false, strong ? alternate : primary), "test CodeDirectory");
     std::string weakHash, strongHash;
     ZSHA::SHA1(primary, weakHash); ZSHA::SHA256(alternate, strongHash);
-    jvalue legacy; legacy["cdhashes"].push_back(jvalue("data:" + weakHash));
-    legacy["cdhashes"].push_back(jvalue("data:" + strongHash.substr(0, 20)));
+    // jvalue's "data:" string representation expects BASE64, not raw digest
+    // bytes. Use its typed setter so external plist readers can consume this.
+    jvalue legacy, weakData, strongData;
+    weakData.assign_data(weakHash.data(), weakHash.size());
+    strongData.assign_data(strongHash.data(), 20);
+    legacy["cdhashes"].push_back(weakData);
+    legacy["cdhashes"].push_back(strongData);
     std::string legacyPlist; legacy.style_write_plist(legacyPlist);
     const int flags = CMS_PARTIAL | CMS_DETACHED | CMS_NOSMIMECAP | CMS_BINARY;
     std::unique_ptr<CMS_ContentInfo, decltype(&CMS_ContentInfo_free)> cms(CMS_sign(NULL, NULL, NULL, NULL, flags), CMS_ContentInfo_free);
@@ -496,6 +501,36 @@ int main(int argc, char** argv) {
             true, false, false, false), "well-formed metadata was rejected");
         verifyPages(read(work / "ValidMetadata.app/App"));
     });
+    test("explicit nested identifier rewrites are prefix-bounded and match Swift", [] {
+        const std::string root = "PrefixRewrite.app/";
+        write(root + "Info.plist", info("com.vendor.app")); write(root + "App", image());
+        const std::vector<std::pair<std::string, std::string>> identifiers = {
+            {"com.vendor.app.widget", "com.me.app.widget"},
+            {"com.vendor.app.a.com.vendor.app", "com.me.app.a.com.vendor.app"},
+            {"com.vendor.application.widget", "com.vendor.application.widget"},
+            {"org.other.com.vendor.app", "org.other.com.vendor.app"}
+        };
+        for (size_t i = 0; i < identifiers.size(); ++i) {
+            const std::string folder = root + "PlugIns/Child" + std::to_string(i) + ".appex/";
+            jvalue metadata; require(metadata.read_plist(info(identifiers[i].first)), "rewrite fixture metadata");
+            metadata["WKCompanionAppBundleIdentifier"] = "com.vendor.app";
+            metadata["NSExtension"]["NSExtensionAttributes"]["WKAppBundleIdentifier"] = identifiers[i].first;
+            write(folder + "Info.plist", metadata.write_plist()); write(folder + "App", image());
+        }
+        ZSignAsset asset; adhoc(asset); ZBundle bundle;
+        require(bundle.SignFolder(&asset, (work / "PrefixRewrite.app").string(), "com.me.app", "", "", {},
+            true, false, false, false), "explicit rename/sign failed");
+        for (size_t i = 0; i < identifiers.size(); ++i) {
+            const auto folder = work / root / ("PlugIns/Child" + std::to_string(i) + ".appex");
+            jvalue metadata; require(metadata.read_plist_from_file("%s/Info.plist", folder.c_str()), "rewritten metadata unreadable");
+            require(metadata["CFBundleIdentifier"].as_string() == identifiers[i].second, "native/Swift identifier mismatch");
+            require(metadata["WKCompanionAppBundleIdentifier"].as_string() == "com.me.app", "exact companion identifier not rewritten");
+            require(metadata["NSExtension"]["NSExtensionAttributes"]["WKAppBundleIdentifier"].as_string() == identifiers[i].second,
+                "Watch extension identifier was not prefix-bounded");
+            verifyPages(read(folder / "App"));
+        }
+        verifyPages(read(work / root / "App"));
+    });
     test("signature-directory creation failure propagates", [] {
         write("BlockedDirectory.app/Info.plist", info("com.example.blocked")); write("BlockedDirectory.app/App", image());
         write("BlockedDirectory.app/_CodeSignature", "not a directory"); ZSignAsset asset; adhoc(asset); ZBundle bundle;
@@ -738,6 +773,34 @@ int main(int argc, char** argv) {
             std::string json; output.style_write(json);
             require(ZFile::WriteFile(argv[2], json), "public fixture output failed");
         }
+    });
+    test("synthetic CMS CDHash attributes are typed plist data, not raw bytes in XML", [] {
+        const auto fixture = publicSealFixture();
+        const auto wrapped = blob(fixture.executable, 0x10000), primary = blob(fixture.executable, 0), alternate = blob(fixture.executable, 0x1000);
+        const unsigned char* cursor = wrapped.data() + 8;
+        std::unique_ptr<CMS_ContentInfo, decltype(&CMS_ContentInfo_free)> cms(
+            d2i_CMS_ContentInfo(NULL, &cursor, wrapped.size() - 8), CMS_ContentInfo_free);
+        require(cms && cursor == wrapped.data() + wrapped.size(), "CMS attribute fixture parse");
+        auto signers = CMS_get0_SignerInfos(cms.get());
+        require(signers && sk_CMS_SignerInfo_num(signers) == 1, "CMS fixture signer count");
+        auto signer = sk_CMS_SignerInfo_value(signers, 0);
+        std::unique_ptr<ASN1_OBJECT, decltype(&ASN1_OBJECT_free)> oid(OBJ_txt2obj("1.2.840.113635.100.9.1", 1), ASN1_OBJECT_free);
+        const int index = CMS_signed_get_attr_by_OBJ(signer, oid.get(), -1);
+        auto attribute = index >= 0 ? CMS_signed_get_attr(signer, index) : nullptr;
+        require(attribute && X509_ATTRIBUTE_count(attribute) == 1, "CMS fixture attribute count");
+        auto value = X509_ATTRIBUTE_get0_type(attribute, 0);
+        require(value && value->type == V_ASN1_OCTET_STRING, "CMS fixture attribute type");
+        const std::string payload(reinterpret_cast<const char*>(ASN1_STRING_get0_data(value->value.octet_string)),
+            ASN1_STRING_length(value->value.octet_string));
+        jvalue decoded; require(decoded.read_plist(payload), "CMS CDHash XML is not a readable plist");
+        std::string weakHash, strongHash;
+        ZSHA::SHA1(const_cast<uint8_t*>(primary.data()), primary.size(), weakHash);
+        ZSHA::SHA256(const_cast<uint8_t*>(alternate.data()), alternate.size(), strongHash);
+        require(decoded["cdhashes"].size() == 2 && decoded["cdhashes"][0].as_data() == weakHash &&
+            decoded["cdhashes"][1].as_data() == strongHash.substr(0, 20), "CMS CDHash bytes changed during XML encoding");
+        // The Python runner independently parses these with plistlib; a shared
+        // writer/reader bug cannot make this fixture appear interoperable.
+        write("cms-cdhashes.plist", payload); write("cms-primary.bin", primary); write("cms-alternate.bin", alternate);
     });
     test("native file IO rejects invalid bounds and observes buffered write failures", [] {
         const auto path = write("file-io", "bytes");

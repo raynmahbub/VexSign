@@ -132,10 +132,10 @@ def evaluate(root: Path = ROOT) -> tuple[list[str], dict[str, str]]:
 
     # 4. The UI must not claim the seam exists unless it does, and must not keep
     #    telling the user it is missing once it is wired.
-    says_not_enabled = "Native signing handoff is not enabled" in flow
+    says_not_enabled = "Native Apple-account signing is experimental and not device-accepted" in flow
     if native_integrated and says_not_enabled:
         problems.append(
-            "ProvisioningFlowView still says native signing handoff is not enabled while "
+            "ProvisioningFlowView still says native signing is not device-accepted while "
             "the capability claims .implemented"
         )
     if not native_integrated and not says_not_enabled:
@@ -190,9 +190,9 @@ def evaluate(root: Path = ROOT) -> tuple[list[str], dict[str, str]]:
     # 6. The design note is the reason the gate is closed; it must not go stale.
     if doc and "Status: not implemented" in doc and native_integrated:
         problems.append("VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md says not implemented while the capability claims .implemented")
-    if doc and "Production gate still closed" in doc and native_integrated:
+    if doc and "Supported capability promotion gate still closed" in doc and native_integrated:
         problems.append(
-            "VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md still describes the production CMS gate as closed "
+            "VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md still describes the supported capability gate as closed "
             "while the capability claims .implemented; update the doc in the same change"
         )
 
@@ -204,7 +204,7 @@ def evaluate(root: Path = ROOT) -> tuple[list[str], dict[str, str]]:
 
     if native_integrated and not verifier_selected:
         problems.append(
-            "nativeAppleAccountSigning is .implemented but SideSignAccountBridge still defaults to an "
+            "nativeAppleAccountSigning is .implemented but NativeAccountBackend still constructs an "
             "unconfigured NativeProvisioningProfileValidator; production never verifies Apple CMS"
         )
     if native_integrated and evidence_state != "complete":

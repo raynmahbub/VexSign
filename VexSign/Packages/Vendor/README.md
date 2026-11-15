@@ -56,24 +56,37 @@ Commit dates in the table/manifest are UTC dates. When checking a refresh, compa
 file blobs with the declared upstream tree, not merely the short commit label.
 Dependency/binary downloads still require network access and upstream availability.
 
-## Local IDeviceKitten patch
+## Local IDeviceKitten foundation patch
 
-The upstream pin is unchanged. `manifest.json` records a local patch and before/after
-SHA-256 hashes for `Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift`.
-The patch streams pairing payloads in 1 MiB chunks instead of loading the whole
-IPA, scopes native byte pointers to `withUnsafeBytes`, closes remote handles on
-error, throttles upload progress and forwards parent task cancellation to the
-worker. Native in-progress calls are not forcibly interruptible. Upstream MIT
-notices are retained. On refresh, reapply or retire this patch explicitly rather
-than assuming this file is byte-identical to the pinned upstream snapshot.
+The upstream wrapper and binary pins are unchanged. `manifest.json` now records
+six modified upstream Swift sources (base/current SHA-256) and nine local
+additions (current SHA-256, absent from the upstream tree). The retained MIT
+license is also hashed. Portable checks refuse stale local source hashes.
 
-`manifest.json` records a second local patch, for
-`Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift`. Upstream
-`deleteApp(for:)` connected only through the direct provider, so it could not work
-on the RSD tunnel that `listApps()` supports, and it never freed the
-installation-proxy client. The patch makes it check the pairing file, connect the
-way `listApps()` does, and free the client on success and on error. Nothing else
-in the file is changed.
+The local patch preserves bounded 1 MiB AFC streaming but replaces global native
+handles with one off-main executor and scoped sessions, and shares bounded
+format-aware protected pairing storage. Parsing, a reachable socket and command
+acknowledgement are never authorization or installation evidence. Explicit,
+read-only positive CoreDevice inventory is now integrated; exact target/archive,
+submission and dated device-bound confirmation flow through the existing app
+owners. Paired installation/removal remain gated pending binary/failure/device
+acceptance; modern remote tunnels and on-device RPPairing hosting are not
+implemented. No private suspend or LaunchServices fallback is enabled.
 
-Real AFC upload, transport failure, close behavior and app removal still require
-device tests.
+Read [IDeviceKitten/LOCAL_PATCH_REVIEW.md](IDeviceKitten/LOCAL_PATCH_REVIEW.md) for
+the exact source-level ownership findings, native ABI/license blockers and
+cancellation limits. The wrapper's MIT notice is not proof of complete binary
+or transitive license clearance. Source review is not a native build, Actions
+result or physical-device acceptance. On refresh, reapply or retire **all** local
+patches explicitly and review result ownership before changing capability gates.
+
+## Local Zsign identifier rewrite alignment
+
+The local `src/bundle.cpp` patch also aligns explicit nested bundle-ID renames
+with `NestedBundleAudit.rewrittenIdentifier`: only the exact old identifier or
+its dot-delimited leading prefix changes. An unrelated identifier, or a repeated
+old identifier later in the suffix, remains unchanged. The same rule applies to
+Watch companion/extension references. Production C++ regressions exercise a
+complete generated tree and its resulting page seals; Swift tests pin the same
+examples. This does not enable an automatic profile-driven rename, change the
+upstream pin or establish device acceptance. Preserve this patch on refresh.

@@ -232,7 +232,46 @@ extension InstallEvidenceReportingTests {
         let task = UnifiedTask(kind: .install, title: "App", phase: .completed)
         XCTAssertEqual(task.displayPhaseTitle, UnifiedTaskPhase.completed.title)
         task.context?.confirmationReason = "native-installation-completed"
+        XCTAssertNotEqual(task.displayPhaseTitle, String.localized("Installed"))
+        let recovered = UnifiedTask.from(task.snapshot)
+        XCTAssertEqual(recovered.phase, .unconfirmed)
+        XCTAssertEqual(TaskReceipt.evidence(for: recovered).confirmation, .unavailable)
+        task.context?.confirmationReason = "device-confirmed-installed"
+        XCTAssertNotEqual(task.displayPhaseTitle, String.localized("Installed"))
+        task.createdAt = InstallationEvidenceTestFixtures.epoch
+        task.updatedAt = task.createdAt.addingTimeInterval(3)
+        task.context = InstallationEvidenceTestFixtures.context()
         XCTAssertEqual(task.displayPhaseTitle, String.localized("Installed"))
+    }
+
+    func testLegacyDirectCompletionCannotBePromotedByAReasonStringOrMissingContext() {
+        for reason in [nil, "device-confirmed-installed", "device-reports-other-version", "operation-failed"] as [String?] {
+            let task = UnifiedTask(kind: .install, title: "Legacy", phase: .completed)
+            task.context?.installationMethod = "OTA"
+            task.context?.confirmationReason = reason
+            let recovered = UnifiedTask.from(task.snapshot)
+            XCTAssertEqual(recovered.phase, .unconfirmed)
+            XCTAssertEqual(recovered.context?.confirmationReason, "historical-installation-not-verified")
+            XCTAssertEqual(TaskReceipt.evidence(for: recovered).handoff, .unknown)
+            XCTAssertEqual(TaskReceipt.evidence(for: recovered).retrySafety, .checkDeviceFirst)
+            XCTAssertEqual(UnifiedTask.from(recovered.snapshot).stageHistory, recovered.stageHistory)
+        }
+        let contextless = UnifiedTask(kind: .install, title: "Legacy", phase: .completed)
+        contextless.context = nil
+        XCTAssertEqual(UnifiedTask.from(contextless.snapshot).phase, .unconfirmed)
+        for method in ["export", "guest-import"] {
+            let task = UnifiedTask(kind: .install, title: method, phase: .completed)
+            task.context?.installationMethod = method
+            XCTAssertEqual(UnifiedTask.from(task.snapshot).phase, .completed)
+        }
+    }
+
+    @MainActor
+    func testWrongVersionNeverPublishesSuccessfulCompletion() {
+        let model = InstallerStatusViewModel(status: .installing)
+        AppInstaller.Outcome.installedOtherVersion("0.9").publishConfirmedCompletion(to: model)
+        XCTAssertFalse(model.isCompleted)
+        XCTAssertFalse(InstallConfirmation.Verdict.installedOtherVersion("0.9").provesInstalled)
     }
 
     func testTimeoutFailureAndAccessibilityNeverInventSuccess() {

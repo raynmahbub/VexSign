@@ -13,6 +13,16 @@ bool CodeSuffix(const string& path, const char* suffix) {
     transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char c) { return std::tolower(c); });
     return ZFile::IsPathSuffix(lowered, suffix);
 }
+
+// Match NestedBundleAudit.rewrittenIdentifier: an explicit rename may change
+// only the app identifier or its dot-delimited prefix, never a later substring.
+string RewrittenBundleIdentifier(const string& identifier, const string& oldBase, const string& newBase) {
+    if (oldBase.empty() || newBase.empty() || oldBase == newBase) return identifier;
+    if (identifier == oldBase) return newBase;
+    const string prefix = oldBase + ".";
+    if (identifier.compare(0, prefix.size(), prefix) != 0) return identifier;
+    return newBase + identifier.substr(oldBase.size());
+}
 }
 
 ZBundle::ZBundle()
@@ -470,15 +480,13 @@ bool ZBundle::ModifyPluginsBundleId(const string& strOldBundleId, const string& 
 		}
 
 		string strOldPIBundleID = jvInfo["CFBundleIdentifier"];
-		string strNewPIBundleID = strOldPIBundleID;
-		ZUtil::StringReplace(strNewPIBundleID, strOldBundleId, strNewBundleId);
+		string strNewPIBundleID = RewrittenBundleIdentifier(strOldPIBundleID, strOldBundleId, strNewBundleId);
 		jvInfo["CFBundleIdentifier"] = strNewPIBundleID;
 		ZLog::PrintV(">>> BundleId: \t%s -> %s, Plugin\n", strOldPIBundleID.c_str(), strNewPIBundleID.c_str());
 
 		if (jvInfo.has("WKCompanionAppBundleIdentifier")) {
 			string strOldWKCBundleID = jvInfo["WKCompanionAppBundleIdentifier"];
-			string strNewWKCBundleID = strOldWKCBundleID;
-			ZUtil::StringReplace(strNewWKCBundleID, strOldBundleId, strNewBundleId);
+			string strNewWKCBundleID = RewrittenBundleIdentifier(strOldWKCBundleID, strOldBundleId, strNewBundleId);
 			jvInfo["WKCompanionAppBundleIdentifier"] = strNewWKCBundleID;
 			ZLog::PrintV(">>> BundleId: \t%s -> %s, Plugin-WKCompanionAppBundleIdentifier\n", strOldWKCBundleID.c_str(), strNewWKCBundleID.c_str());
 		}
@@ -487,8 +495,7 @@ bool ZBundle::ModifyPluginsBundleId(const string& strOldBundleId, const string& 
 			if (jvInfo["NSExtension"].has("NSExtensionAttributes")) {
 				if (jvInfo["NSExtension"]["NSExtensionAttributes"].has("WKAppBundleIdentifier")) {
 					string strOldWKBundleID = jvInfo["NSExtension"]["NSExtensionAttributes"]["WKAppBundleIdentifier"];
-					string strNewWKBundleID = strOldWKBundleID;
-					ZUtil::StringReplace(strNewWKBundleID, strOldBundleId, strNewBundleId);
+					string strNewWKBundleID = RewrittenBundleIdentifier(strOldWKBundleID, strOldBundleId, strNewBundleId);
 					jvInfo["NSExtension"]["NSExtensionAttributes"]["WKAppBundleIdentifier"] = strNewWKBundleID;
 					ZLog::PrintV(">>> BundleId: \t%s -> %s, NSExtension-NSExtensionAttributes-WKAppBundleIdentifier\n", strOldWKBundleID.c_str(), strNewWKBundleID.c_str());
 				}

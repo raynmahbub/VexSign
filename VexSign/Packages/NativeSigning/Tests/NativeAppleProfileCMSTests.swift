@@ -98,6 +98,21 @@ final class NativeAppleProfileCMSTests: XCTestCase {
         } catch { XCTAssertEqual(error as? NativeProfileValidationError, .cmsRejected) }
     }
 
+    func testProductionFactorySelectsStrictVerifierAndRefusesSyntheticAndPlainInputs() async throws {
+        let validator = NativeAccountBackend.productionProfileValidator()
+        XCTAssertTrue(validator.isConfigured)
+        XCTAssertNoThrow(try validator.requireCMSVerification())
+        let request = try NativeProfileValidationRequest(teamIdentifier: "ABCDE12345",
+            bundleIdentifier: "com.example.fixture", deviceIdentifier: "0000ABCD-0011223344556677",
+            certificateDER: Data([0x30, 0x01, 0x00]))
+        for input in [Self.cms(), try fixtureCMS(), Data("<plist><dict/></plist>".utf8)] {
+            do {
+                _ = try await validator.validate(cms: input, request: request, now: Date())
+                XCTFail("Selecting production cryptography must not trust synthetic or plain input")
+            } catch { XCTAssertEqual(error as? NativeProfileValidationError, .cmsRejected) }
+        }
+    }
+
     func testNonFiniteTrustTimeIsRejected() async {
         do {
             _ = try await NativeAppleProfileCMSVerifier().verifyAppleProvisioningCMS(Self.cms(), now: Date(timeIntervalSince1970: .nan))

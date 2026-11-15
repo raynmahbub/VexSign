@@ -144,21 +144,35 @@ final class ProfileCompatibilityTests: XCTestCase {
 		XCTAssertTrue(missing.blockingIssues.contains { $0.code == .entitlementNotGranted }, _describe(missing))
 	}
 
-	func testKeysVexSignRewritesAreNotTreatedAsProblems() {
-		// Rewritten by keychain isolation, added for JIT, or derived per team.
-		let evaluation = ProfileCompatibility.evaluate(
-			profile: _profile(),
-			target: _target("com.example.app", entitlements: [
-				"keychain-access-groups": ["TEAM12345.com.example.isolated"],
-				"dynamic-codesigning": true,
-				"com.apple.security.cs.allow-jit": true,
-				"get-task-allow": true,
-				"com.apple.developer.team-identifier": "TEAM12345"
-			])
-		)
+    func testSecurityCapabilitiesAreNeverExemptFromProfileAuthorization() {
+        let requested: [String: Any] = [
+            "keychain-access-groups": ["TEAM12345.com.example.isolated"],
+            "dynamic-codesigning": true,
+            "com.apple.security.cs.allow-jit": true,
+            "get-task-allow": true,
+            "com.apple.developer.team-identifier": "TEAM12345"
+        ]
+        XCTAssertTrue(SignatureVerifier.tolerantEntitlementKeys.isEmpty)
+        for (key, value) in requested {
+            let evaluation = ProfileCompatibility.evaluate(profile: _profile(),
+                target: _target("com.example.app", entitlements: [key: value]))
+            XCTAssertTrue(evaluation.blockingIssues.contains { $0.code == .entitlementNotGranted },
+                "Unreviewed capability \(key) must not become a rewrite exception: " + _describe(evaluation))
+        }
+    }
 
-		XCTAssertFalse(evaluation.hasBlocking, _describe(evaluation))
-	}
+    func testExplicitlyGrantedSecurityCapabilitiesPassWithoutARewriteException() {
+        let granted: [String: Any] = [
+            "keychain-access-groups": ["TEAM12345.com.example.isolated"],
+            "dynamic-codesigning": true,
+            "com.apple.security.cs.allow-jit": true,
+            "get-task-allow": true,
+            "com.apple.developer.team-identifier": "TEAM12345"
+        ]
+        let evaluation = ProfileCompatibility.evaluate(profile: _profile(extraEntitlements: granted),
+            target: _target("com.example.app", entitlements: granted))
+        XCTAssertFalse(evaluation.hasBlocking, _describe(evaluation))
+    }
 
 	// MARK: - Extensions
 

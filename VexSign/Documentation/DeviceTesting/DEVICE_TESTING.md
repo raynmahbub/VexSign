@@ -9,6 +9,20 @@ For the current signing/library follow-up, also execute the
 [component/readiness/swipe/deletion acceptance checklist](SIGNING_LIBRARY_ACCEPTANCE.md).
 Its build, positive Apple-profile trust, hosted layout, gestures and physical-device
 observations are pending; older CI or unsigned artifacts do not validate the draft.
+For the bootstrap/pairing/transport foundation, also follow the
+[20 foundation and six integration scenarios (all pending)](ON_DEVICE_FOUNDATION_ACCEPTANCE.md) and
+[exact-source build/validation instructions](../Architecture/on-device-foundation-status.md#manual-build-and-test-instructions).
+Those are additional manual checks, not simulated device-report passes. Paired
+installation and native-account/CMS promotion remain gated in this draft.
+
+## Read-only classic-route stage
+
+If you have selected a Mac plus iPhone on iOS 17.4–26.3 for **read-only**
+validation, start with [the scoped classic runbook](CLASSIC_PAIRING_READ_ONLY_RUNBOOK.md)
+and its blank private worksheet instead. Hardware availability is not approval
+to install/replace VexSign or operate an Apple Account. Do not run this document's
+broader installation/signing ladder until those separate actions are approved.
+Read-only subset observations cannot complete the full physical matrix.
 
 ## 1. Validate the exact source
 
@@ -150,7 +164,7 @@ In addition to the checks above, native-primary reports require:
 | `primary_keychain_guard` | Supported guest mode cannot invoke native account/key export APIs; locked storage fails without replacement. This is not malicious-code isolation. |
 | `installed_inventory_evidence` | Verify actual OS-installed apps separately from imported/staged guests, including exact version/device association. |
 | `v3_provider_explicit_consent` | Exercise a real supported provider with explicit consent; no legacy fallback or account request before approval. Keep provider/device/account evidence private. |
-| `cms_quota_gate` | With the default unavailable CMS verifier, profile UI stops before certificate/registration mutations or quota consumption. |
+| `cms_quota_gate` | The experimental factory selects strict Apple CMS verification. A deliberately unconfigured validator must still stop before quota work; a selected verifier is not quota approval, and unsigned/self-signed/tampered profiles must never reach key export or signing review. |
 | `native_owned_sign_install` | Once production CMS verification is accepted, use an owned native identity, fresh profile/status checks, explicit signing approval and verify the resulting app on the intended device. |
 | `scoped_unattended_renewal` | Exercise an explicit scoped grant, expiry/revocation/cancellation and verified installation; a review queue or success banner is insufficient. |
 
@@ -168,10 +182,13 @@ from a green CI run.
 (`VexSign/Packages/NativeSigning/Identity/NativeProtectedSigningHandoff.swift`), and it refuses to
 run without CMS verification:
 
-1. `NativeAppleProfileCMSVerifier` is written against public `Security` APIs and
-   pins Apple roots, but it has **never been compiled on macOS or checked against
-   a real Apple-issued profile**. That is why `NativeProvisioningProfileValidator`
-   defaults to *unavailable* and `appleCMS()` is an explicit internal opt-in.
+1. `NativeAppleProfileCMSVerifier` uses public `Security` APIs and pinned Apple
+   roots. The previous PR's native synthetic test step compiled and passed; the
+   experimental backend factory now explicitly selects strict verification.
+   **A current genuine Apple-issued profile has not been observed passing.**
+   Generic unconfigured validators still refuse. Selecting the verifier does not
+   promote either direct protected native signing or the certificate-store flow
+   to accepted product support.
 2. Promote it only after verifying, on macOS, that it accepts genuine profiles
    from the current Apple generation and rejects tampered ones. A verifier that
    merely parses a plist is not evidence of trust — do not enable it to make a

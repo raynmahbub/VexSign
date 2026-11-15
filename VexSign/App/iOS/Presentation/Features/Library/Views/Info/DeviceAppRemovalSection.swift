@@ -34,7 +34,7 @@ struct DeviceAppRemovalSection: View {
 					}
 				}
 			}
-			.disabled(_isRemoving || _refusal != nil)
+			.disabled(_isRemoving || _refusal != nil || !PairingBridge.pairedRemovalAccepted)
 			.confirmationDialog(
 				String.localized("Remove %@ from this device?", arguments: name),
 				isPresented: $_isConfirming,
@@ -56,8 +56,9 @@ struct DeviceAppRemovalSection: View {
 		} header: {
 			Text(String.localized("Device"))
 		} footer: {
-			Text(_refusal?.errorDescription
-				?? String.localized("Uses the pairing session, so it needs a pairing file and the pairing VPN. VexSign reads the device afterwards and reports what it finds."))
+            Text(_refusal?.errorDescription ?? (PairingBridge.pairedRemovalAccepted
+                ? String.localized("Removal requires an authorized same-device service session and an exact bundle absence read-back; an accepted command alone does not confirm removal.")
+                : PairingBridge.pairedInstallationLimitation))
 		}
 	}
 
