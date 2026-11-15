@@ -13,6 +13,9 @@ struct DiscoveryApp: Codable, Identifiable, Hashable, Sendable {
     let download: URL?
     let updated: Date?
     let releases: Int
+    /// Source-declared size for this listing's selected download. Optional so older
+    /// persisted catalogs still decode without inventing an integrity expectation.
+    var downloadByteCount: Int64? = nil
     var searchText: String { "\(name) \(bundleIdentifier) \(summary) \(developer) \(category)".folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) }
 }
 

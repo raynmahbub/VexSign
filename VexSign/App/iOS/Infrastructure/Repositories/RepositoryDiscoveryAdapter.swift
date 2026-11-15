@@ -37,7 +37,8 @@ final class RepositoryDiscoveryAdapter: DiscoveryCatalogProviding {
                     name: app.currentName, summary: app.currentDescription ?? "", developer: app.developer ?? "",
                     category: app.category ?? "Other", version: app.currentVersion ?? "", icon: app.iconURL,
                     download: app.currentDownloadUrl, updated: app.currentDate?.date,
-                    releases: app.versions?.filter { ($0.date?.date ?? .distantPast) > Date(timeIntervalSinceNow: -90 * 86_400) }.count ?? 0))
+                    releases: app.versions?.filter { ($0.date?.date ?? .distantPast) > Date(timeIntervalSinceNow: -90 * 86_400) }.count ?? 0,
+                    downloadByteCount: app.downloadIntegrityExpectation.byteCount))
             }
         }
         return apps
@@ -45,6 +46,7 @@ final class RepositoryDiscoveryAdapter: DiscoveryCatalogProviding {
     func download(_ app: DiscoveryApp) throws {
         guard let url = app.download else { throw URLError(.badURL) }
         try security.validatePackageDownloadURL(url)
-        _ = downloads.startPackageDownload(from: url, appName: app.name, appDescription: app.summary, integrity: nil)
+        _ = downloads.startPackageDownload(from: url, appName: app.name, appDescription: app.summary,
+            integrity: .init(byteCount: app.downloadByteCount))
     }
 }

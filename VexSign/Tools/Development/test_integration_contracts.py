@@ -52,6 +52,57 @@ class DownloadRoutingIsolationTests(unittest.TestCase):
         self.assertIn("completion: @MainActor @escaping (AppInfoPresentable, Bool) -> Void", source)
 
 
+class DownloadReleaseMetadataContractTests(unittest.TestCase):
+    """Portable wiring guards; the Swift tests execute the real decoding/file behavior in Xcode."""
+
+    def test_selected_download_size_is_bound_to_its_url_without_integer_traps(self) -> None:
+        source = (ROOT / "VexSign/Packages/AltSourceKit/Sources/Models/ASRepository.swift").read_text()
+        block = source.split("public var currentDownloadSize: Int64? {", 1)[1].split("public var currentDate:", 1)[0]
+        self.assertIn("let release = currentAppVersion, let releaseURL = release.downloadURL", block)
+        self.assertIn("Int64(clamping: releaseSize)", block)
+        self.assertIn("return releaseURL == downloadURL ? size : nil", block)
+
+    def test_integrity_factory_consumes_the_same_release_as_the_download_url(self) -> None:
+        source = (ROOT / "VexSign/App/iOS/Infrastructure/Downloads/DownloadIntegrity.swift").read_text()
+        block = source.split("var downloadIntegrityExpectation:", 1)[1]
+        self.assertIn("byteCount: currentDownloadSize", block)
+        self.assertNotIn("size ?? versionBytes", block)
+        tests = (ROOT / "VexSign/Tests/UnitTests/Application/DownloadIntegrityTests.swift").read_text()
+        for name in (
+            "testSelectedVersionSizeWinsOverConflictingTopLevelMetadata",
+            "testAnotherURLsLegacySizeIsNeverAppliedToAReleaseWithNoSize",
+            "testMatchingLegacyURLCanSupplyAMissingReleaseSize",
+            "testURLFallbackAlsoUsesTheLegacyURLsSizeRatherThanAnUnboundVersionSize",
+            "testLegacyAppWithoutVersionsStillEnforcesItsOwnSize",
+            "testCompatibilityFallbackUsesTheOlderArchivesSize",
+            "testOversizedUnsignedReleaseSizeIsRejectedWithoutIntegerConversionTrap",
+        ):
+            self.assertIn(name, tests)
+
+    def test_discovery_keeps_integrity_at_both_mapping_and_download_boundaries(self) -> None:
+        source = (ROOT / "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDiscoveryAdapter.swift").read_text()
+        self.assertIn("downloadByteCount: app.downloadIntegrityExpectation.byteCount", source)
+        block = source.split("func download(_ app: DiscoveryApp)", 1)[1]
+        self.assertIn("integrity: .init(byteCount: app.downloadByteCount)", block)
+        self.assertLess(block.index("try security.validatePackageDownloadURL(url)"), block.index("downloads.startPackageDownload"))
+        self.assertNotIn("integrity: nil", block)
+
+    def test_persisted_discovery_size_is_optional_with_executable_swift_regressions(self) -> None:
+        model = (ROOT / "VexSign/App/iOS/Domain/Services/DiscoveryIndex.swift").read_text()
+        self.assertIn("var downloadByteCount: Int64? = nil", model)
+        tests = (ROOT / "VexSign/Tests/UnitTests/Repositories/RepositoryDiscoveryAdapterTests.swift").read_text()
+        for name in (
+            "testDiscoveryForwardsTheSourcesSelectedDownloadSize",
+            "testAnOldListingWithoutSizeRemainsUnverifiedAndDownloadable",
+            "testInvalidURLIsStillRejectedBeforeDownloaderAdmission",
+            "testSizeSurvivesCatalogPersistenceAndOlderCatalogsStillDecode",
+            "testRefreshCarriesTheSameSizeIntoTheActualDownloadAdapter",
+        ):
+            self.assertIn(name, tests)
+        self.assertIn("JSONDecoder().decode(DiscoveryApp.self", tests)
+        self.assertIn("Storage(inMemory: true)", tests)
+
+
 class AnisetteMockContractTests(unittest.TestCase):
     def client_keys(self) -> set[str]:
         source = ANISETTE_CLIENT.read_text()
