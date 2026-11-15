@@ -55,7 +55,7 @@
           "path": "Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift",
           "description": "Explicit-request positive-only CoreDevice inventory adaptation; mutation gate retained pending native binary/physical acceptance; no legacy pointer-array or private-inventory fallback.",
           "baseSHA256": "0f8b245ed3734262883fc25cc4d068edb67e3dc9892a61913f4b115979b7bdda",
-          "patchedSHA256": "e4e88bba6705c39ffc5cd21f71b3d8b2337d82663d7998e2e3ef623904cf2157"
+          "patchedSHA256": "a4601a57b0fee7a36c1485083610e4493eb89cc1a1f05e11a642f6776f123213"
         },
         {
           "path": "Sources/IDeviceSwift/Trace/SystemLogManager.swift",
@@ -70,7 +70,7 @@
           "description": "Existing local storage owner hardened in place: bounded reads, canonical private roots, reviewed protected atomic lifecycle, migration and owned-name recovery.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "d6e4e19258f60378b4327272723fe7b98568d3477e60149ddc602ff7e5d7441f"
+          "patchedSHA256": "bdd734702b3e9521fc688fe580bdec30009ae1ef3860cf8f14c956e17765ee6c"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/PairingRecordDocument.swift",

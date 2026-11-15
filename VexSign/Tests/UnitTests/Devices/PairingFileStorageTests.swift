@@ -8,7 +8,9 @@ import XCTest
 
 final class PairingFileStorageTests: XCTestCase {
     private func withRoot(_ work: (URL) throws -> Void) throws {
-        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+        let temporary = try XCTUnwrap(Darwin.realpath(FileManager.default.temporaryDirectory.path, nil))
+        defer { free(temporary) }
+        let root = URL(fileURLWithPath: String(cString: temporary), isDirectory: true)
             .appendingPathComponent("vexsign-pairing-test-" + UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
                                                attributes: [.posixPermissions: 0o700])

@@ -10,7 +10,7 @@ public enum PairingFileStorage {
     private static let lock = NSLock()
     private static var recoveredTemporaryFiles = false
     private static var containerRoot: URL {
-        URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).resolvingSymlinksInPath()
+        canonicalContainerPrefix(URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true))
     }
     private static var exportRoot: URL {
         #if os(iOS)
@@ -18,7 +18,7 @@ public enum PairingFileStorage {
         // into file-shared Documents. Only canonicalize the container prefix.
         let temporary = containerRoot.appendingPathComponent("tmp", isDirectory: true)
         #else
-        let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+        let temporary = canonicalContainerPrefix(FileManager.default.temporaryDirectory)
         #endif
         return temporary.appendingPathComponent("pairing-exports", isDirectory: true)
     }
@@ -33,9 +33,19 @@ public enum PairingFileStorage {
     /// substituted ancestor link, including one that points into Documents.
     /// Internal root injection keeps that same production calculation testable.
     static func privateURL(in container: URL) -> URL {
-        container.resolvingSymlinksInPath().appendingPathComponent("Library", isDirectory: true)
+        canonicalContainerPrefix(container).appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
             .appendingPathComponent("Private", isDirectory: true).appendingPathComponent("pairingFile.plist")
+    }
+
+    /// Canonicalize only an existing, OS-provided container/temp prefix. Foundation
+    /// URL normalization may preserve macOS aliases; POSIX realpath is the same
+    /// namespace used by the no-follow lstat walk. Never call this on Library or
+    /// another app-owned descendant to excuse a substituted ancestor link.
+    private static func canonicalContainerPrefix(_ root: URL) -> URL {
+        guard root.isFileURL, let resolved = Darwin.realpath(root.path, nil) else { return root }
+        defer { free(resolved) }
+        return URL(fileURLWithPath: String(cString: resolved), isDirectory: true)
     }
 
     /// Pure lookup. In particular it does not migrate on the main actor or fall

@@ -610,7 +610,7 @@ jobs:
       # surface failing tests, crash stacks and log context as annotations
       # (complete lists stay in the step log).
       - name: Surface failures
-        if: failure()
+        if: failure() && steps.test.outcome != 'skipped'
         continue-on-error: true
         env:
           RESULT_BUNDLE: ${{ runner.temp }}/VexSignTests.xcresult

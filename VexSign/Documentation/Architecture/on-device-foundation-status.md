@@ -123,7 +123,7 @@ and [initial architecture audit](on-device-foundation-audit.md).
 | App regressions | Added actual-evidence, binding/build/freshness, receipt/restoration, polling, library revocation and invalid-payload cases; existing version-only fixtures migrated to actual synthetic observations. App tests require macOS/Xcode. |
 | Local Swift build/type checking | **UNRUN:** this workspace has no Swift/Xcode. Tree-sitter grammar review is not a type check. |
 | Candidate full CI | User authorized branch push and dispatch. Record the actual run URL/head SHA and individual conclusions; do not treat authorization or workflow wiring as a pass. |
-| Signing core | The first candidate CI's Linux sanitizer step passed. Local rerun could not start because OpenSSL development headers are absent. No Apple trust or physical signing is inferred. |
+| Signing core | **PASS: 36 production C++ regressions under ASan+UBSan plus independent plistlib interoperability**, rerun locally using ignored generated headers matching the installed OpenSSL 3.0.20. CI's Linux sanitizer step also passed. No Apple trust or physical signing is inferred. |
 | Physical device/account/installed version | **UNRUN:** all [F01–F20 and I01–I06](../DeviceTesting/ON_DEVICE_FOUNDATION_ACCEPTANCE.md) remain PENDING. No device logs, signed IPA hash, account outcome or installed version was invented. |
 
 ## Manual build and test instructions

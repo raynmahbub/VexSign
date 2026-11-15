@@ -85,7 +85,9 @@ public final class InstallationAppProxy: NSObject {
             var count = 0
             try session.checked(springboard_services_get_icon(client, id, &bytes, &count), stage: .discoveringServices)
             guard let bytes else { throw DeviceTransportError.invalidDeviceResponse }
-            defer { idevice_data_free(bytes.assumingMemoryBound(to: UInt8.self), count) }
+            // The producer exposes libc size_t (Swift Int), while this Rust
+            // usize destructor is imported as UInt. Preserve the native bits.
+            defer { idevice_data_free(bytes.assumingMemoryBound(to: UInt8.self), UInt(bitPattern: count)) }
             guard count > 0, count <= 8 * 1024 * 1024 else { throw DeviceTransportError.invalidDeviceResponse }
             return UIImage(data: Data(bytes: bytes, count: count))
         }
