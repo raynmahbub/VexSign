@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import AltSourceKit
 import XCTest
 @testable import VexSign
 
@@ -84,6 +85,69 @@ final class DownloadIntegrityTests: XCTestCase {
 		XCTAssertTrue(first.lastPathComponent.hasSuffix("-app.ipa"))
 		XCTAssertEqual(DownloadStagingPath.safeFilename("../.."), "download.ipa")
 	}
+
+    // MARK: - Source release metadata must describe the selected URL
+
+    private func sourceApp(_ fields: [String: Any]) throws -> ASRepository.App {
+        var json: [String: Any] = ["name": "Fixture", "bundleIdentifier": "com.example.fixture",
+            "iconURL": "https://example.com/icon.png"]
+        json.merge(fields) { _, supplied in supplied }
+        return try JSONDecoder().decode(ASRepository.App.self,
+            from: JSONSerialization.data(withJSONObject: json))
+    }
+
+    func testSelectedVersionSizeWinsOverConflictingTopLevelMetadata() throws {
+        let app = try sourceApp(["downloadURL": "https://example.com/latest.ipa", "size": 999,
+            "versions": [["version": "1.0", "downloadURL": "https://example.com/selected.ipa", "size": 7]]])
+        let file = try writeFile(named: "selected.ipa", contents: "payload")
+        XCTAssertEqual(app.currentDownloadUrl?.lastPathComponent, "selected.ipa")
+        XCTAssertEqual(app.downloadIntegrityExpectation.byteCount, 7)
+        XCTAssertEqual(DownloadIntegrity.verify(fileAt: file, expectation: app.downloadIntegrityExpectation), .verified(checks: 1))
+    }
+
+    func testAnotherURLsLegacySizeIsNeverAppliedToAReleaseWithNoSize() throws {
+        let app = try sourceApp(["downloadURL": "https://example.com/latest.ipa", "size": 999,
+            "versions": [["version": "1.0", "downloadURL": "https://example.com/selected.ipa"]]])
+        XCTAssertEqual(app.currentDownloadUrl?.lastPathComponent, "selected.ipa")
+        XCTAssertTrue(app.downloadIntegrityExpectation.isEmpty)
+    }
+
+    func testMatchingLegacyURLCanSupplyAMissingReleaseSize() throws {
+        let app = try sourceApp(["downloadURL": "https://example.com/app.ipa", "size": 7,
+            "versions": [["version": "1.0", "downloadURL": "https://example.com/app.ipa"]]])
+        XCTAssertEqual(app.downloadIntegrityExpectation.byteCount, 7)
+    }
+
+    func testURLFallbackAlsoUsesTheLegacyURLsSizeRatherThanAnUnboundVersionSize() throws {
+        let app = try sourceApp(["downloadURL": "https://example.com/legacy.ipa", "size": 7,
+            "versions": [["version": "1.0", "size": 999]]])
+        XCTAssertEqual(app.currentDownloadUrl?.lastPathComponent, "legacy.ipa")
+        XCTAssertEqual(app.downloadIntegrityExpectation.byteCount, 7)
+    }
+
+    func testLegacyAppWithoutVersionsStillEnforcesItsOwnSize() throws {
+        let app = try sourceApp(["downloadURL": "https://example.com/legacy.ipa", "size": 7])
+        XCTAssertNil(app.currentAppVersion)
+        XCTAssertEqual(app.downloadIntegrityExpectation.byteCount, 7)
+    }
+
+    func testCompatibilityFallbackUsesTheOlderArchivesSize() throws {
+        let tooNew = "\(OSVersion.running.majorVersion + 1).0"
+        let app = try sourceApp(["downloadURL": "https://example.com/latest.ipa", "size": 999,
+            "versions": [
+                ["version": "2.0", "minOSVersion": tooNew, "downloadURL": "https://example.com/latest.ipa", "size": 999],
+                ["version": "1.0", "downloadURL": "https://example.com/compatible.ipa", "size": 7]
+            ]])
+        XCTAssertEqual(app.currentDownloadUrl?.lastPathComponent, "compatible.ipa")
+        XCTAssertEqual(app.downloadIntegrityExpectation.byteCount, 7)
+    }
+
+    func testOversizedUnsignedReleaseSizeIsRejectedWithoutIntegerConversionTrap() throws {
+        let app = try sourceApp(["versions": [["version": "1.0",
+            "downloadURL": "https://example.com/huge.ipa", "size": String(UInt64.max)]]])
+        XCTAssertEqual(app.downloadIntegrityExpectation.byteCount, Int64.max)
+        XCTAssertTrue(DownloadIntegrity.expectationExceedsPackageLimit(app.downloadIntegrityExpectation))
+    }
 
 	// MARK: - Nothing declared
 

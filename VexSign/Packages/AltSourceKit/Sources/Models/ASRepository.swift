@@ -481,6 +481,21 @@ extension ASRepository {
 		public var currentDownloadUrl: URL? {
 			currentAppVersion?.downloadURL ?? downloadURL
 		}
+
+		/// Byte count for `currentDownloadUrl`, never for a different release's archive.
+		/// A compatible older release can have a different URL and size from the legacy
+		/// top-level fields. Only fall back to that legacy size when its URL is used.
+		public var currentDownloadSize: Int64? {
+			guard let release = currentAppVersion, let releaseURL = release.downloadURL else {
+				return size
+			}
+			if let releaseSize = release.size {
+				// Preserve an oversized declaration for the consumer's limit check without
+				// trapping if a source supplies a UInt greater than Int64.max.
+				return Int64(clamping: releaseSize)
+			}
+			return releaseURL == downloadURL ? size : nil
+		}
 		
 		public var currentDate: DateParsed? {
 			currentAppVersion?.date ?? versionDate ?? date
