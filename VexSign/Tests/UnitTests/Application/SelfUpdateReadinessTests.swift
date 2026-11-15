@@ -28,53 +28,43 @@ final class SelfUpdateReadinessTests: XCTestCase {
 		)
 	}
 
-	// MARK: - Server
+    // No availability/configuration flag can authorize credential egress or
+    // turn an unconfirmed paired self replacement into a supported workflow.
+    func testConfiguredAndUnconfiguredServersNeverRequestSigningMaterial() {
+        for configured in [false, true] {
+            let result = plan(.server, server: configured)
+            XCTAssertFalse(result.canInstall)
+            XCTAssertEqual(result.blocker, .remoteSigningDisabled)
+            XCTAssertNil(result.alternative)
+        }
+    }
 
-	func testConfiguredServerInstalls() {
-		let result = plan(.server)
-		XCTAssertTrue(result.canInstall)
-		XCTAssertNil(result.blocker)
-		XCTAssertNil(result.alternative)
-	}
+    func testNoBlockerOffersConfigurationAsASelfInstallWorkaround() {
+        for blocker in [SelfUpdateBlocker.combinedHost, .serverNotConfigured, .pairingMissing,
+                        .noDownload, .remoteSigningDisabled, .pairedRouteUnavailable] {
+            XCTAssertTrue(blocker.isFinal, "No method picker can enable self replacement in this build")
+        }
+    }
 
-	func testMissingServerAddressNamesTheBlockerAndOffersIDevice() {
-		let result = plan(.server, server: false)
-		XCTAssertEqual(result.blocker, .serverNotConfigured)
-		XCTAssertEqual(result.alternative, .idevice)
-		XCTAssertFalse(result.canInstall)
-	}
+    func testPairingPresenceDoesNotAuthorizeSelfReplacement() {
+        let result = plan(.idevice)
+        XCTAssertFalse(result.canInstall)
+        XCTAssertEqual(result.blocker, .pairedRouteUnavailable)
+        XCTAssertNil(result.alternative)
+    }
 
-	func testMissingServerAddressAndNoPairingHasNoWayOut() {
-		let result = plan(.server, server: false, pairing: false)
-		XCTAssertEqual(result.blocker, .serverNotConfigured)
-		XCTAssertNil(result.alternative)
-	}
+    func testMissingPairingDoesNotOfferAKeyUploadingServerAsFallback() {
+        let result = plan(.idevice, pairing: false)
+        XCTAssertEqual(result.blocker, .pairingMissing)
+        XCTAssertNil(result.alternative)
+    }
 
-	// MARK: - IDevice
-
-	func testPairedIDeviceInstalls() {
-		let result = plan(.idevice)
-		XCTAssertTrue(result.canInstall)
-		XCTAssertNil(result.blocker)
-	}
-
-	func testMissingPairingNamesTheBlockerAndOffersServer() {
-		let result = plan(.idevice, pairing: false)
-		XCTAssertEqual(result.blocker, .pairingMissing)
-		XCTAssertEqual(result.alternative, .server)
-	}
-
-	func testReleaseWithoutIPABlocksIDeviceEvenWhenPaired() {
-		let result = plan(.idevice, download: false)
-		XCTAssertEqual(result.blocker, .noDownload)
-		// The server method downloads and signs remotely, so it does not need the asset.
-		XCTAssertEqual(result.alternative, .server)
-	}
-
-	func testServerPrefersItsOwnMethodWhenTheIPAIsMissing() {
-		let result = plan(.server, download: false)
-		XCTAssertTrue(result.canInstall)
-	}
+    func testMissingReleaseAssetHasNoSilentAlternative() {
+        let result = plan(.idevice, download: false)
+        XCTAssertEqual(result.blocker, .noDownload)
+        XCTAssertNil(result.alternative)
+        XCTAssertFalse(plan(.server, download: false).canInstall)
+    }
 
 	// MARK: - Combined host
 
@@ -88,7 +78,7 @@ final class SelfUpdateReadinessTests: XCTestCase {
 	// MARK: - Messages
 
 	func testEveryBlockerExplainsItself() {
-		for blocker in [SelfUpdateBlocker.serverNotConfigured, .pairingMissing, .noDownload, .combinedHost] {
+		for blocker in [SelfUpdateBlocker.serverNotConfigured, .pairingMissing, .noDownload, .combinedHost, .remoteSigningDisabled, .pairedRouteUnavailable] {
 			XCTAssertGreaterThan(blocker.message.count, 20, "\(blocker.rawValue) needs a real explanation")
 			XCTAssertFalse(blocker.message.contains("isn't available in this build."), "\(blocker.rawValue) must say what to do")
 		}
@@ -118,7 +108,7 @@ final class SelfUpdateReadinessTests: XCTestCase {
 	}
 
 	func testUnusableValuesAreRejected() {
-		for value in ["", "   ", "ftp://updater.example.com", "https://", "not a url"] {
+		for value in ["", "   ", "ftp://updater.example.com", "https://", "not a url", "https://user:secret@example.com", "https://example.com?token=secret", "https://example.com#fragment"] {
 			XCTAssertNil(
 				SelfUpdateManager.normalizedServerBaseURL(value),
 				"\(value.isEmpty ? "<empty>" : value) cannot serve /vexsign/sign"

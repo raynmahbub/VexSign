@@ -80,7 +80,7 @@ struct InstallationView: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text(.localized("Server (Recommended): Uses a locally hosted server and itms-services:// to install applications.\n\nIDevice (advanced): Uses a VPN and a pairing file. Writes to AFC and manually calls installd, while monitoring install progress by using a callback. It does not require a local HTTPS certificate or an externally hosted server."))
+                Text(.localized("Server: serves a signed IPA through local HTTPS and itms-services; delivery is not installation confirmation.\n\nIDevice: paired installation is blocked in this build until the native inventory ownership contract and exact installed-version read-back are accepted. A VPN, pairing file or successful identity query does not remove this gate. Export remains available."))
             }
 
             Section {
@@ -132,7 +132,7 @@ struct InstallationView: View {
             Button(.localized("OK"), role: .cancel) {}
         } message: {
             Text(.localized(
-                "This installation method is intended for advanced users only!\n\nIt requires a VPN and a pairing file from a PC.\n\nWe recommend using the server installation method unless pairing and VPN are configured."
+                "Paired installation is not enabled merely by importing a pairing file or activating a VPN. This build requires an accepted same-device inventory bridge and exact installed-version read-back before native submission is allowed. Review the bootstrap limitations or export the signed IPA."
             ))
         }
         .onAppear(perform: _refreshPreflight)

@@ -14,18 +14,13 @@ import NimbleExtensions
 struct UpdatesSettingsView: View {
 	@ObservedObject private var _manager = SelfUpdateManager.shared
 	@AppStorage("VexSign.selfUpdateAutoCheck") private var _autoCheck: Bool = true
-	@AppStorage("VexSign.selfUpdateCertIndex") private var _certIndex: Int = -1
-	@AppStorage("VexSign.selfUpdateMethod") private var _method: Int = 0
 	@AppStorage(AppStoreUpdateTracker.enabledKey) private var _appStoreTracking: Bool = false
 	@AppStorage(SelfUpdateNotifier.enabledKey) private var _notifyOnRelease: Bool = true
 
 	@State private var _selected: SelfUpdateRelease?
-	@State private var _serverAddressDraft: String = ""
-	@State private var _serverAddressError: String?
 	@State private var _notificationAuthorization: UNAuthorizationStatus = .notDetermined
 	@ObservedObject private var _appStoreTracker = AppStoreUpdateTracker.shared
 
-	@WorkspaceQuery(\.certificates, order: .newestFirst) private var _certificates: [CertificateRecord]
 
 	var body: some View {
 		NBList(.localized("Updates")) {
@@ -50,11 +45,9 @@ struct UpdatesSettingsView: View {
 			SelfUpdateSheet(release: release, offersReminders: false)
 		}
 		.onAppear {
-			_serverAddressDraft = _manager.configuredServerAddress
 			_manager.refreshConfiguration()
 			Task { await _refreshNotificationAuthorization() }
 		}
-		.onChange(of: _method) { _, _ in _manager.refreshConfiguration() }
 		.onChange(of: _notifyOnRelease) { _, enabled in
 			guard enabled else { return }
 			// Ask here, where the person just said yes — never from a background check.
@@ -111,7 +104,7 @@ struct UpdatesSettingsView: View {
 					Label(String.localized("Update available: %@", arguments: available.version), systemImage: "arrow.up.circle.fill")
 						.foregroundStyle(Color.accentColor)
 					Spacer()
-					Button(.localized("Update in App")) { _selected = available }
+					Button(.localized("Review update")) { _selected = available }
 						.font(.subheadline.bold())
 				}
 			} else if _manager.hasChecked, let latest = _manager.latestSemver {
@@ -147,7 +140,7 @@ struct UpdatesSettingsView: View {
 						Text(latest.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
 					}
 					Spacer()
-					Button(latest.isInstalled ? .localized("Reinstall") : .localized("Install")) { _selected = latest }
+					Button(.localized("Review release")) { _selected = latest }
 						.font(.subheadline.bold())
 				}
 			}
@@ -167,136 +160,33 @@ struct UpdatesSettingsView: View {
 
 	// MARK: Options
 
-	private var _optionsSection: some View {
-		Group {
-			NBSection(.localized("Options")) {
-				Toggle(.localized("Automatic Update Checks"), isOn: $_autoCheck)
-				Text(.localized("Updates can be signed and installed from VexSign. Select your original signing certificate and an install method below; external signing is not required. iOS still asks you to approve installation."))
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-				Picker(.localized("Install Method"), selection: $_method) {
-					Text(.localized("Server")).tag(0)
-					Text(.localized("IDevice")).tag(1)
-				}
-				Picker(.localized("Signing Certificate"), selection: $_certIndex) {
-					Text(.localized("Selected Certificate")).tag(-1)
-					ForEach(Array(_certificates.enumerated()), id: \.offset) { index, cert in
-						Text(_certName(cert)).tag(index)
-					}
-				}
-			} footer: {
-				VStack(alignment: .leading, spacing: 6) {
-					Text(_method == 0
-						 ? .localized("Server: your certificate is sent over HTTPS, the update is signed remotely, and iOS installs it. No pairing file needed.")
-						 : .localized("IDevice: the update is signed on-device and installed over a pairing file."))
-					Text(.localized("Sign with the certificate you first installed VexSign with, or iOS won't update it in place."))
-				}
-			}
-
-			if _method == 1 {
-				Section {
-					Button {
-						UIApplication.open("localdevvpn://enable?scheme=vexsign")
-					} label: {
-						Label(.localized("Connect to LocalDevVPN"), systemImage: "link")
-					}
-					Button {
-						UIApplication.open("https://apps.apple.com/us/app/localdevvpn/id6755608044")
-					} label: {
-						Label(.localized("Download LocalDevVPN"), systemImage: "arrow.down.app")
-					}
-					if !_manager.hasPairing {
-						Label(.localized("IDevice updates need a pairing file. Set it up in Installation settings, or switch to Server."), systemImage: "exclamationmark.triangle.fill")
-							.font(.footnote)
-							.foregroundStyle(.secondary)
-					}
-				} footer: {
-					Text(.localized("IDevice updates need the loopback VPN connected. Enable LocalDevVPN, then update."))
-				}
-			} else if !_manager.isServerConfigured {
-				Section {
-					Label(SelfUpdateBlocker.serverNotConfigured.message, systemImage: "exclamationmark.triangle.fill")
-						.font(.footnote)
-						.foregroundStyle(.secondary)
-						.fixedSize(horizontal: false, vertical: true)
-					if _manager.hasPairing {
-						Button(.localized("Install Updates with IDevice")) { _manager.adopt(.idevice) }
-					} else {
-						NavigationLink {
-							NBList(.localized("Tunnel")) { TunnelView() }
-						} label: {
-							Label(.localized("Pairing file and VPN setup"), systemImage: "link")
-						}
-					}
-				} footer: {
-					Text(.localized("Server updates need an address that answers /vexsign/sign. Enter one below, or import a pairing file and use IDevice."))
-				}
-			}
-			_serverAddressSection
-		}
-	}
-
-	// MARK: Updater server address
-
-	/// The build can ship without a bundled `SelfUpdateConfig.plist`; before this field existed the
-	/// only answer was a warning that the server "isn't available in this build", with no way to
-	/// supply one.
-	private var _serverAddressSection: some View {
-		NBSection(.localized("Updater Server Address")) {
-			HStack {
-				TextField(.localized("https://updater.example.com"), text: $_serverAddressDraft)
-					.keyboardType(.URL)
-					.textInputAutocapitalization(.never)
-					.autocorrectionDisabled()
-					.submitLabel(.done)
-					.onSubmit(_saveServerAddress)
-				if !_serverAddressDraft.isEmpty {
-					Button {
-						_serverAddressDraft = ""
-					} label: {
-						Image(systemName: "xmark.circle.fill")
-							.foregroundStyle(.secondary)
-					}
-					.buttonStyle(.plain)
-					.accessibilityLabel(Text(.localized("Clear")))
-				}
-			}
-			Button(.localized("Save Address")) { _saveServerAddress() }
-				.disabled(_serverAddressDraft.trimmingCharacters(in: .whitespacesAndNewlines) == _manager.configuredServerAddress)
-			HStack {
-				Text(.localized("Status"))
-				Spacer()
-				Text(verbatim: _manager.isServerConfigured ? String.localized("Configured") : String.localized("Not configured"))
-					.foregroundStyle(_manager.isServerConfigured ? Color.accentColor : Color.secondary)
-			}
-			if _manager.hasServerAddressOverride {
-				Button(.localized("Remove Saved Address")) {
-					_serverAddressDraft = ""
-					_manager.setServerBaseURL(nil)
-					_serverAddressError = nil
-				}
-			}
-			if let error = _serverAddressError {
-				Label(error, systemImage: "exclamationmark.triangle.fill")
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.fixedSize(horizontal: false, vertical: true)
-			}
-		} footer: {
-			Text(.localized("Only an http(s) address is accepted; https is assumed when the scheme is left out. Leave this empty to use the address compiled into this build."))
-		}
-	}
-
-	private func _saveServerAddress() {
-		let trimmed = _serverAddressDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard _manager.setServerBaseURL(trimmed) else {
-			_serverAddressError = .localized("Enter a valid address, for example https://updater.example.com.")
-			return
-		}
-		_serverAddressError = nil
-		// Show the normalised value (scheme added, trailing slash removed) rather than what was typed.
-		_serverAddressDraft = _manager.configuredServerAddress
-	}
+    private var _optionsSection: some View {
+        Group {
+            NBSection(.localized("Options")) {
+                Toggle(.localized("Automatic Update Checks"), isOn: $_autoCheck)
+                Text(.localized("Release checks fetch public version metadata only. Downloading an IPA is not installation. Sign it locally in Library and update VexSign using an eligible external installer; automatic self-replacement is not supported in this build."))
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text(SelfUpdateBlocker.remoteSigningDisabled.message)
+                    .font(.footnote).foregroundStyle(.orange)
+                Text(SelfUpdateBlocker.pairedRouteUnavailable.message)
+                    .font(.footnote).foregroundStyle(.secondary)
+                NavigationLink {
+                    NBList(.localized("Device bootstrap")) { TunnelView() }
+                } label: {
+                    Label(.localized("Review bootstrap limitations"), systemImage: "cable.connector")
+                }
+            }
+            if _manager.hasServerAddressOverride {
+                NBSection(.localized("Inactive legacy updater settings")) {
+                    Button(.localized("Remove Saved Address"), role: .destructive) {
+                        _manager.setServerBaseURL(nil)
+                    }
+                } footer: {
+                    Text(.localized("The saved updater address is not used for signing or uploads. Removing it does not delete local certificates or alter their Keychain passwords."))
+                }
+            }
+        }
+    }
 
 	// MARK: Notifications
 
@@ -363,7 +253,4 @@ struct UpdatesSettingsView: View {
 		}
 	}
 
-	private func _certName(_ cert: CertificateRecord) -> String {
-		cert.nickname ?? cert.profile?.Name ?? .localized("Unknown")
-	}
 }

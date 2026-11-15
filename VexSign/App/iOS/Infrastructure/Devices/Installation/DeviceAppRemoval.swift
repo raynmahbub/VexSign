@@ -28,7 +28,14 @@ protocol DeviceAppUninstalling: Sendable {
 /// The installation service of the pairing session.
 struct PairedDeviceUninstaller: DeviceAppUninstalling {
 	func uninstall(bundleIdentifier: String) async throws {
-		try await InstallationAppProxy.deleteApp(for: bundleIdentifier)
+        let request = try await PairingBridge.installationRequest()
+        let control = DeviceInstallationControl()
+        do {
+            try await InstallationAppProxy.deleteApp(for: bundleIdentifier, request: request, control: control)
+        } catch {
+            if control.submittedAt != nil { throw DeviceTransportError.removalOutcomeUnknown }
+            throw error
+        }
 	}
 }
 
@@ -128,7 +135,7 @@ enum DeviceAppRemoval {
 		bundleIdentifier: String,
 		ownBundleIdentifier: String? = Bundle.main.bundleIdentifier,
 		uninstaller: DeviceAppUninstalling = PairedDeviceUninstaller(),
-		probe: InstalledAppProbing = InstalledAppProbe(),
+		probe: InstalledAppProbing = UnavailableInstallationProbe(),
 		settle: Duration = .seconds(2)
 	) async -> Outcome {
 		if let refusal = refusal(for: bundleIdentifier, ownBundleIdentifier: ownBundleIdentifier) {
@@ -138,6 +145,8 @@ enum DeviceAppRemoval {
 
 		do {
 			try await uninstaller.uninstall(bundleIdentifier: identifier)
+        } catch DeviceTransportError.removalOutcomeUnknown {
+            return .requested
 		} catch {
 			FileLogger.error("Device removal failed for \(identifier): \(error.localizedDescription)", category: "install")
 			return .failed(error.localizedDescription)
@@ -149,10 +158,8 @@ enum DeviceAppRemoval {
 			// Cancelled while waiting: the request was already accepted, so say exactly that.
 			return .requested
 		}
-		let reading = await Task.detached(priority: .utility) {
-			probe.installedApp(for: identifier)
-		}.value
-		let result = outcome(after: reading)
+        let reading = await probe.installedAppWithTimeout(for: identifier)
+        let result = outcome(after: reading?.bundleIdentifier == identifier ? reading : nil)
 		FileLogger.log("Device removal for \(identifier): \(result.title)", category: "install")
 		return result
 	}

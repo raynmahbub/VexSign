@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import IDeviceSwift
 import XCTest
 @testable import VexSign
 
@@ -22,7 +23,8 @@ final class InstallPreflightTests: XCTestCase {
 			InstallPreflightInputs(
 				hasServerCertificate: cert,
 				pairing: pairing ? .readable(udid: "00008120-001A2B3C4D5E6F70") : .absent,
-				trollStoreDetected: trollstore
+				trollStoreDetected: trollstore,
+                osVersion: .init(major: 17, minor: 4)
 			)
 		)
 	}
@@ -59,10 +61,18 @@ final class InstallPreflightTests: XCTestCase {
 	// MARK: - idevice
 
 	func testPairingFilePresenceDoesNotProveDeviceConnectivity() {
-		guard case .unknown = readiness(.idevice, pairing: true) else {
-			return XCTFail("A file does not prove pairing or VPN connectivity")
+		guard case .unavailable = readiness(.idevice, pairing: true) else {
+			return XCTFail("A file cannot enable an unaccepted native inventory bridge")
 		}
 	}
+
+    func testAcceptedInventoryFixtureStillDoesNotTurnAFileIntoTrust() {
+        let inputs = InstallPreflightInputs(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            osVersion: .init(major: 17, minor: 4), pairedInventoryAccepted: true)
+        guard case .unknown = InstallPreflight.readiness(for: .idevice, inputs) else {
+            return XCTFail("Injected dependency availability is still not device authorization")
+        }
+    }
 
 	func testIdeviceNamesTheMissingPairingFile() {
 		guard case .missing(let message) = readiness(.idevice, pairing: false) else {
@@ -94,7 +104,7 @@ final class InstallPreflightTests: XCTestCase {
 			XCTAssertThrowsError(try CertificateManagementService.validatePairingFile(data))
 		}
 		XCTAssertThrowsError(try CertificateManagementService.validatePairingFile(Data(repeating: 0, count: 2 * 1024 * 1024 + 1)))
-		let valid = try PropertyListSerialization.data(fromPropertyList: ["HostID": "test-host"], format: .xml, options: 0)
+        let valid = try PropertyListSerialization.data(fromPropertyList: PairingRecordTestFixtures.classic(), format: .xml, options: 0)
 		XCTAssertNoThrow(try CertificateManagementService.validatePairingFile(valid))
 	}
 

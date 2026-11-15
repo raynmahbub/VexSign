@@ -203,7 +203,10 @@ final class InstallConfirmationTests: XCTestCase {
 		XCTAssertEqual(InstalledState.derive(from: nil, expecting: "1.2.0"), .unknown)
 		XCTAssertEqual(InstalledState.derive(from: missing, expecting: "1.2.0"), .notInstalled)
 		XCTAssertEqual(InstalledState.derive(from: app(), expecting: "1.2.0"), .installed)
-		XCTAssertEqual(InstalledState.derive(from: app(), expecting: nil), .installed)
+		XCTAssertEqual(InstalledState.derive(from: app(), expecting: nil), .unknown)
+        XCTAssertEqual(InstalledState.derive(from: app(version: nil), expecting: "1.2.0"), .unknown)
+        XCTAssertEqual(InstalledState.derive(from: app(version: ""), expecting: "1.2.0"), .unknown)
+        XCTAssertEqual(InstalledState.derive(from: app(), expecting: ""), .unknown)
 		XCTAssertEqual(
 			InstalledState.derive(from: app(version: "1.1.0"), expecting: "1.2.0"),
 			.installedOtherVersion("1.1.0")
@@ -220,7 +223,7 @@ final class InstallConfirmationTests: XCTestCase {
 	@MainActor
 	func testOnlyProvenOutcomesCountAsInstalls() {
 		XCTAssertTrue(AppInstaller.Outcome.installed.countsAsInstall)
-		XCTAssertTrue(AppInstaller.Outcome.installedOtherVersion("1.1.0").countsAsInstall)
+		XCTAssertFalse(AppInstaller.Outcome.installedOtherVersion("1.1.0").countsAsInstall)
 		XCTAssertFalse(AppInstaller.Outcome.cancelled.countsAsInstall)
 		XCTAssertFalse(AppInstaller.Outcome.exported(nil).countsAsInstall)
 		XCTAssertFalse(AppInstaller.Outcome.guestImportPrepared.countsAsInstall)
@@ -290,7 +293,7 @@ final class InstallConfirmationTests: XCTestCase {
 
     @MainActor
     func testConfirmedInstallPublishesCompletedCardBeforeQueueDismissal() {
-        for outcome in [AppInstaller.Outcome.installed, .installedOtherVersion("1.1")] {
+        for outcome in [AppInstaller.Outcome.installed] {
             let model = InstallerStatusViewModel(status: .installing, isIdevice: false)
             model.installProgress = 0.99
             outcome.publishConfirmedCompletion(to: model)

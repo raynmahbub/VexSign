@@ -15,6 +15,7 @@
 //
 
 import Foundation
+import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - Engine
@@ -25,11 +26,16 @@ struct InstallConfirmation: Equatable, Sendable {
 		let bundleIdentifier: String
 		let version: String?
 		let build: String?
+        let deviceBinding: DeviceSessionBinding?
+        let evidenceNotBefore: Date?
 
-		init(bundleIdentifier: String, version: String? = nil, build: String? = nil) {
+		init(bundleIdentifier: String, version: String? = nil, build: String? = nil,
+             deviceBinding: DeviceSessionBinding? = nil, evidenceNotBefore: Date? = nil) {
 			self.bundleIdentifier = bundleIdentifier
 			self.version = version
 			self.build = build
+            self.deviceBinding = deviceBinding
+            self.evidenceNotBefore = evidenceNotBefore
 		}
 	}
 
@@ -97,9 +103,9 @@ struct InstallConfirmation: Equatable, Sendable {
 
 		var provesInstalled: Bool {
 			switch self {
-			case .installed, .installedOtherVersion:
+			case .installed:
 				true
-			case .notInstalled, .timedOutWaiting, .timedOutVerifying, .cancelled:
+			case .installedOtherVersion, .notInstalled, .timedOutWaiting, .timedOutVerifying, .cancelled:
 				false
 			}
 		}
@@ -108,6 +114,9 @@ struct InstallConfirmation: Equatable, Sendable {
 	let expectation: Expectation
 	let limits: Limits
 	private(set) var phase: Phase = .waitingForStart
+    /// Preserve the device's actual metadata, not a reconstruction from the
+    /// expectation. The installer/library/task receipt consume the same reading.
+    private(set) var confirmedApplication: InstalledApp?
 
 	private var _downloadingSince: Date?
     private var _observedIncompleteProgress = false
@@ -201,7 +210,6 @@ struct InstallConfirmation: Equatable, Sendable {
 		// Judged before this reading is recorded: whether the device was still answering when
 		// this check went out.
 		let answeredRecently = _lastReadingAt.map { date.timeIntervalSince($0) < limits.evidenceGrace } ?? false
-		if probe != nil { _lastReadingAt = date }
 
         var matchingProbe = probe?.bundleIdentifier == expectation.bundleIdentifier ? probe : nil
         // Missing or mismatched build metadata cannot establish the requested artifact.
@@ -211,8 +219,21 @@ struct InstallConfirmation: Equatable, Sendable {
         if expectation.version != nil && matchingProbe?.version == nil && matchingProbe?.isInstalled == true {
             matchingProbe = nil
         }
-		switch InstalledState.derive(from: matchingProbe, expecting: expectation.version) {
+        if let binding = expectation.deviceBinding {
+            guard let reading = matchingProbe, reading.isInstalled, !reading.isPlaceholder,
+                  reading.evidence?.confirms(bundleIdentifier: expectation.bundleIdentifier,
+                    version: expectation.version, build: expectation.build, binding: binding,
+                    notBefore: expectation.evidenceNotBefore, notAfter: date) == true else {
+                // A stale, cross-device, replaced-record, or legacy/private answer
+                // is no evidence for this attempt. Apply the ordinary deadlines.
+                return recordUnavailableEvidence(at: date, verifyStart: verifyStart, answeredRecently: answeredRecently)
+            }
+        }
+        if matchingProbe != nil { _lastReadingAt = date }
+		switch InstalledState.derive(from: matchingProbe, expecting: expectation.version,
+                                    build: expectation.build, binding: expectation.deviceBinding) {
 		case .installed:
+            confirmedApplication = matchingProbe
 			return _finish(.installed)
 
 		case .installedOtherVersion(let version):
@@ -259,6 +280,11 @@ struct InstallConfirmation: Equatable, Sendable {
 
 		return phase
 	}
+
+    private mutating func recordUnavailableEvidence(at date: Date, verifyStart: Date, answeredRecently: Bool) -> Phase {
+        let deadline = answeredRecently ? limits.verify : min(limits.verify, limits.unavailableEvidence)
+        return date.timeIntervalSince(verifyStart) >= deadline ? _finish(.timedOutVerifying) : phase
+    }
 
 	/// Seconds from `date` until the next moment the verdict can change through time alone, or
 	/// nil when not verifying or when every deadline has passed.
@@ -321,7 +347,7 @@ extension InstallConfirmation.Verdict {
 			nil
 		case .installedOtherVersion(let version):
 			.localized(
-				"Installed, but the device reports version %@.",
+				"The device reports version %@, not the requested artifact. Installation is not confirmed.",
 				arguments: version ?? .localized("unknown")
 			)
 		case .notInstalled:

@@ -129,6 +129,29 @@ final class LogRedactionTests: XCTestCase {
 		assertRedacted(line, "c2VjcmV0")
 	}
 
+    func testRemotePairingHostKeysAndPrettyPrintedByteArraysAreRedacted() {
+        for key in ["private_key", "public_key", "alt_irk", "HostPrivateKey"] {
+            for value in ["[104, 207, 19]", "Data([\n    104,\n    207,\n    19,\n])"] {
+                let output = LogRedaction.redact("\"\(key)\": \(value), transport: failed")
+                for byte in ["104", "207", "19"] { XCTAssertFalse(output.contains(byte), output) }
+                XCTAssertTrue(output.contains(LogRedaction.marker), output)
+                XCTAssertTrue(output.contains("transport: failed"), output)
+                XCTAssertEqual(LogRedaction.redact(output), output)
+            }
+        }
+        assertRedacted("<key>public_key</key><data>public-host-material</data>", "public-host-material")
+    }
+
+    func testRemoteHostUUIDIsMaskedWithoutHidingBundleIdentifiersOrTaskIDs() {
+        let host = "11111111-2222-3333-4444-555555555555"
+        for value in ["\"\(host)\"", "String(\"\(host)\")", host] {
+            assertRedacted("\"identifier\": \(value)", host)
+        }
+        for safe in ["identifier=com.example.app", "identifier: example-artifact", "taskID: \(host)"] {
+            XCTAssertEqual(LogRedaction.redact(safe), safe)
+        }
+    }
+
 	func testAppleAccountAndAnisetteHeadersAreRedacted() {
 		assertRedacted("X-Apple-I-MD: AAAABBBBCCCCDDDD", "AAAABBBBCCCCDDDD")
 		assertRedacted("appleID=jane.appleseed@example.com", "jane.appleseed@example.com")

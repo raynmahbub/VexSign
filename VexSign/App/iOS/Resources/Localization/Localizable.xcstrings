@@ -110552,6 +110552,1469 @@
           }
         }
       }
+    },
+    "1 · First installation is separate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · First installation is separate"
+          }
+        }
+      }
+    },
+    "2 · OS route and permissions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · OS route and permissions"
+          }
+        }
+      }
+    },
+    "3 · Review a compatible record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 · Review a compatible record"
+          }
+        }
+      }
+    },
+    "4 · Explicit local transport setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4 · Explicit local transport setup"
+          }
+        }
+      }
+    },
+    "5 · Fresh read-only authorization check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 · Fresh read-only authorization check"
+          }
+        }
+      }
+    },
+    "6 · Signing and installation gates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 · Signing and installation gates"
+          }
+        }
+      }
+    },
+    "A reachable socket and readable file do not authorize device operations. Verify a fresh device session first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A reachable socket and readable file do not authorize device operations. Verify a fresh device session first."
+          }
+        }
+      }
+    },
+    "A signed IPA, its provisioning profile, device trust, Developer Mode and the installation transport are separate prerequisites. VexSign does not bypass Apple's restrictions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A signed IPA, its provisioning profile, device trust, Developer Mode and the installation transport are separate prerequisites. VexSign does not bypass Apple's restrictions."
+          }
+        }
+      }
+    },
+    "Advanced · same reviewed record lifecycle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced · same reviewed record lifecycle"
+          }
+        }
+      }
+    },
+    "Allow experimental local device-service queries" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow experimental local device-service queries"
+          }
+        }
+      }
+    },
+    "Below iOS 17.4, this foundation does not provide a paired-device route. Use an eligible external installer or signed IPA export." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Below iOS 17.4, this foundation does not provide a paired-device route. Use an eligible external installer or signed IPA export."
+          }
+        }
+      }
+    },
+    "Bootstrap documentation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bootstrap documentation"
+          }
+        }
+      }
+    },
+    "Cancel query" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel query"
+          }
+        }
+      }
+    },
+    "Check pairing endpoint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check pairing endpoint"
+          }
+        }
+      }
+    },
+    "Check this target against Xcode, Finder or your trusted pairing tool. A record may omit the device UDID; do not substitute its remote host UUID." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check this target against Xcode, Finder or your trusted pairing tool. A record may omit the device UDID; do not substitute its remote host UUID."
+          }
+        }
+      }
+    },
+    "Checking local transport" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking local transport"
+          }
+        }
+      }
+    },
+    "Checking pairing endpoint…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking pairing endpoint…"
+          }
+        }
+      }
+    },
+    "Choose an explicit export destination. This exact-byte pairing plist contains private credentials. The destination has not been verified as a compatible companion, and no receipt is claimed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an explicit export destination. This exact-byte pairing plist contains private credentials. The destination has not been verified as a compatible companion, and no receipt is claimed."
+          }
+        }
+      }
+    },
+    "Choose explicit export destination" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose explicit export destination"
+          }
+        }
+      }
+    },
+    "Choose replacement" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose replacement"
+          }
+        }
+      }
+    },
+    "Classic lockdown · unversioned" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classic lockdown · unversioned"
+          }
+        }
+      }
+    },
+    "Classic pairing candidate — device testing pending" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classic pairing candidate — device testing pending"
+          }
+        }
+      }
+    },
+    "Combined classic / Remote Pairing · unversioned" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combined classic / Remote Pairing · unversioned"
+          }
+        }
+      }
+    },
+    "Delete local record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete local record"
+          }
+        }
+      }
+    },
+    "Delete pairing record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete pairing record"
+          }
+        }
+      }
+    },
+    "Delete reviewed pairing record…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete reviewed pairing record…"
+          }
+        }
+      }
+    },
+    "Delete the reviewed pairing record?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the reviewed pairing record?"
+          }
+        }
+      }
+    },
+    "Developer Mode and Local Network permission are not automatically verified here. Enable Developer Mode in Settings → Privacy & Security when available, complete its restart/confirmation, unlock the iPhone and approve local access if iOS asks." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Developer Mode and Local Network permission are not automatically verified here. Enable Developer Mode in Settings → Privacy & Security when available, complete its restart/confirmation, unlock the iPhone and approve local access if iOS asks."
+          }
+        }
+      }
+    },
+    "Device bootstrap" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device bootstrap"
+          }
+        }
+      }
+    },
+    "Device setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device setup"
+          }
+        }
+      }
+    },
+    "Download IPA — sign locally or use an eligible installer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download IPA — sign locally or use an eligible installer"
+          }
+        }
+      }
+    },
+    "Endpoint reachability" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Endpoint reachability"
+          }
+        }
+      }
+    },
+    "Export private pairing credentials?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export private pairing credentials?"
+          }
+        }
+      }
+    },
+    "Export reviewed pairing record…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export reviewed pairing record…"
+          }
+        }
+      }
+    },
+    "Import pairing record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import pairing record"
+          }
+        }
+      }
+    },
+    "Import pairing record…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import pairing record…"
+          }
+        }
+      }
+    },
+    "Imported paid-certificate signing still uses the existing certificate store and signing engine without Apple Account login. Native account signing remains gated by CMS/security and physical-device evidence. Pairing alone grants neither signing nor installation readiness." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported paid-certificate signing still uses the existing certificate store and signing engine without Apple Account login. Native account signing remains gated by CMS/security and physical-device evidence. Pairing alone grants neither signing nor installation readiness."
+          }
+        }
+      }
+    },
+    "Inactive legacy updater settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inactive legacy updater settings"
+          }
+        }
+      }
+    },
+    "Inspecting pairing record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inspecting pairing record"
+          }
+        }
+      }
+    },
+    "Inspects the same pairing record and performs only a bounded endpoint probe through PairingBridge. It does not establish VPN ownership, device authorization, service availability or installation support." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inspects the same pairing record and performs only a bounded endpoint probe through PairingBridge. It does not establish VPN ownership, device authorization, service availability or installation support."
+          }
+        }
+      }
+    },
+    "Install and activate a compatible VPN yourself in its own app or Settings. A URL handler, interface address, or reachable TCP port does not prove VPN ownership, pairing trust or installation support. The usual peer is 10.7.0.1/32; 10.7.1.1/32 is this device's interface and is rejected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install and activate a compatible VPN yourself in its own app or Settings. A URL handler, interface address, or reachable TCP port does not prove VPN ownership, pairing trust or installation support. The usual peer is 10.7.0.1/32; 10.7.1.1/32 is this device's interface and is rejected."
+          }
+        }
+      }
+    },
+    "Intended device UDID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intended device UDID"
+          }
+        }
+      }
+    },
+    "No legacy updater address is configured. Remote self-update signing is disabled in this build even with an address; download the IPA and use local signing with an eligible external installer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No legacy updater address is configured. Remote self-update signing is disabled in this build even with an address; download the IPA and use local signing with an eligible external installer."
+          }
+        }
+      }
+    },
+    "No pairing record was found. Review device bootstrap for compatible import and transport requirements. Paired self-update remains gated; use an eligible external installer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pairing record was found. Review device bootstrap for compatible import and transport requirements. Paired self-update remains gated; use an eligible external installer."
+          }
+        }
+      }
+    },
+    "No recognized pairing format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No recognized pairing format"
+          }
+        }
+      }
+    },
+    "Not reachable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not reachable"
+          }
+        }
+      }
+    },
+    "OS compatibility unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OS compatibility unknown"
+          }
+        }
+      }
+    },
+    "On-device RPPairing host unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-device RPPairing host unavailable"
+          }
+        }
+      }
+    },
+    "Only bounded flat pairing plists are accepted. The remote identifier is the host's identity, not this iPhone's UDID. Import preserves original bytes and never converts one format into another. Replacing a record requires confirmation and an unchanged reviewed fingerprint." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only bounded flat pairing plists are accepted. The remote identifier is the host's identity, not this iPhone's UDID. Import preserves original bytes and never converts one format into another. Replacing a record requires confirmation and an unchanged reviewed fingerprint."
+          }
+        }
+      }
+    },
+    "Open LocalDevVPN" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open LocalDevVPN"
+          }
+        }
+      }
+    },
+    "Open Pairing file and VPN setup. Review the OS route, record format and intended device; activate the VPN yourself. A timed-out native call retains the transport until it retires. Never replace credentials or repeat pairing just to hide a dependency limitation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Pairing file and VPN setup. Review the OS route, record format and intended device; activate the VPN yourself. A timed-out native call retains the transport until it retires. Never replace credentials or repeat pairing just to hide a dependency limitation."
+          }
+        }
+      }
+    },
+    "Opening device services" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening device services"
+          }
+        }
+      }
+    },
+    "Paired installation is not enabled merely by importing a pairing file or activating a VPN. This build requires an accepted same-device inventory bridge and exact installed-version read-back before native submission is allowed. Review the bootstrap limitations or export the signed IPA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired installation is not enabled merely by importing a pairing file or activating a VPN. This build requires an accepted same-device inventory bridge and exact installed-version read-back before native submission is allowed. Review the bootstrap limitations or export the signed IPA."
+          }
+        }
+      }
+    },
+    "Paired route unavailable on this OS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired route unavailable on this OS"
+          }
+        }
+      }
+    },
+    "Paired self-update is unavailable in this build. It requires accepted same-device inventory, exact installed-version evidence and a supported self-replacement lifecycle. A pairing file, VPN or private suspend selector cannot supply those guarantees. Use an eligible external installer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired self-update is unavailable in this build. It requires accepted same-device inventory, exact installed-version evidence and a supported self-replacement lifecycle. A pairing file, VPN or private suspend selector cannot supply those guarantees. Use an eligible external installer."
+          }
+        }
+      }
+    },
+    "Pairing exports contain credentials. Share only with a trusted, compatible destination you explicitly select. This is a file handoff, not proof of companion receipt or compatibility. Temporary exports are protected and cleaned on dismissal or later process recovery." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing exports contain credentials. Share only with a trusted, compatible destination you explicitly select. This is a file handoff, not proof of companion receipt or compatibility. Temporary exports are protected and cleaned on dismissal or later process recovery."
+          }
+        }
+      }
+    },
+    "Pairing record stored securely. Its format is recognized, but device trust and transport have not been verified. No connection or installation was started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing record stored securely. Its format is recognized, but device trust and transport have not been verified. No connection or installation was started."
+          }
+        }
+      }
+    },
+    "Pairing records are format-checked and protected by the shared bootstrap flow. File validity and a reachable endpoint are not device trust. Open setup for explicit replacement, export and a fresh read-only authorization query." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing records are format-checked and protected by the shared bootstrap flow. File validity and a reachable endpoint are not device trust. Open setup for explicit replacement, export and a fresh read-only authorization query."
+          }
+        }
+      }
+    },
+    "Pairing storage could not complete this action. Unlock the device and review the current record before retrying. No device success is claimed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing storage could not complete this action. Unlock the device and review the current record before retrying. No device success is claimed."
+          }
+        }
+      }
+    },
+    "Pairing storage unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing storage unavailable"
+          }
+        }
+      }
+    },
+    "Prepare pairing export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare pairing export"
+          }
+        }
+      }
+    },
+    "Querying device authorization" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Querying device authorization"
+          }
+        }
+      }
+    },
+    "Reachable — not authorized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reachable — not authorized"
+          }
+        }
+      }
+    },
+    "Record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record"
+          }
+        }
+      }
+    },
+    "Refresh record" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh record"
+          }
+        }
+      }
+    },
+    "Release checks fetch public version metadata only. Downloading an IPA is not installation. Sign it locally in Library and update VexSign using an eligible external installer; automatic self-replacement is not supported in this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Release checks fetch public version metadata only. Downloading an IPA is not installation. Sign it locally in Library and update VexSign using an eligible external installer; automatic self-replacement is not supported in this build."
+          }
+        }
+      }
+    },
+    "Remote Pairing import — companion required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote Pairing import — companion required"
+          }
+        }
+      }
+    },
+    "Remote Pairing · unversioned" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote Pairing · unversioned"
+          }
+        }
+      }
+    },
+    "Remote self-update signing is disabled: VexSign does not upload your certificate, private key or password to an updater. Download the release IPA, sign locally in Library, and use an eligible external installer to update VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote self-update signing is disabled: VexSign does not upload your certificate, private key or password to an updater. Download the release IPA, sign locally in Library, and use an eligible external installer to update VexSign."
+          }
+        }
+      }
+    },
+    "Removal requires an authorized same-device service session and an exact bundle absence read-back; an accepted command alone does not confirm removal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removal requires an authorized same-device service session and an exact bundle absence read-back; an accepted command alone does not confirm removal."
+          }
+        }
+      }
+    },
+    "Replace pairing record…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace pairing record…"
+          }
+        }
+      }
+    },
+    "Replace the active pairing record?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace the active pairing record?"
+          }
+        }
+      }
+    },
+    "Requires an accepted, fresh same-device installation-service inventory response." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requires an accepted, fresh same-device installation-service inventory response."
+          }
+        }
+      }
+    },
+    "Review bootstrap limitations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review bootstrap limitations"
+          }
+        }
+      }
+    },
+    "Review release" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review release"
+          }
+        }
+      }
+    },
+    "Review setup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review setup"
+          }
+        }
+      }
+    },
+    "Review update" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review update"
+          }
+        }
+      }
+    },
+    "Server: serves a signed IPA through local HTTPS and itms-services; delivery is not installation confirmation.\n\nIDevice: paired installation is blocked in this build until the native inventory ownership contract and exact installed-version read-back are accepted. A VPN, pairing file or successful identity query does not remove this gate. Export remains available." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server: serves a signed IPA through local HTTPS and itms-services; delivery is not installation confirmation.\n\nIDevice: paired installation is blocked in this build until the native inventory ownership contract and exact installed-version read-back are accepted. A VPN, pairing file or successful identity query does not remove this gate. Export remains available."
+          }
+        }
+      }
+    },
+    "Setup action completed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup action completed"
+          }
+        }
+      }
+    },
+    "The 30-second deadline bounds this screen's wait, not the native FFI call. A blocked worker keeps exclusive ownership until it actually retires. New operations are refused, not run concurrently. Modern remote routes and simulators remain blocked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The 30-second deadline bounds this screen's wait, not the native FFI call. A blocked worker keeps exclusive ownership until it actually retires. New operations are refused, not run concurrently. Modern remote routes and simulators remain blocked."
+          }
+        }
+      }
+    },
+    "The device reports version %@, not the requested artifact. Installation is not confirmed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device reports version %@, not the requested artifact. Installation is not confirmed."
+          }
+        }
+      }
+    },
+    "The export picker closed. Temporary-file cleanup was requested; protected recovery cleanup also runs on the next launch. No companion receipt or destination compatibility was verified." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The export picker closed. Temporary-file cleanup was requested; protected recovery cleanup also runs on the next launch. No companion receipt or destination compatibility was verified."
+          }
+        }
+      }
+    },
+    "The file has a recognized structure. Readability is not authorization: the device still has to accept a fresh session. A remote host identifier is not a device UDID." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file has a recognized structure. Readability is not authorization: the device still has to accept a fresh session. A remote host identifier is not a device UDID."
+          }
+        }
+      }
+    },
+    "The native transport is still retiring. A cancelled or timed-out waiter never frees pointers being used by a native call. Wait before retrying; reopen VexSign if the native call never returns." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The native transport is still retiring. A cancelled or timed-out waiter never frees pointers being used by a native call. Wait before retrying; reopen VexSign if the native call never returns."
+          }
+        }
+      }
+    },
+    "The original unmodified plist includes private keys and host identity. Choose a trusted local file destination. VexSign neither converts formats nor verifies receipt by another app. Do not include this file in diagnostics." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The original unmodified plist includes private keys and host identity. Choose a trusted local file destination. VexSign neither converts formats nor verifies receipt by another app. Do not include this file in diagnostics."
+          }
+        }
+      }
+    },
+    "The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. Paired installation also requires exact installed-version evidence and remains gated in this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The package was handed to iOS, but the device did not report the result of this over-the-air installation, so this receipt cannot say whether the app was installed. Check the Home Screen before installing again; no reinstall was started. Paired installation also requires exact installed-version evidence and remains gated in this build."
+          }
+        }
+      }
+    },
+    "The pairing record has a recognized structure and the endpoint answered. No authorized device session was opened; installation remains gated." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing record has a recognized structure and the endpoint answered. No authorized device session was opened; installation remains gated."
+          }
+        }
+      }
+    },
+    "The pairing record is readable, but this endpoint probe did not establish reachability. Review the OS route and manually activated VPN in bootstrap; do not assume the record was revoked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing record is readable, but this endpoint probe did not establish reachability. Review the OS route and manually activated VPN in bootstrap; do not assume the record was revoked."
+          }
+        }
+      }
+    },
+    "The reviewed local pairing record was deleted. This does not revoke trust on the device or remove copies you exported elsewhere." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reviewed local pairing record was deleted. This does not revoke trust on the device or remove copies you exported elsewhere."
+          }
+        }
+      }
+    },
+    "The saved updater address is not used for signing or uploads. Removing it does not delete local certificates or alter their Keychain passwords." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved updater address is not used for signing or uploads. Removing it does not delete local certificates or alter their Keychain passwords."
+          }
+        }
+      }
+    },
+    "The selected device answered this fresh identity and service query. The session is now closed. This is not Developer Mode verification, installation support, a signing result, or a live connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected device answered this fresh identity and service query. The session is now closed. This is not Developer Mode verification, installation support, a signing result, or a live connection."
+          }
+        }
+      }
+    },
+    "This OS falls outside the reviewed compatibility matrix. No pairing route is enabled. Use an eligible external installer or export a signed IPA." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This OS falls outside the reviewed compatibility matrix. No pairing route is enabled. Use an eligible external installer or export a signed IPA."
+          }
+        }
+      }
+    },
+    "This older task did not persist supported exact installed-version evidence. Its previous success label has been changed to unconfirmed. A missing handoff record does not prove nothing was sent; check the device before retrying." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This older task did not persist supported exact installed-version evidence. Its previous success label has been changed to unconfirmed. A missing handoff record does not prove nothing was sent; check the device before retrying."
+          }
+        }
+      }
+    },
+    "This opens the release download only. Verify its provenance, signing, provisioning and device eligibility before installation. No certificate or account credential is sent with this link." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This opens the release download only. Verify its provenance, signing, provisioning and device eligibility before installation. No certificate or account credential is sent with this link."
+          }
+        }
+      }
+    },
+    "This receipt records a pairing setup action only. File validity, a device identity query, signing, provisioning and exact installed-version confirmation are separate. No private record, device identifier or companion receipt is exported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This receipt records a pairing setup action only. File validity, a device identity query, signing, provisioning and exact installed-version confirmation are separate. No private record, device identifier or companion receipt is exported."
+          }
+        }
+      }
+    },
+    "This release has no downloadable IPA. Choose a release with an IPA and use local signing or an eligible external installer." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This release has no downloadable IPA. Choose a release with an IPA and use local signing or an eligible external installer."
+          }
+        }
+      }
+    },
+    "This removes the reviewed local credential, not the device's trust or copies held by other tools. You will need a compatible pairing record for future device queries." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This removes the reviewed local credential, not the device's trust or copies held by other tools. You will need a compatible pairing record for future device queries."
+          }
+        }
+      }
+    },
+    "This replaces the reviewed local host identity only if it is still unchanged. Existing operations must retire first. Invalid input preserves the previous record; no destination or companion record is overwritten silently." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This replaces the reviewed local host identity only if it is still unchanged. Existing operations must retire first. Invalid input preserves the previous record; no destination or companion record is overwritten silently."
+          }
+        }
+      }
+    },
+    "This route cannot be queried in this build. Review the OS and record requirements, and select the intended device UDID. Simulators cannot establish device trust." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This route cannot be queried in this build. Review the OS and record requirements, and select the intended device UDID. Simulators cannot establish device trust."
+          }
+        }
+      }
+    },
+    "This uses community implementations of Apple's device protocols, not a public general-purpose iOS installation API. Approval permits local identity and service queries only; it does not approve account provisioning, key export or installation. No VexSign backend receives the pairing file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This uses community implementations of Apple's device protocols, not a public general-purpose iOS installation API. Approval permits local identity and service queries only; it does not approve account provisioning, key export or installation. No VexSign backend receives the pairing file."
+          }
+        }
+      }
+    },
+    "Uses AFC and Installation Proxy only after all device and exact-version verification gates pass. It does not require a local HTTPS certificate, but the app still needs valid signing and provisioning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses AFC and Installation Proxy only after all device and exact-version verification gates pass. It does not require a local HTTPS certificate, but the app still needs valid signing and provisioning."
+          }
+        }
+      }
+    },
+    "VPN peer Device IP (usually 10.7.0.1)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN peer Device IP (usually 10.7.0.1)"
+          }
+        }
+      }
+    },
+    "Verify paired device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify paired device"
+          }
+        }
+      }
+    },
+    "Verify selected device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify selected device"
+          }
+        }
+      }
+    },
+    "VexSign must already be installed and launched through a legitimate development build, an eligible existing installer, or authorized distribution. It cannot self-install before bootstrap. A CI IPA is a build artifact, not an installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign must already be installed and launched through a legitimate development build, an eligible existing installer, or authorized distribution. It cannot self-install before bootstrap. A CI IPA is a build artifact, not an installation."
+          }
+        }
+      }
+    },
+    "iOS 17.4–26.3: import a compatible classic lockdown record, enable Developer Mode yourself, and activate the required VPN in its own app. A fresh read-only device query is experimental, not proof that installation is supported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS 17.4–26.3: import a compatible classic lockdown record, enable Developer Mode yourself, and activate the required VPN in its own app. A fresh read-only device query is experimental, not proof that installation is supported."
+          }
+        }
+      }
+    },
+    "iOS 26.4–26.7: a compatible Remote Pairing file is required; a lockdown record is not equivalent. A computer may be necessary to generate it. This build can inspect and preserve the file, but its pinned native library has no accepted modern loopback bridge." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS 26.4–26.7: a compatible Remote Pairing file is required; a lockdown record is not equivalent. A computer may be necessary to generate it. This build can inspect and preserve the file, but its pinned native library has no accepted modern loopback bridge."
+          }
+        }
+      }
+    },
+    "iOS 27+: the pinned library exposes no accepted RPPairing host. VexSign cannot advertise a host, invent a PIN, enable Developer Mode, or create trust through a public iOS API established by this review. Use a compatible companion; importing a remote record alone does not unlock transport." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS 27+: the pinned library exposes no accepted RPPairing host. VexSign cannot advertise a host, invent a PIN, enable Developer Mode, or create trust through a public iOS API established by this review. Use a compatible companion; importing a remote record alone does not unlock transport."
+          }
+        }
+      }
+    },
+    "Activate a compatible VPN yourself in its own app or Settings. Opening a URL or seeing a reachable socket does not establish device trust." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activate a compatible VPN yourself in its own app or Settings. Opening a URL or seeing a reachable socket does not establish device trust."
+          }
+        }
+      }
+    },
+    "On an eligible classic route, explicitly approve a fresh read-only device query and check the intended UDID. Remote host identifiers are not device UDIDs. Modern remote routes and paired installation remain gated in this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On an eligible classic route, explicitly approve a fresh read-only device query and check the intended UDID. Remote host identifiers are not device UDIDs. Modern remote routes and paired installation remain gated in this build."
+          }
+        }
+      }
+    },
+    "Open Settings → Installation Engine → Pairing file and VPN setup. Review the OS route before importing a record from a trusted tool; a computer may be required." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings → Installation Engine → Pairing file and VPN setup. Review the OS route before importing a record from a trusted tool; a computer may be required."
+          }
+        }
+      }
+    },
+    "Review OS compatibility, pairing credentials, and transport limits" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review OS compatibility, pairing credentials, and transport limits"
+          }
+        }
+      }
+    },
+    "Review pairing formats and OS limits, inspect the local endpoint, and open the guided read-only device check. File and socket checks do not prove installation readiness." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review pairing formats and OS limits, inspect the local endpoint, and open the guided read-only device check. File and socket checks do not prove installation readiness."
+          }
+        }
+      }
+    },
+    "Review the selected installation method. Local HTTPS needs device trust and connectivity. Paired installation remains gated until supported same-device inventory and exact-version confirmation are available; a record and VPN are not enough. Signing success alone does not prove installation succeeded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the selected installation method. Local HTTPS needs device trust and connectivity. Paired installation remains gated until supported same-device inventory and exact-version confirmation are available; a record and VPN are not enough. Signing success alone does not prove installation succeeded."
+          }
+        }
+      }
+    },
+    "Check the Home Screen and app version. VexSign has no supported exact installed-version result for this task, and older handoff records may be missing. Review the device before deciding whether another install is needed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the Home Screen and app version. VexSign has no supported exact installed-version result for this task, and older handoff records may be missing. Review the device before deciding whether another install is needed."
+          }
+        }
+      }
+    },
+    "The previous installation is not verified. A request may already have reached iOS even if no handoff was recorded. Check the Home Screen and app version before installing again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The previous installation is not verified. A request may already have reached iOS even if no handoff was recorded. Check the Home Screen and app version before installing again."
+          }
+        }
+      }
+    },
+    "VexSign has no supported exact installed-version result for this task. This receipt cannot say whether the app was installed. Check the Home Screen and app version before deciding whether to install again. No reinstall was started." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign has no supported exact installed-version result for this task. This receipt cannot say whether the app was installed. Check the Home Screen and app version before deciding whether to install again. No reinstall was started."
+          }
+        }
+      }
+    },
+    "A component is not a compatible, unencrypted arm64 iOS-device binary, or its minimum OS could not be established. Watch, simulator and other-platform components are not supported by this installation path." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A component is not a compatible, unencrypted arm64 iOS-device binary, or its minimum OS could not be established. Watch, simulator and other-platform components are not supported by this installation path."
+          }
+        }
+      }
+    },
+    "A component's signer is not authorized by its authenticated embedded profile. Sign the app with compatible assets first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A component's signer is not authorized by its authenticated embedded profile. Sign the app with compatible assets first."
+          }
+        }
+      }
+    },
+    "A nested component's executable is missing. No package was submitted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A nested component's executable is missing. No package was submitted."
+          }
+        }
+      }
+    },
+    "An executable is not a bounded regular file. No package was submitted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An executable is not a bounded regular file. No package was submitted."
+          }
+        }
+      }
+    },
+    "App bundle identifier to read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App bundle identifier to read"
+          }
+        }
+      }
+    },
+    "Device reports version %@ · build %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device reports version %@ · build %@"
+          }
+        }
+      }
+    },
+    "Experimental read-only CoreDevice metadata. The existing VexSign app identifier is prefilled for a harmless self-query. Missing results do not prove absence; this check cannot unlock installation gates." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental read-only CoreDevice metadata. The existing VexSign app identifier is prefilled for a harmless self-query. Missing results do not prove absence; this check cannot unlock installation gates."
+          }
+        }
+      }
+    },
+    "Observed installed version/build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Observed installed version/build"
+          }
+        }
+      }
+    },
+    "On selected device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On selected device"
+          }
+        }
+      }
+    },
+    "Paired installation needs the exact bundle identifier, version and build from a complete device app. Sign a complete copy first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired installation needs the exact bundle identifier, version and build from a complete device app. Sign a complete copy first."
+          }
+        }
+      }
+    },
+    "Read installed app metadata" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read installed app metadata"
+          }
+        }
+      }
+    },
+    "Read selected app's installed version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read selected app's installed version"
+          }
+        }
+      }
+    },
+    "The app's nested-code manifest is incomplete. No package was submitted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app's nested-code manifest is incomplete. No package was submitted."
+          }
+        }
+      }
+    },
+    "The device returned no matching app with comparable version and build metadata. This is unknown evidence, not proof that the app is absent. No installation or removal was attempted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device returned no matching app with comparable version and build metadata. This is unknown evidence, not proof that the app is absent. No installation or removal was attempted."
+          }
+        }
+      }
+    },
+    "The selected device answered this fresh identity and service query. The session is now closed and this target selection is remembered only for this process. Future attempts recheck the record and device. This is not Developer Mode verification, installation support, a signing result, or a live connection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected device answered this fresh identity and service query. The session is now closed and this target selection is remembered only for this process. Future attempts recheck the record and device. This is not Developer Mode verification, installation support, a signing result, or a live connection."
+          }
+        }
+      }
+    },
+    "This fresh read-only result came from CoreDevice App Service on the selected device and record. It does not prove that VexSign installed the app, verify its signature, or authorize installation or removal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This fresh read-only result came from CoreDevice App Service on the selected device and record. It does not prove that VexSign installed the app, verify its signature, or authorize installation or removal."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -9,6 +9,11 @@ For the current signing/library follow-up, also execute the
 [component/readiness/swipe/deletion acceptance checklist](SIGNING_LIBRARY_ACCEPTANCE.md).
 Its build, positive Apple-profile trust, hosted layout, gestures and physical-device
 observations are pending; older CI or unsigned artifacts do not validate the draft.
+For the bootstrap/pairing/transport foundation, also follow the
+[20 foundation and six integration scenarios (all pending)](ON_DEVICE_FOUNDATION_ACCEPTANCE.md) and
+[exact-source build/validation instructions](../Architecture/on-device-foundation-status.md#manual-build-and-test-instructions).
+Those are additional manual checks, not simulated device-report passes. Paired
+installation and native-account/CMS promotion remain gated in this draft.
 
 ## 1. Validate the exact source
 

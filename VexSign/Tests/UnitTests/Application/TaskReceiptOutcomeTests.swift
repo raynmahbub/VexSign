@@ -144,6 +144,41 @@ final class TaskReceiptOutcomeTests: XCTestCase {
 		XCTAssertEqual(context.confirmationReason, "device-confirmed-installed")
 	}
 
+    func testMissingHandoffInAnyRestoredStoppedInstallRequiresCheckingTheDevice() throws {
+        for phase in [UnifiedTaskPhase.failed, .cancelled, .interrupted, .unconfirmed] {
+            let original = UnifiedTask(kind: .install, title: "History", phase: phase)
+            original.context?.installationMethod = "OTA"
+            original.context?.confirmationReason = phase == .failed ? "operation-failed" : nil
+            XCTAssertFalse(original.restoredFromHistory)
+            let data = try JSONEncoder().encode(original.snapshot)
+            let restored = UnifiedTask.from(try JSONDecoder().decode(UnifiedTask.Snapshot.self, from: data))
+            XCTAssertTrue(restored.restoredFromHistory)
+            let evidence = TaskReceipt.evidence(for: restored)
+            XCTAssertEqual(evidence.handoff, .unknown, "An absent old timestamp cannot prove nothing was sent")
+            XCTAssertEqual(evidence.retrySafety, .checkDeviceFirst)
+            XCTAssertTrue(TaskReceipt.report(for: restored).contains("Installation handoff: not-recorded"))
+            XCTAssertFalse(TaskReceipt.report(for: restored).contains("Installation handoff: not-reached"))
+        }
+    }
+
+    func testRestoredHandoffEvidenceAndNonDeviceOutcomesKeepTheirActualMeaning() {
+        let handedOff = UnifiedTask(kind: .install, title: "History", phase: .unconfirmed)
+        handedOff.context?.installationMethod = "OTA"
+        handedOff.context?.handoffAt = Date()
+        XCTAssertEqual(TaskReceipt.evidence(for: UnifiedTask.from(handedOff.snapshot)).handoff, .recorded)
+        let acknowledged = UnifiedTask(kind: .install, title: "History", phase: .unconfirmed)
+        acknowledged.context?.installationMethod = "paired-device"
+        acknowledged.context?.confirmationReason = "native-installation-completed"
+        XCTAssertEqual(TaskReceipt.evidence(for: UnifiedTask.from(acknowledged.snapshot)).handoff, .recorded)
+        for method in ["export", "guest-import"] {
+            let nonDevice = UnifiedTask(kind: .install, title: "History", phase: .completed)
+            nonDevice.context?.installationMethod = method
+            let evidence = TaskReceipt.evidence(for: UnifiedTask.from(nonDevice.snapshot))
+            XCTAssertEqual(evidence.handoff, .notApplicable)
+            XCTAssertEqual(evidence.retrySafety, .notApplicable)
+        }
+    }
+
 	func testAContextWithoutACountDoesNotWriteOne() throws {
 		let data = try JSONEncoder().encode(TaskContext())
 		let text = String(decoding: data, as: UTF8.self)

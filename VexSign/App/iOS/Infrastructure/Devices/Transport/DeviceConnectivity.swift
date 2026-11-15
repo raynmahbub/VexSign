@@ -29,6 +29,7 @@
 //
 
 import Foundation
+import IDeviceSwift
 import NimbleExtensions
 
 // MARK: - Presence
@@ -118,14 +119,27 @@ enum DevicePairingState: Equatable, Sendable {
 	case incomplete([String])
 	/// Complete enough to name a device. `udid` is normalized for comparison.
 	case readable(udid: String)
+    /// Valid format, but possibly no device UDID. A remote `identifier` is the host.
+    case validated(format: PairingRecordFormat, deviceIdentifier: String?)
 
-	var udid: String? {
-		guard case .readable(let udid) = self else { return nil }
-		return udid
-	}
+    var udid: String? {
+        switch self {
+        case .readable(let udid): return udid
+        case .validated(_, let identifier): return identifier
+        default: return nil
+        }
+    }
+
+    var format: PairingRecordFormat? {
+        switch self {
+        case .readable: return .lockdown
+        case .validated(let format, _): return format
+        default: return nil
+        }
+    }
 
 	/// Whether a session could be attempted at all. This is not authorization.
-	var isUsable: Bool { udid != nil }
+	var isUsable: Bool { format != nil }
 
 	var title: String {
 		switch self {
@@ -133,7 +147,7 @@ enum DevicePairingState: Equatable, Sendable {
 		case .unreadable: .localized("Pairing record unreadable")
 		case .oversized: .localized("Pairing record too large")
 		case .incomplete: .localized("Pairing record incomplete")
-		case .readable: .localized("Pairing record found")
+		case .readable, .validated: .localized("Pairing record found")
 		}
 	}
 
@@ -150,8 +164,8 @@ enum DevicePairingState: Equatable, Sendable {
 				"The pairing record is missing %@. A session cannot start without them; import a complete pairing plist.",
 				arguments: missing.joined(separator: ", ")
 			)
-		case .readable:
-			.localized("The file has the fields a session needs. Readability is not authorization: the device still has to accept the session.")
+        case .readable, .validated:
+            .localized("The file has a recognized structure. Readability is not authorization: the device still has to accept a fresh session. A remote host identifier is not a device UDID.")
 		}
 	}
 }
@@ -237,76 +251,45 @@ struct PairedDeviceRecord: Identifiable, Equatable, Sendable {
 
 /// Reads the pairing file without trusting it.
 ///
-/// The keys are the ones a `lockdownd` session needs, and the same set the redaction rules in
-/// `LogRedaction` already strip from logs. `CertificateManagementService.validatePairingFile` keeps its own stricter
-/// import-time rule (`HostID`); this inspection exists so the rest of the app can say *which*
-/// part is missing instead of only that the file is there.
+/// Import, discovery, setup and native connection share the same bounded
+/// format/key inspector. This reports structure only; it does not accept an
+/// unexpected field type or turn a host UUID into an authorized device identity.
 enum PairingRecordInspector {
-	/// Everything a usable record carries. A record missing any of these cannot start a session.
-	static let requiredKeys = [
-		"DeviceID",
-		"HostID",
-		"SystemBUID",
-		"HostPrivateKey",
-		"HostCertificate",
-		"DeviceCertificate",
-		"RootCertificate"
-	]
+    static let requiredKeys = PairingRecordDocument.classicStringKeys + PairingRecordDocument.classicDataKeys
+    static let maximumSize = PairingRecordDocument.maximumSize
 
-	/// Matches the import limit in `CertificateManagementService.installPairingFile(from:)`, so an oversized file is refused the same
-	/// way wherever it is read.
-	static let maximumSize = 2 * 1024 * 1024
+    static func inspect(fileAt url: URL) -> DevicePairingState {
+        do { return inspect(try PairingFileStorage.read(from: url)) }
+        catch { return state(for: error) }
+    }
 
-	static func inspect(fileAt url: URL) -> DevicePairingState {
-		guard FileManager.default.fileExists(atPath: url.path) else { return .absent }
-		guard let data = try? Data(contentsOf: url) else { // try? ok: an unreadable file is the state being reported
-			return .unreadable
-		}
-		return inspect(data)
-	}
+    static func inspect(_ data: Data) -> DevicePairingState {
+        do {
+            let metadata = try PairingRecordDocument.inspect(data)
+            if metadata.format == .lockdown, let device = metadata.deviceIdentifier {
+                return .readable(udid: device)
+            }
+            return .validated(format: metadata.format, deviceIdentifier: metadata.deviceIdentifier)
+        } catch { return state(for: error) }
+    }
 
-	static func inspect(_ data: Data) -> DevicePairingState {
-		guard !data.isEmpty else { return .unreadable }
-		guard data.count <= maximumSize else { return .oversized }
-		guard
-			let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil), // try? ok: an unparseable record is the state being reported
-			let record = plist as? [String: Any]
-		else {
-			return .unreadable
-		}
-		return inspect(record)
-	}
+    static func inspect(_ record: [String: Any]) -> DevicePairingState {
+        do { return inspect(try PropertyListSerialization.data(fromPropertyList: record, format: .binary, options: 0)) }
+        catch { return .unreadable }
+    }
 
-	static func inspect(_ record: [String: Any]) -> DevicePairingState {
-		let missing = requiredKeys.filter { key in
-			guard let value = record[key] else { return true }
-			switch value {
-			case let string as String:
-				return string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-			case let data as Data:
-				return data.isEmpty
-			default:
-				// A key present with an unexpected type is not missing; the session layer will
-				// reject it, and claiming it is absent would send the user looking for the wrong
-				// thing.
-				return false
-			}
-		}
+    static func state(for error: Error) -> DevicePairingState {
+        switch error as? PairingRecordError {
+        case .missing: return .absent
+        case .oversized: return .oversized
+        case .invalidFields(let fields): return .incomplete(fields)
+        default: return .unreadable
+        }
+    }
 
-		guard missing.isEmpty, let raw = record["DeviceID"] as? String else {
-			return .incomplete(missing.sorted())
-		}
-
-		let udid = normalize(raw)
-		guard !udid.isEmpty else { return .incomplete(["DeviceID"]) }
-		return .readable(udid: udid)
-	}
-
-	/// A UDID's case is a formatting choice. Normalizing here keeps duplicate detection and
-	/// comparison working when a record was written in lower case.
-	static func normalize(_ raw: String) -> String {
-		raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-	}
+    static func normalize(_ raw: String) -> String {
+        PairingRecordDocument.normalizeDeviceIdentifier(raw)
+    }
 }
 
 // MARK: - Capability vocabulary
@@ -395,6 +378,8 @@ struct DeviceCapabilityContext: Equatable, Sendable {
 	var pairingTransportAvailable = false
 	/// The local HTTPS server has a trusted certificate, so OTA can be served.
 	var companionAvailable = false
+    var osVersion: DeviceOSVersion = .current
+    var inventoryBridgeAvailable = InstallationAppProxy.hasAcceptedInventoryBridge
 }
 
 enum DeviceCapabilityResolver {
@@ -429,9 +414,18 @@ enum DeviceCapabilityResolver {
 				status: .requiresUserAction,
 				detail: context.pairing.detail
 			)
-		case .readable:
+		case .readable, .validated:
 			break
 		}
+
+        if let format = context.pairing.format {
+            do { try DeviceTransportPolicy.requireClassicRoute(format: format, version: context.osVersion) }
+            catch { return .init(operation: .pairedInstall, status: .unsupported, detail: error.localizedDescription) }
+        }
+        guard context.inventoryBridgeAvailable else {
+            return .init(operation: .pairedInstall, status: .unsupported,
+                detail: DeviceTransportError.inventoryBridgeUnavailable.localizedDescription)
+        }
 
 		switch context.presence {
 		case .unauthorized:
@@ -458,6 +452,11 @@ enum DeviceCapabilityResolver {
 			)
 		}
 
+        guard context.presence == .connected, context.trust == .verified else {
+            return .init(operation: .pairedInstall, status: .requiresAuthorization,
+                detail: .localized("A reachable socket and readable file do not authorize device operations. Verify a fresh device session first."))
+        }
+
 		return .init(
 			operation: .pairedInstall,
 			status: .supported,
@@ -480,16 +479,15 @@ enum DeviceCapabilityResolver {
 		)
 	}
 
-	/// The inventory is the running device's own LaunchServices records. No session is involved,
-	/// which is why this is supported even with no pairing at all — and why it says nothing
-	/// about a second device.
-	private static func inventoryRead(in context: DeviceCapabilityContext) -> DeviceCapability {
-		.init(
-			operation: .inventoryRead,
-			status: .supported,
-			detail: .localized("Reads this device's installed-app records through LaunchServices. A device-side listing exists in the linked installation service but needs the pairing session, so the local probe stays the evidence used for verification: a filtered lookup is reported as unknown, never as \"not installed\".")
-		)
-	}
+    /// Public iOS APIs do not expose a general installed-app inventory. The new
+    /// workflow never promotes a private LaunchServices lookup to device authority.
+    private static func inventoryRead(in context: DeviceCapabilityContext) -> DeviceCapability {
+        let connection = pairedInstall(in: context)
+        return .init(operation: .inventoryRead, status: connection.status,
+            detail: connection.status == .supported
+                ? .localized("Requires an accepted, fresh same-device installation-service inventory response.")
+                : connection.detail)
+    }
 
 	/// Removal rides the same pairing session as a paired install, so it has the same
 	/// prerequisites and reports the same missing one. `DeviceAppRemoval` owns the sequence:

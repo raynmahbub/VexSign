@@ -68,7 +68,7 @@ struct JITSettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(.localized("On-Device Pairing & Launch Tools"))
                         .font(.headline)
-                    Text(.localized("Manage your lockdownd pairing file, verify the local heartbeat socket, and copy working vexsign:// deep links."))
+                    Text(.localized("Review pairing formats and OS limits, inspect the local endpoint, and open the guided read-only device check. File and socket checks do not prove installation readiness."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -99,16 +99,12 @@ struct JITSettingsView: View {
 
                 Spacer()
 
-                Button {
-                    importPairingFile()
+                NavigationLink {
+                    NBList(.localized("Device bootstrap")) { TunnelView() }
                 } label: {
-                    Text(hasUsablePairing ? String.localized("Replace") : String.localized("Import"))
+                    Label(.localized("Review setup"), systemImage: "cable.connector")
                         .font(.caption.weight(.bold))
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Color.userTint, in: Capsule())
-                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.vertical, 2)
 
@@ -118,9 +114,9 @@ struct JITSettingsView: View {
 
             if isLocalDevVPNAvailable {
                 Button {
-                    UIApplication.open("localdevvpn://enable?scheme=vexsign")
+                    UIApplication.open("localdevvpn://")
                 } label: {
-                    Label(.localized("Connect LocalDevVPN"), systemImage: "link")
+                    Label(.localized("Open LocalDevVPN"), systemImage: "link")
                 }
             } else {
                 Button {
@@ -130,7 +126,7 @@ struct JITSettingsView: View {
                 }
             }
         } footer: {
-            Text(.localized("A pairing file lets VexSign's embedded idevice transport talk to lockdownd when a loopback VPN is active. Importing a file validates its HostID and stores it atomically."))
+            Text(.localized("Pairing records are format-checked and protected by the shared bootstrap flow. File validity and a reachable endpoint are not device trust. Open setup for explicit replacement, export and a fresh read-only authorization query."))
         }
     }
 
@@ -165,7 +161,7 @@ struct JITSettingsView: View {
                         Image(systemName: "wrench.and.screwdriver.fill")
                             .foregroundStyle(Color.teal)
                     }
-                    Text(isCheckingDiagnostics ? String.localized("Checking Pairing & Heartbeat…") : String.localized("Check Pairing & Heartbeat Socket"))
+                    Text(isCheckingDiagnostics ? String.localized("Checking pairing endpoint…") : String.localized("Check pairing endpoint"))
                         .font(.subheadline.weight(.medium))
                 }
             }
@@ -173,15 +169,14 @@ struct JITSettingsView: View {
 
             if let socketReachable {
                 LabeledContent(
-                    .localized("Heartbeat Socket"),
-                    value: socketReachable ? String.localized("Connected") : String.localized("Not Connected")
+                    .localized("Endpoint reachability"),
+                    value: socketReachable ? String.localized("Reachable — not authorized") : String.localized("Not reachable")
                 )
             }
 
             if let diagnosticSummary {
                 HStack(spacing: 8) {
-                    Image(systemName: (socketReachable == true && hasUsablePairing) ? "checkmark.circle.fill" : "info.circle.fill")
-                        .foregroundStyle((socketReachable == true && hasUsablePairing) ? Color.green : Color.orange)
+                    Image(systemName: "info.circle.fill").foregroundStyle(Color.orange)
                     Text(diagnosticSummary)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -189,7 +184,7 @@ struct JITSettingsView: View {
                 .padding(.vertical, 2)
             }
         } footer: {
-            Text(.localized("Inspects the on-disk pairing record and probes the real lockdownd heartbeat TCP socket managed by PairingBridge."))
+            Text(.localized("Inspects the same pairing record and performs only a bounded endpoint probe through PairingBridge. It does not establish VPN ownership, device authorization, service availability or installation support."))
         }
     }
 
@@ -235,24 +230,10 @@ struct JITSettingsView: View {
         .padding(.vertical, 4)
     }
 
-    private func importPairingFile() {
-        DocumentPicker.open([.xmlPropertyList, .plist, .mobiledevicepairing], folder: .pairing) { urls in
-            guard let url = urls.first else { return }
-            do {
-                try CertificateManagementService.installPairingFile(from: url)
-                refreshLocalState()
-                Toast.success(.localized("Pairing file imported"), systemImage: "checkmark.circle.fill")
-            } catch {
-                Toast.error(error.localizedDescription, duration: .long)
-            }
-        }
-    }
-
     private func runPairingDiagnostics() {
         isCheckingDiagnostics = true
         diagnosticSummary = nil
         refreshLocalState()
-        PairingBridge.restartHeartbeat()
 
         Task {
             let connected = await Task.detached(priority: .userInitiated) {
@@ -265,11 +246,11 @@ struct JITSettingsView: View {
             switch pairingState {
             case .absent, .unreadable, .oversized, .incomplete:
                 diagnosticSummary = pairingState.detail
-            case .readable:
+            case .readable, .validated:
                 if connected {
-                    diagnosticSummary = .localized("Pairing record is valid and the local heartbeat socket is reachable for idevice installation.")
+                    diagnosticSummary = .localized("The pairing record has a recognized structure and the endpoint answered. No authorized device session was opened; installation remains gated.")
                 } else {
-                    diagnosticSummary = .localized("Pairing record is readable, but the heartbeat socket is not connected. Enable your loopback VPN (such as LocalDevVPN) on Wi-Fi or Airplane mode and retry.")
+                    diagnosticSummary = .localized("The pairing record is readable, but this endpoint probe did not establish reachability. Review the OS route and manually activated VPN in bootstrap; do not assume the record was revoked.")
                 }
             }
         }

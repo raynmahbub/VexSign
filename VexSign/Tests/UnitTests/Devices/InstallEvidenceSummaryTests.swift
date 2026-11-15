@@ -83,14 +83,26 @@ final class InstallEvidenceSummaryTests: XCTestCase {
 
 	// MARK: - Other methods
 
-	func testThePairedDeviceAcknowledgementIsAConfirmation() {
+	func testThePairedDeviceAcknowledgementIsNotExactVersionConfirmation() {
 		let summary = resolve("paired-device", "native-installation-completed")
 		XCTAssertEqual(summary.transport, .pairedDevice)
 		XCTAssertEqual(summary.handoff, .recorded)
-		XCTAssertEqual(summary.confirmation, .confirmed)
+		XCTAssertEqual(summary.confirmation, .unavailable)
 		XCTAssertEqual(summary.verification, .deviceAcknowledgement)
-		XCTAssertEqual(summary.retrySafety, .notNeeded)
+		XCTAssertEqual(summary.retrySafety, .checkDeviceFirst)
 	}
+
+    func testPairedReadBackAndPreSubmissionFailureAreDistinct() {
+        let confirmed = resolve("paired-device", "device-confirmed-installed")
+        XCTAssertEqual(confirmed.confirmation, .confirmed)
+        XCTAssertEqual(confirmed.verification, .deviceLookup)
+        let blocked = resolve("paired-device", "operation-failed")
+        XCTAssertEqual(blocked.confirmation, .notReached)
+        XCTAssertEqual(blocked.verification, .unavailable)
+        let lateAcknowledgement = resolve("paired-device", "paired-installed-version-not-verified")
+        XCTAssertEqual(lateAcknowledgement.confirmation, .unavailable)
+        XCTAssertEqual(lateAcknowledgement.retrySafety, .checkDeviceFirst)
+    }
 
 	func testExportAndGuestImportClaimNothingAboutTheDevice() {
 		for method in ["export", "guest-import"] {

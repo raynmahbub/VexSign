@@ -7,6 +7,7 @@
 /// precisely because it was entangled with the filesystem and the framework.
 
 import Foundation
+import IDeviceSwift
 import Testing
 @testable import VexSign
 
@@ -21,6 +22,8 @@ struct DeviceConnectivityTests {
             "DeviceID": udid,
             "HostID": "A1B2C3D4-0000-1111-2222-333344445555",
             "SystemBUID": "B5C6D7E8-0000-1111-2222-333344445555",
+            "WiFiMACAddress": "00:11:22:33:44:55",
+            "RootPrivateKey": Data([0x11, 0x12]),
             "HostPrivateKey": Data([0x01, 0x02, 0x03]),
             "HostCertificate": Data([0x04, 0x05]),
             "DeviceCertificate": Data([0x06, 0x07]),
@@ -85,12 +88,13 @@ struct DeviceConnectivityTests {
         #expect(state.detail.localizedCaseInsensitiveContains("not authorization"))
     }
 
-    @Test("A key with an unexpected type is present, not missing")
-    func testUnexpectedTypeIsNotMissing() {
+    @Test("A key with an unexpected type is invalid, not session-ready")
+    func testUnexpectedTypeIsInvalid() {
         var unusual = record()
         unusual["HostID"] = 42
         let state = PairingRecordInspector.inspect(unusual)
-        #expect(state == .readable(udid: "00008120-001A2B3C4D5E6F70"))
+        #expect(state == .incomplete(["HostID"]))
+        #expect(!state.isUsable)
     }
 
     @Test("Normalization ignores case and surrounding whitespace")
@@ -154,18 +158,23 @@ struct DeviceConnectivityTests {
 
     @Test("A complete record still needs the pairing session")
     func testReadableRecordNeedsTransport() {
-        let context = DeviceCapabilityContext(pairing: .readable(udid: "AAAA"))
+        let context = DeviceCapabilityContext(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            osVersion: .init(major: 17, minor: 4), inventoryBridgeAvailable: true)
         let report = DeviceCapabilityResolver.report(context)
         #expect(report.status(for: .pairedInstall) == .requiresCompanion)
 
         var running = context
         running.pairingTransportAvailable = true
+        #expect(DeviceCapabilityResolver.report(running).status(for: .pairedInstall) == .requiresAuthorization)
+        running.presence = .connected
+        running.trust = .verified
         #expect(DeviceCapabilityResolver.report(running).status(for: .pairedInstall) == .supported)
     }
 
     @Test("An unauthorized device is not a setup problem")
     func testUnauthorizedIsDistinct() {
-        var context = DeviceCapabilityContext(pairing: .readable(udid: "AAAA"))
+        var context = DeviceCapabilityContext(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            osVersion: .init(major: 17, minor: 4), inventoryBridgeAvailable: true)
         context.presence = .unauthorized
         context.pairingTransportAvailable = true
         #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .requiresAuthorization)
@@ -173,7 +182,8 @@ struct DeviceConnectivityTests {
 
     @Test("An unsupported device is not a setup problem either")
     func testUnsupportedIsDistinct() {
-        var context = DeviceCapabilityContext(pairing: .readable(udid: "AAAA"))
+        var context = DeviceCapabilityContext(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            osVersion: .init(major: 17, minor: 4), inventoryBridgeAvailable: true)
         context.presence = .unsupported
         context.pairingTransportAvailable = true
         #expect(DeviceCapabilityResolver.report(context).status(for: .pairedInstall) == .unsupported)
@@ -188,9 +198,14 @@ struct DeviceConnectivityTests {
         #expect(DeviceCapabilityResolver.report(context).status(for: .otaInstall) == .supported)
     }
 
-    @Test("The inventory is a local probe, so it works with no pairing at all")
-    func testInventoryNeedsNoPairing() {
-        #expect(DeviceCapabilityResolver.report(DeviceCapabilityContext()).status(for: .inventoryRead) == .supported)
+    @Test("A private local probe is not a supported device inventory")
+    func testInventoryNeedsAcceptedDeviceEvidence() {
+        #expect(DeviceCapabilityResolver.report(DeviceCapabilityContext()).status(for: .inventoryRead) != .supported)
+        let production = DeviceCapabilityContext(pairing: .readable(udid: "00008120-001A2B3C4D5E6F70"),
+            presence: .connected, trust: .verified, pairingTransportAvailable: true,
+            osVersion: .init(major: 17, minor: 4))
+        #expect(DeviceCapabilityResolver.report(production).status(for: .pairedInstall) == .unsupported)
+        #expect(DeviceCapabilityResolver.report(production).status(for: .inventoryRead) == .unsupported)
     }
 
     @Test("Uninstall needs exactly what a paired install needs")
@@ -259,8 +274,8 @@ struct DeviceConnectivityTests {
             for: .idevice,
             InstallPreflightInputs(pairing: .readable(udid: "AAAA"))
         )
-        guard case .unknown = usable else {
-            _ = Issue.record("A readable record still has to prove trust at connect time")
+        guard case .unavailable = usable else {
+            _ = Issue.record("A readable record cannot override the unaccepted installed-version bridge")
             return
         }
     }

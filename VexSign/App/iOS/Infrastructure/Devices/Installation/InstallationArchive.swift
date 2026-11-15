@@ -1,4 +1,5 @@
 import Foundation
+import IDeviceSwift
 
 /// A private workspace whose lifetime follows every consumer, including HTTP
 /// response bodies. Never owns an original library bundle or an exported IPA.
@@ -25,6 +26,7 @@ struct PreparedInstallationPackage: Sendable {
     let url: URL
     let exported: URL?
     let archive: InstallationArchive
+    var pairedTarget: DeviceInstallationTarget? = nil
 }
 
 /// Parallel preparation is intentionally limited to OTA-to-OTA queue entries.

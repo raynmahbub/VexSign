@@ -180,12 +180,13 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 	@MainActor
 	func testAConfirmedInstallBecomesInstalledWhenTheAttemptEnds() async throws {
 		let store = _store(answers: [identifier: InstalledApp(bundleIdentifier: identifier, isInstalled: false)])
+        store.selectDevice(binding: InstallationEvidenceTestFixtures.binding)
 		store.beginInstallation(identifier: identifier, attemptID: "attempt-1")
-		store.request(_request("row"))
+		store.request(_request("row", expectedBuild: "1"))
 		XCTAssertEqual(store.statuses["row"]?.installed, .installing)
 
 		// What `AppInstaller` does once the device proves the install, before the queue ends it.
-		store.recordConfirmedInstallation(bundleIdentifier: identifier, version: "0.9")
+		store.recordInstalledApplicationObservation(InstallationEvidenceTestFixtures.application(identifier: identifier, version: "0.9", build: "1"))
 		XCTAssertEqual(store.statuses["row"]?.installed, .installing,
 			"Confirmation is recorded while monitoring continues; it is published when the attempt ends")
 
@@ -198,10 +199,11 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 	@MainActor
 	func testAConfirmedInstallAtADifferentVersionSaysSo() async throws {
 		let store = _store(answers: [:])
+        store.selectDevice(binding: InstallationEvidenceTestFixtures.binding)
 		store.beginInstallation(identifier: identifier, attemptID: "attempt-1")
-		store.request(_request("row", expectedVersion: "0.9"))
+		store.request(_request("row", expectedVersion: "0.9", expectedBuild: "1"))
 
-		store.recordConfirmedInstallation(bundleIdentifier: identifier, version: "0.8")
+		store.recordInstalledApplicationObservation(InstallationEvidenceTestFixtures.application(identifier: identifier, version: "0.8", build: "1"))
 		store.endInstallation(identifier: identifier, attemptID: "attempt-1")
 
 		XCTAssertEqual(store.statuses["row"]?.installed, .installedOtherVersion("0.8"))
@@ -284,7 +286,8 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 	@MainActor
 	func testAStaleAttemptCanNeitherClearNorRewriteANewerOne() async throws {
 		let store = _store(answers: [:])
-		store.request(_request("row"))
+        store.selectDevice(binding: InstallationEvidenceTestFixtures.binding)
+		store.request(_request("row", expectedBuild: "1"))
 		store.beginInstallation(identifier: identifier, attemptID: "attempt-1")
 		// A retry replaces the attempt rather than racing it.
 		store.beginInstallation(identifier: identifier, attemptID: "attempt-2")
@@ -296,7 +299,7 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 		XCTAssertEqual(store.activeInstallation(identifier: identifier)?.attemptID, "attempt-2")
 
 		// Even a confirmation carried by the stale attempt stays unpublished until the live one ends.
-		store.recordConfirmedInstallation(bundleIdentifier: identifier, version: "0.9")
+		store.recordInstalledApplicationObservation(InstallationEvidenceTestFixtures.application(identifier: identifier, version: "0.9", build: "1"))
 		XCTAssertEqual(store.statuses["row"]?.installed, .installing)
 
 		XCTAssertTrue(store.endInstallation(identifier: identifier, attemptID: "attempt-2"))
@@ -371,9 +374,9 @@ final class LibraryInstallationLifecycleTests: XCTestCase {
 
 	// MARK: - Helpers
 
-	private func _request(_ uuid: String, expectedVersion: String? = "0.9", isSigned: Bool = true) -> LibraryStatusStore.Request {
+	private func _request(_ uuid: String, expectedVersion: String? = "0.9", isSigned: Bool = true, expectedBuild: String? = nil) -> LibraryStatusStore.Request {
 		LibraryStatusStore.Request(uuid: uuid, bundleIdentifier: identifier,
-			expectedVersion: expectedVersion, bundleURL: nil, isSigned: isSigned)
+			expectedVersion: expectedVersion, bundleURL: nil, isSigned: isSigned, expectedBuild: expectedBuild)
 	}
 
 	@MainActor

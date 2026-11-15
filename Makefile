@@ -23,6 +23,7 @@ help:
 	  'make verify           Portable repository checks and Python policy tests' \
 	  'make docs-check       Check local Markdown file links (offline)' \
 	  'make test             App simulator tests (macOS/Xcode)' \
+	  'make test-device-foundation  Credential-free parser/storage/executor tests (macOS Swift)' \
 	  'make device-smoke     Install/launch signed app on an explicitly selected physical device' \
 	  'make test-server      Python backend tests (install server requirements first)' \
 	  'make test-cloud       Cloud build, tests and contract drift check (npm ci first)' \
@@ -165,6 +166,8 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/security-validation/concurrency-discipline.py
 	@echo "== concurrency audit (every escape needs a reason) =="
 	@python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
+	@echo "== device foundation preparation/security wiring (not Swift tests) =="
+	@python3 VexSign/Tools/Validation/security-validation/test_device_foundation.py
 	@echo "== native signing capability =="
 	@python3 VexSign/Tools/Validation/security-validation/check-native-handoff.py
 	@echo "== CMS fixture contract =="
@@ -180,6 +183,16 @@ verify: docs-check
 	@python3 -m unittest discover -s VexSign/Integrations/tests -v
 	@echo "== native-signing preparation =="
 	@python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v
+
+# Exact production parser/storage/executor sources, no binary dependency or Apple
+# credentials. macOS permissions/backup tests do not establish iOS Data Protection,
+# native ABI, device trust, transport or physical installation acceptance.
+.PHONY: test-device-foundation
+test-device-foundation:
+	@test "$$(uname -s)" = Darwin && command -v swift >/dev/null 2>&1 || { \
+		echo "test-device-foundation needs macOS with Swift/Xcode; no tests were run."; exit 1; }
+	@python3 VexSign/Tools/Validation/security-validation/prepare_device_foundation.py
+	swift test --package-path .build/device-foundation
 
 # Credential-free behavioral tests of the production native signing core.
 # Needs C++17 and OpenSSL 3 development files; never downloads dependencies.

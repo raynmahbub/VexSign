@@ -51,6 +51,13 @@ struct InstallVerificationPolicy: Equatable, Sendable {
 	/// What an install on a device uses.
 	static let standard = InstallVerificationPolicy()
 
+    /// A paired read establishes a fresh tunnel/RSD/identity session before the
+    /// appservice request. A one-second private-API budget would cancel every
+    /// legitimate native handshake. This remains a waiter bound, not FFI preemption.
+    static let pairedDevice = InstallVerificationPolicy(
+        initialDelay: 1, maximumDelay: 3, initialProbeTimeout: 30, maximumProbeTimeout: 30
+    )
+
 	/// No pauses and no cap: checks run back to back until the engine's own deadline answers.
 	/// This is the behaviour of a watcher driven with a zero interval, which is how tests feed
 	/// it scripted readings without waiting on a clock.

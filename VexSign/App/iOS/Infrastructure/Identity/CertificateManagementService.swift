@@ -81,33 +81,20 @@ enum CertificateManagementService {
         return identities.contains { $0[kSecImportItemIdentity as String] != nil }
     }
 
-    /// Validate before replacing a working record. Parsing is not device authentication;
-    /// the transport still has to verify this record belongs to the connected device.
-    static func validatePairingFile(_ data: Data) throws {
-        guard !data.isEmpty, data.count <= 2 * 1024 * 1024,
-            let record = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
-            let hostID = record["HostID"] as? String,
-            !hostID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw NSError(domain: "PairingImport", code: 1, userInfo: [NSLocalizedDescriptionKey:
-                String.localized("Invalid pairing file. Import a pairing plist containing a HostID from a trusted computer. The existing pairing file was not changed.")])
-        }
+    /// The same bounded, format-aware parser is used by import, diagnostics and
+    /// native connection. A recognized record is not evidence of device trust.
+    @discardableResult
+    static func validatePairingFile(_ data: Data) throws -> PairingRecordMetadata {
+        try PairingRecordDocument.inspect(data)
     }
 
-    static func installPairingFile(from url: URL) throws {
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        guard size <= 2 * 1024 * 1024 else {
-            throw NSError(domain: "PairingImport", code: 2, userInfo: [NSLocalizedDescriptionKey:
-                String.localized("Pairing file is too large. The existing pairing file was not changed.")])
-        }
-        let data = try Data(contentsOf: url)
-        try validatePairingFile(data)
-        let dest = URL(fileURLWithPath: HeartbeatManager.pairingFile())
-        // Atomic replacement leaves the previous record intact on write failure.
-        try data.write(to: dest, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)
-        HeartbeatManager.shared.start(true)
+    @discardableResult
+    static func installPairingFile(from url: URL, replacing expectedSHA256: String? = nil) async throws -> PairingRecordMetadata {
+        // HeartbeatManager and PairingFileStorage remain the sole native/storage
+        // owners. Import is serialized against use and requires reviewed replacement.
+        let metadata = try await HeartbeatManager.shared.importPairingRecord(from: url, replacing: expectedSHA256)
+        await MainActor.run { PairingBridge.invalidateSelectedDevice() }
+        return metadata
     }
 
     static func exportCertificateAndOpenURL(using template: String) {

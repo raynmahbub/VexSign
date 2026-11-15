@@ -203,6 +203,7 @@ jobs:
           # A count is not a reason: every escape needs its invariant on record.
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py --self-test
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
+          python3 VexSign/Tools/Validation/security-validation/test_device_foundation.py
           python3 VexSign/Tools/Validation/security-validation/check-native-handoff.py
           # The CMS fixture is generated elsewhere (OpenSSL) and must keep
           # conforming to the subset the parser accepts; drift fails here.
@@ -511,6 +512,24 @@ jobs:
         env:
           REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
         run: bash .github/scripts/select_xcode.sh
+
+      # Isolated macOS tests compile the exact production foundation sources.
+      # No IDevice binary, network service, account, signing identity or iPhone.
+      - name: Device foundation · parser, storage and executor
+        run: |
+          set -euo pipefail
+          make test-device-foundation 2>&1 | tee "$RUNNER_TEMP/device-foundation-tests.log"
+
+      - name: Upload device foundation findings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: device-foundation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/device-foundation-tests.log
+            .build/device-foundation/source-hashes.json
+          if-no-files-found: warn
+          retention-days: 3
 
       # Read the same cache as the build job; the build job owns cache writes.
       - name: Restore Swift packages

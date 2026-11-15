@@ -1,192 +1,93 @@
-//
-//  InstallationAppProxy.swift
-//  IDeviceKit
-//
-//  Created by samara on 8.06.2025.
-//
-
+// InstallationAppProxy.swift — IDeviceKit (MIT), independently maintained VexSign changes.
 import Foundation
 import IDevice
 import UIKit
 
-public class InstallationAppProxy: NSObject {
-	private let _heartbeat = HeartbeatManager.shared
-	
-	typealias InstallationProxyClientHandle = OpaquePointer
-	typealias SpringBoardServicesClientHandle = OpaquePointer
-	
-	public var delegate: InstallationProxyAppsDelegate?
-	
-	public func listApps() async throws {
-		var installproxy: InstallationProxyClientHandle?
-		
-		let allApps = try await Task.detached(priority: .userInitiated) { () -> [AppInfo] in
-			guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else {
-				throw IDeviceSwiftError(message: "Missing Pairing")
-			}
-			
-			if !self._heartbeat.isRsd {
-				guard self._heartbeat.checkSocketConnection().isConnected else {
-					throw IDeviceSwiftError(message: "Missing Pairing")
-				}
-			} else {
-				guard self._heartbeat.ensureRSDTunnel() else {
-					throw IDeviceSwiftError(message: "Missing Pairing")
-				}
-			}
-			
-			if self._heartbeat.isRsd {
-				let installation_proxy_connect_tcp_result = installation_proxy_connect_rsd(self._heartbeat.adapter, self._heartbeat.handshake, &installproxy)
-				guard installation_proxy_connect_tcp_result == nil else {
-					throw IDeviceSwiftError(installation_proxy_connect_tcp_result)
-				}
-			} else {
-				
-				let installation_proxy_connect_tcp_result = installation_proxy_connect(self._heartbeat.provider, &installproxy)
-				guard installation_proxy_connect_tcp_result == nil else {
-					throw IDeviceSwiftError(installation_proxy_connect_tcp_result)
-				}
-			}
-			
-			var outResult: UnsafeMutableRawPointer?
-			var outResultLen: Int = 0
-			
-			let installation_proxy_get_apps_result = installation_proxy_get_apps(installproxy, nil, nil, 0, &outResult, &outResultLen)
-			guard installation_proxy_get_apps_result == nil else {
-				throw IDeviceSwiftError(installation_proxy_get_apps_result)
-			}
-			
-			var appInfos: [AppInfo] = []
-			let decoder = PropertyListDecoder()
-			
-			if let outResult = outResult {
-				let buffer = outResult.bindMemory(to: OpaquePointer?.self, capacity: outResultLen)
-				let pointerBuffer = UnsafeBufferPointer(start: buffer, count: outResultLen)
-				
-				let appPlists = Array(pointerBuffer)
-				for plist in appPlists {
-					guard let plist = plist else { continue }
-					
-					var xml: UnsafeMutablePointer<CChar>?
-					var length: UInt32 = 0
-					
-					plist_to_xml(UnsafeMutableRawPointer(plist), &xml, &length)
-					
-					if let xml = xml {
-						let data = Data(bytes: xml, count: Int(length))
-						
-						do {
-							let appInfo = try decoder.decode(AppInfo.self, from: data)
-							appInfos.append(appInfo)
-						} catch {
-							print("Failed to decode AppInfo plist: \(error)")
-						}
-						free(xml)
-					}
-				}
-			}
-			
-			installation_proxy_client_free(installproxy)
-			
-			return appInfos
-		}.value
-		
-		await MainActor.run {
-			self.delegate?.updateApplications(with: allApps)
-		}
-	}
-	
-	// VexSign local patch (see VexSign/Packages/Vendor/README.md): connects the same way `listApps` does, so
-	// removal works over the RSD tunnel too, and frees the client handle on every path.
-	static public func deleteApp(for id: String) async throws {
-		let heartbeat = HeartbeatManager.shared
-		
-		return try await Task.detached(priority: .userInitiated) {
-			var installproxy: InstallationProxyClientHandle?
+public final class InstallationAppProxy: NSObject {
+    public var delegate: InstallationProxyAppsDelegate?
 
-			guard FileManager.default.fileExists(atPath: HeartbeatManager.pairingFile()) else {
-				throw IDeviceSwiftError(message: "Missing Pairing")
-			}
+    /// Acceptance gate for MUTATIONS, not the presence of read-only source code.
+    /// CoreDevice App Service supplies positive metadata with a matching typed
+    /// destructor. The old installation_proxy plist-pointer array stays unused.
+    /// Binary/header ABI, failure-path ownership and physical version/build
+    /// confirmation must pass before enabling installation/removal. Never promote
+    /// this from a preference, successful socket, synthetic test or source review.
+    public static var hasAcceptedInventoryBridge: Bool { false }
+    /// Positive inventory cannot establish absence. Installation promotion must
+    /// not accidentally enable a separate destructive/removal path.
+    public static var hasAcceptedRemovalBridge: Bool { false }
 
-			if heartbeat.isRsd {
-				guard heartbeat.ensureRSDTunnel() else {
-					throw IDeviceSwiftError(message: "Missing Pairing")
-				}
-				let installation_proxy_connect_result = installation_proxy_connect_rsd(heartbeat.adapter, heartbeat.handshake, &installproxy)
-				guard installation_proxy_connect_result == nil else {
-					throw IDeviceSwiftError(installation_proxy_connect_result)
-				}
-			} else {
-				guard heartbeat.checkSocketConnection().isConnected else {
-					throw IDeviceSwiftError(message: "Missing Pairing")
-				}
-				let installation_proxy_connect_result = installation_proxy_connect(heartbeat.provider, &installproxy)
-				guard installation_proxy_connect_result == nil else {
-					throw IDeviceSwiftError(installation_proxy_connect_result)
-				}
-			}
-			defer { installation_proxy_client_free(installproxy) }
-			
-			let installation_proxy_uninstall_result = installation_proxy_uninstall(installproxy, id, nil)
-			guard installation_proxy_uninstall_result == nil else {
-				throw IDeviceSwiftError(installation_proxy_uninstall_result)
-			}
-		}.value
-	}
-}
+    /// Old callers did not identify their target. Do not silently use this
+    /// iPhone's local registry or choose a device from an arbitrary remote record.
+    public func listApps() async throws { throw DeviceTransportError.expectedDeviceRequired }
 
-extension InstallationAppProxy {
-	private static var iconCache: [String: UIImage] = [:]
-	private static let iconCacheQueue = DispatchQueue(label: "iconCacheQueue")
-	
-	static public func getAppIconCached(for id: String) async throws -> UIImage? {
-		if let cached = iconCacheQueue.sync(execute: { iconCache[id] }) {
-			return cached
-		}
-		let image = try await getAppIcon(for: id)
-		if let img = image {
-			iconCacheQueue.async {
-				iconCache[id] = img
-			}
-		}
-		return image
-	}
-	
-	static public func getAppIcon(for id: String) async throws -> UIImage? {
-		var springServices: SpringBoardServicesClientHandle?
-		
-		return try await Task.detached(priority: .userInitiated) {
-			
-			if HeartbeatManager.shared.isRsd {
-				let springboard_services_connect_result = springboard_services_connect_rsd(HeartbeatManager.shared.adapter, HeartbeatManager.shared.handshake, &springServices)
-				guard springboard_services_connect_result == nil else {
-					throw IDeviceSwiftError(springboard_services_connect_result)
-				}
-			} else {
-				let springboard_services_connect_result = springboard_services_connect(HeartbeatManager.shared.provider, &springServices)
-				guard springboard_services_connect_result == nil else {
-					throw IDeviceSwiftError(springboard_services_connect_result)
-				}
-			}
-			
-			var outResult: UnsafeMutableRawPointer?
-			var outResultLen: Int = 0
-			
-			let springboard_services_get_icon_result = springboard_services_get_icon(springServices, id, &outResult, &outResultLen)
-			guard springboard_services_get_icon_result == nil else {
-				throw IDeviceSwiftError(springboard_services_get_icon_result)
-			}
-			
-			
-			guard let iconPtr = outResult else {
-				throw IDeviceSwiftError(message: "Missing Pointer")
-			}
-			
-			let iconData = Data(bytes: iconPtr, count: outResultLen)
-			
-			springboard_services_free(springServices)
-			
-			return UIImage(data: iconData)
-		}.value
-	}
+    public func listApps(request: DeviceConnectionRequest) async throws {
+        let inventory = try await HeartbeatManager.shared.queryApplicationInventory(request: request)
+        // Preserve the existing UI/delegate model. Only positive, validated app
+        // records are adapted; optional AppInfo metadata stays absent, not guessed.
+        let dictionaries: [[String: String]] = inventory.applications.map { app in
+            var fields = ["CFBundleIdentifier": app.bundleIdentifier, "CFBundleName": app.name, "Path": app.bundlePath]
+            fields["CFBundleShortVersionString"] = app.version
+            fields["CFBundleVersion"] = app.build
+            return fields
+        }
+        let apps = try JSONDecoder().decode([AppInfo].self, from: JSONSerialization.data(withJSONObject: dictionaries))
+        await MainActor.run { self.delegate?.updateApplications(with: apps) }
+    }
+
+    public static func installedApplication(for id: String, request: DeviceConnectionRequest,
+                                            waiterTimeout: TimeInterval = 30,
+                                            reporting: @escaping (DeviceConnectionStage) -> Void = { _ in }) async throws -> DeviceInstalledApplication? {
+        guard DeviceApplicationInventory.isBundleIdentifier(id) else { throw DeviceTransportError.invalidDeviceResponse }
+        let inventory = try await HeartbeatManager.shared.queryApplicationInventory(request: request,
+            waiterTimeout: waiterTimeout, reporting: reporting)
+        return inventory.application(for: id)
+    }
+
+    @available(iOS 16.0, macOS 13.0, *)
+    public static func deleteApp(for id: String, request: DeviceConnectionRequest? = nil,
+                                 control: DeviceInstallationControl = DeviceInstallationControl()) async throws {
+        guard hasAcceptedRemovalBridge else { throw DeviceTransportError.inventoryBridgeUnavailable }
+        guard let request, request.binding != nil, DeviceApplicationInventory.isBundleIdentifier(id) else {
+            throw DeviceTransportError.expectedDeviceRequired
+        }
+        try await HeartbeatManager.shared.withDeviceSession(request: request) { session, cancellation in
+            try DeviceServiceSession.check(cancellation)
+            var client: OpaquePointer?
+            defer { if let client { installation_proxy_client_free(client) } }
+            try session.checked(installation_proxy_connect_rsd(session.adapter, session.handshake, &client), stage: .discoveringServices)
+            guard let client else { throw DeviceTransportError.serviceUnavailable("Installation Proxy") }
+            try DeviceServiceSession.check(cancellation)
+            try control.beginSubmission(at: Date(), cancellation: cancellation)
+            try session.checked(installation_proxy_uninstall(client, id, nil), stage: .discoveringServices)
+            // This method only acknowledges a request. DeviceAppRemoval must
+            // obtain independent, same-device absence evidence before 'Removed'.
+        }
+    }
+
+    private static var iconCache: [String: UIImage] = [:]
+    private static let iconCacheQueue = DispatchQueue(label: "com.vexsign.device-icon-cache")
+
+    public static func getAppIconCached(for id: String) async throws -> UIImage? {
+        if let icon = iconCacheQueue.sync(execute: { iconCache[id] }) { return icon }
+        let icon = try await getAppIcon(for: id)
+        if let icon { iconCacheQueue.sync { iconCache[id] = icon } }
+        return icon
+    }
+
+    public static func getAppIcon(for id: String) async throws -> UIImage? {
+        try await HeartbeatManager.shared.withDeviceSession { session, _ in
+            var client: OpaquePointer?
+            defer { if let client { springboard_services_free(client) } }
+            try session.checked(springboard_services_connect_rsd(session.adapter, session.handshake, &client), stage: .discoveringServices)
+            guard let client else { throw DeviceTransportError.serviceUnavailable("SpringBoard Services") }
+            var bytes: UnsafeMutableRawPointer?
+            var count = 0
+            try session.checked(springboard_services_get_icon(client, id, &bytes, &count), stage: .discoveringServices)
+            guard let bytes else { throw DeviceTransportError.invalidDeviceResponse }
+            defer { idevice_data_free(bytes.assumingMemoryBound(to: UInt8.self), count) }
+            guard count > 0, count <= 8 * 1024 * 1024 else { throw DeviceTransportError.invalidDeviceResponse }
+            return UIImage(data: Data(bytes: bytes, count: count))
+        }
+    }
 }

@@ -88,12 +88,12 @@ private struct GuideTopic: Identifiable {
 		GuideTopic(
 			id: "jit-location",
 			title: .localized("Pairing and Diagnostics"),
-			subtitle: .localized("Configure a pairing file, loopback VPN, and verify readiness"),
+			subtitle: .localized("Review OS compatibility, pairing credentials, and transport limits"),
 			icon: "bolt.badge.automatic",
 			steps: [
-				.localized("Open Settings → Installation Engine (or JIT & On-Device Pairing) to import a .mobiledevicepairing record exported from a trusted computer."),
-				.localized("Enable a loopback VPN such as LocalDevVPN on Wi-Fi or Airplane mode before using idevice installation."),
-				.localized("Run Check Pairing & Heartbeat Socket or open Setup Health to verify the pairing record and socket before installing."),
+				.localized("Open Settings → Installation Engine → Pairing file and VPN setup. Review the OS route before importing a record from a trusted tool; a computer may be required."),
+				.localized("Activate a compatible VPN yourself in its own app or Settings. Opening a URL or seeing a reachable socket does not establish device trust."),
+				.localized("On an eligible classic route, explicitly approve a fresh read-only device query and check the intended UDID. Remote host identifiers are not device UDIDs. Modern remote routes and paired installation remain gated in this build."),
 				.localized("Note that stock sandboxed VexSign does not include tetherless debugserver JIT injection or system-wide GPS location simulation.")
 			]
 		),

@@ -17,11 +17,19 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('$(VEXSIGN_SOURCE_COMMIT)', self.text('VexSign/Configuration/Build/iOS/Info.plist'))
 
     def test_private_pairing_consumers_use_shared_path(self):
-        for path in ['VexSign/App/iOS/Infrastructure/Identity/CertificateManagementService.swift', 'VexSign/App/iOS/Infrastructure/Devices/Transport/PairingBridge.swift',
-                     'VexSign/App/iOS/Infrastructure/Devices/Transport/LockdownClient.swift']:
+        consumers = {
+            'VexSign/App/iOS/Infrastructure/Identity/CertificateManagementService.swift': 'HeartbeatManager.shared.importPairingRecord(from: url, replacing: expectedSHA256)',
+            'VexSign/App/iOS/Infrastructure/Devices/Transport/PairingBridge.swift': 'HeartbeatManager.pairingFile()',
+            'VexSign/App/iOS/Infrastructure/Devices/Transport/LockdownClient.swift': 'HeartbeatManager.pairingFile()',
+        }
+        for path, shared_entrypoint in consumers.items():
             source = self.text(path)
-            self.assertIn('HeartbeatManager.pairingFile()', source)
+            self.assertIn(shared_entrypoint, source)
             self.assertNotIn('appendingPathComponent("pairingFile.plist")', source)
+        owner = self.text('VexSign/Packages/Vendor/IDeviceKitten/Sources/IDeviceSwift/Heartbeat/Heartbeat.swift')
+        importer = owner.split('func importPairingRecord(', 1)[1].split('func deletePairingRecord(', 1)[0]
+        self.assertIn('try await serialized', importer)
+        self.assertIn('URL(fileURLWithPath: Self.pairingFile())', importer)
 
     def test_reports_never_export_raw_error_or_artifact_identifiers(self):
         source = self.text('VexSign/App/iOS/Infrastructure/Tasks/TaskReceipt.swift')
@@ -59,12 +67,21 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('await probe.installedAppWithTimeout', watcher)
         self.assertIn('await probe.installedAppWithTimeout', library)
 
-    def test_native_acknowledgement_does_not_wait_on_private_probe(self):
+    def test_native_acknowledgement_never_substitutes_for_exact_device_readback(self):
         source = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift')
         native = source.split('private func _confirmIdeviceInstall()', 1)[1].split('extension AppInstaller.Outcome', 1)[0]
-        self.assertNotIn('InstallWatcher.confirm', native)
+        self.assertIn('InstallWatcher.confirm(&confirmation', native)
+        self.assertIn('PairedDeviceInstallationProbe(request: request)', native)
+        self.assertIn('evidenceNotBefore: submission.acknowledgedAt', native)
+        self.assertIn('_confirmedApplication = confirmation.confirmedApplication', native)
         self.assertNotIn('_probe.installedApp', native)
-        self.assertIn('native-installation-completed', native)
+        self.assertNotIn('_finishConfirmed(.installed', native)
+        self.assertIn('_finishConfirmed(.timedOutVerifying', native)
+        self.assertIn('paired-installed-version-not-verified', native)
+        self.assertIn('guard InstallationAppProxy.hasAcceptedInventoryBridge', source)
+        wrapper = self.text('VexSign/Packages/Vendor/IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift')
+        self.assertLess(wrapper.index('guard InstallationAppProxy.hasAcceptedInventoryBridge'),
+                        wrapper.index('withDeviceSession'))
 
     def test_ota_observation_failure_does_not_trigger_reinstall(self):
         source = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift')
@@ -184,11 +201,10 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         # The flows above are every flow that signs a library app. A file that starts naming the
         # signer has to be added to one of the two lists, which is the moment to decide how the
         # new flow settles its copies.
-        #   SelfUpdateManager signs a scratch import of VexSign itself and deletes both scratch
-        #   entries once the update is packaged: neither was ever meant to stay in the library.
+        #   SelfUpdateManager is gated before certificate access. It neither signs scratch
+        #   copies nor uploads signing material to a remote updater.
         #   PackageSigningCoordinator declares the function. FeatureStatusRegistry names it in a description.
         elsewhere = {
-            'VexSign/App/iOS/Infrastructure/Updates/SelfUpdateManager.swift',
             'VexSign/App/iOS/Infrastructure/Signing/Execution/PackageSigningCoordinator.swift',
             'VexSign/App/iOS/Infrastructure/Diagnostics/FeatureStatusRegistry.swift',
             'VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift',
