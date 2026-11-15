@@ -18,15 +18,18 @@ enum PairingBridge {
     static var isBusy: Bool { HeartbeatManager.shared.isBusy }
 
     @MainActor private static var selectedDeviceRequest: DeviceConnectionRequest?
+    @MainActor private static var selectionGeneration = UUID()
 
     @MainActor static func invalidateSelectedDevice() {
         HeartbeatManager.shared.cancelDeviceOperations()
+        selectionGeneration = UUID()
         selectedDeviceRequest = nil
         LibraryStatusStore.shared.selectDevice(binding: nil)
     }
 
     @MainActor static func isSelectedForUse(_ request: DeviceConnectionRequest) -> Bool {
         protocolConsent && request.protocolConsent && request.binding != nil
+            && request.selectionID == selectedDeviceRequest?.selectionID
             && request.binding == selectedDeviceRequest?.binding
             && request.peerAddress == peerAddress && request.pairingFile == pairingFileURL
     }
@@ -137,9 +140,14 @@ enum PairingBridge {
         let request = DeviceConnectionRequest(pairingFile: pairingFileURL,
             expectedDeviceIdentifier: expectedIdentifier, peerAddress: peerAddress, protocolConsent: protocolConsent,
             expectedPairingSHA256: fingerprint)
+        let generation = selectionGeneration
         let snapshot = try await HeartbeatManager.shared.queryDevice(request: request, reporting: reporting)
         try Task.checkCancellation()
-        guard protocolConsent, request.peerAddress == peerAddress else { throw DeviceTransportError.operationCancelled }
+        // Native retirement can race revocation before this actor resumes. A
+        // successful old query must not resurrect a cleared/reselected target.
+        guard generation == selectionGeneration, protocolConsent, request.peerAddress == peerAddress else {
+            throw DeviceTransportError.operationCancelled
+        }
         // The user explicitly named this device in setup. Remember selection,
         // never enduring authorization. A new attempt rechecks record and identity.
         let selected = DeviceConnectionRequest(pairingFile: pairingFileURL,
@@ -157,8 +165,9 @@ enum PairingBridge {
     @MainActor
     static func installationRequest() async throws -> DeviceConnectionRequest {
         guard let request = selectedDeviceRequest else { throw DeviceTransportError.expectedDeviceRequired }
+        let generation = selectionGeneration
         let metadata = try await HeartbeatManager.shared.currentPairingRecord()
-        guard isSelectedForUse(request), metadata.sha256 == request.expectedPairingSHA256 else {
+        guard generation == selectionGeneration, isSelectedForUse(request), metadata.sha256 == request.expectedPairingSHA256 else {
             throw DeviceTransportError.operationCancelled
         }
         return request
@@ -169,7 +178,13 @@ enum PairingBridge {
                                          reporting: @escaping (DeviceConnectionStage) -> Void) async throws -> DeviceInstalledApplication? {
         let request = DeviceConnectionRequest(pairingFile: pairingFileURL, expectedDeviceIdentifier: expectedDevice,
             peerAddress: peerAddress, protocolConsent: protocolConsent, expectedPairingSHA256: fingerprint)
-        return try await InstallationAppProxy.installedApplication(for: identifier, request: request, reporting: reporting)
+        let generation = selectionGeneration
+        let application = try await InstallationAppProxy.installedApplication(for: identifier, request: request, reporting: reporting)
+        try Task.checkCancellation()
+        guard generation == selectionGeneration, protocolConsent, request.peerAddress == peerAddress else {
+            throw DeviceTransportError.operationCancelled
+        }
+        return application
     }
 
     /// Retained for advanced endpoint diagnostics. An open socket establishes no trust.

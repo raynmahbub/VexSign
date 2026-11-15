@@ -121,6 +121,17 @@ final class DeviceApplicationInventoryTests: XCTestCase {
         XCTAssertNil(initialQuery.binding)
     }
 
+    func testCopyPreservesSelectionIdentityButReselectingEqualDeviceAndRecordDoesNot() {
+        let first = DeviceConnectionRequest(pairingFile: URL(fileURLWithPath: "/synthetic/pairing.plist"),
+            expectedDeviceIdentifier: PairingRecordTestFixtures.device, protocolConsent: true, expectedPairingSHA256: digest)
+        let copy = first
+        let reselected = DeviceConnectionRequest(pairingFile: first.pairingFile,
+            expectedDeviceIdentifier: first.expectedDeviceIdentifier, protocolConsent: true, expectedPairingSHA256: digest)
+        XCTAssertEqual(copy.selectionID, first.selectionID)
+        XCTAssertEqual(reselected.binding, first.binding)
+        XCTAssertNotEqual(reselected.selectionID, first.selectionID)
+    }
+
     func testExpiredAuthorizationOrAnOSChangeAfterPreparationCannotBeSubmitted() throws {
         let target = try XCTUnwrap(DeviceInstallationTarget(bundleIdentifier: "com.example.app", version: "1.2", build: "7",
             packageSHA256: digest, authorizationExpiresAt: epoch.addingTimeInterval(1), verifiedDeviceOS: "18.0"))

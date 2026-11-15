@@ -279,6 +279,11 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('metadata.sha256 == request.expectedPairingSHA256', request)
         self.assertNotIn('metadata.deviceIdentifier', request)
         self.assertIn('selectedDeviceRequest = nil', bridge)
+        self.assertIn('selectionGeneration = UUID()', bridge)
+        self.assertIn('request.selectionID == selectedDeviceRequest?.selectionID', bridge)
+        self.assertEqual(bridge.count('generation == selectionGeneration'), 3)
+        final = (APP / 'Infrastructure/Devices/Installation/AppInstaller.swift').read_text().split('private func _finish(_ result:', 1)[1]
+        self.assertIn('let request = _pairedRequest, PairingBridge.isSelectedForUse(request)', final)
         probe = (APP / 'Infrastructure/Devices/Installation/InstalledAppProbe.swift').read_text()
         paired = probe.split('struct PairedDeviceInstallationProbe:', 1)[1].split('struct UnavailableInstallationProbe:', 1)[0]
         self.assertEqual(paired.count('PairingBridge.isSelectedForUse(request)'), 2)

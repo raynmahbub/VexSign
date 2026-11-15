@@ -87,6 +87,10 @@ public enum DeviceTransportError: Error, Equatable, LocalizedError {
 }
 
 public struct DeviceConnectionRequest: Sendable {
+    /// Process-local identity of this request value, preserved by copies but not
+    /// recreated from equal device/record fields. This is not native trust. App
+    /// selection can reject an old request after revoke/reselect of the same peer.
+    public let selectionID = UUID()
     public let pairingFile: URL
     public let expectedDeviceIdentifier: String
     public let peerAddress: String

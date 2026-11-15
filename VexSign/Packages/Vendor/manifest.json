@@ -91,7 +91,7 @@
           "description": "Conservative OS/format restrictions, sanitized typed errors and point-in-time device-query values.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "bcb6f183a7316e903cc29fe9c83b988f84b2e281ab366fc3d5f872d2799caf26"
+          "patchedSHA256": "bfc54b5687e2e35196d86a005ab4372957f4f909295830362bd65e31dea41afe"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceOperationExecutor.swift",

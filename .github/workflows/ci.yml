@@ -517,8 +517,21 @@ jobs:
       # No IDevice binary, network service, account, signing identity or iPhone.
       - name: Device foundation · parser, storage and executor
         run: |
-          set -euo pipefail
+          # Preserve the native verdict and publish compiler diagnostics as
+          # annotations too; artifacts alone are not always reachable by reviewers.
+          set +e
+          set -uo pipefail
           make test-device-foundation 2>&1 | tee "$RUNNER_TEMP/device-foundation-tests.log"
+          status=${PIPESTATUS[0]}
+          python3 .github/scripts/xcodebuild_report.py \
+            --log "$RUNNER_TEMP/device-foundation-tests.log" \
+            --build-exit "$status" \
+            --warnings-as-errors false \
+            --title "Device foundation" \
+            --workspace "$GITHUB_WORKSPACE"
+          report_status=$?
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          exit "$report_status"
 
       - name: Upload device foundation findings
         if: always()
@@ -647,7 +660,7 @@ jobs:
       # A failure is usually a destination or embedding problem, not an
       # assertion. Print what this runner actually offers.
       - name: Show available destinations
-        if: failure()
+        if: failure() && steps.test.outcome != 'skipped'
         run: xcodebuild -workspace VexSign.xcworkspace -scheme VexSignTests -showdestinations || true
 
       - name: Upload xcresult and log

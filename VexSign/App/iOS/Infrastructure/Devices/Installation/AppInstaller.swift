@@ -660,6 +660,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		guard !_hasFinished else { return }
         if case .success(.installed) = result {
             guard _installationMethod == 1, let submission = _pairedSubmission,
+                  let request = _pairedRequest, PairingBridge.isSelectedForUse(request),
                   let application = _confirmedApplication, application.isInstalled, !application.isPlaceholder,
                   application.bundleIdentifier == app.identifier, application.version == app.version,
                   application.build == submission.target.build,

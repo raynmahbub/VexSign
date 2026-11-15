@@ -72,6 +72,7 @@ final class DeviceBootstrapModel: ObservableObject {
     private func reloadRecord() async throws {
         let current = try await PairingBridge.reviewRecord()
         let changed = fingerprint != current.fingerprint
+        if changed { PairingBridge.invalidateSelectedDevice() }
         pairing = current.state
         fingerprint = current.fingerprint
         format = current.format
