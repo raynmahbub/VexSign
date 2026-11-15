@@ -37,7 +37,7 @@ final class DeviceServiceSession {
         // a symlink/size/ABA race against a document-provider or external writer.
         try recordBytes.withUnsafeBytes { bytes in
             guard let base = bytes.bindMemory(to: UInt8.self).baseAddress else { throw PairingRecordError.malformed }
-            try checked(idevice_pairing_file_from_bytes(base, bytes.count, &pairing), stage: .inspectingRecord)
+            try checked(idevice_pairing_file_from_bytes(base, UInt(bytes.count), &pairing), stage: .inspectingRecord)
         }
         guard pairing != nil else { throw DeviceTransportError.invalidDeviceResponse }
         var address = try Self.peer(request.peerAddress, port: 62078)

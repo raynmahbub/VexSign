@@ -275,9 +275,23 @@ public enum PairingFileStorage {
     /// Other sandbox processes cannot write these 0700 app-private directories;
     /// hostile same-process arbitrary filesystem access is not a supported threat boundary.
     private static func requireUnlinkedPath(_ url: URL) throws {
-        guard url.isFileURL, !url.path.utf8.contains(0),
-              url.standardizedFileURL.path == url.resolvingSymlinksInPath().standardizedFileURL.path else {
+        guard url.isFileURL, url.path.hasPrefix("/"), !url.path.utf8.contains(0) else {
             throw PairingRecordError.unsafeFile
+        }
+        let components = url.path.split(separator: "/")
+        guard !components.contains("."), !components.contains("..") else { throw PairingRecordError.unsafeFile }
+        // resolvingSymlinksInPath can return an unresolved original path when a
+        // suffix does not exist. Walk the existing ancestors BEFORE mkdir; a
+        // dangling or directory symlink must never be followed to create Private.
+        var path = ""
+        for component in components {
+            path += "/" + component
+            var info = stat()
+            if lstat(path, &info) != 0 {
+                guard errno == ENOENT else { throw PairingRecordError.unreadable }
+                return // The rest does not exist; all existing ancestors were directories.
+            }
+            guard info.st_mode & S_IFMT == S_IFDIR else { throw PairingRecordError.unsafeFile }
         }
     }
 

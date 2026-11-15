@@ -70,7 +70,7 @@
           "description": "Existing local storage owner hardened in place: bounded reads, canonical private roots, reviewed protected atomic lifecycle, migration and owned-name recovery.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "036e23df7c280f690a0d825eb038c88697b117dfbd7965597da3f7d5f1bce71e"
+          "patchedSHA256": "d6e4e19258f60378b4327272723fe7b98568d3477e60149ddc602ff7e5d7441f"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/PairingRecordDocument.swift",
@@ -105,14 +105,14 @@
           "description": "Scoped pinned-FFI client adapter for an explicitly consented classic-route identity/service query; modern remote and host routes blocked.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "3e2d7d2f5d1d2bd71004daa1f9845e26a1a4d43fef05f2918eab4737b604425a"
+          "patchedSHA256": "a118b86b8b04f7b2043a5b9799650466124d7da926d9e898f19b4c8129406837"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/DeviceServiceSession+Applications.swift",
           "description": "Identity-checked CoreDevice App Service inventory using typed client/list destructors, strict bounded UTF-8, explicit request and no absence inference; binary/partial-failure acceptance pending.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "399c9a7e45d4262a420d610a41a6bf45bae8c7d4b6bc9cb6a1b375c91d64da42"
+          "patchedSHA256": "84451d5cc975545e6d52fc853a17fa5c96c3d51b1cbfea55372f2fa85cc8a72d"
         },
         {
           "path": "Sources/IDeviceSwift/InstallationProxy/DeviceApplicationInventory.swift",

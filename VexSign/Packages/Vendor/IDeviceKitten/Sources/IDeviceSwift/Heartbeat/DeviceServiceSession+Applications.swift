@@ -25,13 +25,16 @@ extension DeviceServiceSession {
         try Self.check(cancellation)
 
         var entries: UnsafeMutablePointer<AppListEntryC>?
-        var count = 0
+        // cbindgen maps Rust usize here to uintptr_t/Swift UInt, unlike the
+        // libc size_t parameters used by AFC. Bound before conversion to Int.
+        var nativeCount: UInt = 0
         // Only this destructor knows the array layout AND the nested strings.
         // Never use free(), idevice_data_free() or idevice_outer_slice_free().
-        defer { if let entries { app_service_free_app_list(entries, count) } }
-        try checked(app_service_list_apps(client, 1, 1, 1, 1, 1, &entries, &count), stage: .queryingDevice)
-        guard count >= 0, count <= DeviceApplicationInventory.maximumEntries,
-              count == 0 || entries != nil else { throw DeviceTransportError.invalidDeviceResponse }
+        defer { if let entries { app_service_free_app_list(entries, nativeCount) } }
+        try checked(app_service_list_apps(client, 1, 1, 1, 1, 1, &entries, &nativeCount), stage: .queryingDevice)
+        guard nativeCount <= UInt(DeviceApplicationInventory.maximumEntries),
+              nativeCount == 0 || entries != nil else { throw DeviceTransportError.invalidDeviceResponse }
+        let count = Int(nativeCount)
         try Self.check(cancellation)
         var records = [DeviceApplicationInventory.Record]()
         records.reserveCapacity(count)

@@ -198,12 +198,12 @@ final class PairingFileStorageTests: XCTestCase {
             let destination = root.appendingPathComponent("Private/pairing.plist")
             let original = try fixture()
             try original.write(to: legacy)
-            try PairingFileStorage.migrate(legacy: legacy, destination: destination)
-            try PairingFileStorage.migrate(legacy: legacy, destination: destination)
+            try requireSuccessfulMigration(legacy: legacy, destination: destination)
+            try requireSuccessfulMigration(legacy: legacy, destination: destination)
             XCTAssertEqual(try PairingFileStorage.read(from: destination), original)
             let older = try fixture("older")
             try older.write(to: legacy)
-            try PairingFileStorage.migrate(legacy: legacy, destination: destination)
+            try requireSuccessfulMigration(legacy: legacy, destination: destination)
             XCTAssertFalse(FileManager.default.fileExists(atPath: legacy.path))
             XCTAssertEqual(try PairingFileStorage.read(from: destination), original)
             let retained = try FileManager.default.contentsOfDirectory(at: destination.deletingLastPathComponent(), includingPropertiesForKeys: nil)
@@ -280,6 +280,11 @@ final class PairingFileStorageTests: XCTestCase {
             XCTAssertEqual(destination.path, root.appendingPathComponent("Library/Application Support/Private/pairingFile.plist").path)
             expect(.unsafeFile) { _ = try PairingFileStorage.install(try fixture(), at: destination, replacing: nil) }
             XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: documents.path).isEmpty)
+            try FileManager.default.removeItem(at: root.appendingPathComponent("Library"))
+            try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("Library"),
+                withDestinationURL: documents.appendingPathComponent("missing", isDirectory: true))
+            expect(.unsafeFile) { _ = try PairingFileStorage.install(try fixture(), at: destination, replacing: nil) }
+            XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: documents.path).isEmpty)
         }
     }
 
@@ -289,6 +294,33 @@ final class PairingFileStorageTests: XCTestCase {
         XCTAssertTrue(first.hasSuffix("/Private/pairingFile.plist"))
         // No prepare()/migrate() is called here: host tests never touch the app's
         // real Documents or Application Support records.
+    }
+
+    /// Keep an unexpected host filesystem failure diagnosable without exporting
+    /// raw paths or credential bytes. This does not relax the production checks.
+    private func requireSuccessfulMigration(legacy: URL, destination: URL,
+                                            file: StaticString = #filePath, line: UInt = #line) throws {
+        var checkpoint: stat?
+        var selectedTarget: URL?
+        do {
+            try PairingFileStorage.migrate(legacy: legacy, destination: destination, beforeMove: { source, target in
+                var info = stat()
+                if lstat(source.path, &info) == 0 { checkpoint = info }
+                selectedTarget = target
+            })
+        } catch {
+            var current = stat()
+            let sourceExists = lstat(legacy.path, &current) == 0
+            let sameIdentity = checkpoint.map { sourceExists && $0.st_dev == current.st_dev && $0.st_ino == current.st_ino }
+            let sameSize = checkpoint.map { sourceExists && $0.st_size == current.st_size }
+            let sameMTime = checkpoint.map { sourceExists && $0.st_mtimespec.tv_sec == current.st_mtimespec.tv_sec
+                && $0.st_mtimespec.tv_nsec == current.st_mtimespec.tv_nsec }
+            let sameCTime = checkpoint.map { sourceExists && $0.st_ctimespec.tv_sec == current.st_ctimespec.tv_sec
+                && $0.st_ctimespec.tv_nsec == current.st_ctimespec.tv_nsec }
+            let targetExists = selectedTarget.map { FileManager.default.fileExists(atPath: $0.path) }
+            XCTFail("Migration failed: \(error); source=\(sourceExists), identity=\(String(describing: sameIdentity)), size=\(String(describing: sameSize)), mtime=\(String(describing: sameMTime)), ctime=\(String(describing: sameCTime)), target=\(String(describing: targetExists))", file: file, line: line)
+            throw error
+        }
     }
 
     private func permissions(_ url: URL) throws -> Int {
