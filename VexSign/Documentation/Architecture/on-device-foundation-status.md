@@ -150,6 +150,17 @@ The eighth run's executed count is not available through the check API.
 - CI now packs details for all named failing tests, rather than annotating only
   the first five. The complete details still remain in its log/xcresult.
 
+## Selected next stage: read-only classic-route validation
+
+The user selected access to a Mac and an iPhone on iOS 17.4–26.3 for preparation.
+That selection is not an observation of the device, an installation approval or
+permission to use Apple credentials. The [scoped runbook](../DeviceTesting/CLASSIC_PAIRING_READ_ONLY_RUNBOOK.md)
+and blank worksheet cover explicit identity/inventory reads, Unknown-versus-
+absence, revocation, cancellation/retirement and foreground/relaunch behavior.
+Use an already legitimately installed reviewed candidate; missing bootstrap
+prerequisites require a separate decision. No physical result or full F/I case
+is marked complete, and no gate is enabled by these notes.
+
 ## Manual build and test instructions
 
 On an authorized macOS/Xcode machine with the repository's required iOS SDK:

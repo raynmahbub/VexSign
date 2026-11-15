@@ -15,6 +15,15 @@ For the bootstrap/pairing/transport foundation, also follow the
 Those are additional manual checks, not simulated device-report passes. Paired
 installation and native-account/CMS promotion remain gated in this draft.
 
+## Read-only classic-route stage
+
+If you have selected a Mac plus iPhone on iOS 17.4–26.3 for **read-only**
+validation, start with [the scoped classic runbook](CLASSIC_PAIRING_READ_ONLY_RUNBOOK.md)
+and its blank private worksheet instead. Hardware availability is not approval
+to install/replace VexSign or operate an Apple Account. Do not run this document's
+broader installation/signing ladder until those separate actions are approved.
+Read-only subset observations cannot complete the full physical matrix.
+
 ## 1. Validate the exact source
 
 Run **CI → full** on the candidate commit: both the unsigned macOS build and

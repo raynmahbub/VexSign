@@ -14,6 +14,12 @@ numbered signing/installation scenarios linked there. F-numbers below are manual
 foundation checks; `device-acceptance.py` does not automatically validate them.
 See [exact-source build/test instructions](../Architecture/on-device-foundation-status.md#manual-build-and-test-instructions).
 
+For the selected Mac + iOS 17.4–26.3 preparation stage, use the
+[scoped read-only classic runbook](CLASSIC_PAIRING_READ_ONLY_RUNBOOK.md).
+Its CR01–CR08 notes are only subsets of this matrix, not recorded full-scenario
+passes or permission to enable mutations. Its private worksheet is not a
+capability-promotion report.
+
 ## Safe preparation and evidence
 
 Use a spare iPhone/iPad, dedicated test account/identity and a harmless IPA you are

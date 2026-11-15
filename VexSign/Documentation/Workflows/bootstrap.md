@@ -60,6 +60,12 @@ See the [source audit](../Architecture/on-device-foundation-audit.md),
 [implementation status and build instructions](../Architecture/on-device-foundation-status.md)
 and [pending physical foundation checks](../DeviceTesting/ON_DEVICE_FOUNDATION_ACCEPTANCE.md).
 
+For a maintainer with a Mac and an already eligible iOS 17.4–26.3 iPhone,
+[the read-only classic validation runbook](../DeviceTesting/CLASSIC_PAIRING_READ_ONLY_RUNBOOK.md)
+now provides exact UI steps and a blank private worksheet. It does not authorize
+bootstrap installation, account operations or opening the mutation gate, and it
+does not convert subset observations into full physical acceptance.
+
 ## Safari checklist for a future portal
 
 A deployable portal must display stable/beta build, exact version/build, minimum iOS, channel, verified artifact hash, release notes, signing class, certificate/team fingerprint where safe, profile/device eligibility, expiry, and the platform handoff. It must hide or disable installation unless the artifact's Apple signing eligibility is actually established. Downloads and installation handoff must be separate statuses. A user should be told to use TestFlight, Files, or their organization when those are the legitimate route.
