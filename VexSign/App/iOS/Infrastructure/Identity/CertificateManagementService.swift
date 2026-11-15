@@ -25,6 +25,23 @@ enum CertificateManagementService {
         isDefault: Bool = false,
         completion: @escaping (Error?) -> Void
     ) {
+        importCertificateFilesIdentified(p12URL: p12URL, provisionURL: provisionURL,
+            p12Password: p12Password, certificateName: certificateName, isDefault: isDefault) { result in
+                switch result {
+                case .success: completion(nil)
+                case .failure(let error): completion(error)
+                }
+            }
+    }
+
+    /// Same importer and persistence transaction as manual certificate import.
+    /// Returns only the UUID of the row actually committed, never a store index,
+    /// password, private-key path or a best-guess newest certificate.
+    static func importCertificateFilesIdentified(
+        p12URL: URL, provisionURL: URL, p12Password: String,
+        certificateName: String = "", isDefault: Bool = false,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         Task.detached {
             let keyAccess = p12URL.startAccessingSecurityScopedResource()
             let provisionAccess = provisionURL.startAccessingSecurityScopedResource()
@@ -47,12 +64,12 @@ enum CertificateManagementService {
                 try await handler.copy()
                 try await handler.addToDatabase()
                 await MainActor.run {
-                    completion(nil)
+                    completion(.success(handler.certificateUUID))
                 }
             } catch {
                 handler.clean()
                 await MainActor.run {
-                    completion(error)
+                    completion(.failure(error))
                 }
             }
         }

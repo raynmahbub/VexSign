@@ -239,6 +239,23 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertIn('authenticateProfile: { data, verificationTime in', tests)
         self.assertNotIn('Data([0x30, 0x03, 0x02, 0x01, 0x00])', tests)
 
+    def test_account_signing_transition_requires_exact_imported_identity_and_separate_review(self):
+        source = (ROOT / "VexSign/App/iOS/Presentation/Features/Signing/Views/SigningView.swift").read_text()
+        self.assertIn('return accountHandoff.certificate(in: certificates)', source)
+        self.assertIn('guard accountHandoff.matches(app)', source)
+        self.assertIn('options.automaticallyResolveSigningIdentity = false', source)
+        self.assertIn('options.signingOption = .default', source)
+        self.assertIn('guard _accountHandoffIsCurrent else', source)
+        contract = (ROOT / 'VexSign/App/iOS/Domain/Protocols/AppleAccountWorkspaceProviding.swift').read_text()
+        for condition in ('matches.count == 1', '!candidate.revoked', 'candidate.profile?.ExpirationDate == expiresAt',
+                          'candidate.expiration.map({ $0 > now }) == true'):
+            self.assertIn(condition, contract)
+        importer = (ROOT / 'VexSign/App/iOS/Infrastructure/Identity/CertificateManagementService.swift').read_text()
+        self.assertLess(importer.index('try await handler.addToDatabase()'), importer.index('completion(.success(handler.certificateUUID))'))
+        manager = (ROOT / 'VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift').read_text()
+        self.assertIn('continuation.resume(with: $0)', manager)
+        self.assertIn('current.id == contextID', manager)
+
     def test_inventory_cannot_turn_an_unavailable_keychain_into_an_empty_password(self):
         source = (ROOT / "VexSign/App/iOS/Infrastructure/Identity/SigningIdentityStore.swift").read_text()
         self.assertIn("password = try passwordReader(row)", source)

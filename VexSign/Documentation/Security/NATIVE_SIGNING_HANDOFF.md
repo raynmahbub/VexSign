@@ -1,6 +1,6 @@
 # Free Apple ID → signing handoff
 
-**Status: code handoff implemented; production CMS promotion and device acceptance remain pending.**
+**Status: strict production CMS verifier wired; exact-identity signing review connected; genuine Apple-profile and device acceptance remain pending.**
 `SigningMethodCapabilities.nativeAppleAccountSigning` therefore remains
 `.notIntegrated`. Imported-certificate signing is still the supported path.
 Flipping that claim is evidence-gated, not a source edit: see
@@ -21,13 +21,20 @@ code now connects that result to the existing certificate store:
 | Export profile | `NativeAccountBackend.exportProvisioningProfile` → `SideSignAccountBridge.exportProvisioningProfile` | Fresh portal download and CMS validation; exact owner, identity, profile UUID, bundle, device, certificate, expiry and CMS receipt-digest match |
 | Export identity | `NativeSigningManager.exportToCertificateStore` → `exportSigningIdentity` | Separate short-lived, single-use `NativeKeyExportConsent`; cryptographically random password generated in the app |
 | App preflight | `NativeSigningHandoffPreflight` | Rechecks team, identity phase, bundle, device, profile UUID, expiry, development certificate presence and restricted entitlements before consuming the key grant |
-| Import pair | `FR.handleCertificateFiles` | Uses the existing `CertificatePair` + `.mobileprovision` pipeline rather than a parallel signer |
+| Import pair | `CertificateManagementService.importCertificateFilesIdentified` | Uses the existing `CertificatePair` + `.mobileprovision` pipeline rather than a parallel signer |
 | Scratch cleanup | `NativeSigningManager.exportToCertificateStore` | Device-protected `0700` directory, `0600` files and `defer` removal |
 | Progress | `UnifiedTaskCenter` | Completion means certificate import only, never signed or installed |
 
 `ProvisioningFlowView` exposes the import only after an explicit private-key
-export consent. Once imported, the user selects that certificate in the existing
-signing flow. Provisioning does not automatically sign, install or renew an app.
+export consent. The importer returns the UUID of the row it actually committed.
+A successful import offers **Review Signing with This Identity** or **Review Sign
+& Install**, using the existing `SigningView`, verifier and installation queue.
+The transition is bound to the original app reference, bundle ID, profile UUID,
+expiry and imported certificate UUID. The selected row never falls back to a
+newest/default certificate; automatic identity resolution is disabled for this
+transition. Missing, changed, duplicated, expired or revoked identity metadata
+refuses the transition. Ordinary cryptographic preflight and user review still
+run. Provisioning/import never automatically signs, installs or renews an app.
 
 Package regressions cover exact-byte export, missing receipts, CMS digest
 substitution and expired consent. App regressions cover target, identity,
@@ -35,37 +42,36 @@ certificate, expiry and entitlement mismatches. Coordinator regressions exercise
 exact-byte staging, `0700`/`0600` permissions, cleanup, pre-export and post-export
 cancellation, import failure, and task-center terminal states using injected
 synthetic operations; the production adapter still calls the same backend and
-`FR.handleCertificateFiles` route. Synthetic CMS verification and injected import
+`CertificateManagementService.importCertificateFilesIdentified` route. Synthetic CMS verification and injected import
 operations are not evidence of Apple production trust or a real certificate import.
 
-## Production gate still closed
+## Supported capability promotion gate still closed
 
-`NativeProvisioningProfileValidator` refuses validation without a verifier, and
-the production `NativeAccountBackend` still uses that default:
+The supported `NativeAccountBackend` factory now explicitly injects
+`productionProfileValidator()`, which selects
+`NativeProvisioningProfileValidator.appleCMS()`. Generic internal bridges and
+unconfigured validators still default to unavailable; a stray verifier
+constructor or comment is not production wiring.
 
-```swift
-func requireCMSVerification() throws {
-    guard verifier != nil else { throw NativeProfileValidationError.cmsVerificationUnavailable }
-}
-```
+The experimental manual account flow can therefore reach real profile validation
+rather than always failing at an unavailable-verifier switch. Every envelope must
+still pass bounded DER/CMS parsing, signed-attribute/content digest verification,
+RSA signature verification and a system-trusted, purpose-constrained, pinned
+Apple-root chain at the supplied current time. Unsupported algorithms or formats,
+plain plists, synthetic/self-signed certificates, tampering and user trust
+overrides are refused. There is no decoding fallback, arbitrary custom anchor,
+server-provided key or fabricated authenticated receipt.
 
-Consequently `profileOperationsAvailable()` is false in the shipping factory and
-`NativeSigningManager.requireProfileOperations()` fails before quota-affecting
-profile work. `NativeProvisioningProfileValidator.appleCMS()` is not selected by
-production. The export and app handoff therefore compile and can be tested, but
-do not turn an unaccepted CMS implementation into a supported account flow.
-
-The existing OpenSSL-generated fixtures establish parser behavior and rejection
-of self-signed/tampered input. They do **not** establish that an Apple-issued
-profile reaches the pinned production roots or that the profile/device flow is
-accepted by Apple. An Apple-issued profile fixture or device-captured CMS, a real
-`SecKeyVerifySignature`/chain pass, current Apple root review and native test
-execution are still required before selecting `.appleCMS()` in the production
-factory.
-
-Selecting `.appleCMS()` in production is a deliberate source change, and it is
-not sufficient on its own: the capability claim is additionally gated on recorded
-evidence (below), so a wiring edit cannot quietly promote the flow.
+Selecting strict cryptography is **not** acceptance. The earlier PR run's native
+synthetic test step passed; the new production-factory and exact-transition tests
+still require the follow-up CI run. No current genuine Apple-profile positive
+observation or physical account/device ladder was performed in this workspace.
+An Apple-issued profile reaching the production roots, a current root/purpose
+review and the artifact-bound device ladder remain mandatory before claiming
+supported native Apple-account signing. `nativeAppleAccountSigning` stays
+`.notIntegrated`, and the UI explicitly says it is experimental and not
+device-accepted. Manual approvals for quota work, provider communication and
+private-key export remain independent; no account operation was executed here.
 
 ## Promotion evidence gate
 
@@ -93,7 +99,7 @@ when all of the following hold:
 | Observed Apple roots plus verification and expiry timestamps | A plist parse is not a chain check |
 | `synthetic_or_openssl_input_used: false`, with notes free of synthetic wording | Self-admitted fixtures cannot be relabelled as evidence |
 | Digests differ from every committed `VexSign/Packages/NativeSigning/Fixtures` digest | The OpenSSL fixture proves parser behavior only |
-| `SideSignAccountBridge` defaults the validator to `.appleCMS()` | Evidence cannot promote an unwired verifier |
+| `NativeAccountBackend` explicitly injects its strict production CMS validator | Evidence cannot promote an unwired verifier |
 | Device report created with `--include-native-handoff`, digest-bound, all eight `native_*` ladder cases explicitly passed | The device matrix is part of the same claim |
 | Report committed as a redacted copy under `VexSign/Documentation/DeviceTesting/evidence/` | `device-acceptance.local.json` is gitignored, and a record must be reviewable; private originals, screenshots and logs stay local |
 | Evidence commit is the checkout or an ancestor of it | Promotion belongs to a revision |
@@ -110,11 +116,11 @@ recorded.
 ## Remaining acceptance ladder
 
 1. Run the complete portable repository verification (`make verify`).
-2. Run `swift test --package-path NativeSigning`, including the new export tests.
+2. Run `prepare_smoke.py` then `swift test --package-path .build/native-signing-smoke`, including the new export tests.
 3. Run native link smoke and the combined-host build with the reviewed dependency graph.
 4. Run the simulator suite, including app-preflight and fail-closed no-receipt coverage.
 
-Steps 1–4 are reproducible in hosted CI and pass for the current handoff code.
+Steps 1–4 are reproducible in hosted CI; rerun them for the current candidate.
 They exercise synthetic CMS bytes and injected import operations, so they are not
 promotion evidence and they do not narrow the gates above.
 

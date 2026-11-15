@@ -110,6 +110,12 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertIn("XCTAssertThrowsError(try AppOperationRegistry.shared.acquire(key))", test)
         self.assertIn("XCTAssertThrowsError(try SigningIdentityStore.leasedSnapshot(storage: storage))", test)
 
+    def test_release_settings_repository_action_uses_existing_support_port(self) -> None:
+        source = _source(VEXSIGN / "Presentation/Features/Settings/Views/SettingsView.swift")
+        self.assertNotIn("_githubUrl", source)
+        self.assertIn("supportUseCase.openRepository()", source)
+        self.assertIn("#if !NIGHTLY && !DEBUG", source)
+
     def test_repository_gates_run_this_regression(self) -> None:
         command = "python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py"
         self.assertIn(command, (ROOT / "Makefile").read_text(encoding="utf-8"))

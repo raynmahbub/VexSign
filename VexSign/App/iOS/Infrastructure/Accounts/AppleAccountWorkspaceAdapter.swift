@@ -107,7 +107,7 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         let contextID = request.contextID
         let deviceID = request.deviceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         try Task.checkCancellation()
-        // Preserve the existing closed CMS gate before any quota-affecting request.
+        // Require a configured cryptographic verifier before quota-affecting work.
         try await manager.requireProfileOperations()
         progress(.init(stage: .preflight, fraction: 0.1))
         let preflight = try NativeAccountProvisioningRequest(deviceIdentifier: deviceID, bundleIdentifiers: [bundleID])
@@ -158,7 +158,7 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         progress(.init(stage: .completed, fraction: 1))
         return receipt
     }
-    func importCertificate(receiptID: UUID) async throws {
+    func importCertificate(receiptID: UUID) async throws -> AppleAccountSigningHandoff {
         guard let pending = pendingProfiles[receiptID], pending.profile.expiresAt > Date() else {
             throw AppleAccountWorkspaceError.missingReceipt
         }
@@ -167,10 +167,16 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         guard app.identifier == pending.bundleIdentifier else { throw WorkspaceAccessError.mismatchedRecord }
         let consent = try await manager.recordKeyExportConsent(contextID: pending.request.contextID, identityID: pending.identityID)
         try Task.checkCancellation()
-        try await manager.exportToCertificateStore(contextID: pending.request.contextID, profile: pending.profile,
+        let certificateUUID = try await manager.exportToCertificateStore(contextID: pending.request.contextID, profile: pending.profile,
             identityID: pending.identityID, bundleIdentifier: pending.bundleIdentifier,
             deviceIdentifier: pending.request.deviceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(), consent: consent)
         pendingProfiles.removeValue(forKey: receiptID)
+        try Task.checkCancellation()
+        try requireContext(pending.request.contextID)
+        let current = try repository.storage.managedApp(matching: pending.request.app)
+        guard current.identifier == pending.bundleIdentifier else { throw WorkspaceAccessError.mismatchedRecord }
+        return AppleAccountSigningHandoff(app: pending.request.app, bundleIdentifier: pending.bundleIdentifier,
+            certificateUUID: certificateUUID, profileUUID: pending.profile.profileUUID, expiresAt: pending.profile.expiresAt)
     }
     private func requireContext(_ id: UUID) throws {
         guard case .signedIn(let context) = manager.snapshot?.phase, context.id == id,

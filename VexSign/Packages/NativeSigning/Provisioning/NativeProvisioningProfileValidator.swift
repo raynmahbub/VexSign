@@ -57,7 +57,8 @@ struct NativeProfileValidationRequest: Sendable, CustomStringConvertible, Custom
 /// the provisioning-signing purpose and Apple-authorized signer chain at `now`.
 /// Merely extracting a plist, verifying a self-signed embedded certificate, or
 /// trusting an arbitrary system-TLS certificate does NOT satisfy this contract.
-/// No implementation is selected yet: production validation fails closed.
+/// The supported backend factory selects Apple's strict verifier explicitly;
+/// internal unconfigured validators still fail closed (including test/deferred paths).
 protocol NativeProfileCMSVerifying: Sendable {
     func verifyAppleProvisioningCMS(_ cms: Data, now: Date) async throws -> Data
 }

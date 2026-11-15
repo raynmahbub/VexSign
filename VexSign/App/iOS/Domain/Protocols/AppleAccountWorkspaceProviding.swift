@@ -81,6 +81,33 @@ struct AppleAccountProvisioningReceipt: Identifiable, Equatable, Sendable {
     let expiresAt: Date
 }
 
+/// An exact, process-local transition into the ordinary signing review. It is
+/// not a signing grant, installed-state proof, a private key or an account token.
+/// No "newest certificate"/stored-index fallback is permitted for this transition.
+struct AppleAccountSigningHandoff: Equatable, Sendable {
+    let app: LibraryAppReference
+    let bundleIdentifier: String
+    let certificateUUID: String
+    let profileUUID: UUID
+    let expiresAt: Date
+
+    func matches(_ candidate: AppInfoPresentable) -> Bool {
+        candidate.uuid == app.uuid && candidate.recordID == app.recordID
+            && candidate.isSigned == app.isSigned && candidate.identifier == bundleIdentifier
+    }
+
+    func certificate(in inventory: [CertificateRecord], now: Date = Date()) -> CertificateRecord? {
+        guard now.timeIntervalSince1970.isFinite, expiresAt.timeIntervalSince1970.isFinite,
+              expiresAt > now, UUID(uuidString: certificateUUID) != nil else { return nil }
+        let matches = inventory.filter { $0.uuid == certificateUUID }
+        guard matches.count == 1, let candidate = matches.first, !candidate.revoked,
+              candidate.profile.flatMap({ UUID(uuidString: $0.UUID) }) == profileUUID,
+              candidate.profile?.ExpirationDate == expiresAt,
+              candidate.expiration.map({ $0 > now }) == true else { return nil }
+        return candidate
+    }
+}
+
 enum AppleAccountWorkspaceError: Error, Equatable {
     case approvalRequired, missingReceipt, noActiveContext
 }
@@ -102,5 +129,5 @@ protocol AppleAccountWorkspaceProviding: AnyObject {
     func checkCertificate(contextID: UUID, identityID: UUID) async throws -> AppleAccountCertificateCheck
     func provision(_ request: AppleAccountProvisioningRequest,
                    progress: @escaping @MainActor (AppleAccountProvisioningProgress) -> Void) async throws -> AppleAccountProvisioningReceipt
-    func importCertificate(receiptID: UUID) async throws
+    func importCertificate(receiptID: UUID) async throws -> AppleAccountSigningHandoff
 }

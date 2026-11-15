@@ -160,11 +160,18 @@ public actor NativeAccountBackend {
             bridge = Bridge(adapter: adapter, provider: provider,
                             sessions: AppleAccountCredentialStore(), journal: AppleAccountResumeJournalStore(),
                             lifetime: lease,
-                            receipts: NativeProfileReceiptKeychainStore(client: SystemAppleAccountKeychainClient()))
+                            receipts: NativeProfileReceiptKeychainStore(client: SystemAppleAccountKeychainClient()),
+                            profileValidator: Self.productionProfileValidator())
         } catch {
             throw NativeAccountBackendError.invalidConfiguration
         }
     }
+
+    /// Kept separate so unit tests can exercise the actual production choice
+    /// without constructing a backend, acquiring a Keychain namespace or logging in.
+    /// Unsupported CMS algorithms/chain purposes fail closed. Acceptance status
+    /// is independent of selecting a cryptographic implementation.
+    static func productionProfileValidator() -> NativeProvisioningProfileValidator { .appleCMS() }
 
     public func recordExplicitAnisetteConsent(lifetime: TimeInterval = 900) async throws -> AnisetteConsentToken {
         try requireOpen()

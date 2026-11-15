@@ -54,7 +54,7 @@ private credentials and require an explicit destination. Preparing/exporting a
 file does not verify companion compatibility or receipt. Never attach a pairing
 file to an issue or CI artifact. Imported paid-certificate signing continues to
 use the existing certificate store/engine without Apple Account login; native
-account signing remains behind CMS, security and physical-device gates.
+account signing uses strict CMS verification in the experimental factory; genuine Apple-profile/security and physical-device acceptance remain pending. The account flow now offers an exact-identity continuation into ordinary signing review, without automatically signing or installing.
 
 See the [source audit](../Architecture/on-device-foundation-audit.md),
 [implementation status and build instructions](../Architecture/on-device-foundation-status.md)

@@ -161,13 +161,49 @@ def fixture_digests(root: Path = ROOT) -> set[str]:
 
 
 def production_selects_apple_cms(root: Path = ROOT) -> bool:
-    """The shipping bridge must construct a verifier-backed validator."""
-    bridge = root / 'VexSign/Packages/NativeSigning' / 'Authentication' / 'SideSignAccountBridge.swift'
-    if not bridge.is_file():
+    """Inspect the supported factory, not an unused generic-bridge default.
+
+    The production factory explicitly injects its verifier; internal validators
+    and synthetic bridges may still default to unavailable. Neither a comment nor
+    an unused verifier constructor is production wiring.
+    """
+    backend = root / 'VexSign/Packages/NativeSigning/Authentication/NativeAccountBackend.swift'
+    if not backend.is_file():
         return False
-    text = bridge.read_text()
-    return bool(re.search(r'profileValidator:\s*NativeProvisioningProfileValidator\s*=\s*\.appleCMS\(\)',
-                          text))
+    text = re.sub(r'/\*.*?\*/', '', backend.read_text(), flags=re.S)
+    text = re.sub(r'(?m)^\s*//.*$', '', text)
+    begin = re.search(r'bridge\s*=\s*Bridge\(', text)
+    if not begin:
+        return False
+    # Balance nested constructor calls (receipt/keychain stores), so an unrelated
+    # method later in the file cannot satisfy this factory's injection check.
+    depth = 1
+    cursor = begin.end()
+    quoted = escaped = False
+    while cursor < len(text) and depth:
+        character = text[cursor]
+        if quoted:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                quoted = False
+        elif character == '"':
+            quoted = True
+        elif character == '(':
+            depth += 1
+        elif character == ')':
+            depth -= 1
+        cursor += 1
+    if depth:
+        return False
+    arguments = text[begin.end():cursor - 1]
+    injection = re.search(r'profileValidator:\s*Self\.productionProfileValidator\(\)', arguments)
+    implementation = re.search(
+        r'static func productionProfileValidator\(\)\s*->\s*NativeProvisioningProfileValidator'
+        r'\s*\{\s*(?:return\s+)?\.appleCMS\(\)\s*\}', text)
+    return bool(injection and implementation)
 
 
 def capability_claim(root: Path = ROOT) -> str:

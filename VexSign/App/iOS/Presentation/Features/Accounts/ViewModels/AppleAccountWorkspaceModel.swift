@@ -52,7 +52,7 @@ final class AppleAccountWorkspaceModel: ObservableObject {
                    progress: @escaping @MainActor (AppleAccountProvisioningProgress) -> Void) async throws -> AppleAccountProvisioningReceipt {
         try await useCase.provision(request, approval: approval, progress: progress)
     }
-    func importCertificate(_ receipt: AppleAccountProvisioningReceipt, consentGiven: Bool) async throws {
+    func importCertificate(_ receipt: AppleAccountProvisioningReceipt, consentGiven: Bool) async throws -> AppleAccountSigningHandoff {
         try await useCase.importCertificate(receipt, consentGiven: consentGiven)
     }
 }

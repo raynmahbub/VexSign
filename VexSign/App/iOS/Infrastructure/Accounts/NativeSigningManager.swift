@@ -3,7 +3,7 @@
 ///
 /// Experimental authentication, owner-bound inventory and receipt-bound
 /// certificate-store handoff. Mutations/key export require separate explicit
-/// approvals; the default CMS gate is closed. Signing/install remain ordinary
+/// approvals; strict CMS authentication is required. Signing/install remain ordinary
 /// user actions. Scoped unattended renewal is not connected.
 
 import Foundation
@@ -88,13 +88,13 @@ struct NativeSigningHandoffCoordinator {
         self.authenticateProfile = authenticateProfile
     }
 
-    func run(
+    func run<Imported: Sendable>(
         request: Request,
         exportProfile: () async throws -> Data,
         backendIsCurrent: () -> Bool,
         exportIdentity: (String) async throws -> Data,
-        importCertificate: (_ p12URL: URL, _ provisionURL: URL, _ password: String, _ name: String) async throws -> Void
-    ) async throws {
+        importCertificate: (_ p12URL: URL, _ provisionURL: URL, _ password: String, _ name: String) async throws -> Imported
+    ) async throws -> Imported {
         let task = taskCenter.begin(kind: .export,
             title: .localized("Import Apple ID Certificate"), subtitle: request.bundleIdentifier,
             phase: .queued, subjectID: request.profileUUID.uuidString)
@@ -131,11 +131,19 @@ struct NativeSigningHandoffCoordinator {
             let p12Data = try await exportIdentity(password)
             try Task.checkCancellation()
             guard backendIsCurrent() else { throw CancellationError() }
+            // Export can suspend across profile expiry. Recheck the frozen
+            // authenticated metadata with the current transaction clock before
+            // persisting a private-key copy or importing a now-expired pair.
+            try NativeSigningHandoffPreflight.validate(decoded, profileUUID: request.profileUUID,
+                expiresAt: request.expiresAt, teamIdentifier: request.teamIdentifier,
+                identity: request.identity, bundleIdentifier: request.bundleIdentifier,
+                deviceIdentifier: request.deviceIdentifier, now: now())
             let p12URL = directory.appendingPathComponent("native.p12")
             try Self.write(p12Data, to: p12URL)
             let name = "Apple ID " + String(request.identity.identityID.uuidString.prefix(8))
-            try await importCertificate(p12URL, provisionURL, password, name)
+            let imported = try await importCertificate(p12URL, provisionURL, password, name)
             taskCenter.transition(task, to: .completed, progress: 1)
+            return imported
         } catch {
             if error is CancellationError || Task.isCancelled {
                 taskCenter.transition(task, to: .cancelled)
@@ -560,7 +568,7 @@ final class NativeSigningManager: ObservableObject {
         bundleIdentifier: String,
         deviceIdentifier: String,
         consent: NativeKeyExportConsent
-    ) async throws {
+    ) async throws -> String {
         let backend = try configuredBackend()
         guard case .signedIn(let context) = snapshot?.phase, context.id == contextID,
               context.team.membership == .free,
@@ -570,28 +578,30 @@ final class NativeSigningManager: ObservableObject {
         let request = NativeSigningHandoffCoordinator.Request(profileUUID: profile.profileUUID,
             expiresAt: profile.expiresAt, teamIdentifier: context.team.identifier,
             identity: identity, bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier)
+        let provider = providerDescriptor
         do {
-            try await NativeSigningHandoffCoordinator().run(request: request, exportProfile: {
+            let certificateUUID = try await NativeSigningHandoffCoordinator().run(request: request, exportProfile: {
                 let anisetteConsent = try await backend.recordExplicitAnisetteConsent()
                 return try await backend.exportProvisioningProfile(contextID: contextID,
                     profileUUID: profile.profileUUID, identityID: identityID,
                     bundleIdentifier: bundleIdentifier, deviceIdentifier: deviceIdentifier,
                     consent: anisetteConsent)
             }, backendIsCurrent: {
-                self.backend === backend
+                guard self.backend === backend, self.providerDescriptor == provider,
+                      AnisetteProviderFactory.shared.currentDescriptor == provider,
+                      case .signedIn(let current) = self.snapshot?.phase else { return false }
+                return current.id == contextID && (current.expiresAt.map { $0 > Date() } ?? true)
             }, exportIdentity: { password in
                 try await backend.exportSigningIdentity(contextID: contextID,
                     identityID: identityID, password: password, consent: consent)
             }, importCertificate: { p12URL, provisionURL, password, name in
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    CertificateManagementService.importCertificateFiles(p12URL: p12URL, provisionURL: provisionURL,
-                        p12Password: password, certificateName: name) { error in
-                        if let error { continuation.resume(throwing: error) }
-                        else { continuation.resume() }
-                    }
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                    CertificateManagementService.importCertificateFilesIdentified(p12URL: p12URL, provisionURL: provisionURL,
+                        p12Password: password, certificateName: name) { continuation.resume(with: $0) }
                 }
             })
             lastError = nil
+            return certificateUUID
         } catch {
             if !(error is CancellationError) && !Task.isCancelled {
                 lastError = error.localizedDescription

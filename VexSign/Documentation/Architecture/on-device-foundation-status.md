@@ -17,6 +17,34 @@ reviewing results. The user authorized pushing this working branch and running
 the existing full CI; no merge, release, account operation or device mutation was
 authorized by that decision.
 
+## Follow-up implementation: native account → exact signing review
+
+The experimental `NativeAccountBackend` now explicitly injects the strict
+Security/CMS verifier instead of inheriting an unavailable generic default.
+Selecting real verification is not accepting arbitrary profiles or promoting
+support: every envelope still needs the purpose-constrained Apple-root chain,
+signature, content digest, current validity and exact account/app/device/identity
+checks. No current genuine Apple-profile or physical account observation has been
+recorded; `nativeAppleAccountSigning` remains `.notIntegrated`.
+
+The ordinary certificate importer now returns the UUID it actually committed.
+Provisioning/import carries that exact identity, app reference, profile UUID and
+expiry into **Review Signing with This Identity** or **Review Sign & Install**.
+Both open the existing signing review and queue, not another signer or an
+automatic mutation. Missing/ambiguous/revoked/expired identities refuse; the
+transition cannot silently select a default/newest row or automatic alternative.
+Profile expiry and account/provider revocation are rechecked across key export.
+All quota, provider and private-key approvals remain explicit and separate.
+
+The PR also exposed a Release-only Settings error (`_githubUrl` did not exist).
+The repository action now uses the existing support use case, with a regression.
+Local portable verification for this follow-up: **551 tests / 35 invocations
+passed**. The new Swift behavior and Release repair still require matching
+macOS/simulator/native/combined CI; earlier passing runs are not proof for these
+new changes. Modern Remote Pairing transport/hosting is still unimplemented,
+paired mutation gates remain closed and all physical F/I observations remain
+PENDING. See the [account handoff detail](../Security/NATIVE_SIGNING_HANDOFF.md).
+
 ## Implemented source integration
 
 | Existing owner | New behavior | Limit |
@@ -99,9 +127,11 @@ commit `99ea020acabd0579375a09fd690261ea6ca37f68`.
    imported-RP tunnel implementation ships in this patch.
 3. Native-account CMS/profile/handoff code retains its independent promotion
    gates. `SigningMethodCapabilities.nativeAppleAccountSigning` remains
-   `.notIntegrated`; the production account factory still defaults to unavailable
-   CMS verification. Genuine Apple-issued CMS/security and physical evidence is
-   not present and must not be replaced by synthetic success.
+   `.notIntegrated`; the experimental production factory now explicitly selects
+   strict CMS verification and the exact certificate-store signing transition.
+   Genuine current Apple-issued CMS/security and physical evidence is still
+   absent and must not be replaced by synthetic success. Internal unconfigured
+   validators continue to refuse before quota-affecting profile work.
 4. Complete transitive binary-license clearance, Apple platform permissions and
    all hardware scenarios remain unaccepted. The optional external VPN is not
    bundled or automatically activated.

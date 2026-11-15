@@ -409,7 +409,7 @@ private extension SettingsView {
                     Spacer()
                     Button {
                         NBHaptic.selection()
-                        UIApplication.open(_githubUrl)
+                        supportUseCase.openRepository()
                     } label: {
                         Label(.localized("Star VexSign"), systemImage: "star.fill")
                             .font(.caption.weight(.semibold))

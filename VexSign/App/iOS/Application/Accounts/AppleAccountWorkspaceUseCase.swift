@@ -43,13 +43,19 @@ final class AppleAccountWorkspaceUseCase {
         try Task.checkCancellation()
         return try await provider.provision(request, progress: progress)
     }
-    func importCertificate(_ receipt: AppleAccountProvisioningReceipt, consentGiven: Bool) async throws {
+    func importCertificate(_ receipt: AppleAccountProvisioningReceipt, consentGiven: Bool) async throws -> AppleAccountSigningHandoff {
         guard consentGiven else { throw AppleAccountWorkspaceError.approvalRequired }
         guard !provisioning else { throw ArchitectureDomainError.duplicateOrBusyOperation }
         provisioning = true
         defer { provisioning = false }
         try Task.checkCancellation()
-        try await provider.importCertificate(receiptID: receipt.id)
-        // An ordinary certificate import is not signing, guest import or installation.
+        let handoff = try await provider.importCertificate(receiptID: receipt.id)
+        try Task.checkCancellation()
+        guard handoff.profileUUID == receipt.profileUUID, handoff.expiresAt == receipt.expiresAt,
+              handoff.expiresAt > Date(), UUID(uuidString: handoff.certificateUUID) != nil else {
+            throw AppleAccountWorkspaceError.missingReceipt
+        }
+        // Only a later user action may open review; nothing starts signing here.
+        return handoff
     }
 }

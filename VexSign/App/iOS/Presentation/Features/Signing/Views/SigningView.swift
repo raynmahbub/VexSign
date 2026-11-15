@@ -39,6 +39,7 @@ struct SigningView: View {
 	@State private var _temporaryOptions: Options = .defaultOptions
     @State private var _prepared = false
     let installAfterSigning: Bool
+    let accountHandoff: AppleAccountSigningHandoff?
 	@State private var _temporaryCertificate: Int
 	@State private var _isSigning = false
     @State private var _signingRequestID: String?
@@ -74,6 +75,10 @@ struct SigningView: View {
 	@WorkspaceQuery(\.certificates, order: .newestFirst) private var certificates: [CertificateRecord]
 	
 	private func _selectedCert() -> CertificateRecord? {
+        if let accountHandoff {
+            guard accountHandoff.matches(app) else { return nil }
+            return accountHandoff.certificate(in: certificates)
+        }
 		guard certificates.indices.contains(_temporaryCertificate) else { return nil }
 		return certificates[_temporaryCertificate]
 	}
@@ -81,9 +86,10 @@ struct SigningView: View {
 
 	var app: AppInfoPresentable
 	
-	init(app: AppInfoPresentable, installAfterSigning: Bool = false) {
+	init(app: AppInfoPresentable, installAfterSigning: Bool = false, accountHandoff: AppleAccountSigningHandoff? = nil) {
 		self.app = app
         self.installAfterSigning = installAfterSigning
+        self.accountHandoff = accountHandoff
 		let storedCert = UserDefaults.standard.integer(forKey: "vexsign.selectedCert")
 		__temporaryCertificate = State(initialValue: storedCert)
 	}
@@ -116,6 +122,21 @@ struct SigningView: View {
 		guard let trace = _tasks.signingTrace(subjectID: app.uuid) else { return SigningWorkflowSnapshot() }
 		return SigningWorkflowSnapshot(trace: trace)
 	}
+
+    private func _resolvedOptions(_ base: Options) -> Options {
+        var options = services.signing.resolve(base, for: app)
+        if accountHandoff != nil {
+            options.signingOption = .default
+            options.automaticallyResolveSigningIdentity = false
+        }
+        return options
+    }
+
+    private var _accountHandoffIsCurrent: Bool {
+        accountHandoff == nil || (_selectedCert() != nil
+            && _temporaryOptions.signingOption == .default
+            && _temporaryOptions.automaticallyResolveSigningIdentity == false)
+    }
 
     private var _inspectionInput: SigningReadinessInput {
         .init(options: _temporaryOptions, certificate: _selectedCert(), inventory: certificates,
@@ -238,7 +259,7 @@ struct SigningView: View {
 							Section(.localized("Apply Profile")) {
 								ForEach(services.signingPreferences.profiles) { profile in
 									Button(profile.name) {
-										_temporaryOptions = services.signing.resolve(profile.options, for: app)
+										_temporaryOptions = _resolvedOptions(profile.options)
 										if let uuid = profile.certificateUUID,
 										   let index = certificates.firstIndex(where: { $0.uuid == uuid }) {
 											_temporaryCertificate = index
@@ -314,8 +335,13 @@ struct SigningView: View {
                 guard !_prepared else { return }
                 _prepared = true
                 let base = LibraryAppWorkflowAction.signingOptions(from: services.signingPreferences.options, installAfterSigning: installAfterSigning)
-                _temporaryOptions = services.signing.resolve(base, for: app)
+                _temporaryOptions = _resolvedOptions(base)
             }
+        .onChange(of: _temporaryOptions.automaticallyResolveSigningIdentity) { _, value in
+            if accountHandoff != nil, value != false {
+                _temporaryOptions.automaticallyResolveSigningIdentity = false
+            }
+        }
         .task(id: _inspectionInput) { [input = _inspectionInput] in
             await _inspectReadiness(input)
         }
@@ -406,9 +432,16 @@ extension SigningView {
                 get: { _temporaryOptions.automaticallyResolveSigningIdentity != false },
                 set: { _temporaryOptions.automaticallyResolveSigningIdentity = $0 }
             ))
+            .disabled(accountHandoff != nil)
             Text("Automatic resolution checks every imported profile. The selected identity is a preference, not an authorization. Turn Automatic off to require that identity. Original Bundle Identifiers are preserved.")
                 .font(.caption).foregroundStyle(.secondary)
-			if let cert = _selectedCert() {
+            if accountHandoff != nil {
+                if let cert = _selectedCert() {
+                    CertificatesCellView(cert: cert, target: _compatibilityTarget)
+                } else {
+                    Label(.localized("The provisioned identity is unavailable or expired. Return to provisioning; another certificate will not be substituted."), systemImage: "exclamationmark.shield")
+                }
+            } else if let cert = _selectedCert() {
 				NavigationLink {
 					CertificatesView(selectedCert: $_temporaryCertificate, target: _compatibilityTarget)
 				} label: {
@@ -431,6 +464,14 @@ extension SigningView {
 // MARK: - Extension: View (import)
 extension SigningView {
     private func _start() {
+        if accountHandoff != nil {
+            guard _accountHandoffIsCurrent else {
+                _temporaryOptions.signingOption = .default
+                _temporaryOptions.automaticallyResolveSigningIdentity = false
+                _readinessRefresh = UUID()
+                return
+            }
+        }
         NBHaptic.tap()
         _signAfterReview = false
         _signOverridingBlockingIssues = false
@@ -441,7 +482,7 @@ extension SigningView {
 
     private func _approveReview(overridingBlockingIssues: Bool, authorization: SigningResolutionAuthorization?) {
         let readiness = _currentReadiness
-        guard readiness.canApprove, authorization == readiness.resolution?.authorization else {
+        guard _accountHandoffIsCurrent, readiness.canApprove, authorization == readiness.resolution?.authorization else {
             Toast.info(.localized("Signing setup changed. Review it again before starting."))
             _readinessRefresh = UUID()
             return
@@ -487,6 +528,11 @@ extension SigningView {
 
 	private func _beginSign(overridingBlockingIssues: Bool = false) {
         guard !_isSigning else { return }
+        guard _accountHandoffIsCurrent else {
+            _readinessRefresh = UUID()
+            Toast.info(.localized("Signing setup changed. Review it again before starting."))
+            return
+        }
         // Preserve the reviewed inputs through asynchronous completion/dismissal.
         let runOptions = _temporaryOptions
         let runCertificate = _selectedCert()

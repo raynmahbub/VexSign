@@ -338,8 +338,12 @@ class PreparationTests(unittest.TestCase):
             self.assertIn(name, backend)
         self.assertNotIn('registrationTask == nil else', bridge)
         self.assertIn('profileValidator: NativeProvisioningProfileValidator = .init()', bridge)
-        # Normal public factory must not silently promote the unvalidated verifier.
-        self.assertNotIn('.appleCMS()', backend)
+        # Strict cryptography is explicitly injected by the supported factory;
+        # selecting it is not capability promotion or permission to skip approval.
+        self.assertIn('profileValidator: Self.productionProfileValidator()', backend)
+        self.assertIn('static func productionProfileValidator() -> NativeProvisioningProfileValidator { .appleCMS() }', backend)
+        tests = (HERE / 'Tests/NativeAppleProfileCMSTests.swift').read_text()
+        self.assertIn('testProductionFactorySelectsStrictVerifierAndRefusesSyntheticAndPlainInputs', tests)
 
     def test_main_app_acceptance_inputs_and_profile_binding_are_registered(self):
         hashes = module.install_smoke_sources(self.root)
@@ -368,7 +372,8 @@ class PreparationTests(unittest.TestCase):
         self.assertIn('for entry in index.entries', verifier)
         self.assertIn('NativeIPAEntryDecoder.decode', verifier)
         backend = (HERE / "Authentication/NativeAccountBackend.swift").read_text()
-        self.assertNotIn('.appleCMS()', backend)
+        self.assertNotIn('NativeProtectedSigningHandoff(', backend)
+        self.assertNotIn('NativeSignedOutputRequest(', backend)
 
     def test_development_trust_and_protected_handoff_sources_are_registered(self):
         hashes = module.install_smoke_sources(self.root)

@@ -59,13 +59,12 @@ class PromotionEvidenceTestCase(unittest.TestCase):
 
     def select_production_verifier(self, configured=True):
         """Mirror (or undo) the production wiring change promotion requires."""
-        path = self.root / BRIDGE
+        path = self.root / gate.BACKEND
         text = path.read_text()
         replacement = '.appleCMS()' if configured else '.init()'
-        path.write_text(text.replace('profileValidator: NativeProvisioningProfileValidator = .init()',
-                                     f'profileValidator: NativeProvisioningProfileValidator = {replacement}')
-                        .replace('profileValidator: NativeProvisioningProfileValidator = .appleCMS()',
-                                 f'profileValidator: NativeProvisioningProfileValidator = {replacement}'))
+        prefix = 'static func productionProfileValidator() -> NativeProvisioningProfileValidator { '
+        path.write_text(text.replace(prefix + '.appleCMS() }', prefix + replacement + ' }')
+                        .replace(prefix + '.init() }', prefix + replacement + ' }'))
 
     def write_report(self, report=None, relative=REPORT_RELATIVE):
         report = self.device_report() if report is None else report
@@ -219,6 +218,15 @@ class PromotionEvidenceTestCase(unittest.TestCase):
         self.assertTrue(any('unconfigured' in error for error in errors), errors)
         self.assertEqual(promotion.summarise(self.record, self.root)['production_verifier'], 'no')
 
+    def test_unused_or_commented_verifier_cannot_satisfy_production_factory(self):
+        path = self.root / gate.BACKEND
+        original = path.read_text()
+        for replacement in ('profileValidator: .init()', '// profileValidator: Self.productionProfileValidator()'):
+            path.write_text(original.replace('profileValidator: Self.productionProfileValidator()', replacement))
+            self.assertFalse(promotion.production_selects_apple_cms(self.root))
+        path.write_text(original)
+        self.assertTrue(promotion.production_selects_apple_cms(self.root))
+
     def test_wiring_notes_are_required(self):
         record = json.loads(json.dumps(self.record))
         record['production_wiring'] = dict(factory_selects_apple_cms=True, notes='')
@@ -362,11 +370,11 @@ class CapabilityGateTests(PromotionEvidenceTestCase):
     def retire_documented_gap(self):
         """What a promotion change must also do: caveat copy and doc status."""
         flow = self.root / gate.FLOW
-        flow.write_text(flow.read_text().replace('Native signing handoff is not enabled',
-                                                 'Native signing handoff'))
+        flow.write_text(flow.read_text().replace('Native Apple-account signing is experimental and not device-accepted',
+                                                 'Native Apple-account signing is device-accepted'))
         doc = self.root / gate.HANDOFF_DOC
         text = doc.read_text()
-        doc.write_text(text.replace('Production gate still closed', 'Production gate open')
+        doc.write_text(text.replace('Supported capability promotion gate still closed', 'Supported capability promoted')
                        .replace('remains\n`.notIntegrated`', 'is now `.implemented`'))
 
     def test_repository_state_is_consistent(self):
@@ -374,7 +382,7 @@ class CapabilityGateTests(PromotionEvidenceTestCase):
         self.assertEqual(problems, [])
         self.assertEqual(facts['claim'], 'notIntegrated')
         self.assertEqual(facts['promotion evidence'], 'absent')
-        self.assertEqual(facts['production CMS verifier'], 'no')
+        self.assertEqual(facts['production CMS verifier'], 'yes')
         self.assertEqual(facts['app adapter present'], 'yes')
         self.assertEqual(facts['profile export present'], 'yes')
 
@@ -389,8 +397,8 @@ class CapabilityGateTests(PromotionEvidenceTestCase):
         self.assertEqual(facts['promotion evidence'], 'absent')
         self.assertTrue(any('promotion evidence' in problem and 'absent' in problem for problem in problems),
                         problems)
-        self.assertTrue(any('production CMS gate as closed' in problem for problem in problems), problems)
-        self.assertTrue(any('not enabled' in problem for problem in problems), problems)
+        self.assertTrue(any('supported capability gate as closed' in problem for problem in problems), problems)
+        self.assertTrue(any('not device-accepted' in problem for problem in problems), problems)
 
     def test_flip_without_production_verifier_is_rejected(self):
         self.select_production_verifier(configured=False)
@@ -444,7 +452,7 @@ class CapabilityGateTests(PromotionEvidenceTestCase):
                                 capture_output=True, text=True, cwd=REPO)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('nativeAppleAccountSigning: notIntegrated', result.stdout)
-        self.assertIn('production CMS verifier:   no', result.stdout)
+        self.assertIn('production CMS verifier:   yes', result.stdout)
         self.assertIn('promotion evidence:        absent', result.stdout)
 
 

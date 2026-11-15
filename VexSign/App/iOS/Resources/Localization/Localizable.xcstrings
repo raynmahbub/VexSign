@@ -112037,6 +112037,83 @@
           }
         }
       }
+    },
+    "Experimental: strict Apple CMS verification is configured. Genuine current Apple-profile compatibility and physical-device acceptance remain unverified; unsupported profiles are refused, not decoded as trusted plists." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental: strict Apple CMS verification is configured. Genuine current Apple-profile compatibility and physical-device acceptance remain unverified; unsupported profiles are refused, not decoded as trusted plists."
+          }
+        }
+      }
+    },
+    "Only the provisioning profile was recorded. No app has been signed or installed. Native Apple-account signing is experimental and not device-accepted. Import requires a separate key-export approval." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the provisioning profile was recorded. No app has been signed or installed. Native Apple-account signing is experimental and not device-accepted. Import requires a separate key-export approval."
+          }
+        }
+      }
+    },
+    "Review Sign & Install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Sign & Install"
+          }
+        }
+      }
+    },
+    "Review Signing with This Identity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Signing with This Identity"
+          }
+        }
+      }
+    },
+    "The next review is bound to this app and the identity just imported. Nothing is signed until you approve it there. Installation has separate transport and trust requirements; unavailable paired routes are not unlocked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The next review is bound to this app and the identity just imported. Nothing is signed until you approve it there. Installation has separate transport and trust requirements; unavailable paired routes are not unlocked."
+          }
+        }
+      }
+    },
+    "The provisioned app changed or is no longer in the library. Nothing was signed. Select the current app and review provisioning again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioned app changed or is no longer in the library. Nothing was signed. Select the current app and review provisioning again."
+          }
+        }
+      }
+    },
+    "The provisioned identity is unavailable or expired. Return to provisioning; another certificate will not be substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioned identity is unavailable or expired. Return to provisioning; another certificate will not be substituted."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

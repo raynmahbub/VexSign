@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "source reviewed; implementation uncompiled/unrun; default verifier remains unavailable; no normal-app promotion",
+  "status": "strict verifier explicitly selected by experimental backend factory; synthetic native tests ran before selection; current genuine Apple-profile and physical-device acceptance remain pending",
   "policy_source": {
     "repository": "apple-oss-distributions/Security",
     "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
@@ -20,7 +20,7 @@
     "network fetch disabled, system trusted chain only, reject user trust overrides",
     "exact chain length, purpose names and pinned production Apple root hash",
     "unsupported BER/SHA1/ECDSA/detached/multi-signer rejected; not full CMS compatibility",
-    "no positive real Apple CMS fixture or native validation yet"
+    "no positive current real Apple CMS fixture or physical account/device acceptance yet"
   ],
   "root_sources": [
     {
