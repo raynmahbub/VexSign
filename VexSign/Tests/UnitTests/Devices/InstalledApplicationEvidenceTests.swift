@@ -52,6 +52,94 @@ final class InstalledApplicationEvidenceTests: XCTestCase {
         XCTAssertEqual(engine.confirmedApplication, reading)
     }
 
+    func testWatcherReturnsTheExactReadingForAFastBoundVersionTransition() async {
+        let before = Fixture.application(version: "1.1", build: "6", at: Fixture.epoch.addingTimeInterval(-1))
+        let reading = Fixture.application(at: Fixture.epoch.addingTimeInterval(1))
+        let engine = InstallConfirmation(expectation: .init(bundleIdentifier: "com.example.app", version: "1.2", build: "7",
+            deviceBinding: Fixture.binding, evidenceNotBefore: Fixture.epoch))
+        let result = await InstallWatcher.watchObservation(engine, probe: AsyncOnlyProbe(reading: reading),
+            baseline: .init(app: before), progress: { nil }, interval: .zero,
+            now: { Fixture.epoch.addingTimeInterval(2) })
+        XCTAssertEqual(result.verdict, .installed)
+        XCTAssertEqual(result.confirmedApplication, reading)
+        XCTAssertEqual(result.confirmedApplication?.evidence?.observedAt, Fixture.epoch.addingTimeInterval(1))
+    }
+
+    func testWatcherRetainsTheReadingWhenTheVerificationLoopMakesTheDecision() async {
+        let before = Fixture.application(version: "1.1", build: "6", at: Fixture.epoch.addingTimeInterval(-1))
+        let reading = Fixture.application(at: Fixture.epoch.addingTimeInterval(1))
+        let result = await InstallWatcher.watchObservation(confirmation(), probe: AsyncOnlyProbe(reading: reading),
+            baseline: .init(app: before), progress: { nil }, interval: .zero,
+            now: { Fixture.epoch.addingTimeInterval(2) })
+        XCTAssertEqual(result.verdict, .installed)
+        XCTAssertEqual(result.confirmedApplication, reading)
+    }
+
+    func testBoundBeforeStateCannotComeFromAnotherDeviceRecordOrAfterHandoff() throws {
+        let expectation = confirmation().expectation
+        let current = Fixture.application(at: Fixture.epoch.addingTimeInterval(1))
+        let old = Fixture.application(version: "1.1", build: "6", at: Fixture.epoch.addingTimeInterval(-1))
+        let replaced = try XCTUnwrap(DeviceSessionBinding(deviceIdentifier: Fixture.device, pairingSHA256: String(repeating: "b", count: 64)))
+        let baselines: [InstalledApp?] = [nil,
+            InstalledApp(bundleIdentifier: "com.example.app", isInstalled: false),
+            InstalledApp(bundleIdentifier: "com.example.app", isInstalled: true, isPlaceholder: true, version: "1.1", build: "6"),
+            InstalledApp(bundleIdentifier: "com.example.app", isInstalled: true, version: "1.1", build: "6"),
+            InstalledApp(bundleIdentifier: "com.example.app", isInstalled: true, version: "1.1", build: "6", evidence: current.evidence),
+            Fixture.application(version: "1.1", build: "6", binding: Fixture.otherBinding, at: Fixture.epoch.addingTimeInterval(-1)),
+            Fixture.application(version: "1.1", build: "6", binding: replaced, at: Fixture.epoch.addingTimeInterval(-1)),
+            Fixture.application(version: "1.1", build: "6", at: Fixture.epoch.addingTimeInterval(1))]
+        for baseline in baselines {
+            XCTAssertFalse(InstallWatcher.hasNewInstalledEvidence(baseline: baseline, current: current, expectation: expectation))
+        }
+        XCTAssertTrue(InstallWatcher.hasNewInstalledEvidence(baseline: old, current: current, expectation: expectation))
+    }
+
+    func testWatcherCannotReturnAReadingForStaleFuturePrivateOrCrossDeviceMetadata() async {
+        let before = Fixture.application(version: "1.1", build: "6", at: Fixture.epoch.addingTimeInterval(-1))
+        let readings = [Fixture.application(at: Fixture.epoch.addingTimeInterval(-1)),
+            Fixture.application(at: Fixture.epoch.addingTimeInterval(60)),
+            Fixture.application(binding: Fixture.otherBinding, at: Fixture.epoch.addingTimeInterval(1)),
+            Fixture.application(build: "8", at: Fixture.epoch.addingTimeInterval(1)),
+            InstalledApp(bundleIdentifier: "com.example.app", isInstalled: true, version: "1.2", build: "7")]
+        for reading in readings {
+            let engine = InstallConfirmation(expectation: confirmation().expectation,
+                limits: .init(start: 0, verify: 0, settle: 0))
+            let result = await InstallWatcher.watchObservation(engine, probe: AsyncOnlyProbe(reading: reading),
+                baseline: .init(app: before), progress: { nil }, interval: .zero,
+                now: { Fixture.epoch.addingTimeInterval(2) })
+            XCTAssertFalse(result.verdict.provesInstalled)
+            XCTAssertNil(result.confirmedApplication)
+        }
+    }
+
+    func testTerminalObservationCannotBeReinterpretedOrReplacedByALaterReading() async {
+        let reading = Fixture.application(at: Fixture.epoch.addingTimeInterval(1))
+        var engine = confirmation()
+        _ = engine.record(probe: reading, at: Fixture.epoch.addingTimeInterval(2))
+        let result = await InstallWatcher.watchObservation(engine,
+            probe: AsyncOnlyProbe(reading: Fixture.application(build: "8")), progress: { nil }, interval: .zero)
+        XCTAssertEqual(result.verdict, .installed)
+        XCTAssertEqual(result.confirmedApplication, reading)
+
+        var stopped = confirmation()
+        _ = stopped.cancel()
+        let cancelled = await InstallWatcher.watchObservation(stopped, probe: AsyncOnlyProbe(reading: reading),
+            progress: { nil }, interval: .zero)
+        XCTAssertEqual(cancelled.verdict, .cancelled)
+        XCTAssertNil(cancelled.confirmedApplication)
+    }
+
+    func testUnansweredVerificationCarriesNoApplicationOutOfTheWatcher() async {
+        var engine = InstallConfirmation(expectation: confirmation().expectation,
+            limits: .init(start: 0, verify: 0, settle: 0))
+        _ = engine.beginVerifying(at: Fixture.epoch)
+        let result = await InstallWatcher.watchObservation(engine, probe: UnavailableInstallationProbe(),
+            baseline: .init(app: nil), progress: { nil }, interval: .zero,
+            now: { Fixture.epoch.addingTimeInterval(1) })
+        XCTAssertEqual(result.verdict, .timedOutVerifying)
+        XCTAssertNil(result.confirmedApplication)
+    }
+
     func testCrossDeviceOrReplacedPairingRecordCannotConfirm() throws {
         let replaced = try XCTUnwrap(DeviceSessionBinding(deviceIdentifier: Fixture.device, pairingSHA256: String(repeating: "b", count: 64)))
         for binding in [Fixture.otherBinding, replaced] {

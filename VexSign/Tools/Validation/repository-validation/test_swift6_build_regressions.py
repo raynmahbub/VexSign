@@ -103,6 +103,13 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         self.assertIn("animationsEnabled && !systemReduceMotion && !requestedReduceMotion", modifier)
         self.assertIn("LibraryGridSwipePolicy.allowsAnimation(", modifier)
 
+    def test_throwing_lease_assertions_propagate_out_of_the_lifetime_scope(self) -> None:
+        test = _source(ROOT / "VexSign/Tests/UnitTests/Signing/SigningIdentityLeaseTests.swift")
+        self.assertIn("try withExtendedLifetime(leased.leases) {", test)
+        self.assertIn("try withExtendedLifetime(conflict) {", test)
+        self.assertIn("XCTAssertThrowsError(try AppOperationRegistry.shared.acquire(key))", test)
+        self.assertIn("XCTAssertThrowsError(try SigningIdentityStore.leasedSnapshot(storage: storage))", test)
+
     def test_repository_gates_run_this_regression(self) -> None:
         command = "python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py"
         self.assertIn(command, (ROOT / "Makefile").read_text(encoding="utf-8"))

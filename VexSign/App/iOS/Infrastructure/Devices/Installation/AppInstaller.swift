@@ -670,7 +670,8 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
                     notBefore: submission.acknowledgedAt, notAfter: Date()) == true else {
                 // Defense in depth: never construct library evidence from the
                 // request, a private probe or a transport-only success callback.
-                onConfirmationReason?("paired-installed-version-not-verified")
+                onConfirmationReason?(_installationMethod == 1
+                    ? "paired-installed-version-not-verified" : "supported-installation-inventory-unavailable")
                 _confirmedApplication = nil
                 installationPhase = .finished(.timedOutVerifying)
                 viewModel.installProgress = 0.99
@@ -740,7 +741,7 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 		// long as it likes.
 		_progressTask = Task.detached(priority: .utility) { [weak self] in
 			let installer = self
-			let verdict = await InstallWatcher.watch(
+			let observation = await InstallWatcher.watchObservation(
 				InstallConfirmation(expectation: expectation),
 				probe: probe,
                 baseline: baseline,
@@ -761,7 +762,11 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 			guard !Task.isCancelled else { return }
 
 			await MainActor.run {
-				installer?._finishConfirmed(verdict)
+                // Retain exactly what the watcher read. This is not permission
+                // to promote an unsupported OTA/private probe: _finish still
+                // enforces the independent method, binding and freshness checks.
+                installer?._confirmedApplication = observation.confirmedApplication
+				installer?._finishConfirmed(observation.verdict)
 			}
 		}
 	}

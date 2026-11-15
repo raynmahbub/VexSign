@@ -367,6 +367,19 @@ extension InstallConfirmation.Verdict {
 /// Both install paths feed the same engine through this loop, so there is one rule for what
 /// "installed" means. The I/O is injected, which is also what makes it testable.
 enum InstallWatcher {
+    /// Carries the engine's actual reading out of the async watcher. A verdict
+    /// alone loses the version/build, device binding and observation timestamp;
+    /// callers must never rebuild those fields from the requested artifact.
+    struct Observation: Equatable, Sendable {
+        let verdict: InstallConfirmation.Verdict
+        let confirmedApplication: InstalledApp?
+
+        fileprivate init(confirmation: InstallConfirmation) {
+            verdict = confirmation.phase.verdict ?? .timedOutVerifying
+            confirmedApplication = verdict.provesInstalled ? confirmation.confirmedApplication : nil
+        }
+    }
+
     /// Capture before presenting the install prompt, not after serving the IPA:
     /// small apps can already be installed when payload delivery completes.
     struct Baseline: Sendable { let app: InstalledApp? }
@@ -378,6 +391,22 @@ enum InstallWatcher {
               InstalledState.derive(from: current, expecting: expectation.version) == .installed else { return false }
         if let version = expectation.version, current.version != version { return false }
         if let build = expectation.build, current.build != build { return false }
+        if let binding = expectation.deviceBinding {
+            // An observation on another device (or through another pairing
+            // record) is not a before-state for this attempt. For a bound path,
+            // both readings must be positive, internally consistent service
+            // evidence on opposite sides of the attempt's cutoff. A private
+            // negative/placeholder or an undated baseline is not proof of change.
+            guard baseline.isInstalled, !baseline.isPlaceholder,
+                  let evidence = baseline.evidence, evidence.isWellFormed,
+                  evidence.deviceBinding == binding,
+                  evidence.bundleIdentifier == baseline.bundleIdentifier,
+                  evidence.version == baseline.version, evidence.build == baseline.build,
+                  let cutoff = expectation.evidenceNotBefore, evidence.observedAt <= cutoff,
+                  current.evidence?.confirms(bundleIdentifier: expectation.bundleIdentifier,
+                    version: expectation.version, build: expectation.build, binding: binding,
+                    notBefore: cutoff) == true else { return false }
+        }
         if !baseline.isInstalled || baseline.isPlaceholder { return true }
         if let expected = expectation.version, let previous = baseline.version,
            !expected.isEmpty, !previous.isEmpty, previous != expected, current.version == expected { return true }
@@ -417,7 +446,27 @@ enum InstallWatcher {
 		onVerificationAttempt: @escaping @Sendable (Int) async -> Void = { _ in },
 		now: @escaping @Sendable () -> Date = { Date() }
 	) async -> InstallConfirmation.Verdict {
+        // Compatibility for verdict-only consumers. Installation owners use the
+        // observation-bearing entry point below so the actual reading survives.
+        await watchObservation(initial, probe: probe, baseline: baseline, progress: progress,
+            interval: interval, startTimeoutEnabled: startTimeoutEnabled, onUpdate: onUpdate,
+            verification: verification, onVerificationAttempt: onVerificationAttempt, now: now).verdict
+    }
+
+    static func watchObservation(
+        _ initial: InstallConfirmation,
+        probe: InstalledAppProbing,
+        baseline: Baseline? = nil,
+        progress: @escaping @Sendable () async -> Double?,
+        interval: Duration = .seconds(1),
+        startTimeoutEnabled: @escaping @Sendable () async -> Bool = { true },
+        onUpdate: @escaping @Sendable (Double?, InstallConfirmation.Phase) async -> Void = { _, _ in },
+        verification: InstallVerificationPolicy? = nil,
+        onVerificationAttempt: @escaping @Sendable (Int) async -> Void = { _ in },
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) async -> Observation {
         var confirmation = initial
+        if confirmation.phase.isFinished { return Observation(confirmation: confirmation) }
         // A zero interval replays scripted readings. Each one must be consumed in order, so
         // the lookup is not abandoned after a second there: on a busy machine that dropped a
         // scripted reading and changed the verdict. The live path keeps the one-second bound.
@@ -447,7 +496,7 @@ enum InstallWatcher {
                     _ = confirmation.beginVerifying(at: now())
                     let phase = confirmation.record(probe: current, at: now())
                     await onUpdate(raw, phase)
-                    if let verdict = phase.verdict { return verdict }
+                    if phase.isFinished { return Observation(confirmation: confirmation) }
                 }
             }
 			let phase = confirmation.record(progress: raw, at: now(),
@@ -456,7 +505,7 @@ enum InstallWatcher {
 
 			if phase == .verifying {
 				// installd has stopped: from here the device's own answer decides.
-				return await confirm(
+				_ = await confirm(
 					&confirmation,
 					probe: probe,
                     baseline: .init(app: before),
@@ -466,16 +515,18 @@ enum InstallWatcher {
 					onPhase: { phase in await onUpdate(raw, phase) },
 					now: now
 				)
+                return Observation(confirmation: confirmation)
 			}
 
-			if let verdict = phase.verdict {
-				return verdict
+			if phase.isFinished {
+				return Observation(confirmation: confirmation)
 			}
 
 			await pause(interval)
 		}
 
-		return confirmation.cancel().verdict ?? .cancelled
+        _ = confirmation.cancel()
+        return Observation(confirmation: confirmation)
 	}
 
 	/// Waits for the device to prove the install, once `confirmation` is verifying.

@@ -204,6 +204,7 @@ jobs:
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py --self-test
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
           python3 VexSign/Tools/Validation/security-validation/test_device_foundation.py
+          python3 VexSign/Tools/Validation/security-validation/test_install_monitoring_policy.py
           python3 VexSign/Tools/Validation/security-validation/check-native-handoff.py
           # The CMS fixture is generated elsewhere (OpenSSL) and must keep
           # conforming to the subset the parser accepts; drift fails here.

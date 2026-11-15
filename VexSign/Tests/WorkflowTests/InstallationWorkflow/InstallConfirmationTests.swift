@@ -112,11 +112,15 @@ final class InstallConfirmationTests: XCTestCase {
 		XCTAssertEqual(confirmation.record(probe: app(), at: at(11)), .finished(.installed))
 	}
 
-	func testWithoutAVersionExpectationAnyVersionCounts() {
+	func testWithoutAVersionExpectationCannotConfirmAnArtifact() {
 		var confirmation = confirmation(version: nil)
 		verifying(&confirmation)
 
-		XCTAssertEqual(confirmation.record(probe: app(version: "9.9.9"), at: at(11)), .finished(.installed))
+        // Presence is not an exact artifact match when its expected version is
+        // missing. This agrees with InstalledState.derive and the queue guard.
+		XCTAssertEqual(confirmation.record(probe: app(version: "9.9.9"), at: at(11)), .verifying)
+        XCTAssertEqual(confirmation.record(probe: app(version: "9.9.9"), at: at(131)), .finished(.timedOutVerifying))
+        XCTAssertNil(confirmation.confirmedApplication)
 	}
 
 	func testAnOlderVersionIsOnlyReportedAfterTheSettleWindow() {

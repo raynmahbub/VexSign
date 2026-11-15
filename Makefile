@@ -168,6 +168,7 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
 	@echo "== device foundation preparation/security wiring (not Swift tests) =="
 	@python3 VexSign/Tools/Validation/security-validation/test_device_foundation.py
+	@python3 VexSign/Tools/Validation/security-validation/test_install_monitoring_policy.py
 	@echo "== native signing capability =="
 	@python3 VexSign/Tools/Validation/security-validation/check-native-handoff.py
 	@echo "== CMS fixture contract =="
