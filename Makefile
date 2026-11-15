@@ -184,6 +184,8 @@ verify: docs-check
 	@python3 -m unittest discover -s VexSign/Integrations/tests -v
 	@echo "== native-signing preparation =="
 	@python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v
+	@echo "== modern-device source boundaries =="
+	@python3 VexSign/Packages/DeviceBridge/test_prepare.py
 
 # Exact production parser/storage/executor sources, no binary dependency or Apple
 # credentials. macOS permissions/backup tests do not establish iOS Data Protection,

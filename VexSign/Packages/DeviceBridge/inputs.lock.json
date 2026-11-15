@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "sourceRepository": "https://github.com/jkcoxson/idevice",
+  "sourceCommit": "d32c8189c51c2789496b0768039419c3705498c3",
+  "archiveURL": "https://codeload.github.com/jkcoxson/idevice/zip/d32c8189c51c2789496b0768039419c3705498c3",
+  "archiveSHA256": "0e98a52476791bbf35573db81044d2838156cd67aa392f59c59b6721f3b0ad0a",
+  "license": "MIT",
+  "licenseFile": "LICENSE.idevice.txt",
+  "licenseSHA256": "131488ce7e302b9f62e3236793e57c86a208d3dfaf03e6d7d03ddc0fc82392ed",
+  "reviewedSourceSHA256": {
+    "ffi/src/lib.rs": "a45d66c1d2811eab932db0b4e4eedf38101b94c2acb60d91eb8e1387b507c7d2",
+    "ffi/src/tunnel_provider.rs": "dc18f5caa9822eae06971beaa1be9520df511cff1c2cf78517f0e41406720247",
+    "ffi/Cargo.toml": "fa79a1479c2ed8c9913dd524aab323f9f2dfcc637f8f7a270c2399d40c51d123",
+    "idevice/Cargo.toml": "25626cb8dadd573abe483a0b1f5577c15026954a615b3d445e9aa54b451a469c",
+    "ffi/src/rp_pairing_file.rs": "50da9c84b62f415aeb1f53330c870ac7b70dc8ed3b69a96af4c2a20452dddf20",
+    "ffi/src/pairing_host.rs": "0c397ee3527df477b12a81f5ac66cd45c7353d4fd7943d0ae69eb985ec0a68a8",
+    "Cargo.lock": "3c1a7710f0cd02f9100e91b97c9f8abc6546f115f7f3255551c990628aea0e16",
+    "idevice/src/remote_pairing/responder.rs": "1135424851fd3dbf523cb95169b83bd2a972ffc386f9fff1159e773ff61f173b",
+    "idevice/src/remote_pairing/mod.rs": "b19c0dfc3516f3c094e15bc75c93bcb8b99bd8c2677f46f7e791cdc4000688d6",
+    "ffi/src/provider.rs": "f25c0c7078e6fc0021935767ab62621283152b44e1117841f29f703f12d82b53",
+    "ffi/src/afc.rs": "71447c2547963cc417084039739cacaef9a6e45e6d348b1cfa667dcd823ff35e",
+    "ffi/src/core_device/app_service.rs": "c423faf9ffe252aecaec4fd721e659fc0846599d3df875143cf55f537c3faa32",
+    "idevice/src/remote_pairing/socket.rs": "85d0b72c62481527e4efc741ca087511aee879cae5571e17be3a6e705b7c0125"
+  },
+  "acceptance": "Experimental source-built integration only. Native build, iOS behavior and physical acceptance are separate; no release or support promotion is authorized by this lock.",
+  "documentationSymlinks": {
+    "idevice/README.md": {
+      "target": "../README.md",
+      "copyFrom": "README.md"
+    }
+  }
+}

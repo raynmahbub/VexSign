@@ -16,7 +16,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[4]
 WORKFLOWS = ROOT / ".github/workflows"
-VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml', 'embedded-container.yml')
+VALIDATORS = ('ci.yml', 'platform-check.yml', 'services.yml', 'embedded-container.yml', 'device-bridge.yml')
 # Workflows that validate a merge to main. Every one of them shares the same rule: a push to
 # main must not cancel the previous main run (see the concurrency test below).
 MAIN_VALIDATORS = VALIDATORS + ('docs.yml',)

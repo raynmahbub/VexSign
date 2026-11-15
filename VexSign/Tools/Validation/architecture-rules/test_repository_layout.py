@@ -152,8 +152,12 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
                 continue
             self.assertTrue(any(path.iterdir()), f"empty placeholder directory: {path.relative_to(ROOT)}")
             self.assertNotIn(path.name, {"Misc", "Others", "Common2", "Helpers2", "Manager"})
-        expected = {"NimbleKit", "AltSourceKit", "NativeSigning", "SideSign", "Vendor"}
+        expected = {"NimbleKit", "AltSourceKit", "NativeSigning", "DeviceBridge", "SideSign", "Vendor"}
         self.assertEqual({p.name for p in (SOURCE / "Packages").iterdir() if p.is_dir()}, expected)
+        # DeviceBridge is a real, pinned Rust overlay and source builder, not a
+        # second Swift placeholder/installer module or checked-in binary bundle.
+        for relative in ("Native/vexsign_device.rs", "prepare.py", "inputs.lock.json", "LICENSE.idevice.txt", "test_prepare.py"):
+            self.assertTrue((SOURCE / "Packages/DeviceBridge" / relative).is_file(), relative)
 
     def test_compatibility_aliases_and_historical_feed_bytes_are_preserved(self):
         for canonical, alias in ALIASES:
