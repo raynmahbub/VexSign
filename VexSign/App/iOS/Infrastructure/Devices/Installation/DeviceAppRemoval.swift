@@ -69,6 +69,9 @@ enum DeviceAppRemoval {
 		case removed
 		/// The device accepted the request, and its state could not be read back.
 		case requested
+        /// Submission began but the native response was lost. Acceptance itself
+        /// is unknown; do not reuse the acknowledged-request wording.
+        case outcomeUnknown
 		/// The device accepted the request and still reports the app as installed.
 		case stillInstalled
 		/// The device refused, or the session could not be opened. Nothing was removed.
@@ -79,6 +82,7 @@ enum DeviceAppRemoval {
 			switch self {
 			case .removed: .localized("Removed from the device")
 			case .requested: .localized("Removal requested")
+            case .outcomeUnknown: .localized("Removal outcome unknown")
 			case .stillInstalled: .localized("Still installed")
 			case .failed: .localized("Removal failed")
 			case .refused: .localized("Not removed")
@@ -91,6 +95,8 @@ enum DeviceAppRemoval {
 				.localized("The device no longer reports this app. The copy in your Library is untouched.")
 			case .requested:
 				.localized("The device accepted the request, but VexSign could not read back whether the app is gone. Check the Home Screen.")
+            case .outcomeUnknown:
+                .localized("A removal command may have reached the selected device, but its response was lost. Check the device before retrying. Neither acceptance nor removal is confirmed.")
 			case .stillInstalled:
 				.localized("The device accepted the request but still reports the app as installed. Check the Home Screen, or try again.")
 			case .failed(let reason):
@@ -146,7 +152,7 @@ enum DeviceAppRemoval {
 		do {
 			try await uninstaller.uninstall(bundleIdentifier: identifier)
         } catch DeviceTransportError.removalOutcomeUnknown {
-            return .requested
+            return .outcomeUnknown
 		} catch {
 			FileLogger.error("Device removal failed for \(identifier): \(error.localizedDescription)", category: "install")
 			return .failed(error.localizedDescription)

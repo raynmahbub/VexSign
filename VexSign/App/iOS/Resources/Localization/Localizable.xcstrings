@@ -112015,6 +112015,28 @@
           }
         }
       }
+    },
+    "A removal command may have reached the selected device, but its response was lost. Check the device before retrying. Neither acceptance nor removal is confirmed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A removal command may have reached the selected device, but its response was lost. Check the device before retrying. Neither acceptance nor removal is confirmed."
+          }
+        }
+      }
+    },
+    "Removal outcome unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removal outcome unknown"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

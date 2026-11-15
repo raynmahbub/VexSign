@@ -5,6 +5,11 @@
 > `Device-verified`, `Gated`, `Blocked` and `Not implemented`:
 > [feature completion matrix](feature-completion-matrix-2026-11-13.md).
 > This document remains the earlier source-level comparison.
+> For the later pairing/inventory/installation changes, the
+> [on-device implementation and acceptance status](../../Architecture/on-device-foundation-status.md)
+> supersedes the older D/F rows below. Private LaunchServices is no longer the
+> production authority; the positive-only device-bound CoreDevice adapter is
+> integrated in source and mutations remain independently gated.
 
 What VexSign can actually do, compared against the storage/signing ecosystem it interoperates
 with, and what is missing. Every status here is derived from reading this repository's source —

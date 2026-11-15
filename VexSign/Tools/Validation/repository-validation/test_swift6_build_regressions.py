@@ -77,6 +77,23 @@ class Swift6BuildRegressionTests(unittest.TestCase):
         # LocalizedError instead of a bare String.
         self.assertGreaterEqual(source.count("CoordinatedFileCopyFailure(message:"), 3)
 
+    def test_signing_handler_keeps_managed_certificate_lookup_and_mutation_on_main_actor(self) -> None:
+        source = _source(VEXSIGN / "Infrastructure/Signing/Execution/SigningHandler.swift")
+        self.assertIn("await _certificateDisplayName()", source)
+        self.assertIn("try await _selectResolvedCertificate(reference: reference)", source)
+        self.assertRegex(source, r"@MainActor\s+private func _certificateDisplayName\(\) -> String\?")
+        self.assertRegex(source, r"@MainActor\s+private func _selectResolvedCertificate\(reference: String\) throws")
+        self.assertNotIn("MainActor.run { try Storage.shared.managedCertificate", source)
+        self.assertNotIn("cert.nickname", source)
+        self.assertNotIn("@unchecked Sendable", source)
+
+    def test_certificate_cards_supply_stable_identity_and_one_shared_swipe_binding(self) -> None:
+        source = _source(VEXSIGN / "Presentation/Features/Certificates/Views/CertificatesView.swift")
+        self.assertIn("@State private var _revealedCertificateID: String?", source)
+        self.assertIn(r"id: \.element.id", source)
+        self.assertIn("rowID: cert.id, revealedRowID: $_revealedCertificateID", source)
+        self.assertNotIn("LibraryGridSwipeDelete(enabled: true) {", source)
+
     def test_repository_gates_run_this_regression(self) -> None:
         command = "python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py"
         self.assertIn(command, (ROOT / "Makefile").read_text(encoding="utf-8"))

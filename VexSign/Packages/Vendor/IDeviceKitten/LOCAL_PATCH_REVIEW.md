@@ -24,7 +24,8 @@ existing MIT wrapper and separately inspected `jkcoxson/idevice` source.
   inspection, normalized device identity, remote signing-key relation, preserved
   original bytes. Parsing is never device authorization.
 - `PairingFileStorage`: retain the sole existing owner. Anchor the path to the
-  canonical home/container prefix, reject links in app-owned private ancestors,
+  POSIX-canonical home/container prefix, inspect existing private ancestors with
+  no-follow `lstat` before creating missing descendants, reject links there,
   bounded no-follow descriptor reads, 0700 directories / 0600 files, physical-iOS
   Data Protection with no unsupported-protection fallback, backup exclusion,
   exclusive synchronized staging, no-clobber first import, digest-reviewed atomic
@@ -57,8 +58,12 @@ The unchanged binary target is `IDevice` v0.1.57, SwiftPM checksum
 Its annotated tag resolves to source commit
 [`99ea020acabd0579375a09fd690261ea6ca37f68`](https://github.com/jkcoxson/idevice/tree/99ea020acabd0579375a09fd690261ea6ca37f68).
 This source reading **does not** prove the downloaded XCFramework's headers,
-platform slices, ABI, linked dependency licenses, or runtime behaviour. The archive
-has not been downloaded/verified in this work and no native Swift call was run.
+platform slices, ABI, linked dependency licenses, or runtime behaviour. Local
+archive retrieval failed. The authorized full CI resolved the pinned binary and
+compiled its actual C imports, exposing the `usize`/`libc::size_t` Swift signedness
+differences now handled explicitly. That is not runtime/device acceptance; see
+the exact candidate/run conclusions in the implementation status. No device
+service call was run by these tests.
 
 | Source file under `ffi/src/` | Source-level ownership finding / local handling |
 | --- | --- |
@@ -135,5 +140,5 @@ notices; this patch does not relicense them.
 `make test-device-foundation` stages seven exact production sources and five
 fixture/test sources into an isolated macOS SwiftPM graph without IDevice or
 network dependencies. Portable preparation/security checks are not Swift tests.
-Compilation, ABI, iOS Data Protection, real transport and device installation
-remain unverified. See the [implementation status and manual gates](../../../Documentation/Architecture/on-device-foundation-status.md).
+Host compilation and CI outcomes are tracked separately from native ABI/runtime,
+iOS Data Protection, real transport and device installation acceptance. See the [implementation status and manual gates](../../../Documentation/Architecture/on-device-foundation-status.md).
