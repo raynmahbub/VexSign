@@ -2,7 +2,7 @@ import Foundation
 import CryptoKit
 import IDeviceSwift
 
-struct TaskContext: Codable, Equatable {
+struct TaskContext: Codable, Equatable, Sendable {
     var appVersion: String?
     var appBuild: String?
     var installationMethod: String?
@@ -32,14 +32,18 @@ struct TaskContext: Codable, Equatable {
     var installationPackageSHA256: String?
 
     func hasConfirmedInstallation(notAfter: Date) -> Bool {
-        guard installationMethod == "paired-device", confirmationReason == "device-confirmed-installed",
+        guard confirmationReason == "device-confirmed-installed",
               let identifier = expectedBundleIdentifier, let handoffAt, let nativeAcknowledgedAt,
               handoffAt.timeIntervalSince1970.isFinite, nativeAcknowledgedAt.timeIntervalSince1970.isFinite,
               notAfter.timeIntervalSince1970.isFinite, nativeAcknowledgedAt >= handoffAt, nativeAcknowledgedAt <= notAfter,
               let digest = installationPackageSHA256, DeviceSessionBinding.isDigest(digest) else { return false }
-        return installedApplicationEvidence?.confirms(bundleIdentifier: identifier,
+        let exactPairedDeviceEvidence = installedApplicationEvidence?.confirms(bundleIdentifier: identifier,
             version: appVersion, build: appBuild, binding: expectedDeviceBinding,
             notBefore: nativeAcknowledgedAt, notAfter: notAfter) == true
+        return InstallCompletionEvidencePolicy.allowsInstalledOutcome(
+            method: InstallationEvidenceMethod(code: installationMethod),
+            hasExactPairedDeviceEvidence: exactPairedDeviceEvidence
+        )
     }
 
     mutating func recordFailure(_ error: Error) {
@@ -139,7 +143,7 @@ struct TaskContext: Codable, Equatable {
     }
 }
 
-struct TaskStageEntry: Codable, Equatable {
+struct TaskStageEntry: Codable, Equatable, Sendable {
     let phase: UnifiedTaskPhase
     let date: Date
 }

@@ -60,7 +60,7 @@ struct SourceAppsDetailView: View {
 						Spacer()
 
 						HStack(spacing: 8) {
-							DownloadButtonView(app: app)
+							DownloadButtonView(app: app, originURL: source.sourceURL)
 
 							if let bundleId = app.id {
 								Button {
@@ -126,7 +126,7 @@ struct SourceAppsDetailView: View {
 						)
                         if let versions = app.versions {
                             NavigationLink(
-                                destination: VersionHistoryView(app: app, versions: versions)
+                                destination: VersionHistoryView(app: app, versions: versions, originURL: source.sourceURL)
                                     .navigationTitle(.localized("Version History"))
                                     .navigationBarTitleDisplayMode(.large)
                             ) {

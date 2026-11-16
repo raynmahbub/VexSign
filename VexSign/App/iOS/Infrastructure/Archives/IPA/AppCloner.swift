@@ -147,6 +147,7 @@ final class AppCloner {
         if app.isSigned && !asUnsigned {
             try await Storage.shared.addSigned(
                 uuid: newUUID,
+                source: app.source,
                 appName: newName,
                 appIdentifier: newBundleId,
                 originalAppIdentifier: app.originalIdentifier ?? app.identifier,
@@ -157,6 +158,7 @@ final class AppCloner {
         } else {
             try await Storage.shared.addImported(
                 uuid: newUUID,
+                source: app.source,
                 appName: newName,
                 appIdentifier: newBundleId,
                 appVersion: app.version,

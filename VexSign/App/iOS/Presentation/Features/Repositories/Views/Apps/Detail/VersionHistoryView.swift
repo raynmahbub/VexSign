@@ -15,6 +15,7 @@ struct VersionHistoryView: View {
 	
     let app: ASRepository.App
     let versions: [ASRepository.App.Version]
+    var originURL: URL? = nil
     
     var body: some View {
         ScrollView {
@@ -34,6 +35,7 @@ struct VersionHistoryView: View {
                                     from: downloadURL,
                                     id: app.currentUniqueId,
                                     appName: app.currentName,
+                                    originURL: originURL,
                                 )
 								dismiss()
                             } label: {

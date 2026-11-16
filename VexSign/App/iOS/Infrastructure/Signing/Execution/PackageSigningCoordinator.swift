@@ -18,6 +18,7 @@ import NimbleExtensions
 enum PackageSigningCoordinator {
     /// Coordinates signing requests over `SigningService` with unified preflight,
     /// identity compatibility reporting, Live Activity updates, and durable task tracing.
+    @MainActor
     static func signPackage(
         _ app: AppInfoPresentable,
         using options: Options,
@@ -176,7 +177,23 @@ enum PackageSigningCoordinator {
                 case .compatibilityRemoved(let components):
                     onCompatibilityRemoved?(components)
 
-                case .finished(let signed):
+                case .finished(let artifact):
+                    let signed: Signed
+                    do {
+                        guard let resolved = try Storage.shared.managedApp(matching: artifact) as? Signed else {
+                            throw WorkspaceAccessError.mismatchedRecord
+                        }
+                        signed = resolved
+                    } catch {
+                        keepAlive.stop()
+                        task.context?.recordFailure(error)
+                        task.context?.recordSigningOutcome(.failed)
+                        log.error(error.localizedDescription)
+                        SigningLiveActivityManager.shared.cancel()
+                        UnifiedTaskCenter.shared.transition(task, to: .failed, error: error.localizedDescription)
+                        completion(.failure(error))
+                        return
+                    }
                     keepAlive.stop()
                     log.success(.localized("Signed successfully"))
                     SigningLiveActivityManager.shared.complete(appName: request.name)

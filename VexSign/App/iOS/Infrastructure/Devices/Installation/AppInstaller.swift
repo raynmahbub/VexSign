@@ -130,8 +130,12 @@ final class AppInstaller: ObservableObject {
 
     var installationMethodCode: String {
         if _isSharing { return "export" }
-        if _installationMethod == 2 { return "guest-import" }
-        return _installationMethod == 1 ? "paired-device" : "OTA"
+        switch _installationMethod {
+        case 0: return "OTA"
+        case 1: return "paired-device"
+        case 2: return "guest-import"
+        default: return "unresolved"
+        }
     }
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
@@ -403,11 +407,13 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
         let pairedDevice = _pairedDevice
         let expectedIdentifier = app.identifier
         let sourceLease = _sourceLease
+        // ArchiveHandler owns the managed app and view model on MainActor. The
+        // detached worker captures only its actor reference and Sendable values.
+        let archive = try InstallationArchive()
+        let handler = ArchiveHandler(app: app, viewModel: viewModel, workspace: archive.directory)
         let worker = Task.detached(priority: .utility) {
             defer { withExtendedLifetime(sourceLease) {} }
             try Task.checkCancellation()
-            let archive = try InstallationArchive()
-            let handler = ArchiveHandler(app: app, viewModel: viewModel, workspace: archive.directory)
             try await handler.move(from: source)
             try Task.checkCancellation()
             let metadata: PairedInstallationValidation.Metadata?
@@ -656,22 +662,46 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
 	}
 
 
+    /// Validates the live paired route against the selected session, frozen target and the
+    /// exact device record read after native acknowledgement. No other route can manufacture
+    /// this evidence.
+    private func _hasExactPairedDeviceEvidence(notAfter: Date) -> Bool {
+        guard _installationMethod == 1,
+              let submission = _pairedSubmission,
+              let request = _pairedRequest,
+              let binding = request.binding,
+              PairingBridge.isSelectedForUse(request),
+              submission.binding == binding,
+              let expectedBundleIdentifier = app.identifier,
+              submission.target.bundleIdentifier == expectedBundleIdentifier,
+              submission.target.version == app.version,
+              let application = _confirmedApplication,
+              application.isInstalled, !application.isPlaceholder,
+              application.bundleIdentifier == expectedBundleIdentifier,
+              application.version == submission.target.version,
+              application.build == submission.target.build else { return false }
+        return application.evidence?.confirms(
+            bundleIdentifier: submission.target.bundleIdentifier,
+            version: submission.target.version,
+            build: submission.target.build,
+            binding: binding,
+            notBefore: submission.acknowledgedAt,
+            notAfter: notAfter
+        ) == true
+    }
+
 	private func _finish(_ result: Result<Outcome, Error>) {
 		guard !_hasFinished else { return }
         if case .success(.installed) = result {
-            guard _installationMethod == 1, let submission = _pairedSubmission,
-                  let request = _pairedRequest, PairingBridge.isSelectedForUse(request),
-                  let application = _confirmedApplication, application.isInstalled, !application.isPlaceholder,
-                  application.bundleIdentifier == app.identifier, application.version == app.version,
-                  application.build == submission.target.build,
-                  submission.binding == _pairedRequest?.binding,
-                  application.evidence?.confirms(bundleIdentifier: submission.target.bundleIdentifier,
-                    version: submission.target.version, build: submission.target.build, binding: submission.binding,
-                    notBefore: submission.acknowledgedAt, notAfter: Date()) == true else {
-                // Defense in depth: never construct library evidence from the
-                // request, a private probe or a transport-only success callback.
-                onConfirmationReason?(_installationMethod == 1
-                    ? "paired-installed-version-not-verified" : "supported-installation-inventory-unavailable")
+            let method = InstallationEvidenceMethod(code: installationMethodCode)
+            let hasExactPairedDeviceEvidence = _hasExactPairedDeviceEvidence(notAfter: Date())
+            guard InstallCompletionEvidencePolicy.allowsInstalledOutcome(
+                method: method, hasExactPairedDeviceEvidence: hasExactPairedDeviceEvidence
+            ) else {
+                // Defense in depth: OTA delivery and transport completion are not a device
+                // inventory; never promote a private/unbound probe, command response, or
+                // unsupported route to library evidence.
+                onConfirmationReason?(method.rejectedInstalledReason)
                 _confirmedApplication = nil
                 installationPhase = .finished(.timedOutVerifying)
                 viewModel.installProgress = 0.99

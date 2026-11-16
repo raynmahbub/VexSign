@@ -504,45 +504,46 @@ class DownloadManager: NSObject, ObservableObject {
 		id: String = UUID().uuidString,
 		appName: String? = nil,
 		appDescription: String? = nil,
+        originURL: URL? = nil,
 		integrity: DownloadIntegrity.Expectation? = nil,
         recoveryID: UUID = UUID(),
         recoveredResumeData: Data? = nil
 	) -> Download {
         if !Thread.isMainThread {
             return DispatchQueue.main.sync {
-                self.startDownload(from: url, id: id, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID, recoveredResumeData: recoveredResumeData)
+                self.startDownload(from: url, id: id, appName: appName, appDescription: appDescription, originURL: originURL, integrity: integrity, recoveryID: recoveryID, recoveredResumeData: recoveredResumeData)
             }
         }
 		if DownloadIntegrity.expectationExceedsPackageLimit(integrity) {
 			Task { @MainActor in Toast.error(PackageDownloadURLPolicy.Failure.packageTooLarge.localizedDescription, duration: .long) }
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, originURL: originURL)
 		}
 		do {
 			try PackageDownloadURLPolicy.validateInitialURL(url)
 		} catch {
 			Task { @MainActor in Toast.error(error.localizedDescription, duration: .long) }
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, originURL: originURL)
 		}
 		// Game Mode (Settings → Game Mode): the one place every download funnels through, so
 		// nothing reaches the network while it is on. Callers discard the return value, and
 		// an unstarted download is never appended to `downloads`, so the UI stays on "Get".
 		if GameMode.isEnabled {
 			Task { @MainActor in GameMode.reportBlocked(.localized("Downloading")) }
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, originURL: originURL)
 		}
 
 		if DownloadPreferences.wifiOnly, DownloadPreferences.isOnExpensivePath {
 			Task { @MainActor in
 				Toast.error(.localized("Wi-Fi only is on. Connect to Wi-Fi or turn the setting off."), duration: .long)
 			}
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, originURL: originURL)
 		}
 
 		if DownloadPreferences.chargeOnly, !DownloadPreferences.isCharging {
 			Task { @MainActor in
 				Toast.error(.localized("Charge only is on. Plug in your device or turn the setting off."), duration: .long)
 			}
-			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity)
+			return Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, originURL: originURL)
 		}
 
         if let existingDownload = downloads.first(where: { $0.url == url }) {
@@ -551,11 +552,15 @@ class DownloadManager: NSObject, ObservableObject {
             if let integrity, !existingDownload.isVerifying, !existingDownload.isImporting, !existingDownload.isSigning {
                 existingDownload.integrity = integrity
             }
+            if existingDownload.originURL == nil, let originURL,
+               !existingDownload.isVerifying, !existingDownload.isImporting, !existingDownload.isSigning {
+                existingDownload.originURL = originURL
+            }
             resumeDownload(existingDownload)
             return existingDownload
         }
 
-        let download = Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID)
+        let download = Download(id: id, url: url, appName: appName, appDescription: appDescription, integrity: integrity, recoveryID: recoveryID, originURL: originURL)
         download.isWaitingForSlot = true
 
 		guard let session = isAppInBackground ? _backgroundSession : _foregroundSession else {

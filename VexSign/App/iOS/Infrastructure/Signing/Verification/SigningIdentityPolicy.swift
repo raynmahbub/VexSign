@@ -15,6 +15,20 @@ extension SigningIdentityPolicy {
         return rejection(for: certificate, now: now)
     }
 
+    /// Detached-worker variant. Resolve current certificate state from the opaque
+    /// reference on MainActor rather than capturing a managed object in the request.
+    @MainActor
+    static func rejection(for request: SigningWorkRequest, now: Date = Date()) -> Rejection? {
+        guard request.options.signingOption == .default else { return nil }
+        guard let reference = request.certificateID else { return .missingCertificate }
+        do {
+            let certificate = try Storage.shared.managedCertificate(id: reference)
+            return rejection(for: certificate, now: now)
+        } catch {
+            return .missingCertificate
+        }
+    }
+
     @MainActor
     static func rejection(for certificate: CertificatePair, now: Date = Date()) -> Rejection? {
         let snapshot = certificate.uuid.flatMap { CertificateRevocationSnapshot.stored(forCertificateUUID: $0) }

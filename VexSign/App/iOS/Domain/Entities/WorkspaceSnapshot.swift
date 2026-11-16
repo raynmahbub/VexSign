@@ -7,6 +7,12 @@ struct LibraryAppReference: Hashable, Sendable {
     let uuid: String
     let isSigned: Bool
 
+    init(recordID: String?, uuid: String, isSigned: Bool) {
+        self.recordID = recordID
+        self.uuid = uuid
+        self.isSigned = isSigned
+    }
+
     init(app: AppInfoPresentable) throws {
         guard let uuid = app.uuid, !uuid.isEmpty else { throw WorkspaceAccessError.invalidReference }
         self.recordID = app.recordID

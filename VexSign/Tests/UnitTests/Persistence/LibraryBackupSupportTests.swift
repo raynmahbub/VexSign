@@ -3,9 +3,14 @@ import XCTest
 @testable import VexSign
 
 final class LibraryBackupSupportTests: XCTestCase {
-    private func entry(uuid: String = UUID().uuidString, bundle: String = "Test.app") -> LibraryBackupEntry {
+    private func entry(
+        uuid: String = UUID().uuidString,
+        bundle: String = "Test.app",
+        sourceURL: URL? = nil
+    ) -> LibraryBackupEntry {
         LibraryBackupEntry(uuid: uuid, bundleName: bundle, signed: true, name: "Test", identifier: "test.app",
-            originalIdentifier: "test.app", version: "1", appDescription: nil, certificateUUID: nil)
+            originalIdentifier: "test.app", version: "1", appDescription: nil, certificateUUID: nil,
+            sourceURL: sourceURL)
     }
 
     private func fixture(_ body: (URL) throws -> Void) throws {
@@ -23,6 +28,22 @@ final class LibraryBackupSupportTests: XCTestCase {
         for name in ["../Test.app", "/Test.app", "nested\\Test.app", "Test.ipa", ".hidden.app"] {
             XCTAssertThrowsError(try LibraryBackupSupport.validate(entry(bundle: name)))
         }
+    }
+
+    func testLibraryOriginIsValidatedAndOlderEntriesWithoutItStillDecode() throws {
+        let repository = URL(string: "https://repo.example/apps.json")!
+        XCTAssertNoThrow(try LibraryBackupSupport.validate(entry(sourceURL: repository)))
+        for unsafe in [URL(string: "file:///etc/passwd")!, URL(string: "https://user:secret@example.com/apps.json")!] {
+            XCTAssertThrowsError(try LibraryBackupSupport.validate(entry(sourceURL: unsafe)))
+        }
+
+        // Version 3 manifests written before origin metadata have no sourceURL key.
+        let encoded = try JSONEncoder().encode(entry(sourceURL: repository))
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "sourceURL")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let legacyEntry = try JSONDecoder().decode(LibraryBackupEntry.self, from: legacyData)
+        XCTAssertNil(legacyEntry.sourceURL)
     }
 
     func testLibraryByteLimitFailsRatherThanSilentlyOmittingFiles() throws {

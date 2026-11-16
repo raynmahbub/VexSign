@@ -54,7 +54,7 @@ enum TweakFileType: String, Codable, Equatable, Sendable {
 }
 
 /// Where a tweak's dylib load command should be written.
-enum ExtensionTargeting: Codable, Equatable {
+enum ExtensionTargeting: Codable, Equatable, Sendable {
 	case mainOnly
 	/// Main binary + every app extension.
 	case all
@@ -64,7 +64,7 @@ enum ExtensionTargeting: Codable, Equatable {
 
 /// Per-tweak injection config. When `useCustom` is false, the global
 /// `Options.injectPath`/`injectFolder` are used.
-struct TweakInjectConfig: Codable, Equatable {
+struct TweakInjectConfig: Codable, Equatable, Sendable {
 	var useCustom: Bool
 	var injectPath: Options.InjectPath?
 	var injectFolder: Options.InjectFolder?
@@ -267,7 +267,7 @@ struct ManagedTweak: Codable, Identifiable, Equatable {
 }
 
 /// One resolved file inside a sign-time injection, with its effective config.
-struct TweakInjectionFile: Codable, Equatable, Identifiable {
+struct TweakInjectionFile: Codable, Equatable, Identifiable, Sendable {
 	var id: UUID
 	var fileURL: URL
 	var fileName: String
@@ -294,7 +294,7 @@ struct TweakInjectionFile: Codable, Equatable, Identifiable {
 
 /// A resolved injection for one sign — a tweak (or ad-hoc pick) and its files.
 /// Lives only on the per-sign working copy of `Options`.
-struct TweakInjectionSpec: Codable, Equatable, Identifiable {
+struct TweakInjectionSpec: Codable, Equatable, Identifiable, Sendable {
 	var id: UUID
 	var displayName: String
 	var enabled: Bool

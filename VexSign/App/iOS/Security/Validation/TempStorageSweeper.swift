@@ -45,20 +45,20 @@ enum TempStorageSweeper {
 		let cutoff = now.addingTimeInterval(-maxAge)
 		var removed = 0
 
-		for url in contents {
-			guard ownedPrefixes.contains(where: { url.lastPathComponent.hasPrefix($0) }) else { continue }
+			for url in contents {
+				guard ownedPrefixes.contains(where: { url.lastPathComponent.hasPrefix($0) }) else { continue }
             if TemporaryCleanupPolicy.isRetained(url, temporaryRoot: temp,
                 downloadStaging: temp.appendingPathComponent(FileManager.default.downloadStaging.lastPathComponent)) { continue }
-			let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
-			guard modified < cutoff else { continue }
+            guard CleanupRemovalPolicy.isSafeTarget(url, beneath: temp) else { continue }
+				let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+				guard modified < cutoff else { continue }
 
-			do {
-				try fm.removeItem(at: url)
-				removed += 1
-			} catch {
-				Logger.security.warning("Temp sweep could not remove \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+				do {
+                    if try CleanupRemovalPolicy.remove(url, beneath: temp) != nil { removed += 1 }
+				} catch {
+					Logger.security.warning("Temp sweep could not remove \(url.lastPathComponent, privacy: .public): \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+				}
 			}
-		}
 
 		if removed > 0 {
 			Logger.security.info("Temp sweep removed \(removed, privacy: .public) stale working directories")

@@ -14,6 +14,234 @@ import Foundation
 
 // MARK: - Storage areas
 
+enum PendingInstallCleanupPolicy {
+    /// Keep every staged identifier whose deletion did not commit, unless an authoritative row
+    /// lookup confirmed that the target is already absent. The order is stable and duplicate
+    /// identifiers from older defaults values are collapsed so a later flush remains idempotent.
+    static func remaining(
+        _ staged: [String],
+        afterDeleting deleted: Set<String>,
+        confirmedMissing: Set<String> = []
+    ) -> [String] {
+        var seen = Set<String>()
+        return staged.filter {
+            !deleted.contains($0) && !confirmedMissing.contains($0) && seen.insert($0).inserted
+        }
+    }
+}
+
+/// Narrow path policy for automatic deletion of downloaded IPA files. A prefix match is not
+/// containment (`VexSignDownloads-old` is a sibling), and checking only the lexical URL lets a
+/// symlink inside staging point at a library artifact. Require a regular file strictly below the
+/// owned staging directory, itself strictly below the temporary root, after resolving links.
+enum CleanupArtifactPolicy {
+    static func isSafeDownloadedArtifact(
+        _ candidate: URL,
+        stagingRoot: URL,
+        temporaryRoot: URL,
+        protectedRoots: [URL],
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard candidate.isFileURL, stagingRoot.isFileURL, temporaryRoot.isFileURL else { return false }
+
+        let lexicalCandidate = candidate.standardizedFileURL
+        let lexicalStaging = stagingRoot.standardizedFileURL
+        let lexicalTemporary = temporaryRoot.standardizedFileURL
+        guard isStrictlyWithin(lexicalStaging, root: lexicalTemporary),
+              isStrictlyWithin(lexicalCandidate, root: lexicalStaging) else { return false }
+        let stagingValues: URLResourceValues
+        let candidateValues: URLResourceValues
+        do {
+            stagingValues = try lexicalStaging.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            candidateValues = try lexicalCandidate.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey])
+        } catch {
+            return false
+        }
+        guard stagingValues.isDirectory == true, stagingValues.isSymbolicLink != true,
+              candidateValues.isRegularFile == true, candidateValues.isDirectory != true,
+              candidateValues.isSymbolicLink != true,
+              fileManager.fileExists(atPath: lexicalCandidate.path) else { return false }
+
+        let resolvedTemporary = lexicalTemporary.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedStaging = lexicalStaging.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedCandidate = lexicalCandidate.resolvingSymlinksInPath().standardizedFileURL
+        guard isStrictlyWithin(resolvedStaging, root: resolvedTemporary),
+              isStrictlyWithin(resolvedCandidate, root: resolvedStaging) else { return false }
+
+        for root in protectedRoots where root.isFileURL {
+            let protected = root.resolvingSymlinksInPath().standardizedFileURL
+            if contains(resolvedCandidate, within: protected) || contains(protected, within: resolvedCandidate) {
+                return false
+            }
+        }
+        return true
+    }
+
+    static func isStrictlyWithin(_ item: URL, root: URL) -> Bool {
+        let path = item.standardizedFileURL.path
+        let rootPath = root.standardizedFileURL.path
+        return path != rootPath && path.hasPrefix(rootPath.hasSuffix("/") ? rootPath : rootPath + "/")
+    }
+
+    private static func contains(_ item: URL, within root: URL) -> Bool {
+        let path = item.standardizedFileURL.path
+        let rootPath = root.standardizedFileURL.path
+        return path == rootPath || path.hasPrefix(rootPath.hasSuffix("/") ? rootPath : rootPath + "/")
+    }
+}
+
+/// Component-aware, fail-closed removal for owned cleanup roots. Both lexical and resolved paths
+/// must remain inside the authorized root, and neither the target nor root may be a symlink.
+enum CleanupRemovalPolicy {
+    enum Rejection: LocalizedError {
+        case unsafeTarget
+
+        var errorDescription: String? { "The cleanup target failed its path-safety check." }
+    }
+
+    static func isDirectoryRoot(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        do {
+            let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            return values.isDirectory == true && values.isSymbolicLink != true
+        } catch {
+            return false
+        }
+    }
+
+    static func isSafeDirectory(_ candidate: URL, beneath root: URL) -> Bool {
+        guard isSafeTarget(candidate, beneath: root) else { return false }
+        do {
+            return try candidate.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true
+        } catch {
+            return false
+        }
+    }
+
+    static func isSafeTarget(
+        _ candidate: URL,
+        beneath root: URL,
+        allowRoot: Bool = false,
+        protectedRoots: [URL] = []
+    ) -> Bool {
+        guard candidate.isFileURL, root.isFileURL else { return false }
+        let item = candidate.standardizedFileURL
+        let base = root.standardizedFileURL
+        let samePath = item.path == base.path
+        guard (samePath && allowRoot) || (!samePath && isStrictlyWithin(item, root: base)) else { return false }
+        do {
+            let itemValues = try item.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard itemValues.isSymbolicLink != true else { return false }
+            if !samePath {
+                let baseValues = try base.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard baseValues.isDirectory == true, baseValues.isSymbolicLink != true else { return false }
+                var ancestor = item.deletingLastPathComponent()
+                while ancestor.standardizedFileURL.path != base.path {
+                    guard isStrictlyWithin(ancestor, root: base) else { return false }
+                    let ancestorValues = try ancestor.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                    guard ancestorValues.isDirectory == true, ancestorValues.isSymbolicLink != true else { return false }
+                    let parent = ancestor.deletingLastPathComponent()
+                    guard parent.path != ancestor.path else { return false }
+                    ancestor = parent
+                }
+            }
+        } catch {
+            return false
+        }
+
+        let resolvedItem = item.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedBase = base.resolvingSymlinksInPath().standardizedFileURL
+        guard (resolvedItem.path == resolvedBase.path && allowRoot)
+                || (resolvedItem.path != resolvedBase.path && isStrictlyWithin(resolvedItem, root: resolvedBase)) else {
+            return false
+        }
+        for protectedRoot in protectedRoots where protectedRoot.isFileURL {
+            let protected = protectedRoot.resolvingSymlinksInPath().standardizedFileURL
+            if contains(resolvedItem, within: protected) || contains(protected, within: resolvedItem) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /// Measures the bytes that removing an item can actually reclaim. Symbolic links are not
+    /// followed or counted, even when nested inside an owned directory being deleted.
+    static func allocatedSizeWithoutFollowingSymlinks(at url: URL, fileManager: FileManager = .default) -> Int64 {
+        let keys: Set<URLResourceKey> = [
+            .isDirectoryKey, .isSymbolicLinkKey, .totalFileAllocatedSizeKey,
+            .fileAllocatedSizeKey, .fileSizeKey
+        ]
+        func regularFileSize(_ values: URLResourceValues) -> Int64 {
+            Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? values.fileSize ?? 0)
+        }
+        do {
+            let rootValues = try url.resourceValues(forKeys: keys)
+            guard rootValues.isSymbolicLink != true else { return 0 }
+            guard rootValues.isDirectory == true else { return regularFileSize(rootValues) }
+            guard let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: Array(keys), options: []) else { return 0 }
+            var total: Int64 = 0
+            while let child = enumerator.nextObject() as? URL {
+                do {
+                    let values = try child.resourceValues(forKeys: keys)
+                    if values.isSymbolicLink == true {
+                        enumerator.skipDescendants()
+                    } else if values.isDirectory != true {
+                        total += regularFileSize(values)
+                    }
+                } catch {
+                    enumerator.skipDescendants()
+                }
+            }
+            return total
+        } catch {
+            return 0
+        }
+    }
+
+    /// Removes one item. `nil` means it was already absent; a byte count (including zero) means
+    /// `removeItem` succeeded. Errors are deliberately propagated so callers cannot report a
+    /// failed deletion as reclaimed storage.
+    static func remove(
+        _ candidate: URL,
+        beneath root: URL,
+        allowRoot: Bool = false,
+        protectedRoots: [URL] = [],
+        fileManager: FileManager = .default
+    ) throws -> Int64? {
+        guard candidate.isFileURL, root.isFileURL else { throw Rejection.unsafeTarget }
+        let item = candidate.standardizedFileURL
+        let itemValues: URLResourceValues
+        do {
+            itemValues = try item.resourceValues(forKeys: [.isSymbolicLinkKey])
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
+        guard itemValues.isSymbolicLink != true else { throw Rejection.unsafeTarget }
+        guard fileManager.fileExists(atPath: item.path) else { return nil }
+        guard isSafeTarget(item, beneath: root, allowRoot: allowRoot, protectedRoots: protectedRoots) else {
+            throw Rejection.unsafeTarget
+        }
+
+        let size = allocatedSizeWithoutFollowingSymlinks(at: item, fileManager: fileManager)
+        try fileManager.removeItem(at: item)
+        return size
+    }
+
+    static func isStrictlyWithin(_ item: URL, root: URL) -> Bool {
+        let path = item.standardizedFileURL.path
+        let rootPath = root.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        return path != rootPath && path.hasPrefix(prefix)
+    }
+
+    private static func contains(_ item: URL, within root: URL) -> Bool {
+        let path = item.standardizedFileURL.path
+        let rootPath = root.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        return path == rootPath || path.hasPrefix(prefix)
+    }
+}
+
 enum CleanupPassPolicy {
 	/// Storage areas a pass leaves alone while an operation is running.
 	///

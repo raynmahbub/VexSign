@@ -3,7 +3,7 @@ import Foundation
 /// Preserves the existing pipeline while owning its application-level event
 /// contract: ordered progress, pre-start cancellation, and exactly one terminal
 /// event. Admission/leases remain with SigningService and the existing registry.
-struct RunSigningUseCase<Request, Artifact> {
+struct RunSigningUseCase<Request: Sendable, Artifact: Sendable>: Sendable {
     private let work: any SigningWork<Request, Artifact>
 
     init(work: any SigningWork<Request, Artifact>) { self.work = work }

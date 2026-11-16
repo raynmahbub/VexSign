@@ -18,7 +18,7 @@ enum LibrarySigningEvent {
 }
 
 /// Icon is an injected presentation asset, not a UI framework dependency in the
-/// application workflow. Production uses UIImage without re-encoding user icons.
+/// application workflow. The infrastructure adapter encodes it before detached work.
 @MainActor
 protocol LibrarySigningProviding<Icon>: AnyObject {
     associatedtype Icon

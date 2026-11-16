@@ -27,7 +27,7 @@ final class CoreDataWorkspaceResetAdapter: WorkspaceResetting {
     func perform(_ scope: WorkspaceResetScope) {
         switch scope {
         case .workCache:
-            StorageManager.purgeTemporary()
+            StorageManager.shared.purge(.temporary)
         case .networkCache:
             clearNetworkCache()
         case .sources:
@@ -45,7 +45,7 @@ final class CoreDataWorkspaceResetAdapter: WorkspaceResetting {
                 UserDefaults.standard.removePersistentDomain(forName: bundleID)
             }
         case .all:
-            StorageManager.purgeTemporary()
+            StorageManager.shared.purge(.temporary)
             clearNetworkCache()
             Storage.shared.clearSources()
             Storage.shared.clearSignedApps()

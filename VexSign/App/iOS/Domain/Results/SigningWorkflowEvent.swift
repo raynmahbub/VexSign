@@ -1,7 +1,7 @@
 import Foundation
 
 /// Progress and an explicit terminal result; a signed artifact is not installation evidence.
-enum SigningWorkflowEvent<Artifact> {
+enum SigningWorkflowEvent<Artifact: Sendable>: Sendable {
 	case stage(SigningStage)
 	/// The engine's own post-sign verification accepted the bundle.
 	///

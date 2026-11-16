@@ -33,6 +33,7 @@ struct UpdateTask: Identifiable, Equatable {
 	let url: URL
 	var installedAppUUID: String? = nil
 	var sourceID: String? = nil
+	var originURL: URL? = nil
 	var state: State = .queued
 
 	static func == (lhs: UpdateTask, rhs: UpdateTask) -> Bool {
@@ -62,7 +63,7 @@ final class UpdateAllManager: ObservableObject {
 		from repositories: [ASRepository],
 		signedApps: [LibraryAppRecord],
 		importedApps: [LibraryAppRecord]
-	) -> [(app: ASRepository.App, sourceName: String, hasUpdate: Bool)] {
+	) -> [(app: ASRepository.App, sourceName: String, hasUpdate: Bool, originURL: URL?)] {
 		let ignored = SkippedUpdatesManager.persisted
 		_ = signedApps; _ = importedApps
 
@@ -70,7 +71,7 @@ final class UpdateAllManager: ObservableObject {
         let grouped = Dictionary(grouping: AppUpdateChecker.shared.availableUpdates, by: { $0.installedAppUUID ?? "" })
         let unambiguous = Set(grouped.filter { !$0.key.isEmpty && $0.value.count == 1 }.values.flatMap { $0 }.map(\.id))
 		var seen = Set<String>()
-		var updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool)] = []
+		var updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool, originURL: URL?)] = []
 
 		for source in repositories {
 			for app in source.apps {
@@ -78,21 +79,22 @@ final class UpdateAllManager: ObservableObject {
 				guard app.currentDownloadUrl != nil else { continue }
 				guard seen.insert(app.currentUniqueId).inserted else { continue }
 				let hasUpdate = unambiguous.contains(app.currentUniqueId)
-				updates.append((app, source.name ?? "", hasUpdate))
+				updates.append((app, source.name ?? "", hasUpdate, source.sourceURL))
 			}
 		}
 
 		return updates
 	}
 
-	func makeTasks(from updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool)]) -> [UpdateTask] {
+	func makeTasks(from updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool, originURL: URL?)]) -> [UpdateTask] {
 		updates.compactMap { entry in
 			guard let url = entry.app.currentDownloadUrl else { return nil }
 			return UpdateTask(
 				id: entry.app.currentUniqueId,
 				app: entry.app,
 				sourceName: entry.sourceName,
-				url: url
+				url: url,
+				originURL: entry.originURL
 			)
 		}
 	}
@@ -119,7 +121,8 @@ final class UpdateAllManager: ObservableObject {
 				sourceName: update.sourceName,
 				url: url,
 				installedAppUUID: update.installedAppUUID,
-				sourceID: update.sourceID
+				sourceID: update.sourceID,
+				originURL: update.sourceURL
 			)
 		}
 	}
@@ -210,7 +213,7 @@ final class UpdateAllManager: ObservableObject {
 		tasks[index].state = .importing
 		let imported: AppInfoPresentable
 		do {
-			imported = try await _import(ipaURL)
+			imported = try await _import(ipaURL, originURL: task.originURL)
 		} catch {
 			try? FileManager.default.removeItem(at: ipaURL)
 			return .failure(error)
@@ -300,9 +303,9 @@ final class UpdateAllManager: ObservableObject {
 		return file
 	}
 
-	private func _import(_ ipa: URL) async throws -> AppInfoPresentable {
+	private func _import(_ ipa: URL, originURL: URL?) async throws -> AppInfoPresentable {
 		try await withCheckedThrowingContinuation { continuation in
-			PackageImportService.importPackage(ipa) { result in
+			PackageImportService.importPackage(ipa, originURL: originURL) { result in
 				continuation.resume(with: result)
 			}
 		}

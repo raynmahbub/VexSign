@@ -14,6 +14,8 @@ protocol AppInfoPresentable {
 	var uuid: String? { get }
 	var isSigned: Bool { get }
 	var appDescription: String? { get }
+    /// Repository URL that supplied this library copy, when it came from a catalog.
+    var source: URL? { get }
 }
 
 
@@ -21,6 +23,7 @@ extension AppInfoPresentable {
     var recordID: String? { nil }
     var bundleURL: URL? { nil }
     var artifactURL: URL? { nil }
+    var source: URL? { nil }
 }
 
 extension AppInfoPresentable {

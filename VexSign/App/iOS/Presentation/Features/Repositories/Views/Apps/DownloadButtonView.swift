@@ -70,6 +70,7 @@ class TabSelectionObserver: ObservableObject {
 
 struct DownloadButtonView: View {
 	let app: ASRepository.App
+    var originURL: URL? = nil
 	@ObservedObject private var downloadManager = DownloadManager.shared
 	@ObservedObject private var privacyManager = AppLockManager.shared
 	@State private var downloadProgress: Double = 0
@@ -146,7 +147,7 @@ struct DownloadButtonView: View {
 						Button {
 							NBHaptic.tap()
 							if let url = app.currentDownloadUrl {
-                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
+                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, originURL: originURL, integrity: app.downloadIntegrityExpectation)
 							}
 						} label: {
 							Text(.localized("Update"))
@@ -164,7 +165,7 @@ struct DownloadButtonView: View {
 						Button {
 							NBHaptic.tap()
 							if let url = app.currentDownloadUrl {
-								_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
+								_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, originURL: originURL, integrity: app.downloadIntegrityExpectation)
 							}
 						} label: {
 							HStack(spacing: 4) {
@@ -211,7 +212,7 @@ struct DownloadButtonView: View {
 						Button {
 							NBHaptic.tap()
 							if let url = app.currentDownloadUrl {
-                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
+                                _ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, originURL: originURL, integrity: app.downloadIntegrityExpectation)
 							}
 						} label: {
 							Label(.localized("Download Again"), systemImage: "arrow.down.circle")
@@ -231,7 +232,7 @@ struct DownloadButtonView: View {
 					Button {
 						NBHaptic.tap()
 						if let url = app.currentDownloadUrl {
-							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
+							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, originURL: originURL, integrity: app.downloadIntegrityExpectation)
 						}
 					} label: {
 						Label(.localized("Download"), systemImage: "arrow.down.circle")
@@ -244,7 +245,7 @@ struct DownloadButtonView: View {
 							CleanupManager.shared.setOneTapInstall(true)
 						}
 						if let url = app.currentDownloadUrl {
-							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, integrity: app.downloadIntegrityExpectation)
+							_ = downloadManager.startDownload(from: url, id: app.currentUniqueId, appName: app.currentName, appDescription: app.localizedDescription, originURL: originURL, integrity: app.downloadIntegrityExpectation)
 						}
 					} label: {
 						Label(.localized("Download, Sign & Install"), systemImage: "wand.and.stars")

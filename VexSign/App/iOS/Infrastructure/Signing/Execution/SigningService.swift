@@ -42,10 +42,10 @@ final class SigningService {
     /// A fresh request ID must not bypass ownership of the same library bundle.
     private var _appOwners: [String: String] = [:]
     private var _leases: [String: AppOperationRegistry.Lease] = [:]
-	private let work: any SigningWork<SigningRequest, Signed>
+	private let work: any SigningWork<SigningWorkRequest, LibraryAppReference>
     private let ownership: AppOperationRegistry
 
-	init(work: any SigningWork<SigningRequest, Signed> = SigningPipeline(), ownership: AppOperationRegistry = .shared) {
+	init(work: any SigningWork<SigningWorkRequest, LibraryAppReference> = SigningPipeline(), ownership: AppOperationRegistry = .shared) {
 		self.work = work
         self.ownership = ownership
 	}
@@ -70,11 +70,12 @@ final class SigningService {
         if let appKey { _appOwners[appKey] = request.id }
 
 		let id = request.id
+		let workerRequest = request.workerValue()
 		let useCase = RunSigningUseCase(work: self.work)
 		let (events, feeder) = _stream()
 
 		_runs[id] = Task.detached(priority: .userInitiated) {
-            await useCase.execute(request) { feeder.yield($0) }
+            await useCase.execute(workerRequest) { feeder.yield($0) }
 
 			feeder.finish()
 		}

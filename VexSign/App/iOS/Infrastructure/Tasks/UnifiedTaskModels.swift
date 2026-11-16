@@ -14,13 +14,11 @@ import NimbleExtensions
 /// Stage-based suggestions, not a diagnosis. Never infer security decisions
 /// from localized error text or recommend bypassing verification.
 
-/// A single task. Reference type so in-place progress updates publish
-/// through the center without diffing the whole list.
-///
-/// The unchecked conformance mirrors the existing `Download` model: instances
-/// are created and mutated on the main actor, but references are handed
-/// across actor boundaries by signing/install flows running off-main.
-final class UnifiedTask: Identifiable, @unchecked Sendable {
+/// A single live task. Reference type so in-place progress updates publish
+/// through the main-actor center without diffing the whole list. Mutable task
+/// references stay with that owner; background work receives IDs or immutable
+/// `Snapshot` values instead.
+final class UnifiedTask: Identifiable {
 	let id: String
 	let kind: UnifiedTaskKind
 	var title: String
@@ -105,7 +103,7 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
     }
 
 	/// Persistable snapshot for the history file.
-	struct Snapshot: Codable {
+	struct Snapshot: Codable, Sendable {
 		var id: String
 		var kind: String
 		var title: String
@@ -179,7 +177,7 @@ final class UnifiedTask: Identifiable, @unchecked Sendable {
 	}
 }
 
-extension UnifiedTask: TaskQueryItem {
+extension UnifiedTask {
     var queryText: String {
         [title, subtitle ?? "", kind.title, phase.title, failureStage?.title ?? "", errorText ?? ""].joined(separator: " ")
     }

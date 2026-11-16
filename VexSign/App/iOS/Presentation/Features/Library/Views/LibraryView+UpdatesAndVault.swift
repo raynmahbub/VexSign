@@ -135,7 +135,8 @@ extension LibraryView {
                                     from: url,
                                     id: item.app.currentUniqueId,
                                     appName: item.displayName,
-                                    appDescription: item.app.localizedDescription
+                                    appDescription: item.app.localizedDescription,
+                                    originURL: item.sourceURL
                                 )
                                 Toast.info(.localized("Download started"), systemImage: "arrow.down.circle")
                             } label: {

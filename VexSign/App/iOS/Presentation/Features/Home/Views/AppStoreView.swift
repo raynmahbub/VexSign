@@ -607,7 +607,7 @@ struct AppStoreView: View {
 
                                 Spacer(minLength: 8)
 
-                                DownloadButtonView(app: item.app)
+                                DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
@@ -654,7 +654,7 @@ struct AppStoreView: View {
                                         .lineLimit(1)
                                 }
                                 Spacer()
-                                DownloadButtonView(app: item.app)
+                                DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
                             }
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .contentShape(Rectangle())

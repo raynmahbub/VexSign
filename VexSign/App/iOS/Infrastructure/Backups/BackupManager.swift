@@ -271,7 +271,8 @@ final class BackupManager {
                 let entry = LibraryBackupEntry(uuid: uuid, bundleName: bundle.lastPathComponent,
                     signed: app.isSigned, name: app.name, identifier: app.identifier,
                     originalIdentifier: app.originalIdentifier, version: app.version,
-                    appDescription: app.appDescription, certificateUUID: (app as? Signed)?.certificate?.uuid)
+                    appDescription: app.appDescription, certificateUUID: (app as? Signed)?.certificate?.uuid,
+                    sourceURL: app.source)
                 try LibraryBackupSupport.validate(entry)
                 return (entry, bundle)
             }
@@ -564,14 +565,15 @@ final class BackupManager {
                           bundle.bundleIdentifier != nil else { throw LibraryBackupSupport.Failure.invalidEntry }
                     if entry.signed {
                         let certificateID = Storage.shared.getAllCertificates().first { $0.uuid == entry.certificateUUID }?.objectID
-                        try await Storage.shared.addSigned(uuid: entry.uuid, certificateID: certificateID,
+                        try await Storage.shared.addSigned(uuid: entry.uuid, source: entry.sourceURL, certificateID: certificateID,
                             appName: entry.name ?? bundle.name, appIdentifier: bundle.bundleIdentifier,
                             originalAppIdentifier: entry.originalIdentifier, appVersion: bundle.version,
                             appIcon: bundle.iconFileName, appDescription: entry.appDescription)
                     } else {
-                        try await Storage.shared.addImported(uuid: entry.uuid, appName: entry.name ?? bundle.name,
-                            appIdentifier: bundle.bundleIdentifier, appVersion: bundle.version,
-                            appIcon: bundle.iconFileName, appDescription: entry.appDescription)
+                        try await Storage.shared.addImported(uuid: entry.uuid, source: entry.sourceURL,
+                            appName: entry.name ?? bundle.name, appIdentifier: bundle.bundleIdentifier,
+                            appVersion: bundle.version, appIcon: bundle.iconFileName,
+                            appDescription: entry.appDescription)
                     }
                     existing.insert(entry.uuid)
                     added += 1

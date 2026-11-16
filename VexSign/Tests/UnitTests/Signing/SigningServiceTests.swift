@@ -30,7 +30,7 @@ final class SigningServiceTests: XCTestCase {
 	@MainActor
 	func testStagesArriveInOrderAndTheRunFinishes() async throws {
 		let signed = _signed()
-		let service = SigningService(work: _FakeWork(.succeed(signed, [.copying, .modifying, .signing])))
+		let service = SigningService(work: _FakeWork(.succeed(_artifact(signed), [.copying, .modifying, .signing])))
 
 		let events = await _collect(service, request: _request(signed))
 
@@ -40,14 +40,14 @@ final class SigningServiceTests: XCTestCase {
 		guard case .finished(let result)? = events.last else {
 			return XCTFail("Last event should be .finished, got \(String(describing: events.last))")
 		}
-		XCTAssertEqual(result.uuid, signed.uuid)
+		XCTAssertEqual(result.uuid, signed.uuid ?? "")
 	}
 
 	@MainActor
 	func testCompatibilityRemovalDetailsArriveBeforeSuccessfulCompletion() async throws {
 		let signed = _signed()
 		let components = ["Widget.appex (com.example.widget)", "Share.appex (com.example.share)"]
-		let service = SigningService(work: _FakeWork(.succeedWithCompatibility(signed, [.copying, .signing], components)))
+		let service = SigningService(work: _FakeWork(.succeedWithCompatibility(_artifact(signed), [.copying, .signing], components)))
 
 		let events = await _collect(service, request: _request(signed))
 
@@ -61,7 +61,7 @@ final class SigningServiceTests: XCTestCase {
 	@MainActor
 	func testAFailureIsReportedAsFailed() async throws {
 		let signed = _signed()
-		let service = SigningService(work: _FakeWork(.fail(signed, [.copying], _TestError.boom)))
+		let service = SigningService(work: _FakeWork(.fail(_artifact(signed), [.copying], _TestError.boom)))
 
 		let events = await _collect(service, request: _request(signed))
 
@@ -76,7 +76,7 @@ final class SigningServiceTests: XCTestCase {
 	@MainActor
 	func testACancellationErrorIsReportedAsCancelledNotFailed() async throws {
 		let signed = _signed()
-		let service = SigningService(work: _FakeWork(.fail(signed, [.copying], CancellationError())))
+		let service = SigningService(work: _FakeWork(.fail(_artifact(signed), [.copying], CancellationError())))
 
 		let events = await _collect(service, request: _request(signed))
 
@@ -91,7 +91,7 @@ final class SigningServiceTests: XCTestCase {
 	@MainActor
 	func testTheRunIsReleasedOnceItHasFinished() async throws {
 		let signed = _signed()
-		let service = SigningService(work: _FakeWork(.succeed(signed, [.copying])))
+		let service = SigningService(work: _FakeWork(.succeed(_artifact(signed), [.copying])))
 		let request = _request(signed, id: "fixed")
 
 		_ = service.sign(request) { _ in }
@@ -189,7 +189,7 @@ final class SigningServiceTests: XCTestCase {
     @MainActor
     func testTerminalCallbackCanImmediatelyRestartSameRequest() async throws {
         let app = _signed()
-        let service = SigningService(work: _FakeWork(.succeed(app, [.copying])))
+        let service = SigningService(work: _FakeWork(.succeed(_artifact(app), [.copying])))
         let request = _request(app, id: "restart")
         var restarted = false
         var finished = false
@@ -225,7 +225,7 @@ final class SigningServiceTests: XCTestCase {
     @MainActor
     func testWorkCannotEmitAnExtraTerminalEvent() async throws {
         let app = _signed()
-        let service = SigningService(work: _FakeWork(.extraTerminal(app)))
+        let service = SigningService(work: _FakeWork(.extraTerminal(_artifact(app))))
         let events = await _collect(service, request: _request(app))
         XCTAssertEqual(_terminalCount(events), 1)
         guard case .finished? = events.last else { return XCTFail("Expected final success") }
@@ -247,6 +247,12 @@ final class SigningServiceTests: XCTestCase {
 	@MainActor
 	private func _request(_ app: Signed, id: String = UUID().uuidString) -> SigningRequest {
 		SigningRequest(id: id, app: app, options: Options.defaultOptions, icon: nil, certificate: nil)
+	}
+
+	@MainActor
+	private func _artifact(_ app: Signed) -> LibraryAppReference {
+		LibraryAppReference(recordID: app.objectID.uriRepresentation().absoluteString,
+						 uuid: app.uuid ?? "fixture", isSigned: true)
 	}
 
 	/// Starts a run and waits for its terminal event.
@@ -295,16 +301,16 @@ final class SigningServiceTests: XCTestCase {
 
 // MARK: - Fakes
 
-private enum _TestError: Error {
+private enum _TestError: Error, Sendable {
 	case boom
 }
 
-private final class _FakeWork: SigningWork {
-	enum Behaviour {
-		case succeed(Signed, [SigningStage])
-        case extraTerminal(Signed)
-		case succeedWithCompatibility(Signed, [SigningStage], [String])
-		case fail(Signed, [SigningStage], Error)
+private final class _FakeWork: SigningWork, Sendable {
+	enum Behaviour: Sendable {
+		case succeed(LibraryAppReference, [SigningStage])
+        case extraTerminal(LibraryAppReference)
+		case succeedWithCompatibility(LibraryAppReference, [SigningStage], [String])
+		case fail(LibraryAppReference, [SigningStage], Error)
 		/// Reports `.copying` (and anything else asked for) then sleeps until cancelled, which is
 		/// what a real pipeline looks like while zsign is running.
 		case waitForCancel([SigningStage])
@@ -316,7 +322,7 @@ private final class _FakeWork: SigningWork {
 		self._behaviour = behaviour
 	}
 
-	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
+	func run(_ request: SigningWorkRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<LibraryAppReference, Error> {
         switch _behaviour {
         case .extraTerminal(let signed):
             reporting(.cancelled)

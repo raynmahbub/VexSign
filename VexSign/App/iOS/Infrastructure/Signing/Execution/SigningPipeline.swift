@@ -2,59 +2,65 @@ import Foundation
 import NimbleExtensions
 
 /// The real pipeline: the same steps `SigningHandler` always ran, in the same order.
-struct SigningPipeline: SigningWork {
+/// Both sides of its worker port are value-only so a managed row never crosses the detached task.
+struct SigningPipeline: SigningWork, Sendable {
     let executionGate = SigningExecutionGate()
-	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
-		let log = SigningLog.shared
-		log.reset()
-        let name = await MainActor.run { request.name }
-		log.info(.localized("Preparing to sign %@", arguments: name))
-		for notice in request.notices {
-			log.warn(notice)
-		}
 
-        // Managed rows are inspected only on their owning actor. The worker
-        // gets an immutable app projection; the PKCS#12/profile plan is still
-        // independently revalidated inside native ownership before any signing.
+    func run(
+        _ request: SigningWorkRequest,
+        reporting: @escaping (SigningEvent) -> Void
+    ) async -> Result<LibraryAppReference, Error> {
+        let log = SigningLog.shared
+        log.reset()
+        log.info(.localized("Preparing to sign %@", arguments: request.app.name ?? .localized("app")))
+        for notice in request.notices {
+            log.warn(notice)
+        }
+
+        // Re-resolve the selected certificate on its owning actor immediately before work. Only
+        // its opaque URI crossed the boundary; neither the request nor its row is retained here.
         if let rejection = await MainActor.run(body: { SigningIdentityPolicy.rejection(for: request) }) {
             log.error(SigningIdentityPolicy.logLine(for: rejection))
             return .failure(rejection)
         }
+        guard request.appReferenceIsValid else {
+            return .failure(WorkspaceAccessError.mismatchedRecord)
+        }
 
-        let app: AppInfoPresentable
-        do {
-            let snapshot: LibraryAppRecord? = try await MainActor.run {
-                guard request.app is Signed || request.app is Imported else { return nil }
-                return try CoreDataWorkspaceRepository(storage: Storage.shared).appRecord(request.app)
-            }
-            if let snapshot { app = snapshot } else { app = request.app }
-        } catch { return .failure(error) }
-        let handler = SigningHandler(app: app, options: request.options, executionGate: executionGate)
-        handler.appCertificate = request.certificate
+        let handler = SigningHandler(app: request.app, options: request.options, executionGate: executionGate)
+        handler.appCertificateID = request.certificateID
         handler.authorization = request.authorization
-		handler.appIcon = request.icon
-		handler.onStage = { reporting(.stage($0)) }
-		handler.onSignatureVerified = { reporting(.signatureVerified) }
-		handler.onCompatibilityRemoved = { reporting(.compatibilityRemoved($0)) }
-		handler.overridesBlockingPreflightIssues = request.overridesBlockingPreflightIssues
+        handler.appIconData = request.iconData
+        handler.onStage = { reporting(.stage($0)) }
+        handler.onSignatureVerified = { reporting(.signatureVerified) }
+        handler.onCompatibilityRemoved = { reporting(.compatibilityRemoved($0)) }
+        handler.overridesBlockingPreflightIssues = request.overridesBlockingPreflightIssues
 
-		do {
-			try await handler.copy()
-			try Task.checkCancellation()
+        do {
+            try await handler.copy()
+            try Task.checkCancellation()
 
-			try await handler.modify()
-			try? await handler.clean()
+            try await handler.modify()
 
-			guard let signed = handler.signedApp else {
-				throw SigningFileHandlerError.appNotFound
-			}
+            guard let artifact = handler.signedArtifact else {
+                throw SigningFileHandlerError.appNotFound
+            }
 
-			return .success(signed)
-		} catch {
-			// Deterministic cleanup: the work directory always, and the moved-but-unregistered
-			// bundle when the run failed after `move()` — the guard inside `clean()` decides.
-			try? await handler.clean()
-			return .failure(error)
-		}
-	}
+            // Cleanup is observable but cannot turn a committed output into a failed signing run.
+            await _clean(handler)
+            return .success(artifact)
+        } catch {
+            // Preserve the operation's primary error; cleanup failure is recorded separately.
+            await _clean(handler)
+            return .failure(error)
+        }
+    }
+
+    private func _clean(_ handler: SigningHandler) async {
+        do {
+            try await handler.clean()
+        } catch {
+            SigningLog.shared.warn("Signing cleanup failed: " + LogRedaction.redact(error.localizedDescription))
+        }
+    }
 }

@@ -8,6 +8,8 @@ struct DownloadRecoveryJournal {
         let id: UUID
         let name: String
         let sourceURL: URL?
+        /// Repository provenance is separate from the package/CDN URL.
+        var originURL: URL? = nil
         let expectedBytes: Int64?
         let expectedHash: String?
         var stage: Stage
@@ -98,6 +100,7 @@ struct DownloadRecoveryJournal {
               record.expectedBytes.map({ $0 >= 0 }) ?? true,
               record.libraryUUID.map({ UUID(uuidString: $0) != nil }) ?? true else { throw CocoaError(.fileReadCorruptFile) }
         if let url = record.sourceURL, Self.publicURL(url) == nil { throw CocoaError(.fileReadCorruptFile) }
+        if let url = record.originURL, Self.publicURL(url) == nil { throw CocoaError(.fileReadCorruptFile) }
         if let name = record.stagedName {
             guard !name.isEmpty, name != ".", name != "..", name.utf8.count <= 255,
                   !name.contains("/"), !name.contains("\\"), !name.contains("\0") else { throw CocoaError(.fileReadCorruptFile) }

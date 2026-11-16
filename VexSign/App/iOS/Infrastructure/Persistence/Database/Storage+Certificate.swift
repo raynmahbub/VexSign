@@ -120,8 +120,10 @@ extension Storage {
         do { try SecureSecretStore.delete("certificate.password.\(uuid)") }
         catch { Logger.misc.error("Could not remove certificate Keychain item; cleanup requires an unlocked Keychain.") }
         if let directory {
+            let root = directory.deletingLastPathComponent()
             do {
-                if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
+                guard Self.allowedCertificateDeletionOriginal(directory) else { throw CleanupRemovalPolicy.Rejection.unsafeTarget }
+                _ = try CleanupRemovalPolicy.remove(directory, beneath: root)
             } catch {
                 Logger.misc.error("Could not delete certificate files; the private key remains until Remove Leftovers runs.")
             }
@@ -138,12 +140,46 @@ extension Storage {
             .appendingPathComponent("PendingCertificateDeletions", isDirectory: true)
     }
 
+    static func prepareCertificateDeletionRoot() throws -> URL {
+        let fileManager = FileManager.default
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+        if !fileManager.fileExists(atPath: support.path) {
+            try fileManager.createDirectory(at: support, withIntermediateDirectories: true)
+        }
+        guard CleanupRemovalPolicy.isSafeDirectory(support, beneath: library) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
+        if !fileManager.fileExists(atPath: certificateDeletionRoot.path) {
+            try fileManager.createDirectory(at: certificateDeletionRoot, withIntermediateDirectories: false)
+        }
+        guard CleanupRemovalPolicy.isSafeDirectory(certificateDeletionRoot, beneath: support) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
+        return certificateDeletionRoot
+    }
+
     static func allowedCertificateDeletionOriginal(_ url: URL) -> Bool {
-        guard url.isFileURL, UUID(uuidString: url.lastPathComponent) != nil,
-              !url.path.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }) else { return false }
-        // Use the original protected getter; never construct a Documents alias.
-        return url.standardizedFileURL.deletingLastPathComponent().resolvingSymlinksInPath()
-            == FileManager.default.certificates.resolvingSymlinksInPath()
+        let fileManager = FileManager.default
+        let path = url.standardizedFileURL
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let roots = [
+            support.appendingPathComponent("Private/Certificates", isDirectory: true),
+            URL.documentsDirectory.appendingPathComponent("Certificates", isDirectory: true)
+        ]
+        guard path.isFileURL, UUID(uuidString: path.lastPathComponent) != nil,
+              !url.path.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }),
+              let root = roots.first(where: { $0.standardizedFileURL.path == path.deletingLastPathComponent().path }),
+              [support, URL.documentsDirectory].contains(where: { CleanupRemovalPolicy.isSafeDirectory(root, beneath: $0) }) else { return false }
+        do {
+            let values = try path.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard values.isDirectory == true, values.isSymbolicLink != true else { return false }
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return true
+        } catch {
+            return false
+        }
+        return CleanupRemovalPolicy.isSafeTarget(path, beneath: root)
     }
 
     /// Read both persisted identities and pending view inserts. A pending view
@@ -182,9 +218,23 @@ extension Storage {
     /// survive process exit and retain files whenever the store cannot be read.
     func recoverPendingCertificateDeletions() {
         StorageConcurrency.requireMainQueue()
-        guard FileManager.default.fileExists(atPath: Self.certificateDeletionRoot.path) else { return }
+        guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
+        defer { withExtendedLifetime(lease) {} }
+        let fileManager = FileManager.default
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+        guard fileManager.fileExists(atPath: Self.certificateDeletionRoot.path) else { return }
+        guard CleanupRemovalPolicy.isSafeDirectory(support, beneath: library),
+              CleanupRemovalPolicy.isSafeDirectory(Self.certificateDeletionRoot, beneath: support) else {
+            Logger.misc.error("Certificate deletion journal path is unsafe; no private files changed.")
+            return
+        }
         do {
-            for directory in try FileManager.default.contentsOfDirectory(at: Self.certificateDeletionRoot, includingPropertiesForKeys: nil) {
+            for directory in try fileManager.contentsOfDirectory(at: Self.certificateDeletionRoot, includingPropertiesForKeys: nil) {
+                guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: Self.certificateDeletionRoot) else {
+                    Logger.misc.error("Unsafe certificate deletion journal entry retained.")
+                    continue
+                }
                 do {
                     let transaction = try StagedAppDeletion(directory: directory)
                     try recoverCertificateDeletion(transaction)
