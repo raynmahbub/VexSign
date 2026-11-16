@@ -196,14 +196,24 @@ enum InstallRetryPolicy {
 		case signedCopyMissing
 		/// The same copy is already being installed.
 		case alreadyInstalling
+		/// The previous handoff has no outcome; the device must be checked first.
+		case checkDeviceFirst
 	}
 
 	/// - Parameters:
 	///   - signedCopyPresent: the bundle that would be sent still exists on disk.
 	///   - duplicateInFlight: another attempt for the same copy is running.
-	static func refusal(signedCopyPresent: Bool, duplicateInFlight: Bool) -> Refusal? {
+	///   - outcomeUnknown: the previous request may already have installed this app.
+	///   - afterManualDeviceCheck: the user explicitly confirmed checking the device first.
+	static func refusal(
+        signedCopyPresent: Bool,
+        duplicateInFlight: Bool,
+        outcomeUnknown: Bool = false,
+        afterManualDeviceCheck: Bool = false
+    ) -> Refusal? {
 		if duplicateInFlight { return .alreadyInstalling }
 		if !signedCopyPresent { return .signedCopyMissing }
+        if outcomeUnknown && !afterManualDeviceCheck { return .checkDeviceFirst }
 		return nil
 	}
 }

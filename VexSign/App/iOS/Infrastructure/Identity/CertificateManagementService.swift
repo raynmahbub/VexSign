@@ -7,9 +7,7 @@
 //
 
 import Foundation
-import Security
 import UIKit
-import Zsign
 import NimbleJSON
 import AltSourceKit
 import IDeviceSwift
@@ -49,19 +47,24 @@ enum CertificateManagementService {
                 if keyAccess { p12URL.stopAccessingSecurityScopedResource() }
                 if provisionAccess { provisionURL.stopAccessingSecurityScopedResource() }
             }
+            // Read each selected file once into a size-bounded snapshot. Stage these exact bytes,
+            // then authenticate and match the staged pair before committing its database row.
             let handler = CertificateFileHandler(
-                key: p12URL,
-                provision: provisionURL,
                 password: p12Password,
                 nickname: certificateName.isEmpty ? nil : certificateName,
                 isDefault: isDefault
             )
 
             do {
-                guard validateCertificatePassword(for: p12URL, with: p12Password, using: provisionURL) else {
+                let p12Data = try CertificateInputReader.read(p12URL)
+                let profileData = try CertificateInputReader.read(provisionURL)
+                try await handler.stage(keyData: p12Data, provisionData: profileData)
+                let stagedDirectory = FileManager.default.certificates(handler.certificateUUID)
+                let stagedKey = stagedDirectory.appendingPathComponent(CertificateFileHandler.p12FileName)
+                let stagedProfile = stagedDirectory.appendingPathComponent(CertificateFileHandler.profileFileName)
+                guard validateSigningPair(for: stagedKey, with: p12Password, using: stagedProfile) else {
                     throw CertificateFileHandlerError.invalidIdentity
                 }
-                try await handler.copy()
                 try await handler.addToDatabase()
                 await MainActor.run {
                     completion(.success(handler.certificateUUID))
@@ -75,7 +78,7 @@ enum CertificateManagementService {
         }
     }
 
-    static func validateCertificatePassword(
+    static func validateSigningPair(
         for key: URL,
         with password: String,
         using provision: URL
@@ -87,15 +90,18 @@ enum CertificateManagementService {
             if provisionAccess { provision.stopAccessingSecurityScopedResource() }
         }
 
-        // Security validates both the password and private key without the old
-        // OpenSSL CMS warm-up, which asserted on malformed or unreadable profiles.
-        guard CertificateReader(provision).decoded != nil,
-              let data = try? CertificateInputReader.read(key), !data.isEmpty else { return false } // try? ok: validation check; unreadable key fails validation
-        var items: CFArray?
-        let options = [kSecImportExportPassphrase as String: password] as CFDictionary
-        guard SecPKCS12Import(data as CFData, options, &items) == errSecSuccess,
-              let identities = items as? [[String: Any]] else { return false }
-        return identities.contains { $0[kSecImportItemIdentity as String] != nil }
+        // Authenticate the profile, prove access to exactly one PKCS#12 private key,
+        // and require its actual leaf certificate to be named by that profile before
+        // this pair can be accepted for import or automatic enrollment.
+        guard let profile = CertificateReader(provision).decoded,
+              let data = try? CertificateInputReader.read(key), !data.isEmpty, // try? ok: unreadable input is an invalid pair
+              let proof = try? SigningIdentityStore.inspect(data, password: password) else { return false } // try? ok: any password, format or key-proof failure rejects the pair
+        return profileAuthorizes(proof.identity, profile: profile)
+    }
+
+    static func profileAuthorizes(_ identity: SigningIdentity, profile: Certificate) -> Bool {
+        guard let certificates = profile.DeveloperCertificates, !certificates.isEmpty else { return false }
+        return certificates.contains { SigningIdentity.fingerprint(of: $0) == identity.fingerprint }
     }
 
     /// The same bounded, format-aware parser is used by import, diagnostics and

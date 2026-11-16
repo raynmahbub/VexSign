@@ -13,7 +13,10 @@ extension FileManager {
 			return nil
 		}
 		
-		return contents.first(where: { $0.pathExtension == pathExtension })
+        // Extensions in imported archives and Files-provider exports are not
+        // guaranteed to preserve case. Bundle/profile lookups must agree with
+        // the case-insensitive package semantics used by signing inventory.
+		return contents.first(where: { $0.pathExtension.caseInsensitiveCompare(pathExtension) == .orderedSame })
 	}
 	
 	public func isFileFromFileProvider(at url: URL) -> Bool {

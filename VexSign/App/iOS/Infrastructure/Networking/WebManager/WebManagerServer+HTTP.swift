@@ -217,7 +217,7 @@ extension WebManagerServer {
 				return Self.text("Could not save the uploaded files.", .internalServerError)
 			}
 
-			guard CertificateManagementService.validateCertificatePassword(for: p12URL, with: upload.password, using: provURL) else {
+			guard CertificateManagementService.validateSigningPair(for: p12URL, with: upload.password, using: provURL) else {
 				return Self.text("Wrong password, or the certificate and provisioning profile don't match.", .badRequest)
 			}
 

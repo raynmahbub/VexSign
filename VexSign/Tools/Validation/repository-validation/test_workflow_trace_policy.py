@@ -89,6 +89,61 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertIn('_finish(.failure(error))', failure)
         self.assertNotIn('viewModel.status = .broken', failure)
 
+    def test_certificate_cards_follow_refreshed_profiles_and_case_insensitive_file_extensions(self):
+        cell = self.text('VexSign/App/iOS/Presentation/Features/Certificates/Views/CertificatesCellView.swift')
+        self.assertIn('private var data: Certificate? { cert.profile }', cell)
+        self.assertNotIn('@State var data: Certificate?', cell)
+        self.assertNotIn('data = cert.profile', cell)
+        file_manager = self.text('VexSign/Packages/NimbleKit/Sources/NimbleExtensions/FileManager/FileManager+shortcuts.swift')
+        self.assertIn('pathExtension.caseInsensitiveCompare(pathExtension)', file_manager)
+
+    def test_certificate_import_requires_a_matched_p12_leaf_and_authenticated_profile(self):
+        service = self.text('VexSign/App/iOS/Infrastructure/Identity/CertificateManagementService.swift')
+        self.assertIn('validateSigningPair(for: stagedKey', service)
+        self.assertIn('handler.stage(keyData: p12Data, provisionData: profileData)', service)
+        self.assertIn('SigningIdentityStore.inspect(data, password: password)', service)
+        self.assertIn('return profileAuthorizes(proof.identity, profile: profile)', service)
+        self.assertIn('SigningIdentity.fingerprint(of: $0) == identity.fingerprint', service)
+        handler = self.text('VexSign/App/iOS/Infrastructure/Identity/CertificateFileHandler.swift')
+        stage = handler.split('func stage(', 1)[1].split('@MainActor', 1)[0]
+        self.assertLess(stage.index('ProtectedCertificateFiles.applyProtectionAttributes'), stage.index('keyData.write'))
+        self.assertIn('CertificateReader(profileURL).decoded', stage)
+        for path in [
+            'VexSign/App/iOS/Infrastructure/Identity/CertificateAutoImporter.swift',
+            'VexSign/App/iOS/Infrastructure/Identity/NexCerts.swift',
+            'VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer+HTTP.swift',
+        ]:
+            self.assertIn('CertificateManagementService.validateSigningPair', self.text(path))
+
+    def test_unconfirmed_install_retry_requires_a_separate_device_check(self):
+        policy = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/InstallEvidenceSummary.swift')
+        self.assertIn('if outcomeUnknown && !afterManualDeviceCheck { return .checkDeviceFirst }', policy)
+
+        queue = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/InstallQueueCore.swift')
+        retry = queue.split('func retryCurrent(', 1)[1].split('/// Marks the failed app as pending again', 1)[0]
+        self.assertIn('outcomeUnknown: outcomeUnknown', retry)
+        self.assertIn('afterManualDeviceCheck: afterManualDeviceCheck', retry)
+        self.assertIn('case .checkDeviceFirst:', retry)
+        self.assertIn('requiresDeviceCheckBeforeRetry: kind.requiresDeviceCheckBeforeRetry', queue)
+
+        view = self.text('VexSign/App/iOS/Presentation/Features/Library/Views/Install/InstallQueueWindow.swift')
+        failure_view = view.split('private struct InstallQueueFailureView:', 1)[1].split('// MARK: - View: Paused queue', 1)[0]
+        self.assertIn('failure.requiresDeviceCheckBeforeRetry', failure_view)
+        self.assertIn('confirmationDialog', failure_view)
+        self.assertIn('afterManualDeviceCheck: true', failure_view)
+        self.assertIn('I Checked — Install Again', failure_view)
+        for path in [
+            'VexSign/App/iOS/Presentation/Features/Installation/ViewModels/InstallationQueueModel.swift',
+            'VexSign/App/iOS/Application/Installation/ObserveInstallationQueueUseCase.swift',
+            'VexSign/App/iOS/Infrastructure/Devices/Installation/InstallationQueueAdapter.swift',
+        ]:
+            self.assertIn('afterManualDeviceCheck', self.text(path))
+
+        task_center = self.text('VexSign/App/iOS/Presentation/Features/Tasks/Views/TaskCenterView.swift')
+        self.assertIn('task.outcomeUnknown', task_center)
+        self.assertIn('allowingUnconfirmedInstall: true', task_center)
+        self.assertIn('I Checked — Install Again', task_center)
+
     def test_resource_ownership_is_wired_to_managed_operations(self):
         for path in ['VexSign/App/iOS/Infrastructure/Signing/Execution/SigningService.swift',
                      'VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift',

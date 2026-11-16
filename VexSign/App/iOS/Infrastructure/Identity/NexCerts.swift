@@ -308,7 +308,7 @@ extension NexCerts {
 
 			let password = passwordText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-			guard CertificateManagementService.validateCertificatePassword(for: p12URL, with: password, using: provisionURL) else {
+			guard CertificateManagementService.validateSigningPair(for: p12URL, with: password, using: provisionURL) else {
 				throw NexCertsError.invalidPassword
 			}
 

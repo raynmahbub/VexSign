@@ -64,6 +64,10 @@ extension InstallQueue {
 	    /// is what told users to reinstall an app that was already on their Home Screen.
 	    var recordsFailure: Bool { self != .unconfirmed }
 
+	    /// A previous handoff may still have installed the app. Retrying is offered only
+	    /// after the user explicitly confirms they checked the device.
+	    var requiresDeviceCheckBeforeRetry: Bool { self == .unconfirmed }
+
 	    /// How the unified task record ends.
 	    var taskPhase: UnifiedTaskPhase { self == .unconfirmed ? .unconfirmed : .failed }
 
@@ -101,6 +105,7 @@ extension InstallQueue {
 	    let details: String
 	    let needsTrust: Bool
 	    let canRetryLocally: Bool
+	    let requiresDeviceCheckBeforeRetry: Bool
 	    let waitingCount: Int
 	}
 }

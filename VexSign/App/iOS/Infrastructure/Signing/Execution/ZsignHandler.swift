@@ -75,7 +75,9 @@ final class ZsignHandler {
             defer { if captured { StdoutCapture.shared.stop() } }
             let references = Set(prepared.review.components.compactMap(\.identityReference))
             try await MainActor.run { try SigningIdentityStore.requireCurrent(references, matching: inventory.inputs) }
-            guard PairingBridge.inspectPairingRecord().udid == device else { throw SigningResolutionSession.changedSinceReview() }
+            guard PairingBridge.inspectPairingRecord().udid == device else {
+                throw SigningResolutionSession.changedSinceReview(.targetDevice)
+            }
             guard prepared.validUntil > Date() else { throw ProvisioningProfileParser.Failure.expired }
             try Task.checkCancellation()
             try self.run(prepared.request)

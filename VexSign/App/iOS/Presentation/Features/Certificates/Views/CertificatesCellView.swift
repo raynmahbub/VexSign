@@ -11,10 +11,13 @@ import NimbleExtensions
 
 // MARK: - View
 struct CertificatesCellView: View {
-	@State var data: Certificate?
-	
 	var cert: CertificateRecord
 	@EnvironmentObject private var statusManager: CertificateWorkspaceModel
+
+    /// Read profile metadata from the current immutable workspace snapshot. Caching
+    /// this in `@State` on first appearance left the card stuck on “Unknown” when
+    /// a later refresh made the profile readable for the same certificate row.
+    private var data: Certificate? { cert.profile }
     @EnvironmentObject var services: AppContainer
 	/// The app being signed, when this cell is shown in a signing context. Nil in Settings,
 	/// where there is no app to compare against. Declared last so the memberwise
@@ -44,11 +47,6 @@ struct CertificatesCellView: View {
 		.frame(height: 80)
 		.contentTransition(.opacity)
 		.frame(maxWidth: .infinity, alignment: .leading)
-		.onAppear {
-			withAnimation {
-				data = cert.profile
-			}
-		}
 		.task(id: cert.uuid ?? cert.id) {
 			statusManager.refresh(cert, force: false)
 		}

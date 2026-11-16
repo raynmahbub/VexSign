@@ -1,6 +1,7 @@
 import Foundation
 import CoreFoundation
 import CryptoKit
+import NimbleExtensions
 
 /// Run-scoped bridge from the existing credential store to the value-only
 /// resolver. The existing native signer consumes protected copies of exactly
@@ -45,15 +46,40 @@ enum SigningResolutionSession {
             }
             let authorization: SigningResolutionAuthorization?
             if resolution.isReady {
-                let bindings: [[String: Any]] = try resolution.components.map { component in
+                var bindings: [[String: Any]] = []
+                var componentBindings: [[String: Any]] = []
+                var identityBindings: [[String: Any]] = []
+                var profileBindings: [[String: Any]] = []
+                var capabilityBindings: [[String: Any]] = []
+                for component in resolution.components {
                     guard let candidate = component.candidate else { throw CocoaError(.fileReadCorruptFile) }
-                    return ["path": component.id, "identifier": component.target.bundleIdentifier,
+                    let path = component.id
+                    let identifier = component.target.bundleIdentifier
+                    let material = materials[candidate.id]
+                    let p12Digest = material.map { SigningIdentity.fingerprint(of: $0.p12Data) } ?? "missing"
+                    let profileDigest = material.map { SigningIdentity.fingerprint(of: $0.profileData) } ?? "missing"
+                    let identity: [String: Any] = ["path": path, "reference": candidate.identity.reference,
+                        "certificate": candidate.identity.fingerprint, "p12": p12Digest]
+                    let profile: [String: Any] = ["path": path, "digest": profileDigest]
+                    let componentPlan: [String: Any] = ["path": path, "identifier": identifier]
+                    let entitlementValue = try canonicalValue(component.entitlements)
+                    let capabilities: [String: Any] = ["path": path, "entitlements": entitlementValue]
+                    identityBindings.append(identity)
+                    profileBindings.append(profile)
+                    componentBindings.append(componentPlan)
+                    capabilityBindings.append(capabilities)
+                    bindings.append(["path": path, "identifier": identifier,
                         "candidate": candidate.id, "certificate": candidate.identity.fingerprint,
-                        "p12": materials[candidate.id].map { SigningIdentity.fingerprint(of: $0.p12Data) } ?? "missing",
-                        "entitlements": try canonicalValue(component.entitlements)]
+                        "p12": p12Digest, "entitlements": entitlementValue])
+                }
+                func digest(_ value: Any) throws -> String {
+                    SigningIdentity.fingerprint(of: try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]))
                 }
                 let bytes = try JSONSerialization.data(withJSONObject: ["components": bindings, "removals": removals.sorted(), "device": deviceBinding, "source": sourceFingerprint], options: [.sortedKeys])
-                authorization = .init(fingerprint: SigningIdentity.fingerprint(of: bytes), plannedRemovals: removals.sorted(), sourceFingerprint: sourceFingerprint)
+                authorization = .init(fingerprint: SigningIdentity.fingerprint(of: bytes), plannedRemovals: removals.sorted(),
+                    sourceFingerprint: sourceFingerprint, componentFingerprint: try digest(componentBindings),
+                    identityFingerprint: try digest(identityBindings), profileFingerprint: try digest(profileBindings),
+                    requiredCapabilitiesFingerprint: try digest(capabilityBindings), deviceFingerprint: deviceBinding)
             } else { authorization = nil }
             return SigningResolutionReview(components: components, inventoryNotices: notices,
                 plannedRemovals: removals.sorted(), authorization: authorization)
@@ -88,13 +114,15 @@ enum SigningResolutionSession {
         let reviewed = try resolved.review()
         guard reviewed.isReady else { throw refusal(reviewed) }
         if let authorization {
-            guard authorization == reviewed.authorization else { throw changedSinceReview() }
+            if authorization != reviewed.authorization {
+                throw changedSinceReview(from: authorization, to: reviewed.authorization)
+            }
         } else if !resolved.removals.isEmpty {
             throw SigningFileHandlerError.identityRejected("Review and explicitly confirm the exact optional extensions to remove. Saved compatibility settings alone cannot authorize a new removal list.")
         }
         let removed = resolved.removals
         for path in removed {
-            guard try OptionalExtensionPolicy.canRemove(path, in: bundle) else { throw changedSinceReview() }
+            guard try OptionalExtensionPolicy.canRemove(path, in: bundle) else { throw changedSinceReview(.optionalRemovals) }
             try FileManager.default.removeItem(at: bundle.appendingPathComponent(path))
         }
         if !removed.isEmpty {
@@ -105,7 +133,10 @@ enum SigningResolutionSession {
             resolved = Resolved(resolution: resolved.resolution, materials: resolved.materials,
                 notices: resolved.notices, removals: removed, choices: resolved.choices,
                 preferences: resolved.preferences, deviceBinding: resolved.deviceBinding, sourceFingerprint: source)
-            guard try resolved.review().authorization == reviewed.authorization else { throw changedSinceReview() }
+            let postRemovalAuthorization = try resolved.review().authorization
+            guard postRemovalAuthorization == reviewed.authorization else {
+                throw changedSinceReview(from: reviewed.authorization, to: postRemovalAuthorization)
+            }
         }
         try BundleExecutableAudit.requireSignable(bundle)
         let workspace = bundle.deletingLastPathComponent().appendingPathComponent("SigningInputs-" + UUID().uuidString)
@@ -160,8 +191,36 @@ enum SigningResolutionSession {
         }
     }
 
-    static func changedSinceReview() -> Error {
-        SigningFileHandlerError.identityRejected("The component, identity, profile, or required capabilities changed after review. Review the current inputs again; no alternate identity or removal has been silently substituted.")
+    static func changedSinceReview() -> Error { changedSinceReview(.other) }
+
+    static func changedSinceReview(from reviewed: SigningResolutionAuthorization?,
+                                   to current: SigningResolutionAuthorization?) -> Error {
+        changedSinceReview(reviewed?.mismatch(against: current) ?? .authorizationMissing)
+    }
+
+    static func changedSinceReview(_ mismatch: SigningAuthorizationMismatch) -> Error {
+        let detail: String
+        switch mismatch {
+        case .sourceBundle:
+            detail = .localized("The app bundle contents changed after review. Review the current IPA and approve again; no alternate identity or removal has been substituted.")
+        case .optionalRemovals:
+            detail = .localized("The optional-extension removal plan changed or is no longer safe after review. Review and confirm the exact current list; nothing has been silently removed.")
+        case .componentPlan:
+            detail = .localized("The app's components or Bundle Identifiers changed after review. Review the current app before signing; no identity or removal has been substituted.")
+        case .signingIdentity:
+            detail = .localized("The signing certificate or private-key identity changed after review. Review the current identity before signing; no alternate identity has been substituted.")
+        case .provisioningProfile:
+            detail = .localized("The provisioning profile changed after review. Review its App ID, team, device authorization, and capabilities before signing.")
+        case .requiredCapabilities:
+            detail = .localized("Required capabilities or entitlement values changed after review. Review the current component requirements and profile grants; no capability has been silently removed.")
+        case .targetDevice:
+            detail = .localized("The target device or pairing record changed after review. Re-select the device and review signing inputs again; no alternate identity has been substituted.")
+        case .authorizationMissing:
+            detail = .localized("A complete signing review could not be matched to the current inputs. Review the current app and signing setup again.")
+        case .other:
+            detail = .localized("The component, identity, profile, or required capabilities changed after review. Review the current inputs again; no alternate identity or removal has been silently substituted.")
+        }
+        return SigningFileHandlerError.identityRejected(detail)
     }
 
     static func refusal(_ review: SigningResolutionReview) -> Error {
@@ -277,19 +336,19 @@ enum SigningResolutionSession {
                                   maximumBytes: UInt64 = 8 * 1024 * 1024 * 1024) throws -> String {
         let root = bundle.standardizedFileURL
         let rootValues = try root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-        guard rootValues.isDirectory == true, rootValues.isSymbolicLink != true else { throw changedSinceReview() }
+        guard rootValues.isDirectory == true, rootValues.isSymbolicLink != true else { throw changedSinceReview(.sourceBundle) }
         var walkError: Error?, paths: [URL] = [], seen = Set<String>()
         guard let walker = FileManager.default.enumerator(at: root,
             includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
-            errorHandler: { _, error in walkError = error; return false }) else { throw changedSinceReview() }
+            errorHandler: { _, error in walkError = error; return false }) else { throw changedSinceReview(.sourceBundle) }
         for case let url as URL in walker {
             try Task.checkCancellation()
             let relative = String(url.path.dropFirst(root.path.count + 1))
             guard paths.count < maximumEntries, url.path.hasPrefix(root.path + "/"),
                   relative.split(separator: "/").count <= 32, relative.utf8.count <= 4096,
-                  seen.insert(relative.lowercased()).inserted else { throw changedSinceReview() }
+                  seen.insert(relative.lowercased()).inserted else { throw changedSinceReview(.sourceBundle) }
             let values = try url.resourceValues(forKeys: [.isSymbolicLinkKey])
-            guard values.isSymbolicLink != true else { throw changedSinceReview() }
+            guard values.isSymbolicLink != true else { throw changedSinceReview(.sourceBundle) }
             paths.append(url)
         }
         if let walkError { throw walkError }
@@ -299,11 +358,11 @@ enum SigningResolutionSession {
             try Task.checkCancellation()
             let path = Data(String(url.path.dropFirst(root.path.count + 1)).utf8)
             let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
-            guard values.isSymbolicLink != true else { throw changedSinceReview() }
+            guard values.isSymbolicLink != true else { throw changedSinceReview(.sourceBundle) }
             count(UInt64(path.count)); digest.update(data: path)
             if values.isDirectory == true { digest.update(data: Data([0x44])); continue }
             guard values.isRegularFile == true, let size = values.fileSize, size >= 0,
-                  UInt64(size) <= remaining else { throw changedSinceReview() }
+                  UInt64(size) <= remaining else { throw changedSinceReview(.sourceBundle) }
             digest.update(data: Data([0x46])); count(UInt64(size))
             remaining -= UInt64(size)
             let handle = try FileHandle(forReadingFrom: url)
@@ -312,10 +371,10 @@ enum SigningResolutionSession {
             while let block = try handle.read(upToCount: 1024 * 1024), !block.isEmpty {
                 try Task.checkCancellation()
                 read += UInt64(block.count)
-                guard read <= UInt64(size) else { throw changedSinceReview() }
+                guard read <= UInt64(size) else { throw changedSinceReview(.sourceBundle) }
                 digest.update(data: block)
             }
-            guard read == UInt64(size) else { throw changedSinceReview() }
+            guard read == UInt64(size) else { throw changedSinceReview(.sourceBundle) }
         }
         return digest.finalize().map { String(format: "%02x", $0) }.joined()
     }

@@ -33,6 +33,7 @@ struct InstallationFailure: Identifiable, Sendable {
     let details: String
     let needsTrust: Bool
     let canRetryLocally: Bool
+    let requiresDeviceCheckBeforeRetry: Bool
     let waitingCount: Int
 }
 
@@ -64,7 +65,7 @@ protocol InstallationQueueProviding: AnyObject {
     func resume()
     func clear()
     func skip(entryID: String?)
-    func retry(entryID: String?, useLocalhost: Bool)
+    func retry(entryID: String?, useLocalhost: Bool, afterManualDeviceCheck: Bool)
     func stopAfterFailure()
     func setFallbackPresented(_ presented: Bool)
 }

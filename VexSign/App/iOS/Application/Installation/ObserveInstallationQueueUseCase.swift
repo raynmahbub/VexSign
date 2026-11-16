@@ -13,7 +13,9 @@ final class ObserveInstallationQueueUseCase {
     func resume() { provider.resume() }
     func clear() { provider.clear() }
     func skip(entryID: String?) { provider.skip(entryID: entryID) }
-    func retry(entryID: String?, useLocalhost: Bool) { provider.retry(entryID: entryID, useLocalhost: useLocalhost) }
+    func retry(entryID: String?, useLocalhost: Bool, afterManualDeviceCheck: Bool) {
+        provider.retry(entryID: entryID, useLocalhost: useLocalhost, afterManualDeviceCheck: afterManualDeviceCheck)
+    }
     func stopAfterFailure() { provider.stopAfterFailure() }
     func setFallbackPresented(_ presented: Bool) { provider.setFallbackPresented(presented) }
 }

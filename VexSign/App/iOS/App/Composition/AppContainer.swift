@@ -226,7 +226,7 @@ final class AppContainer: ObservableObject {
                         FileManager.default.decodeAndWrite(base64: base64, pathComponent: suffix)
                     },
                     validateCertificatePassword: { p12, password, provision in
-                        CertificateManagementService.validateCertificatePassword(for: p12, with: password, using: provision)
+                        CertificateManagementService.validateSigningPair(for: p12, with: password, using: provision)
                     },
                     importCertificateFiles: { p12, provision, password, completion in
                         CertificateManagementService.importCertificateFiles(

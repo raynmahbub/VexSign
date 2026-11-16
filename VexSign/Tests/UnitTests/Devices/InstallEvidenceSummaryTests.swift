@@ -228,4 +228,18 @@ final class InstallEvidenceSummaryTests: XCTestCase {
 		XCTAssertEqual(InstallRetryPolicy.refusal(signedCopyPresent: true, duplicateInFlight: true), .alreadyInstalling)
 		XCTAssertEqual(InstallRetryPolicy.refusal(signedCopyPresent: false, duplicateInFlight: true), .alreadyInstalling)
 	}
+
+    func testUnknownHandoffRequiresExplicitManualDeviceCheckBeforeRetry() {
+        XCTAssertEqual(InstallRetryPolicy.refusal(signedCopyPresent: true, duplicateInFlight: false,
+            outcomeUnknown: true), .checkDeviceFirst)
+        XCTAssertNil(InstallRetryPolicy.refusal(signedCopyPresent: true, duplicateInFlight: false,
+            outcomeUnknown: true, afterManualDeviceCheck: true))
+    }
+
+    func testManualCheckDoesNotOverrideMissingArtifactOrDuplicateAttempt() {
+        XCTAssertEqual(InstallRetryPolicy.refusal(signedCopyPresent: false, duplicateInFlight: false,
+            outcomeUnknown: true, afterManualDeviceCheck: true), .signedCopyMissing)
+        XCTAssertEqual(InstallRetryPolicy.refusal(signedCopyPresent: true, duplicateInFlight: true,
+            outcomeUnknown: true, afterManualDeviceCheck: true), .alreadyInstalling)
+    }
 }
