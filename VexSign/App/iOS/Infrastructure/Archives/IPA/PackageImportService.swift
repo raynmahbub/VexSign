@@ -23,7 +23,12 @@ enum PackageImportService {
         originURL: URL? = nil,
         completion: @escaping (Result<AppInfoPresentable, Error>) -> Void
     ) -> Task<Void, Never> {
-        Task.detached {
+        // Acquire any document-provider scope synchronously, while the caller still owns
+        // the picker result. The detached worker may not start until after that access
+        // window has otherwise ended; it holds this scope through the initial copy.
+        let scoped = ipa.startAccessingSecurityScopedResource()
+        return Task.detached {
+            defer { if scoped { ipa.stopAccessingSecurityScopedResource() } }
             // Only the identity leaves the main actor. The mutable live task stays in
             // UnifiedTaskCenter; later actor hops resolve it again by ID.
             let importTaskID: String? = await MainActor.run {
@@ -43,8 +48,6 @@ enum PackageImportService {
                 return
             }
             defer { withExtendedLifetime(workLease) {} }
-            let scoped = ipa.startAccessingSecurityScopedResource()
-            defer { if scoped { ipa.stopAccessingSecurityScopedResource() } }
             let handler = AppFileHandler(file: ipa, download: download, originURL: originURL)
 
             do {
