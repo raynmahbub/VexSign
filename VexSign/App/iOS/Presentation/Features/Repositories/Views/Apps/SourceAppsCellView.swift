@@ -36,7 +36,7 @@ struct SourceAppsCellView: View {
 						}
 					}
 				}
-				DownloadButtonView(app: app)
+				DownloadButtonView(app: app, originURL: source.sourceURL)
 			}
 			
 			if _storeCellAppearance != 0,

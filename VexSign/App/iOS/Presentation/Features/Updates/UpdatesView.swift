@@ -76,7 +76,7 @@ struct UpdatesView: View {
 		}
 		.sheet(isPresented: $_showProgress) {
 			UpdateAllProgressView(updates: _updates.map {
-				(app: $0.app, sourceName: $0.sourceName, hasUpdate: true)
+				(app: $0.app, sourceName: $0.sourceName, hasUpdate: true, originURL: $0.sourceURL)
 			})
 		}
 		.sheet(item: $_rulesApp) { update in
@@ -154,7 +154,10 @@ struct UpdatesView: View {
 					id: update.id,
 					app: update.app,
 					sourceName: update.sourceName,
-					url: url
+					url: url,
+					installedAppUUID: update.installedAppUUID,
+					sourceID: update.sourceID,
+					originURL: update.sourceURL
 				)
 			])
 		}
@@ -187,9 +190,9 @@ struct UpdateAllProgressView: View {
 	@Environment(\.dismiss) private var dismiss
 	@ObservedObject private var _runner = UpdateAllManager.shared
 
-	private let _updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool)]
+	private let _updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool, originURL: URL?)]
 
-	init(updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool)]) {
+	init(updates: [(app: ASRepository.App, sourceName: String, hasUpdate: Bool, originURL: URL?)]) {
 		self._updates = updates
 	}
 

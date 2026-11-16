@@ -25,18 +25,22 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	private let _fileName: String
 	private let _install: Bool
 	private let _download: Download?
+	/// Repository URL, not the package/CDN URL. Kept only as provenance for update matching.
+	private let _originURL: URL?
 	private let _appDescription: String?
 	private var _didAddToDatabase = false
 
 	init(
 		file ipa: URL,
 		install: Bool = false,
-		download: Download? = nil
+		download: Download? = nil,
+		originURL: URL? = nil
 	) {
 		self._ipa = ipa
 		self._fileName = ipa.lastPathComponent
 		self._install = install
 		self._download = download
+		self._originURL = originURL ?? download?.originURL
 		self._appDescription = download?.appDescription
 		self._uniqueWorkDir = _fileManager.temporaryDirectory
 			.appendingPathComponent("VexSignImport_\(_uuid)", isDirectory: true)
@@ -191,6 +195,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			// boundary removes that failure mode instead of timing out around it.
 			objectID = try await Storage.shared.addImported(
 				uuid: _uuid,
+				source: _originURL,
 				appName: bundle.name,
 				appIdentifier: bundle.bundleIdentifier,
 				appVersion: bundle.version,

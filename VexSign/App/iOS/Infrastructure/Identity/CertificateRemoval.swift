@@ -88,8 +88,12 @@ enum CertificateRemoval {
 		var token: StagedAppDeletion?
 		if let folder = storage.getUuidDirectory(for: cert), FileManager.default.fileExists(atPath: folder.path) {
 			do {
-                let staged = try StagedAppDeletion(root: Storage.certificateDeletionRoot,
-                    originals: [(folder, cert.objectID.uriRepresentation())])
+                guard Storage.allowedCertificateDeletionOriginal(folder) else { throw CleanupRemovalPolicy.Rejection.unsafeTarget }
+                let root = try Storage.prepareCertificateDeletionRoot()
+                let staged = try StagedAppDeletion(root: root, originals: [(folder, cert.objectID.uriRepresentation())])
+                guard CleanupRemovalPolicy.isSafeDirectory(staged.directory, beneath: root) else {
+                    throw CleanupRemovalPolicy.Rejection.unsafeTarget
+                }
                 token = staged
                 try staged.stage()
 			} catch {

@@ -8,11 +8,13 @@ final class DownloadRecoveryJournalTests: XCTestCase {
         let journal = DownloadRecoveryJournal(root: root)
         XCTAssertTrue(try journal.load().isEmpty)
         let record = DownloadRecoveryJournal.Record(id: UUID(), name: "Fixture.ipa", sourceURL: URL(string: "https://example.invalid/a.ipa"),
+                                                     originURL: URL(string: "https://repo.example.invalid/catalog.json"),
                                                      expectedBytes: 42, expectedHash: nil, stage: .importing,
                                                      stagedName: "Fixture.ipa", updatedAt: Date())
         try journal.save(record)
         XCTAssertEqual(try journal.load().first?.stage, .importing)
         XCTAssertEqual(try journal.load().first?.expectedBytes, 42)
+        XCTAssertEqual(try journal.load().first?.originURL, record.originURL)
         XCTAssertEqual(try journal.retainedStagingNames(), ["Fixture.ipa"])
         try journal.remove(record.id)
         XCTAssertTrue(try journal.load().isEmpty)
@@ -48,13 +50,15 @@ final class DownloadRecoveryJournalTests: XCTestCase {
         let journal = DownloadRecoveryJournal(root: root)
         let manager = DownloadManager(configureServices: false)
         manager.recoveryJournal = journal
-        let download = Download(id: "commit-fixture", url: URL(string: "https://example.invalid/a.ipa")!)
+        let originURL = URL(string: "https://repo.example.invalid/catalog.json")!
+        let download = Download(id: "commit-fixture", url: URL(string: "https://example.invalid/a.ipa")!, originURL: originURL)
         manager.downloads.append(download)
         manager.ownImportRecovery(download)
         let uuid = UUID().uuidString
         try download.importCommitCheckpoint?(uuid, false)
         XCTAssertEqual(try journal.load().first?.stage, .committing)
         XCTAssertEqual(try journal.load().first?.libraryUUID, uuid)
+        XCTAssertEqual(try journal.load().first?.originURL, originURL)
         XCTAssertFalse(try XCTUnwrap(journal.load().first).canReverify)
         try download.importCommitCheckpoint?(uuid, true)
         XCTAssertEqual(try journal.load().first?.stage, .committed)

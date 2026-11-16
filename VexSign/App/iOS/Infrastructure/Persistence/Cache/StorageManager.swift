@@ -20,14 +20,45 @@ enum TemporaryCleanupPolicy {
     ]
 
     static func isRetained(_ url: URL, temporaryRoot: URL, downloadStaging: URL) -> Bool {
-        let root = temporaryRoot.resolvingSymlinksInPath().standardizedFileURL.path
-        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
-        let staging = downloadStaging.resolvingSymlinksInPath().standardizedFileURL.path
-        if path == staging || path.hasPrefix(staging + "/") { return true }
+        let root = resolvingExistingSymlinkAncestors(in: temporaryRoot)
+        let path = resolvingExistingSymlinkAncestors(in: url)
+        let staging = resolvingExistingSymlinkAncestors(in: downloadStaging)
+        if isEqualOrDescendant(path, of: staging) { return true }
+        let undoRoot = resolvingExistingSymlinkAncestors(
+            in: temporaryRoot.appendingPathComponent("RemovedItems", isDirectory: true)
+        )
+        if isEqualOrDescendant(path, of: undoRoot) { return true }
         guard path.hasPrefix(root + "/") else { return false }
         let relative = String(path.dropFirst(root.count + 1))
         guard let first = relative.split(separator: "/").first else { return false }
         return retainedPrefixes.contains { first.hasPrefix($0) }
+    }
+
+    /// `resolvingSymlinksInPath()` alone can leave a missing descendant behind an
+    /// existing symlink unresolved. Resolve each existing component as we walk, then
+    /// append any not-yet-created suffix. Cleanup can now recognize aliases to protected
+    /// directories even when the item beneath the alias does not exist yet.
+    private static func resolvingExistingSymlinkAncestors(in url: URL) -> String {
+        let components = url.standardizedFileURL.pathComponents
+        var resolved = URL(fileURLWithPath: "/", isDirectory: true)
+        let fileManager = FileManager.default
+
+        for component in components.dropFirst() {
+            let candidate = resolved.appendingPathComponent(component)
+            let linkTarget =
+                try? fileManager.destinationOfSymbolicLink(atPath: candidate.path) // try? ok: non-links stay lexical.
+            if linkTarget != nil {
+                resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
+            } else {
+                resolved = candidate
+            }
+        }
+
+        return resolved.standardizedFileURL.path
+    }
+
+    private static func isEqualOrDescendant(_ path: String, of directory: String) -> Bool {
+        path == directory || path.hasPrefix(directory + "/")
     }
 }
 
@@ -83,12 +114,22 @@ struct StorageReport {
 	let usages: [StorageUsage]
 	let total: Int64
 	let deviceFree: Int64
+	/// Bytes the category purge rules can reclaim now, not merely all bytes in those folders.
+	let reclaimable: Int64
+}
 
-	var reclaimable: Int64 {
-		usages
-			.filter { StorageCategory.safeToClear.contains($0.category) }
-			.reduce(0) { $0 + $1.size }
+enum StorageAggregateAccounting {
+	/// Sums disjoint sandbox roots using the same no-follow measure used by safe deletion.
+	static func totalBytes(in roots: [URL], fileManager: FileManager = .default) -> Int64 {
+		roots.reduce(Int64(0)) { total, root in
+			total + CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: root, fileManager: fileManager)
+		}
 	}
+}
+
+struct StorageClearResult {
+    let deferred: [StorageCategory]
+    let freedBytes: Int64
 }
 
 enum StorageLocation: Hashable {
@@ -155,57 +196,128 @@ final class StorageManager: ObservableObject {
         let lease = guarded ? AppOperationRegistry.shared.acquireCleanup() : nil
         if guarded && lease == nil { return false }
         defer { withExtendedLifetime(lease) {} }
-        // Entries can outlive the scan that produced them. Re-evaluate leftovers while
-        // holding the cleanup lease instead of trusting the old isProtected flag.
-        let currentLeftovers = category == .leftovers ? StorageScanner.leftovers(_librarySnapshot()) : []
-        let deletable = items.filter { item in
-            let retained = category == .temporary && TemporaryCleanupPolicy.isRetained(
-                item.url, temporaryRoot: FileManager.default.temporaryDirectory,
-                downloadStaging: FileManager.default.downloadStaging)
-            let stillLeftover = category != .leftovers || Self.isWithinCurrentLeftovers(item.url, currentLeftovers)
-            return !item.isProtected && stillLeftover && !retained
+
+        let library = _librarySnapshot()
+        // Entries can outlive the scan that produced them. Re-evaluate leftovers and each
+        // category's owning root while holding the cleanup lease; stale rows never authorize a path.
+        let currentLeftovers = category == .leftovers ? StorageScanner.leftovers(library) : []
+        guard items.allSatisfy({ !$0.isProtected && !library.protects($0.url) }) else { return false }
+        guard items.allSatisfy({ _authorizedDeletionRoot(for: $0, category: category, leftovers: currentLeftovers, library: library) != nil }) else {
+            return false
         }
-        guard deletable.count == items.count else { return false }
-		guard !deletable.isEmpty else { return true }
+        guard !items.isEmpty else { return true }
 
-		let uuids = Set(deletable.compactMap(\.appUuid))
-		if !uuids.isEmpty {
-			Storage.shared.deleteApps(Storage.shared.getAllApps().filter { uuids.contains($0.uuid ?? "") })
-		}
+        var removedIDs = Set<String>()
+        if category == .signed || category == .imported {
+            let signed = category == .signed
+            let apps = Storage.shared.getAllApps().filter { app in
+                guard let uuid = app.uuid,
+                      let selected = items.first(where: { $0.appUuid == uuid }),
+                      app.isSigned == signed,
+                      let expectedDirectory = Storage.shared.getUuidDirectory(for: app) else { return false }
+                return expectedDirectory.standardizedFileURL == selected.url.standardizedFileURL
+            }
+            guard apps.count == items.count, Storage.shared.deleteApps(apps) else { return false }
+            removedIDs = Set(items.map(\.id))
+        } else {
+            var allRemoved = true
+            for item in items {
+                guard let root = _authorizedDeletionRoot(for: item, category: category, leftovers: currentLeftovers, library: library) else {
+                    allRemoved = false
+                    continue
+                }
+                do {
+                    guard try CleanupRemovalPolicy.remove(item.url, beneath: root, allowRoot: category == .other,
+                        protectedRoots: library.protectedURLs) != nil else {
+                        allRemoved = false
+                        continue
+                    }
+                    removedIDs.insert(item.id)
+                } catch {
+                    Logger.misc.warning("Storage item deletion failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+                    allRemoved = false
+                }
+            }
+            if !allRemoved { Logger.misc.warning("One or more selected storage items were retained because removal did not commit.") }
+        }
 
-		for item in deletable where item.appUuid == nil {
-			try? FileManager.default.removeItem(at: item.url) // try? ok: deleting an unclaimed file during an explicit user cleanup; the entry leaves the report either way
-		}
-
-		let removed = Set(deletable.map(\.id))
-		entries = entries.mapValues { $0.filter { !removed.contains($0.id) } }
-		refresh()
-        return true
+        if !removedIDs.isEmpty {
+            entries = entries.mapValues { $0.filter { !removedIDs.contains($0.id) } }
+            refresh()
+        }
+        return removedIDs.count == items.count
 	}
 
-    static func isWithinCurrentLeftovers(_ item: URL, _ leftovers: [URL]) -> Bool {
-        let path = item.standardizedFileURL.path
-        return leftovers.contains {
-            let root = $0.standardizedFileURL.path
-            return path == root || path.hasPrefix(root + "/")
+    private func _authorizedDeletionRoot(
+        for item: StorageEntry,
+        category: StorageCategory,
+        leftovers: [URL],
+        library: LibrarySnapshot
+    ) -> URL? {
+        let fm = FileManager.default
+        let protected = library.protectedURLs
+        switch category {
+        case .signed, .imported:
+            let signed = category == .signed
+            guard let uuid = item.appUuid,
+                  let app = Storage.shared.getAllApps().first(where: { $0.uuid == uuid }),
+                  app.isSigned == signed,
+                  let expectedDirectory = Storage.shared.getUuidDirectory(for: app),
+                  expectedDirectory.standardizedFileURL == item.url.standardizedFileURL else { return nil }
+            return signed ? fm.signed : fm.unsigned
+        case .temporary:
+            guard !TemporaryCleanupPolicy.isRetained(item.url, temporaryRoot: fm.temporaryDirectory,
+                downloadStaging: fm.downloadStaging),
+                CleanupRemovalPolicy.isSafeTarget(item.url, beneath: fm.temporaryDirectory, protectedRoots: protected) else { return nil }
+            return fm.temporaryDirectory
+        case .leftovers:
+            guard Self.isWithinCurrentLeftovers(item.url, leftovers) else { return nil }
+            return [fm.signed, fm.unsigned, fm.certificates].first {
+                CleanupRemovalPolicy.isSafeTarget(item.url, beneath: $0, protectedRoots: protected)
+            }
+        case .archives:
+            return CleanupRemovalPolicy.isSafeTarget(item.url, beneath: fm.archives, protectedRoots: protected) ? fm.archives : nil
+        case .caches:
+            let root = StorageScanner.cachesDirectory
+            return CleanupRemovalPolicy.isSafeTarget(item.url, beneath: root, protectedRoots: protected) ? root : nil
+        case .logs:
+            return CleanupRemovalPolicy.isSafeTarget(item.url, beneath: fm.logs, protectedRoots: protected) ? fm.logs : nil
+        case .other:
+            let documents = URL.documentsDirectory
+            let libraryDirectory = fm.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            guard [documents, libraryDirectory].contains(where: {
+                CleanupRemovalPolicy.isSafeTarget(item.url, beneath: $0, protectedRoots: protected)
+            }) else { return nil }
+            return StorageScanner.otherPaths().first {
+                CleanupRemovalPolicy.isSafeTarget(item.url, beneath: $0, allowRoot: true, protectedRoots: protected)
+            }
+        default:
+            return nil
         }
     }
 
-	@discardableResult
-	func clear(_ categories: [StorageCategory]) async -> [StorageCategory] {
+    static func isWithinCurrentLeftovers(_ item: URL, _ leftovers: [URL]) -> Bool {
+        let path = item.resolvingSymlinksInPath().standardizedFileURL.path
+        return leftovers.contains {
+            let root = $0.resolvingSymlinksInPath().standardizedFileURL.path
+            return path == root || path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+        }
+    }
+
+	func clear(_ categories: [StorageCategory]) async -> StorageClearResult {
         let guarded = categories.filter { $0 == .temporary || $0 == .leftovers }
         let lease = guarded.isEmpty ? nil : AppOperationRegistry.shared.acquireCleanup()
         let deferred = lease == nil ? guarded : []
         let allowed = categories.filter { !deferred.contains($0) }
 		let library = _librarySnapshot()
-		await Task.detached(priority: .utility) {
+		let freedBytes = await Task.detached(priority: .utility) { () -> Int64 in
             defer { withExtendedLifetime(lease) {} }
-			for category in allowed { StorageScanner.clear(category, library) }
+            return allowed.reduce(Int64(0)) { $0 + StorageScanner.clear($1, library) }
 		}.value
 
 		entries.removeAll()
 		refresh()
-        return deferred
+        return StorageClearResult(deferred: deferred, freedBytes: freedBytes)
 	}
 
 	private func _librarySnapshot() -> LibrarySnapshot {
@@ -249,21 +361,15 @@ final class StorageManager: ObservableObject {
 
 // MARK: - Manager extension: purging
 extension StorageManager {
-	nonisolated static func purgeCaches() {
+	nonisolated static func purgeCaches(protectedRoots: [URL]) -> Int64 {
 		URLCache.shared.removeAllCachedResponses()
 		DataLoader.sharedUrlCache.removeAllCachedResponses()
 		HTTPCookieStorage.shared.removeCookies(since: .distantPast)
 		(ImagePipeline.shared.configuration.dataCache as? DataCache)?.removeAll()
 		ImagePipeline.shared.configuration.imageCache?.removeAll()
 		// Live caches first, then the files they left behind, which is what Storage measures.
-		StorageScanner.purge(contentsOf: StorageScanner.cachesDirectory)
+		return StorageScanner.purge(contentsOf: StorageScanner.cachesDirectory, protectedRoots: protectedRoots)
 	}
-
-nonisolated static func purgeTemporary() {
-        guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
-        defer { withExtendedLifetime(lease) {} }
-        StorageScanner.purgeTemporary()
-    }
 
     nonisolated static func purgeStaleTemporary() {
         guard let lease = AppOperationRegistry.shared.acquireCleanup() else { return }
@@ -282,22 +388,27 @@ nonisolated static func purgeTemporary() {
 			return
 		}
 
-		let staging = fm.downloadStaging.lastPathComponent
-		for item in items {
-			// A background download can finish while the app is dead, so staged IPAs get a day to be imported.
-			if item.lastPathComponent == staging {
+        let staging = fm.downloadStaging.lastPathComponent
+        for item in items {
+            // A background download can finish while the app is dead, so staged IPAs get a day to be imported.
+            if item.lastPathComponent == staging {
                 do {
                     let retained = try DownloadRecoveryJournal(root: DownloadRecoveryJournal.directory).retainedStagingNames()
-                    StorageScanner.purge(contentsOf: item, olderThan: 24 * 60 * 60, preservingNames: retained)
+                    _ = StorageScanner.purge(contentsOf: item, under: fm.temporaryDirectory, olderThan: 24 * 60 * 60, preservingNames: retained)
                 } catch {
                     // Protected/corrupt recovery state cannot authorize deletion of its retained inputs.
                     Logger.misc.error("Storage: retained download staging while recovery state is inaccessible.")
                 }
-			} else {
-				try? fm.removeItem(at: item) // try? ok: best-effort temporary cleanup; a file in use stays and is retried on the next pass
-			}
-		}
-	}
+            } else {
+                if TemporaryCleanupPolicy.isRetained(item, temporaryRoot: fm.temporaryDirectory, downloadStaging: fm.downloadStaging) { continue }
+                do {
+                    _ = try CleanupRemovalPolicy.remove(item, beneath: fm.temporaryDirectory)
+                } catch {
+                    Logger.misc.warning("Storage: stale temporary cleanup failed for \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Manager extension: automatic cleanup
@@ -327,32 +438,31 @@ extension StorageManager {
         if guarded && lease == nil { return 0 }
         defer { withExtendedLifetime(lease) {} }
 		let library = _librarySnapshot()
-		let before = StorageScanner.reclaimableBytes(category, library)
-		guard before > 0 else { return 0 }
-
-		switch category {
-		case .caches:
-			StorageManager.purgeCaches()
-		case .logs:
-			FileLogger.clear()
-		case .temporary:
-			StorageScanner.purgeTemporary()
-		case .leftovers:
-			for url in StorageScanner.leftovers(library) { try? FileManager.default.removeItem(at: url) } // try? ok: explicit user cleanup; a file that refuses to delete is reported again by the next scan
-		case .archives:
-			StorageScanner.purge(contentsOf: FileManager.default.archives)
-		default:
-			return 0
-		}
+        let freed: Int64
+        switch category {
+        case .caches:
+            freed = StorageManager.purgeCaches(protectedRoots: library.protectedURLs)
+        case .logs:
+            freed = StorageScanner.purge(contentsOf: FileManager.default.logs, protectedRoots: library.protectedURLs)
+        case .temporary:
+            freed = StorageScanner.purgeTemporary(protectedRoots: library.protectedURLs)
+        case .leftovers:
+            freed = StorageScanner.purgeLeftovers(library)
+        case .archives:
+            freed = StorageScanner.purge(contentsOf: FileManager.default.archives, protectedRoots: library.protectedURLs)
+        default:
+            return 0
+        }
+        guard freed > 0 else { return 0 }
 
 		SigningLog.shared.info(
-			.localized("Purged %@: freed %@", arguments: category.title, ByteCountFormatter.string(fromByteCount: before, countStyle: .file)),
+			.localized("Purged %@: freed %@", arguments: category.title, ByteCountFormatter.string(fromByteCount: freed, countStyle: .file)),
 			category: "storage"
 		)
 
 		entries.removeAll()
 		refresh()
-		return before
+		return freed
 	}
 }
 
@@ -391,14 +501,21 @@ struct LibrarySnapshot {
 		certificatesKnown ? certificates.contains(uuid) : true
 	}
 
+    var protectedURLs: [URL] { protected.map { URL(fileURLWithPath: $0) } }
+
 	func protects(_ url: URL) -> Bool {
-		let path = url.standardizedFileURL.path
-		return protected.contains { $0 == path || $0.hasPrefix(path + "/") }
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        return protectedURLs.contains { protectedURL in
+            let protectedPath = protectedURL.resolvingSymlinksInPath().standardizedFileURL.path
+            let pathPrefix = path.hasSuffix("/") ? path : path + "/"
+            let protectedPrefix = protectedPath.hasSuffix("/") ? protectedPath : protectedPath + "/"
+            return protectedPath == path || protectedPath.hasPrefix(pathPrefix) || path.hasPrefix(protectedPrefix)
+        }
 	}
 }
 
 // MARK: - Scanner
-private enum StorageScanner {
+enum StorageScanner {
 	static let fm = FileManager.default
 
 	struct Partition {
@@ -413,10 +530,10 @@ private enum StorageScanner {
 		let imported = partition(fm.unsigned) { library.owns($0, signed: false) }
 		let certificates = partition(fm.certificates) { library.ownsCertificate($0) }
 
-		let inbox = contents(of: fm.webManagerInbox)
+		// The Web Manager inbox contains user-owned transfers and is not part of the
+		// automatic leftovers purge, so it must not inflate this reclaimable category.
 		let leftoverSize = signed.orphanSize + imported.orphanSize + certificates.orphanSize
-			+ inbox.reduce(0) { $0 + fm.allocatedSize(at: $1) }
-		let leftoverCount = signed.orphans.count + imported.orphans.count + certificates.orphans.count + inbox.count
+		let leftoverCount = signed.orphans.count + imported.orphans.count + certificates.orphans.count
 
 		let other = otherPaths()
 
@@ -425,7 +542,7 @@ private enum StorageScanner {
 			StorageUsage(category: .imported, size: imported.size, count: imported.count),
 			StorageUsage(category: .leftovers, size: leftoverSize, count: leftoverCount),
 			StorageUsage(category: .certificates, size: certificates.size, count: certificates.count),
-			StorageUsage(category: .other, size: other.reduce(0) { $0 + fm.allocatedSize(at: $1) }, count: other.count),
+			StorageUsage(category: .other, size: other.reduce(0) { $0 + CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: $1) }, count: other.count),
 			measure(.archives, fm.archives),
 			measure(.tweaks, fm.tweaksLibrary),
 			measure(.logs, fm.logs),
@@ -433,12 +550,14 @@ private enum StorageScanner {
 			measure(.caches, cachesDirectory)
 		]
 
+		let reclaimable = StorageCategory.safeToClear.reduce(Int64(0)) { total, category in
+			total + reclaimableBytes(category, library)
+		}
 		return StorageReport(
 			usages: usages.filter { $0.size > 0 },
-			total: fm.allocatedSize(at: URL.documentsDirectory)
-				+ fm.allocatedSize(at: libraryDirectory)
-				+ fm.allocatedSize(at: fm.temporaryDirectory),
-			deviceFree: fm.availableImportantCapacity(at: URL.documentsDirectory) ?? 0
+			total: StorageAggregateAccounting.totalBytes(in: [URL.documentsDirectory, libraryDirectory, fm.temporaryDirectory]),
+			deviceFree: fm.availableImportantCapacity(at: URL.documentsDirectory) ?? 0,
+			reclaimable: reclaimable
 		)
 	}
 
@@ -451,20 +570,20 @@ private enum StorageScanner {
 		}
 	}
 
-	static func clear(_ category: StorageCategory, _ library: LibrarySnapshot) {
+	static func clear(_ category: StorageCategory, _ library: LibrarySnapshot) -> Int64 {
 		switch category {
 		case .caches:
-			StorageManager.purgeCaches()
+			return StorageManager.purgeCaches(protectedRoots: library.protectedURLs)
 		case .logs:
-			FileLogger.clear()
+            return purge(contentsOf: fm.logs, protectedRoots: library.protectedURLs)
 		case .temporary:
-            purgeTemporary()
+            return purgeTemporary(protectedRoots: library.protectedURLs)
 		case .leftovers:
-			for url in leftovers(library) { try? fm.removeItem(at: url) } // try? ok: explicit user cleanup; a file that refuses to delete is reported again by the next scan
+            return purgeLeftovers(library)
 		case .archives:
-			purge(contentsOf: fm.archives)
+            return purge(contentsOf: fm.archives, protectedRoots: library.protectedURLs)
 		default:
-			break
+			return 0
 		}
 	}
 
@@ -472,48 +591,109 @@ private enum StorageScanner {
 	static func reclaimableBytes(_ category: StorageCategory, _ library: LibrarySnapshot) -> Int64 {
 		switch category {
 		case .caches:
-			return fm.allocatedSize(at: cachesDirectory)
+            return purgeableSize(in: cachesDirectory, protectedRoots: library.protectedURLs)
 		case .logs:
-			return fm.allocatedSize(at: fm.logs)
+            return purgeableSize(in: fm.logs, protectedRoots: library.protectedURLs)
 		case .temporary:
-			return temporarySize()
+            return temporarySize(protectedRoots: library.protectedURLs)
 		case .leftovers:
-			return leftovers(library).reduce(0) { $0 + fm.allocatedSize(at: $1) }
+            return leftovers(library).reduce(0) { total, url in
+                guard [fm.signed, fm.unsigned, fm.certificates].contains(where: {
+                    CleanupRemovalPolicy.isSafeTarget(url, beneath: $0, protectedRoots: library.protectedURLs)
+                }) else { return total }
+                return total + CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url)
+            }
 		case .archives:
-			return fm.allocatedSize(at: fm.archives)
+            return purgeableSize(in: fm.archives, protectedRoots: library.protectedURLs)
 		default:
 			return 0
 		}
 	}
 
-	/// Clears the temporary directory. Ran while a background download is still staged would kill
-	/// it, so the download staging folder is always kept, including for manual cleanup.
-	static func purgeTemporary() {
+	/// Clears temporary children except artifacts whose owner or Undo offer may still be live.
+    @discardableResult
+	static func purgeTemporary(protectedRoots: [URL]) -> Int64 {
+        guard CleanupRemovalPolicy.isDirectoryRoot(fm.temporaryDirectory) else { return 0 }
+        var freed: Int64 = 0
 		for url in contents(of: fm.temporaryDirectory) {
             if TemporaryCleanupPolicy.isRetained(url, temporaryRoot: fm.temporaryDirectory, downloadStaging: fm.downloadStaging) { continue }
-			try? fm.removeItem(at: url) // try? ok: best-effort temporary cleanup, honouring the retention policy above
+            do {
+                if let removed = try CleanupRemovalPolicy.remove(url, beneath: fm.temporaryDirectory, protectedRoots: protectedRoots) {
+                    freed += removed
+                }
+            } catch {
+                Logger.misc.warning("Temporary cleanup failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+            }
 		}
+        return freed
 	}
 
-	private static func temporarySize() -> Int64 {
+	private static func temporarySize(protectedRoots: [URL]) -> Int64 {
+        guard CleanupRemovalPolicy.isDirectoryRoot(fm.temporaryDirectory) else { return 0 }
 		return contents(of: fm.temporaryDirectory).reduce(0) { total, url in
-            if TemporaryCleanupPolicy.isRetained(url, temporaryRoot: fm.temporaryDirectory, downloadStaging: fm.downloadStaging) { return total }
-			return total + fm.allocatedSize(at: url)
+            guard !TemporaryCleanupPolicy.isRetained(url, temporaryRoot: fm.temporaryDirectory, downloadStaging: fm.downloadStaging),
+                  CleanupRemovalPolicy.isSafeTarget(url, beneath: fm.temporaryDirectory, protectedRoots: protectedRoots) else { return total }
+			return total + CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url)
 		}
 	}
 
-	static func purge(contentsOf directory: URL, olderThan age: TimeInterval? = nil, preservingNames: Set<String> = []) {
+    static func purgeLeftovers(_ library: LibrarySnapshot) -> Int64 {
+        var freed: Int64 = 0
+        let roots = [fm.signed, fm.unsigned, fm.certificates]
+        for url in leftovers(library) {
+            guard let root = roots.first(where: {
+                CleanupRemovalPolicy.isSafeTarget(url, beneath: $0, protectedRoots: library.protectedURLs)
+            }) else { continue }
+            do {
+                if let removed = try CleanupRemovalPolicy.remove(url, beneath: root, protectedRoots: library.protectedURLs) {
+                    freed += removed
+                }
+            } catch {
+                Logger.misc.warning("Leftover cleanup failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+            }
+        }
+        return freed
+    }
+
+	static func purge(
+        contentsOf directory: URL,
+        under authorizedRoot: URL? = nil,
+        olderThan age: TimeInterval? = nil,
+        preservingNames: Set<String> = [],
+        protectedRoots: [URL] = []
+    ) -> Int64 {
+        guard CleanupRemovalPolicy.isDirectoryRoot(directory) else { return 0 }
+        if let authorizedRoot, !CleanupRemovalPolicy.isSafeDirectory(directory, beneath: authorizedRoot) { return 0 }
+        var freed: Int64 = 0
 		for url in contents(of: directory) {
             if preservingNames.contains(url.lastPathComponent) { continue }
-			if
-				let age,
-				let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate, // try? ok: an entry with no readable modification date is treated as old, which is the existing behaviour
-				Date().timeIntervalSince(modified) < age {
-				continue
-			}
-			try? fm.removeItem(at: url) // try? ok: best-effort purge; whatever survives is still measured and reported
+            if let age {
+                do {
+                    guard let modified = try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                          Date().timeIntervalSince(modified) >= age else { continue }
+                } catch {
+                    Logger.misc.warning("Retained cleanup item with unreadable modification date.")
+                    continue
+                }
+            }
+            do {
+                if let removed = try CleanupRemovalPolicy.remove(url, beneath: directory, protectedRoots: protectedRoots) {
+                    freed += removed
+                }
+            } catch {
+                Logger.misc.warning("Storage purge failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+            }
 		}
+        return freed
 	}
+
+    static func purgeableSize(in directory: URL, protectedRoots: [URL]) -> Int64 {
+        guard CleanupRemovalPolicy.isDirectoryRoot(directory) else { return 0 }
+        return contents(of: directory).reduce(0) { total, url in
+            guard CleanupRemovalPolicy.isSafeTarget(url, beneath: directory, protectedRoots: protectedRoots) else { return total }
+            return total + CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url)
+        }
+    }
 
 	// MARK: Entries
 
@@ -528,7 +708,7 @@ private enum StorageScanner {
 					id: uuid,
 					name: app.name,
 					version: app.version,
-					size: fm.allocatedSize(at: url),
+					size: CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url),
 					date: app.date,
 					url: url,
 					isDirectory: true,
@@ -554,7 +734,7 @@ private enum StorageScanner {
 		}
 	}
 
-	private static func otherPaths() -> [URL] {
+	static func otherPaths() -> [URL] {
 		let claimed = Set(
 			[fm.signed, fm.unsigned, fm.certificates, fm.archives, fm.tweaksLibrary, fm.logs, fm.webManagerInbox]
 				.map(\.lastPathComponent)
@@ -572,7 +752,7 @@ private enum StorageScanner {
 			id: url.path,
 			name: url.lastPathComponent,
 			version: nil,
-			size: fm.allocatedSize(at: url),
+			size: CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url),
 			date: values?.contentModificationDate ?? .distantPast,
 			url: url,
 			isDirectory: isDirectory,
@@ -600,7 +780,7 @@ private enum StorageScanner {
 		var partition = Partition()
 
 		for url in contents(of: directory) {
-			let size = fm.allocatedSize(at: url)
+			let size = CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url)
 			if isKnown(url.lastPathComponent) {
 				partition.size += size
 				partition.count += 1
@@ -620,7 +800,7 @@ private enum StorageScanner {
 	private static func measure(_ category: StorageCategory, _ directory: URL) -> StorageUsage {
 		StorageUsage(
 			category: category,
-			size: fm.allocatedSize(at: directory),
+			size: CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: directory),
 			count: contents(of: directory).count
 		)
 	}

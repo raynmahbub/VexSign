@@ -205,9 +205,10 @@ private extension StorageDetailView {
 
 	func _delete(_ items: [StorageEntry]) {
 		withAnimation {
-            if _manager.delete(items, category: category) {
-                _selection.subtract(items.map(\.id))
-            } else {
+            let succeeded = _manager.delete(items, category: category)
+            let stillVisible = Set((_manager.entries[location] ?? []).map(\.id))
+            _selection.subtract(Set(items.map(\.id)).subtracting(stillVisible))
+            if !succeeded {
                 Toast.info(.localized("Some items are protected or an operation is running."))
             }
 		}

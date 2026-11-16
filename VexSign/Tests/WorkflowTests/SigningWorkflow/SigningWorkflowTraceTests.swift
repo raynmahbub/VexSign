@@ -466,12 +466,16 @@ final class SigningWorkflowTraceTests: XCTestCase {
 
 /// Reports stages, then verification, then finishes — the order the real handler produces, with
 /// the stage callbacks coming from off the main actor the way the pipeline's do.
-private final class _VerificationWork: SigningWork {
-	private let signed: Signed
+private final class _VerificationWork: SigningWork, Sendable {
+	private let artifact: LibraryAppReference
 
-	init(signed: Signed) { self.signed = signed }
+	@MainActor
+	init(signed: Signed) {
+		self.artifact = LibraryAppReference(recordID: signed.objectID.uriRepresentation().absoluteString,
+								 uuid: signed.uuid ?? "fixture", isSigned: true)
+	}
 
-	func run(_ request: SigningRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<Signed, Error> {
+	func run(_ request: SigningWorkRequest, reporting: @escaping (SigningEvent) -> Void) async -> Result<LibraryAppReference, Error> {
 		await Task.detached(priority: .userInitiated) {
 			reporting(.stage(.copying))
 			reporting(.stage(.signing))
@@ -479,7 +483,7 @@ private final class _VerificationWork: SigningWork {
 			reporting(.signatureVerified)
 			reporting(.stage(.registering))
 		}.value
-		return .success(signed)
+		return .success(artifact)
 	}
 
 	// MARK: - Observed stages

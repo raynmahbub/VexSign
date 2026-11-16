@@ -42,7 +42,8 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         XCTAssertTrue(review.components.contains { $0.status == .invalid })
         XCTAssertTrue(review.components.flatMap(\.issues).contains { $0.contains("Import") })
 
-        let outcome = await SigningPipeline().run(SigningRequest(app: snapshot, options: options, icon: nil, certificate: nil)) { _ in
+        let request = SigningRequest(app: snapshot, options: options, icon: nil, certificate: nil).workerValue()
+        let outcome = await SigningPipeline().run(request) { _ in
             XCTFail("A missing identity must refuse before reporting an execution stage.")
         }
         switch outcome {

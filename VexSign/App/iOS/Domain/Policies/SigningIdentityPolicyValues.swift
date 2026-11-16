@@ -1,7 +1,7 @@
 import Foundation
 
 enum SigningIdentityPolicy {
-	enum Rejection: Error, Equatable {
+	enum Rejection: Error, Equatable, Sendable {
 		/// `signingOption == .default` with no certificate attached.
 		case missingCertificate
 		/// The attached certificate's `notAfter` is at or before the run's start.

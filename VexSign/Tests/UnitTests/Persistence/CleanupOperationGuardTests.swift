@@ -217,21 +217,56 @@ func testTheRegistryIsIdleUntilSomethingIsAcquired() async {
 	}
 }
 
+final class PendingInstallCleanupPolicyTests: XCTestCase {
+    func testPendingInstallDeletionKeepsEveryUUIDThatDidNotCommit() {
+        let staged = ["deleted", "busy", "unavailable", "deleted"]
+        XCTAssertEqual(
+            PendingInstallCleanupPolicy.remaining(staged, afterDeleting: ["deleted"]),
+            ["busy", "unavailable"],
+            "A refused batch delete must stay queued for a later flush, without duplicate retry records"
+        )
+        XCTAssertEqual(PendingInstallCleanupPolicy.remaining(staged, afterDeleting: []), ["deleted", "busy", "unavailable"])
+        XCTAssertEqual(
+            PendingInstallCleanupPolicy.remaining(staged, afterDeleting: ["deleted"], confirmedMissing: ["unavailable"]),
+            ["busy"],
+            "A confirmed missing row is already absent; lookup failures must not be represented as missing"
+        )
+        XCTAssertEqual(PendingInstallCleanupPolicy.remaining(staged, afterDeleting: Set(staged)), [])
+    }
+}
+
 final class TemporaryCleanupPolicyTests: XCTestCase {
     func testRetentionAppliesToRootItemAndDescendantsButNotLookalikes() {
         let root = URL(fileURLWithPath: "/tmp/vex-policy-test", isDirectory: true)
         let staging = root.appendingPathComponent("VexSignDownloads", isDirectory: true)
         let retained = ["VexSignTweak_123", "VexSignTweakExtract_123", "VexSignZipExtract_123",
-                        "VexSignSharedTweak_123", "TweakAnalyze_123", "VexBackupOut_123", "VexSignDownloads"]
+                        "VexSignSharedTweak_123", "TweakAnalyze_123", "VexBackupOut_123", "VexSignDownloads", "RemovedItems"]
         for name in retained {
             let folder = root.appendingPathComponent(name)
             XCTAssertTrue(TemporaryCleanupPolicy.isRetained(folder, temporaryRoot: root, downloadStaging: staging), name)
             XCTAssertTrue(TemporaryCleanupPolicy.isRetained(folder.appendingPathComponent("child"), temporaryRoot: root, downloadStaging: staging), name)
         }
-        for name in ["VexSignTweaker_123", "VexBackupOutside_123", "VexSignDownloads-other", "ordinary"] {
+        for name in ["VexSignTweaker_123", "VexBackupOutside_123", "VexSignDownloads-other", "RemovedItems-old", "ordinary"] {
             XCTAssertFalse(TemporaryCleanupPolicy.isRetained(root.appendingPathComponent(name), temporaryRoot: root, downloadStaging: staging), name)
         }
         XCTAssertFalse(TemporaryCleanupPolicy.isRetained(root.deletingLastPathComponent().appendingPathComponent("VexSignTweak_123"), temporaryRoot: root, downloadStaging: staging))
+    }
+
+    func testUndoRetentionSurvivesSymlinkAliasesToRemovedItems() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent("CleanupUndo-" + UUID().uuidString, isDirectory: true)
+        let undoRoot = root.appendingPathComponent("RemovedItems", isDirectory: true)
+        let staging = root.appendingPathComponent("VexSignDownloads", isDirectory: true)
+        try fileManager.createDirectory(at: undoRoot, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let alias = root.appendingPathComponent("undo-alias", isDirectory: true)
+        try fileManager.createSymbolicLink(at: alias, withDestinationURL: undoRoot)
+
+        XCTAssertTrue(TemporaryCleanupPolicy.isRetained(undoRoot, temporaryRoot: root, downloadStaging: staging))
+        XCTAssertTrue(TemporaryCleanupPolicy.isRetained(undoRoot.appendingPathComponent("held.app"), temporaryRoot: root, downloadStaging: staging))
+        XCTAssertTrue(TemporaryCleanupPolicy.isRetained(alias, temporaryRoot: root, downloadStaging: staging))
+        XCTAssertTrue(TemporaryCleanupPolicy.isRetained(alias.appendingPathComponent("held.app"), temporaryRoot: root, downloadStaging: staging))
     }
 
     func testStaleSweepDoesNotUseAgeAsProofOfIdleOrDeleteRetainedOutput() async throws {

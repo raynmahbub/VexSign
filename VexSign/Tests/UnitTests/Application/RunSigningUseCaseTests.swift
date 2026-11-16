@@ -8,7 +8,7 @@ final class RunSigningUseCaseTests: XCTestCase {
     private typealias Event = SigningWorkflowEvent<String>
     private enum Failure: Error { case refused }
 
-    private struct Work: SigningWork {
+    private struct Work: SigningWork, Sendable {
         let events: [Event]
         let result: Result<String, Error>
 

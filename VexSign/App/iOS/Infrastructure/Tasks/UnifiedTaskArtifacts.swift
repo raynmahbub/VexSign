@@ -9,8 +9,9 @@ import Foundation
 import NimbleExtensions
 
 extension UnifiedTaskCenter {
-    func recordImportedArtifact(_ app: AppInfoPresentable, task: UnifiedTask?, downloadID: String?) {
+    func recordImportedArtifact(_ app: AppInfoPresentable, taskID: String?, downloadID: String?) {
         _syncMirrored(downloads: DownloadManager.shared.downloads)
+        let task = taskID.flatMap { id in (tasks + history).first(where: { $0.id == id }) }
         guard let record = task ?? (tasks + history).first(where: { $0.subjectID == downloadID && downloadID != nil }) else { return }
         var context = record.context ?? TaskContext()
         context.artifactID = app.uuid

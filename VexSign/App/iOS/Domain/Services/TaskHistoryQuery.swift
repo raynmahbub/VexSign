@@ -1,6 +1,7 @@
 import Foundation
 
-protocol TaskQueryItem {
+/// Queries operate on immutable transfer-safe snapshots, never live mutable task models.
+protocol TaskQueryItem: Sendable {
     var id: String { get }
     var title: String { get }
     var updatedAt: Date { get }

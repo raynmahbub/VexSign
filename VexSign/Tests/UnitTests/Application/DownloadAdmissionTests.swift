@@ -128,6 +128,22 @@ final class DownloadAdmissionTests: XCTestCase {
     private func url(_ index: Int) -> URL { URL(string: "https://example.invalid/\(index).ipa")! }
 
     @MainActor
+    func testRepositoryOriginSurvivesDuplicateStart() throws {
+        try withManager { manager in
+            let repositoryURL = URL(string: "https://repo.example.invalid/catalog.json")!
+            let first = manager.startDownload(from: url(70))
+            let tagged = manager.startDownload(from: url(70), originURL: repositoryURL)
+
+            XCTAssertTrue(first === tagged)
+            XCTAssertEqual(first.originURL, repositoryURL)
+            _ = manager.startDownload(from: url(70), originURL: URL(string: "https://other.example.invalid/catalog.json"))
+            XCTAssertEqual(first.originURL, repositoryURL, "A duplicate must not replace the first known origin")
+            _ = manager.startDownload(from: url(70))
+            XCTAssertEqual(first.originURL, repositoryURL, "A duplicate without provenance must not erase it")
+        }
+    }
+
+    @MainActor
     func testCapQueuesExcessWorkAndDuplicateDoesNotReplaceRunningTask() throws {
         try withManager { manager in
             let first = manager.startDownload(from: url(1))

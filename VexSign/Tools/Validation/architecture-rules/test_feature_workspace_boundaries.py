@@ -259,7 +259,8 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         for token in ["cert.managedObjectContext === context", "deletion.rollback()", "try saveDeletion(deletion)", "CertificateStatusManager.shared.removeRevocationSnapshot"]:
             self.assertIn(token, deletion)
         self.assertLess(deletion.index("try saveDeletion(deletion)"), deletion.index("try SecureSecretStore.delete"))
-        self.assertLess(deletion.index("try saveDeletion(deletion)"), deletion.index("try FileManager.default.removeItem(at: directory)"))
+        self.assertLess(deletion.index("try saveDeletion(deletion)"), deletion.index("CleanupRemovalPolicy.remove(directory, beneath: root)"))
+        self.assertIn("Self.allowedCertificateDeletionOriginal(directory)", deletion)
         self.assertNotIn("Task {", deletion, "UUID invalidation must retire checks before synchronous undo")
         insertion = source.split("func addCertificate(", 1)[1].split("func deleteCertificate(", 1)[0]
         self.assertLess(insertion.index("UUID(uuidString: uuid)"), insertion.index("try SecureSecretStore.write"))
@@ -269,12 +270,13 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertIn("row.certificate == nil", insertion)
 
     def test_certificate_failed_rollback_is_durable_not_a_temporary_sweep_target(self):
-        source = self.require("Infrastructure/Identity/CertificateRemoval.swift", "StagedAppDeletion(root: Storage.certificateDeletionRoot",
-            "retainingManifest: true", "try token.stage()", "saveDeletion: saveDeletion", "SecureSecretStore.read")
+        source = self.require("Infrastructure/Identity/CertificateRemoval.swift", "Storage.prepareCertificateDeletionRoot()",
+            "StagedAppDeletion(root: root,", "retainingManifest: true", "try token.stage()", "saveDeletion: saveDeletion", "SecureSecretStore.read")
         self.assertNotIn("RecoverableFileRemoval.remove(", source)
         self.assertNotIn("cert.requireSigningPassword()", source, "undo preparation must not persist unrelated view edits through migration")
         self.require("Infrastructure/Persistence/Database/Storage+Certificate.swift", "recoverPendingCertificateDeletions()", "request.includesPendingChanges = false",
-            "allowedCertificateDeletionOriginal", "FileManager.default.certificates.resolvingSymlinksInPath()",
+            "allowedCertificateDeletionOriginal", 'support.appendingPathComponent("Private/Certificates", isDirectory: true)',
+            'URL.documentsDirectory.appendingPathComponent("Certificates", isDirectory: true)',
             "containsCertificateIdentity(uuid: entry.original.lastPathComponent)", 'NSPredicate(format: "uuid ==[c] %@", uuid)',
             "return committed || pending", "persistentStoreCoordinator.persistentStores.isEmpty", "removingUnownedOriginals: true")
         self.assertIn("storage.recoverCertificateDeletion(token)", source, "expiry must retain journal ownership even after failed re-stage")

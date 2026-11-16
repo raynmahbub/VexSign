@@ -17,7 +17,7 @@ final class ZsignHandler {
     private let engine: any SigningEngine
 	private var _appUrl: URL
 	private var _options: Options
-	private var _certificate: CertificatePair?
+	private let _certificateID: String?
     var authorization: SigningResolutionAuthorization?
     var originalRequirements: [String: [String: Any]]?
     var originalSourceFingerprint: String?
@@ -26,8 +26,8 @@ final class ZsignHandler {
 
 	init(
 		appUrl: URL,
-		options: Options = OptionsManager.shared.options,
-		cert: CertificatePair? = nil,
+		options: Options,
+		certificateID: String?,
         executionGate: SigningExecutionGate,
         engine: any SigningEngine = ZsignAdapter()
 	) {
@@ -35,7 +35,7 @@ final class ZsignHandler {
         self.engine = engine
 		self._appUrl = appUrl
 		self._options = options
-		self._certificate = cert
+		self._certificateID = certificateID
 	}
 
 	func disinject() async throws {
@@ -59,7 +59,7 @@ final class ZsignHandler {
         try await executionGate.withAsyncPermit {
             let inventory = try await MainActor.run { try SigningIdentityStore.leasedSnapshot() }
             defer { withExtendedLifetime(inventory.leases) {} }
-            let preferred = await MainActor.run { self._certificate?.objectID.uriRepresentation().absoluteString }
+            let preferred = self._certificateID
             let device = PairingBridge.inspectPairingRecord().udid
             let prepared = try SigningResolutionSession.prepare(bundle: self._appUrl, options: self._options,
                 inventory: inventory.inputs, preferredIdentity: preferred, deviceUDID: device,

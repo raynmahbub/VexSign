@@ -320,12 +320,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
 
     def test_a_removal_that_was_refused_is_not_reported(self):
         manager = self.text('VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupManager.swift')
-        self.assertIn('guard Storage.shared.deleteApps(targets) else { return CleanupSummary() }', manager)
+        self.assertIn('let deletion = Storage.shared.deleteAppsWithOutcome(targets)', manager)
+        self.assertIn('guard deletion.committed else { return CleanupSummary() }', manager)
         finish = manager.split('func finishSign(', 1)[1].split('func sweepAfterSigning()', 1)[0]
         self.assertIn('guard !removed.removedApps.isEmpty else { return false }', finish)
         rules = self.text('VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupHistory.swift')
         prune = rules.split('static func pruneDuplicateSignedApps()', 1)[1]
-        self.assertIn('guard Storage.shared.deleteApps(targets) else { return ([], 0) }', prune)
+        self.assertIn('let deletion = Storage.shared.deleteAppsWithOutcome(targets)', prune)
+        self.assertIn('guard deletion.committed else { return ([], 0) }', prune)
 
     def test_post_sign_reporting_and_sweep_follow_the_caller(self):
         manager = self.text('VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupManager.swift')

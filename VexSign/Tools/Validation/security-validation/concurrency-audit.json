@@ -17,13 +17,6 @@
       "watch": "This is the escape most likely to stop being true. Any new off-main writer must be paired with a main-actor hop, not a direct assignment."
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Tasks/UnifiedTaskModels.swift",
-      "symbol": "UnifiedTask",
-      "kind": "unchecked-sendable",
-      "invariant": "The owning UnifiedTaskCenter is @MainActor and there are no detached or global-queue tasks in the file; every mutation goes through the center on the main actor. The Sendable conformance exists so a reference can be handed to async signing/install work, not so those can mutate it.",
-      "risk": "low"
-    },
-    {
       "file": "VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift",
       "symbol": "AppFileHandler",
       "kind": "unchecked-sendable",

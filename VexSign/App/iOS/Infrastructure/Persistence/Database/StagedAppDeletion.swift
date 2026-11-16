@@ -13,15 +13,28 @@ struct StagedAppDeletion {
     private var manifest: URL { directory.appendingPathComponent("manifest.json") }
 
     init(root: URL, originals: [(URL, URL)]) throws {
-        guard !originals.isEmpty, originals.count <= 10_000,
+        let fileManager = FileManager.default
+        let root = root.standardizedFileURL
+        let parent = root.deletingLastPathComponent()
+        guard root.isFileURL, CleanupRemovalPolicy.isDirectoryRoot(parent),
+              !originals.isEmpty, originals.count <= 10_000,
               Set(originals.map { $0.0.standardizedFileURL.path.lowercased() }).count == originals.count,
-              originals.allSatisfy({ !root.standardizedFileURL.path.hasPrefix($0.0.standardizedFileURL.path + "/") && root.standardizedFileURL != $0.0.standardizedFileURL }) else {
+              originals.allSatisfy({ !root.path.hasPrefix($0.0.standardizedFileURL.path + "/") && root != $0.0.standardizedFileURL }) else {
             throw CocoaError(.fileReadCorruptFile)
+        }
+        if !fileManager.fileExists(atPath: root.path) {
+            try fileManager.createDirectory(at: root, withIntermediateDirectories: false)
+        }
+        guard CleanupRemovalPolicy.isSafeDirectory(root, beneath: parent) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
         }
         directory = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
         entries = originals.enumerated().map { .init(original: $0.element.0, objectURI: $0.element.1, slot: String($0.offset)) }
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: false,
             attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+        guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: root) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
         var excluded = directory
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
@@ -30,6 +43,10 @@ struct StagedAppDeletion {
     }
 
     init(directory: URL) throws {
+        let directory = directory.standardizedFileURL
+        guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: directory.deletingLastPathComponent()) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
         self.directory = directory
         let values = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
         let file = directory.appendingPathComponent("manifest.json")
@@ -42,11 +59,22 @@ struct StagedAppDeletion {
     }
 
     func stage(move: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }) throws {
+        guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: directory.deletingLastPathComponent()) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
         for entry in entries where FileManager.default.fileExists(atPath: entry.original.path) {
             guard (try entry.original.resourceValues(forKeys: [.isSymbolicLinkKey])).isSymbolicLink != true else {
                 throw CocoaError(.fileReadCorruptFile)
             }
-            try move(entry.original, directory.appendingPathComponent(entry.slot))
+            let staged = directory.appendingPathComponent(entry.slot)
+            do {
+                let targetValues = try staged.resourceValues(forKeys: [.isSymbolicLinkKey])
+                guard targetValues.isSymbolicLink != true else { throw CleanupRemovalPolicy.Rejection.unsafeTarget }
+                throw CocoaError(.fileWriteFileExists)
+            } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+                // The generated slot is absent and ready for an exclusive move.
+            }
+            try move(entry.original, staged)
         }
     }
 
@@ -62,8 +90,11 @@ struct StagedAppDeletion {
                  allowedOriginal: (URL) -> Bool,
                  retainingManifest: Bool = false,
                  removingUnownedOriginals: Bool = false,
-                 remove: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }) throws {
-        guard Set(entries.map(\.slot)).count == entries.count,
+                 remove: (URL) throws -> Void = { url in
+                     _ = try CleanupRemovalPolicy.remove(url, beneath: url.deletingLastPathComponent())
+                 }) throws {
+        guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: directory.deletingLastPathComponent()),
+              Set(entries.map(\.slot)).count == entries.count,
               Set(entries.map { $0.original.standardizedFileURL.path.lowercased() }).count == entries.count else { throw CocoaError(.fileReadCorruptFile) }
         let decisions = try entries.map { entry -> (Entry, Bool) in
             guard allowedOriginal(entry.original), !entry.slot.isEmpty,

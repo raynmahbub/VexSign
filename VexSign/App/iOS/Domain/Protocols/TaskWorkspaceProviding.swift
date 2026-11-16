@@ -2,7 +2,7 @@ import Foundation
 
 /// Immutable UI metadata, captured on the task owner's actor. No mutable task,
 /// persistence journal, download handle or retry closure escapes the adapter.
-struct TaskRecord: Identifiable, TaskQueryItem, Sendable {
+struct TaskRecord: Identifiable, TaskQueryItem {
     let id: String
     let kind: UnifiedTaskKind
     let title: String

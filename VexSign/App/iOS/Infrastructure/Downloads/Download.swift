@@ -60,6 +60,8 @@ class Download: Identifiable, @unchecked Sendable {
 	let fileName: String
 	let onlyArchiving: Bool
 	let appDescription: String?
+    /// Repository that supplied the package; the package URL itself may be a CDN or redirect.
+    var originURL: URL?
 
 	/// What the source promised about the file, checked before anything is unpacked.
 	/// Mutable so a resumed row can take a promise the first fetch did not know.
@@ -83,7 +85,8 @@ class Download: Identifiable, @unchecked Sendable {
 		appName: String? = nil,
 		appDescription: String? = nil,
 		integrity: DownloadIntegrity.Expectation? = nil,
-        recoveryID: UUID = UUID()
+        recoveryID: UUID = UUID(),
+        originURL: URL? = nil
 	) {
 		self.id = id
         self.recoveryID = recoveryID
@@ -91,6 +94,7 @@ class Download: Identifiable, @unchecked Sendable {
 		self.onlyArchiving = onlyArchiving
 		self.fileName = appName ?? url.lastPathComponent
 		self.appDescription = appDescription
+        self.originURL = originURL
 		self.integrity = integrity
 	}
 

@@ -123,6 +123,40 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
     def text(self, relative):
         return (ROOT / relative).read_text()
 
+    def test_repository_origin_flows_from_catalog_download_into_library_and_signed_copy(self):
+        download = self.text("VexSign/App/iOS/Infrastructure/Downloads/Download.swift")
+        manager = self.text("VexSign/App/iOS/Infrastructure/Downloads/DownloadManager.swift")
+        recovery = self.text("VexSign/App/iOS/Infrastructure/Downloads/DownloadManager+Recovery.swift")
+        importer = self.text("VexSign/App/iOS/Infrastructure/Archives/IPA/PackageImportService.swift")
+        file_handler = self.text("VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift")
+        signing_snapshot = self.text("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningRequest.swift")
+        signing_handler = self.text("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift")
+        cloner = self.text("VexSign/App/iOS/Infrastructure/Archives/IPA/AppCloner.swift")
+        update_runner = self.text("VexSign/App/iOS/Infrastructure/Updates/UpdateAllManager.swift")
+        update_view = self.text("VexSign/App/iOS/Presentation/Features/Updates/UpdatesView.swift")
+        background_automation = self.text("VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift")
+        backup_manager = self.text("VexSign/App/iOS/Infrastructure/Backups/BackupManager.swift")
+        backup_support = self.text("VexSign/App/iOS/Infrastructure/Backups/LibraryBackupSupport.swift")
+        download_button = self.text("VexSign/App/iOS/Presentation/Features/Repositories/Views/Apps/DownloadButtonView.swift")
+
+        self.assertIn("var originURL: URL?", download)
+        self.assertIn("originURL: originURL", manager)
+        self.assertIn("flatMap(DownloadRecoveryJournal.publicURL)", recovery)
+        self.assertIn("originURL: URL? = nil", importer)
+        self.assertIn("AppFileHandler(file: ipa, download: download, originURL: originURL)", importer)
+        self.assertIn("self._originURL = originURL ?? download?.originURL", file_handler)
+        self.assertIn("source: _originURL", file_handler)
+        self.assertIn("source = app.source", signing_snapshot)
+        self.assertIn("source: _app.source", signing_handler)
+        self.assertEqual(cloner.count("source: app.source"), 2)
+        self.assertIn("originURL: task.originURL", update_runner)
+        self.assertIn("originURL: update.sourceURL", update_view)
+        self.assertIn("makeTasks(from: pending, automaticOnly: true)", background_automation)
+        self.assertIn("sourceURL: app.source", backup_manager)
+        self.assertIn("source: entry.sourceURL", backup_manager)
+        self.assertIn("SourceURLPolicy.validateRestorable(sourceURL)", backup_support)
+        self.assertEqual(download_button.count("originURL: originURL"), 5)
+
     def test_paired_mutations_remain_blocked_before_native_side_effects(self):
         proxy = self.text("VexSign/Packages/Vendor/IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationProxy.swift")
         inventory = self.text("VexSign/Packages/Vendor/IDeviceKitten/Sources/IDeviceSwift/InstallationProxy/InstallationAppProxy.swift")
@@ -273,6 +307,34 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('receipt.app.evidence?.deviceBinding == binding', library)
         self.assertNotIn('InstalledApp(bundleIdentifier:', library)
 
+    def test_detached_signing_uses_value_inputs_and_returns_a_value_reference(self):
+        request = (APP / 'Infrastructure/Signing/Execution/SigningRequest.swift').read_text()
+        service = (APP / 'Infrastructure/Signing/Execution/SigningService.swift').read_text()
+        pipeline = (APP / 'Infrastructure/Signing/Execution/SigningPipeline.swift').read_text()
+        self.assertIn('struct SigningWorkRequest: Sendable', request)
+        self.assertIn('func workerValue() -> SigningWorkRequest', request)
+        self.assertIn('let workerRequest = request.workerValue()', service)
+        self.assertIn('useCase.execute(workerRequest)', service)
+        self.assertNotIn('useCase.execute(request)', service)
+        self.assertIn('SigningWorkflowEvent<LibraryAppReference>', request)
+        self.assertIn('handler.signedArtifact', pipeline)
+
+    def test_storage_totals_reclaimability_and_cache_purge_share_no_follow_protection(self):
+        storage = (APP / 'Infrastructure/Persistence/Cache/StorageManager.swift').read_text()
+        self.assertIn('StorageAggregateAccounting.totalBytes(in:', storage)
+        self.assertNotIn('fm.allocatedSize(', storage)
+        self.assertEqual(storage.count('StorageManager.purgeCaches(protectedRoots: library.protectedURLs)'), 2)
+        self.assertIn('StorageScanner.purge(contentsOf: StorageScanner.cachesDirectory, protectedRoots: protectedRoots)', storage)
+        self.assertIn('total + reclaimableBytes(category, library)', storage)
+        self.assertIn('reclaimable: reclaimable', storage)
+        self.assertIn('StorageScanner.purgeTemporary(protectedRoots: library.protectedURLs)', storage)
+        self.assertIn('static func purgeTemporary(protectedRoots: [URL])', storage)
+        self.assertNotIn('nonisolated static func purgeTemporary()', storage)
+        adapters = (APP / 'Infrastructure/Persistence/Repositories/SubsystemAdapters.swift').read_text()
+        self.assertEqual(adapters.count('StorageManager.shared.purge(.temporary)'), 2)
+        self.assertNotIn('StorageManager.purgeTemporary()', adapters)
+        self.assertNotIn('let inbox = contents(of: fm.webManagerInbox)', storage)
+
     def test_only_explicit_setup_selection_is_eligible_and_revocation_invalidates_it(self):
         bridge = (APP / 'Infrastructure/Devices/Transport/PairingBridge.swift').read_text()
         self.assertIn('@MainActor private static var selectedDeviceRequest', bridge)
@@ -284,8 +346,16 @@ class DeviceFoundationSecurityWiringTests(unittest.TestCase):
         self.assertIn('selectionGeneration = UUID()', bridge)
         self.assertIn('request.selectionID == selectedDeviceRequest?.selectionID', bridge)
         self.assertEqual(bridge.count('generation == selectionGeneration'), 3)
-        final = (APP / 'Infrastructure/Devices/Installation/AppInstaller.swift').read_text().split('private func _finish(_ result:', 1)[1]
-        self.assertIn('let request = _pairedRequest, PairingBridge.isSelectedForUse(request)', final)
+        installer = (APP / 'Infrastructure/Devices/Installation/AppInstaller.swift').read_text()
+        paired_validation = installer.split('private func _hasExactPairedDeviceEvidence(', 1)[1].split('private func _finish(', 1)[0]
+        self.assertIn('let request = _pairedRequest', paired_validation)
+        self.assertIn('PairingBridge.isSelectedForUse(request)', paired_validation)
+        final = installer.split('private func _finish(_ result:', 1)[1]
+        self.assertIn('InstallCompletionEvidencePolicy.allowsInstalledOutcome(', final)
+        queue = (APP / 'Infrastructure/Devices/Installation/InstallQueueCore.swift').read_text()
+        self.assertIn('InstallCompletionEvidencePolicy.allowsInstalledOutcome(', queue)
+        completion_policy = (APP / 'Domain/Policies/InstallCompletionEvidencePolicy.swift').read_text()
+        self.assertIn('method == .pairedDevice && hasExactPairedDeviceEvidence', completion_policy)
         probe = (APP / 'Infrastructure/Devices/Installation/InstalledAppProbe.swift').read_text()
         paired = probe.split('struct PairedDeviceInstallationProbe:', 1)[1].split('struct UnavailableInstallationProbe:', 1)[0]
         self.assertEqual(paired.count('PairingBridge.isSelectedForUse(request)'), 2)

@@ -405,14 +405,22 @@ final class InstallQueue: ObservableObject {
 
     var latestReportTask: UnifiedTask?
 
-	private func _handle(_ result: Result<AppInstaller.Outcome, Error>, attemptID: String? = nil) {
-        if case .success(.installed) = result,
-           unifiedTask?.context?.hasConfirmedInstallation(notAfter: Date()) != true {
-            // Never delete a library copy, advance a success counter, or offer
-            // Open solely because a producer called its callback "installed".
-            unifiedTask?.context?.confirmationReason = "paired-installed-version-not-verified"
-            _handle(.failure(InstallConfirmation.Failure(verdict: .timedOutVerifying)), attemptID: attemptID)
-            return
+    private func _handle(_ result: Result<AppInstaller.Outcome, Error>, attemptID: String? = nil) {
+        if case .success(.installed) = result {
+            let method = InstallationEvidenceMethod(
+                code: unifiedTask?.context?.installationMethod ?? installer?.installationMethodCode
+            )
+            let exactEvidence = unifiedTask?.context?.hasConfirmedInstallation(notAfter: Date()) == true
+            guard InstallCompletionEvidencePolicy.allowsInstalledOutcome(
+                method: method, hasExactPairedDeviceEvidence: exactEvidence
+            ) else {
+                // Never delete a library copy, advance a success counter, or offer Open solely
+                // because a producer called its callback "installed". Keep the reason aligned
+                // with the route: OTA transport completion is not device confirmation.
+                unifiedTask?.context?.confirmationReason = method.rejectedInstalledReason
+                _handle(.failure(InstallConfirmation.Failure(verdict: .timedOutVerifying)), attemptID: attemptID)
+                return
+            }
         }
 
 		// An installer completion is always terminal, so the monitored attempt ends here — before

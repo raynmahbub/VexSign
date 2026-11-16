@@ -1,6 +1,6 @@
 import Foundation
 
-struct LibraryBackupEntry: Codable {
+struct LibraryBackupEntry: Codable, Sendable {
     let uuid: String
     let bundleName: String
     let signed: Bool
@@ -10,6 +10,8 @@ struct LibraryBackupEntry: Codable {
     let version: String?
     let appDescription: String?
     let certificateUUID: String?
+    /// Repository that supplied this library copy, not its package/CDN download URL.
+    let sourceURL: URL?
 }
 
 enum LibraryBackupSupport {
@@ -38,6 +40,7 @@ enum LibraryBackupSupport {
               entry.bundleName.hasSuffix(".app"), !entry.bundleName.hasPrefix("."),
               !entry.bundleName.contains("/"), !entry.bundleName.contains("\\"),
               !entry.bundleName.contains("\0") else { throw Failure.invalidEntry }
+        if let sourceURL = entry.sourceURL { try SourceURLPolicy.validateRestorable(sourceURL) }
     }
 
     /// Reject links and bound the entire staged container (not just its ZIP size).

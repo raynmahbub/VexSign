@@ -15,6 +15,7 @@ extension DownloadManager {
         let record = DownloadRecoveryJournal.Record(
             id: download.recoveryID, name: String(download.fileName.prefix(1024)),
             sourceURL: DownloadRecoveryJournal.publicURL(download.url),
+            originURL: download.originURL.flatMap(DownloadRecoveryJournal.publicURL),
             expectedBytes: download.integrity?.byteCount, expectedHash: download.integrity?.sha256,
             stage: stage, stagedName: isStaged ? file?.lastPathComponent : nil, updatedAt: Date(),
             libraryUUID: download.importLibraryUUID)
@@ -44,7 +45,7 @@ extension DownloadManager {
         let download = Download(id: "VexSignManualDownload_" + UUID().uuidString,
                                 url: record.sourceURL ?? file, appName: record.name,
                                 integrity: .init(byteCount: record.expectedBytes, sha256: record.expectedHash),
-                                recoveryID: record.id)
+                                recoveryID: record.id, originURL: record.originURL)
         ownImportRecovery(download)
         downloads.append(download)
         do {
@@ -76,7 +77,7 @@ extension DownloadManager {
         let resumeData: Data?
         do { resumeData = record.stage == .downloading ? try recoveryJournal?.resumeData(id: record.id, source: url) : nil }
         catch { recoveryWarning = error.localizedDescription; return }
-        let download = startDownload(from: url, appName: record.name,
+        let download = startDownload(from: url, appName: record.name, originURL: record.originURL,
                                      integrity: DownloadIntegrity.Expectation(byteCount: record.expectedBytes, sha256: record.expectedHash),
                                      recoveryID: record.id, recoveredResumeData: resumeData)
         // A policy block or a different live owner keeps the old recovery entry for explicit review.

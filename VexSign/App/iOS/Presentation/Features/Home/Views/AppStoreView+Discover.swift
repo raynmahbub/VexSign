@@ -217,7 +217,7 @@ extension AppStoreView {
 
                             Spacer()
 
-                            DownloadButtonView(app: item.app)
+                            DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
                                 .tint(.white)
                         }
                         .padding(12)
@@ -294,7 +294,7 @@ extension AppStoreView {
                                             .lineLimit(1)
                                     }
 
-                                    DownloadButtonView(app: item.app)
+                                    DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
                                 }
                                 .frame(width: 100)
                                 .padding(10)
@@ -374,7 +374,7 @@ extension AppStoreView {
 
                                 Spacer(minLength: 8)
 
-                                DownloadButtonView(app: item.app)
+                                DownloadButtonView(app: item.app, originURL: item.source.sourceURL)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)

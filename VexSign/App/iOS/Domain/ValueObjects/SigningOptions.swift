@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Options
-struct Options: Codable, Equatable {
+struct Options: Codable, Equatable, Sendable {
 	
 	// MARK: Pre Modifications
 	
@@ -155,7 +155,7 @@ struct Options: Codable, Equatable {
 	
 	// MARK: duplicate values are not recommended!
 
-	enum AppAppearance: String, Codable, CaseIterable {
+	enum AppAppearance: String, Codable, CaseIterable, Sendable {
 		case `default`
 		case light = "Light"
 		case dark = "Dark"
@@ -163,7 +163,7 @@ struct Options: Codable, Equatable {
 
 	}
 
-	enum MinimumAppRequirement: String, Codable, CaseIterable {
+	enum MinimumAppRequirement: String, Codable, CaseIterable, Sendable {
 		case `default`
 		case v16 = "16.0"
 		case v15 = "15.0"
@@ -174,24 +174,24 @@ struct Options: Codable, Equatable {
 
 	}
 	
-	enum SigningOption: String, Codable, CaseIterable {
+	enum SigningOption: String, Codable, CaseIterable, Sendable {
 		case `default`
 		case onlyModify
 
 
 	}
 	
-	enum InjectPath: String, Codable, CaseIterable {
+	enum InjectPath: String, Codable, CaseIterable, Sendable {
 		case executable_path = "@executable_path"
 		case rpath = "@rpath"
 	}
 	
-	enum InjectFolder: String, Codable, CaseIterable {
+	enum InjectFolder: String, Codable, CaseIterable, Sendable {
 		case root = "/"
 		case frameworks = "/Frameworks/"
 	}
 
-	enum PPQProtection: String, Codable, CaseIterable {
+	enum PPQProtection: String, Codable, CaseIterable, Sendable {
 		case disabled
 		/// VexSign method: append ppqString to the untouched identifier
 		case `default`

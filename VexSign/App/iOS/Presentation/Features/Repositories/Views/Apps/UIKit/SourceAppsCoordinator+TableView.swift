@@ -128,7 +128,8 @@ extension SourceAppsTableRepresentableView.Coordinator {
                             _ = DownloadManager.shared.startDownload(
                                 from: url,
                                 id: entry.app.currentUniqueId,
-                                appName: entry.app.name
+                                appName: entry.app.name,
+                                originURL: entry.source.sourceURL
                             )
                         }
                     }, image: UIImage(systemName: "arrow.down"))

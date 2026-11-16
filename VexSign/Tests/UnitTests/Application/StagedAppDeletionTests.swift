@@ -186,7 +186,10 @@ final class StagedAppDeletionTests: XCTestCase {
         let directory = try XCTUnwrap(storage.getUuidDirectory(for: row))
         defer { try? FileManager.default.removeItem(at: directory) } // try? ok: test fixture cleanup only
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        XCTAssertTrue(storage.deleteApps([row]))
+        try Data("removable app bytes".utf8).write(to: directory.appendingPathComponent("app"))
+        let deletion = storage.deleteAppsWithOutcome([row])
+        XCTAssertTrue(deletion.committed)
+        XCTAssertGreaterThan(deletion.freedBytes, 0, "Bytes count only after the staged artifact was removed")
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
         let reader = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         reader.persistentStoreCoordinator = storage.container.persistentStoreCoordinator
@@ -237,6 +240,19 @@ final class StagedAppDeletionTests: XCTestCase {
         let transaction = try StagedAppDeletion(root: quarantine, originals: [(link, uri)])
         XCTAssertThrowsError(try transaction.stage())
         XCTAssertEqual(try Data(contentsOf: original.appendingPathComponent("file")), Data("original-bytes".utf8))
+    }
+
+    func testTransactionRootCannotBeAnAlias() throws {
+        let (root, original, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) } // try? ok: synthetic fixture cleanup
+        let realRoot = root.appendingPathComponent("QuarantineTarget", isDirectory: true)
+        try FileManager.default.createDirectory(at: realRoot, withIntermediateDirectories: false)
+        let alias = root.appendingPathComponent("QuarantineAlias", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: realRoot)
+
+        XCTAssertThrowsError(try StagedAppDeletion(root: alias, originals: [(original, uri)]))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: realRoot.path), [])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.appendingPathComponent("file").path))
     }
 
     @MainActor

@@ -5,11 +5,21 @@
 //  Created by VexSign Contributors on 17.04.2025.
 //
 
+import CoreData
+import CoreGraphics
 import Foundation
+import ImageIO
 import Zsign
-import UIKit
 import OSLog
 import NimbleExtensions
+
+private struct SigningCleanupFailure: LocalizedError {
+    let details: [String]
+
+    var errorDescription: String? {
+        "Could not remove signing work files: " + details.joined(separator: "; ")
+    }
+}
 
 final class SigningHandler: NSObject {
 	private let _fileManager = FileManager.default
@@ -20,20 +30,18 @@ final class SigningHandler: NSObject {
 	/// takes the folder for a leftover and deletes it.
 	private let _outputClaim: AppOperationRegistry.Lease
 	private var _movedAppPath: URL?
+    private var _ownsUniqueWorkDir = false
+    private var _ownsSignedDirectory = false
 	// using uuid string is the best way to find the
 	// app we want to sign, it does not matter what
 	// type of app it is
-	private var _app: AppInfoPresentable
+	private let _app: SigningAppSnapshot
 	private var _options: Options
 	private let _uniqueWorkDir: URL
-	// the options struct is not gonna decode these so
-	// we're just going to do this. If appicon is not
-	// specified, we're not going to modify the app
-	// icon. If the cert pair is not there, fallback
-	// to adhoc signing (if the option is on, otherwise
-	// throw an error
-	var appIcon: UIImage?
-	var appCertificate: CertificatePair?
+	/// Encoded by the UI-side request before crossing into detached work.
+	var appIconData: Data?
+	/// Opaque Core Data identity; resolved only inside MainActor-isolated persistence calls.
+	var appCertificateID: String?
     var authorization: SigningResolutionAuthorization?
     private var originalRequirements: [String: [String: Any]]?
     private var originalSourceFingerprint: String?
@@ -41,7 +49,7 @@ final class SigningHandler: NSObject {
 	private var _originalBundleIdentifier: String?
 	private var _appDescription: String?
 	private var _didAddToDatabase = false
-	private(set) var signedApp: Signed?
+	private(set) var signedArtifact: LibraryAppReference?
 	/// What the post-sign inspection found. Written before the bundle is moved into the
 	/// library, so it describes the bytes that are actually kept.
 	private(set) var verification: SignatureVerifier.Report?
@@ -60,7 +68,7 @@ final class SigningHandler: NSObject {
 	/// "modify without signing" run reaches `.registering` without verifying anything.
 	var onSignatureVerified: (() -> Void)?
 	
-	init(app: AppInfoPresentable, options: Options = OptionsManager.shared.options, executionGate: SigningExecutionGate) {
+	init(app: SigningAppSnapshot, options: Options, executionGate: SigningExecutionGate) {
         self.executionGate = executionGate
 		self._app = app
 		self._options = options
@@ -79,7 +87,12 @@ final class SigningHandler: NSObject {
 			throw SigningFileHandlerError.appNotFound
 		}
 
-		try _fileManager.createDirectoryIfNeeded(at: _uniqueWorkDir)
+        // Unique per-run directory creation is exclusive: a pre-existing path is never reused.
+        try _fileManager.createDirectory(at: _uniqueWorkDir, withIntermediateDirectories: false)
+        _ownsUniqueWorkDir = true
+        guard CleanupRemovalPolicy.isSafeDirectory(_uniqueWorkDir, beneath: _fileManager.temporaryDirectory) else {
+            throw SigningCleanupFailure(details: ["The signing work directory failed its ownership check."])
+        }
 
 		let movedAppURL = _uniqueWorkDir.appendingPathComponent(appUrl.lastPathComponent)
 
@@ -141,10 +154,10 @@ final class SigningHandler: NSObject {
 			SigningLog.shared.info(.localized("Setting version to %@", arguments: version))
 		}
 
-		if let icon = appIcon {
-			SigningLog.shared.info(.localized("Replacing app icon"))
-			try await _modifyDict(using: infoDictionary, for: icon, to: movedAppPath)
-		}
+			if let iconData = appIconData {
+				SigningLog.shared.info(.localized("Replacing app icon"))
+				try _modifyDict(using: infoDictionary, forImageData: iconData, to: movedAppPath)
+			}
 
 		if let name = _options.appName {
 			SigningLog.shared.info(.localized("Renaming app to %@", arguments: name))
@@ -195,7 +208,7 @@ final class SigningHandler: NSObject {
         // explicit keychain changes are planned and authorized per component;
         // they no longer copy the entire selected profile or drop unknown keys.
 
-		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, cert: appCertificate, executionGate: executionGate)
+		let handler = ZsignHandler(appUrl: movedAppPath, options: _options, certificateID: appCertificateID, executionGate: executionGate)
         handler.authorization = authorization
         handler.originalRequirements = originalRequirements
         handler.originalSourceFingerprint = originalSourceFingerprint
@@ -265,17 +278,19 @@ final class SigningHandler: NSObject {
         if injectedCount > 0 { await AnalyticsStore.shared.record(.tweaksInjected, count: injectedCount) }
     }
 	
-    /// The worker exchanges value metadata/identities with the view context, not
-    /// CertificatePair values through MainActor.run's Sendable result/closure.
+    /// Resolve only at the point of use; a managed certificate never lives in worker state.
     @MainActor
     private func _certificateDisplayName() -> String? {
-        guard let certificate = appCertificate, !certificate.isDeleted else { return nil }
+        guard let appCertificateID,
+              let certificate = try? Storage.shared.managedCertificate(id: appCertificateID),
+              !certificate.isDeleted else { return nil }
         return certificate.nickname ?? Storage.shared.getProvisionFileDecoded(for: certificate)?.Name ?? .localized("certificate")
     }
 
     @MainActor
     private func _selectResolvedCertificate(reference: String) throws {
-        appCertificate = try Storage.shared.managedCertificate(id: reference)
+        _ = try Storage.shared.managedCertificate(id: reference)
+        appCertificateID = reference
     }
 
     /// The final check on what was produced. Any failure stops the run before library
@@ -315,17 +330,24 @@ final class SigningHandler: NSObject {
 			throw SigningFileHandlerError.appNotFound
 		}
 		
-		var destinationURL = try await _directory()
-		
-		try _fileManager.createDirectoryIfNeeded(at: destinationURL)
-		
-		destinationURL = destinationURL.appendingPathComponent(movedAppPath.lastPathComponent)
-		
-		try _fileManager.moveItem(at: movedAppPath, to: destinationURL)
+        let signedRoot = _fileManager.signed
+        try _fileManager.createDirectory(at: signedRoot, withIntermediateDirectories: true)
+        guard CleanupRemovalPolicy.isSafeDirectory(signedRoot, beneath: URL.documentsDirectory) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
+        let signedDirectory = try await _directory()
+        try _fileManager.createDirectory(at: signedDirectory, withIntermediateDirectories: false)
+        _ownsSignedDirectory = true
+        guard CleanupRemovalPolicy.isSafeDirectory(signedDirectory, beneath: signedRoot) else {
+            throw CleanupRemovalPolicy.Rejection.unsafeTarget
+        }
+
+        let destinationURL = signedDirectory.appendingPathComponent(movedAppPath.lastPathComponent)
+        try _fileManager.moveItem(at: movedAppPath, to: destinationURL)
         LibrarySizeSnapshot.invalidate()
 		Logger.misc.info("[\(self._uuid)] Moved App to: \(destinationURL.path)")
-		
-		try? _fileManager.removeItem(at: _uniqueWorkDir)
+
+        // `clean()` owns the work directory removal so a failure can be surfaced and retried.
 	}
 	
 	/// Runs on the main actor: it ends by handing a managed object to the caller and
@@ -347,13 +369,20 @@ final class SigningHandler: NSObject {
               SigningInputValidation.executable(in: appUrl) != nil else {
             throw SigningFileHandlerError.appNotFound
         }
-		// Only a `.default` run is signed with the selected certificate; the
-		// modify-only and ad-hoc paths keep the row certificate-free. The ID is
-		// what crosses the queue boundary - never the managed object.
-		let certificateID = _options.signingOption == .default ? appCertificate?.objectID : nil
+		// Only a `.default` run is signed with the selected certificate; modify-only
+		// output remains certificate-free. Resolve the opaque URI on MainActor, then
+		// pass only Core Data's immutable object ID to the write context.
+		let certificateID: NSManagedObjectID?
+		if _options.signingOption == .default {
+			guard let appCertificateID else { throw SigningFileHandlerError.missingCertifcate }
+			certificateID = try Storage.shared.managedCertificate(id: appCertificateID).objectID
+		} else {
+			certificateID = nil
+		}
 
 		let objectID = try await Storage.shared.addSigned(
 			uuid: _uuid,
+			source: _app.source,
 			certificateID: certificateID,
 			appName: bundle.name,
             appIdentifier: identifier,
@@ -375,7 +404,7 @@ final class SigningHandler: NSObject {
         guard let registered: Signed = Storage.shared.object(objectID) else {
             throw SigningFileHandlerError.appNotFound
         }
-        signedApp = registered
+        signedArtifact = try LibraryAppReference(app: registered)
 	}
 	
 	private func _directory() async throws -> URL {
@@ -384,11 +413,28 @@ final class SigningHandler: NSObject {
 	}
 	
 	func clean() async throws {
-		try _fileManager.removeFileIfNeeded(at: _uniqueWorkDir)
-		// A moved-but-unregistered bundle is unreachable from the library, so it would leak forever.
-		if !_didAddToDatabase {
-			try? _fileManager.removeFileIfNeeded(at: _fileManager.signed(_uuid))
-		}
+        var failures: [Error] = []
+        if _ownsUniqueWorkDir {
+            do {
+                _ = try CleanupRemovalPolicy.remove(_uniqueWorkDir, beneath: _fileManager.temporaryDirectory)
+                _ownsUniqueWorkDir = false
+            } catch {
+                failures.append(error)
+            }
+        }
+        // A moved-but-unregistered bundle is unreachable from the library, so it would leak forever.
+        // Once the row commits, never delete this directory, even if resolving the row then fails.
+        if !_didAddToDatabase && _ownsSignedDirectory {
+            do {
+                _ = try CleanupRemovalPolicy.remove(_fileManager.signed(_uuid), beneath: _fileManager.signed)
+                _ownsSignedDirectory = false
+            } catch {
+                failures.append(error)
+            }
+        }
+        if !failures.isEmpty {
+            throw SigningCleanupFailure(details: failures.map { LogRedaction.redact($0.localizedDescription) })
+        }
 	}
 }
 
@@ -403,18 +449,44 @@ extension SigningHandler {
 		try infoDictionary.write(to: app.appendingPathComponent("Info.plist"))
 	}
 	
-	private func _modifyDict(using infoDictionary: NSMutableDictionary, for image: UIImage, to app: URL) async throws {
+	private func _modifyDict(using infoDictionary: NSMutableDictionary, forImageData imageData: Data, to app: URL) throws {
 		let imageSizes = [
 			(width: 120, height: 120, name: "FRIcon60x60@2x.png"),
 			(width: 152, height: 152, name: "FRIcon76x76@2x~ipad.png")
 		]
-		
+		let thumbnailOptions: [CFString: Any] = [
+			kCGImageSourceCreateThumbnailFromImageAlways: true,
+			kCGImageSourceCreateThumbnailWithTransform: true,
+			kCGImageSourceThumbnailMaxPixelSize: 2048
+		]
+		guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+			  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions as CFDictionary)
+		else { throw SigningFileHandlerError.signFailed }
+
 		for imageSize in imageSizes {
-			let resizedImage = image.resize(imageSize.width, imageSize.height)
-			let imageData = resizedImage.pngData()
-			let fileURL = app.appendingPathComponent(imageSize.name)
-			
-			try imageData?.write(to: fileURL)
+			let scale = min(CGFloat(imageSize.width) / CGFloat(image.width), CGFloat(imageSize.height) / CGFloat(image.height))
+			let width = max(1, Int((CGFloat(image.width) * scale).rounded()))
+			let height = max(1, Int((CGFloat(image.height) * scale).rounded()))
+			guard let context = CGContext(
+				data: nil,
+				width: width,
+				height: height,
+				bitsPerComponent: 8,
+				bytesPerRow: 0,
+				space: CGColorSpaceCreateDeviceRGB(),
+				bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+			) else { throw SigningFileHandlerError.signFailed }
+			context.interpolationQuality = .high
+			context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+			guard let resized = context.makeImage() else { throw SigningFileHandlerError.signFailed }
+
+			let encoded = NSMutableData()
+			guard let destination = CGImageDestinationCreateWithData(encoded, "public.png" as CFString, 1, nil) else {
+				throw SigningFileHandlerError.signFailed
+			}
+			CGImageDestinationAddImage(destination, resized, nil)
+			guard CGImageDestinationFinalize(destination) else { throw SigningFileHandlerError.signFailed }
+			try (encoded as Data).write(to: app.appendingPathComponent(imageSize.name))
 		}
 		
 		let cfBundleIcons: [String: Any] = [

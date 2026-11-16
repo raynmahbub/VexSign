@@ -11,6 +11,8 @@
 
 import Foundation
 import SwiftUI
+import CoreData
+import OSLog
 import NimbleExtensions
 
 // MARK: - Trigger
@@ -30,6 +32,8 @@ enum CleanupTrigger {
 // MARK: - Summary
 struct CleanupSummary {
 	var removedApps: [String] = []
+    /// Stable identifiers for commit-aware callers; never persisted or shown to the user.
+    var removedAppIDs: [String] = []
 	var categories: [StorageCategory] = []
 	var freedBytes: Int64 = 0
 	/// Areas that were asked for and left alone because an operation was still running.
@@ -48,6 +52,7 @@ struct CleanupSummary {
 
 	mutating func absorb(_ other: CleanupSummary) {
 		removedApps += other.removedApps
+        removedAppIDs += other.removedAppIDs
 		categories += other.categories
 		freedBytes += other.freedBytes
 		deferred += other.deferred.filter { !deferred.contains($0) }
@@ -154,23 +159,82 @@ final class CleanupManager: ObservableObject {
 	/// Runs once the install UI is gone.
 	func flush(silent: Bool = false) {
 		guard isEnabled else {
+            // The master switch cancels staged auto-deletion requests. Re-enabling cleanup later
+            // must not delete apps from installs that finished while cleanup was disabled.
 			_pending = []
 			return
 		}
 
 		let uuids = _pending
-		_pending = []
-
 		var summary = CleanupSummary()
 
-		if !uuids.isEmpty, _defaults.bool(forKey: Key.deleteAfterInstall) {
-			let apps = Storage.shared.getAllApps().filter { uuids.contains($0.uuid ?? "") }
-			summary.absorb(delete(apps))
-		}
+		if !uuids.isEmpty {
+            if _defaults.bool(forKey: Key.deleteAfterInstall) {
+                do {
+                    let lookup = try _fetchPendingInstallApps(Set(uuids))
+                    let deletion = delete(lookup.apps)
+                    summary.absorb(deletion)
+                    // Existing rows stay pending until their deletion transaction commits.
+                    // A successful committed-store lookup that finds no row is already satisfied;
+                    // lookup errors retain every UUID and must never be mistaken for an empty library.
+                    _pending = PendingInstallCleanupPolicy.remaining(
+                        uuids, afterDeleting: Set(deletion.removedAppIDs), confirmedMissing: lookup.confirmedMissing
+                    )
+                } catch {
+                    Logger.misc.error("Install cleanup target lookup failed; pending UUIDs retained.")
+                    _pending = PendingInstallCleanupPolicy.remaining(uuids, afterDeleting: [])
+                }
+            } else {
+                // Preserve the shipped setting semantics: turning off delete-after-install
+                // cancels staged requests rather than applying them if the toggle is enabled later.
+                _pending = []
+            }
+        }
 
 		summary.absorb(purgeEnabledCategories())
 		report(summary, trigger: .install, silent: silent)
 	}
+
+    private func _fetchPendingInstallApps(_ uuids: Set<String>) throws -> (apps: [AppInfoPresentable], confirmedMissing: Set<String>) {
+        StorageConcurrency.requireMainQueue()
+        guard !uuids.isEmpty else { return ([], []) }
+        let identifiers = Array(uuids)
+        let storage = Storage.shared
+        let committedReader = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        committedReader.persistentStoreCoordinator = storage.container.persistentStoreCoordinator
+
+        let committedSignedRequest: NSFetchRequest<Signed> = Signed.fetchRequest()
+        committedSignedRequest.predicate = NSPredicate(format: "uuid IN %@", identifiers)
+        committedSignedRequest.includesPendingChanges = false
+        let committedImportedRequest: NSFetchRequest<Imported> = Imported.fetchRequest()
+        committedImportedRequest.predicate = NSPredicate(format: "uuid IN %@", identifiers)
+        committedImportedRequest.includesPendingChanges = false
+        let committedSigned = try committedReader.fetch(committedSignedRequest).compactMap(\.uuid)
+        let committedImported = try committedReader.fetch(committedImportedRequest).compactMap(\.uuid)
+        let committedIDs = Set(committedSigned + committedImported)
+
+        // Resolve only committed identities into the view context that owns rows passed to
+        // deleteApps. Pending view inserts must not turn an absent committed row into an install
+        // cleanup target; pending deletions must not make a still-committed row look absent.
+        let viewContext = storage.context
+        let viewSignedRequest: NSFetchRequest<Signed> = Signed.fetchRequest()
+        viewSignedRequest.predicate = NSPredicate(format: "uuid IN %@", identifiers)
+        let viewImportedRequest: NSFetchRequest<Imported> = Imported.fetchRequest()
+        viewImportedRequest.predicate = NSPredicate(format: "uuid IN %@", identifiers)
+        let viewSigned = try viewContext.fetch(viewSignedRequest)
+        let viewImported = try viewContext.fetch(viewImportedRequest)
+        let pendingInsertIDs = Set((viewSigned.filter { $0.isInserted && !$0.isDeleted }.compactMap(\.uuid)) +
+            (viewImported.filter { $0.isInserted && !$0.isDeleted }.compactMap(\.uuid)))
+        let signedApps = viewSigned
+            .filter { committedIDs.contains($0.uuid ?? "") }
+            .map { $0 as AppInfoPresentable }
+        let importedApps = viewImported
+            .filter { committedIDs.contains($0.uuid ?? "") }
+            .map { $0 as AppInfoPresentable }
+        let apps: [AppInfoPresentable] = signedApps + importedApps
+        let missing = uuids.subtracting(committedIDs).subtracting(pendingInsertIDs)
+        return (apps, missing)
+    }
 
 	// MARK: - Signing
 
@@ -252,14 +316,26 @@ final class CleanupManager: ObservableObject {
 
 		var freed: Int64 = 0
 		var removed = false
+        var visited = Set<String>()
+        let stagingRoot = _fileManager.downloadStaging
+        let temporaryRoot = _fileManager.temporaryDirectory
+        let protectedRoots = _downloadArtifactProtectedRoots
 
 		for url in [fileURL, stageURL].compactMap({ $0 }) {
-			// Never delete something outside the sandbox or inside the library itself.
-			guard url.path.hasPrefix(URL.documentsDirectory.path) || url.path.hasPrefix(FileManager.default.temporaryDirectory.path) else { continue }
-			guard _fileManager.fileExists(atPath: url.path) else { continue }
-			freed += _fileManager.allocatedSize(at: url)
-			try? _fileManager.removeItem(at: url)
-			removed = true
+            let path = url.standardizedFileURL.path
+            guard visited.insert(path).inserted,
+                  CleanupArtifactPolicy.isSafeDownloadedArtifact(
+                    url, stagingRoot: stagingRoot, temporaryRoot: temporaryRoot,
+                    protectedRoots: protectedRoots, fileManager: _fileManager
+                  ) else { continue }
+            let size = _fileManager.allocatedSize(at: url)
+            do {
+                try _fileManager.removeItem(at: url)
+                freed += size
+                removed = true
+            } catch {
+                Logger.misc.warning("Downloaded artifact cleanup failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+            }
 		}
 
 		guard removed else { return }
@@ -269,6 +345,18 @@ final class CleanupManager: ObservableObject {
 		// A download isn't an app, so the toast only reports the space.
 		report(summary, trigger: .sign, silent: true, force: true)
 	}
+
+    private var _downloadArtifactProtectedRoots: [URL] {
+        var roots = [
+            URL.documentsDirectory,
+            _fileManager.signed, _fileManager.unsigned, _fileManager.archives,
+            _fileManager.tweaksLibrary, _fileManager.entitlementsLibrary,
+            _fileManager.webManagerInbox, _fileManager.firmware
+        ]
+        roots += _fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        roots += _fileManager.urls(for: .libraryDirectory, in: .userDomainMask)
+        return roots
+    }
 
 	// MARK: - Manual
 
@@ -304,28 +392,26 @@ final class CleanupManager: ObservableObject {
 	/// Deletes apps that are still in the library, skipping ones a caller already removed —
 	/// touching a deleted CoreData object would fault.
 	private func delete(_ apps: [AppInfoPresentable]) -> CleanupSummary {
-		var summary = CleanupSummary()
-		guard !apps.isEmpty else { return summary }
+		guard !apps.isEmpty else { return CleanupSummary() }
 
 		let living = Storage.shared.getAllApps()
 		let targets = apps.compactMap { app -> AppInfoPresentable? in
 			guard let uuid = app.uuid else { return nil }
 			return living.first { $0.uuid == uuid }
 		}
+		guard !targets.isEmpty else { return CleanupSummary() }
 
-		guard !targets.isEmpty else { return summary }
-
-		for app in targets {
-			if let url = Storage.shared.getUuidDirectory(for: app) {
-				summary.freedBytes += _fileManager.allocatedSize(at: url)
-			}
-			summary.removedApps.append(app.name ?? .localized("App"))
-		}
-
-		// The deletion is one transaction and it can be refused - a copy in use by another
-		// operation is. Nothing was removed then, so nothing is reported as removed.
-		guard Storage.shared.deleteApps(targets) else { return CleanupSummary() }
-		return summary
+        // App rows are reported only after the transaction commits; bytes are counted per
+        // quarantine item only when its staged directory was actually removed.
+        let deletion = Storage.shared.deleteAppsWithOutcome(targets)
+        guard deletion.committed else { return CleanupSummary() }
+        return CleanupSummary(
+            removedApps: targets.map { $0.name ?? .localized("App") },
+            removedAppIDs: targets.compactMap(\.uuid),
+            categories: [],
+            freedBytes: deletion.freedBytes,
+            deferred: []
+        )
 	}
 
 	private func purgeEnabledCategories() -> CleanupSummary {

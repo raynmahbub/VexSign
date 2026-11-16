@@ -341,23 +341,37 @@ final class ImportAndInstallationTests: XCTestCase {
     }
 
     func testTaskHistorySearchMatchesEveryTermAndFailureStage() {
-        let task = UnifiedTask(id: "task", kind: .update, title: "Example App", phase: .failed)
-        task.failureStage = .signing
-        task.errorText = "Profile expired"
+        let task = queryRecord(id: "task", kind: .update, title: "Example App", phase: .failed,
+            updatedAt: Date(), failureStage: .signing, errorText: "Profile expired")
         XCTAssertEqual(TaskHistoryQuery.results([task], query: "EXAMPLE expired", sort: .latest).count, 1)
         XCTAssertTrue(TaskHistoryQuery.results([task], query: "example network", sort: .latest).isEmpty)
         XCTAssertEqual(TaskHistoryQuery.results([task], query: "  ", sort: .latest).count, 1)
     }
 
     func testTaskHistorySortIsStableAndRemovesDuplicateIDs() {
-        let first = UnifiedTask(id: "a", kind: .download, title: "Zebra")
-        let second = UnifiedTask(id: "b", kind: .download, title: "Alpha")
-        first.updatedAt = Date(timeIntervalSince1970: 10)
-        second.updatedAt = Date(timeIntervalSince1970: 20)
+        let first = queryRecord(id: "a", kind: .download, title: "Zebra", updatedAt: Date(timeIntervalSince1970: 10))
+        let second = queryRecord(id: "b", kind: .download, title: "Alpha", updatedAt: Date(timeIntervalSince1970: 20))
         let tasks = [first, second, first]
         XCTAssertEqual(TaskHistoryQuery.results(tasks, query: "", sort: .latest).map(\.id), ["b", "a"])
         XCTAssertEqual(TaskHistoryQuery.results(tasks, query: "", sort: .oldest).map(\.id), ["a", "b"])
         XCTAssertEqual(TaskHistoryQuery.results(tasks, query: "", sort: .name).map(\.id), ["b", "a"])
+    }
+
+    private func queryRecord(
+        id: String,
+        kind: UnifiedTaskKind,
+        title: String,
+        phase: UnifiedTaskPhase = .queued,
+        updatedAt: Date,
+        failureStage: UnifiedTaskPhase? = nil,
+        errorText: String? = nil
+    ) -> TaskRecord {
+        let queryText = [title, "", kind.title, phase.title, failureStage?.title ?? "", errorText ?? ""]
+            .joined(separator: " ")
+        return TaskRecord(id: id, kind: kind, title: title, subtitle: nil, phase: phase, progress: 0,
+            failureStage: failureStage, errorText: errorText, createdAt: updatedAt, updatedAt: updatedAt,
+            subjectID: nil, artifactID: nil, signingTrace: nil, displayPhaseTitle: phase.title,
+            queryText: queryText, receipt: "", outcome: "", outcomeUnknown: false, canRetry: false)
     }
 
     func testCertificateInputReaderRejectsOversizeAndNonFiles() throws {

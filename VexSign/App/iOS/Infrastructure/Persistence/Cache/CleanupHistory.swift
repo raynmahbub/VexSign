@@ -147,14 +147,11 @@ enum StorageRules {
 
 		guard !targets.isEmpty else { return ([], 0) }
 
-		let freed = targets.reduce(Int64(0)) { total, app in
-			guard let dir = Storage.shared.getUuidDirectory(for: app) else { return total }
-			return total + FileManager.default.allocatedSize(at: dir)
-		}
 		let names = targets.compactMap { $0.name }
 
 		// Refused or failed: every row is still there, so nothing was removed and nothing is said.
-		guard Storage.shared.deleteApps(targets) else { return ([], 0) }
-		return (names, freed)
+        let deletion = Storage.shared.deleteAppsWithOutcome(targets)
+        guard deletion.committed else { return ([], 0) }
+        return (names, deletion.freedBytes)
 	}
 }

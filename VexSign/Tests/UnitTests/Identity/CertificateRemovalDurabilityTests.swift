@@ -89,7 +89,7 @@ final class CertificateRemovalDurabilityTests: XCTestCase {
         // surviving row's private files/password; post-commit cleanup is logged.
         let commit = try XCTUnwrap(body.range(of: "try saveDeletion(deletion)"))
         let secret = try XCTUnwrap(body.range(of: "try SecureSecretStore.delete"))
-        let files = try XCTUnwrap(body.range(of: "try FileManager.default.removeItem(at: directory)"))
+        let files = try XCTUnwrap(body.range(of: "_ = try CleanupRemovalPolicy.remove(directory, beneath: root)"))
         XCTAssertLessThan(commit.lowerBound, secret.lowerBound)
         XCTAssertLessThan(commit.lowerBound, files.lowerBound)
         XCTAssertTrue(body.contains("deletion.rollback()"))

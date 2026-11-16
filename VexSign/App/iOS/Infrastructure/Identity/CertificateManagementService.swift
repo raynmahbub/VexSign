@@ -40,9 +40,12 @@ enum CertificateManagementService {
         certificateName: String = "", isDefault: Bool = false,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
+        // Start access before handing picker URLs to a detached worker. File-provider
+        // scopes can expire while a queued task is waiting to begin; keep both scopes
+        // open until the selected bytes have been staged and validated.
+        let keyAccess = p12URL.startAccessingSecurityScopedResource()
+        let provisionAccess = provisionURL.startAccessingSecurityScopedResource()
         Task.detached {
-            let keyAccess = p12URL.startAccessingSecurityScopedResource()
-            let provisionAccess = provisionURL.startAccessingSecurityScopedResource()
             defer {
                 if keyAccess { p12URL.stopAccessingSecurityScopedResource() }
                 if provisionAccess { provisionURL.stopAccessingSecurityScopedResource() }

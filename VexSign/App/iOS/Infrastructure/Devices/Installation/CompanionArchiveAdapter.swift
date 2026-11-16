@@ -24,18 +24,22 @@ final class CompanionArchiveAdapter: CompanionArchivePreparing {
         let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app))
         defer { withExtendedLifetime(lease) {} }
         let status = InstallerStatusViewModel(isIdevice: false)
-        let record = UnifiedTaskCenter.shared.begin(kind: .export, title: app.name ?? .localized("Application"),
+        let handler = ArchiveHandler(app: app, viewModel: status)
+        let center = UnifiedTaskCenter.shared
+        let record = center.begin(kind: .export, title: app.name ?? .localized("Application"),
             subtitle: .localized("Preparing companion IPA"), phase: .queued)
+        let taskID = record.id
         let observation = status.$packageProgress.sink { value in
             Task { @MainActor in
-                guard !record.phase.isTerminal else { return }
+                guard let task = (center.tasks + center.history).first(where: { $0.id == taskID }),
+                      !task.phase.isTerminal else { return }
                 progress(value)
-                UnifiedTaskCenter.shared.update(record, progress: value)
+                center.update(task, progress: value)
             }
         }
         defer { observation.cancel() }
         let worker = Task.detached(priority: .userInitiated) {
-            try await ArchiveHandler(app: app, viewModel: status).prepareCompanionArchive()
+            try await handler.prepareCompanionArchive()
         }
         do {
             let package = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })

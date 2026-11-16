@@ -2,7 +2,7 @@ import Foundation
 
 /// The authoritative pipeline's port. Concrete request/artifact types are chosen
 /// by the adapter; Domain does not know about UIImage, Core Data, or the engine.
-protocol SigningWork<Request, Artifact> {
+protocol SigningWork<Request, Artifact>: Sendable where Request: Sendable, Artifact: Sendable {
     associatedtype Request
     associatedtype Artifact
 
