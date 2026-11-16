@@ -570,7 +570,7 @@ enum StorageScanner {
             return temporarySize(protectedRoots: library.protectedURLs)
 		case .leftovers:
             return leftovers(library).reduce(0) { total, url in
-                guard let root = [fm.signed, fm.unsigned, fm.certificates].first(where: {
+                guard [fm.signed, fm.unsigned, fm.certificates].contains(where: {
                     CleanupRemovalPolicy.isSafeTarget(url, beneath: $0, protectedRoots: library.protectedURLs)
                 }) else { return total }
                 return total + CleanupRemovalPolicy.allocatedSizeWithoutFollowingSymlinks(at: url)

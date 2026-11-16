@@ -37,7 +37,7 @@ enum RecoverableFileRemoval {
             try fileManager.moveItem(at: url, to: held)
         } catch {
             do { _ = try CleanupRemovalPolicy.remove(folder, beneath: root) }
-            catch let cleanupError { FileLogger.error("Could not remove empty Undo staging folder: \(LogRedaction.redact(cleanupError.localizedDescription), privacy: .public)", category: "files") }
+            catch let cleanupError { FileLogger.error("Could not remove empty Undo staging folder: \(cleanupError.localizedDescription)", category: "files") }
             throw error
         }
 		return Token(original: url, held: held)
@@ -63,7 +63,7 @@ enum RecoverableFileRemoval {
 		do {
             _ = try CleanupRemovalPolicy.remove(root, beneath: fileManager.temporaryDirectory)
 		} catch {
-			FileLogger.error("Could not clear removed items: \(LogRedaction.redact(error.localizedDescription), privacy: .public)", category: "files")
+			FileLogger.error("Could not clear removed items: \(error.localizedDescription)", category: "files")
 		}
 	}
 
@@ -73,7 +73,7 @@ enum RecoverableFileRemoval {
 		do {
             _ = try CleanupRemovalPolicy.remove(folder, beneath: holdingRoot(fileManager: fileManager))
 		} catch {
-			FileLogger.error("Could not discard removed item: \(LogRedaction.redact(error.localizedDescription), privacy: .public)", category: "files")
+			FileLogger.error("Could not discard removed item: \(error.localizedDescription)", category: "files")
 		}
 	}
 

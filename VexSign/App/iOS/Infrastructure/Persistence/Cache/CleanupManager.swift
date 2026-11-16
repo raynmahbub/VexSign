@@ -225,8 +225,13 @@ final class CleanupManager: ObservableObject {
         let viewImported = try viewContext.fetch(viewImportedRequest)
         let pendingInsertIDs = Set((viewSigned.filter { $0.isInserted && !$0.isDeleted }.compactMap(\.uuid)) +
             (viewImported.filter { $0.isInserted && !$0.isDeleted }.compactMap(\.uuid)))
-        let apps = (viewSigned.filter { committedIDs.contains($0.uuid ?? "") } +
-            viewImported.filter { committedIDs.contains($0.uuid ?? "") }).map { $0 as AppInfoPresentable }
+        let signedApps = viewSigned
+            .filter { committedIDs.contains($0.uuid ?? "") }
+            .map { $0 as AppInfoPresentable }
+        let importedApps = viewImported
+            .filter { committedIDs.contains($0.uuid ?? "") }
+            .map { $0 as AppInfoPresentable }
+        let apps: [AppInfoPresentable] = signedApps + importedApps
         let missing = uuids.subtracting(committedIDs).subtracting(pendingInsertIDs)
         return (apps, missing)
     }
