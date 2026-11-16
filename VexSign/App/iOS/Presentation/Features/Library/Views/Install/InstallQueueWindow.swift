@@ -134,13 +134,16 @@ private struct InstallQueueFailureView: View {
     @ObservedObject var queue: InstallationQueueModel
     let failure: InstallationFailure
     let entryID: String?
+    @State private var confirmRetryAfterDeviceCheck = false
+    @State private var retryUsingLocalhost = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Image(systemName: failure.needsTrust ? "lock.shield" : "exclamationmark.triangle.fill")
+                Image(systemName: failure.needsTrust ? "lock.shield" :
+                    (failure.requiresDeviceCheckBeforeRetry ? "questionmark.circle.fill" : "exclamationmark.triangle.fill"))
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(failure.needsTrust ? Color.orange : Color.red)
+                    .foregroundStyle(failure.needsTrust || failure.requiresDeviceCheckBeforeRetry ? Color.orange : Color.red)
                 Text(failure.title)
                     .font(.headline)
                     .lineLimit(2)
@@ -174,12 +177,12 @@ private struct InstallQueueFailureView: View {
 
             HStack(spacing: 10) {
                 Button(.localized("Retry Install")) {
-                    queue.retryCurrent(entryID: entryID)
+                    _requestRetry(useLocalhost: false)
                 }
                 .buttonStyle(.borderedProminent)
                 if failure.canRetryLocally {
                     Button(.localized("Retry with Semi Local (localhost)")) {
-                            queue.retryCurrent(entryID: entryID, useLocalhost: true)
+                        _requestRetry(useLocalhost: true)
                     }
                     .buttonStyle(.bordered)
                     .lineLimit(2)
@@ -202,6 +205,24 @@ private struct InstallQueueFailureView: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(UIColor.secondarySystemBackground))
+        .confirmationDialog(.localized("Install again?"), isPresented: $confirmRetryAfterDeviceCheck, titleVisibility: .visible) {
+            Button(.localized("I Checked — Install Again")) {
+                queue.retryCurrent(entryID: entryID, useLocalhost: retryUsingLocalhost,
+                    afterManualDeviceCheck: true)
+            }
+            Button(.localized("Cancel"), role: .cancel) {}
+        } message: {
+            Text(.localized("If the requested version is already on the Home Screen, open it instead. Only choose Install Again after checking the app version and confirming the requested version is not installed; VexSign cannot verify that manual check."))
+        }
+    }
+
+    private func _requestRetry(useLocalhost: Bool) {
+        guard failure.requiresDeviceCheckBeforeRetry else {
+            queue.retryCurrent(entryID: entryID, useLocalhost: useLocalhost)
+            return
+        }
+        retryUsingLocalhost = useLocalhost
+        confirmRetryAfterDeviceCheck = true
     }
 }
 

@@ -319,10 +319,12 @@ private struct TaskRow: View {
         }
         .padding(.vertical, 2)
         .confirmationDialog(.localized("Install again?"), isPresented: $confirmRetry, titleVisibility: .visible) {
-            Button(.localized("Install Again")) { _ = center.retry(task, allowingUnconfirmedInstall: true) }
+            Button(.localized("I Checked — Install Again")) {
+                _ = center.retry(task, allowingUnconfirmedInstall: true)
+            }
             Button(.localized("Cancel"), role: .cancel) {}
         } message: {
-            Text(.localized("The previous installation is not verified. A request may already have reached iOS even if no handoff was recorded. Check the Home Screen and app version before installing again."))
+            Text(.localized("If the requested version is already on the Home Screen, open it instead. Only choose Install Again after checking the app version and confirming the requested version is not installed; VexSign cannot verify that manual check."))
         }
 	}
 

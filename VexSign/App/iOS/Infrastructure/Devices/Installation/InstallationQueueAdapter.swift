@@ -16,7 +16,8 @@ final class InstallationQueueAdapter: InstallationQueueProviding {
         let installer = try queue.installer.map { try InstallationSessionProjection.state($0, repository: repository, taskPhase: taskPhase) }
         let failure = queue.failurePresentation.map {
             InstallationFailure(id: $0.id, title: $0.title, message: $0.message, details: $0.details,
-                needsTrust: $0.needsTrust, canRetryLocally: $0.canRetryLocally, waitingCount: $0.waitingCount)
+                needsTrust: $0.needsTrust, canRetryLocally: $0.canRetryLocally,
+                requiresDeviceCheckBeforeRetry: $0.requiresDeviceCheckBeforeRetry, waitingCount: $0.waitingCount)
         }
         return InstallationQueueState(current: try queue.current.map(entry), upcoming: try queue.upcoming.map(entry),
             installedApps: try queue.installedApps.map(entry), installer: installer, index: queue.index,
@@ -52,10 +53,10 @@ final class InstallationQueueAdapter: InstallationQueueProviding {
     func resume() { queue.resume() }
     func clear() { queue.clear() }
     func skip(entryID: String?) { PairingBridge.restartHeartbeat(); queue.skip(forEntryID: entryID) }
-    func retry(entryID: String?, useLocalhost: Bool) {
+    func retry(entryID: String?, useLocalhost: Bool, afterManualDeviceCheck: Bool) {
         guard queue.current?.id == entryID else { return }
         PairingBridge.restartHeartbeat()
-        queue.retryCurrent(useLocalhost: useLocalhost)
+        queue.retryCurrent(useLocalhost: useLocalhost, afterManualDeviceCheck: afterManualDeviceCheck)
     }
     func stopAfterFailure() { PairingBridge.restartHeartbeat(); queue.stopAfterFailure() }
     func setFallbackPresented(_ presented: Bool) { queue.installer?.isPresentingFallbackPage = presented }

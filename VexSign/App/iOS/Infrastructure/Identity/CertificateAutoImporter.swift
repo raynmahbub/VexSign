@@ -105,7 +105,7 @@ class CertificateAutoImporter {
 
 					let certHash = self.calculateCertificateHash(p12: p12Url, provision: provisionUrl, password: password)
 
-					guard CertificateManagementService.validateCertificatePassword(for: p12Url, with: password, using: provisionUrl) else {
+					guard CertificateManagementService.validateSigningPair(for: p12Url, with: password, using: provisionUrl) else {
 						Logger.misc.warning("Skipping \(certName): invalid certificate or password")
 						continue
 					}

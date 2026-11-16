@@ -373,7 +373,7 @@ final class ImportAndInstallationTests: XCTestCase {
         let samples: [[UInt8]] = [[0x30], [0x30, 0x82, 0xff, 0xff], [0x30, 0x03, 0x02, 0x01, 0x03]]
         for bytes in samples {
             let key = try temporaryFile(Data(bytes))
-            XCTAssertFalse(CertificateManagementService.validateCertificatePassword(for: key, with: "", using: profile))
+            XCTAssertFalse(CertificateManagementService.validateSigningPair(for: key, with: "", using: profile))
         }
     }
 
@@ -410,12 +410,23 @@ final class ImportAndInstallationTests: XCTestCase {
         XCTAssertNil(CertificateReader(URL(fileURLWithPath: "/missing.mobileprovision")).decoded)
     }
 
-    func testMalformedP12DoesNotCrashPasswordValidation() throws {
+    func testMalformedP12DoesNotCrashPairValidation() throws {
         let profile = try temporaryFile(profileData())
         for data in [Data(), Data("not a PKCS12 identity".utf8)] {
             let key = try temporaryFile(data)
-            XCTAssertFalse(CertificateManagementService.validateCertificatePassword(for: key, with: "wrong", using: profile))
+            XCTAssertFalse(CertificateManagementService.validateSigningPair(for: key, with: "wrong", using: profile))
         }
+    }
+
+    func testCertificateImportRequiresTheProfileToNameTheActualP12Leaf() throws {
+        var profile = try SigningRegressionFixture.profile()
+        let identity = try XCTUnwrap(SigningIdentity(SigningRegressionFixture.certificateDER))
+        profile.DeveloperCertificates = [Data("another leaf".utf8)]
+        XCTAssertFalse(CertificateManagementService.profileAuthorizes(identity, profile: profile))
+        profile.DeveloperCertificates = [Data("another leaf".utf8), SigningRegressionFixture.certificateDER]
+        XCTAssertTrue(CertificateManagementService.profileAuthorizes(identity, profile: profile))
+        profile.DeveloperCertificates = nil
+        XCTAssertFalse(CertificateManagementService.profileAuthorizes(identity, profile: profile))
     }
 
     func testFailedImportReportsErrorOnMainThread() throws {

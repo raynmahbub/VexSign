@@ -10,12 +10,13 @@ import OSLog
 import NimbleExtensions
 
 final class CertificateFileHandler: NSObject {
+    static let p12FileName = "certificate.p12"
+    static let profileFileName = "certificate.mobileprovision"
+
 	private let _fileManager = FileManager.default
 	private let _uuid = UUID().uuidString
     var certificateUUID: String { _uuid }
 	
-	private let _key: URL
-	private let _provision: URL
 	private let _keyPassword: String?
 	private let _certNickname: String?
 	private let _isDefault: Bool
@@ -23,36 +24,31 @@ final class CertificateFileHandler: NSObject {
 	private var _certPair: Certificate?
 	
 	init(
-		key: URL,
-		provision: URL,
 		password: String? = nil,
 		nickname: String? = nil,
 		isDefault: Bool = false
 	) {
-		self._key = key
-		self._provision = provision
 		self._keyPassword = password
 		self._certNickname = nickname
 		self._isDefault = isDefault
 		
-		_certPair = CertificateReader(provision).decoded
-		
 		super.init()
 	}
 	
-	func copy() async throws {
-		guard 
-			_certPair != nil
-		else {
-			throw CertificateFileHandlerError.certNotValid
-		}
-		
+	func stage(keyData: Data, provisionData: Data) async throws {
 		let destinationURL = try await _directory()
 
 		try _fileManager.createDirectory(at: destinationURL, withIntermediateDirectories: true)
-		try _fileManager.copyItem(at: _key, to: destinationURL.appendingPathComponent(_key.lastPathComponent))
-		try _fileManager.copyItem(at: _provision, to: destinationURL.appendingPathComponent(_provision.lastPathComponent))
+        try ProtectedCertificateFiles.applyProtectionAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication, .posixPermissions: 0o700],
+            at: destinationURL.path
+        )
+		let keyURL = destinationURL.appendingPathComponent(Self.p12FileName)
+		let profileURL = destinationURL.appendingPathComponent(Self.profileFileName)
+		try keyData.write(to: keyURL, options: .atomic)
+		try provisionData.write(to: profileURL, options: .atomic)
         try ProtectedCertificateFiles.protect(destinationURL)
+        _certPair = CertificateReader(profileURL).decoded
 	}
 	
 	@MainActor
@@ -78,7 +74,7 @@ final class CertificateFileHandler: NSObject {
 
 	/// Removes the files this import staged.
 	///
-	/// The directory holds the copied `.p12` and profile. An import that fails after `copy()`
+	/// The directory holds the staged `.p12` and profile. An import that fails after staging
 	/// leaves a private key on disk, and a silent failure here would leave it there with no
 	/// record: the row was never written, so nothing else knows the directory exists until a
 	/// `Remove Leftovers` pass runs (which is off by default).

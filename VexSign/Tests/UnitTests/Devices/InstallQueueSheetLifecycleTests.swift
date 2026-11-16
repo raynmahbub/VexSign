@@ -134,6 +134,9 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 		XCTAssertEqual(notInstalled, .unconfirmed)
 		XCTAssertEqual(plain, .failed)
 		XCTAssertEqual(trust, .needsTrust, "A trust problem outranks the verdict: retrying cannot fix it")
+        XCTAssertTrue(unconfirmed.requiresDeviceCheckBeforeRetry)
+        XCTAssertFalse(plain.requiresDeviceCheckBeforeRetry)
+        XCTAssertFalse(trust.requiresDeviceCheckBeforeRetry)
 	}
 
 	@MainActor
@@ -182,10 +185,12 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 			details: "certificate verify failed",
 			needsTrust: true,
 			canRetryLocally: true,
+            requiresDeviceCheckBeforeRetry: false,
 			waitingCount: 2
 		)
 		XCTAssertTrue(presentation.needsTrust)
 		XCTAssertTrue(presentation.canRetryLocally)
+        XCTAssertFalse(presentation.requiresDeviceCheckBeforeRetry)
 		XCTAssertEqual(presentation.waitingCount, 2)
 		XCTAssertFalse(presentation.id.uuidString.isEmpty)
 	}

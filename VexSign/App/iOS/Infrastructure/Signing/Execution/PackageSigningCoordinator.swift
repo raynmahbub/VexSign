@@ -64,7 +64,9 @@ enum PackageSigningCoordinator {
                     guard review.isReady, let identityID = review.mainIdentityReference else {
                         throw SigningResolutionSession.refusal(review)
                     }
-                    if let reviewedAuthorization, reviewedAuthorization != review.authorization { throw SigningResolutionSession.changedSinceReview() }
+                    if let reviewedAuthorization, reviewedAuthorization != review.authorization {
+                        throw SigningResolutionSession.changedSinceReview(from: reviewedAuthorization, to: review.authorization)
+                    }
                     if !review.plannedRemovals.isEmpty && reviewedAuthorization == nil {
                         throw SigningFileHandlerError.identityRejected("Open Ready to Sign and explicitly confirm the listed optional extension removals. Automation cannot silently remove a newly incompatible extension.")
                     }

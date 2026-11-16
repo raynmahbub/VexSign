@@ -88,7 +88,9 @@ final class SigningHandler: NSObject {
         _movedAppPath = movedAppURL
         if _options.signingOption == .default {
             let source = try SigningResolutionSession.sourceFingerprint(in: movedAppURL)
-            if let authorization, authorization.sourceFingerprint != source { throw SigningResolutionSession.changedSinceReview() }
+            if let authorization, authorization.sourceFingerprint != source {
+                throw SigningResolutionSession.changedSinceReview(.sourceBundle)
+            }
             originalSourceFingerprint = source
             originalRequirements = try SigningResolutionSession.requirements(in: movedAppURL, options: _options)
         }

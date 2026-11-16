@@ -98,7 +98,7 @@ final class CertificateRemovalDurabilityTests: XCTestCase {
 
 	@MainActor
 	func testTheStagedImportCleanupReportsAFailureToo() throws {
-		// The same directory is written by `CertificateFileHandler.copy()` before the row
+		// The same directory is written by `CertificateFileHandler.stage()` before the row
 		// exists, so a failed import leaves a private key behind with no row to own it.
 		let source = try RepositorySourceFixture.read("VexSign/App/iOS/Infrastructure/Identity/CertificateFileHandler.swift")
 		let start = try XCTUnwrap(source.range(of: "func clean()"))

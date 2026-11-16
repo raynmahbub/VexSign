@@ -43,7 +43,9 @@ final class InstallationQueueModel: ObservableObject {
     func resume() { useCase.resume() }
     func clear() { useCase.clear() }
     func skip(forEntryID id: String? = nil) { useCase.skip(entryID: id) }
-    func retryCurrent(entryID: String?, useLocalhost: Bool = false) { useCase.retry(entryID: entryID, useLocalhost: useLocalhost) }
+    func retryCurrent(entryID: String?, useLocalhost: Bool = false, afterManualDeviceCheck: Bool = false) {
+        useCase.retry(entryID: entryID, useLocalhost: useLocalhost, afterManualDeviceCheck: afterManualDeviceCheck)
+    }
     func stopAfterFailure() { useCase.stopAfterFailure() }
     func setFallbackPresented(_ presented: Bool) { useCase.setFallbackPresented(presented) }
     private func apply(_ result: Result<InstallationQueueState, Error>) {

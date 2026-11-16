@@ -353,7 +353,9 @@ final class InstallQueue: ObservableObject {
     }
 
 	/// Retries the app at `index` (or the current one) by reinstating it and advancing back.
-	func retryCurrent(useLocalhost: Bool = false) {
+	/// An unconfirmed handoff needs an explicit Home Screen check before this can start another
+	/// attempt; a transport or monitoring timeout alone is not permission to reinstall.
+	func retryCurrent(useLocalhost: Bool = false, afterManualDeviceCheck: Bool = false) {
 		guard apps.indices.contains(index) else { return }
         // Checked before anything is torn down, so a refused retry leaves the failed attempt
         // and its report exactly as they were. The retiring installer is this queue's own,
@@ -365,12 +367,17 @@ final class InstallQueue: ObservableObject {
             $0.kind == .install && $0.phase.isInProgress && $0.subjectID == entry.base.uuid
                 && entry.base.uuid != nil && $0.id != unifiedTask?.id
         }
-        switch InstallRetryPolicy.refusal(signedCopyPresent: present, duplicateInFlight: duplicate) {
+        let outcomeUnknown = failurePresentation?.requiresDeviceCheckBeforeRetry == true
+        switch InstallRetryPolicy.refusal(signedCopyPresent: present, duplicateInFlight: duplicate,
+            outcomeUnknown: outcomeUnknown, afterManualDeviceCheck: afterManualDeviceCheck) {
         case .signedCopyMissing:
             Toast.error(.localized("The signed copy is no longer in the library, so it cannot be installed again. Sign the app again first."))
             return
         case .alreadyInstalling:
             Toast.info(.localized("This app is already being installed."))
+            return
+        case .checkDeviceFirst:
+            Toast.info(failurePresentation?.message ?? FailureKind.unconfirmed.summary)
             return
         case nil:
             break
@@ -519,14 +526,16 @@ final class InstallQueue: ObservableObject {
 			if let task = unifiedTask {
 				UnifiedTaskCenter.shared.transition(task, to: kind.taskPhase,
 													error: kind.taskPhase == .unconfirmed ? nil : error.localizedDescription)
-				// Keep this failed attempt; a retry starts a separate record.
+				// Keep this terminal attempt; a retry starts a separate record.
                 let failedEntryID = current?.id
                 UnifiedTaskCenter.shared.registerRetry(task) { [weak self] in
                     guard let self, self.current?.id == failedEntryID, self.failurePresentation != nil else {
                         Toast.info(.localized("Restart installation from Signed Apps. The original task report is retained."))
                         return
                     }
-                    self.retryCurrent()
+                    // The Task Center's retry action is registered only after its own
+                    // explicit "check the Home Screen" confirmation for unconfirmed installs.
+                    self.retryCurrent(afterManualDeviceCheck: kind.requiresDeviceCheckBeforeRetry)
                 }
 				unifiedTask = nil
 			}
@@ -536,6 +545,7 @@ final class InstallQueue: ObservableObject {
                 details: LogRedaction.redact(localTrustFailure?.localizedDescription ?? error.localizedDescription),
                 needsTrust: kind == .needsTrust,
                 canRetryLocally: installer?.canRetryUsingLocalhost == true,
+                requiresDeviceCheckBeforeRetry: kind.requiresDeviceCheckBeforeRetry,
                 waitingCount: upcoming.count
             )
             if kind.releasesSheet {

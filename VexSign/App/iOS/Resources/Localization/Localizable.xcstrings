@@ -112114,6 +112114,138 @@
           }
         }
       }
+    },
+    "I Checked — Install Again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I Checked — Install Again"
+          }
+        }
+      }
+    },
+    "If the requested version is already on the Home Screen, open it instead. Only choose Install Again after checking the app version and confirming the requested version is not installed; VexSign cannot verify that manual check." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If the requested version is already on the Home Screen, open it instead. Only choose Install Again after checking the app version and confirming the requested version is not installed; VexSign cannot verify that manual check."
+          }
+        }
+      }
+    },
+    "A complete signing review could not be matched to the current inputs. Review the current app and signing setup again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A complete signing review could not be matched to the current inputs. Review the current app and signing setup again."
+          }
+        }
+      }
+    },
+    "Required capabilities or entitlement values changed after review. Review the current component requirements and profile grants; no capability has been silently removed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Required capabilities or entitlement values changed after review. Review the current component requirements and profile grants; no capability has been silently removed."
+          }
+        }
+      }
+    },
+    "The app bundle contents changed after review. Review the current IPA and approve again; no alternate identity or removal has been substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app bundle contents changed after review. Review the current IPA and approve again; no alternate identity or removal has been substituted."
+          }
+        }
+      }
+    },
+    "The app's components or Bundle Identifiers changed after review. Review the current app before signing; no identity or removal has been substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app's components or Bundle Identifiers changed after review. Review the current app before signing; no identity or removal has been substituted."
+          }
+        }
+      }
+    },
+    "The component, identity, profile, or required capabilities changed after review. Review the current inputs again; no alternate identity or removal has been silently substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The component, identity, profile, or required capabilities changed after review. Review the current inputs again; no alternate identity or removal has been silently substituted."
+          }
+        }
+      }
+    },
+    "The optional-extension removal plan changed or is no longer safe after review. Review and confirm the exact current list; nothing has been silently removed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The optional-extension removal plan changed or is no longer safe after review. Review and confirm the exact current list; nothing has been silently removed."
+          }
+        }
+      }
+    },
+    "The signing identity or provisioning profile changed after review. Review the current certificate and profile before signing; no alternate identity has been substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing identity or provisioning profile changed after review. Review the current certificate and profile before signing; no alternate identity has been substituted."
+          }
+        }
+      }
+    },
+    "The target device or pairing record changed after review. Re-select the device and review signing inputs again; no alternate identity has been substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The target device or pairing record changed after review. Re-select the device and review signing inputs again; no alternate identity has been substituted."
+          }
+        }
+      }
+    },
+    "The provisioning profile changed after review. Review its App ID, team, device authorization, and capabilities before signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile changed after review. Review its App ID, team, device authorization, and capabilities before signing."
+          }
+        }
+      }
+    },
+    "The signing certificate or private-key identity changed after review. Review the current identity before signing; no alternate identity has been substituted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing certificate or private-key identity changed after review. Review the current identity before signing; no alternate identity has been substituted."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
