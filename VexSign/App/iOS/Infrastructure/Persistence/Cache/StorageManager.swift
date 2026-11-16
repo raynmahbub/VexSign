@@ -25,7 +25,7 @@ enum TemporaryCleanupPolicy {
         let staging = resolvingExistingSymlinkAncestors(in: downloadStaging)
         if isEqualOrDescendant(path, of: staging) { return true }
         let undoRoot = resolvingExistingSymlinkAncestors(
-            temporaryRoot.appendingPathComponent("RemovedItems", isDirectory: true)
+            in: temporaryRoot.appendingPathComponent("RemovedItems", isDirectory: true)
         )
         if isEqualOrDescendant(path, of: undoRoot) { return true }
         guard path.hasPrefix(root + "/") else { return false }
