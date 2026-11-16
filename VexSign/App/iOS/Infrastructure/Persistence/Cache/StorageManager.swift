@@ -20,17 +20,45 @@ enum TemporaryCleanupPolicy {
     ]
 
     static func isRetained(_ url: URL, temporaryRoot: URL, downloadStaging: URL) -> Bool {
-        let root = temporaryRoot.resolvingSymlinksInPath().standardizedFileURL.path
-        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
-        let staging = downloadStaging.resolvingSymlinksInPath().standardizedFileURL.path
-        if path == staging || path.hasPrefix(staging + "/") { return true }
-        let undoRoot = temporaryRoot.appendingPathComponent("RemovedItems", isDirectory: true)
-            .resolvingSymlinksInPath().standardizedFileURL.path
-        if path == undoRoot || path.hasPrefix(undoRoot + "/") { return true }
+        let root = resolvingExistingSymlinkAncestors(in: temporaryRoot)
+        let path = resolvingExistingSymlinkAncestors(in: url)
+        let staging = resolvingExistingSymlinkAncestors(in: downloadStaging)
+        if isEqualOrDescendant(path, of: staging) { return true }
+        let undoRoot = resolvingExistingSymlinkAncestors(
+            temporaryRoot.appendingPathComponent("RemovedItems", isDirectory: true)
+        )
+        if isEqualOrDescendant(path, of: undoRoot) { return true }
         guard path.hasPrefix(root + "/") else { return false }
         let relative = String(path.dropFirst(root.count + 1))
         guard let first = relative.split(separator: "/").first else { return false }
         return retainedPrefixes.contains { first.hasPrefix($0) }
+    }
+
+    /// `resolvingSymlinksInPath()` alone can leave a missing descendant behind an
+    /// existing symlink unresolved. Resolve each existing component as we walk, then
+    /// append any not-yet-created suffix. Cleanup can now recognize aliases to protected
+    /// directories even when the item beneath the alias does not exist yet.
+    private static func resolvingExistingSymlinkAncestors(in url: URL) -> String {
+        let components = url.standardizedFileURL.pathComponents
+        var resolved = URL(fileURLWithPath: "/", isDirectory: true)
+        let fileManager = FileManager.default
+
+        for component in components.dropFirst() {
+            let candidate = resolved.appendingPathComponent(component)
+            let linkTarget =
+                try? fileManager.destinationOfSymbolicLink(atPath: candidate.path) // try? ok: non-links stay lexical.
+            if linkTarget != nil {
+                resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
+            } else {
+                resolved = candidate
+            }
+        }
+
+        return resolved.standardizedFileURL.path
+    }
+
+    private static func isEqualOrDescendant(_ path: String, of directory: String) -> Bool {
+        path == directory || path.hasPrefix(directory + "/")
     }
 }
 
