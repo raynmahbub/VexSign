@@ -135,14 +135,20 @@ def test_onrender_without_forwarded_proto_stays_https(client):
     )
 
 
-def test_landing_page_escapes_a_malicious_host(client):
-    response = client.get(
-        "/",
-        headers={"Host": 'evil.example.com"><script>alert(1)</script>', "Accept": "text/html"},
-    )
+def test_landing_page_never_reflects_a_malicious_host(client):
+    """A Host header that is not a host token is dropped, not echoed.
+
+    HTML-escaping the value was the earlier defence; `request_base.safe_host`
+    now rejects it outright, so the page falls back to the loopback name and the
+    attacker-controlled string never reaches the response in any form.
+    """
+    payload = 'evil.example.com"><script>alert(1)</script>'
+    response = client.get("/", headers={"Host": payload, "Accept": "text/html"})
     assert response.status_code == 200
     assert "<script>alert(1)</script>" not in response.text
-    assert "&lt;script&gt;" in response.text or "&quot;&gt;" in response.text
+    assert "&lt;script&gt;" not in response.text
+    assert 'evil.example.com"' not in response.text
+    assert "localhost" in response.text
 
 
 def test_db_helpers_tolerate_missing_device():

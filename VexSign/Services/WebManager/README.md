@@ -92,9 +92,20 @@ Honest limits, in one place:
 - **Signer console** does not sign: it relays to the phone's Web Manager, so the
   phone must be reachable *from this server* (self-host on your LAN or a tailnet —
   a public deployment cannot reach a phone behind NAT). Targets are restricted to
-  private / loopback / link-local / CGNAT addresses unless
-  `VEXSIGN_ALLOW_PUBLIC_TARGETS=1`. The relay is read-only (`status`, `library`,
-  `updates`), so `POST /api/cleanup` is not reachable from a browser tab.
+  private / loopback / CGNAT addresses unless `VEXSIGN_ALLOW_PUBLIC_TARGETS=1`;
+  link-local and cloud-metadata addresses (`169.254.0.0/16`, `fe80::/10`) are
+  never allowed. The endpoint path is built from the parsed address, so an
+  address carrying `?` or `#` is refused rather than turning the appended
+  endpoint into a query string. Redirects are followed one hop at a time with
+  the guard re-applied to each hop, and the upload relay does not follow them at
+  all.
+- **The relay is not an open proxy.** It can reach loopback, so a deployment
+  with a public address should set `VEXSIGN_RELAY_TOKEN`; every relay request
+  must then send the matching `X-Relay-Token` header (constant-time compare).
+  Leave it unset for a LAN/tailnet self-host, where the tool is public by
+  design. What the relay *writes* is bounded: `/proxy` is GET-only against
+  `status`, `library` and `updates`, so `POST /api/cleanup` is not reachable
+  from a browser tab.
 - **Repo decoder** fetches public feeds (that is the point), caps them at 4 MiB,
   and stores nothing.
 - **App installer** hosts nothing and refuses cleartext on both the IPA and the
@@ -134,4 +145,16 @@ image or deployed-service acceptance run.
 
 `VEXSIGN_ALLOW_PUBLIC_TARGETS=1` relaxes the signer relay's private-network guard;
 `PUBLIC_BASE_URL` overrides the base used for generated URLs (see
-`request_base.py`).
+`request_base.py`) and is effectively required behind a proxy that does not
+forward `X-Forwarded-Host`/`X-Forwarded-Proto`, because the feed URLs handed to
+the app are otherwise built from the request's `Host` header;
+`VEXSIGN_RELAY_TOKEN` turns the signer relay into a token-gated endpoint for
+deployments that are reachable from the internet (see above);
+`VEXSIGN_TRUSTED_HOSTS` is a comma-separated Host allowlist (exact names or
+`*.example.com` wildcards) that makes a forged `Host` header a 400 instead of a
+feed URL pointing somewhere else — unset keeps header inference, which is what an
+existing reverse proxy already relies on.
+
+The host and scheme taken from forwarding headers are validated as a host token
+and `http`/`https` before they are interpolated, so a malformed header cannot
+produce a URL that parses as something else.
