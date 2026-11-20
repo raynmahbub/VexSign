@@ -28,14 +28,22 @@ class AR: NSObject {
 		var offset = 0
 		var files: [ARFileModel] = []
 		var names = Set<String>()
-		while offset + 60 <= data.count {
+		while offset < data.count {
+			guard data.count - offset >= 60 else {
+				throw ARError.badArchive("Header truncated")
+			}
 			let fileInfo = try _getFileInfo(data, offset)
 			guard names.insert(fileInfo.name.lowercased()).inserted else {
 				throw ARError.badArchive("Duplicate member name")
 			}
 			files.append(fileInfo)
 			offset += fileInfo.size + 60
-			offset += offset % 2
+			if fileInfo.size % 2 != 0 {
+				guard offset < data.count, data[offset] == 0x0a else {
+					throw ARError.badArchive("Missing or invalid member padding")
+				}
+				offset += 1
+			}
 		}
 		return files
 	}
@@ -43,6 +51,10 @@ class AR: NSObject {
 	private func _getFileInfo(_ data: Data, _ offset: Int) throws -> ARFileModel {
 		guard offset + 60 <= data.count else {
 			throw ARError.badArchive("Header truncated")
+		}
+
+		guard data[offset + 58] == 0x60, data[offset + 59] == 0x0a else {
+			throw ARError.badArchive("Invalid member header terminator")
 		}
 
 		guard let sizeStr = String(data: data.subdata(in: offset+48..<offset+58), encoding: .ascii),

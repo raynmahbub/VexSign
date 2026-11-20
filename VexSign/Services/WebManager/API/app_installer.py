@@ -32,7 +32,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from repo_creator import RepoApp, build_manifest, install_link
-from url_guard import public_url_error, should_resolve_dns
+from url_guard import public_http_client, public_url_error, should_resolve_dns
 from web_chrome import page
 
 router = APIRouter()
@@ -73,7 +73,7 @@ class ProbeBody(BaseModel):
 
 def _make_client() -> httpx.Client:
     """Factory so tests can substitute an httpx.MockTransport."""
-    return httpx.Client(timeout=PROBE_TIMEOUT_SECONDS, follow_redirects=False)
+    return public_http_client(timeout=PROBE_TIMEOUT_SECONDS)
 
 
 class UnsafeTargetError(ValueError):

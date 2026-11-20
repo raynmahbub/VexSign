@@ -604,16 +604,13 @@ final class TweakManager: ObservableObject {
 		injectableTweaks.filter { $0.injectByDefault }.count
 	}
 
-	/// Sign-time spec from a tweak's active version: one file per component with its
-	/// effective config (component override else tweak default); "selected" targeting
-	/// is constrained to the app's real extensions.
-	func injectionSpec(for tweak: ManagedTweak, availableAppex: [String]) -> TweakInjectionSpec? {
+	/// Preserve explicit selections so signing can report missing targets rather
+	/// than silently signing without an injection the user requested. The caller
+	/// supplies available names for UI compatibility, but they are not authoritative.
+	func injectionSpec(for tweak: ManagedTweak, availableAppex _: [String]) -> TweakInjectionSpec? {
 		guard tweak.isEnabled, let version = tweak.activeVersion else { return nil }
 		let files: [TweakInjectionFile] = version.components.map { component in
-			var config = component.config ?? tweak.config
-			if case .selected(let names) = config.targeting {
-				config.targeting = .selected(names.filter { availableAppex.contains($0) })
-			}
+			let config = component.config ?? tweak.config
 			return TweakInjectionFile(
 				fileURL: fileURL(forTweak: tweak.id, version: version, component: component),
 				fileName: component.fileName,

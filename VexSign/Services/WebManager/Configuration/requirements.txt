@@ -7,3 +7,6 @@ python-multipart==0.0.33
 # Web Manager, the repository decoder fetches feeds, and the app installer probes
 # IPA URLs. Streaming support is what rules out urllib here.
 httpx==0.28.1
+# The public URL guard installs a checked network backend into HTTPX's pool.
+# Keep this exact version together with httpx and exercise the transport tests.
+httpcore==1.0.9

@@ -51,4 +51,25 @@ final class ARArchiveSafetyTests: XCTestCase {
         await assertRejected([member("data.tar.xz"), member("DATA.TAR.XZ/")])
         await assertRejected([member("data.tar.xz", sizeField: "9999999999")])
     }
+
+    func testRejectsTrailingPartialHeaderAndInvalidHeaderTerminator() async {
+        await assertRejected([member("debian-binary"), Data("partial header".utf8)])
+        var invalidHeader = member("data.tar.xz")
+        invalidHeader[58] = 0
+        await assertRejected([invalidHeader])
+    }
+
+    func testRejectsMissingOrInvalidOddMemberPadding() async {
+        var missingPadding = member("data.tar.xz")
+        missingPadding.removeLast()
+        await assertRejected([missingPadding])
+        var invalidPadding = member("data.tar.xz")
+        invalidPadding[invalidPadding.count - 1] = 0
+        await assertRejected([invalidPadding])
+    }
+
+    func testAcceptsEvenMemberWithoutPadding() async throws {
+        let entries = try await read([member("data.tar.xz", body: Data([1, 2]))])
+        XCTAssertEqual(entries.first?.content, Data([1, 2]))
+    }
 }

@@ -241,23 +241,16 @@ enum TweakAnalyzer {
 		var installPaths: [String] = []
 		var dylibCount = 0, frameworkCount = 0, bundleCount = 0
 		var needsSubstrate = false
+		var inspectionError: String?
 
 		do {
 			try _fm.createDirectory(at: workDir, withIntermediateDirectories: true)
 			let arFiles = try await AR(with: url).extract()
+			let dataMember = try DebianDataMember.select(from: arFiles.map(\.name))
 
 			for arFile in arFiles {
 				let out = workDir.appendingPathComponent(arFile.name)
-				do {
-					try arFile.content.write(to: out)
-				} catch {
-					// A member that cannot be written is a package this analysis under-reads — no
-					// control file, a wrong dylib count — so the reason belongs in the log.
-					FileLogger.error(
-						"Tweak analysis could not write \(arFile.name): \(error.localizedDescription)",
-						category: "tweaks"
-					)
-				}
+				try arFile.content.write(to: out)
 
 				if arFile.name.hasPrefix("control.tar") {
 					if let control = readControl(fromTar: out) {
@@ -265,10 +258,8 @@ enum TweakAnalyzer {
 						packageDesc = control["description"] ?? control["name"] ?? ""
 						declaredArchitecture = control["architecture"]
 					}
-				} else if arFile.name.hasPrefix("data.tar") {
-					var file = out
-					try? extractFile(at: &file) // decompress
-					try? extractFile(at: &file) // untar → directory
+				} else if arFile.name == dataMember {
+					let file = try DebianDataMember.extract(out)
 					let found = _scanDebData(file)
 					installPaths = found.paths
 					dylibCount = found.dylibs
@@ -285,6 +276,7 @@ enum TweakAnalyzer {
 				}
 			}
 		} catch {
+			inspectionError = error.localizedDescription
 			FileLogger.error("Analyze deb \(url.lastPathComponent) failed: \(error.localizedDescription)", category: "analyze")
 		}
 
@@ -305,12 +297,16 @@ enum TweakAnalyzer {
 		if dylibCount > 0 { parts.append(String.localized("%lld dylibs", arguments: dylibCount)) }
 		if frameworkCount > 0 { parts.append(String.localized("%lld frameworks", arguments: frameworkCount)) }
 		if bundleCount > 0 { parts.append(String.localized("%lld bundles", arguments: bundleCount)) }
-		let contents = parts.isEmpty ? String.localized("no injectable contents found") : parts.joined(separator: ", ")
-		let summary = packageDesc.isEmpty
-			? String.localized("Debian package (%@).", arguments: contents)
-			: String.localized("%@", arguments: packageDesc)
+		let contents = inspectionError != nil
+			? String.localized("inspection incomplete")
+			: (parts.isEmpty ? String.localized("no injectable contents found") : parts.joined(separator: ", "))
+		let summary = inspectionError != nil
+			? String.localized("Debian package could not be inspected.")
+			: (packageDesc.isEmpty ? String.localized("Debian package (%@).", arguments: contents) : packageDesc)
 
-		var notes: [String] = [.localized("VexSign unpacks the .deb and injects each dylib/framework and copies bundles automatically.")]
+		var notes: [String] = inspectionError == nil
+			? [.localized("VexSign unpacks the .deb and injects each dylib/framework and copies bundles automatically.")]
+			: []
 
 		let presence = TweakCompatibility.payloadPresence(inRelativePaths: installPaths)
 		let resolution = TweakCompatibility.resolveLayout(
@@ -318,9 +314,12 @@ enum TweakAnalyzer {
 			hasRootPayload: presence.root,
 			hasRootlessPayload: presence.rootless
 		)
-		var warnings: [String] = dylibCount + frameworkCount + bundleCount == 0
-			? [.localized("No dylibs/frameworks/bundles found inside — this may not be an injectable tweak.")]
-			: []
+		var warnings: [String] = []
+		if let inspectionError {
+			warnings.append(.localized("Could not inspect the Debian package: %@", arguments: inspectionError))
+		} else if dylibCount + frameworkCount + bundleCount == 0 {
+			warnings.append(.localized("No dylibs/frameworks/bundles found inside — this may not be an injectable tweak."))
+		}
 		if resolution.layout != .unknown {
 			notes.append(.localized("Package layout: %@", arguments: resolution.layout.title))
 		}
@@ -361,7 +360,7 @@ enum TweakAnalyzer {
 			warnings: warnings,
 			notes: notes,
 			layout: resolution.layout,
-			blocksInjection: resolution.isBlocked || injectedFindings.contains { $0.finding.isBlocking }
+			blocksInjection: inspectionError != nil || resolution.isBlocked || injectedFindings.contains { $0.finding.isBlocking }
 		)
 	}
 

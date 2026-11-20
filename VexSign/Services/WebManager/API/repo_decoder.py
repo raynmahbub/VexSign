@@ -34,7 +34,7 @@ from pydantic import BaseModel
 
 import repo_creator
 from repo_creator import RepoApp, RepoDraft, build_export, validate_draft
-from url_guard import public_url_error, should_resolve_dns
+from url_guard import public_http_client, public_url_error, should_resolve_dns
 from web_chrome import page
 
 router = APIRouter()
@@ -118,7 +118,7 @@ class ConvertBody(DecodeBody):
 
 def _make_client() -> httpx.Client:
     """Factory so tests can substitute an httpx.MockTransport."""
-    return httpx.Client(timeout=FETCH_TIMEOUT_SECONDS, follow_redirects=False)
+    return public_http_client(timeout=FETCH_TIMEOUT_SECONDS)
 
 
 def fetch_text(url: str) -> str:

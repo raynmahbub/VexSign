@@ -14,6 +14,8 @@ from __future__ import annotations
 import ipaddress
 import socket
 from typing import Any
+
+import httpcore
 from urllib.parse import urlparse
 
 try:
@@ -60,6 +62,53 @@ def _is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -
     if any(address in network for network in EXTRA_BLOCKED_NETWORKS):
         return False
     return address.is_global
+
+
+class CheckedNetworkBackend(httpcore.SyncBackend):
+    """Resolve, validate and connect to the same literal address.
+
+    httpcore still receives the original URL hostname, so HTTPS SNI and hostname
+    verification use that hostname rather than the pinned IP. Refuse any mixed
+    allowed/disallowed answers; never resolve the hostname again when dialing.
+    """
+
+    def __init__(self, allows_address):
+        self.allows_address = allows_address
+
+    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        try:
+            addresses = _resolve_ips(host, port)
+        except (socket.gaierror, OSError, ValueError) as exc:
+            raise httpcore.ConnectError("Target could not be resolved") from exc
+        if not addresses or any(not self.allows_address(address) for address in addresses):
+            raise httpcore.ConnectError("Target did not resolve exclusively to allowed addresses")
+        last_error = None
+        for address in sorted(addresses, key=lambda value: (value.version, int(value))):
+            try:
+                return super().connect_tcp(str(address), port, timeout, local_address, socket_options)
+            except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
+                last_error = exc
+        assert last_error is not None
+        raise last_error
+
+
+def checked_http_client(*, timeout: Any, allows_address) -> Any:
+    """Build a direct HTTPX client whose TCP connector validates DNS results.
+
+    HTTPX exposes no public network-backend hook. This deliberately uses the
+    pinned httpx/httpcore transport implementation, covered by connector tests.
+    Environment proxies are disabled: an unchecked proxy would perform its own
+    DNS resolution and defeat the address binding.
+    """
+    if httpx is None:  # pragma: no cover
+        raise RuntimeError("httpx is required")
+    transport = httpx.HTTPTransport(trust_env=False)
+    transport._pool._network_backend = CheckedNetworkBackend(allows_address)
+    return httpx.Client(transport=transport, timeout=timeout, follow_redirects=False, trust_env=False)
+
+
+def public_http_client(*, timeout: float) -> Any:
+    return checked_http_client(timeout=timeout, allows_address=_is_public_address)
 
 
 def should_resolve_dns(client: Any | None = None) -> bool:
