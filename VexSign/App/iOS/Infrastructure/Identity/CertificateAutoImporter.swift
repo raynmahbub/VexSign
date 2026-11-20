@@ -17,6 +17,17 @@ class CertificateAutoImporter {
 
 	private init() {}
 
+	/// Runs `work` on the main queue, or inline when the caller is already there.
+	///
+	/// `DispatchQueue.main.sync` from the main thread is an instant deadlock. This
+	/// importer only avoided that because its one entry point dispatches to a
+	/// global queue first — an accident of the current call graph, not a property
+	/// the code enforced. `DownloadManager` guards the same pattern explicitly.
+	private static func onMain<T>(_ work: () -> T) -> T {
+		if Thread.isMainThread { return work() }
+		return DispatchQueue.main.sync(execute: work)
+	}
+
 	/// Import certificates from signing-assets folder using hash-based change detection
 	func importBundledCertificatesIfNeeded() {
 		guard let signingAssetsURL = Bundle.main.url(forResource: "signing-assets", withExtension: nil)
@@ -114,7 +125,7 @@ class CertificateAutoImporter {
 					var existingCertUUID: String?
 					if storedHash != nil {
 						Logger.misc.info("Hash changed for \(certName), updating existing certificate")
-						existingCertUUID = DispatchQueue.main.sync {
+						existingCertUUID = Self.onMain {
 							let allCerts = Storage.shared.getAllCertificates()
 							return allCerts.first(where: { $0.nickname == certName })?.uuid
 						}

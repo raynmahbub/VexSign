@@ -5,6 +5,13 @@ The clean root owns canonical files under Resources/ and VexSign/Services/WebMan
 few stable root paths remain because remote feeds, README images, Render and the
 LicensePlist Xcode plugin discover them there. Copies — not symlinks — are used
 so raw.githubusercontent.com and macOS checkouts see the actual bytes.
+
+`MIRRORED` covers a different kind of duplicate: files Xcode writes in two places
+for two entry points (`VexSign.xcodeproj` and `VexSign.xcworkspace`). Neither is
+derived from the other, so they drift silently — one `swift package resolve` from
+the project and one from the workspace can leave the two entry points pinning
+different revisions, which resolves differently depending on how the repository
+was opened. Checking them here makes that drift fail a gate instead of a build.
 """
 from __future__ import annotations
 
@@ -23,9 +30,17 @@ ALIASES = (
 )
 
 
+MIRRORED = (
+    (
+        "VexSign.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "VexSign.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+    ),
+)
+
+
 def problems() -> list[str]:
     result: list[str] = []
-    for canonical_rel, alias_rel in ALIASES:
+    for canonical_rel, alias_rel in ALIASES + MIRRORED:
         canonical, alias = ROOT / canonical_rel, ROOT / alias_rel
         if not canonical.is_file():
             result.append(f"missing canonical file: {canonical_rel}")
@@ -39,7 +54,7 @@ def problems() -> list[str]:
 
 
 def sync() -> None:
-    for canonical_rel, alias_rel in ALIASES:
+    for canonical_rel, alias_rel in ALIASES + MIRRORED:
         canonical, alias = ROOT / canonical_rel, ROOT / alias_rel
         alias.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(canonical, alias)
@@ -54,6 +69,7 @@ def main() -> int:
     if args.write:
         sync()
         print(f"Repository compatibility aliases: {len(ALIASES)} synchronized")
+        print(f"Mirrored Xcode resolution files: {len(MIRRORED)} synchronized")
         return 0
     found = problems()
     if found:
@@ -61,6 +77,7 @@ def main() -> int:
         print("Run python3 VexSign/Tools/Validation/repository-validation/sync_repo_aliases.py --write", file=sys.stderr)
         return 1
     print(f"Repository compatibility aliases: {len(ALIASES)} byte-identical")
+    print(f"Mirrored Xcode resolution files: {len(MIRRORED)} byte-identical")
     return 0
 
 

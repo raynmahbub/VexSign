@@ -48,6 +48,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 VexSign/Services/WebManager/API/*.db
+# WAL sidecars left behind when a run is killed mid-transaction.
+VexSign/Services/WebManager/API/*.db-wal
+VexSign/Services/WebManager/API/*.db-shm
 VexSign/Services/WebManager/API/.venv/
 VexSign/Services/WebManager/Configuration/premium.json
 

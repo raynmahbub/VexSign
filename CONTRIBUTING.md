@@ -78,6 +78,17 @@ make lint        # when SwiftLint is installed
 
 `make verify` runs repository checks without Xcode. `make test` selects an available iPhone simulator. Do not hard-code simulator names in automation.
 
+Changes under `VexSign/Services/` have their own entry points:
+
+```bash
+make test-server   # Premium API + browser tools (pytest)
+make test-cloud    # cloud signing service (build, tests, OpenAPI contract diff)
+```
+
+`make test-server` needs the pins in `VexSign/Services/WebManager/Configuration/requirements.txt`
+plus `pytest`; see that component's README for the venv setup. Neither target
+needs macOS or Xcode.
+
 Before merging, manually dispatch **CI → full** on the branch. Run **Platform check**, **Server tests**, or **Ecosystem contracts** when those components change. CI runs automatically on relevant `main` pushes; it does not replace physical-device validation for installation, Keychain, provisioning, background execution, or hardware-specific behavior.
 
 ## Known build warnings

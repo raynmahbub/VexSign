@@ -10,10 +10,16 @@ A key row looks like:
     created_at   REAL              -- unix timestamp
 """
 
+import contextlib
 import os
 import sqlite3
 import sys
 import time
+
+# How long a writer waits for another writer before raising "database is
+# locked". Also set as a PRAGMA so it applies to every statement, not just the
+# connect() handshake.
+BUSY_TIMEOUT_SECONDS = 5.0
 
 # Default DB lives next to this file (writable everywhere, including Render
 # free tier where /data isn't mounted and not writable). Override with
@@ -63,18 +69,43 @@ CREATE TABLE IF NOT EXISTS keys (
 
 
 def connect() -> sqlite3.Connection:
-    """Open the database (creating the schema on first use)."""
+    """Open the database (creating the schema on first use).
+
+    The caller owns the returned connection and must close it. Prefer
+    `connection()`, which does that on every exit path: `with sqlite3.connect()`
+    only commits or rolls back, it does not close, so every request used to leak
+    one file descriptor until the garbage collector happened to run.
+    """
     parent = os.path.dirname(os.path.abspath(DB_PATH))
     if parent:
         os.makedirs(parent, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=BUSY_TIMEOUT_SECONDS)
     conn.row_factory = sqlite3.Row
+    conn.execute(f"PRAGMA busy_timeout = {int(BUSY_TIMEOUT_SECONDS * 1000)}")
+    # WAL lets the app-facing read routes run while an admin request writes.
+    # A database on a read-only or unsupported filesystem keeps its old journal
+    # mode rather than failing the request that triggered the pragma.
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.Error:
+        pass
     conn.executescript(_SCHEMA)
     return conn
 
 
+@contextlib.contextmanager
+def connection():
+    """Borrow a connection for one transaction and always close it."""
+    conn = connect()
+    try:
+        with conn:  # commit on success, roll back on exception
+            yield conn
+    finally:
+        conn.close()
+
+
 def add_key(api_key: str) -> None:
-    with connect() as conn:
+    with connection() as conn:
         conn.execute(
             "INSERT INTO keys (api_key, used, device_uuid, disabled, created_at) VALUES (?, 0, NULL, 0, ?)",
             (api_key, time.time()),
@@ -82,14 +113,14 @@ def add_key(api_key: str) -> None:
 
 
 def get_key(api_key: str) -> sqlite3.Row | None:
-    with connect() as conn:
+    with connection() as conn:
         return conn.execute("SELECT * FROM keys WHERE api_key = ?", (api_key,)).fetchone()
 
 
 def consume_key(api_key: str, device_uuid: str) -> bool:
     """Mark a fresh key as used and bind it to a device (atomic and idempotent).
     Returns True if successfully claimed, False if already claimed or disabled."""
-    with connect() as conn:
+    with connection() as conn:
         cursor = conn.execute(
             "UPDATE keys SET used = 1, device_uuid = ? WHERE api_key = ? AND used = 0 AND disabled = 0",
             (device_uuid, api_key),
@@ -98,7 +129,7 @@ def consume_key(api_key: str, device_uuid: str) -> bool:
 
 
 def device_has_activation(device_uuid: str) -> bool:
-    with connect() as conn:
+    with connection() as conn:
         row = conn.execute(
             "SELECT 1 FROM keys WHERE device_uuid = ? AND used = 1 AND disabled = 0 LIMIT 1",
             (device_uuid,),
@@ -114,7 +145,7 @@ def key_allows_downloads(api_key: str) -> bool:
 
 def set_key_disabled(api_key: str, disabled: bool) -> None:
     """Administratively disable (or re-enable) a key."""
-    with connect() as conn:
+    with connection() as conn:
         conn.execute(
             "UPDATE keys SET disabled = ? WHERE api_key = ?",
             (int(disabled), api_key),
@@ -123,7 +154,7 @@ def set_key_disabled(api_key: str, disabled: bool) -> None:
 
 def reset_key(api_key: str) -> None:
     """Make a consumed key fresh again (unbind its device)."""
-    with connect() as conn:
+    with connection() as conn:
         conn.execute(
             "UPDATE keys SET used = 0, device_uuid = NULL WHERE api_key = ?",
             (api_key,),
@@ -132,5 +163,5 @@ def reset_key(api_key: str) -> None:
 
 def delete_key(api_key: str) -> None:
     """Permanently remove a key."""
-    with connect() as conn:
+    with connection() as conn:
         conn.execute("DELETE FROM keys WHERE api_key = ?", (api_key,))

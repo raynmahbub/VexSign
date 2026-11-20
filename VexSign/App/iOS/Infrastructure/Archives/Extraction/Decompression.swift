@@ -10,6 +10,26 @@ import Foundation
 import SWCompression
 import Compression
 import OSLog
+import NimbleExtensions
+
+/// Refusal raised before an archive is expanded in memory.
+enum ArchiveExtractionError: LocalizedError {
+	case tooLarge(Int64)
+
+	var errorDescription: String? {
+		switch self {
+		case .tooLarge:
+			return String.localized(
+				"That archive is too large to open safely. Extract the files you need and try again."
+			)
+		}
+	}
+}
+
+/// A tweak payload is small; this only stops a pathological archive. Decompression
+/// holds the compressed bytes *and* the expanded output in memory at once, so an
+/// unbounded read here is a memory-exhaustion path rather than a slow one.
+private let maximumArchiveBytes: Int64 = 512 * 1024 * 1024
 
 /// Decompresses or untars `fileURL` in place (the URL is updated to point at the result).
 ///
@@ -19,6 +39,10 @@ import OSLog
 /// first (fast + robust), falling back to the pure-Swift SWCompression decoder.
 func extractFile(at fileURL: inout URL) throws {
 	let fileManager = FileManager.default
+	let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
+	if let size = (attributes[.size] as? NSNumber)?.int64Value, size > maximumArchiveBytes {
+		throw ArchiveExtractionError.tooLarge(size)
+	}
 	let data = try Data(contentsOf: fileURL)
 
 	// A .tar (already decompressed) → unpack into a directory.

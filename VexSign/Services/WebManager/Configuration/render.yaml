@@ -36,3 +36,11 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
+      # Optional: comma-separated Host allowlist for generated feed URLs
+      # (`vexsign.example.com`, `*.example.com`). Unset accepts any Host.
+      - key: VEXSIGN_TRUSTED_HOSTS
+        sync: false
+      # Optional: gate the browser signer relay behind X-Relay-Token when this
+      # service has a public address.
+      - key: VEXSIGN_RELAY_TOKEN
+        sync: false
