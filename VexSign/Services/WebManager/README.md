@@ -158,3 +158,18 @@ existing reverse proxy already relies on.
 The host and scheme taken from forwarding headers are validated as a host token
 and `http`/`https` before they are interpolated, so a malformed header cannot
 produce a URL that parses as something else.
+
+`POST /api/validate` and `GET /api/urls` are the endpoints that answer yes/no
+about a guessable credential — a key, or a device UUID that only has to *have* an
+activation row — so they are rate limited per client: `VEXSIGN_RATE_LIMIT`
+requests per `VEXSIGN_RATE_WINDOW_SECONDS` (default 60 per minute, `0` disables
+it), answered with `429` and `Retry-After`. Clients are bucketed by the socket
+peer; behind Render or another proxy every request arrives from the proxy, so set
+`VEXSIGN_TRUST_FORWARDED_FOR=1` there to bucket on the first `X-Forwarded-For`
+entry instead. That header is caller-controlled, hence the opt-in.
+
+`GET /api/urls` still accepts the device UUID as the primary credential — every
+shipped client sends `vexSignUUID` and none persisted a key at release time, so
+requiring `X-API-Key` would 401 the installed base. A *redeemed* key is accepted
+as an equivalent second credential (the same rule `/repo/premium.json` already
+uses), and the rate limit is what stops a peer from walking device IDs.

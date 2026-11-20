@@ -102,6 +102,99 @@ enum WebManagerAccessPolicy {
 		return WebManagerAuthMiddleware.constantTimeEquals(provided, expectedTrimmed)
 	}
 
+	// MARK: - Host and Origin
+
+	/// Names the server answers to, so a request can prove it was addressed here.
+	///
+	/// `0.0.0.0` is the *bind* address, never something a client can put in a
+	/// `Host` header, so it is dropped: the LAN address the certificate was issued
+	/// for is what a browser on this network actually types.
+	static func allowedHosts(boundHost: String, advertisedHost: String?) -> Set<String> {
+		var hosts: Set<String> = ["127.0.0.1", "localhost", "::1"]
+		let candidates: [String?] = [boundHost, advertisedHost]
+		for candidate in candidates {
+			if let host = normalizedHost(candidate), !host.isEmpty, host != "0.0.0.0" {
+				hosts.insert(host)
+			}
+		}
+		return hosts
+	}
+
+	/// `host[:port]` -> lowercased bare host, IPv6 literals without brackets.
+	///
+	/// Returns nil for anything that is not an authority at all, so a header
+	/// carrying a path, userinfo, whitespace or CR/LF can never be compared as if
+	/// it were a hostname.
+	static func normalizedHost(_ raw: String?) -> String? {
+		var host = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+		guard !host.isEmpty else { return nil }
+		guard !host.contains(where: { $0 == "/" || $0 == "\\" || $0 == "@" || $0 == "?" || $0 == "#" || $0.isWhitespace }) else {
+			return nil
+		}
+		if host.hasPrefix("[") {
+			guard let closing = host.firstIndex(of: "]") else { return nil }
+			let inner = String(host[host.index(after: host.startIndex)..<closing])
+			return inner.isEmpty ? nil : inner
+		}
+		if let colon = host.lastIndex(of: ":") {
+			// One colon is a port separator; two or more means a bare IPv6 literal.
+			guard !String(host[host.startIndex..<colon]).contains(":") else { return host }
+			host = String(host[host.startIndex..<colon])
+		}
+		return host.isEmpty ? nil : host
+	}
+
+	/// Whether the `Host` header names this server.
+	///
+	/// Beyond the explicit names, private-network literals and `.local` Bonjour
+	/// names are accepted: they can only resolve on the local network, so a page
+	/// on the internet cannot use one to reach this server. A *public* name that
+	/// resolves to the LAN address — the DNS-rebinding case — is refused, which is
+	/// the whole point of checking this header at all.
+	static func isAllowedHostHeader(_ header: String?, allowedHosts: Set<String>) -> Bool {
+		guard let host = normalizedHost(header), !host.isEmpty else { return false }
+		if allowedHosts.contains(host) { return true }
+		if host.hasSuffix(".local") { return true }
+		return isPrivateAddressLiteral(host)
+	}
+
+	/// Loopback, RFC 1918, link-local and unique-local literals.
+	static func isPrivateAddressLiteral(_ host: String) -> Bool {
+		let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+		if parts.count == 4, parts.allSatisfy({ UInt8(String($0)) != nil }) {
+			let octets = parts.compactMap { UInt8(String($0)) }
+			guard octets.count == 4 else { return false }
+			switch octets[0] {
+			case 10, 127: return true
+			case 169: return octets[1] == 254
+			case 172: return octets[1] >= 16 && octets[1] <= 31
+			case 192: return octets[1] == 168
+			default: return false
+			}
+		}
+		guard host.contains(":") else { return false }
+		return host.hasPrefix("fc") || host.hasPrefix("fd") || host.hasPrefix("fe80")
+	}
+
+	/// Whether a request's `Origin` agrees with its `Host`.
+	///
+	/// No `Origin` header means a non-browser client (curl, WebDAV, a companion
+	/// app), which cannot be rebound onto another site and is left alone. A browser
+	/// always sends one, and a page loaded from an attacker's origin keeps that
+	/// origin even after its DNS answer is rebound to this device — so comparing
+	/// the two catches exactly the requests that check cannot.
+	static func isAllowedOrigin(_ origin: String?, hostHeader: String?) -> Bool {
+		let raw = (origin ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+		if raw.isEmpty { return true }
+		guard let host = normalizedHost(hostHeader), !host.isEmpty else { return false }
+		// `Origin: null` comes from a sandboxed iframe or a file: page and names no
+		// host, so there is nothing to compare and nothing to trust.
+		guard raw.lowercased() != "null", let parsed = URLComponents(string: raw) else { return false }
+		guard parsed.scheme?.lowercased() == "https" else { return false }
+		guard let originHost = normalizedHost(parsed.host), !originHost.isEmpty else { return false }
+		return originHost == host
+	}
+
 	/// The mode actually used.
 	///
 	/// "No password" and "reachable from the network" must never happen by

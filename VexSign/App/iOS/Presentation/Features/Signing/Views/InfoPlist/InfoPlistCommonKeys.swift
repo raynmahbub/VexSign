@@ -20,7 +20,15 @@ enum InfoPlistCommonKeys {
 	static var groups: [(title: String, keys: [InfoPlistCommonKey])] {
 		[
 			(.localized("Network"), [
-				InfoPlistCommonKey(key: "NSAppTransportSecurity", value: ["NSAllowsArbitraryLoads": true]),
+				// The ATS escape hatch this list offers is the narrow one: a patched
+				// app that talks to a machine on the same network (an AltStore or
+				// VexSign server, a sideloaded tool) needs it, and that is what
+				// `NSAllowsLocalNetworking` unlocks. `NSAllowsArbitraryLoads` used to
+				// sit here and turned off App Transport Security for *every* host in
+				// the app being signed, which is a much larger hole than the one the
+				// user is trying to open. Anyone who really needs the blanket
+				// exception can still type it by hand in the key editor.
+				InfoPlistCommonKey(key: "NSAppTransportSecurity", value: ["NSAllowsLocalNetworking": true]),
 				InfoPlistCommonKey(key: "NSLocalNetworkUsageDescription", value: ""),
 				InfoPlistCommonKey(key: "NSBonjourServices", value: [String]()),
 				InfoPlistCommonKey(key: "UIRequiresPersistentWiFi", value: true)

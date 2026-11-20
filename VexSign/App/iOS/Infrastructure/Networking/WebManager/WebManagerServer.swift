@@ -8,6 +8,7 @@
 
 import Foundation
 import Darwin
+import CryptoKit
 import Vapor
 import OSLog
 
@@ -49,14 +50,17 @@ struct WebManagerAuthMiddleware: AsyncMiddleware {
 	}
 
 	/// Constant-time compare so a wrong guess cannot be timed character-by-character.
+	///
+	/// Both sides are hashed before they are compared. Comparing raw bytes can only
+	/// be constant while the lengths match, so the early return on a length
+	/// mismatch quietly leaked the secret's length — enough to skip guesses that
+	/// are the wrong size. Two SHA-256 digests are always 32 bytes, so the loop
+	/// below always runs the same number of steps regardless of either input.
 	static func constantTimeEquals(_ a: String, _ b: String) -> Bool {
-		let lhs = Array(a.utf8), rhs = Array(b.utf8)
-		guard lhs.count == rhs.count else { return false }
-		guard !lhs.isEmpty else { return true }
-		var diff = 0
-		for i in 0..<lhs.count {
-			diff |= Int(lhs[i]) ^ Int(rhs[i])
-		}
+		let lhs = SHA256.hash(data: Data(a.utf8))
+		let rhs = SHA256.hash(data: Data(b.utf8))
+		var diff: UInt8 = 0
+		for (left, right) in zip(lhs, rhs) { diff |= left ^ right }
 		return diff == 0
 	}
 }
@@ -100,6 +104,37 @@ struct WebManagerSensitiveAccessMiddleware: AsyncMiddleware {
 
 	private static func reject(_ message: String, status: HTTPResponseStatus) -> Response {
 		Response(status: status, body: .init(string: message))
+	}
+}
+
+/// Rejects requests that were not addressed to this server.
+///
+/// The Web Manager is authenticated, but authentication alone does not answer
+/// "did this request come from a page the user opened?". A page on the internet
+/// can point a hostname it controls at the device's LAN address (DNS rebinding),
+/// and the browser then sends the user's credentials-bypassing requests to us
+/// with the attacker's `Host` and `Origin`. Both are checked here, before any
+/// credential is even read:
+///
+/// * `Host` must name this device — a loopback name, the LAN address, a `.local`
+///   Bonjour name or a private literal. A public name is refused.
+/// * `Origin`, when present, must name the same host, and must be `https`.
+struct WebManagerOriginMiddleware: AsyncMiddleware {
+	let allowedHosts: Set<String>
+
+	func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
+		let host = request.headers.first(name: .host)
+		guard WebManagerAccessPolicy.isAllowedHostHeader(host, allowedHosts: allowedHosts) else {
+			return Self.reject("Unexpected Host header for this device.")
+		}
+		guard WebManagerAccessPolicy.isAllowedOrigin(request.headers.first(name: "Origin"), hostHeader: host) else {
+			return Self.reject("Cross-origin requests are not accepted by the Web Manager.")
+		}
+		return try await next.respond(to: request)
+	}
+
+	private static func reject(_ message: String) -> Response {
+		Response(status: .forbidden, body: .init(string: message))
 	}
 }
 
@@ -321,6 +356,17 @@ final class WebManagerServer {
 		_app = app
 		_needsShutdown = true
 
+		// Registered first so a request from a rebound page is refused before its
+		// credentials are read or its body is parsed.
+		app.middleware.use(
+			WebManagerOriginMiddleware(
+				allowedHosts: WebManagerAccessPolicy.allowedHosts(
+					boundHost: bindHost,
+					advertisedHost: Self.advertisedHost(for: bindHost)
+				)
+			)
+		)
+
 		if let auth = _auth {
 			app.middleware.use(
 				WebManagerAuthMiddleware(username: auth.username, password: auth.password, token: _token)
@@ -442,13 +488,16 @@ final class WebManagerServer {
 
 	// MARK: Setup
 
+	/// The LAN address the certificate is issued for, when exposed to the network.
+	private static func advertisedHost(for bindHost: String) -> String {
+		bindHost == "0.0.0.0" ? (ServerInstaller.getLocalAddress() ?? "127.0.0.1") : bindHost
+	}
+
 	private func _setup() async throws -> Application {
 		// Reuse ServerInstaller.env — a second LoggingSystem bootstrap would crash.
 		// The Web Manager is always HTTPS. Its self-managed leaf includes the LAN
 		// address (when exposed) and loopback names; a missing identity is fatal.
-		let advertisedHost = bindHost == "0.0.0.0"
-			? (ServerInstaller.getLocalAddress() ?? "127.0.0.1")
-			: bindHost
+		let advertisedHost = Self.advertisedHost(for: bindHost)
 		let tls = try ServerInstaller.webManagerTLSConfiguration(
 			serverNames: [advertisedHost, "127.0.0.1", "localhost"]
 		)

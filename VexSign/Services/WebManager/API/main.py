@@ -30,6 +30,11 @@ Environment variables:
                         Lets hosts without shell access (Render free tier)
                         restore keys after a redeploy wiped the DB.
     PUBLIC_BASE_URL     Public base URL override for generated feed URLs.
+    VEXSIGN_RATE_LIMIT  Requests per client per window on the two credential
+                        endpoints (default 60 / 60s; 0 disables throttling).
+    VEXSIGN_RATE_WINDOW_SECONDS  Window length for that budget (default 60).
+    VEXSIGN_TRUST_FORWARDED_FOR  Set to 1 behind a proxy so the limiter buckets
+                        on X-Forwarded-For instead of the proxy's address.
     VEXSIGN_DB         SQLite path (default: vexsign.db next to main.py).
 
 Run:
@@ -43,13 +48,14 @@ import json
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 import db
 import admin
+import rate_limit
 import repo_store
 import request_base
 import web_tools
@@ -174,6 +180,7 @@ def validate(
     body: ValidateBody,
     request: Request,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    _throttle: None = Depends(rate_limit.enforce),
 ) -> dict:
     # Keys are stored upper-cased (see keygen/admin minting); normalise here so a
     # key typed in lower case or with stray whitespace still redeems.
@@ -213,12 +220,29 @@ def validate(
 def urls(
     request: Request,
     vexsign_uuid: str | None = Header(default=None, alias="vexSignUUID"),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    _throttle: None = Depends(rate_limit.enforce),
 ) -> dict:
-    vexsign_uuid = (vexsign_uuid or "").strip()
-    if not vexsign_uuid or not db.device_has_activation(vexsign_uuid):
-        raise HTTPException(status_code=401, detail=NO_ACTIVATION_DETAIL)
+    """Feed URLs for a device that has redeemed a key.
 
-    return _urls_payload(request, count=25)
+    The device UUID stays the primary credential: every shipped client sends
+    `vexSignUUID` and none of them persisted an API key at release time, so
+    requiring a key here would 401 the whole installed base. What is tightened
+    instead is the guessable part — an `X-API-Key` is accepted as an equally
+    valid second credential (that is what `_require_premium_access` already
+    does on the feed routes), and the per-client rate limit above stops a peer
+    from walking device IDs: without it, "does this UUID have an activation?"
+    was answerable as fast as requests arrive.
+    """
+    vexsign_uuid = (vexsign_uuid or "").strip()
+    if vexsign_uuid and db.device_has_activation(vexsign_uuid):
+        return _urls_payload(request, count=25)
+
+    key = (x_api_key or "").strip().upper()
+    if key and db.key_allows_downloads(key):
+        return _urls_payload(request, count=25)
+
+    raise HTTPException(status_code=401, detail=NO_ACTIVATION_DETAIL)
 
 
 # ---------------------------------------------------------------------------

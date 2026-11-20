@@ -327,6 +327,107 @@ final class WebDAVFileTransactionTests: XCTestCase {
         }
     }
 
+    // MARK: - Host and Origin (DNS rebinding)
+
+    /// The names the server answers to when it listens on the network at 10.0.0.7.
+    private var allowedHosts: Set<String> {
+        WebManagerAccessPolicy.allowedHosts(boundHost: "0.0.0.0", advertisedHost: "10.0.0.7")
+    }
+
+    func testHostHeaderNormalisation() {
+        let policy = WebManagerAccessPolicy.self
+        XCTAssertEqual(policy.normalizedHost("Example.COM:8443"), "example.com")
+        XCTAssertEqual(policy.normalizedHost("  localhost  "), "localhost")
+        XCTAssertEqual(policy.normalizedHost("[::1]:8443"), "::1")
+        XCTAssertEqual(policy.normalizedHost("fe80::1"), "fe80::1")
+        XCTAssertNil(policy.normalizedHost(""))
+        XCTAssertNil(policy.normalizedHost("evil.com/path"))
+        XCTAssertNil(policy.normalizedHost("user@evil.com"))
+        XCTAssertNil(policy.normalizedHost("evil.com\r\nX-Injected: 1"))
+        XCTAssertNil(policy.normalizedHost("[::1"))
+    }
+
+    func testBoundAddressNamesAreTheLoopbackOnesNotTheBindAddress() {
+        // 0.0.0.0 is what we bind to; it is never a valid Host header.
+        XCTAssertFalse(allowedHosts.contains("0.0.0.0"))
+        XCTAssertEqual(allowedHosts, ["127.0.0.1", "localhost", "::1", "10.0.0.7"])
+    }
+
+    func testLocalNamesAreAccepted() {
+        for header in [
+            "127.0.0.1:8443",
+            "localhost",
+            "LocalHost:8443",
+            "[::1]:8443",
+            "10.0.0.7:8443",
+            "192.168.1.20:8443",
+            "172.16.5.4",
+            "169.254.10.2:8443",
+            "vexsign.local:8443",
+            "iPhone-von-Alex.local",
+            "fd00::1",
+            "fe80::1"
+        ] {
+            XCTAssertTrue(
+                WebManagerAccessPolicy.isAllowedHostHeader(header, allowedHosts: allowedHosts),
+                "\(header) can only resolve on this device or its network and must work"
+            )
+        }
+    }
+
+    func testPublicNamesAreRefused() {
+        // A rebinding attack needs a name the attacker controls; those are public.
+        for header in [
+            "evil.example.com",
+            "evil.example.com:8443",
+            "vexsign-premium.onrender.com",
+            "8.8.8.8",
+            "0.0.0.0:8443",
+            "",
+            "evil.com/path"
+        ] {
+            XCTAssertFalse(
+                WebManagerAccessPolicy.isAllowedHostHeader(header, allowedHosts: allowedHosts),
+                "\(header) does not name this device and must be refused"
+            )
+        }
+        XCTAssertFalse(WebManagerAccessPolicy.isAllowedHostHeader(nil, allowedHosts: allowedHosts))
+    }
+
+    func testOriginMustMatchTheHostHeader() {
+        XCTAssertTrue(
+            WebManagerAccessPolicy.isAllowedOrigin("https://10.0.0.7:8443", hostHeader: "10.0.0.7:8443")
+        )
+        XCTAssertTrue(
+            WebManagerAccessPolicy.isAllowedOrigin("https://localhost:8443/", hostHeader: "LOCALHOST:8443")
+        )
+        XCTAssertFalse(
+            WebManagerAccessPolicy.isAllowedOrigin("https://evil.example.com", hostHeader: "10.0.0.7:8443"),
+            "a rebound page keeps its own origin"
+        )
+        XCTAssertFalse(
+            WebManagerAccessPolicy.isAllowedOrigin("http://10.0.0.7:8443", hostHeader: "10.0.0.7:8443"),
+            "the Web Manager only ever speaks https"
+        )
+        XCTAssertFalse(WebManagerAccessPolicy.isAllowedOrigin("null", hostHeader: "10.0.0.7:8443"))
+        XCTAssertFalse(WebManagerAccessPolicy.isAllowedOrigin("https://10.0.0.7", hostHeader: nil))
+    }
+
+    func testRequestsWithoutAnOriginAreNotBrowsers() {
+        // curl, WebDAV and the companion apps send no Origin and cannot be rebound.
+        XCTAssertTrue(WebManagerAccessPolicy.isAllowedOrigin(nil, hostHeader: "10.0.0.7:8443"))
+        XCTAssertTrue(WebManagerAccessPolicy.isAllowedOrigin("  ", hostHeader: "localhost:8443"))
+    }
+
+    func testConstantTimeCompareDoesNotShortCircuitOnLength() {
+        XCTAssertTrue(WebManagerAuthMiddleware.constantTimeEquals("", ""))
+        XCTAssertTrue(WebManagerAuthMiddleware.constantTimeEquals("token", "token"))
+        XCTAssertFalse(WebManagerAuthMiddleware.constantTimeEquals("token", "toke"))
+        XCTAssertFalse(WebManagerAuthMiddleware.constantTimeEquals("token", "tokeN"))
+        // Same SHA-256 prefix, different input length: still not equal.
+        XCTAssertFalse(WebManagerAuthMiddleware.constantTimeEquals("a", "a\u{0}"))
+    }
+
     func testGeneratedTokenIsURLSafeAndDistinct() {
         let first = WebManagerAccessPolicy.generateToken()
         let second = WebManagerAccessPolicy.generateToken()
