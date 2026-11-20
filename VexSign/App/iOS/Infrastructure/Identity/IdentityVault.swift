@@ -60,7 +60,7 @@ enum IdentityVault {
             // errSecInteractionNotAllowed) discarded a successful read and
             // reported "no key": premium repository auth silently disappeared
             // from background refreshes that run while the device is locked.
-            let stored = (try? SecureSecretStore.read(key.account, service: key.service))
+            let stored = (try? SecureSecretStore.read(key.account, service: key.service)) // try? ok: an unavailable Keychain falls through to the plaintext fallback tiers below
                 .flatMap { String(data: $0, encoding: .utf8) }
             guard let value = stored ?? _fileValue(key) ?? _defaultsValue(key) else { return nil }
 
