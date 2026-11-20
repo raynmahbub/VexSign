@@ -173,10 +173,10 @@ def test_proxy_refuses_a_redirect_towards_a_blocked_target(client, monkeypatch):
         json={"baseURL": "http://192.168.1.20:8000", "path": "status"},
     )
     assert response.status_code == 422
-    assert "169.254.169.254" in response.json()["detail"]
+    assert "different origin" in response.json()["detail"]
 
 
-def test_proxy_follows_a_redirect_between_allowed_targets(client, monkeypatch):
+def test_proxy_refuses_cross_origin_redirect_even_between_allowed_targets(client, monkeypatch):
     seen: list[httpx.Request] = []
 
     def handler(request):
@@ -189,8 +189,9 @@ def test_proxy_follows_a_redirect_between_allowed_targets(client, monkeypatch):
         "/api/Tools/sign/proxy",
         json={"baseURL": "http://192.168.1.20:8000", "path": "status"},
     )
-    assert response.status_code == 200, response.text
-    assert [str(request.url.host) for request in seen] == ["192.168.1.20", "192.168.1.21"]
+    assert response.status_code == 422, response.text
+    assert "different origin" in response.json()["detail"]
+    assert [str(request.url.host) for request in seen] == ["192.168.1.20"]
 
 
 def test_proxy_gives_up_on_a_redirect_loop(client, monkeypatch):

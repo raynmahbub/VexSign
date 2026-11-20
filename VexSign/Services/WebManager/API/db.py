@@ -13,7 +13,6 @@ A key row looks like:
 import contextlib
 import os
 import sqlite3
-import sys
 import time
 
 # How long a writer waits for another writer before raising "database is
@@ -32,23 +31,17 @@ def _resolve_db_path() -> str:
     if not env:
         return _DEFAULT_DB
 
-    # If the configured path's parent is writable (e.g. /data on a paid Render
-    # plan with a mounted disk), use it. Otherwise fall back to the default
-    # rather than crashing at startup on free-tier / sandbox hosts.
+    # An explicit location is an operator's persistence choice. Falling back to
+    # the ephemeral default can silently lose activations after a redeploy, so a
+    # broken configuration must fail rather than writing a different database.
     parent = os.path.dirname(os.path.abspath(env)) or "."
-    if os.path.exists(parent) and os.access(parent, os.W_OK):
-        return env
-    # Try creating the parent; if that fails, fall back.
     try:
         os.makedirs(parent, exist_ok=True)
-        return env
-    except (PermissionError, OSError) as exc:
-        print(
-            f"[db] VEXSIGN_DB={env!r} is not writable ({exc}); "
-            f"falling back to {_DEFAULT_DB}",
-            file=sys.stderr,
-        )
-        return _DEFAULT_DB
+        if not os.path.isdir(parent) or not os.access(parent, os.W_OK):
+            raise OSError("database directory is not writable")
+    except OSError as exc:
+        raise RuntimeError(f"VEXSIGN_DB directory {parent!r} is unavailable or not writable") from exc
+    return env
 
 
 DB_PATH = _resolve_db_path()

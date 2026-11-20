@@ -12,6 +12,7 @@ import { loadConfig } from '../../Configuration/config.js';
 import { infrastructure } from '../../Storage/infrastructure.js';
 import { unseal, permittedWebhook } from '../../Security/security.js';
 import { invokeSigner, type SignerInput } from '../CloudSigningCoordinator/signer.js';
+import { PendingJobDispatcher } from '../JobQueue/dispatch.js';
 
 const config = loadConfig(); const infra = infrastructure(config);
 const key = Buffer.from(config.ENCRYPTION_KEY, 'hex');
@@ -91,21 +92,11 @@ const worker = new Worker('vexsign-signing-v1', processJob, {
 });
 worker.on('error', () => { console.error('Worker infrastructure error'); });
 let polling = false;
+const pendingDispatcher = new PendingJobDispatcher();
 async function dispatch() {
   if (polling) return; polling = true;
   try {
-    // PostgreSQL is the source of truth. Publish-before-mark is safe: BullMQ job IDs dedupe.
-    // Include already-published rows so a Redis restore/loss does not strand queued work.
-    const pending = await infra.pool.query("SELECT id,state FROM jobs WHERE state IN ('queued','running') ORDER BY created_at LIMIT 100");
-    for (const row of pending.rows) {
-      const existing = await infra.queue.getJob(row.id);
-      if (!existing) {
-        await infra.queue.add('sign', { id: row.id }, { jobId: row.id, attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: { age: 7 * 86400 }, removeOnFail: { age: 7 * 86400 } });
-        await infra.pool.query('UPDATE jobs SET published_at=now() WHERE id=$1', [row.id]);
-      } else if (await existing.getState() === 'failed') {
-        await finish(row.id, 'failed', null, null, null);
-      }
-    }
+    await pendingDispatcher.dispatch(infra, id => finish(id, 'failed', null, null, null));
     await deliverWebhooks();
   } catch { console.error('Dispatch unavailable; retrying on next interval'); }
   finally { polling = false; }

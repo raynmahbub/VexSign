@@ -112257,6 +112257,149 @@
           }
         }
       }
+    },
+    "Cannot add %@ because an item with that name already exists in the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot add %@ because an item with that name already exists in the app."
+          }
+        }
+      }
+    },
+    "Failed to inject %1$@: %2$@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to inject %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "The Debian data archive %@ uses an unsupported format." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Debian data archive %@ uses an unsupported format."
+          }
+        }
+      }
+    },
+    "This Debian package contains multiple data archives. VexSign cannot choose one safely." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Debian package contains multiple data archives. VexSign cannot choose one safely."
+          }
+        }
+      }
+    },
+    "This Debian package has no data archive to inject." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Debian package has no data archive to inject."
+          }
+        }
+      }
+    },
+    "Could not inspect the Debian package: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not inspect the Debian package: %@"
+          }
+        }
+      }
+    },
+    "Debian package could not be inspected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debian package could not be inspected."
+          }
+        }
+      }
+    },
+    "inspection incomplete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "inspection incomplete"
+          }
+        }
+      }
+    },
+    "The extension %@ has no readable executable for tweak injection." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The extension %@ has no readable executable for tweak injection."
+          }
+        }
+      }
+    },
+    "More than one extension is named %@. Choose an unambiguous target." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More than one extension is named %@. Choose an unambiguous target."
+          }
+        }
+      }
+    },
+    "The app's %@ extension directory is invalid." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app's %@ extension directory is invalid."
+          }
+        }
+      }
+    },
+    "The extension %@ is not a safe directory." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The extension %@ is not a safe directory."
+          }
+        }
+      }
+    },
+    "The selected extension %@ is no longer in the app." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected extension %@ is no longer in the app."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

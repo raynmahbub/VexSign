@@ -96,12 +96,14 @@ Honest limits, in one place:
   link-local and cloud-metadata addresses (`169.254.0.0/16`, `fe80::/10`) are
   never allowed. The endpoint path is built from the parsed address, so an
   address carrying `?` or `#` is refused rather than turning the appended
-  endpoint into a query string. Redirects are followed one hop at a time with
-  the guard re-applied to each hop, and the upload relay does not follow them at
-  all.
+  endpoint into a query string. Read-only redirects are limited to the original
+  origin and guarded at every hop; the upload relay does not follow them. All
+  relay TCP connections re-check and bind the resolved address before dialing.
 - **The relay is not an open proxy.** It can reach loopback, so a deployment
   with a public address should set `VEXSIGN_RELAY_TOKEN`; every relay request
   must then send the matching `X-Relay-Token` header (constant-time compare).
+  Enter it in the signer page's **Relay token** field, separately from the phone's
+  API token. It stays in the page and is sent only to the relay.
   Leave it unset for a LAN/tailnet self-host, where the tool is public by
   design. What the relay *writes* is bounded: `/proxy` is GET-only against
   `status`, `library` and `updates`, so `POST /api/cleanup` is not reachable
@@ -109,7 +111,9 @@ Honest limits, in one place:
 - **Repo decoder** fetches public feeds (that is the point), caps them at 4 MiB,
   and stores nothing.
 - **App installer** hosts nothing and refuses cleartext on both the IPA and the
-  manifest URL.
+  manifest URL. Public feed and probe connections bind checked public DNS answers
+  to the TCP dial; environment HTTP proxies are intentionally not used for these
+  tools or the signer relay.
 - **Repo creator** validates and exports. It never hosts your IPAs or the manifest —
   the OTA link points at whatever https URL you supply.
 - **Cert checker** never accepts a `.p12` or a password (the endpoint has no such
@@ -128,7 +132,10 @@ This optional component keeps its entry points in `API/`, nonsecret deployment
 inputs/reference data in `Configuration/`, tests in `Tests/` and the served icon
 in `Dashboard/`. `PREMIUM_FEED_FILE` still overrides the default
 `Configuration/premium.json`; no real feed, secret or deployment is added here.
-The normal local iOS signing workflow does not require this backend.
+The normal local iOS signing workflow does not require this backend. When
+`VEXSIGN_DB` is explicitly set, its parent directory must be writable: startup
+fails on a bad path rather than silently switching to the ephemeral default.
+Use a persistent mounted volume and verify backups for production deployments.
 
 Run the component tests from the repository root:
 

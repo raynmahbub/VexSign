@@ -58,6 +58,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from web_chrome import page
+from url_guard import checked_http_client
 
 router = APIRouter()
 
@@ -264,6 +265,11 @@ def _request_with_safe_redirects(
         location = response.headers.get("location")
         if response.status_code in REDIRECT_STATUSES and location:
             current_url = urljoin(current_url, location.strip())
+            # Never forward phone credentials to another origin via a redirect.
+            previous = httpx.URL(url)
+            destination = httpx.URL(current_url)
+            if (previous.scheme, previous.host, previous.port) != (destination.scheme, destination.host, destination.port):
+                raise UnsafeTarget("The phone redirected to a different origin.")
             if response.status_code == 303:
                 current_method = "GET"
             continue
@@ -297,12 +303,9 @@ def _headers(token: str, username: str = "", password: str = "") -> dict[str, st
 
 def _make_client() -> httpx.Client:
     """Factory so tests can substitute an httpx.MockTransport."""
-    return httpx.Client(
+    return checked_http_client(
         timeout=httpx.Timeout(REQUEST_TIMEOUT_SECONDS, connect=CONNECT_TIMEOUT_SECONDS),
-        # Hops are followed by `_request_with_safe_redirects`, which re-applies
-        # the target guard to each one. Letting the client follow them itself
-        # skipped that check entirely.
-        follow_redirects=False,
+        allows_address=lambda address: allow_public_targets() or _is_local_address(address),
     )
 
 
@@ -483,9 +486,12 @@ const target = () => ({
 async function connect() {
   $('connect').disabled = true;
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    const relayToken = $('relay-token').value.trim();
+    if (relayToken) headers['X-Relay-Token'] = relayToken;
     const response = await fetch('/api/Tools/sign/proxy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(Object.assign({ path: 'status' }, target()))
     });
     const body = await response.json();
@@ -496,8 +502,8 @@ async function connect() {
     $('status').innerHTML =
       '<span class="pill ' + pill + '">' + (s.certValid ? 'certificate valid' : 'no usable certificate') + '</span>' +
       ' <span class="muted">' + esc(s.certName || 'unnamed') + ' &middot; ' + esc(days) + ' days left &middot; ' +
-      s.installedApps + ' apps &middot; ' + s.signedApps + ' signed &middot; ' + s.pendingUpdates + ' updates &middot; ' +
-      body.latencyMs + ' ms</span>';
+      esc(s.installedApps) + ' apps &middot; ' + esc(s.signedApps) + ' signed &middot; ' + esc(s.pendingUpdates) + ' updates &middot; ' +
+      esc(body.latencyMs) + ' ms</span>';
     $('queue-card').hidden = false;
   } catch (error) {
     log(error.message, 'error');
@@ -538,6 +544,8 @@ function signOne(job, index) {
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/Tools/sign/sign');
+    const relayToken = $('relay-token').value.trim();
+    if (relayToken) xhr.setRequestHeader('X-Relay-Token', relayToken);
     xhr.responseType = 'blob';
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -547,11 +555,13 @@ function signOne(job, index) {
     xhr.onload = () => {
       if (xhr.status === 200) {
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(xhr.response);
+        const objectURL = URL.createObjectURL(xhr.response);
+        link.href = objectURL;
         link.download = 'Signed-' + job.name.replace(/\\.ipa$/i, '') + '.ipa';
         document.body.appendChild(link);
         link.click();
         link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectURL), 60000);
         setState(index, 'signed', 'ok');
         resolve(true);
       } else {
@@ -577,17 +587,24 @@ async function runQueue() {
   if (busy) return;
   busy = true;
   $('run').disabled = true;
+  $('clear').disabled = true;
   let done = 0;
-  for (let i = 0; i < queue.length; i += 1) {
-    if (queue[i].done) continue;
-    setState(i, 'signing…', 'warn');
-    const ok = await signOne(queue[i], i);
-    queue[i].done = true;
-    if (ok) done += 1;
+  let attempted = 0;
+  try {
+    for (let i = 0; i < queue.length; i += 1) {
+      if (queue[i].done) continue;
+      attempted += 1;
+      setState(i, 'signing…', 'warn');
+      const ok = await signOne(queue[i], i);
+      queue[i].done = ok;
+      if (ok) done += 1;
+    }
+    log('Queue finished: ' + done + ' of ' + attempted + ' signed.', done === attempted ? 'note' : 'warning');
+  } finally {
+    busy = false;
+    $('run').disabled = false;
+    $('clear').disabled = false;
   }
-  log('Queue finished: ' + done + ' signed.', done === queue.length ? 'note' : 'warning');
-  busy = false;
-  $('run').disabled = false;
 }
 
 function addFiles(list) {
@@ -625,7 +642,8 @@ def signer_page(request: Request):
         <label>Web Manager address</label>
         <input id="base" placeholder="http://192.168.1.20:8000" autocomplete="off">
       </div>
-      <div><label>API token (optional, if the app has one set)</label><input id="token" type="password" autocomplete="off"></div>
+      <div><label>Phone API token (optional, if the app has one set)</label><input id="token" type="password" autocomplete="off"></div>
+      <div><label>Relay token (optional, if this server requires one)</label><input id="relay-token" type="password" autocomplete="off"></div>
       <div><label>Basic-auth username (optional)</label><input id="user" autocomplete="off"></div>
       <div><label>Basic-auth password (optional)</label><input id="pass" type="password" autocomplete="off"></div>
     </div>

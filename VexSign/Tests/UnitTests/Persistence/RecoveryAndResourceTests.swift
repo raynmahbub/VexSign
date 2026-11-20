@@ -57,6 +57,23 @@ final class RecoveryAndResourceTests: XCTestCase {
             at: FileManager.default.temporaryDirectory, available: 200 + StoragePreflight.margin))
     }
 
+    func testImportCopyPreflightUsesOneArchiveCopyAndSaturates() throws {
+        let destination = FileManager.default.temporaryDirectory
+        let archiveSize: Int64 = 1024 * 1024 * 1024
+        let required = archiveSize + StoragePreflight.margin
+        // Less than three times the compressed size can still cover this step;
+        // the independently checked expanded archive may require more space later.
+        XCTAssertNoThrow(try IPAImportStorage.checkCopy(bytes: archiveSize, at: destination, available: required))
+        XCTAssertThrowsError(try IPAImportStorage.checkCopy(bytes: archiveSize, at: destination, available: required - 1)) { error in
+            guard let insufficient = error as? StoragePreflight.Insufficient else {
+                return XCTFail("Expected insufficient storage, got \(error)")
+            }
+            XCTAssertEqual(insufficient.required, required)
+            XCTAssertEqual(insufficient.available, required - 1)
+        }
+        XCTAssertThrowsError(try IPAImportStorage.checkCopy(bytes: Int64.max, at: destination, available: Int64.max - 1))
+    }
+
     func testUnavailableEvidenceStopsWithinBoundWithoutClaimingInstalled() {
         let zero = Date(timeIntervalSince1970: 0)
         var engine = InstallConfirmation(expectation: .init(bundleIdentifier: "example.app", version: "1.0"))

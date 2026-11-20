@@ -49,6 +49,16 @@ func extractFile(at fileURL: inout URL) throws {
 	if fileURL.pathExtension.lowercased() == "tar" || _looksLikeTar(data) {
 		let extractionDirectory = fileURL.deletingLastPathComponent().appendingPathComponent(UUID().uuidString)
 		try fileManager.createDirectory(at: extractionDirectory, withIntermediateDirectories: true)
+		var completed = false
+		defer {
+			if !completed {
+				do {
+					try fileManager.removeItem(at: extractionDirectory)
+				} catch {
+					Logger.security.warning("Could not remove failed archive extraction directory: \(error.localizedDescription, privacy: .private)")
+				}
+			}
+		}
 
 		let tarContainer = try TarContainer.open(container: data)
 		let standardizedExtractionDir = extractionDirectory.standardizedFileURL.path
@@ -83,6 +93,7 @@ func extractFile(at fileURL: inout URL) throws {
 			}
 		}
 		fileURL = extractionDirectory
+		completed = true
 		return
 	}
 
