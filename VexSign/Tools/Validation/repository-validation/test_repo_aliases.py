@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for canonical root assets and published compatibility aliases."""
+"""Regression tests for canonical root assets, published aliases and mirrors."""
 from __future__ import annotations
 
 import importlib.util
@@ -13,6 +13,8 @@ module = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(module)
 
+ALL_PAIRS = module.ALIASES + module.MIRRORED
+
 
 class RepositoryAliasTests(unittest.TestCase):
     def test_alias_table_is_stable_and_canonical_first(self):
@@ -21,24 +23,52 @@ class RepositoryAliasTests(unittest.TestCase):
             self.assertIn("/", canonical)
             self.assertNotIn("/", alias)
 
+    def test_mirrored_resolution_files_are_the_two_xcode_entry_points(self):
+        self.assertEqual(len(module.MIRRORED), 1)
+        for canonical, alias in module.MIRRORED:
+            self.assertTrue(canonical.startswith("VexSign.xcodeproj/"), canonical)
+            self.assertTrue(alias.startswith("VexSign.xcworkspace/"), alias)
+            self.assertTrue(canonical.endswith("Package.resolved"), canonical)
+            self.assertTrue(alias.endswith("Package.resolved"), alias)
+
     def test_repository_aliases_are_byte_identical(self):
         self.assertEqual(module.problems(), [])
+
+    def _temporary_root(self, directory: str) -> Path:
+        root = Path(directory)
+        for canonical, alias in ALL_PAIRS:
+            c, a = root / canonical, root / alias
+            c.parent.mkdir(parents=True, exist_ok=True)
+            c.write_bytes(b"canonical")
+            a.parent.mkdir(parents=True, exist_ok=True)
+            a.write_bytes(b"")
+        return root
 
     def test_sync_repairs_an_empty_alias(self):
         original_root = module.ROOT
         try:
             with tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
-                module.ROOT = root
-                for canonical, alias in module.ALIASES:
-                    c, a = root / canonical, root / alias
-                    c.parent.mkdir(parents=True, exist_ok=True)
-                    c.write_bytes(b"canonical")
-                    a.parent.mkdir(parents=True, exist_ok=True)
-                    a.write_bytes(b"")
-                self.assertEqual(len(module.problems()), len(module.ALIASES))
+                module.ROOT = self._temporary_root(directory)
+                # One finding per damaged file, aliases and mirrors alike.
+                self.assertEqual(len(module.problems()), len(ALL_PAIRS))
                 module.sync()
                 self.assertEqual(module.problems(), [])
+        finally:
+            module.ROOT = original_root
+
+    def test_mirror_drift_is_reported_not_ignored(self):
+        """The two Xcode entry points resolve independently; drift must fail."""
+        original_root = module.ROOT
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                module.ROOT = self._temporary_root(directory)
+                module.sync()
+                canonical, alias = module.MIRRORED[0]
+                (module.ROOT / alias).write_bytes(b"a different pin")
+                found = module.problems()
+                self.assertEqual(len(found), 1)
+                self.assertIn(alias, found[0])
+                self.assertIn(canonical, found[0])
         finally:
             module.ROOT = original_root
 
