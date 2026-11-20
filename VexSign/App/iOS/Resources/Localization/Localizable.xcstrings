@@ -112246,6 +112246,17 @@
           }
         }
       }
+    },
+    "That archive is too large to open safely. Extract the files you need and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That archive is too large to open safely. Extract the files you need and try again."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

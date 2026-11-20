@@ -11,6 +11,7 @@ enum ArchiveEngine {
 		_ directory: URL,
 		to destination: URL,
 		compression: ArchiveCompression = .defaultCompression,
+		shouldKeepParent: Bool = true,
 		progress: ((Double) -> Void)? = nil
 	) throws {
 		var observation: NSKeyValueObservation?
@@ -27,7 +28,7 @@ enum ArchiveEngine {
 		try FileManager.default.zipItem(
 			at: directory,
 			to: destination,
-			shouldKeepParent: true,
+			shouldKeepParent: shouldKeepParent,
 			compressionMethod: compression.compressionMethod,
 			progress: reported
 		)
@@ -40,7 +41,12 @@ enum ArchiveEngine {
 		progress: ((Double) -> Void)? = nil
 	) throws {
 		if sources.count == 1, let only = sources.first {
-			try zipDirectory(only, to: destination, compression: compression, progress: progress)
+			// Same shape as the multi-source path below: the archive contains the
+			// items, not the directory that happens to hold them. Keeping the
+			// parent here meant a one-item tweak export gained a directory level
+			// that a two-item export did not.
+			try zipDirectory(only, to: destination, compression: compression,
+			                 shouldKeepParent: false, progress: progress)
 			return
 		}
 

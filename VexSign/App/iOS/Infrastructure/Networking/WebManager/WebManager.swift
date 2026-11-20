@@ -25,6 +25,9 @@ final class WebManager: NSObject, ObservableObject {
 		static let certificateExport = "VexSign.webManager.certificateExport"
 		/// Legacy plaintext key, migrated into the Keychain on first launch.
 		static let legacyToken = "VexSign.apiToken"
+		/// Keychain accounts. `didSet`, the migration and the server all agree on these.
+		static let passwordAccount = "webManager.password"
+		static let tokenAccount = "webManager.apiToken"
 	}
 
 	@Published private(set) var isRunning = false
@@ -46,16 +49,12 @@ final class WebManager: NSObject, ObservableObject {
 		didSet { UserDefaults.standard.set(username, forKey: Keys.user) }
 	}
 	@Published var password: String {
-		didSet {
-			do { try SecureSecretStore.write(Data(password.utf8), account: "webManager.password") } catch { lastError = "Password could not be saved to Keychain: \(error.localizedDescription)" }
-		}
+		didSet { _persistSecret(password, account: Keys.passwordAccount, label: "Password") }
 	}
 	/// Shared secret for scripts and companion devices. Same reach as the password,
 	/// so it lives in the Keychain rather than in UserDefaults.
 	@Published var apiToken: String {
-		didSet {
-			do { try SecureSecretStore.write(Data(apiToken.utf8), account: "webManager.apiToken") } catch { lastError = "API token could not be saved to Keychain: \(error.localizedDescription)" }
-		}
+		didSet { _persistSecret(apiToken, account: Keys.tokenAccount, label: "API token") }
 	}
 	/// Where the server listens. Loopback is the fallback whenever the server has no
 	/// password, so "no auth" and "on the network" cannot combine by accident.
@@ -82,6 +81,29 @@ final class WebManager: NSObject, ObservableObject {
 	private var _startTask: Task<Void, Never>?
 	private var _keepAliveTask: BackgroundTaskManager?
 
+	/// Keychain writes run here, off the main thread, in submission order.
+	///
+	/// `password`/`apiToken` are bound to text fields, so their `didSet` fires on
+	/// every keystroke. Each write is a synchronous Security call that used to run
+	/// on the main thread — a visible stall while typing a password, plus a
+	/// Keychain write per character. The server reads the in-memory values, so
+	/// persistence can lag the field, and repeated values are skipped.
+	private let _secretQueue = DispatchQueue(label: "vexsign.webmanager.secrets", qos: .utility)
+	private var _lastPersistedSecret: [String: String] = [:]
+
+	private func _persistSecret(_ value: String, account: String, label: String) {
+		guard _lastPersistedSecret[account] != value else { return }
+		_lastPersistedSecret[account] = value
+		_secretQueue.async { [weak self] in
+			do {
+				try SecureSecretStore.write(Data(value.utf8), account: account)
+			} catch {
+				let message = "\(label) could not be saved to Keychain: \(error.localizedDescription)"
+				DispatchQueue.main.async { self?.lastError = message }
+			}
+		}
+	}
+
 	// Coalesce a burst of uploads (e.g. a folder copy) into one toast.
 	private var _pendingToastCount = 0
 	private var _pendingToastName: String?
@@ -105,10 +127,14 @@ final class WebManager: NSObject, ObservableObject {
 		self.allowCertificateExport = defaults.bool(forKey: Keys.certificateExport)
 		self.keepAlive = defaults.bool(forKey: Keys.keepAlive)
 
-		do { self.password = try SecureSecretStore.migrateDefaults("VexSign.webManager.pass", account: "webManager.password") } catch { self.lastError = "Unlock the device to migrate the WebDAV password." }
-		do { self.apiToken = try SecureSecretStore.migrateDefaults(Keys.legacyToken, account: "webManager.apiToken") } catch { self.lastError = "Unlock the device to migrate the API token." }
+		do { self.password = try SecureSecretStore.migrateDefaults("VexSign.webManager.pass", account: Keys.passwordAccount) } catch { self.lastError = "Unlock the device to migrate the WebDAV password." }
+		do { self.apiToken = try SecureSecretStore.migrateDefaults(Keys.legacyToken, account: Keys.tokenAccount) } catch { self.lastError = "Unlock the device to migrate the API token." }
 
 		super.init()
+
+		// Seed the dedupe cache so the migrated values are not written back.
+		_lastPersistedSecret[Keys.passwordAccount] = self.password
+		_lastPersistedSecret[Keys.tokenAccount] = self.apiToken
 
 		NotificationCenter.default.addObserver(
 			self,

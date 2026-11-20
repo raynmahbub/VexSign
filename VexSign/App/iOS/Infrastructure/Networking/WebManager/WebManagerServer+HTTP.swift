@@ -361,7 +361,13 @@ extension WebManagerServer {
 
 	private static func download(_ req: Request, file: URL, as filename: String) async throws -> Response {
 		let response = try await req.fileio.asyncStreamFile(at: file.path)
-		response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
+		response.headers.replaceOrAdd(
+			name: .contentDisposition,
+			// Backslashes and quotes are escaped by the policy; interpolating the
+			// name directly broke the header for any tweak or app whose name
+			// contains a quote (and left the escaping to whoever built the string).
+			value: WebManagerFilenamePolicy.contentDisposition(filename: filename)
+		)
 		return response
 	}
 
@@ -376,7 +382,10 @@ extension WebManagerServer {
                 do { try FileManager.default.removeItem(at: directory) }
                 catch { Logger.misc.error("Web export cleanup failed: \(error.localizedDescription)") }
             }
-            response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
+            response.headers.replaceOrAdd(
+                name: .contentDisposition,
+                value: WebManagerFilenamePolicy.contentDisposition(filename: filename)
+            )
             return response
         } catch {
             do { try FileManager.default.removeItem(at: directory) }
