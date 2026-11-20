@@ -115,3 +115,56 @@ def test_relay_cross_origin_redirect_does_not_forward_credentials():
         with pytest.raises(web_signer.UnsafeTarget, match="different origin"):
             web_signer._request_with_safe_redirects(client, "GET", "http://127.0.0.1/api/status", {"X-VexSign-Token": "secret"})
     assert len(seen) == 1
+
+
+# ---------------------------------------------------------------------------
+# The hook is private, so it is verified rather than assumed. A rename that
+# leaves the assignment succeeding while the pool ignores it would remove SSRF
+# protection with no error anywhere — these prove that fails closed instead.
+# ---------------------------------------------------------------------------
+
+
+def test_client_refuses_to_build_when_the_backend_attribute_disappears(monkeypatch):
+    class _Pool:
+        pass
+
+    class _Transport:
+        def __init__(self, *args, **kwargs):
+            self._pool = _Pool()
+
+    monkeypatch.setattr(url_guard.httpx, "HTTPTransport", _Transport)
+    with pytest.raises(RuntimeError, match="network-backend hook"):
+        url_guard.public_http_client(timeout=5)
+
+
+def test_client_refuses_to_build_when_the_pool_disappears(monkeypatch):
+    class _Transport:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(url_guard.httpx, "HTTPTransport", _Transport)
+    with pytest.raises(RuntimeError, match="network-backend hook"):
+        url_guard.public_http_client(timeout=5)
+
+
+def test_client_refuses_to_build_when_connect_tcp_is_renamed(monkeypatch):
+    """`CheckedNetworkBackend` overrides `connect_tcp`; renamed, the override is dead code."""
+
+    class _Backend:
+        pass
+
+    monkeypatch.setattr(url_guard.httpcore, "SyncBackend", _Backend)
+    with pytest.raises(RuntimeError, match="network-backend hook"):
+        url_guard.public_http_client(timeout=5)
+
+
+def test_refusal_names_the_pins_that_have_to_be_revisited(monkeypatch):
+    """The fix is a version decision, so the error must point at where those are recorded."""
+    class _Transport:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(url_guard.httpx, "HTTPTransport", _Transport)
+    with pytest.raises(RuntimeError) as error:
+        url_guard.public_http_client(timeout=5)
+    assert "requirements.txt" in str(error.value)

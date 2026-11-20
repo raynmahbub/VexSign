@@ -92,6 +92,16 @@ class CheckedNetworkBackend(httpcore.SyncBackend):
         raise last_error
 
 
+#: Raised instead of silently dialing unchecked connections. The message names the pins because
+#: the fix is a deliberate version decision, not something to paper over at the call site.
+_HOOK_BROKEN = (
+    "httpx/httpcore no longer expose the private network-backend hook this SSRF guard installs. "
+    "Refusing to build an unchecked client. Check the httpx==/httpcore== pins in "
+    "VexSign/Services/WebManager/Configuration/requirements.txt and the connector tests in "
+    "VexSign/Services/WebManager/Tests/test_public_transport.py."
+)
+
+
 def checked_http_client(*, timeout: Any, allows_address) -> Any:
     """Build a direct HTTPX client whose TCP connector validates DNS results.
 
@@ -99,11 +109,30 @@ def checked_http_client(*, timeout: Any, allows_address) -> Any:
     pinned httpx/httpcore transport implementation, covered by connector tests.
     Environment proxies are disabled: an unchecked proxy would perform its own
     DNS resolution and defeat the address binding.
+
+    The hook is private, so it is verified rather than assumed. The two ways an
+    upstream refactor breaks it are not equally loud: a *renamed* attribute
+    raises, but a pool that keeps `_network_backend` and stops consulting it
+    would leave this assignment succeeding while every connection is dialed
+    unchecked — SSRF protection gone with no error anywhere. Each step below
+    therefore fails closed, and the transport tests additionally prove the
+    validated address is the one actually dialed.
     """
     if httpx is None:  # pragma: no cover
         raise RuntimeError("httpx is required")
+    if not hasattr(httpcore.SyncBackend, "connect_tcp"):
+        raise RuntimeError(_HOOK_BROKEN)
+
     transport = httpx.HTTPTransport(trust_env=False)
-    transport._pool._network_backend = CheckedNetworkBackend(allows_address)
+    pool = getattr(transport, "_pool", None)
+    if pool is None or not hasattr(pool, "_network_backend"):
+        raise RuntimeError(_HOOK_BROKEN)
+
+    backend = CheckedNetworkBackend(allows_address)
+    pool._network_backend = backend
+    if getattr(pool, "_network_backend", None) is not backend:
+        raise RuntimeError(_HOOK_BROKEN)
+
     return httpx.Client(transport=transport, timeout=timeout, follow_redirects=False, trust_env=False)
 
 
