@@ -11,6 +11,24 @@ protocol SecurityPolicyValidating: Sendable {
     func isAllowedTweakExtension(_ ext: String) -> Bool
 }
 
+/// The one list of schemes a certificate callback may never use.
+///
+/// Two layers enforce this and they must not drift apart. The deep-link router checks the
+/// *template* before anything is substituted, so an obviously unsafe destination is refused
+/// early; `CertificateManagementService` re-checks the *resolved URL*, after the certificate and
+/// its password are already interpolated and could in principle have rewritten the scheme. Those
+/// were two literal copies of the same six schemes, so adding one to a copy left the other layer
+/// disagreeing about what a safe callback is.
+///
+/// Note this is a deny-list by design: a certificate export is meant to hand an identity to
+/// another app over that app's own custom scheme, so the schemes cannot be enumerated. What it
+/// rules out is the ones that leave the device or run content.
+enum CertificateCallbackPolicy {
+    static let disallowedSchemes: Set<String> = [
+        "http", "https", "file", "javascript", "data", "about"
+    ]
+}
+
 protocol SecureTransferProviding {
     func downloadValidatedPackage(from url: URL, workLabel: String, maximumBytes: Int64) async throws -> URL
     func downloadValidatedFirmware(from url: URL, to destination: URL) async throws -> URL

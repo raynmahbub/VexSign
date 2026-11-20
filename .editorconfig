@@ -12,6 +12,21 @@ insert_final_newline = true
 indent_style = space
 indent_size = 2
 
+# Swift is formatted by swiftformat, which is configured `usetabs false` (.swiftformat).
+# Declaring tabs for it here as well put the editor and the formatter in direct conflict, and the
+# tree paid for it: 268 tab-indented first-party Swift files, 490 space-indented, and 167 mixing
+# both in the same file. Spaces win because that is what `make format` produces. Adopting that
+# tree-wide is a separate mechanical pass (`make format FIX=1`); until it lands, the CI lint stays
+# report-only so it surfaces the backlog instead of failing every pull request.
+[*.swift]
+indent_style = space
+indent_size = 4
+
+# The cloud signing service is written in the usual 2-space TypeScript style.
+[*.{ts,mjs,js}]
+indent_style = space
+indent_size = 2
+
 # Match existing language conventions rather than applying tabs to Python/JSON.
 [*.py]
 indent_style = space

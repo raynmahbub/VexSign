@@ -50,6 +50,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Same rule as the cloud job's audit: a fresh upstream advisory must not
+      # fail a PR that never touched the manifest. The weekly schedule still
+      # scans even with no edits.
+      - name: Dependency changes
+        id: deps
+        if: github.event_name != 'schedule'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          changed=true
+          if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] \
+              && git fetch --quiet --depth=1 origin "$BASE" 2>/dev/null; then
+            if git diff --quiet "$BASE" HEAD -- :/VexSign/Services/WebManager/Configuration/requirements.txt; then
+              changed=false
+            fi
+          fi
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
@@ -58,11 +76,25 @@ jobs:
           cache-dependency-path: VexSign/Services/WebManager/Configuration/requirements.txt
 
       - name: Install dependencies
-        # cryptography enables the full X.509 certificate-checker tests.
-        run: python -m pip install -r ../Configuration/requirements.txt pytest cryptography
+        # Everything the service needs at runtime is in requirements.txt, so CI
+        # installs exactly what the Dockerfile and the Render build install.
+        # `cryptography` used to be added here ad hoc, which let the suite pass
+        # against a configuration no deployment ever ran.
+        run: python -m pip install -r ../Configuration/requirements.txt pytest
 
       - name: Run tests
         run: python -m pytest ../Tests/ -q
+
+      # The Python counterpart of `npm audit` below. This service parses
+      # untrusted uploads and fetches user-supplied URLs, and its SSRF guard is
+      # pinned to exact httpx/httpcore internals, so its dependency surface is
+      # worth scanning on the same cadence as the cloud service's.
+      - name: Python dependency audit
+        if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'
+        run: |
+          python -m pip install pip-audit
+          python -m pip-audit --progress-spinner off --strict \
+            -r ../Configuration/requirements.txt
 
   cloud:
     if: >-

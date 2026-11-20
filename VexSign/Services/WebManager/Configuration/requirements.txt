@@ -3,6 +3,10 @@
 fastapi==0.162.4
 uvicorn==0.54.0
 python-multipart==0.0.33
+# Imported directly (`from pydantic import BaseModel` in main.py and admin.py), so
+# it is declared here rather than inherited transitively from fastapi. Satisfies
+# fastapi's own `pydantic>=2.9.0` requirement.
+pydantic==2.14.4
 # Outbound HTTP for the browser tools: the signer console relays to the phone's
 # Web Manager, the repository decoder fetches feeds, and the app installer probes
 # IPA URLs. Streaming support is what rules out urllib here.
@@ -10,3 +14,10 @@ httpx==0.28.1
 # The public URL guard installs a checked network backend into HTTPX's pool.
 # Keep this exact version together with httpx and exercise the transport tests.
 httpcore==1.0.9
+# Full X.509 parsing for the certificate inspector (`cert_inspector.py`). The
+# code degrades without it and tells the *end user* to install a server-side
+# package they cannot install, so it is a real dependency, not an optional one:
+# the Dockerfile and the Render build both install exactly this file. It used to
+# be installed only by CI, which is why the shipped container served the
+# degraded report while the suite stayed green.
+cryptography==50.0.2

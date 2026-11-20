@@ -323,7 +323,9 @@ extension CertificatePair {
 		guard
 			let url = Storage.shared.getFile(.certificate, from: self),
 			let password = signingPassword,
-			let data = try? Data(contentsOf: url),
+			// Bounded, and it refuses anything that is not a regular file. `Data(contentsOf:)`
+			// read the whole p12 with no ceiling, unlike every other certificate input here.
+			let data = try? CertificateInputReader.read(url), // try? ok: an unreadable or oversized p12 just skips this check
 			!data.isEmpty
 		else {
 			return nil
@@ -334,15 +336,20 @@ extension CertificatePair {
 		guard
 			SecPKCS12Import(data as CFData, options, &items) == errSecSuccess,
 			let entries = items as? [[String: Any]],
-			let identity = entries.compactMap({ $0[kSecImportItemIdentity as String] }).first
+			let identity = entries.compactMap({ $0[kSecImportItemIdentity as String] }).first,
+			// Security owns that dictionary schema; the p12 feeding it is untrusted input and does
+			// not. `SigningIdentityStore.inspect` checks the runtime type of the same value from
+			// the same API before casting it, and this is the same question. Casting unconditionally
+			// turned a malformed p12 into a crash on a path that already returns nil for every other
+			// way parsing can fail — and this is a pre-signing compatibility check, so the crash
+			// would land before the user was told anything was wrong.
+			CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID()
 		else {
 			return nil
 		}
 
-		// `SecPKCS12Import` hands the identity back as a `CFTypeRef` inside the
-		// dictionary. Swift rejects `as?` on a CF type ("will always succeed") and
-		// refuses the bare `as` from `Any`, so the forced cast is the spelling left;
-		// it cannot fail here for the same reason the conditional one could not.
+		// Swift rejects `as?` on a CF type ("will always succeed") and refuses the bare `as` from
+		// `Any`, so the forced cast is the spelling left. The type ID was just checked.
 		// swiftlint:disable:next force_cast
 		let secIdentity = identity as! SecIdentity
 

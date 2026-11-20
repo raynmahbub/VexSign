@@ -196,3 +196,60 @@ def test_urls_rejects_an_unredeemed_key(client):
 def test_urls_rejects_a_wrong_api_key(client):
     response = client.get("/api/urls", headers={"X-API-Key": "VEX-DOES-NOT-EXIST"})
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# The gated feed: the same credentials, on a budget of its own
+# ---------------------------------------------------------------------------
+
+
+def test_premium_feed_is_throttled_after_its_budget(client):
+    """/repo/premium.json answers the same 401-vs-200 question as /api/urls.
+
+    It accepts the identical `vexSignUUID` / `X-API-Key` pair through
+    `_require_premium_access`, so leaving it unthrottled only moved the
+    enumeration off the two routes that were limited.
+    """
+    rate_limit.current_feed().limit = 2
+    rate_limit.current_feed().window = 60
+    unknown = {"vexSignUUID": "00000000-0000-0000-0000-000000000000"}
+
+    assert client.get("/repo/premium.json", headers=unknown).status_code == 401
+    assert client.get("/repo/premium.json", headers=unknown).status_code == 401
+
+    limited = client.get("/repo/premium.json", headers=unknown)
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) >= 1
+    assert "too many attempts" in limited.json()["detail"].lower()
+
+
+def test_feed_budget_is_separate_from_the_credential_budget(client):
+    """Distributor users frequently share a carrier NAT address, so the feed gets more room."""
+    rate_limit.current().limit = 1
+    rate_limit.current_feed().limit = 5
+
+    assert client.get("/api/urls", headers={"vexSignUUID": "nobody"}).status_code == 401
+    assert client.get("/api/urls", headers={"vexSignUUID": "nobody"}).status_code == 429
+    # The credential endpoint is over budget; the feed has not spent anything.
+    assert client.get("/repo/premium.json", headers={"vexSignUUID": "nobody"}).status_code == 401
+
+
+def test_premium_feed_still_serves_an_activated_device(client):
+    """Throttling is a speed bump, not an authorization change."""
+    db.add_key("VEX-FEED-DEVICE-1")
+    assert db.consume_key("VEX-FEED-DEVICE-1", "device-feed-1")
+
+    response = client.get("/repo/premium.json", headers={"vexSignUUID": "device-feed-1"})
+    assert response.status_code == 200
+    assert response.json()["apps"]
+
+
+def test_public_source_is_never_throttled(client):
+    """/repo/source.json checks no credential, so it must not inherit a budget."""
+    rate_limit.current().limit = 1
+    rate_limit.current_feed().limit = 1
+    client.get("/repo/premium.json", headers={"vexSignUUID": "nobody"})
+    client.get("/api/urls", headers={"vexSignUUID": "nobody"})
+
+    assert client.get("/repo/source.json").status_code == 200
+    assert client.get("/api/health").status_code == 200

@@ -35,7 +35,11 @@ swiftversion 6.0
 rules trailingClosures,void,redundantSelf,redundantLet,redundantNilInit,redundantType,redundantParens,redundantPattern,redundantOptionalInit,redundantReturn,redundantLetError,redundantProtocol,unusedArguments,unusedImport,unusedPrivateDeclaration,unusedVariable,fileHeader,linebreaks,trailingCommas,trimWhitespace,preferForLoop,preferKeyPath,preferNimbleOperator,preferSelfType,specifiedSelfType,strongOutlets,wrapArguments,wrapMultilineStatementBraces,wrapSwitchCases,wrapTernary,wrapCollections,wrapEnumCases,wrapFunctionCalls,wrapFunctionDefinitions
 
 # Exclude
-exclude VexSign/Packages/Vendor,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
+# Vendored upstream sources are excluded because their style is upstream's to own: reformatting
+# them makes the next re-vendor a wall of noise instead of a real diff. Vendor/ held Zsign and
+# IDeviceKitten; SideSign is vendored the same way (AGPL-3.0, see its Package.swift header) and
+# was missing, so `make format FIX=1` would have rewritten it. .swiftlint.yml excludes both.
+exclude VexSign/Packages/Vendor,VexSign/Packages/SideSign,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
 
 # Custom options
 indentcase true

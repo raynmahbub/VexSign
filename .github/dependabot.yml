@@ -2,8 +2,18 @@
 # committing to main. It opens focused pull requests; path-filtered validators
 # check affected components before maintainers review and merge.
 #
-# The Xcode app's own packages are declared in project.pbxproj, not Package.swift,
-# so they are audited separately by VexSign/Documentation/MAINTENANCE.md.
+# The Xcode app's own packages are declared in project.pbxproj, which Dependabot
+# cannot read; the three entries under VexSign/Packages/ below cover the local
+# Package.swift manifests instead. The pbxproj requirements are audited by
+# `make audit-packages` (VexSign/Documentation/Development/MAINTENANCE.md).
+#
+# Every `directory` below is relative to the repository root and must contain the
+# manifest for its ecosystem. Dependabot reports a missing directory as "no
+# manifests found" and then opens nothing, so a stale path fails silently: the
+# tree was restructured under VexSign/ once already and every entry except
+# github-actions stopped matching. `make verify` now asserts these paths exist
+# and hold the manifest they claim
+# (VexSign/Tools/Validation/repository-validation/test_workflow_policy.py).
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -22,7 +32,9 @@ updates:
       include: scope
 
   - package-ecosystem: pip
-    directory: /Services/API/server
+    # requirements.txt is in Configuration/, so point at the directory that
+    # actually holds it rather than the service root.
+    directory: /VexSign/Services/WebManager/Configuration
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -36,7 +48,7 @@ updates:
     labels: ["dependencies", "server"]
 
   - package-ecosystem: npm
-    directory: /Services/CloudSigning/cloud-signing
+    directory: /VexSign/Services/Cloud
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -50,7 +62,7 @@ updates:
     labels: ["dependencies", "cloud-signing"]
 
   - package-ecosystem: swift
-    directory: /Packages/NativeSigning
+    directory: /VexSign/Packages/NativeSigning
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -64,7 +76,7 @@ updates:
     labels: ["dependencies", "native-signing"]
 
   - package-ecosystem: swift
-    directory: /Packages/SideSign
+    directory: /VexSign/Packages/SideSign
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -78,7 +90,7 @@ updates:
     labels: ["dependencies", "side-sign"]
 
   - package-ecosystem: swift
-    directory: /Packages/Vendor/Zsign
+    directory: /VexSign/Packages/Vendor/Zsign
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
@@ -92,7 +104,7 @@ updates:
     labels: ["dependencies", "vendored"]
 
   - package-ecosystem: docker
-    directory: /Services/API/server
+    directory: /VexSign/Services/WebManager
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
@@ -102,7 +114,7 @@ updates:
     labels: ["dependencies", "server"]
 
   - package-ecosystem: docker
-    directory: /Services/CloudSigning/cloud-signing
+    directory: /VexSign/Services/Cloud
     schedule:
       interval: weekly
     open-pull-requests-limit: 3

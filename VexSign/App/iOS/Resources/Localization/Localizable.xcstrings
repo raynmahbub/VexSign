@@ -112400,6 +112400,17 @@
           }
         }
       }
+    },
+    "That archive expands to more than can be held safely. It may be damaged or not a tweak package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That archive expands to more than can be held safely. It may be damaged or not a tweak package."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -138,20 +138,39 @@ enum CertificateManagementService {
             allowedQueryParamAndKey.remove(charactersIn: ";/?:@&=+$, ")
 
             guard let encodedCert = base64encodedCert.addingPercentEncoding(withAllowedCharacters: allowedQueryParamAndKey) else {
+                Logger.misc.error("Certificate export could not percent-encode the certificate payload")
+                return
+            }
+
+            // The password is arbitrary user text, so it needs a stricter set than the base64
+            // certificate above: `%` and `#` never occur in base64 but do occur in passwords, and
+            // left raw one forms an invalid percent-escape and the other truncates the URL at the
+            // fragment. Substituting it unencoded produced a callback that parsed to something
+            // other than what was intended — or to nothing at all — so the export either failed
+            // silently or handed the receiving app the wrong password.
+            var allowedPasswordCharacters = CharacterSet.urlQueryAllowed
+            allowedPasswordCharacters.remove(charactersIn: ";/?:@&=+$,%#[]!()'\"*")
+
+            guard let encodedPassword = (certificate.signingPassword ?? "")
+                .addingPercentEncoding(withAllowedCharacters: allowedPasswordCharacters) else {
+                Logger.misc.error("Certificate export could not percent-encode the certificate password")
                 return
             }
 
             let urlStr = template
                 .replacingOccurrences(of: "$(BASE64_CERT)", with: encodedCert)
-                .replacingOccurrences(of: "$(PASSWORD)", with: certificate.signingPassword ?? "")
+                .replacingOccurrences(of: "$(PASSWORD)", with: encodedPassword)
 
             guard let callbackUrl = URL(string: urlStr) else {
+                Logger.misc.error("Certificate export produced an unparsable callback URL")
                 return
             }
 
-            // Reject web schemes and dangerous protocols to prevent private key exfiltration
+            // Reject web schemes and dangerous protocols to prevent private key exfiltration. The
+            // deny-list is shared with `SecurityPolicyGateway`, which checks the template before
+            // substitution; this re-checks the URL after it, so the two layers cannot disagree.
             guard let scheme = callbackUrl.scheme?.lowercased(),
-                  !["http", "https", "file", "javascript", "data", "about"].contains(scheme) else {
+                  !CertificateCallbackPolicy.disallowedSchemes.contains(scheme) else {
                 Logger.misc.error("Rejected certificate export to web or unsafe URL scheme")
                 return
             }

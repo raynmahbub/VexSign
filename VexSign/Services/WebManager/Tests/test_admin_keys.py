@@ -31,6 +31,7 @@ import admin  # noqa: E402
 import db  # noqa: E402
 import keygen  # noqa: E402
 import main  # noqa: E402
+import rate_limit  # noqa: E402
 
 TOKEN = "test-admin-token"
 HEADERS = {"X-Admin-Token": TOKEN}
@@ -296,3 +297,67 @@ def test_cli_list_labels_key_states(capsys):
     # Only a device prefix is printed, never the whole identifier.
     assert "abcdefgh…" in out
     assert "rest-of-uuid" not in out
+
+
+# ---------------------------------------------------------------------------
+# Throttling. `ADMIN_TOKEN` is one shared secret with no lockout and no second
+# factor, so the only thing standing between a peer and unlimited online
+# guessing is this budget. See rate_limit.ADMIN_LIMIT.
+# ---------------------------------------------------------------------------
+
+
+def test_admin_routes_are_throttled_after_their_budget(client):
+    rate_limit.current_admin().limit = 2
+    rate_limit.current_admin().window = 60
+
+    assert client.get("/api/admin/keys", headers=HEADERS).status_code == 200
+    assert client.get("/api/admin/keys", headers=HEADERS).status_code == 200
+
+    limited = client.get("/api/admin/keys", headers=HEADERS)
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) >= 1
+
+
+def test_every_token_gated_route_carries_the_budget(client):
+    """The throttle has to cover the whole surface, or guessing just moves route."""
+    rate_limit.current_admin().limit = 1
+    for method, path, body in MUTATING + [("GET", "/api/admin/keys", None), ("GET", "/api/admin/apps", None)]:
+        rate_limit.current_admin().reset()
+        first = client.request(method, path, headers=HEADERS, json=body)
+        second = client.request(method, path, headers=HEADERS, json=body)
+        assert first.status_code != 429, f"{method} {path} was throttled on its first call"
+        assert second.status_code == 429, f"{method} {path} is not throttled"
+
+
+def test_throttle_refuses_a_wrong_token_too(client):
+    """The budget is spent before the token is compared, so guessing is throttled either way."""
+    rate_limit.current_admin().limit = 1
+    wrong = {"X-Admin-Token": "not-the-token"}
+
+    assert client.get("/api/admin/keys", headers=wrong).status_code == 403
+    assert client.get("/api/admin/keys", headers=wrong).status_code == 429
+
+
+def test_admin_health_is_never_throttled(client):
+    """It is the liveness probe, and it discloses only whether the surface is enabled."""
+    rate_limit.current_admin().limit = 1
+    client.get("/api/admin/keys", headers=HEADERS)
+
+    assert client.get("/api/admin/health").status_code == 200
+    assert client.get("/api/admin/health").status_code == 200
+
+
+def test_default_budget_still_allows_a_full_batch_mint(client):
+    """The budget is per request, not per key: minting 250 keys is one call."""
+    response = client.post("/api/admin/keys", json={"count": 250}, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["count"] == 250
+
+
+def test_mint_failure_is_reported_not_spun_on(client, monkeypatch):
+    """A key allocation that cannot find a free key must fail, not loop inside the handler."""
+    monkeypatch.setattr(db, "get_key", lambda key: {"api_key": key})
+
+    response = client.post("/api/admin/keys", json={"count": 1}, headers=HEADERS)
+    assert response.status_code == 507
+    assert "unique key" in response.json()["detail"].lower()

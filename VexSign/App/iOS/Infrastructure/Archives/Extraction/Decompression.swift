@@ -15,12 +15,18 @@ import NimbleExtensions
 /// Refusal raised before an archive is expanded in memory.
 enum ArchiveExtractionError: LocalizedError {
 	case tooLarge(Int64)
+	/// The archive decompressed to more than `maximumExpandedBytes`.
+	case expandedTooLarge(Int64)
 
 	var errorDescription: String? {
 		switch self {
 		case .tooLarge:
 			return String.localized(
 				"That archive is too large to open safely. Extract the files you need and try again."
+			)
+		case .expandedTooLarge:
+			return String.localized(
+				"That archive expands to more than can be held safely. It may be damaged or not a tweak package."
 			)
 		}
 	}
@@ -30,6 +36,14 @@ enum ArchiveExtractionError: LocalizedError {
 /// holds the compressed bytes *and* the expanded output in memory at once, so an
 /// unbounded read here is a memory-exhaustion path rather than a slow one.
 private let maximumArchiveBytes: Int64 = 512 * 1024 * 1024
+
+/// Ceiling on what one archive may expand to.
+///
+/// Bounding the compressed input is not the same bound: 512 MB of highly compressible data
+/// expands to hundreds of gigabytes, and everything below holds the result in memory. A real
+/// tweak is megabytes, so this is generous by several orders of magnitude while still turning a
+/// decompression bomb into an error instead of a jetsam kill.
+private let maximumExpandedBytes: Int = 1024 * 1024 * 1024
 
 /// Decompresses or untars `fileURL` in place (the URL is updated to point at the result).
 ///
@@ -62,6 +76,9 @@ func extractFile(at fileURL: inout URL) throws {
 
 		let tarContainer = try TarContainer.open(container: data)
 		let standardizedExtractionDir = extractionDirectory.standardizedFileURL.path
+		// `TarContainer` already materialises each entry, so this bounds what reaches the disk
+		// rather than peak memory: without it a tar of many large entries fills the device.
+		var writtenBytes = 0
 		for entry in tarContainer {
 			// Security: archive entries are untrusted input.
 			//  1. Reject absolute paths and any `..` component (path traversal).
@@ -88,6 +105,10 @@ func extractFile(at fileURL: inout URL) throws {
 			if entry.info.type == .directory {
 				try fileManager.createDirectory(at: entryPath, withIntermediateDirectories: true)
 			} else if entry.info.type == .regular, let entryData = entry.data {
+				writtenBytes += entryData.count
+				guard writtenBytes <= maximumExpandedBytes else {
+					throw ArchiveExtractionError.expandedTooLarge(Int64(writtenBytes))
+				}
 				try fileManager.createDirectory(at: entryPath.deletingLastPathComponent(), withIntermediateDirectories: true)
 				try entryData.write(to: entryPath)
 			}
@@ -101,7 +122,8 @@ func extractFile(at fileURL: inout URL) throws {
 	switch _detectCompression(data, extensionHint: fileURL.pathExtension.lowercased()) {
 	case .xz:
 		// Apple's COMPRESSION_LZMA decodes the XZ container; fall back to SWCompression.
-		decompressed = try (_appleDecompress(data, algorithm: COMPRESSION_LZMA) ?? XZArchive.unarchive(archive: data))
+		decompressed = try (_appleDecompress(data, algorithm: COMPRESSION_LZMA, limit: maximumExpandedBytes)
+			?? XZArchive.unarchive(archive: data))
 	case .lzma:
 		decompressed = try LZMA.decompress(data: data)
 	case .gzip:
@@ -110,6 +132,15 @@ func extractFile(at fileURL: inout URL) throws {
 		decompressed = try BZip2.decompress(data: data)
 	case .unknown:
 		throw TweakHandlerError.unsupportedFileExtension(fileURL.pathExtension)
+	}
+
+	// XZ is bounded while it streams (see `_appleDecompress`). These decoders are single-shot, so
+	// the check lands after expansion: it keeps an oversized result from reaching the disk and from
+	// being amplified by the second `extractFile` pass that untars it, but a hostile archive can
+	// still peak above the ceiling first. Closing that fully means replacing these calls with a
+	// streaming decoder; the input cap above is what bounds how far it can go today.
+	guard decompressed.count <= maximumExpandedBytes else {
+		throw ArchiveExtractionError.expandedTooLarge(Int64(decompressed.count))
 	}
 
 	let outputURL = fileURL.deletingPathExtension()
@@ -183,15 +214,21 @@ private func _looksLikeTar(_ data: Data) -> Bool {
 
 // MARK: - Apple Compression (streaming)
 
-/// Streams `data` through Apple's `Compression` framework. Returns nil on any failure so the
-/// caller can fall back to a different decoder.
-private func _appleDecompress(_ data: Data, algorithm: compression_algorithm) -> Data? {
+/// Streams `data` through Apple's `Compression` framework. Returns nil on any decode failure so
+/// the caller can fall back to a different decoder.
+///
+/// Exceeding `limit` is not a decode failure and must not become one: returning nil would hand a
+/// decompression bomb to the fallback decoder to expand all over again, so it throws instead.
+private func _appleDecompress(_ data: Data, algorithm: compression_algorithm, limit: Int) throws -> Data? {
 	guard !data.isEmpty else { return nil }
 	let bufferSize = 1 << 20 // 1 MB scratch
 	let dst = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
 	defer { dst.deallocate() }
 
-	return data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Data? in
+	// `withUnsafeBytes` is `rethrows`; the closure is annotated `throws` explicitly because the
+	// limit check below throws, and the deferred `compression_stream_destroy` still runs on that
+	// path.
+	return try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) throws -> Data? in
 		guard let srcBase = raw.bindMemory(to: UInt8.self).baseAddress else { return nil }
 
 		var stream = compression_stream(dst_ptr: dst, dst_size: bufferSize, src_ptr: srcBase, src_size: data.count, state: nil)
@@ -206,6 +243,11 @@ private func _appleDecompress(_ data: Data, algorithm: compression_algorithm) ->
 			case COMPRESSION_STATUS_OK, COMPRESSION_STATUS_END:
 				let produced = bufferSize - stream.dst_size
 				if produced > 0 { output.append(dst, count: produced) }
+				// Checked as it accumulates, not afterwards: this is the one decoder that streams,
+				// so it is the one place a bomb can be stopped before it is resident in memory.
+				guard output.count <= limit else {
+					throw ArchiveExtractionError.expandedTooLarge(Int64(output.count))
+				}
 				stream.dst_ptr = dst
 				stream.dst_size = bufferSize
 				if status == COMPRESSION_STATUS_END { return output }

@@ -166,14 +166,33 @@ The host and scheme taken from forwarding headers are validated as a host token
 and `http`/`https` before they are interpolated, so a malformed header cannot
 produce a URL that parses as something else.
 
-`POST /api/validate` and `GET /api/urls` are the endpoints that answer yes/no
-about a guessable credential — a key, or a device UUID that only has to *have* an
-activation row — so they are rate limited per client: `VEXSIGN_RATE_LIMIT`
-requests per `VEXSIGN_RATE_WINDOW_SECONDS` (default 60 per minute, `0` disables
-it), answered with `429` and `Retry-After`. Clients are bucketed by the socket
-peer; behind Render or another proxy every request arrives from the proxy, so set
-`VEXSIGN_TRUST_FORWARDED_FOR=1` there to bucket on the first `X-Forwarded-For`
-entry instead. That header is caller-controlled, hence the opt-in.
+Rate limits are per client, answered with `429` and `Retry-After`, and come in
+three budgets because the endpoints they cover have very different traffic
+profiles. Clients are bucketed by the socket peer; behind Render or another proxy
+every request arrives from the proxy, so set `VEXSIGN_TRUST_FORWARDED_FOR=1`
+there to bucket on the first `X-Forwarded-For` entry instead. That header is
+caller-controlled, hence the opt-in. Set any limit to `0` to disable that budget.
+
+| Budget | Endpoints | Environment | Default |
+|---|---|---|---|
+| credential | `POST /api/validate`, `GET /api/urls` | `VEXSIGN_RATE_LIMIT` / `VEXSIGN_RATE_WINDOW_SECONDS` | 60 per 60s |
+| feed | `GET /repo/premium.json` | `VEXSIGN_FEED_RATE_LIMIT` / `VEXSIGN_FEED_RATE_WINDOW_SECONDS` | 300 per 60s |
+| admin | every `X-Admin-Token` route in `admin.py` | `VEXSIGN_ADMIN_RATE_LIMIT` / `VEXSIGN_ADMIN_RATE_WINDOW_SECONDS` | 20 per 60s |
+
+The credential budget covers the endpoints that answer yes/no about a guessable
+credential — a key, or a device UUID that only has to *have* an activation row.
+
+The feed budget covers `/repo/premium.json`, which accepts the same two
+credentials and therefore answers the same question; it is looser because a
+Cydia-style source is fetched by the app on every repo refresh, not by one user
+typing in a key.
+
+The admin budget covers the whole token-gated surface rather than one endpoint.
+It is tightest because those routes mint and revoke keys, and because a wrong
+token is still counted: the limiter runs as a dependency *before* the token
+comparison, so a guessed token costs the caller its budget. `GET
+/api/admin/health` is deliberately outside it — uptime probes need to succeed
+while the budget is exhausted, and it only reports whether a token is configured.
 
 `GET /api/urls` still accepts the device UUID as the primary credential — every
 shipped client sends `vexSignUUID` and none persisted a key at release time, so

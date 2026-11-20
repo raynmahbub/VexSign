@@ -289,6 +289,10 @@ def premium_repo(
     request: Request,
     vexsign_uuid: str | None = Header(default=None, alias="vexSignUUID"),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    # Same credentials, same 401-vs-200 answer as /api/validate and /api/urls, so
+    # it gets a budget too — a larger one, because distributor users often share
+    # a carrier NAT address. See rate_limit.FEED_LIMIT.
+    _throttle: None = Depends(rate_limit.enforce_feed),
 ) -> dict:
     _require_premium_access(vexsign_uuid, x_api_key)
 

@@ -163,16 +163,22 @@ def _pem_to_der(data: bytes) -> bytes | None:
 
 
 def parse_certificate(data: bytes) -> dict[str, Any]:
-    """Public certificate report. Full detail needs the optional `cryptography`."""
-    der = _pem_to_der(data) or (data if data[:1] == b"\x30" else None)
+    """Public certificate report. Full detail needs `cryptography` (a declared dependency)."""
+    # Decode once. `_pem_to_der` base64-decodes the whole upload, and this report used to call
+    # it four times per request to answer questions one result already answers — including
+    # `sha1(data if _pem_to_der(data) is None else der)`, which selects `der` on both branches.
+    pem_der = _pem_to_der(data)
+    der = pem_der or (data if data[:1] == b"\x30" else None)
     if der is None:
         raise ValueError("Not a PEM or DER certificate.")
 
     report: dict[str, Any] = {
         "kind": "certificate",
-        "sha1": hashlib.sha1(data if _pem_to_der(data) is None else der).hexdigest(),
+        # Both digests describe the certificate, not the envelope it arrived in, so a PEM upload
+        # and its DER form report the same fingerprints.
+        "sha1": hashlib.sha1(der).hexdigest(),
         "sha256": hashlib.sha256(der).hexdigest(),
-        "encoding": "pem" if _pem_to_der(data) is not None else "der",
+        "encoding": "pem" if pem_der is not None else "der",
         "sizeBytes": len(der),
     }
 

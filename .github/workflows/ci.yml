@@ -240,10 +240,14 @@ jobs:
           install "$RUNNER_TEMP/SwiftFormat/.build/release/swiftformat" /usr/local/bin/swiftformat
           swiftformat --version
 
-      # Report-only for now: the tree mixes tab and space indentation, so a
+      # Report-only for now: the tree still mixes tab and space indentation, so a
       # whole-tree lint lists hundreds of pre-existing files rather than anything
-      # this change did. `make format` is the adoption path; this step surfaces
-      # the count as an annotation until the reformat lands.
+      # this change did. The two configs no longer disagree about which is correct
+      # — .editorconfig and .swiftformat now both say spaces for Swift — so what is
+      # left is the one-time mechanical pass, not a decision. `make format FIX=1`
+      # is the adoption path and this step surfaces the count as an annotation
+      # until it lands; drop `continue-on-error` afterwards so new files cannot
+      # reintroduce the drift.
       - name: swiftformat lint (report)
         continue-on-error: true
         run: |
@@ -278,6 +282,10 @@ jobs:
           python3 VexSign/Tools/Validation/repository-validation/test_package_graph.py
           python3 VexSign/Tools/Validation/repository-validation/test_coverage_report.py
           python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
+          # Same job that runs the swiftformat step above, so the configs it depends on are
+          # checked here: the report-only lint is only meaningful while the formatter, the editor
+          # config and the lint scope still agree.
+          python3 VexSign/Tools/Validation/repository-validation/test_style_config.py
 
       - name: Upload findings
         if: always()

@@ -387,8 +387,21 @@ enum TweakAnalyzer {
 	/// Internal because the injection path reads the same file to learn the package layout.
 	static func readControl(fromTar tarURL: URL) -> [String: String]? {
 		var file = tarURL
-		try? extractFile(at: &file) // decompress (.gz/.xz/.lzma) → .tar (no-op if already .tar)
-		try? extractFile(at: &file) // untar → directory
+		do {
+			// decompress (.gz/.xz/.lzma) → .tar. An already-uncompressed tar is untarred here
+			// instead, which is why the second step is conditional.
+			try extractFile(at: &file)
+			// untar → directory. Re-running extraction on the directory the first step produced
+			// throws, and both calls used to be `try?` — which swallowed that expected failure
+			// together with every real one, so an oversized or corrupt control member cost the
+			// package its name, version and dependencies with nothing in the log to explain it.
+			if !file.hasDirectoryPath {
+				try extractFile(at: &file)
+			}
+		} catch {
+			FileLogger.error("Read control from \(tarURL.lastPathComponent) failed: \(error.localizedDescription)", category: "analyze")
+			return nil
+		}
 		guard file.hasDirectoryPath else { return nil }
 
 		// The control file may be at ./control or control.

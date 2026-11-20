@@ -13,15 +13,35 @@
 included:
   - VexSign/App/iOS
   - VexSign/App/WidgetExtension
+  # The companion app targets are first-party and were simply never listed.
+  - VexSign/App/TV
+  - VexSign/App/Vision
+  - VexSign/App/Watch
   - VexSign/Tests
   - VexSign/Packages/AltSourceKit/Sources
   - VexSign/Packages/NimbleKit/Sources
+  # The Apple-account, PKCS#12/CMS and provisioning-profile code is the most security-sensitive
+  # Swift in the repository, so it is the least optional to lint. It was out of scope entirely.
+  - VexSign/Packages/NativeSigning
+  # The embedded-container host overlay is first-party Swift too, and was in neither list: not
+  # included, not excluded, so nothing ever looked at it.
+  - VexSign/Integrations
 
 excluded:
   - .build
   - .git
-  - Zsign
-  - IDeviceKitten
+  # Vendored upstream sources (Zsign, IDeviceKitten). These used to be listed as bare `Zsign` /
+  # `IDeviceKitten`, which resolve against the repository root and therefore matched nothing — the
+  # same silent-rot failure as a stale Dependabot `directory`. The parent directory is excluded
+  # rather than the two children so a package vendored later inherits the same decision; this is
+  # the path `.swiftformat` already excludes, and `test_style_config.py` pins the agreement.
+  - VexSign/Packages/Vendor
+  # Vendored from SideStore/Catalyst under AGPL-3.0 (see its Package.swift header) and only
+  # patched by hash-checked overlays, so its style is upstream's to own — same reasoning as the
+  # two vendored packages above.
+  - VexSign/Packages/SideSign
+  # Guards for scratch and extraction directories that are created during vendoring or IPA
+  # inspection rather than checked in, so they legitimately do not exist in a clean checkout.
   - packages
   - Payload
   - deps
