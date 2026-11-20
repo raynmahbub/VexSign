@@ -9,8 +9,17 @@ import Foundation
 import Security
 import OSLog
 
-/// Non-secret identity preferences retain legacy mirroring. API credentials are
-/// Keychain-only; plaintext legacy copies are removed only after successful migration.
+/// Identity values, stored Keychain-first with a plaintext fallback for the ones
+/// the app treats as preferences. API credentials are Keychain-only; plaintext
+/// legacy copies are removed only after a successful migration.
+///
+/// The device UUID and premium flags are mirrored into `identity.json` and
+/// `UserDefaults` as a durability fallback. That mirror is deliberate — losing
+/// the UUID means losing the entitlement — but it is also a bearer credential:
+/// `GET /api/urls` accepts the UUID on its own. Anything that reads the container
+/// or a decrypted backup can therefore redeem it, so these values are never
+/// backed up (`BackupManager.isCredentialSettingKey`) and never stored with a
+/// migratable Keychain accessibility class.
 enum IdentityVault {
 	enum Key: String {
 		case deviceUUID
@@ -45,19 +54,30 @@ enum IdentityVault {
 		defer { _lock.unlock() }
 
 		if key == .premiumAPIKey {
-            do {
-                let data = try SecureSecretStore.read(key.account, service: key.service)
-                let value = data.map { String(decoding: $0, as: UTF8.self) } ?? _fileValue(key) ?? _defaultsValue(key)
-                if let value {
+            // A read must answer from whichever tier already holds the value. This
+            // used to re-write the Keychain on every call inside the same `do`
+            // block, so a write that failed (a locked device returns
+            // errSecInteractionNotAllowed) discarded a successful read and
+            // reported "no key": premium repository auth silently disappeared
+            // from background refreshes that run while the device is locked.
+            let stored = (try? SecureSecretStore.read(key.account, service: key.service))
+                .flatMap { String(data: $0, encoding: .utf8) }
+            guard let value = stored ?? _fileValue(key) ?? _defaultsValue(key) else { return nil }
+
+            // Retire a legacy plaintext copy once, and only when the Keychain
+            // answered without it. A failure here is a migration problem, not a
+            // read problem, so the value still reaches the caller and the copy is
+            // retired by a later read.
+            if stored == nil {
+                do {
                     try SecureSecretStore.write(Data(value.utf8), account: key.account, service: key.service)
                     _writeFile(key, nil)
                     UserDefaults.standard.removeObject(forKey: key.defaultsKey)
+                } catch {
+                    Logger.misc.error("Credential migration needs an unlocked Keychain; serving the stored value.")
                 }
-                return value
-            } catch {
-                Logger.misc.error("Credential migration requires an unlocked Keychain.")
-                return nil
             }
+            return value
         }
         if let cached = _cache[key] { return cached }
 
@@ -136,10 +156,22 @@ enum IdentityVault {
 			kSecAttrService as String: key.service,
 			kSecAttrAccount as String: key.account,
 			kSecValueData as String: data,
-			kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+			// This-device-only. The device UUID is the premium entitlement the
+			// server accepts on its own (`GET /api/urls`), so it must not ride in
+			// an encrypted backup or migrate to a replacement device. The item is
+			// deleted and re-added on every write, so an install that stored it
+			// with the old non-`ThisDeviceOnly` constant is upgraded on its next
+			// write without a migration pass.
+			kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 		]
 
-		SecItemAdd(query as CFDictionary, nil)
+		// The previous item was just deleted, so a failure here leaves the value
+		// only in the plaintext fallback tiers. Record it: otherwise the next
+		// launch can mint a fresh UUID (and lose the entitlement) without a trace.
+		let status = SecItemAdd(query as CFDictionary, nil)
+		if status != errSecSuccess {
+			Logger.misc.error("Identity vault could not store \(key.rawValue) in the Keychain (status \(status)); the plaintext fallback is in use.")
+		}
 	}
 
 	private static func _deleteKeychainValue(_ key: Key) {
