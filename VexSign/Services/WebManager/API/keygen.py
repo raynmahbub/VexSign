@@ -39,7 +39,7 @@ def cmd_add(key: str) -> None:
 
 
 def cmd_list() -> None:
-    with db.connect() as conn:
+    with db.connection() as conn:
         rows = conn.execute(
             "SELECT api_key, used, device_uuid, disabled, created_at FROM keys ORDER BY created_at DESC"
         ).fetchall()
@@ -59,7 +59,7 @@ def _set_flag(key: str, sql: str, verb: str) -> None:
     # Keys are stored upper-cased; normalise so `disable vex-…` (lowercase or
     # pasted with whitespace) still matches the stored key.
     key = key.strip().upper()
-    with db.connect() as conn:
+    with db.connection() as conn:
         cur = conn.execute(sql, (key,))
         if cur.rowcount == 0:
             sys.exit(f"No such key: {key}")

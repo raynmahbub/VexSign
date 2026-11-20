@@ -99,7 +99,7 @@ def list_keys(x_admin_token: str | None = Header(default=None, alias="X-Admin-To
     inventory CLI `keygen.py list` prints."""
     _require_admin(x_admin_token)
 
-    with db.connect() as conn:
+    with db.connection() as conn:
         rows = conn.execute(
             "SELECT api_key, used, device_uuid, disabled, created_at FROM keys ORDER BY created_at DESC"
         ).fetchall()
