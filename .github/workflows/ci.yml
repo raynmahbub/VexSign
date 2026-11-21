@@ -286,6 +286,10 @@ jobs:
           # checked here: the report-only lint is only meaningful while the formatter, the editor
           # config and the lint scope still agree.
           python3 VexSign/Tools/Validation/repository-validation/test_style_config.py
+          # The runtime each service is tested on, built into and deployed with. Four workflows pin
+          # `python-version` and one pins `node-version`, while the images and render.yaml declare
+          # their own; this asserts every one of those still names the same interpreter.
+          python3 VexSign/Tools/Validation/repository-validation/test_runtime_policy.py
 
       - name: Upload findings
         if: always()

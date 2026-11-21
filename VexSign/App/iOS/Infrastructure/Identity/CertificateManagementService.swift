@@ -127,7 +127,12 @@ enum CertificateManagementService {
         func performExport(for certificate: CertificatePair) {
             guard
                 let certificateKeyFile = Storage.shared.getFile(.certificate, from: certificate),
-                let certificateKeyFileData = try? Data(contentsOf: certificateKeyFile) // try? ok: certificate file may be missing or unreadable
+                // Bounded, and it refuses anything that is not a regular file. `Data(contentsOf:)`
+                // had no ceiling, which mattered here more than elsewhere: `performExport` runs
+                // inside a `UIAlertAction` handler, so the read, the base64 copy and the
+                // percent-encoded copy all land on the main thread. Line 100 of this same file
+                // already reads certificate material through `CertificateInputReader`.
+                let certificateKeyFileData = try? CertificateInputReader.read(certificateKeyFile) // try? ok: certificate file may be missing, unreadable or oversized
             else {
                 return
             }
