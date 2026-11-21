@@ -60,6 +60,9 @@ struct LibraryInfoView: View {
 
 				// Only a signed copy can have been installed by VexSign under this identifier.
 				if app.isSigned, let identifier = app.identifier, !identifier.isEmpty {
+                    if let url = app.bundleURL, Bundle(url: url)?.object(forInfoDictionaryKey: "VexSignMarkerFixture") as? Bool == true {
+                        NavigationLink("Fixture slot manager") { FixtureSlotView(app: app) }
+                    }
 					DeviceAppRemovalSection(
 						bundleIdentifier: identifier,
 						name: app.name ?? identifier

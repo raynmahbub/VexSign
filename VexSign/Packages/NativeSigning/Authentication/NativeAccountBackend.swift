@@ -150,7 +150,7 @@ public actor NativeAccountBackend {
     private let bridge: Bridge
     private var closed = false
 
-    public init(provider descriptor: AnisetteProviderDescriptor) throws {
+    public init(provider descriptor: AnisetteProviderDescriptor, slot: NativeAccountSlot = .primary) throws {
         do { try AppleAccountStorageRuntimePolicy.requirePrimaryRuntime() }
         catch { throw NativeAccountBackendError.unsupportedRuntime }
         let lease = try NativeAccountNamespaceLease.acquire()
@@ -158,7 +158,8 @@ public actor NativeAccountBackend {
             let provider = try NativeConfiguredAnisetteProvider(descriptor: descriptor)
             let adapter = try SideSignAccountAdapter<SideSignNativePortal>()
             bridge = Bridge(adapter: adapter, provider: provider,
-                            sessions: AppleAccountCredentialStore(), journal: AppleAccountResumeJournalStore(),
+                            sessions: AppleAccountCredentialStore(client: SystemAppleAccountKeychainClient(), slot: slot),
+                            journal: AppleAccountResumeJournalStore(client: SystemAppleAccountKeychainClient(), slot: slot),
                             lifetime: lease,
                             receipts: NativeProfileReceiptKeychainStore(client: SystemAppleAccountKeychainClient()),
                             profileValidator: Self.productionProfileValidator())
@@ -347,6 +348,16 @@ public actor NativeAccountBackend {
                                                   consent: AnisetteConsentToken) async throws -> NativeAccountProfileResult {
         try requireOpen()
         do { return try await bridge.createAccountProvisioningProfile(contextID: contextID, target: target, approval: approval, consent: consent) }
+        catch { throw Self.profileError(error) }
+    }
+
+    /// Separate from creation and read-only reconciliation. Call only after the
+    /// user approves regeneration of the profile embedded in the selected copy.
+    public func renewExplicitlyApprovedProfile(contextID: UUID, target: NativeAccountProfileTarget,
+                                              baselineDigest: String, consent: AnisetteConsentToken) async throws -> NativeAccountProfileResult {
+        try requireOpen()
+        do { return try await bridge.renewExplicitlyApprovedProfile(contextID: contextID, target: target,
+            baselineDigest: baselineDigest, token: consent) }
         catch { throw Self.profileError(error) }
     }
 

@@ -136,3 +136,49 @@ actor SideSignBoundProfilePortal<Portal: SideSignProfileTransport>: NativeProfil
         guard now.timeIntervalSince1970.isFinite, authorityExpiresAt > now else { throw NativeProfileCreationError.approvalRequired }
     }
 }
+
+extension SideSignBoundProfilePortal where Portal: SideSignProfileRenewalTransport {
+    /// Load the exact authenticated portal observation. An ambiguous listing is
+    /// not resolved by picking the newest date or trusting a listing's metadata.
+    private func renewalObservation() async throws -> (String, NativeAuthenticatedProvisioningProfile) {
+        // Regeneration can change the profile UUID. List the whole exact target
+        // both times rather than silently filtering a conflict or the replacement.
+        guard request.validation.expectedUUID == nil else { throw NativeProfileCreationError.invalidRequest }
+        try await revalidate(owner: owner, contextID: contextID, request: request)
+        let rows = try await inventory(request: request)
+        guard rows.count == 1, let row = rows.first,
+              NativeRegistrationRecord.validIdentifier(row.remoteIdentifier), let listed = row.listedUUID else {
+            throw NativeProfileCreationError.reconciliationRequired
+        }
+        let verified = try await validator.validate(cms: row.cms, request: request.validation, now: clock())
+        guard listed == verified.constraints.uuid else { throw NativeProfileCreationError.inventoryRejected }
+        _ = try await currentAuthorization(request)
+        return (row.remoteIdentifier, verified)
+    }
+
+    func prepareRenewal<Client>(gate: NativeProfileRenewalGate<Client>, baselineCMSDigest: String) async throws
+        -> NativeProfileRenewalGate<Client>.Review {
+        let (id, profile) = try await renewalObservation()
+        guard profile.cmsSHA256 == baselineCMSDigest else { throw NativeProfileValidationError.receiptMismatch }
+        return try await gate.review(context: contextID, owner: owner, request: request, remoteID: id, baseline: profile)
+    }
+
+    /// Only call after the caller has explicitly confirmed this exact review.
+    /// Never resend on a missing response, cancellation, timeout or stale inventory.
+    func confirmRenewal<Client>(gate: NativeProfileRenewalGate<Client>, review: NativeProfileRenewalGate<Client>.Review) async throws
+        -> NativeProfileCreationResult {
+        let (id, baseline) = try await renewalObservation()
+        let op = try await gate.confirm(review, context: contextID, owner: owner, request: request,
+            remoteID: id, baseline: baseline)
+        let auth = try await currentAuthorization(request)
+        try requireNonce(auth)
+        try await portal.renewLimitedProfileOnce(remoteID: id, request: request, operationID: op,
+            team: auth.team, session: auth.session)
+        let (updatedID, replacement) = try await renewalObservation()
+        guard updatedID == id, replacement.cmsSHA256 != baseline.cmsSHA256,
+              replacement.constraints.expiresAt > baseline.constraints.expiresAt else {
+            throw NativeProfileCreationError.reconciliationRequired
+        }
+        return .init(operationID: op, profile: replacement)
+    }
+}

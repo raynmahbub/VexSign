@@ -71,14 +71,36 @@ final class NativeProfileCreationTests: XCTestCase {
         let validation = try NativeProfileValidationRequest(teamIdentifier: team, bundleIdentifier: bundle, deviceIdentifier: udid, certificateDER: certificate, expectedUUID: expectedUUID)
         return try .init(identityID: UUID(uuidString: "12345678-1234-1234-1234-123456789012")!, validation: validation, appID: appID, deviceID: "DEVICE1", certificateID: "CERT1")
     }
-    private static func validator(wrongTeam: Bool = false) throws -> NativeProvisioningProfileValidator {
+    private static func validator(wrongTeam: Bool = false, validity: TimeInterval = 3600) throws -> NativeProvisioningProfileValidator {
         let root: [String: Any] = ["Version": 1, "UUID": "12345678-1234-1234-1234-123456789012",
-            "CreationDate": now.addingTimeInterval(-60), "ExpirationDate": now.addingTimeInterval(3600), "Platform": ["iOS"],
+            "CreationDate": now.addingTimeInterval(-60), "ExpirationDate": now.addingTimeInterval(validity), "Platform": ["iOS"],
             "TeamIdentifier": [wrongTeam ? "OTHER12345" : team], "ApplicationIdentifierPrefix": [team],
             "ProvisionedDevices": [udid], "DeveloperCertificates": [certificate],
             "Entitlements": ["application-identifier": team + "." + bundle, "com.apple.developer.team-identifier": team,
                              "get-task-allow": true, "keychain-access-groups": [team + ".*"]]]
         return NativeProvisioningProfileValidator(verifier: Verifier(payload: try PropertyListSerialization.data(fromPropertyList: root, format: .xml, options: 0)))
+    }
+
+    func testRenewalConfirmationIsContextBoundAndDurablySingleUse() async throws {
+        let owner = try Self.owner(), request = try Self.request(), context = UUID()
+        let profile = try await Self.validator().validate(cms: Self.cms, request: request.validation, now: Self.now)
+        let client = ReceiptClient()
+        let gate = NativeProfileRenewalGate(client: client, clock: { Self.now })
+        let first = try await gate.review(context: context, owner: owner, request: request, remoteID: "P1", baseline: profile)
+        do {
+            _ = try await gate.confirm(first, context: UUID(), owner: owner, request: request, remoteID: "P1", baseline: profile)
+            XCTFail("changed account context must not confirm")
+        } catch { XCTAssertEqual(error as? NativeProfileCreationError, .approvalRequired) }
+        XCTAssertTrue(client.lock.withLock { $0.rows.isEmpty })
+        let second = try await gate.review(context: context, owner: owner, request: request, remoteID: "P1", baseline: profile)
+        _ = try await gate.confirm(second, context: context, owner: owner, request: request, remoteID: "P1", baseline: profile)
+        XCTAssertTrue(client.lock.withLock { $0.deviceOnly && $0.rows.count == 1 })
+        let restarted = NativeProfileRenewalGate(client: client, clock: { Self.now })
+        let third = try await restarted.review(context: context, owner: owner, request: request, remoteID: "P1", baseline: profile)
+        do {
+            _ = try await restarted.confirm(third, context: context, owner: owner, request: request, remoteID: "P1", baseline: profile)
+            XCTFail("relaunch must not allow another send against the same CMS")
+        } catch { XCTAssertEqual(error as? NativeProfileCreationError, .reconciliationRequired) }
     }
 
     private struct ReceiptClient: AppleAccountJournalKeychainClient, Sendable {
@@ -131,6 +153,24 @@ final class NativeProfileCreationTests: XCTestCase {
         try index.record(NativeProfileReceipt(profile: profile, owner: owner, request: request,
                                               recordedAt: Self.now.addingTimeInterval(1)), owner: owner)
         XCTAssertEqual(try index.list(owner: owner).count, 1)
+    }
+
+    func testLaterCMSWithUnchangedUUIDRequiresConfirmedRenewalAndSurvivesReload() async throws {
+        let owner = try Self.owner(), request = try Self.request()
+        let client = ReceiptClient(), store = NativeProfileReceiptKeychainStore(client: client)
+        let baseline = try await Self.validator().validate(cms: Self.cms, request: request.validation, now: Self.now)
+        let next = try await Self.validator(validity: 7200).validate(cms: Data("new CMS".utf8), request: request.validation, now: Self.now)
+        let first = try NativeProfileReceipt(profile: baseline, owner: owner, request: request, recordedAt: Self.now)
+        let second = try NativeProfileReceipt(profile: next, owner: owner, request: request, recordedAt: Self.now)
+        XCTAssertEqual(first.profileUUID, second.profileUUID)
+        try store.record(first, owner: owner)
+        XCTAssertThrowsError(try store.record(second, owner: owner))
+        XCTAssertThrowsError(try store.recordRenewal(second, replacing: second.cmsSHA256, owner: owner))
+        try store.recordRenewal(second, replacing: first.cmsSHA256, owner: owner)
+        let reloaded = NativeProfileReceiptKeychainStore(client: client)
+        XCTAssertEqual(try reloaded.list(owner: owner), [second])
+        XCTAssertThrowsError(try reloaded.recordRenewal(first, replacing: second.cmsSHA256, owner: owner))
+        XCTAssertEqual(client.lock.withLock { $0.rows.count }, 2)
     }
 
     func testReceiptIndexIsOwnerScopedAndFailsClosedWhenLocked() async throws {

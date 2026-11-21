@@ -87,7 +87,7 @@
   },
   "registration_overlay": {
     "path": "Sources/VexSignRegistration.swift",
-    "sha256": "79604f47473818566cd61fd09b0ea1b64d76e8edf5e07ba76e7a0e185ddef21b",
+    "sha256": "5c1c7481afbb02afd26d2a239a3f59ffbb9b19a0aa4ae47d370d2e40d127d3cf",
     "reviewed_sources": {
       "Sources/DeveloperPortal/DeveloperPortalAPI.swift": "8bfb71fd38463210ab8140ea7a2a1ec60b4af324f8c9bacfb7762bce02cac43f",
       "Sources/Constants.swift": "53e0874fb75eae957ec690db0efb97657e2c9c8e97b3efd1f8fee4947be4e979",
@@ -99,8 +99,8 @@
   },
   "profile_overlay": {
     "path": "Sources/VexSignProfiles.swift",
-    "sha256": "e648a86aacf814b7b2f0c0ebe787fa52a0752f94b345b23be6b28bd3609b9459",
-    "transport_sha256": "79604f47473818566cd61fd09b0ea1b64d76e8edf5e07ba76e7a0e185ddef21b",
+    "sha256": "1a71d2c596712bebab0880b5541ea2abec29459c195602c113b82f26df2a03c2",
+    "transport_sha256": "5c1c7481afbb02afd26d2a239a3f59ffbb9b19a0aa4ae47d370d2e40d127d3cf",
     "reviewed_sources": {
       "Sources/DeveloperPortal/DeveloperPortalAPI.swift": "8bfb71fd38463210ab8140ea7a2a1ec60b4af324f8c9bacfb7762bce02cac43f",
       "Sources/Constants.swift": "53e0874fb75eae957ec690db0efb97657e2c9c8e97b3efd1f8fee4947be4e979",
@@ -112,7 +112,7 @@
   "certificate_inventory_overlay": {
     "path": "Sources/VexSignCertificateInventory.swift",
     "sha256": "caa939944db1b73adf71354af61e8cc05f6070bebb4a0bf94e33b00127d23147",
-    "transport_sha256": "79604f47473818566cd61fd09b0ea1b64d76e8edf5e07ba76e7a0e185ddef21b",
+    "transport_sha256": "5c1c7481afbb02afd26d2a239a3f59ffbb9b19a0aa4ae47d370d2e40d127d3cf",
     "reviewed_sources": {
       "Sources/DeveloperPortal/DeveloperPortalAPI.swift": "8bfb71fd38463210ab8140ea7a2a1ec60b4af324f8c9bacfb7762bce02cac43f",
       "Sources/Constants.swift": "53e0874fb75eae957ec690db0efb97657e2c9c8e97b3efd1f8fee4947be4e979",

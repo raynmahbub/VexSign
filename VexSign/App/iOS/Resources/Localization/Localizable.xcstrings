@@ -112257,6 +112257,347 @@
           }
         }
       }
+    },
+    "Profile expires" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile expires"
+          }
+        }
+      }
+    },
+    "Choose a signed library copy with an unchanged bundle ID and a saved, current certificate. Review its signing settings in VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a signed library copy with an unchanged bundle ID and a saved, current certificate. Review its signing settings in VexSign."
+          }
+        }
+      }
+    },
+    "Re-sign a signed library copy with its saved certificate and queue the result. Does not renew provisioning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-sign a signed library copy with its saved certificate and queue the result. Does not renew provisioning."
+          }
+        }
+      }
+    },
+    "Re-sign and Queue Install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-sign and Queue Install"
+          }
+        }
+      }
+    },
+    "Re-signed and queued for installation. Check the install result in VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-signed and queued for installation. Check the install result in VexSign."
+          }
+        }
+      }
+    },
+    "Unlock this library app in VexSign first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock this library app in VexSign first."
+          }
+        }
+      }
+    },
+    "Apple did not return a later-expiring profile. No signing identity was imported and no install was queued." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple did not return a later-expiring profile. No signing identity was imported and no install was queued."
+          }
+        }
+      }
+    },
+    "Checks the embedded profile before provisioning. If Apple returns the same expiry, the flow stops before key export or signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks the embedded profile before provisioning. If Apple returns the same expiry, the flow stops before key export or signing."
+          }
+        }
+      }
+    },
+    "Require a later expiry than this signed library copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require a later expiry than this signed library copy"
+          }
+        }
+      }
+    },
+    "The library copy needs a verified embedded development profile for this team, app and device. Nothing was renewed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library copy needs a verified embedded development profile for this team, app and device. Nothing was renewed."
+          }
+        }
+      }
+    },
+    "Changes the profile on Apple’s portal. Requires the original native account receipt. An uncertain request is not automatically repeated." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes the profile on Apple’s portal. Requires the original native account receipt. An uncertain request is not automatically repeated."
+          }
+        }
+      }
+    },
+    "Request one regeneration of this app’s existing Apple profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request one regeneration of this app’s existing Apple profile"
+          }
+        }
+      }
+    },
+    "Mobile data path available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mobile data path available"
+          }
+        }
+      }
+    },
+    "Opens a foreground renewal review for a signed library app. Does not change Wi-Fi or VPN settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens a foreground renewal review for a signed library app. Does not change Wi-Fi or VPN settings."
+          }
+        }
+      }
+    },
+    "Renewal requires a signed app, mobile data and explicit confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewal requires a signed app, mobile data and explicit confirmation."
+          }
+        }
+      }
+    },
+    "Review Renewal over Cellular" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Renewal over Cellular"
+          }
+        }
+      }
+    },
+    "Sign in under Settings → Signing Methods before starting renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in under Settings → Signing Methods before starting renewal."
+          }
+        }
+      }
+    },
+    "Turn off Wi-Fi and enable mobile data. This checks the default route before submission; it does not reset a VPN or verify installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off Wi-Fi and enable mobile data. This checks the default route before submission; it does not reset a VPN or verify installation."
+          }
+        }
+      }
+    },
+    "Waiting for a mobile data path" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a mobile data path"
+          }
+        }
+      }
+    },
+    "Open Fixture Slot Manager" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Fixture Slot Manager"
+          }
+        }
+      }
+    },
+    "Open recovery for one signed test fixture. Add this action to the Home Screen in Shortcuts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open recovery for one signed test fixture. Add this action to the Home Screen in Shortcuts."
+          }
+        }
+      }
+    },
+    "Opening fixture recovery review." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening fixture recovery review."
+          }
+        }
+      }
+    },
+    "Select a retained, signed marker fixture." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a retained, signed marker fixture."
+          }
+        }
+      }
+    },
+    "The selected fixture is unavailable or locked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected fixture is unavailable or locked."
+          }
+        }
+      }
+    },
+    "Reveal or unlock the protected backup in VexSign first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveal or unlock the protected backup in VexSign first."
+          }
+        }
+      }
+    },
+    "Saved fixture backup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved fixture backup"
+          }
+        }
+      }
+    },
+    "This fixture backup is missing or has no saved lock identity. Open fixture recovery in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This fixture backup is missing or has no saved lock identity. Open fixture recovery in Settings."
+          }
+        }
+      }
+    },
+    "Unlock VexSign before opening a backup." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock VexSign before opening a backup."
+          }
+        }
+      }
+    },
+    "The Apple account session changed. Select the app and review permissions again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Apple account session changed. Select the app and review permissions again."
+          }
+        }
+      }
+    },
+    "Contact the configured Anisette provider and Apple to resume this slot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact the configured Anisette provider and Apple to resume this slot"
+          }
+        }
+      }
+    },
+    "Saved account slot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved account slot"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

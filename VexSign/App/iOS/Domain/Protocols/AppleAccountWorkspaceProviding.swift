@@ -32,6 +32,7 @@ struct AppleAccountRenewalCandidate: Identifiable, Equatable, Sendable {
     let expiresAt: Date
 }
 struct AppleAccountState: Equatable, Sendable {
+    var selectedSlot = 1
     var snapshot: AppleAccountSnapshot?
     var isBackendReady = false
     var lastError: String?
@@ -59,6 +60,8 @@ struct AppleAccountProvisioningRequest: Sendable {
     let contextID: UUID
     let app: LibraryAppReference
     let deviceIdentifier: String
+    var requireLaterProfile = false
+    var approveRegeneration = false
 }
 struct AppleAccountProvisioningApproval: Equatable, Sendable {
     let certificate: Bool
@@ -109,13 +112,15 @@ struct AppleAccountSigningHandoff: Equatable, Sendable {
 }
 
 enum AppleAccountWorkspaceError: Error, Equatable {
-    case approvalRequired, missingReceipt, noActiveContext
+    case approvalRequired, missingReceipt, noActiveContext, incompatibleRenewalSource, expiryNotAdvanced
 }
 
 @MainActor
 protocol AppleAccountWorkspaceProviding: AnyObject {
     func state() -> AppleAccountState
     func changes() -> AsyncStream<AppleAccountState>
+    func selectSlot(_ slot: Int) async throws
+    func revalidate() async throws -> AppleAccountOperation
     func synchronizeProvider() async
     func refreshSnapshot() async
     func refreshRenewalCandidates() async

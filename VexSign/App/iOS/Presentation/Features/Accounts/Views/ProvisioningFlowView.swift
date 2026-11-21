@@ -28,10 +28,21 @@ struct ProvisioningFlowView: View {
     @State private var createdProfile: AppleAccountProvisioningReceipt?
     @State private var certificateImported = false
     @State private var signingHandoff: AppleAccountSigningHandoff?
+    @State private var reviewedContextID: UUID?
     @State private var approveCertificate = false
     @State private var approveRegistration = false
     @State private var approveProfile = false
+    @State private var requireLaterProfile = false
+    @State private var approveRegeneration = false
     @State private var approveKeyExport = false
+
+    let cellularReview: Bool
+    @State private var cellularAvailable = false
+
+    init(cellularReview: Bool = false) {
+        self.cellularReview = cellularReview
+        _requireLaterProfile = State(initialValue: cellularReview)
+    }
 
     // Context from signed-in state
     private var contextID: UUID? {
@@ -44,6 +55,16 @@ struct ProvisioningFlowView: View {
             VStack(spacing: 0) {
                 // Progress Header
                 provisioningProgressHeader
+                if cellularReview {
+                    VStack {
+                        Label(cellularAvailable ? .localized("Mobile data path available") : .localized("Waiting for a mobile data path"),
+                              systemImage: "antenna.radiowaves.left.and.right")
+                        Text(.localized("Turn off Wi-Fi and enable mobile data. This checks the default route before submission; it does not reset a VPN or verify installation."))
+                        if contextID == nil {
+                            Text(.localized("Sign in under Settings → Signing Methods before starting renewal."))
+                        }
+                    }.font(.caption).padding(.horizontal)
+                }
 
                 // Step Content
                 ScrollView {
@@ -78,9 +99,23 @@ struct ProvisioningFlowView: View {
                 Text(msg)
             }
             .interactiveDismissDisabled(isProvisioning)
+            .onAppear { if cellularReview { cellularAvailable = DownloadPreferences.cellularPathAvailable } }
+            .onReceive(NotificationCenter.default.publisher(for: DownloadPreferences.pathChanged)) { _ in
+                if cellularReview { cellularAvailable = DownloadPreferences.cellularPathAvailable }
+            }
+            .onChange(of: contextID) { _, current in
+                guard let reviewedContextID, current != reviewedContextID else { return }
+                provisioningTask?.cancel()
+                self.reviewedContextID = nil
+                approveCertificate = false; approveRegistration = false; approveProfile = false
+                approveKeyExport = false; approveRegeneration = false
+                createdProfile = nil; signingHandoff = nil; certificateImported = false
+                selectedApp = nil; deviceIdentifier = ""; step = .selectApp
+                errorMessage = .localized("The Apple account session changed. Select the app and review permissions again.")
+            }
             .onDisappear { provisioningTask?.cancel() }
             .sheet(isPresented: $showAppPicker) {
-                AppPickerView(selectedApp: $selectedApp)
+                AppPickerView(selectedApp: $selectedApp, signedOnly: cellularReview)
             }
             .sheet(isPresented: $showDevicePicker) {
                 DevicePickerView(deviceIdentifier: $deviceIdentifier)
@@ -196,9 +231,12 @@ struct ProvisioningFlowView: View {
 
             if !deviceIdentifier.isEmpty {
                 Button(.localized("Next: Review")) {
+                    guard let contextID else { return }
+                    reviewedContextID = contextID
                     step = .review
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(contextID == nil || provisioningTask != nil)
             }
 
             Button(.localized("Back")) {
@@ -230,6 +268,19 @@ struct ProvisioningFlowView: View {
                 deviceUDID: deviceIdentifier
             )
 
+            if selectedApp?.isSigned == true {
+                Toggle(.localized("Require a later expiry than this signed library copy"), isOn: $requireLaterProfile)
+                    .disabled(cellularReview)
+                    .onChange(of: requireLaterProfile) { _, _ in approveRegeneration = false }
+                if requireLaterProfile {
+                    Toggle(.localized("Request one regeneration of this app’s existing Apple profile"), isOn: $approveRegeneration)
+                    Text(.localized("Changes the profile on Apple’s portal. Requires the original native account receipt. An uncertain request is not automatically repeated."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Text(.localized("Checks the embedded profile before provisioning. If Apple returns the same expiry, the flow stops before key export or signing."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Toggle(.localized("Approve one development certificate if no owned certificate exists (uses Apple quota)"), isOn: $approveCertificate)
             Toggle(.localized("Approve this device and App ID registration"), isOn: $approveRegistration)
             Toggle(.localized("Approve a profile for this exact app, device and owned identity"), isOn: $approveProfile)
@@ -252,10 +303,10 @@ struct ProvisioningFlowView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isProvisioning || contextID == nil || !approveCertificate || !approveRegistration || !approveProfile)
+                .disabled(isProvisioning || (cellularReview && (!cellularAvailable || !approveRegeneration)) || contextID == nil || !approveCertificate || !approveRegistration || !approveProfile)
 
                 Button(.localized("Back")) {
-                    approveCertificate = false; approveRegistration = false; approveProfile = false
+                    approveCertificate = false; approveRegistration = false; approveProfile = false; approveRegeneration = false
                     step = .selectDevice
                 }
                 .buttonStyle(.bordered)
@@ -380,12 +431,14 @@ struct ProvisioningFlowView: View {
 
     @MainActor
     private func importCreatedCertificate() async {
-        guard let profile = createdProfile, approveKeyExport, !certificateImported else { return }
+        guard let context = reviewedContextID, context == contextID, let profile = createdProfile, approveKeyExport, !certificateImported else { return }
         isProvisioning = true
         errorMessage = nil
         defer { isProvisioning = false }
         do {
-            signingHandoff = try await manager.importCertificate(profile, consentGiven: approveKeyExport)
+            let result = try await manager.importCertificate(profile, consentGiven: approveKeyExport)
+            guard !Task.isCancelled, contextID == context, reviewedContextID == context else { return }
+            signingHandoff = result
             certificateImported = true
             approveKeyExport = false
         } catch {
@@ -397,8 +450,12 @@ struct ProvisioningFlowView: View {
 
     @MainActor
     private func runProvisioning() async {
-        guard let contextID, let app = selectedApp else {
+        guard let contextID, reviewedContextID == contextID, let app = selectedApp else {
             errorMessage = .localized("Missing context or app selection")
+            return
+        }
+        if cellularReview && (!DownloadPreferences.cellularPathAvailable || !app.isSigned || !approveRegeneration) {
+            errorMessage = .localized("Renewal requires a signed app, mobile data and explicit confirmation.")
             return
         }
         let approval = AppleAccountProvisioningApproval(certificate: approveCertificate,
@@ -411,11 +468,18 @@ struct ProvisioningFlowView: View {
         errorMessage = nil
         do {
             let request = AppleAccountProvisioningRequest(contextID: contextID,
-                app: try LibraryAppReference(app: app), deviceIdentifier: deviceIdentifier)
-            createdProfile = try await manager.provision(request, approval: approval) { progress in
+                app: try LibraryAppReference(app: app), deviceIdentifier: deviceIdentifier,
+                requireLaterProfile: app.isSigned && requireLaterProfile,
+                approveRegeneration: app.isSigned && requireLaterProfile && approveRegeneration)
+            approveRegeneration = false // consume the UI confirmation even if the portal request fails
+            let receipt = try await manager.provision(request, approval: approval) { progress in
+                guard self.contextID == contextID, reviewedContextID == contextID else { return }
                 updateStage(progress.stage.title, progress.fraction)
             }
+            guard !Task.isCancelled, self.contextID == contextID, reviewedContextID == contextID else { return }
+            createdProfile = receipt
         } catch {
+            guard !Task.isCancelled, self.contextID == contextID, reviewedContextID == contextID else { return }
             if !(error is CancellationError) { errorMessage = error.localizedDescription }
             step = .review
         }
@@ -517,6 +581,7 @@ private struct ReviewRow: View {
 private struct AppPickerView: View {
     @EnvironmentObject var services: AppContainer
     @Binding var selectedApp: AppInfoPresentable?
+    let signedOnly: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var allApps: [AppInfoPresentable] = []
 
@@ -547,7 +612,7 @@ private struct AppPickerView: View {
                 }
             }
             .task {
-                allApps = services.workspace.snapshot.apps
+                allApps = services.workspace.snapshot.apps.filter { !signedOnly || $0.isSigned }
             }
             .navigationTitle(.localized("Select App"))
             .toolbar {

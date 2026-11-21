@@ -98,6 +98,7 @@ extension DeveloperPortal {
             case "addAppId": endpoint = Constants.URLs.addAppID
             case "listDevices": endpoint = Constants.URLs.listDevices
             case "listAppIds": endpoint = Constants.URLs.listAppIDs
+            case "regenProvisioningProfile": endpoint = Constants.URLs.regenProvisioningProfile
             case "createProvisioningProfile": endpoint = Constants.URLs.createProvisioningProfile
             case "listProvisioningProfiles": endpoint = Constants.URLs.listProvisioningProfiles
             case "downloadProvisioningProfile": endpoint = Constants.URLs.downloadManualProvisioningProfile

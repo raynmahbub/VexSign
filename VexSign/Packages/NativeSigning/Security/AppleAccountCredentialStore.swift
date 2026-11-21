@@ -24,6 +24,16 @@ enum AppleAccountCredentialStoreError: LocalizedError, Equatable {
 
 /// Synchronous Security calls, injectable without Sendable escape hatches.
 /// Production values can be sent to a worker task; test clients can remain local.
+/// Fixed local slots are storage selectors, never authenticated identities.
+/// The primary slot retains the exact pre-slot Keychain service names.
+public enum NativeAccountSlot: Int, CaseIterable, Sendable {
+    case primary = 1, second, third, fourth, fifth
+
+    func service(_ base: String) -> String {
+        self == .primary ? base : "\(base).slot.\(rawValue)"
+    }
+}
+
 protocol AppleAccountKeychainClient {
     func add(_ attributes: [String: Any]) -> OSStatus
     func copy(_ query: [String: Any]) -> (status: OSStatus, data: Data?)
@@ -55,7 +65,12 @@ struct AppleAccountCredentialStore<Client: AppleAccountKeychainClient> {
     static var maximumSessionBytes: Int { 1024 * 1024 }
     private let client: Client
 
-    init(client: Client) { self.client = client }
+    private let slot: NativeAccountSlot
+
+    init(client: Client, slot: NativeAccountSlot = .primary) {
+        self.client = client
+        self.slot = slot
+    }
 
     /// Add-only: duplicate references fail; a late login cannot overwrite another
     /// operation's accepted session. Callers generate a new UUID per transaction.
@@ -105,7 +120,7 @@ struct AppleAccountCredentialStore<Client: AppleAccountKeychainClient> {
 
     private func base(_ reference: UUID) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: Self.service,
+         kSecAttrService as String: slot.service(Self.service),
          kSecAttrAccount as String: "session." + reference.uuidString,
          kSecAttrSynchronizable as String: false]
     }

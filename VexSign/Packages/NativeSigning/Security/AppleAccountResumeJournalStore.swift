@@ -39,7 +39,12 @@ struct AppleAccountResumeJournalStore<Client: AppleAccountJournalKeychainClient>
     static var maximumBytes: Int { 16 * 1024 }
     private let client: Client
 
-    init(client: Client) { self.client = client }
+    private let slot: NativeAccountSlot
+
+    init(client: Client, slot: NativeAccountSlot = .primary) {
+        self.client = client
+        self.slot = slot
+    }
 
     func readJournal() throws -> AppleAccountResumeJournal? {
         try checkEnvironment()
@@ -96,7 +101,7 @@ struct AppleAccountResumeJournalStore<Client: AppleAccountJournalKeychainClient>
 
     private var base: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: Self.service,
+         kSecAttrService as String: slot.service(Self.service),
          kSecAttrAccount as String: "primary",
          kSecAttrSynchronizable as String: false]
     }

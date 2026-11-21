@@ -12,6 +12,8 @@ struct SettingsView: View {
     @EnvironmentObject private var appContainer: AppContainer
     @AppStorage("vexsign.selectedCert") private var _storedSelectedCert: Int = 0
     @AppStorage(GameMode.enabledKey) private var _gameMode: Bool = false
+    @ObservedObject private var _tabSelection = TabSelectionObserver.shared
+    @State private var _showCellularRenewal = false
     @State private var _settingsQuery = ""
     @State private var _currentIcon: String? = UIApplication.shared.alternateIconName
     @ObservedObject private var _selfUpdate = SelfUpdateManager.shared
@@ -55,6 +57,12 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: SigningMethodsView()) {
                         Label(.localized("Signing Methods"), systemImage: "person.badge.key")
+                    }
+                    NavigationLink(destination: FixtureRecoveryList()) {
+                        Label("Recover fixture backup", systemImage: "archivebox")
+                    }
+                    Button { _showCellularRenewal = true } label: {
+                        Label(.localized("Review Renewal over Cellular"), systemImage: "antenna.radiowaves.left.and.right")
                     }
                     NavigationLink(destination: CertificatesView()) {
                         Label(.localized("Certificates Manager"), systemImage: "checkmark.seal.fill")
@@ -294,6 +302,17 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .searchable(text: $_settingsQuery, prompt: Text(.localized("Search Settings")))
+            .sheet(item: $_tabSelection.fixtureSlotRequest) { route in
+                NavigationStack {
+                    FixtureShortcutDestination(route: route)
+                }
+            }
+            .onChange(of: _tabSelection.cellularRenewalRequested, initial: true) { _, requested in
+                guard requested else { return }
+                _tabSelection.cellularRenewalRequested = false
+                _showCellularRenewal = true
+            }
+            .sheet(isPresented: $_showCellularRenewal) { ProvisioningFlowView(cellularReview: true) }
             .onReceive(TabSelectionObserver.shared.$searchRequest) { request in
                 guard let request, request.tab == .settings else { return }
                 _settingsQuery = request.query

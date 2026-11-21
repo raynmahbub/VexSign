@@ -26,6 +26,25 @@ class AcceptanceTests(unittest.TestCase):
     def test_complete(self):
         self.assertEqual(module.validate(self.report(), 'a' * 40, 'b' * 64), [])
 
+    def test_renewal_requires_identity_data_and_later_expiry(self):
+        report = self.report()
+        def errors():
+            return module.validate(report, report['commit'], report['ipa_sha256'], require_renewal=True)
+        self.assertTrue(errors())
+        report['renewal'] = module.renewal_template()
+        self.assertTrue(errors())
+        before = dict(bundle_id='org.example.fixture', team_id='ABCDEFGHIJ',
+                      marker_sha256='a' * 64, profile_expires_utc='2026-11-21T12:00:00Z')
+        after = dict(before, profile_expires_utc='2026-11-22T12:00:00Z')
+        report['renewal'] = dict(before=before, after=after)
+        self.assertEqual(errors(), [])
+        for key, value in [('team_id', 'ABCDEFGHI0'), ('bundle_id', 'org.example.other'),
+                           ('marker_sha256', 'b' * 64), ('profile_expires_utc', 'invalid'),
+                           ('profile_expires_utc', before['profile_expires_utc'])]:
+            with self.subTest(key=key, value=value):
+                report['renewal']['after'] = dict(after, **{key: value})
+                self.assertTrue(errors())
+
     def test_wrong_artifact_or_commit(self):
         self.assertEqual(len(module.validate(self.report(), 'c' * 40, 'd' * 64)), 2)
 
