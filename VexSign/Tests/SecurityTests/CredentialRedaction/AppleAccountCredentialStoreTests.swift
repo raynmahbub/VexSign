@@ -68,6 +68,20 @@ final class AppleAccountCredentialStoreTests: XCTestCase {
         }
     }
 
+    func testSameSessionReferenceCannotCrossSlotOnReadOrDeletion() throws {
+        let client = Client(), reference = UUID()
+        for slot in NativeAccountSlot.allCases {
+            let store = AppleAccountCredentialStore(client: client, slot: slot)
+            XCTAssertNil(try store.readSession(reference: reference))
+            try store.insertSession(Data([UInt8(slot.rawValue)]), reference: reference)
+        }
+        for slot in NativeAccountSlot.allCases {
+            let store = AppleAccountCredentialStore(client: client, slot: slot)
+            XCTAssertEqual(try store.readSession(reference: reference), Data([UInt8(slot.rawValue)]))
+            try store.deleteSession(reference: reference)
+        }
+    }
+
     func testDuplicateReferenceCannotOverwriteAcceptedSession() throws {
         let client = Client()
         let store = AppleAccountCredentialStore(client: client)

@@ -188,9 +188,27 @@ final class NativeSigningManager: ObservableObject {
     @Published private(set) var isBackendReady = false
     @Published private(set) var lastError: String?
     @Published private(set) var providerDescriptor: AnisetteProviderDescriptor?
-    @Published private(set) var freeAccountAppCount: Int = 0
-    @Published private(set) var freeAccountInventoryAvailable = false
-    @Published private(set) var renewalCandidates: [FreeAccountProfile] = []
+    private struct Inventory {
+        let scope: AccountInventoryScope
+        let count: Int
+        let candidates: [FreeAccountProfile]
+    }
+    @Published private var inventory: Inventory?
+    private var inventoryReads = AccountInventoryReadGate()
+    private var signingOut = false
+    private var inventoryScope: AccountInventoryScope? {
+        guard !signingOut, let backend, providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor,
+              case .signedIn(let context) = snapshot?.phase, context.team.membership == .free,
+              context.expiresAt.map({ $0 > Date() }) ?? true else { return nil }
+        return .init(backend: ObjectIdentifier(backend), context: context.id, team: context.team.identifier)
+    }
+    private var visibleInventory: Inventory? {
+        guard let inventory, inventory.scope == inventoryScope else { return nil }
+        return inventory
+    }
+    var freeAccountAppCount: Int { visibleInventory?.count ?? 0 }
+    var freeAccountInventoryAvailable: Bool { visibleInventory != nil }
+    var renewalCandidates: [FreeAccountProfile] { visibleInventory?.candidates ?? [] }
 
     // MARK: - Private State
 
@@ -210,16 +228,10 @@ final class NativeSigningManager: ObservableObject {
     private func startAppCountRefresh() {
         Task { @MainActor in
             while !Task.isCancelled {
-                await refreshFreeAccountAppCount()
+                await refreshRenewalCandidates()
                 try? await Task.sleep(nanoseconds: 60_000_000_000) // try? ok: cancellation is checked in loop condition
             }
         }
-    }
-
-    private func refreshFreeAccountAppCount() async {
-        let profiles = await fetchActiveFreeAccountProfiles()
-        freeAccountAppCount = Set(profiles.filter { !$0.isExpired }.map(\.bundleIdentifier)).count
-        renewalCandidates = freeAccountInventoryAvailable ? profiles.filter { $0.isExpiringSoon } : []
     }
 
     // MARK: - Profile Expiry Tracking & Auto-Renewal
@@ -245,21 +257,14 @@ final class NativeSigningManager: ObservableObject {
         var isExpired: Bool { Date() > expiresAt }
     }
 
-    /// Fetches all active free Apple ID profiles with their expiry dates.
-    /// Local authenticated receipts only; this is not Apple's complete account
-    /// inventory or a quota check. Legacy hash-only rows require reconciliation.
-    func fetchActiveFreeAccountProfiles() async -> [FreeAccountProfile] {
-        guard let snapshot, case .signedIn(let context) = snapshot.phase,
-              context.team.membership == .free, let backend,
-              providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else {
-            freeAccountInventoryAvailable = false
-            return []
-        }
+    /// Publish counts and candidates together. Neither an old success nor an old
+    /// failure may overwrite inventory after a team change or a newer refresh.
+    func refreshRenewalCandidates() async {
+        guard let scope = inventoryScope, let backend else { invalidateInventory(); return }
+        let ticket = inventoryReads.begin(scope)
         do {
-            let records = try await backend.listProfiles(contextID: context.id)
-            guard self.backend === backend,
-                  case .signedIn(let current) = self.snapshot?.phase, current.id == context.id,
-                  providerDescriptor == AnisetteProviderFactory.shared.currentDescriptor else { return [] }
+            let records = try await backend.listProfiles(contextID: scope.context)
+            guard !Task.isCancelled, inventoryReads.accepts(ticket, current: inventoryScope) else { return }
             let profiles = records.compactMap { record -> FreeAccountProfile? in
                 guard let expires = record.expiresAt, let bundle = record.bundleIdentifier,
                       let device = record.deviceIdentifier, let identity = record.identityID else { return nil }
@@ -267,27 +272,18 @@ final class NativeSigningManager: ObservableObject {
                     profileUUID: record.profileUUID, expiresAt: expires,
                     certificateID: identity, deviceIdentifier: device)
             }
-            freeAccountInventoryAvailable = true
-            return profiles
+            inventory = Inventory(scope: scope, count: Set(profiles.filter { !$0.isExpired }.map(\.bundleIdentifier)).count,
+                                  candidates: profiles.filter { $0.isExpiringSoon })
         } catch {
-            guard self.backend === backend else { return [] }
-            freeAccountInventoryAvailable = false
+            guard !Task.isCancelled, inventoryReads.accepts(ticket, current: inventoryScope) else { return }
+            inventory = nil
             lastError = error.localizedDescription
-            return []
         }
     }
 
-    /// Refreshes `renewalCandidates` — the profiles that are close to expiring.
-    ///
-    /// This **renews nothing.** It used to be called `renewExpiringProfiles`, which read as
-    /// an action the app performs; the name is what makes a maintainer wire a scheduled task
-    /// to it and believe renewal shipped. Background discovery is read-only: no certificate
-    /// generation, registration or profile approval may be manufactured by a scheduled task,
-    /// and an explicit narrowly scoped renewal grant plus re-sign/install input are still
-    /// required. Until that exists, renewing is the user's job, once a week.
-    func refreshRenewalCandidates() async {
-        let profiles = await fetchActiveFreeAccountProfiles()
-        renewalCandidates = freeAccountInventoryAvailable ? profiles.filter { $0.isExpiringSoon } : []
+    private func invalidateInventory() {
+        inventoryReads.invalidate()
+        inventory = nil
     }
 
     // MARK: - Backend Initialization
@@ -295,14 +291,18 @@ final class NativeSigningManager: ObservableObject {
     /// Initializes the backend with the current provider configuration.
     /// Serialize changes: close old operations before constructing a backend for
     /// the current descriptor. Construction does not log in or grant anisette consent.
-    func synchronizeProvider() async {
+    @Published private(set) var selectedSlot: NativeSigning.NativeAccountSlot = .primary
+
+    func synchronizeProvider(slot: NativeSigning.NativeAccountSlot? = nil) async {
         let prior = providerUpdate
         let update = Task { @MainActor [weak self] in
             await prior?.value
             guard let self else { return }
             let desired = AnisetteProviderFactory.shared.currentDescriptor
-            if self.backend != nil, self.providerDescriptor == desired { return }
+            let target = slot ?? self.selectedSlot
+            if self.backend != nil, self.selectedSlot == target, self.providerDescriptor == desired { return }
             await self.shutdown()
+            self.selectedSlot = target
             guard AnisetteProviderFactory.shared.currentDescriptor == desired else { return }
             if desired != nil { self.initializeBackend() }
         }
@@ -327,7 +327,7 @@ final class NativeSigningManager: ObservableObject {
         }
         self.providerDescriptor = descriptor
         do {
-            let backend = try NativeAccountBackend(provider: descriptor)
+            let backend = try NativeAccountBackend(provider: descriptor, slot: selectedSlot)
             self.backend = backend
             self.isBackendReady = true
             self.lastError = nil
@@ -388,12 +388,9 @@ final class NativeSigningManager: ObservableObject {
         do {
             let snapshot = try await backend.snapshot()
             guard self.backend === backend, !Task.isCancelled else { return }
+            let previousScope = inventoryScope
             self.snapshot = snapshot
-            if case .signedIn = snapshot.phase {} else {
-                freeAccountAppCount = 0
-                freeAccountInventoryAvailable = false
-                renewalCandidates = []
-            }
+            if inventoryScope != previousScope { invalidateInventory() }
         } catch {
             logger.error("Failed to get snapshot: \(error.localizedDescription, privacy: .public)")
         }
@@ -415,6 +412,18 @@ final class NativeSigningManager: ObservableObject {
             xcodeVersion: xcodeVersion,
             consent: consent
         )
+        await refreshSnapshot()
+        return operation
+    }
+
+    func revalidate() async throws -> NativeAccountOperation {
+        let backend = try configuredBackend()
+        let consent = try await backend.recordExplicitAnisetteConsent()
+        let operation = try await backend.revalidate(consent: consent)
+        guard self.backend === backend, !Task.isCancelled else {
+            _ = await backend.cancelAuthentication(operation: operation.id)
+            throw CancellationError()
+        }
         await refreshSnapshot()
         return operation
     }
@@ -474,6 +483,10 @@ final class NativeSigningManager: ObservableObject {
     /// Signs out the current Apple ID (removes session, keeps identities).
     func signOut() async throws {
         let backend = try configuredBackend()
+        guard !signingOut else { throw NativeAccountBackendError.busy }
+        signingOut = true
+        invalidateInventory()
+        defer { signingOut = false }
         try await backend.signOut()
         await refreshSnapshot()
     }
@@ -547,6 +560,25 @@ final class NativeSigningManager: ObservableObject {
         let backend = try configuredBackend()
         let consent = try await backend.recordExplicitAnisetteConsent()
         return try await backend.createAccountProvisioningProfile(contextID: contextID, target: target, approval: approval, consent: consent)
+    }
+
+    func reconcileRegistration(contextID: UUID, subject: NativeRegistrationSubject) async throws -> NativeRegistrationResult {
+        let backend = try configuredBackend()
+        let consent = try await backend.recordExplicitAnisetteConsent()
+        return try await backend.reconcileAccountRegistration(contextID: contextID, subject: subject, consent: consent)
+    }
+
+    func renewApprovedProfile(contextID: UUID, target: NativeAccountProfileTarget, baselineDigest: String) async throws -> NativeAccountProfileResult {
+        let backend = try configuredBackend()
+        let consent = try await backend.recordExplicitAnisetteConsent()
+        return try await backend.renewExplicitlyApprovedProfile(contextID: contextID, target: target,
+            baselineDigest: baselineDigest, consent: consent)
+    }
+
+    func reconcileProfile(contextID: UUID, target: NativeAccountProfileTarget) async throws -> NativeAccountProfileResult {
+        let backend = try configuredBackend()
+        let consent = try await backend.recordExplicitAnisetteConsent()
+        return try await backend.reconcileAccountProvisioningProfile(contextID: contextID, target: target, consent: consent)
     }
 
     // MARK: - Certificate Store Handoff
@@ -628,18 +660,18 @@ final class NativeSigningManager: ObservableObject {
 
     /// Shuts down the backend (cancels work, closes observation).
     func shutdown() async {
-        eventTask?.cancel()
+        let observation = eventTask
+        observation?.cancel()
         eventTask = nil
         let previousBackend = backend
         backend = nil
         isBackendReady = false
         providerDescriptor = nil
         snapshot = nil
-        freeAccountAppCount = 0
-        freeAccountInventoryAvailable = false
-        renewalCandidates = []
+        invalidateInventory()
         lastError = nil
         await previousBackend?.shutdown()
+        await observation?.value
     }
 
     // MARK: - Identity Management

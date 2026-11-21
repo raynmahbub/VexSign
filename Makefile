@@ -147,6 +147,9 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/repository-validation/test_autopilot.py
 	@python3 VexSign/Tools/Release/test_release_assets.py
 	@python3 VexSign/Tools/Development/test_device_acceptance.py
+	@python3 VexSign/Tools/Development/RenewalFixture/test_observation.py
+	@python3 VexSign/Tools/Desktop/test_install.py
+	@python3 VexSign/Tools/Desktop/test_slot_export.py
 	@python3 VexSign/Tools/Validation/security-validation/test_native_promotion_evidence.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --self-test

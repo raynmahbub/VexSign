@@ -115,6 +115,7 @@ extension DeveloperPortal {
             case "addAppId": endpoint = Constants.URLs.addAppID
             case "listDevices": endpoint = Constants.URLs.listDevices
             case "listAppIds": endpoint = Constants.URLs.listAppIDs
+            case "regenProvisioningProfile": endpoint = Constants.URLs.regenProvisioningProfile
             case "createProvisioningProfile": endpoint = Constants.URLs.createProvisioningProfile
             case "listProvisioningProfiles": endpoint = Constants.URLs.listProvisioningProfiles
             case "downloadProvisioningProfile": endpoint = Constants.URLs.downloadManualProvisioningProfile
@@ -389,6 +390,24 @@ public extension DeveloperPortal {
             requestID: operationID, team: team, apiSession: apiSession, limit: 2 * 1024 * 1024)
         // Ignore direct profile receipt: executor must re-observe inventory and
         // authenticate the exact CMS before committing or returning any profile.
+    }
+
+    /// Transport only: send one regeneration request for an existing, exact target.
+    /// Callers must journal intent and obtain explicit renewal approval before sending.
+    /// A successful HTTP result is not evidence of a changed or usable profile.
+    func vexsignRenewLimitedProfileOnce(profileID: String, appID: String, certificateID: String,
+                                        deviceID: String, operationID: UUID, team: Team,
+                                        session apiSession: Session) async throws {
+        guard [profileID, appID, certificateID, deviceID].allSatisfy(Self.vexsignProfileIdentifier) else {
+            throw VexSignProfileTransportError.invalidRequest
+        }
+        let parameters: [String: any Sendable] = [
+            "provisioningProfileId": profileID, "provisioningProfileName": "VexSign-" + operationID.uuidString,
+            "distributionType": "limited", "appIdId": appID,
+            "certificateIds": [certificateID], "deviceIds": [deviceID]
+        ]
+        _ = try await vexsignRegistrationRequest(action: "regenProvisioningProfile", parameters: parameters,
+            requestID: operationID, team: team, apiSession: apiSession, limit: 2 * 1024 * 1024)
     }
 
     /// Read-only listing. Includes team profiles to avoid silently hiding an

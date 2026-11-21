@@ -229,6 +229,27 @@ enum VexSignShortcutCatalogue {
 			systemImage: "square.and.arrow.down.on.square",
 			phrase: "Sign my latest download in VexSign"
 		),
+        Entry(
+            id: "fixtureSlotReview",
+            title: .localized("Open Fixture Slot Manager"),
+            detail: .localized("Open recovery for one signed test fixture. Add this action to the Home Screen in Shortcuts."),
+            systemImage: "square.and.arrow.up",
+            phrase: nil
+        ),
+        Entry(
+            id: "cellularRenewalReview",
+            title: .localized("Review Renewal over Cellular"),
+            detail: .localized("Opens a foreground renewal review for a signed library app. Does not change Wi-Fi or VPN settings."),
+            systemImage: "antenna.radiowaves.left.and.right",
+            phrase: nil
+        ),
+		Entry(
+			id: "repeatInstall",
+			title: .localized("Re-sign and Queue Install"),
+			detail: .localized("Re-sign a signed library copy with its saved certificate and queue the result. Does not renew provisioning."),
+			systemImage: "arrow.clockwise",
+			phrase: nil
+		),
 		Entry(
 			id: "installApp",
 			title: .localized("Install App"),

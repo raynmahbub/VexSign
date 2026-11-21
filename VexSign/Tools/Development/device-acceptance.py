@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate/check explicit human device acceptance; never simulates a device pass."""
+from datetime import datetime
 import argparse
 import hashlib
 import json
@@ -113,7 +114,34 @@ def required_cases(architecture):
     return CASES + NATIVE_PRIMARY_CASES if architecture == 'native-primary' else CASES
 
 
-def validate(report, commit, digest, architecture='standalone'):
+def renewal_template():
+    return {stage: dict(bundle_id='', team_id='', profile_expires_utc='', marker_sha256='')
+            for stage in ('before', 'after')}
+
+
+def renewal_errors(evidence):
+    if not isinstance(evidence, dict):
+        return ['Missing renewal evidence']
+    before, after = (evidence.get(stage) for stage in ('before', 'after'))
+    if not all(isinstance(row, dict) for row in (before, after)):
+        return ['Renewal requires before and after observations']
+    errors = []
+    for key, pattern in [('bundle_id', r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+'),
+                         ('team_id', r'[A-Z0-9]{10}'), ('marker_sha256', r'[a-f0-9]{64}')]:
+        value = before.get(key)
+        if not isinstance(value, str) or not re.fullmatch(pattern, value) or value != after.get(key):
+            errors.append(f'Renewal: missing, malformed or changed {key}')
+    try:
+        old, new = (datetime.strptime(row.get('profile_expires_utc'), '%Y-%m-%dT%H:%M:%SZ')
+                    for row in (before, after))
+        if new <= old:
+            errors.append('Renewal: installed profile expiry did not advance')
+    except (ValueError, TypeError):
+        errors.append('Renewal: both profile expiry times must be UTC timestamps')
+    return errors
+
+
+def validate(report, commit, digest, architecture='standalone', require_renewal=False):
     errors = []
     if architecture not in ('standalone', 'native-primary', 'guest-prototype'):
         errors.append('Unsupported artifact architecture')
@@ -128,6 +156,8 @@ def validate(report, commit, digest, architecture='standalone'):
             errors.append(f'Missing {key}')
     if not re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ', report.get('tested_at_utc', '')):
         errors.append('tested_at_utc must use YYYY-MM-DDTHH:MM:SSZ')
+    if require_renewal or 'renewal' in report:
+        errors.extend(renewal_errors(report.get('renewal')))
     cases = report.get('checks', {})
     if not isinstance(cases, dict):
         return errors + ['checks must be an object']
@@ -156,6 +186,8 @@ def main():
                                         'VEXSIGN_SOURCE_COMMIT/GITHUB_SHA, then git HEAD.')
     parser.add_argument('--include-native-handoff', action='store_true',
                         help='init: also record the Free Apple ID handoff ladder cases')
+    parser.add_argument('--renewal', action='store_true',
+                        help='Include (init) or require (check) in-place renewal observations')
     args = parser.parse_args()
     if args.mode == 'check' and args.include_native_handoff:
         parser.exit(1, '--include-native-handoff applies to init only; a report declares itself\n')
@@ -181,13 +213,15 @@ def main():
                           case: dict(result='pending', notes='') for case in cases})
         if args.include_native_handoff:
             report['native_handoff'] = True
+        if args.renewal:
+            report['renewal'] = renewal_template()
         with args.report.open('x') as handle:
             json.dump(report, handle, indent=2)
             handle.write('\n')
         print('Pending report created. No device checks have passed.'
               + (' Native handoff ladder included.' if args.include_native_handoff else ''))
         return
-    errors = validate(json.loads(args.report.read_text()), commit, digest, architecture)
+    errors = validate(json.loads(args.report.read_text()), commit, digest, architecture, args.renewal)
     if errors:
         parser.exit(1, '\n'.join(errors) + '\n')
     print('Human acceptance report complete for this commit/artifact. This is an attestation, not independent device verification.')

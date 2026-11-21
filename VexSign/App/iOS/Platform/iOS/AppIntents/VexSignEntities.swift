@@ -81,6 +81,35 @@ struct VexSignAppQuery: EntityQuery {
 	}
 }
 
+// A slot shortcut addresses a saved recovery journal, not a mutable library row.
+// Keep this out of VexSignAppQuery: a deleted backup must never resolve as a signable app.
+@available(iOS 17.0, *)
+struct FixtureBackupEntity: AppEntity {
+    let id: String
+    let title: String
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Fixture Backup"
+    static let defaultQuery = FixtureBackupQuery()
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(title)") }
+}
+
+@available(iOS 17.0, *)
+struct FixtureBackupQuery: EntityQuery {
+    @MainActor
+    func suggestedEntities() async throws -> [FixtureBackupEntity] {
+        guard !AppLockManager.shared.isLocked else { return [] }
+        return try FixtureSlotStorage.recoveryEntries().filter { AppLockManager.shared.canOpenFixtureBackup($0) }.map {
+            FixtureBackupEntity(id: $0.id, title: "\($0.bundle) · \($0.uuid.prefix(8))")
+        }
+    }
+    @MainActor
+    func entities(for identifiers: [String]) async throws -> [FixtureBackupEntity] {
+        // Resolve only the opaque handles. The foreground action checks the current
+        // journal and both locks before showing metadata; even deleted handles can
+        // give a useful diagnostic instead of asking the user to pick another app.
+        identifiers.map { FixtureBackupEntity(id: $0, title: .localized("Saved fixture backup")) }
+    }
+}
+
 // MARK: - Repository
 
 /// A repository the user has added, addressed by its feed URL.

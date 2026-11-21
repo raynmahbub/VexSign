@@ -324,6 +324,40 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         self.assertLess(source.index("try await manager.requireProfileOperations()"), source.index("try await manager.provisioningPreflight("))
         self.assertLess(source.index("try await manager.requireProfileOperations()"), source.index("try await manager.prepareSigningIdentity("))
 
+    def test_profile_regeneration_requires_separate_opt_in_before_handoff(self):
+        self.require("Domain/Protocols/AppleAccountWorkspaceProviding.swift", "var approveRegeneration = false")
+        self.require("Presentation/Features/Accounts/Views/ProvisioningFlowView.swift",
+                     "approveRegeneration: app.isSigned && requireLaterProfile && approveRegeneration")
+        adapter = self.require("Infrastructure/Accounts/AppleAccountWorkspaceAdapter.swift",
+                               "if request.approveRegeneration, let baseline", "baselineDigest: baseline.digest")
+        self.assertLess(adapter.index("profile.expiresAt <= baseline.expiry"), adapter.index("pendingProfiles[receipt.id]"))
+        bridge = (ROOT / "VexSign/Packages/NativeSigning/Authentication/SideSignAccountBridge.swift").read_text()
+        renewal = bridge.split("func renewExplicitlyApprovedProfile", 1)[1].split("extension SideSignAccountBridge", 1)[0]
+        self.assertLess(renewal.index("guard known.count == 1"), renewal.index("bound.prepareRenewal"))
+        self.assertLess(renewal.index("bound.prepareRenewal"), renewal.index("bound.confirmRenewal"))
+
+    def test_fixture_shortcut_addresses_the_journal_not_a_library_substitute(self):
+        src = code("Platform/iOS/AppIntents/VexSignIntents+Actions.swift")
+        intent = src.split("struct OpenFixtureSlotIntent", 1)[1].split("struct CellularRenewalReviewIntent", 1)[0]
+        for token in ("FixtureSlotStorage.load(app.id)", "canOpenFixtureBackup(entry)", "copyID: entry.id"):
+            self.assertIn(token, intent)
+        for forbidden in ("VexSignAppQuery", "InstallQueue", "installWithoutSigning", "DeviceAppRemoval"):
+            self.assertNotIn(forbidden, intent)
+        self.require("Presentation/Features/Library/Views/Info/FixtureRecoveryList.swift",
+                     "FixtureSlotStorage.load(route.copyID)", "current.uuid == route.uuid", "locks.canOpenFixtureBackup(entry)")
+
+    def test_cellular_shortcut_only_navigates_and_review_rechecks_path(self):
+        actions = code("Platform/iOS/AppIntents/VexSignIntents+Actions.swift")
+        intent = actions.split("struct CellularRenewalReviewIntent", 1)[1].split("// MARK:", 1)[0]
+        self.assertIn("openAppWhenRun = true", intent)
+        self.assertIn("cellularRenewalRequested = true", intent)
+        for forbidden in (".provision(", ".sign(", "InstallQueue", "approveRegeneration"):
+            self.assertNotIn(forbidden, intent)
+        view = code("Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
+        submission = view.split("private func runProvisioning() async", 1)[1]
+        self.assertLess(submission.index("!DownloadPreferences.cellularPathAvailable"), submission.index("await manager.provision("))
+        self.assertIn("!app.isSigned || !approveRegeneration", submission)
+
     def test_backup_boundary_contains_only_allowlisted_preview_metadata(self):
         domain = code("Domain/Entities/BackupWorkspace.swift")
         preview = domain.split("struct BackupArchiveSnapshot", 1)[1].split("struct BackupComponents", 1)[0]

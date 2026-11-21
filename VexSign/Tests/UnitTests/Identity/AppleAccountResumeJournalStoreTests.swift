@@ -57,6 +57,20 @@ final class AppleAccountResumeJournalStoreTests: XCTestCase {
         XCTAssertTrue((query[kSecUseAuthenticationContext as String] as? LAContext)?.interactionNotAllowed == true)
     }
 
+    func testEverySlotUsesItsOwnJournalForReadUpdateAndInsert() throws {
+        var services = Set<String>()
+        for slot in NativeAccountSlot.allCases {
+            let client = Client()
+            let store = AppleAccountResumeJournalStore(client: client, slot: slot)
+            try store.writeJournal(.init())
+            _ = try store.readJournal()
+            let service = try XCTUnwrap(client.adds.first?[kSecAttrService as String] as? String)
+            XCTAssertTrue(services.insert(service).inserted)
+            XCTAssertEqual(client.queries.first?[kSecAttrService as String] as? String, service)
+            XCTAssertEqual(client.updates.first?.0[kSecAttrService as String] as? String, service)
+        }
+    }
+
     func testOnlyNotFoundMeansMissingAndLockedReadPropagates() throws {
         let client = Client()
         let store = AppleAccountResumeJournalStore(client: client)

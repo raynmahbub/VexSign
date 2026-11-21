@@ -34,23 +34,33 @@ final class AutoSignManager {
 	/// blocking preflight issues. Library details shows that review and then called this without
 	/// saying so, which left the engine in its strict mode: the run the user had just confirmed
 	/// stopped on the very issue they accepted. Every caller that shows no review leaves it false.
-	func sign(_ app: AppInfoPresentable, overridingBlockingIssues: Bool = false) async -> Result<Signed, Error> {
+	func sign(_ app: AppInfoPresentable, overridingBlockingIssues: Bool = false, repeatInstall: Bool = false) async -> Result<Signed, Error> {
 		let previous = _tail
         // Keep Core Data results on the main actor; Task.value carries only Void.
         var result: Result<Signed, Error>?
         let job = Task { @MainActor in
             await previous.value
-            result = await Self._perform(app, overridingBlockingIssues: overridingBlockingIssues)
+            result = await Self._perform(app, overridingBlockingIssues: overridingBlockingIssues, repeatInstall: repeatInstall)
         }
         _tail = job
         await job.value
         return result ?? .failure(CancellationError())
 	}
 
-	private static func _perform(_ app: AppInfoPresentable, overridingBlockingIssues: Bool) async -> Result<Signed, Error> {
+	private static func _perform(_ app: AppInfoPresentable, overridingBlockingIssues: Bool, repeatInstall: Bool) async -> Result<Signed, Error> {
 		let stored = SigningProfileStore.shared.profile(forBundleID: app.identifier)
 		let options = (stored?.options ?? Options.batchBase).resolved(for: app)
 		let certificate = SigningProfileStore.shared.certificate(for: stored) ?? _certificate()
+
+		// Check after waiting for earlier jobs: the saved identity may have been removed.
+		if repeatInstall {
+			guard app.isSigned, let id = app.identifier, !id.isEmpty,
+			      options.signingOption == .default, (options.appIdentifier ?? id) == id,
+			      let pinned = stored?.certificateUUID, !pinned.isEmpty,
+			      certificate?.uuid?.lowercased() == pinned.lowercased(),
+			      certificate?.revoked == false, let expiry = certificate?.expiration, expiry > Date()
+			else { return .failure(AutoSignError.repeatInputsUnavailable) }
+		}
 
 		guard options.signingOption != .default || certificate != nil else {
 			return .failure(AutoSignError.noCertificate)
@@ -96,7 +106,7 @@ final class AutoSignManager {
 		// temporary files, leftovers, exported IPAs) are swept in the same call.
 		CleanupManager.shared.finishSign(source: app, output: signed, origin: .savedSettings)
 
-		if options.post_installAppAfterSigned {
+		if repeatInstall || options.post_installAppAfterSigned {
 			InstallQueue.shared.enqueue(signed)
 		}
 
@@ -110,9 +120,11 @@ final class AutoSignManager {
 
 enum AutoSignError: LocalizedError {
 	case noCertificate
+	case repeatInputsUnavailable
 
 	var errorDescription: String? {
 		switch self {
+		case .repeatInputsUnavailable: return .localized("Choose a signed library copy with an unchanged bundle ID and a saved, current certificate. Review its signing settings in VexSign.")
 		case .noCertificate: return .localized("Auto sign needs a certificate. Import one in Settings, or turn auto sign off.")
 		}
 	}
