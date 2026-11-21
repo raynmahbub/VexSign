@@ -290,4 +290,65 @@ final class TemporaryCleanupPolicyTests: XCTestCase {
         XCTAssertFalse(fm.fileExists(atPath: old.path))
         XCTAssertTrue(fm.fileExists(atPath: export.path))
     }
+
+    // MARK: - Storage model value semantics (what cleanup may touch and how it is reported)
+
+    func testCategoryBrowseAndExploreFlagsFollowTheUXContract() {
+        // Tweaks and certificates are never browsable; the app-holding categories are never
+        // explorable. These gate which storage screens a user can open, so they are pinned.
+        XCTAssertFalse(StorageCategory.tweaks.isBrowsable)
+        XCTAssertFalse(StorageCategory.certificates.isBrowsable)
+        XCTAssertTrue(StorageCategory.signed.isBrowsable)
+        XCTAssertTrue(StorageCategory.caches.isBrowsable)
+
+        XCTAssertFalse(StorageCategory.signed.allowsExploring)
+        XCTAssertFalse(StorageCategory.imported.allowsExploring)
+        XCTAssertFalse(StorageCategory.archives.allowsExploring)
+        XCTAssertTrue(StorageCategory.tweaks.allowsExploring)
+        XCTAssertTrue(StorageCategory.caches.allowsExploring)
+    }
+
+    func testSafeToClearIsExactlyTheRegenerableCategories() {
+        // Only regenerable data is auto-clearable; user content and identities never are.
+        XCTAssertEqual(Set(StorageCategory.safeToClear), Set([.caches, .logs, .temporary, .leftovers]))
+        for category in [StorageCategory.signed, .imported, .archives, .tweaks, .certificates, .other] {
+            XCTAssertFalse(StorageCategory.safeToClear.contains(category), "\(category.rawValue) must not be auto-cleared")
+        }
+    }
+
+    func testUsageIsEmptyFollowsCountNotSize() {
+        XCTAssertTrue(StorageUsage(category: .caches, size: 4096, count: 0).isEmpty, "a category with bytes but no items is still empty")
+        XCTAssertFalse(StorageUsage(category: .caches, size: 0, count: 1).isEmpty)
+    }
+
+    func testLocationTitleUsesCategoryTitleOrDirectoryName() {
+        let dir = URL(fileURLWithPath: "/var/mobile/Documents/MyFolder", isDirectory: true)
+        XCTAssertEqual(StorageLocation.directory(dir).title, "MyFolder")
+        XCTAssertEqual(StorageLocation.category(.caches).title, StorageCategory.caches.title)
+    }
+
+    func testEntrySortKeysExposeNameDateAndSize() {
+        let url = URL(fileURLWithPath: "/tmp/app.ipa")
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let entry = StorageEntry(
+            id: "app-1", name: "app.ipa", version: "1.0", size: 2048, date: date,
+            url: url, isDirectory: false, childCount: 0, isProtected: false, appUuid: nil
+        )
+        XCTAssertEqual(entry.sortName, "app.ipa")
+        XCTAssertEqual(entry.sortDate, date)
+        XCTAssertEqual(entry.sortSize, 2048)
+    }
+
+    func testAggregateTotalBytesSumsDisjointRoots() throws {
+        let fm = FileManager.default
+        XCTAssertEqual(StorageAggregateAccounting.totalBytes(in: [], fileManager: fm), 0, "no roots is zero bytes")
+
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) } // try? ok: test teardown
+        try Data(repeating: 7, count: 100).write(to: root.appendingPathComponent("a.bin"))
+        try Data(repeating: 9, count: 50).write(to: root.appendingPathComponent("b.bin"))
+        // Allocated size rounds up to filesystem blocks, so assert the real bytes as a floor.
+        XCTAssertGreaterThanOrEqual(StorageAggregateAccounting.totalBytes(in: [root], fileManager: fm), 150)
+    }
 }
