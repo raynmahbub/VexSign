@@ -29,6 +29,35 @@ def isolated_db(tmp_path, monkeypatch):
     return tmp_path / "keys.db"
 
 
+def test_explicit_db_path_is_created_without_falling_back(tmp_path, monkeypatch):
+    configured = tmp_path / "persistent" / "keys.db"
+    monkeypatch.setenv("VEXSIGN_DB", str(configured))
+    assert db._resolve_db_path() == str(configured)
+    assert configured.parent.is_dir()
+
+
+def test_explicit_db_path_refuses_unwritable_parent(tmp_path, monkeypatch):
+    configured = tmp_path / "persistent" / "keys.db"
+    configured.parent.mkdir()
+    monkeypatch.setenv("VEXSIGN_DB", str(configured))
+    monkeypatch.setattr(db.os, "access", lambda _path, _mode: False)
+    with pytest.raises(RuntimeError, match="VEXSIGN_DB directory"):
+        db._resolve_db_path()
+
+
+def test_explicit_db_path_refuses_invalid_parent(tmp_path, monkeypatch):
+    parent = tmp_path / "not-a-directory"
+    parent.write_text("file")
+    monkeypatch.setenv("VEXSIGN_DB", str(parent / "keys.db"))
+    with pytest.raises(RuntimeError, match="VEXSIGN_DB directory"):
+        db._resolve_db_path()
+
+
+def test_unset_db_path_uses_documented_default(monkeypatch):
+    monkeypatch.delenv("VEXSIGN_DB", raising=False)
+    assert db._resolve_db_path() == db._DEFAULT_DB
+
+
 def _open_descriptors() -> int | None:
     """Linux-only descriptor count; skipped elsewhere so the suite stays portable."""
     try:

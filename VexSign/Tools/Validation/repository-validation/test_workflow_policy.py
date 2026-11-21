@@ -5,6 +5,7 @@ These inspect the controlled workflow layout, not arbitrary YAML. Run actionlint
 or GitHub Actions as well for full workflow/schema/expression validation.
 """
 from pathlib import Path
+import ast
 import fnmatch
 import os
 import re
@@ -69,6 +70,41 @@ def native_smoke_app_sources():
         hashes = preparation.install_smoke_sources(Path(directory))
     return sorted(path for path in hashes if path.startswith("VexSign/App/"))
 
+
+#: The manifest each ecosystem needs to find in the directory Dependabot is pointed at.
+DEPENDABOT_MANIFESTS = {
+    'github-actions': '.github/workflows',
+    'pip': 'requirements.txt',
+    'npm': 'package.json',
+    'swift': 'Package.swift',
+    'docker': 'Dockerfile',
+}
+
+
+def dependabot_entries():
+    """`(ecosystem, directory)` pairs from dependabot.yml, parsed without a YAML dependency.
+
+    Split on the list marker rather than matching a fixed two-line shape: entries may carry
+    comments between `package-ecosystem` and `directory`, and a regex anchored to adjacency
+    would silently drop exactly the entry that needs the explanation.
+    """
+    text = (ROOT / '.github/dependabot.yml').read_text()
+    entries = []
+    for chunk in text.split('- package-ecosystem:')[1:]:
+        ecosystem = chunk.split('\n', 1)[0].strip()
+        directory = re.search(r'^\s+directory:\s*(\S+)\s*$', chunk, re.MULTILINE)
+        if directory:
+            entries.append((ecosystem, directory.group(1)))
+    return entries
+
+
+def dependabot_root(directory):
+    """Resolve a Dependabot directory against the repository root.
+
+    Directories are root-absolute in the config, so `/` must become the repository root and not
+    the filesystem root — `Path('.') / '/'` discards the left-hand side entirely.
+    """
+    return ROOT / directory.lstrip('/')
 
 
 class WorkflowPolicyTests(unittest.TestCase):
@@ -1018,6 +1054,79 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertNotIn('    branches:', block(release, 'push', 2))
         for name in VALIDATORS:
             self.assertIn('  contents: read', (WORKFLOWS / name).read_text())
+
+    def test_dependabot_directories_exist_and_hold_their_manifest(self):
+        """A Dependabot entry pointing at a stale path fails silently, so pin the paths here.
+
+        Dependabot reports "no manifests found" for a missing directory and then opens nothing:
+        no error, no PR, no signal. Every entry except github-actions stopped matching when the
+        tree moved under `VexSign/`, so the Python service, the cloud service, both Dockerfiles
+        and all three Swift packages went unwatched — including the exact `httpx`/`httpcore`
+        pins the SSRF guard monkeypatches, and the floating `branch:` dependencies in SideSign.
+        """
+        entries = dependabot_entries()
+        self.assertTrue(entries, 'expected dependabot.yml to declare updates')
+        seen_ecosystems = set()
+        for ecosystem, directory in entries:
+            with self.subTest(ecosystem=ecosystem, directory=directory):
+                self.assertIn(ecosystem, DEPENDABOT_MANIFESTS,
+                              f'unknown ecosystem {ecosystem!r}: add its manifest to DEPENDABOT_MANIFESTS')
+                target = dependabot_root(directory)
+                self.assertTrue(target.is_dir(), f'{directory} does not exist; Dependabot will open no PRs')
+                manifest = target / DEPENDABOT_MANIFESTS[ecosystem]
+                self.assertTrue(manifest.exists(),
+                                f'{directory} holds no {DEPENDABOT_MANIFESTS[ecosystem]} for the {ecosystem} ecosystem')
+                seen_ecosystems.add(ecosystem)
+        # The two network-facing services and their images are the surface worth watching.
+        for ecosystem in ('github-actions', 'pip', 'npm', 'docker'):
+            self.assertIn(ecosystem, seen_ecosystems, f'{ecosystem} dependencies are unwatched')
+
+    def test_server_runtime_imports_are_declared_in_requirements(self):
+        """Everything the service imports must be installed by requirements.txt.
+
+        `cryptography` was imported by `cert_inspector.py` and installed only by CI, so the suite
+        passed against a dependency set that no Dockerfile and no Render build ever produced; the
+        shipped container served users the literal string "Install `cryptography` on the server".
+        Deriving the requirement from the imports makes that class of drift a test failure instead
+        of a production defect.
+        """
+        api = ROOT / 'VexSign/Services/WebManager/API'
+        requirements = (ROOT / 'VexSign/Services/WebManager/Configuration/requirements.txt').read_text()
+        declared = {re.split(r'[=<>!~;\[ ]', line.strip(), 1)[0].lower()
+                    for line in requirements.splitlines()
+                    if line.strip() and not line.strip().startswith('#')}
+        # Import name -> PyPI distribution name, where they differ.
+        aliases = {'multipart': 'python-multipart'}
+        local = {path.stem for path in api.glob('*.py')}
+
+        # Parse the AST rather than grepping for `import`: these modules carry long prose
+        # docstrings, and lines such as "from walking device IDs" match a naive pattern.
+        imported = set()
+        for path in sorted(api.glob('*.py')):
+            tree = ast.parse(path.read_text(), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imported.update(alias.name.split('.', 1)[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    imported.add(node.module.split('.', 1)[0])
+
+        third_party = {
+            module for module in imported
+            if module not in local
+            and module not in sys.stdlib_module_names
+            and module != '__future__'
+        }
+        self.assertTrue(third_party, 'expected the service to import third-party modules')
+
+        undeclared = sorted(
+            module for module in third_party
+            if aliases.get(module, module).lower() not in declared
+        )
+        self.assertEqual(
+            undeclared, [],
+            'imported by VexSign/Services/WebManager/API but absent from '
+            'Configuration/requirements.txt, so no deployment installs it'
+        )
 
 
 if __name__ == '__main__':

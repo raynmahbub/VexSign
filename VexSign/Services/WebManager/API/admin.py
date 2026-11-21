@@ -15,7 +15,12 @@ Everything below lives in `db.py` (the same SQLite table the app-facing
 
 Authentication is deliberately simple (one bearer header, constant-time
 compare) because this server already runs behind Render/TLS and the admin
-surface is turned off unless the operator opts in.
+surface is turned off unless the operator opts in. Simplicity has one cost:
+there is no lockout and no second factor, so every token-gated route below
+carries `rate_limit.enforce_admin`. That is what makes `ADMIN_TOKEN`
+expensive to guess online rather than guessable at line rate.
+`GET /api/admin/health` stays unthrottled on purpose — it is the liveness
+probe, and it discloses only whether the surface is enabled.
 """
 
 import os
@@ -24,10 +29,11 @@ import secrets
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 
 import db
+import rate_limit
 import repo_store
 from repo_store import RepoError
 
@@ -74,27 +80,27 @@ def admin_health() -> dict:
 
 
 @router.post("/keys")
-def mint_keys(body: MintBody, x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+def mint_keys(
+    body: MintBody,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
+):
     """Mint fresh keys. Body: {"count": 1}."""
     _require_admin(x_admin_token)
 
     count = body.validated_count()
     keys = []
     for _ in range(count):
-        while True:
-            key = "VEX-" + "-".join(
-                "".join(secrets.choice(db.KEY_ALPHABET) for _ in range(4)) for _ in range(3)
-            )
-            if db.get_key(key) is None:
-                break
-        db.add_key(key)
-        keys.append(key)
+        keys.append(_mint_one_key())
 
     return {"count": len(keys), "keys": keys}
 
 
 @router.get("/keys")
-def list_keys(x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+def list_keys(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
+):
     """List every key and its state (fresh / used / disabled) — the same
     inventory CLI `keygen.py list` prints."""
     _require_admin(x_admin_token)
@@ -118,6 +124,25 @@ def list_keys(x_admin_token: str | None = Header(default=None, alias="X-Admin-To
     }
 
 
+#: Collision odds in a 32**12 keyspace are nil, so this cap never fires in
+# practice. It exists because the previous `while True` had no exit other than
+# a fresh key: a saturated or failing `db.get_key` would spin forever inside a
+# request handler, holding a worker and opening a SQLite connection per turn.
+_MINT_ATTEMPTS_PER_KEY = 10
+
+
+def _mint_one_key() -> str:
+    """Generate and persist one unused key, or fail loudly instead of spinning."""
+    for _ in range(_MINT_ATTEMPTS_PER_KEY):
+        key = "VEX-" + "-".join(
+            "".join(secrets.choice(db.KEY_ALPHABET) for _ in range(4)) for _ in range(3)
+        )
+        if db.get_key(key) is None:
+            db.add_key(key)
+            return key
+    raise HTTPException(status_code=507, detail="Could not allocate a unique key. Try again.")
+
+
 def _return_key_or_404(key: str) -> str:
     """Validate that a key exists before any admin mutation (mirror of
     keygen.py's "No such key" guard)."""
@@ -128,7 +153,9 @@ def _return_key_or_404(key: str) -> str:
 
 @router.post("/keys/disable")
 def disable_key(
-    body: dict, x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")
+    body: dict,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
 ):
     """Administratively disable a key (app will show the 403 disabled message)."""
     _require_admin(x_admin_token)
@@ -139,7 +166,9 @@ def disable_key(
 
 @router.post("/keys/enable")
 def enable_key(
-    body: dict, x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")
+    body: dict,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
 ):
     """Re-enable a previously disabled key."""
     _require_admin(x_admin_token)
@@ -150,7 +179,9 @@ def enable_key(
 
 @router.post("/keys/reset")
 def reset_key(
-    body: dict, x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")
+    body: dict,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
 ):
     """Unbind a consumed key and make it redeemable again."""
     _require_admin(x_admin_token)
@@ -161,7 +192,9 @@ def reset_key(
 
 @router.post("/keys/revoke")
 def revoke_key(
-    body: dict, x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")
+    body: dict,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
 ):
     """Permanently delete a key."""
     _require_admin(x_admin_token)
@@ -205,7 +238,10 @@ def _write_upload(upload: UploadFile) -> Path:
 
 
 @router.get("/apps")
-def list_apps(x_admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+def list_apps(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
+):
     _require_admin(x_admin_token)
     return {"apps": [app.to_dict() for app in repo_store.store.apps()]}
 
@@ -218,6 +254,7 @@ def upload_app(
     description: str | None = Form(default=None),
     category: str | None = Form(default=None),
     x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
 ):
     """Stores an IPA and adds/updates its entry in the self-hosted source.
 
@@ -247,6 +284,7 @@ def upload_app(
 def delete_app(
     bundle_identifier: str,
     x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    _throttle: None = Depends(rate_limit.enforce_admin),
 ):
     _require_admin(x_admin_token)
     if not repo_store.store.remove(bundle_identifier):

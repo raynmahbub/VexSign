@@ -23,9 +23,10 @@ What it deliberately does **not** do
       is extracted from the signed blob and parsed, which proves nothing about who
       signed it.
 
-Only the standard library is required. If `cryptography` is installed, public
-certificates (`.cer`/`.pem`) are fully parsed too; otherwise they still get
-fingerprints and a note.
+`cryptography` is a declared dependency (see `Configuration/requirements.txt`), so
+public certificates (`.cer`/`.pem`) are fully parsed. The import is still guarded
+because a broken install should degrade to fingerprints and say what is wrong,
+rather than serving a 500 for a file the profile path never needed.
 """
 
 from __future__ import annotations
@@ -163,23 +164,35 @@ def _pem_to_der(data: bytes) -> bytes | None:
 
 
 def parse_certificate(data: bytes) -> dict[str, Any]:
-    """Public certificate report. Full detail needs the optional `cryptography`."""
-    der = _pem_to_der(data) or (data if data[:1] == b"\x30" else None)
+    """Public certificate report. Full detail needs `cryptography` (a declared dependency)."""
+    # Decode once. `_pem_to_der` base64-decodes the whole upload, and this report used to call
+    # it four times per request to answer questions one result already answers — including
+    # `sha1(data if _pem_to_der(data) is None else der)`, which selects `der` on both branches.
+    pem_der = _pem_to_der(data)
+    der = pem_der or (data if data[:1] == b"\x30" else None)
     if der is None:
         raise ValueError("Not a PEM or DER certificate.")
 
     report: dict[str, Any] = {
         "kind": "certificate",
-        "sha1": hashlib.sha1(data if _pem_to_der(data) is None else der).hexdigest(),
+        # Both digests describe the certificate, not the envelope it arrived in, so a PEM upload
+        # and its DER form report the same fingerprints.
+        "sha1": hashlib.sha1(der).hexdigest(),
         "sha256": hashlib.sha256(der).hexdigest(),
-        "encoding": "pem" if _pem_to_der(data) is not None else "der",
+        "encoding": "pem" if pem_der is not None else "der",
         "sizeBytes": len(der),
     }
 
     try:
-        from cryptography import x509  # optional dependency
+        from cryptography import x509  # declared in Configuration/requirements.txt
     except ImportError:
-        report["detail"] = "Install `cryptography` on the server for subject/issuer/validity parsing."
+        # Not "install cryptography": it is a pinned requirement, so reaching this branch
+        # means the deployment is broken, and the end user reading this report cannot fix
+        # a server-side install. Say which of those it is.
+        report["detail"] = (
+            "Subject/issuer/validity parsing is unavailable: `cryptography` is declared in the "
+            "server requirements but is not importable. Reinstall them on the server."
+        )
         return report
 
     try:

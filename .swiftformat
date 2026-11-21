@@ -1,44 +1,93 @@
 # swiftformat configuration for VexSign
 # Run with: swiftformat . (or swiftformat --lint . to check only)
+#
+# Every key below must exist in the version .github/workflows/ci.yml pins
+# (0.64.6). swiftformat treats an unknown option or rule as a hard error rather
+# than a warning, and then formats nothing at all. This file carried ten options
+# and thirteen rules that 0.64.6 does not have — `usetabs`, the whole `space*`
+# family, `braces`, `elsebalance`, `unusedImport`, `unusedVariable`,
+# `wrapFunctionCalls`, `wrapTernary` and more — so `make format` and
+# `make format FIX=1` failed for everyone, and the report-only CI lint step only
+# ever printed that one error, which `continue-on-error: true` then hid. The
+# intentions those options expressed are rules in 0.64.6 and are listed below.
+# check-swift-format-drift.py probes this file whenever it changes, so a key that
+# stops existing fails CI instead of silently disabling the formatter again.
 
-# Indentation
+# Indentation: four spaces. `indent 4` is what selects spaces in 0.64.x — the old
+# `usetabs false` is gone, because `useTabs` is now derived from this value
+# ("number of spaces to indent, or `tab` to use tabs").
 indent 4
 tabwidth 4
-usetabs false
 
 # Line length
 maxwidth 120
 
 # Spacing
-spacearoundoperators true
-spacearoundbrackets false
-spacearoundbraces true
-spacearoundrangeoperators true
-spaceinsidebrackets false
-spaceinsideparens false
-spaceinsidebraces false
+# Expressed as rules below: 0.64.6 has no `spacearound*`/`spaceinside*` options.
 
 # Braces
-braces sameLine
+# K&R (opening brace on the same line) is the `braces` rule's default; there is no
+# `braces` option to select it. `wraparguments preserve` keeps an author's own
+# argument line breaks instead of rewrapping them.
 wraparguments preserve
 
 # Semicolons
 semicolons inline
 
+# Trailing commas. 0.64.6 defaults to `always`, but this tree writes multi-line
+# argument and collection literals without a trailing comma 24815 times against
+# 21 with one, so the default would have demanded a change on almost every list
+# in the repository and contradicted the style the code actually uses.
+trailingcommas never
+
 # Header
+# `strip` removes the Xcode template header ("Created by ... on <date>"). 199 of
+# 1108 first-party files still carry one, and a few of those include a
+# "Copyright (c) VexSign Team" line, so the one-time pass deletes them on purpose
+# rather than by accident: this is the configuration's declared intent, kept as
+# written rather than silently reinterpreted.
 header strip
+
+# Member access. The tree writes bare member references and uses `self` only where
+# Swift requires it — 0 occurrences in CertificateManagementService.swift, and only
+# 310 of 937 first-party Swift files use it at all — so `insert` would have
+# rewritten nearly every file in the repository. `remove` matches the code, and is
+# the mode `redundantSelf` expects.
+self remove
 
 # Swift version
 swiftversion 6.0
 
 # Rules
-rules trailingClosures,void,redundantSelf,redundantLet,redundantNilInit,redundantType,redundantParens,redundantPattern,redundantOptionalInit,redundantReturn,redundantLetError,redundantProtocol,unusedArguments,unusedImport,unusedPrivateDeclaration,unusedVariable,fileHeader,linebreaks,trailingCommas,trimWhitespace,preferForLoop,preferKeyPath,preferNimbleOperator,preferSelfType,specifiedSelfType,strongOutlets,wrapArguments,wrapMultilineStatementBraces,wrapSwitchCases,wrapTernary,wrapCollections,wrapEnumCases,wrapFunctionCalls,wrapFunctionDefinitions
+# `indent` is the rule that converts the 268 tab-indented first-party Swift files
+# this repository still carries (test_style_config.py counts them). It was absent
+# before, so even a configuration that loaded would never have fixed indentation —
+# the one-time mechanical pass ci.yml reports on had nothing to apply it with.
+# The `space*` and `braces` entries are the 0.64.6 form of the options above, and
+# each matches what the tree already does rather than imposing a new style:
+# `{ foo }` 10138:113 against `{foo}`, `..<` unspaced 289:6, `} else {` K&R.
+# `trailingSpace` is what `trimWhitespace` was reaching for, and
+# `unusedPrivateDeclarations` is the real (plural) name of the rule that was
+# listed in the singular. Dropped with no 0.64.6 equivalent: `unusedImport`,
+# `unusedVariable`, `redundantProtocol`, `redundantOptionalInit`,
+# `preferNimbleOperator`, `preferSelfType`, `specifiedSelfType`,
+# `wrapFunctionCalls`, `wrapFunctionDefinitions`, plus `wrapTernary` and
+# `wrapCollections`, which are `wrapArguments` options and not rules.
+rules indent,trailingSpace,braces,spaceAroundOperators,spaceAroundBraces,spaceAroundBrackets,spaceInsideBraces,spaceInsideBrackets,spaceInsideParens,trailingClosures,void,redundantSelf,redundantLet,redundantNilInit,redundantType,redundantParens,redundantPattern,redundantReturn,redundantLetError,unusedArguments,unusedPrivateDeclarations,fileHeader,linebreaks,trailingCommas,preferForLoop,preferKeyPath,strongOutlets,wrapArguments,wrapMultilineStatementBraces,wrapSwitchCases,wrapEnumCases
 
 # Exclude
-exclude VexSign/Packages/Vendor,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
+# Vendored upstream sources are excluded because their style is upstream's to own: reformatting
+# them makes the next re-vendor a wall of noise instead of a real diff. Vendor/ held Zsign and
+# IDeviceKitten; SideSign is vendored the same way (AGPL-3.0, see its Package.swift header) and
+# was missing, so `make format FIX=1` would have rewritten it. .swiftlint.yml excludes both.
+exclude VexSign/Packages/Vendor,VexSign/Packages/SideSign,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
 
 # Custom options
-indentcase true
-ifdef indent
-elsebalance true
-self insert
+# Indentation of `case` labels and `#if` bodies, both measured against the tree
+# rather than assumed: 701 switch statements put `case` level with `switch`
+# against 4 that indent it, and 18 `#if` bodies are level with the directive
+# against 1 indented. The previous `indentcase true` / `ifdef indent` therefore
+# described a style this repository does not write, and would have reindented
+# several hundred statements in the one-time pass.
+indentcase false
+ifdef no-indent

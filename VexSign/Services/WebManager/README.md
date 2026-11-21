@@ -96,12 +96,14 @@ Honest limits, in one place:
   link-local and cloud-metadata addresses (`169.254.0.0/16`, `fe80::/10`) are
   never allowed. The endpoint path is built from the parsed address, so an
   address carrying `?` or `#` is refused rather than turning the appended
-  endpoint into a query string. Redirects are followed one hop at a time with
-  the guard re-applied to each hop, and the upload relay does not follow them at
-  all.
+  endpoint into a query string. Read-only redirects are limited to the original
+  origin and guarded at every hop; the upload relay does not follow them. All
+  relay TCP connections re-check and bind the resolved address before dialing.
 - **The relay is not an open proxy.** It can reach loopback, so a deployment
   with a public address should set `VEXSIGN_RELAY_TOKEN`; every relay request
   must then send the matching `X-Relay-Token` header (constant-time compare).
+  Enter it in the signer page's **Relay token** field, separately from the phone's
+  API token. It stays in the page and is sent only to the relay.
   Leave it unset for a LAN/tailnet self-host, where the tool is public by
   design. What the relay *writes* is bounded: `/proxy` is GET-only against
   `status`, `library` and `updates`, so `POST /api/cleanup` is not reachable
@@ -109,14 +111,17 @@ Honest limits, in one place:
 - **Repo decoder** fetches public feeds (that is the point), caps them at 4 MiB,
   and stores nothing.
 - **App installer** hosts nothing and refuses cleartext on both the IPA and the
-  manifest URL.
+  manifest URL. Public feed and probe connections bind checked public DNS answers
+  to the TCP dial; environment HTTP proxies are intentionally not used for these
+  tools or the signer relay.
 - **Repo creator** validates and exports. It never hosts your IPAs or the manifest —
   the OTA link points at whatever https URL you supply.
 - **Cert checker** never accepts a `.p12` or a password (the endpoint has no such
   field), never contacts Apple, and reports a certificate as *unknown* unless its
   fingerprint appears in `VexSign/Services/WebManager/Configuration/data/revoked_certs.json`. Parsing a profile is not
-  CMS signature verification. Install the optional `cryptography` package to also
-  parse public `.cer`/`.pem` certificates; without it you still get fingerprints.
+  CMS signature verification. `cryptography` is a declared requirement, so public
+  `.cer`/`.pem` certificates are parsed in full; you still get fingerprints if that
+  import is somehow broken.
 - **UDID grabber** sessions live in process memory for 15 minutes, are capped at
   200, and are never written to disk. The generated profile is unsigned, so iOS
   says so — sign it with your own certificate to remove the warning. Anyone holding
@@ -128,14 +133,17 @@ This optional component keeps its entry points in `API/`, nonsecret deployment
 inputs/reference data in `Configuration/`, tests in `Tests/` and the served icon
 in `Dashboard/`. `PREMIUM_FEED_FILE` still overrides the default
 `Configuration/premium.json`; no real feed, secret or deployment is added here.
-The normal local iOS signing workflow does not require this backend.
+The normal local iOS signing workflow does not require this backend. When
+`VEXSIGN_DB` is explicitly set, its parent directory must be writable: startup
+fails on a bad path rather than silently switching to the ephemeral default.
+Use a persistent mounted volume and verify backups for production deployments.
 
 Run the component tests from the repository root:
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest cryptography
+pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest
 make test-server
 ```
 
@@ -159,14 +167,33 @@ The host and scheme taken from forwarding headers are validated as a host token
 and `http`/`https` before they are interpolated, so a malformed header cannot
 produce a URL that parses as something else.
 
-`POST /api/validate` and `GET /api/urls` are the endpoints that answer yes/no
-about a guessable credential — a key, or a device UUID that only has to *have* an
-activation row — so they are rate limited per client: `VEXSIGN_RATE_LIMIT`
-requests per `VEXSIGN_RATE_WINDOW_SECONDS` (default 60 per minute, `0` disables
-it), answered with `429` and `Retry-After`. Clients are bucketed by the socket
-peer; behind Render or another proxy every request arrives from the proxy, so set
-`VEXSIGN_TRUST_FORWARDED_FOR=1` there to bucket on the first `X-Forwarded-For`
-entry instead. That header is caller-controlled, hence the opt-in.
+Rate limits are per client, answered with `429` and `Retry-After`, and come in
+three budgets because the endpoints they cover have very different traffic
+profiles. Clients are bucketed by the socket peer; behind Render or another proxy
+every request arrives from the proxy, so set `VEXSIGN_TRUST_FORWARDED_FOR=1`
+there to bucket on the first `X-Forwarded-For` entry instead. That header is
+caller-controlled, hence the opt-in. Set any limit to `0` to disable that budget.
+
+| Budget | Endpoints | Environment | Default |
+|---|---|---|---|
+| credential | `POST /api/validate`, `GET /api/urls` | `VEXSIGN_RATE_LIMIT` / `VEXSIGN_RATE_WINDOW_SECONDS` | 60 per 60s |
+| feed | `GET /repo/premium.json` | `VEXSIGN_FEED_RATE_LIMIT` / `VEXSIGN_FEED_RATE_WINDOW_SECONDS` | 300 per 60s |
+| admin | every `X-Admin-Token` route in `admin.py` | `VEXSIGN_ADMIN_RATE_LIMIT` / `VEXSIGN_ADMIN_RATE_WINDOW_SECONDS` | 20 per 60s |
+
+The credential budget covers the endpoints that answer yes/no about a guessable
+credential — a key, or a device UUID that only has to *have* an activation row.
+
+The feed budget covers `/repo/premium.json`, which accepts the same two
+credentials and therefore answers the same question; it is looser because a
+Cydia-style source is fetched by the app on every repo refresh, not by one user
+typing in a key.
+
+The admin budget covers the whole token-gated surface rather than one endpoint.
+It is tightest because those routes mint and revoke keys, and because a wrong
+token is still counted: the limiter runs as a dependency *before* the token
+comparison, so a guessed token costs the caller its budget. `GET
+/api/admin/health` is deliberately outside it — uptime probes need to succeed
+while the budget is exhausted, and it only reports whether a token is configured.
 
 `GET /api/urls` still accepts the device UUID as the primary credential — every
 shipped client sends `vexSignUUID` and none persisted a key at release time, so

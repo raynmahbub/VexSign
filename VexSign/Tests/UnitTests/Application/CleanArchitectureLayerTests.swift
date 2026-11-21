@@ -314,6 +314,31 @@ final class CleanArchitectureLayerTests: XCTestCase {
         XCTAssertTrue(policy.isAllowedCertificateCallbackTemplate("myapp://callback?p12={p12}"))
     }
 
+    func testCertificateCallbackTemplateRequiresAWellFormedScheme() {
+        let policy = SecurityPolicyGateway()
+        // A template arrives straight from a deep link, so the text before `://` has to actually be
+        // an RFC 3986 scheme. Otherwise what is approved here is not what `URL(string:)` resolves
+        // once the certificate and its password have been substituted into it.
+        XCTAssertFalse(policy.isAllowedCertificateCallbackTemplate("foo:http://evil.example/cb"))
+        XCTAssertFalse(policy.isAllowedCertificateCallbackTemplate("https\n://evil.example/cb"))
+        XCTAssertFalse(policy.isAllowedCertificateCallbackTemplate("1app://callback"))
+        XCTAssertFalse(policy.isAllowedCertificateCallbackTemplate("://callback"))
+        XCTAssertTrue(policy.isAllowedCertificateCallbackTemplate("my-app+1.example://callback"))
+        // `_` is the one character accepted beyond RFC 3986: it cannot delimit a URL, so it does not
+        // weaken the guarantee above, and real registered schemes use it.
+        XCTAssertTrue(policy.isAllowedCertificateCallbackTemplate("my_app://callback"))
+    }
+
+    func testCertificateCallbackDenyListIsTheSharedOne() {
+        // Two layers enforce this and they read one list: the deep-link router checks the template
+        // before substitution, `CertificateManagementService` re-checks the resolved URL after it.
+        let policy = SecurityPolicyGateway()
+        for scheme in CertificateCallbackPolicy.disallowedSchemes {
+            XCTAssertFalse(policy.isAllowedCertificateCallbackTemplate("\(scheme)://callback"))
+            XCTAssertFalse(policy.isAllowedCertificateCallbackTemplate("\(scheme.uppercased())://callback"))
+        }
+    }
+
     // MARK: - Reset Use Case
 
     func testWorkspaceResetUseCaseConfirmationAndScopes() {

@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
-"""Per-client throttling for the endpoints that check credentials.
+"""Per-client throttling for every endpoint that checks a credential.
 
-`POST /api/validate` and `GET /api/urls` are the two places where a caller
-presents something guessable: an API key, or a device UUID that only has to
-*have* an activation row. Neither endpoint had any limit, so an unauthenticated
-peer could try keys or device IDs as fast as the network allows and read the
-401/200 difference.
+Four surfaces answer a guessable question with a status code, so all four are
+budgeted — leaving one unthrottled simply moves the attack there:
 
-A sliding window keeps that uninteresting: `VEXSIGN_RATE_LIMIT` requests per
-`VEXSIGN_RATE_WINDOW_SECONDS` per client, both overridable by an operator who
-fronts the service with something else. State is in-process and deliberately
-tiny (a deque of timestamps per client, keys evicted when they go quiet), so a
-single uvicorn worker needs no extra dependency and a restart simply forgets —
-this is a brute-force speed bump, not an accounting system.
+* `POST /api/validate` and `GET /api/urls` — an API key, or a device UUID that
+  only has to *have* an activation row (`enforce`).
+* `GET /repo/premium.json` — accepts the very same `vexSignUUID` / `X-API-Key`
+  pair through `_require_premium_access`, and returns 401 or 200 accordingly
+  (`enforce_feed`).
+* `POST/GET/DELETE /api/admin/*` — one shared `ADMIN_TOKEN`, with no lockout and
+  no second factor behind it (`enforce_admin`).
+
+A sliding window keeps guessing uninteresting: a request budget per window per
+client, each pair overridable by an operator who fronts the service with
+something else (`VEXSIGN_RATE_LIMIT` / `VEXSIGN_RATE_WINDOW_SECONDS`,
+`VEXSIGN_FEED_RATE_LIMIT` / `VEXSIGN_FEED_RATE_WINDOW_SECONDS`,
+`VEXSIGN_ADMIN_RATE_LIMIT` / `VEXSIGN_ADMIN_RATE_WINDOW_SECONDS`). The three
+budgets differ on purpose; see each constant below for why. State is in-process
+and deliberately tiny (a deque of timestamps per client, keys evicted when they
+go quiet), so a single uvicorn worker needs no extra dependency and a restart
+simply forgets — this is a brute-force speed bump, not an accounting system.
 
 Clients are identified by the socket peer. Behind Render or another proxy every
 request arrives from the proxy, which would collapse all callers into one
@@ -45,6 +53,19 @@ def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
 # already sits behind a WAF or an API gateway.
 DEFAULT_LIMIT = _env_int("VEXSIGN_RATE_LIMIT", 60, minimum=0)
 DEFAULT_WINDOW = _env_int("VEXSIGN_RATE_WINDOW_SECONDS", 60)
+# The gated feed answers the same "is this credential live?" question as the two
+# endpoints above, so it needs a budget too — but a much larger one. Distributors
+# hand keys out publicly and their users frequently share a carrier NAT address,
+# so one bucket can legitimately cover hundreds of devices refreshing their
+# sources. Reusing the 60/min credential budget here would lock out real users;
+# an unthrottled route would let a peer hammer SQLite instead. Finite, generous.
+FEED_LIMIT = _env_int("VEXSIGN_FEED_RATE_LIMIT", 300, minimum=0)
+FEED_WINDOW = _env_int("VEXSIGN_FEED_RATE_WINDOW_SECONDS", 60)
+# The admin surface is one human with a phone: minting, listing and revoking are
+# a handful of requests. A tight budget makes `ADMIN_TOKEN` expensive to guess
+# online, which matters because it is a single shared secret with no lockout.
+ADMIN_LIMIT = _env_int("VEXSIGN_ADMIN_RATE_LIMIT", 20, minimum=0)
+ADMIN_WINDOW = _env_int("VEXSIGN_ADMIN_RATE_WINDOW_SECONDS", 60)
 # One bucket per client; anything past this is a flood, and dropping the oldest
 # key is cheaper than letting an attacker grow the process out of memory.
 _MAX_CLIENTS = 10_000
@@ -100,11 +121,12 @@ def client_key(request: Request) -> str:
 
 
 _limiter = SlidingWindowLimiter()
+_feed_limiter = SlidingWindowLimiter(limit=FEED_LIMIT, window=FEED_WINDOW)
+_admin_limiter = SlidingWindowLimiter(limit=ADMIN_LIMIT, window=ADMIN_WINDOW)
 
 
-def enforce(request: Request) -> None:
-    """FastAPI dependency: 429 with `Retry-After` once a client is over budget."""
-    wait = _limiter.retry_after(client_key(request))
+def _reject_when_over_budget(limiter: SlidingWindowLimiter, request: Request) -> None:
+    wait = limiter.retry_after(client_key(request))
     if wait is None:
         return
     raise HTTPException(
@@ -114,6 +136,31 @@ def enforce(request: Request) -> None:
     )
 
 
+def enforce(request: Request) -> None:
+    """FastAPI dependency: 429 with `Retry-After` once a client is over budget."""
+    _reject_when_over_budget(_limiter, request)
+
+
+def enforce_feed(request: Request) -> None:
+    """Throttle the gated feed, which checks the same credentials on a larger budget."""
+    _reject_when_over_budget(_feed_limiter, request)
+
+
+def enforce_admin(request: Request) -> None:
+    """Throttle the token-gated admin surface, so `ADMIN_TOKEN` is expensive to guess."""
+    _reject_when_over_budget(_admin_limiter, request)
+
+
 def current() -> SlidingWindowLimiter:
     """The process-wide limiter (exposed so tests can reset or inspect it)."""
     return _limiter
+
+
+def current_feed() -> SlidingWindowLimiter:
+    """The gated-feed limiter (exposed so tests can reset or inspect it)."""
+    return _feed_limiter
+
+
+def current_admin() -> SlidingWindowLimiter:
+    """The admin limiter (exposed so tests can reset or inspect it)."""
+    return _admin_limiter

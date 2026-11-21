@@ -11,7 +11,7 @@ TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
 SPM_CACHE_PATH ?=
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
-.PHONY: test-server test-cloud help docs-check all clean bootstrap test verify lint deploy-server strict-concurrency audit-packages $(SCHEMES)
+.PHONY: test-server test-cloud help docs-check all clean bootstrap test verify lint format deploy-server strict-concurrency audit-packages $(SCHEMES)
 
 all: $(SCHEMES)
 
@@ -28,6 +28,7 @@ help:
 	  'make test-server      Python backend tests (install server requirements first)' \
 	  'make test-cloud       Cloud build, tests and contract drift check (npm ci first)' \
 	  'make lint [FIX=1]     Optional SwiftLint report or corrections' \
+	  'make format [FIX=1]   Optional swiftformat report or corrections' \
 	  'make strict-concurrency  Build local packages with concurrency diagnostics' \
 	  'make audit-packages   Read-only upstream dependency audit (network)' \
 	  'make deploy-server    Build optional server Docker image' \
@@ -183,6 +184,12 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/repository-validation/test_package_graph.py
 	@python3 VexSign/Tools/Validation/repository-validation/test_coverage_report.py
 	@python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
+	@echo "== style configuration (editorconfig/swiftformat/swiftlint agree) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_style_config.py
+	@echo "== swift style drift gate (changed lines only) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py
+	@echo "== service runtimes (CI, images and blueprint agree) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_runtime_policy.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s VexSign/Integrations/tests -v
 	@echo "== native-signing preparation =="
@@ -208,14 +215,20 @@ test-device-foundation:
 test-signing-core:
 	@python3 VexSign/Tools/Validation/security-validation/test_native_signing_core.py
 
-# Read-only upstream check for the root Xcode SwiftPM requirements (Dependabot
-# covers Package.swift, but not project.pbxproj). Never edits the project.
+# Read-only upstream check for the root Xcode SwiftPM requirements. Dependabot
+# reads Package.swift (the three VexSign/Packages/ manifests in .github/dependabot.yml)
+# but not project.pbxproj, so the app's own package requirements are checked here.
+# Never edits the project.
 #   make audit-packages
 audit-packages:
 	@python3 VexSign/Tools/Validation/repository-validation/check-xcode-packages.py
 
 # Style, on demand. Nothing in CI runs SwiftLint any more: the auto-fix commits
 # it pushed onto pull requests were noise at best (see CHANGELOG.md).
+# `--strict` promotes warnings to errors, and the tree carries a large pre-existing
+# backlog (`line_length` alone counts in the thousands, including files that were
+# already in scope), so lint a path you are editing rather than expecting a green
+# whole-tree run: `swiftlint --strict VexSign/App/iOS/Infrastructure/...`.
 #   make lint              # report (fails on any violation)
 #   make lint FIX=1        # auto-correct in place, then review the diff
 lint:

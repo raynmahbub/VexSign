@@ -91,6 +91,74 @@ final class IPAExtractorTests: XCTestCase {
         }
     }
 
+    func testImportPayloadRequiresExactlyOneTopLevelAppDirectory() throws {
+        try fixture { _, output, _ in
+            let fm = FileManager.default
+            try fm.createDirectory(at: output, withIntermediateDirectories: true)
+            XCTAssertThrowsError(try IPAImportPayload.application(in: output)) { error in
+                guard case IPAImportPayload.ValidationError.missingApp = error else {
+                    return XCTFail("Expected missing app, got \(error)")
+                }
+            }
+            let app = output.appendingPathComponent("First.app", isDirectory: true)
+            try fm.createDirectory(at: app, withIntermediateDirectories: true)
+            // Nested watch apps and extensions must not count as top-level apps.
+            try fm.createDirectory(at: app.appendingPathComponent("Watch/Watch.app"), withIntermediateDirectories: true)
+            XCTAssertEqual(try IPAImportPayload.application(in: output), app)
+            try fm.createDirectory(at: output.appendingPathComponent("Second.app"), withIntermediateDirectories: true)
+            XCTAssertThrowsError(try IPAImportPayload.application(in: output)) { error in
+                guard case IPAImportPayload.ValidationError.multipleApps = error else {
+                    return XCTFail("Expected multiple apps, got \(error)")
+                }
+            }
+        }
+    }
+
+    func testImportPayloadRejectsAFileMasqueradingAsAnApp() throws {
+        try fixture { _, output, _ in
+            let fm = FileManager.default
+            try fm.createDirectory(at: output, withIntermediateDirectories: true)
+            try Data("not a directory".utf8).write(to: output.appendingPathComponent("Fake.app"))
+            XCTAssertThrowsError(try IPAImportPayload.application(in: output)) { error in
+                guard case IPAImportPayload.ValidationError.invalidApp = error else {
+                    return XCTFail("Expected invalid app, got \(error)")
+                }
+            }
+        }
+    }
+
+    func testImportPayloadValidatesMetadataAndExecutableBeforeRegistration() throws {
+        try fixture { _, output, _ in
+            let fm = FileManager.default
+            let app = output.appendingPathComponent("Test.app", isDirectory: true)
+            try fm.createDirectory(at: app, withIntermediateDirectories: true)
+            let plist = app.appendingPathComponent("Info.plist")
+            func writeInfo(_ info: [String: Any]) throws {
+                let data = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+                try data.write(to: plist)
+            }
+            func assertInvalid(_ expected: IPAImportPayload.ValidationError, file: StaticString = #filePath, line: UInt = #line) {
+                XCTAssertThrowsError(try IPAImportPayload.validateApplication(in: output), file: file, line: line) { error in
+                    XCTAssertEqual(error as? IPAImportPayload.ValidationError, expected, file: file, line: line)
+                }
+            }
+
+            assertInvalid(.invalidMetadata)
+            try Data("not a plist".utf8).write(to: plist)
+            assertInvalid(.invalidMetadata)
+            try writeInfo(["CFBundleExecutable": "Test"])
+            assertInvalid(.invalidIdentifier)
+            try writeInfo(["CFBundleIdentifier": "  ", "CFBundleExecutable": "Test"])
+            assertInvalid(.invalidIdentifier)
+            try writeInfo(["CFBundleIdentifier": "example.test", "CFBundleExecutable": "Test"])
+            assertInvalid(.invalidExecutable)
+            try Data([0xcf, 0xfa, 0xed, 0xfe]).write(to: app.appendingPathComponent("Test"))
+            XCTAssertEqual(try IPAImportPayload.validateApplication(in: output), app)
+            try writeInfo(["CFBundleIdentifier": "example.test", "CFBundleExecutable": "../Test"])
+            assertInvalid(.invalidExecutable)
+        }
+    }
+
     func testExpiredDeadlineWritesNothing() throws {
         try fixture { source, output, _ in
             XCTAssertThrowsError(try IPAExtractor.extract(source, to: output, timeout: 0)) { error in

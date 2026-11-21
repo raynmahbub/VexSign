@@ -1,7 +1,8 @@
 // swift-tools-version: 6.0
 //
 // Vendored from SideStore/Catalyst (Dependencies/SideSign), AGPL-3.0.
-// Odysseus only uses the library: the CLI and test targets are left out.
+// Odysseus only uses the library; the upstream CLI target is left out. A local SideSignTests
+// target (Tests/) covers the library's own pure helpers and ships in no product.
 //
 
 import PackageDescription
@@ -54,6 +55,15 @@ let package = Package(
                 "GSACryptoKit"
             ],
             path: "Sources"
+        ),
+        // Pure-helper tests for the vendored library's own deterministic API (PEM/DER
+        // passthrough, bundle-id sanitizing, log-header redaction). They build and run only
+        // under `swift test --package-path VexSign/Packages/SideSign`; the app and the
+        // synthesized native-signing-smoke graph link the library product, never this target.
+        .testTarget(
+            name: "SideSignTests",
+            dependencies: ["SideSign"],
+            path: "Tests"
         )
     ],
 

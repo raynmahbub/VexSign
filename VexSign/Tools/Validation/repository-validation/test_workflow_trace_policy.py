@@ -175,6 +175,21 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         presets = self.text('VexSign/App/iOS/Infrastructure/Signing/Execution/NamedSigningProfileStore.swift')
         self.assertGreaterEqual(presets.count('withoutOneShotFiles()'), 4)
 
+    def test_debian_framework_load_names_reach_extension_targeting(self):
+        source = self.text('VexSign/App/iOS/Infrastructure/Signing/Transformation/TweakHandler.swift')
+        direct = source.split('private func _runJob(', 1)[1].split('// MARK: - Compatibility gate', 1)[0]
+        extracted = source.split('private func _handleExtractedContents(', 1)[1].split('// MARK: - deb extraction', 1)[0]
+        for body in (direct, extracted):
+            framework = body.split('case "framework":', 1)[1].split('case "bundle":', 1)[0]
+            self.assertIn('collected.append(try await _handleDylib(framework: destinationURL))', framework)
+        self.assertIn('collected.append(contentsOf: try await _handleExtractedContents', direct)
+        self.assertIn('try _injectIntoTargets(dylibNames: names', source)
+        self.assertIn('try _injectIntoTargets(\n', source)
+        targeting = source.split('private func _injectIntoTargets(', 1)[1].split('// MARK: - Find correct files in debs', 1)[0]
+        self.assertIn('try AppExtensionEnumerator.appexBundlesForInjection(in: _app)', targeting)
+        self.assertIn('try TweakExtensionTargets.resolve(targeting, available: available)', targeting)
+        self.assertIn('try TweakExtensionInjector.inject(', targeting)
+
     def test_reviewed_repeat_signing_forwards_the_accepted_override(self):
         manager = self.text('VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift')
         self.assertIn('overridesBlockingPreflightIssues: overridingBlockingIssues', manager)

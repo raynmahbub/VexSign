@@ -127,7 +127,12 @@ enum CertificateManagementService {
         func performExport(for certificate: CertificatePair) {
             guard
                 let certificateKeyFile = Storage.shared.getFile(.certificate, from: certificate),
-                let certificateKeyFileData = try? Data(contentsOf: certificateKeyFile) // try? ok: certificate file may be missing or unreadable
+                // Bounded, and it refuses anything that is not a regular file. `Data(contentsOf:)`
+                // had no ceiling, which mattered here more than elsewhere: `performExport` runs
+                // inside a `UIAlertAction` handler, so the read, the base64 copy and the
+                // percent-encoded copy all land on the main thread. Line 100 of this same file
+                // already reads certificate material through `CertificateInputReader`.
+                let certificateKeyFileData = try? CertificateInputReader.read(certificateKeyFile) // try? ok: certificate file may be missing, unreadable or oversized
             else {
                 return
             }
@@ -138,20 +143,39 @@ enum CertificateManagementService {
             allowedQueryParamAndKey.remove(charactersIn: ";/?:@&=+$, ")
 
             guard let encodedCert = base64encodedCert.addingPercentEncoding(withAllowedCharacters: allowedQueryParamAndKey) else {
+                Logger.misc.error("Certificate export could not percent-encode the certificate payload")
+                return
+            }
+
+            // The password is arbitrary user text, so it needs a stricter set than the base64
+            // certificate above: `%` and `#` never occur in base64 but do occur in passwords, and
+            // left raw one forms an invalid percent-escape and the other truncates the URL at the
+            // fragment. Substituting it unencoded produced a callback that parsed to something
+            // other than what was intended — or to nothing at all — so the export either failed
+            // silently or handed the receiving app the wrong password.
+            var allowedPasswordCharacters = CharacterSet.urlQueryAllowed
+            allowedPasswordCharacters.remove(charactersIn: ";/?:@&=+$,%#[]!()'\"*")
+
+            guard let encodedPassword = (certificate.signingPassword ?? "")
+                .addingPercentEncoding(withAllowedCharacters: allowedPasswordCharacters) else {
+                Logger.misc.error("Certificate export could not percent-encode the certificate password")
                 return
             }
 
             let urlStr = template
                 .replacingOccurrences(of: "$(BASE64_CERT)", with: encodedCert)
-                .replacingOccurrences(of: "$(PASSWORD)", with: certificate.signingPassword ?? "")
+                .replacingOccurrences(of: "$(PASSWORD)", with: encodedPassword)
 
             guard let callbackUrl = URL(string: urlStr) else {
+                Logger.misc.error("Certificate export produced an unparsable callback URL")
                 return
             }
 
-            // Reject web schemes and dangerous protocols to prevent private key exfiltration
+            // Reject web schemes and dangerous protocols to prevent private key exfiltration. The
+            // deny-list is shared with `SecurityPolicyGateway`, which checks the template before
+            // substitution; this re-checks the URL after it, so the two layers cannot disagree.
             guard let scheme = callbackUrl.scheme?.lowercased(),
-                  !["http", "https", "file", "javascript", "data", "about"].contains(scheme) else {
+                  !CertificateCallbackPolicy.disallowedSchemes.contains(scheme) else {
                 Logger.misc.error("Rejected certificate export to web or unsafe URL scheme")
                 return
             }
@@ -163,30 +187,41 @@ enum CertificateManagementService {
         guard !certificates.isEmpty else { return }
 
         DispatchQueue.main.async {
-            var selectionActions: [UIAlertAction] = []
-
-            for cert in certificates {
-                var title: String
-                let decoded = Storage.shared.getProvisionFileDecoded(for: cert)
-
-                title = cert.nickname ?? decoded?.Name ?? .localized("Unknown")
-
-                if let getTaskAllow = decoded?.Entitlements?["get-task-allow"]?.value as? Bool, getTaskAllow == true {
-                    title = "🐞 \(title)"
-                }
-
-                let selectAction = UIAlertAction(title: title, style: .default) { _ in
-                    performExport(for: cert)
-                }
-                selectionActions.append(selectAction)
+            // Building one alert title per certificate used to call `getProvisionFileDecoded`
+            // (a full, uncached CMS/DER parse of the provisioning profile) once per certificate,
+            // all on the main thread — so the export sheet stalled in proportion to how many
+            // certificates were installed. The cheap Core Data reads (nickname, profile path) stay
+            // on the main queue and only Sendable values cross to a background queue for the
+            // parses; the `CertificatePair` objects and `performExport` are touched on main alone.
+            let inputs: [(nickname: String?, url: URL?)] = certificates.map { cert in
+                (cert.nickname, Storage.shared.getFile(.provision, from: cert))
             }
 
-            UIAlertController.showAlertWithCancel(
-                title: .localized("Export Certificate"),
-                message: .localized("Do you want to export your certificate to an external app? That app will be able to sign apps using your certificate."),
-                style: .alert,
-                actions: selectionActions
-            )
+            DispatchQueue.global(qos: .userInitiated).async {
+                let titles = inputs.map { input -> String in
+                    let decoded = input.url.flatMap { CertificateReader($0).decoded }
+                    var title = input.nickname ?? decoded?.Name ?? .localized("Unknown")
+                    if let getTaskAllow = decoded?.Entitlements?["get-task-allow"]?.value as? Bool, getTaskAllow == true {
+                        title = "🐞 \(title)"
+                    }
+                    return title
+                }
+
+                DispatchQueue.main.async {
+                    let selectionActions = zip(certificates, titles).map { cert, title in
+                        UIAlertAction(title: title, style: .default) { _ in
+                            performExport(for: cert)
+                        }
+                    }
+
+                    UIAlertController.showAlertWithCancel(
+                        title: .localized("Export Certificate"),
+                        message: .localized("Do you want to export your certificate to an external app? That app will be able to sign apps using your certificate."),
+                        style: .alert,
+                        actions: selectionActions
+                    )
+                }
+            }
         }
     }
 }

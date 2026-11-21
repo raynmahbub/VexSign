@@ -49,12 +49,7 @@ class TweakHandler {
 
 	/// `Frameworks/` can be absent from apps, so the parent has to exist before the move.
 	private func _place(_ url: URL, at destination: URL) throws {
-		try _fileManager.createDirectoryIfNeeded(at: destination.deletingLastPathComponent())
-		// The move silently drops a same-named file.
-		if _fileManager.fileExists(atPath: destination.path) {
-			SigningLog.shared.error(.localized("Kept the existing %@ — another tweak ships a file with that name", arguments: destination.lastPathComponent))
-		}
-		try _fileManager.moveFileIfNeeded(from: url, to: destination)
+		try TweakPlacement.move(url, to: destination, fileManager: _fileManager)
 	}
 
 	/// Suffixes `-2`, `-3`… so two tweaks can ship the same dylib name.
@@ -151,6 +146,7 @@ class TweakHandler {
 	}
 
 	public func getInputFiles() async throws {
+		try Task.checkCancellation()
 		Logger.misc.info("Attempting to inject")
 
 		let filePickerFix = _filePickerFixURL
@@ -203,7 +199,7 @@ class TweakHandler {
 				path: _options.injectPath,
 				folder: _options.injectFolder
 			)
-			_injectIntoTargets(
+			try _injectIntoTargets(
 				dylibNames: names,
 				targeting: _options.injectIntoExtensions ? .all : .mainOnly,
 				path: _options.injectPath,
@@ -214,15 +210,18 @@ class TweakHandler {
 			}
 		}
 
-		// Managed specs: each file carries its own config + targeting, processed
-		// independently so one bad file doesn't abort the sign.
+		// A failure can leave the disposable signing workspace partially modified.
+		// Do not sign that partial result or silently omit an enabled tweak.
 		for spec in _enabledSpecs {
 			for file in spec.files where file.enabled {
+				try Task.checkCancellation()
 				do {
 					try await _processSpecFile(file, spec: spec, baseTmpDir: baseTmpDir)
+				} catch is CancellationError {
+					throw CancellationError()
 				} catch {
 					SigningLog.shared.error(.localized("Failed to inject %@", arguments: file.fileName), category: "inject")
-					SigningLog.shared.info(">>> \(error.localizedDescription)", category: "inject")
+					throw TweakInjectionFailure(fileName: file.fileName, underlying: error)
 				}
 			}
 		}
@@ -247,7 +246,7 @@ class TweakHandler {
 		}
 
 		let names = try await _runJob(urls: [stagedFile], baseTmpDir: baseTmpDir, path: path, folder: folder)
-		_injectIntoTargets(dylibNames: names, targeting: file.config.targeting, path: path, folder: folder)
+		try _injectIntoTargets(dylibNames: names, targeting: file.config.targeting, path: path, folder: folder)
 		SigningLog.shared.info(.localized("Injected %@", arguments: file.fileName), category: "inject")
 	}
 
@@ -338,14 +337,11 @@ class TweakHandler {
 				// Drop into Frameworks/, add load command; return load name for targeting.
 				let destinationURL = _app.appendingPathComponent("Frameworks").appendingPathComponent(url.lastPathComponent)
 				try _place(url, at: destinationURL)
-				try await _handleDylib(framework: destinationURL)
-				if let fexe = Bundle(url: destinationURL)?.executableURL?.lastPathComponent {
-					collected.append("\(destinationURL.lastPathComponent)/\(fexe)")
-				}
+				collected.append(try await _handleDylib(framework: destinationURL))
 			case "bundle":
 				// Resource bundle — copy into the app root, nothing to inject.
 				let destinationURL = _app.appendingPathComponent(url.lastPathComponent)
-				try _fileManager.moveFileIfNeeded(from: url, to: destinationURL)
+				try _place(url, at: destinationURL)
 			default:
 				Logger.misc.warning("Unsupported file type: \(url.lastPathComponent), skipping.")
 			}
@@ -464,11 +460,13 @@ class TweakHandler {
 
 		destinationURL = _uniqueDylibDestination(destinationURL.appendingPathComponent(url.lastPathComponent))
 
-		try _place(url, at: destinationURL)
-
 		guard let appexe = Bundle(url: _app)?.executableURL else {
-			return nil
+			throw TweakCompatibility.Rejected(
+				fileName: url.lastPathComponent,
+				findings: [TweakCompatibility.Finding(code: .loadCommandNotAdded)]
+			)
 		}
+		try _place(url, at: destinationURL)
 
 		// change paths because some tweaks hardlink, which is not ideal.
 		try _redirectHookRuntime(inBinaryAt: destinationURL)
@@ -483,20 +481,26 @@ class TweakHandler {
 	}
 
 	// Inject imported framework dir (main binary only).
-	private func _handleDylib(framework: URL) async throws {
+	@discardableResult
+	private func _handleDylib(framework: URL) async throws -> String {
 		guard
 			let fexe = Bundle(url: framework)?.executableURL,
 			let appexe = Bundle(url: _app)?.executableURL
 		else {
-			return
+			throw TweakCompatibility.Rejected(
+				fileName: framework.lastPathComponent,
+				findings: [TweakCompatibility.Finding(code: .loadCommandNotAdded)]
+			)
 		}
 
 		try _redirectHookRuntime(inBinaryAt: fexe)
+		let loadName = TweakFrameworkLoad.name(framework: framework, executable: fexe)
 		try _addLoadCommand(
-			"@executable_path/Frameworks/\(framework.lastPathComponent)/\(fexe.lastPathComponent)",
+			"@executable_path/Frameworks/\(loadName)",
 			toExecutableAt: appexe,
 			for: framework.lastPathComponent
 		)
+		return loadName
 	}
 
 	// Handle extracted deb contents (dylibs, frameworks, bundles). Returns injected dylib names.
@@ -515,10 +519,10 @@ class TweakHandler {
 			case "framework":
 				let destinationURL = _app.appendingPathComponent("Frameworks").appendingPathComponent(url.lastPathComponent)
 				try _place(url, at: destinationURL)
-				try await _handleDylib(framework: destinationURL)
+				collected.append(try await _handleDylib(framework: destinationURL))
 			case "bundle":
 				let destinationURL = _app.appendingPathComponent(url.lastPathComponent)
-				try _fileManager.moveFileIfNeeded(from: url, to: destinationURL)
+				try _place(url, at: destinationURL)
 			default:
 				Logger.misc.warning("Unsupported file type: \(url.lastPathComponent), skipping.")
 			}
@@ -538,16 +542,14 @@ class TweakHandler {
 
 		let handler = try AR(with: url)
 		let arFiles = try await handler.extract()
+		let dataMember = try DebianDataMember.select(from: arFiles.map(\.name))
 
 		for arFile in arFiles {
 			let outputPath = uniqueSubDir.appendingPathComponent(arFile.name)
 			try arFile.content.write(to: outputPath)
 
-			if ["data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2"].contains(arFile.name) {
-				var fileToProcess = outputPath
-				try extractFile(at: &fileToProcess)
-				try extractFile(at: &fileToProcess)
-				directories.append(fileToProcess)
+			if arFile.name == dataMember {
+				directories.append(try DebianDataMember.extract(outputPath))
 			} else if arFile.name.hasPrefix("control.tar") {
 				control = TweakAnalyzer.readControl(fromTar: outputPath) ?? [:]
 			}
@@ -632,29 +634,19 @@ class TweakHandler {
 
 	// MARK: - Extension targeting
 
-	// Discovers all .appex bundles in the app's PlugIns and Extensions directories
-	private func _discoverAppExtensions() -> [URL] {
-		AppExtensionEnumerator.appexBundles(in: _app)
-	}
-
 	/// Injects the given dylib names into the targeted extensions.
 	private func _injectIntoTargets(
 		dylibNames: [String],
 		targeting: ExtensionTargeting,
 		path: Options.InjectPath,
 		folder: Options.InjectFolder
-	) {
+	) throws {
 		guard !dylibNames.isEmpty else { return }
 
-		let targets: [URL]
-		switch targeting {
-		case .mainOnly:
-			return
-		case .all:
-			targets = _discoverAppExtensions()
-		case .selected(let names):
-			targets = _discoverAppExtensions().filter { names.contains($0.lastPathComponent) }
-		}
+		if case .mainOnly = targeting { return }
+		if case .selected(let names) = targeting, names.isEmpty { return }
+		let available = try AppExtensionEnumerator.appexBundlesForInjection(in: _app)
+		let targets = try TweakExtensionTargets.resolve(targeting, available: available)
 
 		guard !targets.isEmpty else {
 			Logger.misc.info("No matching app extensions found for injection")
@@ -665,56 +657,9 @@ class TweakHandler {
 
 		for extensionURL in targets {
 			for dylibName in dylibNames {
-				_injectIntoExtension(extensionURL: extensionURL, dylibName: dylibName, path: path, folder: folder)
+				try Task.checkCancellation()
+				try TweakExtensionInjector.inject(into: extensionURL, dylibName: dylibName, path: path, folder: folder)
 			}
-		}
-	}
-
-	// Injects a dylib into an extension's executable
-	private func _injectIntoExtension(
-		extensionURL: URL,
-		dylibName: String,
-		path: Options.InjectPath,
-		folder: Options.InjectFolder
-	) {
-		guard
-			let extensionBundle = Bundle(url: extensionURL),
-			let extensionExecutable = extensionBundle.executableURL
-		else {
-			Logger.misc.warning("Skipping \(extensionURL.lastPathComponent): couldn't read bundle")
-			SigningLog.shared.error(.localized("%1$@ was not added to the extension %2$@", arguments: dylibName, extensionURL.lastPathComponent))
-			return
-		}
-
-		// Framework load-names always resolve inside Frameworks/, regardless of inject folder.
-		let isFramework = dylibName.contains(".framework/")
-
-		var injectFolder = folder
-		if path == .rpath && folder == .frameworks {
-			injectFolder = .root
-		}
-
-		let injectPath: String
-		if path == .rpath {
-			injectPath = "@rpath/\(dylibName)"
-		} else if isFramework || injectFolder == .frameworks {
-			injectPath = "@executable_path/../../Frameworks/\(dylibName)"
-		} else {
-			injectPath = "@executable_path/../../\(dylibName)"
-		}
-
-		let success = Zsign.injectDyLib(
-			appExecutable: extensionExecutable.path,
-			with: injectPath
-		)
-
-		if success {
-			Logger.misc.info("Injected \(dylibName) into extension: \(extensionURL.lastPathComponent)")
-		} else {
-			Logger.misc.warning("Failed to inject into extension: \(extensionURL.lastPathComponent)")
-			// The app itself is still signed with the tweak; say which extension is without it
-			// where the user reads the run, not only in the system log.
-			SigningLog.shared.error(.localized("%1$@ was not added to the extension %2$@", arguments: dylibName, extensionURL.lastPathComponent))
 		}
 	}
 }
@@ -766,6 +711,159 @@ extension TweakHandler {
 			let isSymlink = attributes?[.type] as? FileAttributeType == .typeSymbolicLink
 			return url.pathExtension.lowercased() == "framework" && url.hasDirectoryPath && !isSymlink
 		}
+	}
+}
+
+/// Selected names are persisted as basenames. Refuse a stale or ambiguous name
+/// rather than silently injecting into fewer or different extensions.
+enum TweakExtensionTargets {
+	enum SelectionError: LocalizedError, Equatable {
+		case missing(String)
+		case ambiguous(String)
+
+		var errorDescription: String? {
+			switch self {
+			case .missing(let name): return .localized("The selected extension %@ is no longer in the app.", arguments: name)
+			case .ambiguous(let name): return .localized("More than one extension is named %@. Choose an unambiguous target.", arguments: name)
+			}
+		}
+	}
+
+	static func resolve(_ targeting: ExtensionTargeting, available: [URL]) throws -> [URL] {
+		switch targeting {
+		case .mainOnly: return []
+		case .all: return available
+		case .selected(let names):
+			var checked = Set<String>()
+			for name in names where checked.insert(name).inserted {
+				let count = available.filter { $0.lastPathComponent == name }.count
+				guard count > 0 else { throw SelectionError.missing(name) }
+				guard count == 1 else { throw SelectionError.ambiguous(name) }
+			}
+			let selected = Set(names)
+			return available.filter { selected.contains($0.lastPathComponent) }
+		}
+	}
+}
+
+/// A requested extension injection must either succeed or stop the signing run.
+/// The closures keep the native load-command write independently testable.
+enum TweakExtensionInjector {
+	enum Failure: LocalizedError, Equatable {
+		case missingExecutable(String)
+		case loadCommandFailed(tweak: String, extensionName: String)
+
+		var errorDescription: String? {
+			switch self {
+			case .missingExecutable(let name):
+				return .localized("The extension %@ has no readable executable for tweak injection.", arguments: name)
+			case .loadCommandFailed(let tweak, let name):
+				return .localized("%1$@ was not added to the extension %2$@", arguments: tweak, name)
+			}
+		}
+	}
+
+	static func inject(
+		into extensionURL: URL,
+		dylibName: String,
+		path: Options.InjectPath,
+		folder: Options.InjectFolder,
+		resolveExecutable: (URL) -> URL? = { SigningInputValidation.executable(in: $0) },
+		addLoadCommand: (URL, String) -> Bool = { Zsign.injectDyLib(appExecutable: $0.path, with: $1) }
+	) throws {
+		guard let executable = resolveExecutable(extensionURL) else {
+			throw Failure.missingExecutable(extensionURL.lastPathComponent)
+		}
+		let loadPath: String
+		if path == .rpath {
+			loadPath = "@rpath/\(dylibName)"
+		} else if dylibName.contains(".framework/") || folder == .frameworks {
+			loadPath = "@executable_path/../../Frameworks/\(dylibName)"
+		} else {
+			loadPath = "@executable_path/../../\(dylibName)"
+		}
+		guard addLoadCommand(executable, loadPath) else {
+			throw Failure.loadCommandFailed(tweak: dylibName, extensionName: extensionURL.lastPathComponent)
+		}
+		Logger.misc.info("Injected \(dylibName) into extension: \(extensionURL.lastPathComponent)")
+	}
+}
+
+/// Framework load names are relative to the app's Frameworks directory. The
+/// same name is handed to extension targeting after successful main injection.
+enum TweakFrameworkLoad {
+	static func name(framework: URL, executable: URL) -> String {
+		"\(framework.lastPathComponent)/\(executable.lastPathComponent)"
+	}
+}
+
+/// Debian packages must identify one data archive. Unknown compression formats
+/// are refused explicitly instead of producing a successful, empty injection.
+enum DebianDataMember {
+	enum SelectionError: LocalizedError, Equatable {
+		case missing
+		case multiple
+		case unsupported(String)
+
+		var errorDescription: String? {
+			switch self {
+			case .missing:
+				return .localized("This Debian package has no data archive to inject.")
+			case .multiple:
+				return .localized("This Debian package contains multiple data archives. VexSign cannot choose one safely.")
+			case .unsupported(let name):
+				return .localized("The Debian data archive %@ uses an unsupported format.", arguments: name)
+			}
+		}
+	}
+
+	static func select(from names: [String]) throws -> String {
+		let candidates = names.filter { $0 == "data.tar" || $0.hasPrefix("data.tar.") }
+		guard !candidates.isEmpty else { throw SelectionError.missing }
+		guard candidates.count == 1, let name = candidates.first else { throw SelectionError.multiple }
+		guard ["data.tar", "data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2"].contains(name) else {
+			throw SelectionError.unsupported(name)
+		}
+		return name
+	}
+
+	/// Use the same extraction steps for preview and signing. An uncompressed
+	/// tar is unpacked directly; compressed members first produce the tar.
+	static func extract(_ member: URL) throws -> URL {
+		var result = member
+		try extractFile(at: &result)
+		if member.lastPathComponent != "data.tar" {
+			try extractFile(at: &result)
+		}
+		return result
+	}
+}
+
+/// Never treat a conflicting framework or resource bundle as a successful placement.
+/// FileManager.moveItem also refuses collisions that arise after the check.
+enum TweakPlacement {
+	struct Conflict: LocalizedError {
+		let name: String
+		var errorDescription: String? {
+			.localized("Cannot add %@ because an item with that name already exists in the app.", arguments: name)
+		}
+	}
+
+	static func move(_ source: URL, to destination: URL, fileManager: FileManager = .default) throws {
+		try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+		guard !fileManager.fileExists(atPath: destination.path) else {
+			throw Conflict(name: destination.lastPathComponent)
+		}
+		try fileManager.moveItem(at: source, to: destination)
+	}
+}
+
+struct TweakInjectionFailure: LocalizedError {
+	let fileName: String
+	let underlying: Error
+
+	var errorDescription: String? {
+		.localized("Failed to inject %1$@: %2$@", arguments: fileName, underlying.localizedDescription)
 	}
 }
 

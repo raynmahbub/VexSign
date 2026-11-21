@@ -240,14 +240,30 @@ jobs:
           install "$RUNNER_TEMP/SwiftFormat/.build/release/swiftformat" /usr/local/bin/swiftformat
           swiftformat --version
 
-      # Report-only for now: the tree mixes tab and space indentation, so a
+      # Report-only for now: the tree still mixes tab and space indentation, so a
       # whole-tree lint lists hundreds of pre-existing files rather than anything
-      # this change did. `make format` is the adoption path; this step surfaces
-      # the count as an annotation until the reformat lands.
+      # this change did. The two configs no longer disagree about which is correct
+      # — .editorconfig and .swiftformat now both say spaces for Swift — so what is
+      # left is the one-time mechanical pass, not a decision. `make format FIX=1`
+      # is the adoption path and this step surfaces the count as an annotation
+      # until it lands; drop `continue-on-error` afterwards.
+      #
+      # Kept ahead of the drift gate below on purpose: this step always completes,
+      # so the backlog count is still reported on a pull request the gate fails.
       - name: swiftformat lint (report)
         continue-on-error: true
         run: |
           swiftformat --lint . 2>&1 | tail -40
+
+      # The enforcing half of the step above. A whole-tree lint cannot be a gate
+      # while 268 first-party files are still tab-indented — it would fail every
+      # pull request over code it never touched — but the lines a diff owns have no
+      # backlog to inherit, so those can be gated today. Scope and per-line
+      # ownership come from the same immutable base ci-scope.py uses; vendored
+      # trees stay out of scope because .swiftformat excludes them.
+      - name: Swift style drift (changed lines)
+        run: |
+          python3 VexSign/Tools/Validation/repository-validation/check-swift-format-drift.py
 
       # Documentation links plus the offline regression suites.
       - name: Docs and regressions
@@ -278,6 +294,19 @@ jobs:
           python3 VexSign/Tools/Validation/repository-validation/test_package_graph.py
           python3 VexSign/Tools/Validation/repository-validation/test_coverage_report.py
           python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
+          # Same job that runs the swiftformat step above, so the configs it depends on are
+          # checked here: the report-only lint is only meaningful while the formatter, the editor
+          # config and the lint scope still agree.
+           python3 VexSign/Tools/Validation/repository-validation/test_style_config.py
+           # The drift gate's own regressions: hunk ownership, the formatter's JSON
+           # report schema and the vendored excludes. It runs here rather than in the
+           # gate step so the gate's logic is checked even on a diff that touches no
+           # Swift, where the gate itself has nothing to do.
+           python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py
+          # The runtime each service is tested on, built into and deployed with. Four workflows pin
+          # `python-version` and one pins `node-version`, while the images and render.yaml declare
+          # their own; this asserts every one of those still names the same interpreter.
+          python3 VexSign/Tools/Validation/repository-validation/test_runtime_policy.py
 
       - name: Upload findings
         if: always()

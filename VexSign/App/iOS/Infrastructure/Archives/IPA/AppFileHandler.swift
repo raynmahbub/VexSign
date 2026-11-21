@@ -88,28 +88,19 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		}
 	}
 
-	/// Requires headroom beyond the archive size (IPA is written several times: temp copy →
-	/// unzip → Unsigned). Best-effort: proceeds if size or capacity can't be read.
+	/// Check the temporary copy separately from extraction. The extractor validates
+	/// the ZIP and checks its declared expanded size after the copy has been made;
+	/// multiplying the compressed size here can reject a perfectly viable import.
+	/// Capacity is advisory and real write errors still propagate through cleanup.
 	private func _checkDiskSpace() throws {
-		guard
-			let fileSize = try? _ipa.resourceValues(forKeys: [.fileSizeKey]).fileSize,
-			fileSize > 0,
-			let available = _fileManager.availableImportantCapacity(at: _uniqueWorkDir)
-		else {
-			return
+		guard let fileSize = try? _ipa.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+		      fileSize > 0 else { return }
+		do {
+			try IPAImportStorage.checkCopy(bytes: Int64(fileSize), at: _uniqueWorkDir)
+		} catch let error as StoragePreflight.Insufficient {
+			Logger.misc.error("[\(self._uuid)] Insufficient space for IPA copy")
+			throw _error(.diskSpace, reason: error.localizedDescription, underlying: error)
 		}
-
-		// Copy (~1x) + extracted payload (~1x) + safety margin.
-		let required = Int64(fileSize) * 3
-		guard available < required else { return }
-
-		let needMB = required / 1_048_576
-		let freeMB = available / 1_048_576
-		Logger.misc.error("[\(self._uuid)] Insufficient space: need ~\(needMB)MB, have \(freeMB)MB")
-		throw _error(
-			.diskSpace,
-			reason: "Not enough free storage to import this app. About \(needMB) MB is needed but only \(freeMB) MB is free. Free up space and try again."
-		)
 	}
 
     func extract() async throws {
@@ -146,6 +137,15 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			throw _error(.payload, reason: "The Payload folder was not found on disk after extraction. The IPA may be malformed.")
 		}
 
+		// Do not let filesystem enumeration order choose which app gets imported and
+		// signed. A valid IPA has exactly one top-level application bundle; nested
+		// apps inside that bundle are not candidates.
+		do {
+			_ = try IPAImportPayload.validateApplication(in: payloadURL)
+		} catch {
+			throw _error(.payload, reason: error.localizedDescription, underlying: error)
+		}
+
 		do {
 			let destinationURL = try await _directory()
 
@@ -170,9 +170,11 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	func addToDatabase() async throws -> NSManagedObjectID {
 		let app = try await _directory()
 
-		guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
-			Logger.misc.error("[\(self._uuid)] Could not find .app in Payload")
-			throw _error(.database, reason: "Could not find the .app bundle inside the Payload folder.")
+		let appUrl: URL
+		do {
+			appUrl = try IPAImportPayload.validateApplication(in: app)
+		} catch {
+			throw _error(.database, reason: error.localizedDescription, underlying: error)
 		}
 
 		guard let bundle = Bundle(url: appUrl) else {
@@ -242,6 +244,69 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			try? _fileManager.removeFileIfNeeded(at: _fileManager.unsigned(_uuid))
 		}
 	}
+}
+
+/// Storage for the compressed temporary copy; expanded bytes are checked by
+/// ArchiveSafetyValidator before IPAExtractor writes any archive entries.
+enum IPAImportStorage {
+    static func checkCopy(bytes: Int64, at destination: URL, available: Int64? = nil) throws {
+        try StoragePreflight.check(bytes: bytes, copies: 1, at: destination, available: available)
+    }
+}
+
+/// Identify the only top-level app before registering an imported IPA. Picking the
+/// first match would make a malformed multi-app Payload depend on directory order.
+enum IPAImportPayload {
+    enum ValidationError: LocalizedError, Equatable {
+        case missingApp
+        case multipleApps
+        case invalidApp
+        case invalidMetadata
+        case invalidIdentifier
+        case invalidExecutable
+
+        var errorDescription: String? {
+            switch self {
+            case .missingApp: return "The IPA does not contain an app bundle in its Payload folder."
+            case .multipleApps: return "The IPA contains multiple app bundles in its Payload folder. Import an IPA containing one app."
+            case .invalidApp: return "The app in the IPA's Payload is not a directory."
+            case .invalidMetadata: return "The app's Info.plist is missing or unreadable."
+            case .invalidIdentifier: return "The app's Info.plist does not contain a bundle identifier."
+            case .invalidExecutable: return "The app's executable is missing, unreadable, or has an unsafe name."
+            }
+        }
+    }
+
+    static func application(in payload: URL) throws -> URL {
+        let manager = FileManager.default
+        let entries = try manager.contentsOfDirectory(at: payload, includingPropertiesForKeys: nil)
+        let apps = entries.filter { $0.pathExtension.lowercased() == "app" }
+        guard !apps.isEmpty else { throw ValidationError.missingApp }
+        guard apps.count == 1 else { throw ValidationError.multipleApps }
+        var isDirectory: ObjCBool = false
+        guard manager.fileExists(atPath: apps[0].path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw ValidationError.invalidApp
+        }
+        return apps[0]
+    }
+
+    /// Check the same minimum bundle metadata needed by the signing pipeline,
+    /// before moving an unusable payload into the library. Recheck at registration
+    /// because the workspace may have changed after the move.
+    static func validateApplication(in payload: URL) throws -> URL {
+        let app = try application(in: payload)
+        guard let info = SignatureVerifier.readInfo(at: app) else {
+            throw ValidationError.invalidMetadata
+        }
+        guard let identifier = info["CFBundleIdentifier"] as? String,
+              !identifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ValidationError.invalidIdentifier
+        }
+        guard SigningInputValidation.executable(in: app) != nil else {
+            throw ValidationError.invalidExecutable
+        }
+        return app
+    }
 }
 
 /// Copyable error naming which import step failed; `errorDescription` is the support-friendly
