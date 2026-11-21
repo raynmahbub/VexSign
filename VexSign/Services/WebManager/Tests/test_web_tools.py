@@ -28,7 +28,7 @@ import main  # noqa: E402
 import repo_creator  # noqa: E402
 import udid_grabber  # noqa: E402
 
-try:  # optional server dependency; the cert test below is skipped without it
+try:  # declared server dependency; the cert test below skips only if the install is broken
     import cryptography  # noqa: F401
 
     _HAS_CRYPTOGRAPHY = True
@@ -318,7 +318,7 @@ def test_shipped_revocation_list_is_empty_and_valid():
     assert cert_inspector.revoked_list() == []
 
 
-@pytest.mark.skipif(not _HAS_CRYPTOGRAPHY, reason="optional `cryptography` not installed")
+@pytest.mark.skipif(not _HAS_CRYPTOGRAPHY, reason="`cryptography` not importable (it is a declared requirement)")
 def test_inspect_parses_a_public_certificate(client):
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization

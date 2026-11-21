@@ -178,7 +178,7 @@ manually. Reproduce their core checks locally:
 # Python: use a virtual environment; CI uses Python 3.12.
 python3 -m venv VexSign/Services/WebManager/API/.venv
 . VexSign/Services/WebManager/API/.venv/bin/activate
-python -m pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest cryptography
+python -m pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest
 make test-server
 
 # Cloud: Node 22; npm ci respects the committed lockfile.

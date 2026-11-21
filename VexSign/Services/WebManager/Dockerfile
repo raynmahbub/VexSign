@@ -1,4 +1,8 @@
-FROM python:3.15-slim
+# Python 3.12 is the interpreter CI validates (services.yml `python-version: '3.12'`).
+# The base image was 3.15, so the pinned requirements were exercised on one minor
+# version and shipped on another. Either direction is fine as long as both name the
+# same version; test_runtime_policy.py enforces that.
+FROM python:3.12-slim
 
 WORKDIR /app
 

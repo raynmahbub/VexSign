@@ -183,6 +183,10 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
 	@echo "== style configuration (editorconfig/swiftformat/swiftlint agree) =="
 	@python3 VexSign/Tools/Validation/repository-validation/test_style_config.py
+	@echo "== swift style drift gate (changed lines only) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py
+	@echo "== service runtimes (CI, images and blueprint agree) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_runtime_policy.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s VexSign/Integrations/tests -v
 	@echo "== native-signing preparation =="
