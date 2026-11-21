@@ -8,6 +8,15 @@ second, and the tree ended up with 268 tab-indented first-party Swift files, 490
 and 167 mixing both in a single file. Nothing surfaced it because no validator read either file
 and the CI format step is report-only (`continue-on-error: true`).
 
+Worse, that formatter had never run at all. `.swiftformat` had drifted away from the version
+ci.yml pins (0.64.6): ten options (`usetabs`, the whole `space*` family, `braces`, `elsebalance`)
+and thirteen rules (`unusedImport`, `unusedVariable`, `trimWhitespace`, `wrapFunctionCalls`,
+`wrapTernary` and more) no longer exist in it, and swiftformat treats an unknown name as a hard
+error, not a warning. Every `make format` and every CI lint therefore aborted on the first stale
+key having formatted nothing, and `continue-on-error: true` kept that abort out of sight. The
+rules list also omitted `indent`, so even a loadable config could not have converted a single
+tab-indented file. `SwiftFormatLoadabilityTests` pins the repair.
+
 `.swiftlint.yml` rots the way a stale Dependabot `directory` does: a path that no longer exists is
 ignored rather than reported, so a first-party package can fall out of lint scope unnoticed. That
 happened to `Packages/NativeSigning` — the Apple-account, PKCS#12/CMS and provisioning-profile
@@ -111,12 +120,20 @@ def first_party_swift():
 class SwiftIndentationAgreementTests(unittest.TestCase):
     def test_editorconfig_agrees_with_the_formatter_on_swift_indentation(self):
         flags = swiftformat_flags()
-        self.assertIn("usetabs", flags, ".swiftformat must keep declaring usetabs")
+        # swiftformat 0.64.x has no `usetabs` option: `indent` takes a space count or the
+        # word `tab`, and `useTabs` is derived from that. Asserting `usetabs` here is what
+        # let .swiftformat keep declaring an option the pinned formatter rejects outright,
+        # so this test used to pin the bug instead of catching it.
+        self.assertIn("indent", flags, ".swiftformat must keep declaring indent")
+        self.assertNotIn(
+            "usetabs", flags,
+            "usetabs is not an option in swiftformat 0.64.x; `indent 4` is what selects spaces",
+        )
         swift = dict(editorconfig_sections()).get("*.swift")
         self.assertIsNotNone(swift, ".editorconfig has no [*.swift] section, so [*] decides Swift")
 
-        # `usetabs false` is what `make format` writes, so that is the side the editor must match.
-        expected = "space" if flags["usetabs"].lower() == "false" else "tab"
+        # `indent 4` is what `make format` writes, so that is the side the editor must match.
+        expected = "tab" if flags["indent"].strip().lower() in ("tab", "tabs") else "space"
         self.assertEqual(swift.get("indent_style"), expected)
 
     def test_editorconfig_agrees_with_the_formatter_on_swift_indent_width(self):
@@ -166,6 +183,66 @@ class SwiftLintScopeTests(unittest.TestCase):
         for root in VENDORED:
             self.assertIn(root, excluded, f"{root} is vendored upstream source and must be excluded")
             self.assertTrue((ROOT / root).exists(), f"{root} no longer exists; update VENDORED")
+
+
+class SwiftFormatLoadabilityTests(unittest.TestCase):
+    """The pinned formatter must accept every name .swiftformat declares.
+
+    swiftformat 0.64.6 -- the version ci.yml builds -- treats an unknown option or rule as a hard
+    error and then formats nothing, so a single stale name silently disabled `make format` for the
+    whole repository while the report-only CI lint printed that error into a log nobody read. The
+    names below are the ones that had gone stale. This is a regression pin, not a validator: it
+    cannot know what a future swiftformat renames. check-swift-format-drift.py probes the file
+    against the real binary in CI whenever .swiftformat changes, which is the half that can.
+    """
+
+    REMOVED_OPTIONS = {
+        "usetabs", "braces", "elsebalance", "spacearoundoperators", "spacearoundbrackets",
+        "spacearoundbraces", "spacearoundrangeoperators", "spaceinsidebrackets",
+        "spaceinsideparens", "spaceinsidebraces",
+    }
+    REMOVED_RULES = {
+        "redundantoptionalinit", "redundantprotocol", "unusedimport", "unusedprivatedeclaration",
+        "unusedvariable", "trimwhitespace", "prefernimbleoperator", "preferselftype",
+        "specifiedselftype", "wrapternary", "wrapcollections", "wrapfunctioncalls",
+        "wrapfunctiondefinitions",
+    }
+
+    def rules(self):
+        return {name.strip() for name in swiftformat_flags().get("rules", "").split(",") if name.strip()}
+
+    def test_no_option_the_pinned_formatter_rejects(self):
+        declared = {key.strip().lower() for key in swiftformat_flags()}
+        self.assertEqual(self.REMOVED_OPTIONS & declared, set())
+
+    def test_no_rule_the_pinned_formatter_rejects(self):
+        self.assertEqual(self.REMOVED_RULES & {name.lower() for name in self.rules()}, set())
+
+    def test_the_indent_rule_is_enabled_or_nothing_can_fix_indentation(self):
+        # `rules` is an allowlist, so with `indent` absent the formatter leaves every tab-indented
+        # file exactly as it is and the one-time pass the CI report exists to announce cannot run.
+        self.assertIn("indent", self.rules())
+
+    def test_unused_private_declarations_uses_the_real_plural_name(self):
+        self.assertIn("unusedPrivateDeclarations", self.rules())
+
+    def test_trailing_commas_follow_the_tree_not_the_tool_default(self):
+        # 0.64.6 defaults `--trailing-commas` to `always`, but the tree closes 24815 multi-line
+        # items without a trailing comma against 21 with one, so the default would have demanded a
+        # rewrite of nearly every list in the repository.
+        self.assertEqual(swiftformat_flags().get("trailingcommas"), "never")
+
+    def test_explicit_self_is_not_imposed_on_a_bare_member_access_tree(self):
+        # `self insert` adds explicit self everywhere; only 310 of 937 first-party Swift files
+        # mention self at all, and mostly where Swift requires it. That is a tree-wide rewrite
+        # nobody asked for, so the config says `remove`.
+        self.assertNotEqual(swiftformat_flags().get("self", "").strip().lower(), "insert")
+
+    def test_the_spacing_intentions_survived_as_rules(self):
+        # The removed `space*` options were not dropped on the floor: 0.64.6 expresses the same
+        # intentions as rules, and each one matches what the tree already writes.
+        for rule in ("spaceAroundOperators", "spaceInsideParens", "spaceInsideBraces", "braces"):
+            self.assertIn(rule, self.rules(), f"{rule} replaces a removed spacing option")
 
 
 class SwiftFormatScopeTests(unittest.TestCase):
