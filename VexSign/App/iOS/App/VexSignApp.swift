@@ -22,6 +22,10 @@ struct VexSignApp: App {
     @StateObject private var tabSelection = TabSelectionObserver.shared
     @StateObject private var selfUpdate = SelfUpdateManager.shared
     @StateObject private var appLock = AppLockManager.shared
+    /// Observed here, not just owned by the container: a nested `ObservableObject`
+    /// does not publish through its parent, so without this the restore sheet would
+    /// never present when a file arrives.
+    @ObservedObject private var sharedBackups: SharedBackupInbox
     /// Single observable source of truth for theme/font/animation preferences,
     /// injected into the environment so every view updates on change.
     @StateObject private var appearance = AppearanceStore.shared
@@ -47,6 +51,9 @@ struct VexSignApp: App {
 
     init() {
         AppPreferencesBootstrap.prepare()
+        // `AppContainer.live()` has already run for the property above; read the
+        // same instance rather than creating a second inbox.
+        _sharedBackups = ObservedObject(wrappedValue: appContainer.sharedBackups)
     }
 
     var body: some Scene {
@@ -150,6 +157,18 @@ struct VexSignApp: App {
                 if let release = selfUpdate.available {
                     SelfUpdateSheet(release: release)
                 }
+            }
+            // A backup handed to the app from outside belongs to the app, not to a
+            // tab: presenting it here means a share-sheet, AirDrop or Files "Open in"
+            // cannot be silently dropped behind a screen the user is not looking at.
+            .sheet(item: sharedBackups.staged) { staged in
+                // No inner environment scope: the root scope below wraps every
+                // presentation, and adding a second one here is the exact drift the
+                // workspace boundary gate rejects.
+                SharedBackupRestoreSheet(
+                    staged: staged,
+                    onDiscard: { appContainer.sharedBackups.clear(staged.id) }
+                )
             }
             // Keep the dependency scope outside every overlay and presentation.
             // An environment modifier only reaches the subtree before it: the

@@ -14,6 +14,9 @@ import NimbleExtensions
 final class AppContainer: ObservableObject {
     let cloudConfiguration: CloudConfigurationModel
     let backups: BackupWorkspaceUseCase
+    /// Backups handed to the app from Files/AirDrop/“Open in”. Presented once at the
+    /// root so a staged file cannot be lost behind a tab the user never visits.
+    let sharedBackups = SharedBackupInbox()
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
     let analytics: LocalAnalyticsUseCase
@@ -286,6 +289,9 @@ final class AppContainer: ObservableObject {
                     },
                     addTweakFile: { name, url in
                         TweakManager.shared.addTweak(name: name, from: url) != nil
+                    },
+                    stageBackupFile: { url in
+                        sharedBackups.stage(url)
                     }
                 )
             },

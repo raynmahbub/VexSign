@@ -147,7 +147,7 @@ Available from **Settings → Ecosystem**.
 - **Siri & Shortcuts**: App Intents for signing a chosen app, installation, repository refresh, certificate checks, URL downloads, section navigation, Game Mode, Update All, cleanup and signing the latest download; library-summary actions expose status to automations. See **Settings → Siri & Shortcuts**.
 - **Widgets**: certificate/update status **and a configurable Repository Apps widget** (pick a repository, sort by name or updates-first, tap a row to open that app), plus **Live Activities** for supported signing/download workflows.
 - **Automatic post-install cleanup**, delete-after-install/cache settings, cleanup history, storage breakdown and cleanup previews. Batch-install behaviour still needs device acceptance.
-- **Encrypted `.vexbackup` backup and restore**.
+- **Encrypted `.vexbackup` backup and restore**, including opening a backup from Files, AirDrop, a share sheet or “Open in”. A handed-over file is only staged: you still enter its password and choose what comes back, so nothing restores on its own.
 - **Local analytics** with daily, weekly and monthly charts for recorded signing/install activity, certificate/source events and storage gauges.
 - **Console and signing logs** for troubleshooting, plus diagnostic ZIP export with secret-redaction filters. Review diagnostics before sharing.
 

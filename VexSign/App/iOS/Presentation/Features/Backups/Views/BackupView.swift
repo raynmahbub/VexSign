@@ -12,6 +12,15 @@ import NimbleExtensions
 // MARK: - View
 @MainActor
 struct BackupView: View {
+    /// A backup staged before this screen existed (a file handed over by Files,
+    /// AirDrop or a share sheet). It is inspected on appear through the same
+    /// password/preview path as the picker, never restored automatically.
+    private let initialBackup: URL?
+
+    init(initialBackup: URL? = nil) {
+        self.initialBackup = initialBackup
+    }
+
     @EnvironmentObject private var services: AppContainer
     @State private var operation: Task<Void, Never>?
     @State private var presentationState = BackupPresentationState()
@@ -26,6 +35,7 @@ struct BackupView: View {
     @State private var _exportPickerGeneration: UUID?
     @State private var _pendingExport: (generation: UUID, components: BackupComponents, password: String)?
     @State private var _showLegacyWarning = false
+    @State private var _adoptedSharedBackup = false
 
     // MARK: Body
     var body: some View {
@@ -104,7 +114,10 @@ struct BackupView: View {
         } message: { _ in
             Text(.localized("Enter the password this backup was encrypted with."))
         }
-        .onAppear { presentationState.appear() }
+        .onAppear {
+            presentationState.appear()
+            _adoptSharedBackup()
+        }
         .onDisappear {
             // Retire the generation before dismissing sheets/alerts: their
             // queued callbacks must not start work in a later appearance.
@@ -131,6 +144,18 @@ struct BackupView: View {
         guard presentationState.isCurrent(attempt) else { return }
         _isWorking = false
         operation = nil
+    }
+
+    /// Adopt the handed-over file exactly once per appearance. A missing file is
+    /// reported rather than silently ignored: the temporary copy is the app's own
+    /// and should not vanish, so its absence means something else cleaned up.
+    private func _adoptSharedBackup() {
+        guard let url = initialBackup, !_adoptedSharedBackup else { return }
+        _adoptedSharedBackup = true
+        guard !_isWorking, let attempt = _beginOperation() else { return }
+        _pendingImport = (url, attempt)
+        _password = ""
+        _inspectBackup(url, attempt: attempt)
     }
 
     private func _inspectBackup(_ url: URL, attempt: UUID) {

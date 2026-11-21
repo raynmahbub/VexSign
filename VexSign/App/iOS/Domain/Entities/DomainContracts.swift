@@ -92,11 +92,18 @@ enum DeepLinkCommand: Equatable, Sendable {
     case downloadAndInstall(URL, notifyDirectStarted: Bool)
     case importPackageFile(URL)
     case importTweakFile(URL)
+    /// An encrypted `.vexbackup` handed to the app by Files, AirDrop or “Open in”.
+    /// The file is staged only; decrypting it still needs the user's password on
+    /// the Backups screen, so this is never an unattended restore.
+    case openBackupFile(URL)
     case unsupported
 
     private static let customAppSchemes: Set<String> = ["vexsign", "feather"]
     private static let packageExtensions: Set<String> = ["ipa", "tipa"]
     private static let tweakExtensions: Set<String> = ["dylib", "deb", "framework", "bundle", "zip"]
+    /// Matches the `com.vexsign.backup` document type the app declares in
+    /// `Configuration/Build/iOS/Info.plist`.
+    private static let backupExtensions: Set<String> = ["vexbackup"]
 
     /// Pure deterministic parser — unit-testable without UIApplication, SwiftUI, or CoreData.
     static func parse(_ url: URL) -> DeepLinkCommand {
@@ -108,6 +115,12 @@ enum DeepLinkCommand: Equatable, Sendable {
         let ext = url.pathExtension.lowercased()
         if packageExtensions.contains(ext) {
             return .importPackageFile(url)
+        }
+        // A backup is checked before the tweak list: both can describe a zip, and
+        // guessing "tweak" from a `.vexbackup` would drop the file into the tweak
+        // manager instead of the restore flow.
+        if backupExtensions.contains(ext) {
+            return .openBackupFile(url)
         }
         if tweakExtensions.contains(ext) {
             return .importTweakFile(url)
