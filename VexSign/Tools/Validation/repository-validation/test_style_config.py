@@ -238,6 +238,14 @@ class SwiftFormatLoadabilityTests(unittest.TestCase):
         # nobody asked for, so the config says `remove`.
         self.assertNotEqual(swiftformat_flags().get("self", "").strip().lower(), "insert")
 
+    def test_case_and_ifdef_indentation_follow_the_tree(self):
+        # 701 switch statements keep `case` level with `switch` against 4 that indent it, and
+        # 18 `#if` bodies are level with the directive against 1 indented, so the previous
+        # `indentcase true` / `ifdef indent` described a style this repository does not write.
+        flags = swiftformat_flags()
+        self.assertEqual(flags.get("indentcase"), "false")
+        self.assertEqual(flags.get("ifdef"), "no-indent")
+
     def test_the_spacing_intentions_survived_as_rules(self):
         # The removed `space*` options were not dropped on the floor: 0.64.6 expresses the same
         # intentions as rules, and each one matches what the tree already writes.

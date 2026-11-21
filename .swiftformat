@@ -83,5 +83,11 @@ rules indent,trailingSpace,braces,spaceAroundOperators,spaceAroundBraces,spaceAr
 exclude VexSign/Packages/Vendor,VexSign/Packages/SideSign,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
 
 # Custom options
-indentcase true
-ifdef indent
+# Indentation of `case` labels and `#if` bodies, both measured against the tree
+# rather than assumed: 701 switch statements put `case` level with `switch`
+# against 4 that indent it, and 18 `#if` bodies are level with the directive
+# against 1 indented. The previous `indentcase true` / `ifdef indent` therefore
+# described a style this repository does not write, and would have reindented
+# several hundred statements in the one-time pass.
+indentcase false
+ifdef no-indent
