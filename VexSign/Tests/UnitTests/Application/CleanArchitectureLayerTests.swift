@@ -244,6 +244,19 @@ final class CleanArchitectureLayerTests: XCTestCase {
         let sharedTweak = DeepLinkCommand.parse(URL(string: "file:///tmp/tweak.dylib")!)
         XCTAssertEqual(sharedTweak, .importTweakFile(URL(string: "file:///tmp/tweak.dylib")!))
 
+        // A backup handed over from Files/AirDrop must reach the restore offer, not
+        // the tweak manager and not `.unsupported`.
+        let sharedBackup = DeepLinkCommand.parse(URL(string: "file:///tmp/VexSign-Backup.vexbackup")!)
+        XCTAssertEqual(sharedBackup, .openBackupFile(URL(string: "file:///tmp/VexSign-Backup.vexbackup")!))
+
+        // Extension matching is case-insensitive on the same path used by the document type.
+        let upperBackup = DeepLinkCommand.parse(URL(string: "file:///tmp/BACKUP.VEXBACKUP")!)
+        XCTAssertEqual(upperBackup, .openBackupFile(URL(string: "file:///tmp/BACKUP.VEXBACKUP")!))
+
+        // A bare `.vexbackup` with no name is still a file path, never a workspace command.
+        let unnamedBackup = DeepLinkCommand.parse(URL(string: "file:///.vexbackup")!)
+        XCTAssertEqual(unnamedBackup, .openBackupFile(URL(string: "file:///.vexbackup")!))
+
         let launchQuery = DeepLinkCommand.parse(URL(string: "vexsign://launch?bundleId=com.example.app")!)
         XCTAssertEqual(launchQuery, .launchApp(bundleIdentifier: "com.example.app"))
 

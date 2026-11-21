@@ -4,6 +4,36 @@ import XCTest
 
 @MainActor
 final class BackupWorkspaceBoundaryTests: XCTestCase {
+    // MARK: - Shared backup handoff
+
+    /// A handed-over `.vexbackup` can only ever be an *offer*: staging must not
+    /// restore, and a later file replaces the offer instead of queueing one.
+    func testSharedBackupInboxStagesOneOfferAndClearsOnlyThatOffer() {
+        let inbox = SharedBackupInbox()
+        XCTAssertNil(inbox.staged, "Nothing is offered before a file arrives")
+
+        let first = URL(fileURLWithPath: "/tmp/first.vexbackup")
+        inbox.stage(first, now: Date(timeIntervalSince1970: 1_000))
+        XCTAssertEqual(inbox.staged?.url, first)
+        XCTAssertEqual(inbox.staged?.receivedAt, Date(timeIntervalSince1970: 1_000))
+
+        // A second handover replaces the first: two pending restores would ask the
+        // user to approve something they never chose.
+        let second = URL(fileURLWithPath: "/tmp/second.vexbackup")
+        inbox.stage(second, now: Date(timeIntervalSince1970: 2_000))
+        XCTAssertEqual(inbox.staged?.url, second)
+
+        // Clearing with a stale identity must not dismiss the current offer.
+        let stale = inbox.staged!
+        inbox.stage(first)
+        inbox.clear(stale.id)
+        XCTAssertEqual(inbox.staged?.url, first, "A stale clear must not drop the current offer")
+
+        let current = inbox.staged!
+        inbox.clear(current.id)
+        XCTAssertNil(inbox.staged)
+    }
+
     private final class Provider: BackupWorkspaceProviding {
         var started: XCTestExpectation?
         var pending: CheckedContinuation<BackupArchiveSnapshot, Error>?
