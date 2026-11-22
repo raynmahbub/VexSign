@@ -25,7 +25,11 @@ struct VexSignApp: App {
     /// Observed here, not just owned by the container: a nested `ObservableObject`
     /// does not publish through its parent, so without this the restore sheet would
     /// never present when a file arrives.
-    @ObservedObject private var sharedBackups: SharedBackupInbox
+    ///
+    /// Assigned once in `init` from the container that is already initialised above.
+    /// It must not be `@ObservedObject`: that wrapper requires a value at
+    /// initialisation, and reading a property initialiser from `init` is illegal.
+    @State private var sharedBackups: SharedBackupInbox
     /// Single observable source of truth for theme/font/animation preferences,
     /// injected into the environment so every view updates on change.
     @StateObject private var appearance = AppearanceStore.shared
@@ -51,9 +55,10 @@ struct VexSignApp: App {
 
     init() {
         AppPreferencesBootstrap.prepare()
-        // `AppContainer.live()` has already run for the property above; read the
-        // same instance rather than creating a second inbox.
-        _sharedBackups = ObservedObject(wrappedValue: appContainer.sharedBackups)
+        // `appContainer` is a property initialiser, so it is already constructed.
+        // `_appContainer` reads it without the wrapper accessor, and this hands the
+        // same inbox to the sheet instead of creating a second one.
+        _sharedBackups = State(initialValue: _appContainer.wrappedValue.sharedBackups)
     }
 
     var body: some Scene {
@@ -161,7 +166,7 @@ struct VexSignApp: App {
             // A backup handed to the app from outside belongs to the app, not to a
             // tab: presenting it here means a share-sheet, AirDrop or Files "Open in"
             // cannot be silently dropped behind a screen the user is not looking at.
-            .sheet(item: sharedBackups.staged) { staged in
+            .sheet(item: $sharedBackups.staged) { staged in
                 // No inner environment scope: the root scope below wraps every
                 // presentation, and adding a second one here is the exact drift the
                 // workspace boundary gate rejects.

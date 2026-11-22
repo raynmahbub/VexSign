@@ -16,7 +16,11 @@ final class AppContainer: ObservableObject {
     let backups: BackupWorkspaceUseCase
     /// Backups handed to the app from Files/AirDrop/“Open in”. Presented once at the
     /// root so a staged file cannot be lost behind a tab the user never visits.
-    let sharedBackups = SharedBackupInbox()
+    ///
+    /// Injected by the composition root: the deep-link router that stages a file is
+    /// built inside `live()`, before this object exists, so it needs the same inbox
+    /// rather than one it creates for itself.
+    let sharedBackups: SharedBackupInbox
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
     let analytics: LocalAnalyticsUseCase
@@ -61,6 +65,7 @@ final class AppContainer: ObservableObject {
     init(
         workspaceRepository: any WorkspaceCatalogProviding & LibraryRepository,
         libraryCloning: LibraryCloningProviding,
+        sharedBackups: SharedBackupInbox,
         fileWorkspace: FileWorkspaceProviding,
         tweakWorkspace: TweakWorkspaceProviding,
         entitlementsWorkspace: EntitlementsWorkspaceProviding,
@@ -100,6 +105,7 @@ final class AppContainer: ObservableObject {
     ) {
         self.cloudConfiguration = CloudConfigurationModel(useCase: CloudConfigurationUseCase(provider: cloudConfiguration))
         self.backups = BackupWorkspaceUseCase(provider: backupWorkspace)
+        self.sharedBackups = sharedBackups
         self.tasks = TaskWorkspaceModel(useCase: TaskWorkspaceUseCase(provider: taskWorkspace))
         self.appleAccount = AppleAccountWorkspaceModel(useCase: AppleAccountWorkspaceUseCase(provider: appleAccount))
         self.analytics = LocalAnalyticsUseCase(provider: analytics)
@@ -160,10 +166,15 @@ final class AppContainer: ObservableObject {
         let repositories = RepositoryWorkspaceAdapter(catalog: SourceCatalogStore.shared, repository: workspaceRepository)
         let sharing = UIKitTemporaryFileSharing()
         let certificateWorkspace = CertificateWorkspaceAdapter(repository: workspaceRepository, sharing: sharing)
+        // Created here rather than inline so the closure below can reach it: reading
+        // `container` inside its own initialiser would capture a value that does not
+        // exist yet.
+        let sharedBackups = SharedBackupInbox()
 
         let container = AppContainer(
             workspaceRepository: workspaceRepository,
             libraryCloning: LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared),
+            sharedBackups: sharedBackups,
             fileWorkspace: FileWorkspaceAdapter(repository: workspaceRepository, sharing: sharing),
             tweakWorkspace: TweakWorkspaceAdapter(manager: TweakManager.shared, repository: workspaceRepository),
             entitlementsWorkspace: EntitlementsWorkspaceAdapter(manager: EntitlementsManager.shared),
