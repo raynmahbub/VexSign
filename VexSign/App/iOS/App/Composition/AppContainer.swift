@@ -20,11 +20,6 @@ final class AppContainer: ObservableObject {
     /// Backups handed to the app from Files/AirDrop/“Open in”. Owned here so the
     /// deep-link router and the root scene share one offer.
     let sharedBackups = SharedBackupInbox()
-    /// Forwards the inbox's changes through the container, which is the object the
-    /// root scene already observes. A nested `ObservableObject` does not publish
-    /// through its parent on its own, and re-observing it in the `App` initialiser is
-    /// not expressible without reading `self` there.
-    private var sharedBackupChanges: AnyCancellable?
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
     let analytics: LocalAnalyticsUseCase
@@ -150,9 +145,6 @@ final class AppContainer: ObservableObject {
         self.homePackageEnqueue = homePackageEnqueue
         self.homeURLDownload = homeURLDownload
         self.homeRevealTab = homeRevealTab
-        self.sharedBackupChanges = sharedBackups.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }
     }
 
     // MARK: - Production Composition Root

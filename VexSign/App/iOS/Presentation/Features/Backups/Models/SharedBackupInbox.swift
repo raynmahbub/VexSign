@@ -19,7 +19,10 @@ final class SharedBackupInbox: ObservableObject {
 
     /// The most recent staged file. Assigning replaces any earlier offer rather
     /// than queueing several restores the user never asked for.
-    @Published private(set) var staged: Staged?
+    ///
+    /// Settable because a dismissed sheet clears the binding; `clear(id:)` remains the
+    /// path for code that must not drop a newer offer than the one it answered.
+    @Published var staged: Staged?
 
     func stage(_ url: URL, now: Date = Date()) {
         staged = Staged(url: url, receivedAt: now)

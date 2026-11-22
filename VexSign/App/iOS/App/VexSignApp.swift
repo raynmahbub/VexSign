@@ -50,13 +50,6 @@ struct VexSignApp: App {
         !activeManualDownloads.isEmpty || !activeNonManualDownloads.isEmpty
     }
 
-    /// The offer the router staged, read once here rather than inline in the body.
-    /// The body is one long modifier chain and a member chain inside it is what made
-    /// the type-checker give up.
-    private var stagedBackup: SharedBackupInbox.Staged? {
-        appContainer.sharedBackups.staged
-    }
-
     init() {
         AppPreferencesBootstrap.prepare()
     }
@@ -166,23 +159,9 @@ struct VexSignApp: App {
             // A backup handed to the app from outside belongs to the app, not to a
             // tab: presenting it here means a share-sheet, AirDrop or Files "Open in"
             // cannot be silently dropped behind a screen the user is not looking at.
-            // Bound to the published value, not through a writable key path: the
-            // inbox owns `staged` and exposes `stage`/`clear` so dismissal cannot
-            // silently drop an offer the user has not answered yet.
-            // The container forwards the inbox's changes, so observing the container
-            // is enough to present an offer the router staged.
-            .sheet(item: stagedBackup) { staged in
-                // No inner environment scope: the root scope below wraps every
-                // presentation, and adding a second one here is the exact drift the
-                // workspace boundary gate rejects.
-                SharedBackupRestoreSheet(
-                    staged: staged,
-                    onDiscard: { appContainer.sharedBackups.clear(staged.id) }
-                )
-            }
-            // Keep the dependency scope outside every overlay and presentation.
-            // An environment modifier only reaches the subtree before it: the
-            // always-built installation pill must receive its queue even idle.
+            // The offer the router staged is presented from a modifier that observes
+            // the inbox itself, so this scene's chain stays type-checkable.
+            .modifier(SharedBackupPresentation(inbox: appContainer.sharedBackups))
             .environmentObject(appContainer)
             .environmentObject(appContainer.cloudConfiguration)
             .environmentObject(appContainer.tasks)
