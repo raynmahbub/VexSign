@@ -50,6 +50,17 @@ final class NativeRenewalSeamTests: XCTestCase {
 	}
 
 	@MainActor
+	func testFreeAccountRenewabilityTracksPublishedSessionState() {
+		let state = RenewalRenewabilityState.shared
+		state.reset()
+		XCTAssertFalse(Renewability.freeAccount)
+		state.setAccountSessionReady(true)
+		XCTAssertTrue(Renewability.freeAccount)
+		state.setAccountSessionReady(false)
+		XCTAssertFalse(Renewability.freeAccount)
+	}
+
+	@MainActor
 	func testImportedCertificateInsideItsWindowIsActionableNotBlocked() {
 		let credential = SigningCredential(
 			record: record(expiration: now.addingTimeInterval(days(1))),

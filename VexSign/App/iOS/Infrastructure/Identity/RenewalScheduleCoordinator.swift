@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import Combine
 import OSLog
 
 /// Where a plan came from. Plans arrive from two sources that must not overwrite each
@@ -166,14 +167,25 @@ final class RenewalScheduleCoordinator: ObservableObject {
 final class RenewalRenewabilityState: ObservableObject {
 	static let shared = RenewalRenewabilityState()
 
+
 	@Published private(set) var isAccountSessionReady = false
 
 	private init() {}
 
-	/// Called by the account layer whenever the session state is known — after sign-in,
-	/// after sign-out, and on the background pass. Idempotent.
+	/// Called by the account layer whenever the session state is known. Idempotent.
+	///
+	/// Written from `NativeSigningManager` itself (on snapshot refresh, backend
+	/// init/reconfigure and sign-out) rather than only from the background pass. The pass
+	/// runs at most a few times a day, so a foreground-only user would have seen free-account
+	/// rows stuck at `blocked` long after signing in — a status that said "you cannot renew
+	/// this" to someone who could.
+	///
+	/// This file deliberately does not name the account manager: the account layer pushes a
+	/// value here, and presentation reads only the value.
 	func setAccountSessionReady(_ ready: Bool) {
-		if isAccountSessionReady != ready { isAccountSessionReady = ready }
+		if isAccountSessionReady != ready {
+			isAccountSessionReady = ready
+		}
 	}
 
 	/// Test seam.

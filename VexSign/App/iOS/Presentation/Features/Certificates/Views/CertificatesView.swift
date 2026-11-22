@@ -195,9 +195,6 @@ extension CertificatesView {
 			.map { RenewalPlanner.plan(for: $0) }
 			.filter { $0.status == .due || $0.status == .urgent || $0.status == .lapsed }
 			.count
-		// Revoked rows are excluded: they are already counted as revoked above, and their
-		// remedy is replacement, not renewal.
-		let unrenewable = credentials.filter { !$0.canRenewOnDevice && !$0.isRevoked }.count
 		let apps = coordinator.signedAppsCount()
 
 		VStack(alignment: .leading, spacing: 8) {
@@ -207,15 +204,6 @@ extension CertificatesView {
 				_stat(.localized("%lld valid", arguments: certs.count - revoked), color: .green)
 				if expiring > 0 { _stat(.localized("%lld expiring", arguments: expiring), color: .orange) }
 				if revoked > 0 { _stat(.localized("%lld revoked", arguments: revoked), color: .red) }
-			}
-			// Said once, in plain words, instead of leaving a countdown the user cannot act
-			// on. Imported pairs can always be renewed by re-importing fresh material; a
-			// free-account profile needs a signed-in session to provision with, and when
-			// one is missing the row status is `blocked` rather than a deadline.
-			if unrenewable > 0 {
-				Text(.localized("Some certificates cannot be renewed here. Replace the certificate, or sign in to a free Apple Account to provision a new profile."))
-					.font(.caption)
-					.foregroundStyle(.secondary)
 			}
 			Text(verbatim: .localized("%lld signed apps in the library use a certificate from this list.", arguments: apps))
 				.font(.caption)

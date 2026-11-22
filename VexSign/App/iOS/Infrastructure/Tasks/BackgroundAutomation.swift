@@ -346,14 +346,10 @@ enum BackgroundAutomation {
 	/// user grant. The UI reads `renewalCandidates` and tells the user to renew by hand.
 	private static func trackExpiringFreeAppleIDProfiles() async {
 		let manager = NativeSigningManager.shared
-		// Publish the session fact where presentation can read it without touching the
-		// account manager. Both branches set it: a stale `true` after sign-out would leave
-		// free-account rows reporting a renewal the app cannot perform.
-		let sessionReady = manager.isBackendReady
-		await MainActor.run {
-			RenewalRenewabilityState.shared.setAccountSessionReady(sessionReady)
-		}
-		guard sessionReady else {
+		// Session renewability is published by NativeSigningManager whenever its account
+		// snapshot changes. Backend availability alone is not a signed-in free-account
+		// session, so this pass must not overwrite that more precise state.
+		guard manager.isBackendReady else {
 			// Signed out: the profiles are gone, so their plans must be too. Leaving them
 			// would keep warning about credentials that no longer exist.
 			await MainActor.run { RenewalScheduleCoordinator.shared.clear(source: .appleAccount) }
@@ -368,7 +364,6 @@ enum BackgroundAutomation {
 		// profile is renewed by provisioning a new one through the portal, then re-signing
 		// with the fresh pair. That path does not depend on in-process CMS signing, and
 		// tying the two together made every free-account certificate look unrenewable.
-		// Reaching this point already required `isBackendReady`, so the session exists.
 		await MainActor.run {
 			let renewable = Renewability.freeAccount
 			let credentials = manager.renewalCandidates.map { profile in

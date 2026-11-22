@@ -330,6 +330,7 @@ final class NativeSigningManager: ObservableObject {
             let backend = try NativeAccountBackend(provider: descriptor, slot: selectedSlot)
             self.backend = backend
             self.isBackendReady = true
+            RenewalRenewabilityState.shared.setAccountSessionReady(false)
             self.lastError = nil
             startEventObservation()
             Task { await refreshSnapshot() }
@@ -337,6 +338,7 @@ final class NativeSigningManager: ObservableObject {
             logger.error("Failed to initialize NativeAccountBackend: \(error.localizedDescription, privacy: .public)")
             self.lastError = error.localizedDescription
             self.isBackendReady = false
+            RenewalRenewabilityState.shared.setAccountSessionReady(false)
         }
     }
 
@@ -390,6 +392,16 @@ final class NativeSigningManager: ObservableObject {
             guard self.backend === backend, !Task.isCancelled else { return }
             let previousScope = inventoryScope
             self.snapshot = snapshot
+            let hasRenewableFreeAccountSession: Bool
+            if isBackendReady, !signingOut,
+               case .signedIn(let context) = snapshot.phase,
+               context.team.membership == .free,
+               context.expiresAt.map({ $0 > Date() }) ?? true {
+                hasRenewableFreeAccountSession = true
+            } else {
+                hasRenewableFreeAccountSession = false
+            }
+            RenewalRenewabilityState.shared.setAccountSessionReady(hasRenewableFreeAccountSession)
             if inventoryScope != previousScope { invalidateInventory() }
         } catch {
             logger.error("Failed to get snapshot: \(error.localizedDescription, privacy: .public)")
@@ -485,6 +497,7 @@ final class NativeSigningManager: ObservableObject {
         let backend = try configuredBackend()
         guard !signingOut else { throw NativeAccountBackendError.busy }
         signingOut = true
+        RenewalRenewabilityState.shared.setAccountSessionReady(false)
         invalidateInventory()
         defer { signingOut = false }
         try await backend.signOut()
@@ -666,6 +679,7 @@ final class NativeSigningManager: ObservableObject {
         let previousBackend = backend
         backend = nil
         isBackendReady = false
+        RenewalRenewabilityState.shared.setAccountSessionReady(false)
         providerDescriptor = nil
         snapshot = nil
         invalidateInventory()

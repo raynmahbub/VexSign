@@ -11,9 +11,9 @@
 //  same certificate. Everything now routes through `RenewalPlanner` so the row, the
 //  header and the background pass cannot disagree.
 //
-//  This is presentation, not domain: it may import SwiftUI for the pill colour, and it
-//  may reach for `SigningMethodCapabilities` because "can this build renew at all" is a
-//  fact about the implementation, not about the certificate.
+//  This is presentation, not domain: it may import SwiftUI for the pill colour. The
+//  renewal path is a value supplied by the owning source; this layer does not reach into
+//  account or signing-engine singletons.
 //
 
 import SwiftUI
