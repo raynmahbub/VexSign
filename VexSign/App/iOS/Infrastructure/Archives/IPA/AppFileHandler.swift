@@ -360,12 +360,12 @@ enum IPAImportPayload {
         // `<work>/Payload`, so the root is its parent; when this is called on a
         // directory that holds the bundle directly (the library copy), the first
         // pass above has already answered.
-        // Only when there is no `Payload` layout at all: an archive that did claim
-        // one but left it empty is malformed, not a differently packed app, and must
-        // stay rejected.
+        // Only when there is no `Payload` folder at all. An archive that claims that
+        // layout and leaves it empty is malformed, not a differently packed app: the
+        // search must not reach sideways for some unrelated bundle beside it.
         let root = payload.lastPathComponent == "Payload" ? payload.deletingLastPathComponent() : payload
-        let payloadHasEntries = !((try? manager.contentsOfDirectory(atPath: payload.path)) ?? []).isEmpty // try? ok: an unreadable Payload holds nothing and is reported below
-        if root.path != payload.path, !payloadHasEntries, let app = try oneApp(in: root, recursive: true) {
+        let hasPayloadFolder = payload.lastPathComponent == "Payload" && manager.fileExists(atPath: payload.path)
+        if root.path != payload.path, !hasPayloadFolder, let app = try oneApp(in: root, recursive: true) {
             return app
         }
         guard payload.lastPathComponent == "Payload" else { throw ValidationError.missingApp }

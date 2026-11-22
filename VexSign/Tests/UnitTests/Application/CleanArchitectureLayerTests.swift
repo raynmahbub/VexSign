@@ -253,9 +253,12 @@ final class CleanArchitectureLayerTests: XCTestCase {
         let upperBackup = DeepLinkCommand.parse(URL(string: "file:///tmp/BACKUP.VEXBACKUP")!)
         XCTAssertEqual(upperBackup, .openBackupFile(URL(string: "file:///tmp/BACKUP.VEXBACKUP")!))
 
-        // A bare `.vexbackup` with no name is still a file path, never a workspace command.
+        // A file literally named `.vexbackup` has no extension in URL terms — the dot
+        // starts the name — so it is not a backup and never a workspace command. iOS
+        // cannot hand over a nameless file anyway; what matters is that this is
+        // decided, not that it crashes or resolves to some other route.
         let unnamedBackup = DeepLinkCommand.parse(URL(string: "file:///.vexbackup")!)
-        XCTAssertEqual(unnamedBackup, .openBackupFile(URL(string: "file:///.vexbackup")!))
+        XCTAssertEqual(unnamedBackup, .unsupported)
 
         let launchQuery = DeepLinkCommand.parse(URL(string: "vexsign://launch?bundleId=com.example.app")!)
         XCTAssertEqual(launchQuery, .launchApp(bundleIdentifier: "com.example.app"))
