@@ -28,6 +28,10 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 	private let _download: Download?
 	/// Repository URL, not the package/CDN URL. Kept only as provenance for update matching.
 	private let _originURL: URL?
+	/// Whether the unpacked payload is a `Payload/` folder rather than the whole work
+	/// directory. Only that folder may be moved into the library: the work directory
+	/// also holds the copied archive, which must never be stored as app content.
+	private var _payloadIsPayloadFolder = true
 	private let _appDescription: String?
 	private var _didAddToDatabase = false
 
@@ -139,6 +143,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
         let payload = _uniqueWorkDir.appendingPathComponent("Payload")
         let payloadIsPresent = _fileManager.fileExists(atPath: payload.path)
         uniqueWorkDirPayload = payloadIsPresent ? payload : _uniqueWorkDir
+        _payloadIsPayloadFolder = payloadIsPresent
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as ImportError {
@@ -178,7 +183,16 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 			try _fileManager.removeFileIfNeeded(at: destinationURL)
 
-			try _fileManager.moveItem(at: payloadURL, to: destinationURL)
+			if _payloadIsPayloadFolder {
+				try _fileManager.moveItem(at: payloadURL, to: destinationURL)
+			} else {
+				// No `Payload/` folder: move only the app bundle, so the copy of the
+				// original archive does not become part of the library entry. The
+				// bundle is checked again after the move, as for a normal IPA.
+				let app = try IPAImportPayload.application(in: payloadURL)
+				try _fileManager.createDirectoryIfNeeded(at: destinationURL)
+				try _fileManager.moveItem(at: app, to: destinationURL.appendingPathComponent(app.lastPathComponent))
+			}
             LibrarySizeSnapshot.invalidate()
 			Logger.misc.info("[\(self._uuid)] Moved payload to: \(destinationURL.path)")
 
@@ -306,12 +320,12 @@ enum IPAImportPayload {
 
     /// The one app bundle an archive contains, wherever its payload sits.
     ///
-    /// This used to read `Payload/` and nothing else. A `.tipa` — the TrollStore
-    /// package, which is what the import screen also accepts — is a ZIP whose app
-    /// bundle is at the top level or one folder down, with no `Payload` directory at
-    /// all, so every TIPA failed here as "does not contain an app bundle in its
-    /// Payload folder" after a full extraction. The name stays because a standard
-    /// IPA layout must still win; the search only runs when that layout is absent.
+    /// This used to read `Payload/` and nothing else. A `.tipa` is an `.ipa` renamed
+    /// for AirDrop, so it keeps `Payload/`; but an app shared as a plain `.zip`, or
+    /// repacked by a tool that writes the bundle at the top level, was refused as
+    /// "does not contain an app bundle in its Payload folder" after a full
+    /// extraction, with nothing the user could act on. The standard layout still
+    /// wins, and the search only runs when that layout is genuinely absent.
     static func application(in payload: URL) throws -> URL {
         let manager = FileManager.default
 
@@ -328,7 +342,8 @@ enum IPAImportPayload {
             }
             guard recursive else { return nil }
             // Only one folder deep, and only into the first folder that can hold the
-            // payload: a TIPA keeps its bundle in a single directory beside metadata.
+            // payload: these packages keep the bundle in a single directory beside
+            // their metadata.
             for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
                 var isDirectory: ObjCBool = false
                 guard manager.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
@@ -346,14 +361,16 @@ enum IPAImportPayload {
         // directory that holds the bundle directly (the library copy), the first
         // pass above has already answered.
         // Only when there is no `Payload` layout at all: an archive that did claim
-        // one but left it empty is malformed, not a TIPA, and must stay rejected.
+        // one but left it empty is malformed, not a differently packed app, and must
+        // stay rejected.
         let root = payload.lastPathComponent == "Payload" ? payload.deletingLastPathComponent() : payload
         let payloadHasEntries = !((try? manager.contentsOfDirectory(atPath: payload.path)) ?? []).isEmpty // try? ok: an unreadable Payload holds nothing and is reported below
         if root.path != payload.path, !payloadHasEntries, let app = try oneApp(in: root, recursive: true) {
             return app
         }
         guard payload.lastPathComponent == "Payload" else { throw ValidationError.missingApp }
-        // A TIPA has no `Payload` folder; say so rather than blaming the Payload.
+        // No `Payload` folder and no bundle found: say so rather than blaming a
+        // Payload that was never there.
         if !manager.fileExists(atPath: payload.path) { throw ValidationError.missingPayload }
         throw ValidationError.missingApp
     }

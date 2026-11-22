@@ -4,17 +4,18 @@
 //
 //  What a chosen file actually is, decided from its bytes instead of its name.
 //
-//  Import used to look only at the extension: a `.zip` full of an app was
-//  rejected before it was ever opened, and a `.tipa` was assumed to be a zip.
-//  Both guesses are avoidable — the first four bytes say which format the file
-//  really is — so the decision lives here, in one place, and the picker and the
-//  importer agree on it.
+//  Import used to look only at the extension, so a `.zip` full of an app was
+//  rejected by the picker before it was ever opened, and a file whose name said
+//  `.ipa` but whose content was not a ZIP failed deep inside extraction with an
+//  unrelated message. The first bytes say which format a file really is, so the
+//  decision lives here, in one place, and the picker and the importer agree.
 //
 
 import Foundation
 
 enum PackageArchiveType: Equatable {
-    /// A ZIP container: IPA, TIPA and a plain `.zip` that holds `Payload/`.
+    /// A ZIP container: an IPA, a TIPA (an IPA renamed for AirDrop) and a plain
+    /// `.zip` that holds `Payload/` or an app bundle.
     case zip
     /// A gzip-compressed tar, as shipped by `.tar.gz`/`.tgz` release assets.
     case tarGzip

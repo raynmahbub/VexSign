@@ -3,8 +3,9 @@ import XCTest
 import ZIPFoundation
 @testable import VexSign
 
-/// A standard IPA keeps its bundle in `Payload/`; a TIPA does not. Import used to
-/// require the first layout and reject the second after unpacking it fully.
+/// An IPA and a TIPA both keep the bundle in `Payload/`. A package repacked without
+/// that folder was rejected after a full extraction; import now finds the bundle
+/// while still refusing an archive that claims `Payload/` and leaves it empty.
 final class PackageArchiveLayoutTests: XCTestCase {
     private var root: URL!
     private let manager = FileManager.default
@@ -30,18 +31,18 @@ final class PackageArchiveLayoutTests: XCTestCase {
         XCTAssertEqual(try IPAImportPayload.application(in: payload), app)
     }
 
-    func testTipaLayoutWithoutPayloadIsFoundAtTheTopLevel() throws {
-        // A TIPA: the bundle sits beside the metadata, with no Payload folder.
+    func testTopLevelLayoutWithoutPayloadIsFound() throws {
+        // A repacked app: the bundle sits beside the metadata, with no Payload folder.
         let app = root.appendingPathComponent("Tipa.app", isDirectory: true)
         try makeApp(app)
         try Data("metadata".utf8).write(to: root.appendingPathComponent("iTunesMetadata.plist"))
 
-        // Import points at `<work>/Payload`, which does not exist for a TIPA.
+        // Import points at `<work>/Payload`, which in this layout does not exist.
         let expectedPayload = root.appendingPathComponent("Payload", isDirectory: true)
         XCTAssertEqual(try IPAImportPayload.application(in: expectedPayload), app)
     }
 
-    func testTipaLayoutInsideOneFolderIsFound() throws {
+    func testLayoutInsideOneFolderIsFound() throws {
         let container = root.appendingPathComponent("Extracted", isDirectory: true)
         let app = container.appendingPathComponent("Nested.app", isDirectory: true)
         try makeApp(app)
@@ -88,5 +89,28 @@ final class PackageArchiveLayoutTests: XCTestCase {
         try Data("not an archive".utf8).write(to: text)
         XCTAssertEqual(PackageArchiveType.detect(at: text), PackageArchiveType.unsupported)
         XCTAssertEqual(PackageArchiveType.detect(at: root.appendingPathComponent("absent.ipa")), nil)
+    }
+}
+
+/// The library stores app content, not the package the user imported.
+final class PackageArchiveMoveTests: XCTestCase {
+    func testWithoutAPayloadFolderOnlyTheAppBundleIsMoved() throws {
+        // Mirrors `AppFileHandler.move()`: the work directory also holds the copied
+        // archive, which must not end up inside the library entry.
+        let manager = FileManager.default
+        let work = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? manager.removeItem(at: work) }
+        let library = work.appendingPathComponent("Library", isDirectory: true)
+        let app = work.appendingPathComponent("Tipa.app", isDirectory: true)
+        try manager.createDirectory(at: app, withIntermediateDirectories: true)
+        try Data("binary".utf8).write(to: app.appendingPathComponent("Tipa"))
+        try Data("zip".utf8).write(to: work.appendingPathComponent("Tipa.tipa"))
+
+        try manager.createDirectory(at: library, withIntermediateDirectories: true)
+        let found = try IPAImportPayload.application(in: work)
+        try manager.moveItem(at: found, to: library.appendingPathComponent(found.lastPathComponent))
+
+        XCTAssertTrue(manager.fileExists(atPath: library.appendingPathComponent("Tipa.app/Tipa").path))
+        XCTAssertFalse(manager.fileExists(atPath: library.appendingPathComponent("Tipa.tipa").path))
     }
 }
