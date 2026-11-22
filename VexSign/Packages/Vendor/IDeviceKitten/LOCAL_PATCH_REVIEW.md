@@ -30,6 +30,17 @@ existing MIT wrapper and separately inspected `jkcoxson/idevice` source.
   Data Protection with no unsupported-protection fallback, backup exclusion,
   exclusive synchronized staging, no-clobber first import, digest-reviewed atomic
   replacement/deletion, protected exact-byte exports and bounded local recovery.
+
+**2026-11-22 — migration race check.** `migrate` compared the source against its
+pre-hook observation with `sameFile`, which includes `mtime` and `ctime` at
+sub-second resolution. That made a *correct* migration fail intermittently whenever
+the source was touched between the hook returning and the move — observed as a
+flaky host test (`changedRecord`, with `ctime` false, on both `main` and the import
+branch). It now compares device/inode/size through `sameIdentity`: enough to prove
+the path was not swapped, without asserting the source was not written to. The
+overwrite check on the target is unchanged, `FileManager`'s move still refuses to
+clobber, and `sameFile` remains in use for read-time byte verification and for
+`install`, where the bytes genuinely must not change.
 - `DeviceOperationExecutor` / `DeviceServiceSession` / `DeviceTransportPolicy`:
   serialized native ownership; fresh service identity; conservative OS routing;
   sanitized errors; cancellation/timeout never free active native memory.

@@ -70,7 +70,7 @@
           "description": "Existing local storage owner hardened in place: bounded reads, canonical private roots, reviewed protected atomic lifecycle, migration and owned-name recovery.",
           "upstreamPathAbsent": true,
           "license": "MIT",
-          "patchedSHA256": "bdd734702b3e9521fc688fe580bdec30009ae1ef3860cf8f14c956e17765ee6c"
+          "patchedSHA256": "54ab3dbe420ec9692075c1e86b760c081a171507e8bd815a03d19aa041bc0c5d"
         },
         {
           "path": "Sources/IDeviceSwift/Heartbeat/PairingRecordDocument.swift",

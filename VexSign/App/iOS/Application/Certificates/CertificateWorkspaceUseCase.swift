@@ -24,5 +24,10 @@ final class CertificateWorkspaceUseCase {
     func importFiles(p12: URL, profile: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void) {
         provider.importCertificate(p12: p12, profile: profile, password: password, name: name, completion: completion)
     }
+    /// A single pick that may contain both files. Serialized with every other
+    /// certificate operation: two imports racing would stage into one keychain slot.
+    func importBundle(from url: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void) {
+        provider.importCertificateBundle(from: url, password: password, name: name, completion: completion)
+    }
     func setMonitoringEnabled(_ enabled: Bool) async throws { try await provider.setMonitoringEnabled(enabled) }
 }

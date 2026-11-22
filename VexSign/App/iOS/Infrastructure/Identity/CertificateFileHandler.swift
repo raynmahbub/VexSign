@@ -104,7 +104,10 @@ enum CertificateFileHandlerError: LocalizedError {
 		case .certNotValid:
 			return .localized("The provisioning profile is invalid or could not be read.")
 		case .invalidIdentity:
-			return .localized("Unable to import the certificate. Check the P12 file, provisioning profile, and password.")
+			// Still the fallback for a pair that could not be diagnosed further, but it
+			// no longer claims the password is at fault: every specific cause is now
+			// reported from `CertificateManagementService.signingPairDiagnosis`.
+			return .localized("The certificate and provisioning profile could not be paired. Import the .p12 and the profile that Apple issued for the same certificate, together with the .p12 password.")
 		}
 	}
 }

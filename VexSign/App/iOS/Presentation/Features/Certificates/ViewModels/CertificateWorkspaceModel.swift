@@ -67,6 +67,12 @@ final class CertificateWorkspaceModel: ObservableObject {
             completion(error)
         }
     }
+    func importBundle(from url: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void) {
+        useCase.importBundle(from: url, password: password, name: name) { [workspace] error in
+            workspace.refresh()
+            completion(error)
+        }
+    }
     func setMonitoringEnabled(_ enabled: Bool) async {
         do { try await useCase.setMonitoringEnabled(enabled) }
         catch { report(error) }
