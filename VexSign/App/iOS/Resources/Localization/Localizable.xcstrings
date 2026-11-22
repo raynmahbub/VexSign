@@ -112862,6 +112862,237 @@
           }
         }
       }
+    },
+    "Choose the .mobileprovision profile that was issued with this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .mobileprovision profile that was issued with this certificate."
+          }
+        }
+      }
+    },
+    "Choose the .p12 certificate first. It can be selected together with its profile as a .zip or folder." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .p12 certificate first. It can be selected together with its profile as a .zip or folder."
+          }
+        }
+      }
+    },
+    "Choose the .p12, or a .zip / folder that contains the .p12 together with its .mobileprovision profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .p12, or a .zip / folder that contains the .p12 together with its .mobileprovision profile."
+          }
+        }
+      }
+    },
+    "Import Certificate Bundle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Certificate Bundle"
+          }
+        }
+      }
+    },
+    "No .mobileprovision profile was found. A .p12 needs the profile that was issued with it; add both to the same .zip or folder and choose that." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No .mobileprovision profile was found. A .p12 needs the profile that was issued with it; add both to the same .zip or folder and choose that."
+          }
+        }
+      }
+    },
+    "No .p12 certificate was found. Choose the .p12 file, or a .zip that contains it together with its .mobileprovision profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No .p12 certificate was found. Choose the .p12 file, or a .zip that contains it together with its .mobileprovision profile."
+          }
+        }
+      }
+    },
+    "The certificate and provisioning profile could not be paired. Import the .p12 and the profile that Apple issued for the same certificate, together with the .p12 password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate and provisioning profile could not be paired. Import the .p12 and the profile that Apple issued for the same certificate, together with the .p12 password."
+          }
+        }
+      }
+    },
+    "The certificate in this .p12 is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate in this .p12 is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate."
+          }
+        }
+      }
+    },
+    "The certificate “%@” is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate “%@” is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate."
+          }
+        }
+      }
+    },
+    "The private key in the .p12 does not match the certificate “%@”. Export the identity again from Keychain Access and include both the certificate and its private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The private key in the .p12 does not match the certificate “%@”. Export the identity again from Keychain Access and include both the certificate and its private key."
+          }
+        }
+      }
+    },
+    "The private key in this .p12 does not match its certificate. Export the identity again from Keychain Access and include both the certificate and its private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The private key in this .p12 does not match its certificate. Export the identity again from Keychain Access and include both the certificate and its private key."
+          }
+        }
+      }
+    },
+    "The provisioning profile “%@” expired on %@. Import a current profile; the certificate can keep its existing private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile “%@” expired on %@. Import a current profile; the certificate can keep its existing private key."
+          }
+        }
+      }
+    },
+    "The selected .p12 file is empty. Choose the certificate file that was exported from Apple Developer, together with its password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected .p12 file is empty. Choose the certificate file that was exported from Apple Developer, together with its password."
+          }
+        }
+      }
+    },
+    "The selected file could not be read. Choose the certificate file again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected file could not be read. Choose the certificate file again."
+          }
+        }
+      }
+    },
+    "The selection contains more than one .mobileprovision. Choose a container that holds exactly one certificate and one profile, or import each file separately." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selection contains more than one .mobileprovision. Choose a container that holds exactly one certificate and one profile, or import each file separately."
+          }
+        }
+      }
+    },
+    "The selection contains more than one .p12. Choose a container that holds exactly one certificate and one profile, or import each file separately." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selection contains more than one .p12. Choose a container that holds exactly one certificate and one profile, or import each file separately."
+          }
+        }
+      }
+    },
+    "The selection contains too many files. Import a .zip or folder that holds one certificate and one profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selection contains too many files. Import a .zip or folder that holds one certificate and one profile."
+          }
+        }
+      }
+    },
+    "This archive could not be opened. It may be damaged, or protected with a password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This archive could not be opened. It may be damaged, or protected with a password."
+          }
+        }
+      }
+    },
+    "This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside."
+          }
+        }
+      }
+    },
+    "This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded."
+          }
+        }
+      }
+    },
+    "This provisioning profile does not name any signing certificate, so it cannot be paired with a .p12. Create a new profile in the Apple Developer portal and import it together with its certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This provisioning profile does not name any signing certificate, so it cannot be paired with a .p12. Create a new profile in the Apple Developer portal and import it together with its certificate."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

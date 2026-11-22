@@ -9,6 +9,7 @@ import Foundation
 import CoreData
 import SwiftUI
 import OSLog
+import NimbleExtensions
 
 final class AppFileHandler: NSObject, @unchecked Sendable {
 	private let _fileManager = FileManager.default
@@ -63,6 +64,11 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 			let destinationURL = _uniqueWorkDir.appendingPathComponent(_ipa.lastPathComponent)
 
+			// The picker can hand over a `.zip`/`.tipa` whose container is what
+			// matters, never its suffix. A gzipped tar has no reader here, so it is
+			// named as such instead of failing later as a damaged ZIP.
+			try _requireReadableContainer(at: _ipa)
+
 			try _fileManager.removeFileIfNeeded(at: destinationURL)
 
 			guard _fileManager.fileExists(atPath: _ipa.path) else {
@@ -85,6 +91,21 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
         } catch {
 			Logger.misc.error("[\(self._uuid)] Copy failed: \(error.localizedDescription)")
 			throw _error(.copy, reason: error.localizedDescription, underlying: error)
+		}
+	}
+
+	/// Rejects a container this app cannot unpack, before copying it into the
+	/// workspace and before extraction fails with an unrelated message.
+	private func _requireReadableContainer(at url: URL) throws {
+		switch PackageArchiveType.detect(at: url) {
+		case .zip:
+			return
+		case .tarGzip:
+			throw _error(.copy, reason: .localized("This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside."))
+		case .unsupported, .none:
+			// Some providers hand over a zero-byte or still-downloading file; both
+			// are reported as unreadable rather than as a broken ZIP.
+			throw _error(.copy, reason: .localized("This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded."))
 		}
 	}
 
@@ -113,7 +134,11 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
                     DispatchQueue.main.async { download.unpackageProgress = fraction }
                 }
             })
-            uniqueWorkDirPayload = _uniqueWorkDir.appendingPathComponent("Payload")
+            // A `.tipa` has no `Payload` folder, so the location is remembered rather
+        // than assumed: the work directory holds the payload whatever its layout.
+        let payload = _uniqueWorkDir.appendingPathComponent("Payload")
+        let payloadIsPresent = _fileManager.fileExists(atPath: payload.path)
+        uniqueWorkDirPayload = payloadIsPresent ? payload : _uniqueWorkDir
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as ImportError {
@@ -129,12 +154,12 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
         try Task.checkCancellation()
 		guard let payloadURL = uniqueWorkDirPayload else {
 			Logger.misc.error("[\(self._uuid)] Payload URL is nil")
-			throw _error(.payload, reason: "The Payload folder was missing after extraction. The IPA may be malformed.")
+			throw _error(.payload, reason: "The archive could not be located after extraction. Nothing was unpacked into the workspace.")
 		}
 
 		guard _fileManager.fileExists(atPath: payloadURL.path) else {
 			Logger.misc.error("[\(self._uuid)] Payload does not exist at: \(payloadURL.path)")
-			throw _error(.payload, reason: "The Payload folder was not found on disk after extraction. The IPA may be malformed.")
+			throw _error(.payload, reason: "The unpacked app is missing from disk. The archive may have failed to extract completely.")
 		}
 
 		// Do not let filesystem enumeration order choose which app gets imported and
@@ -155,7 +180,7 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 			try _fileManager.moveItem(at: payloadURL, to: destinationURL)
             LibrarySizeSnapshot.invalidate()
-			Logger.misc.info("[\(self._uuid)] Moved Payload to: \(destinationURL.path)")
+			Logger.misc.info("[\(self._uuid)] Moved payload to: \(destinationURL.path)")
 
 			try? _fileManager.removeItem(at: _uniqueWorkDir)
 		} catch let error as ImportError {
@@ -259,6 +284,7 @@ enum IPAImportStorage {
 enum IPAImportPayload {
     enum ValidationError: LocalizedError, Equatable {
         case missingApp
+        case missingPayload
         case multipleApps
         case invalidApp
         case invalidMetadata
@@ -267,8 +293,9 @@ enum IPAImportPayload {
 
         var errorDescription: String? {
             switch self {
-            case .missingApp: return "The IPA does not contain an app bundle in its Payload folder."
-            case .multipleApps: return "The IPA contains multiple app bundles in its Payload folder. Import an IPA containing one app."
+            case .missingApp: return "The archive does not contain an app bundle (.app). Import an IPA, TIPA or a ZIP that holds the app together with its Payload folder."
+            case .missingPayload: return "The archive has no Payload folder and no app bundle, so there is nothing to sign. Import the IPA or TIPA exactly as it was downloaded."
+            case .multipleApps: return "The archive contains more than one app bundle. Import a package containing one app; split the others into their own imports."
             case .invalidApp: return "The app in the IPA's Payload is not a directory."
             case .invalidMetadata: return "The app's Info.plist is missing or unreadable."
             case .invalidIdentifier: return "The app's Info.plist does not contain a bundle identifier."
@@ -277,17 +304,58 @@ enum IPAImportPayload {
         }
     }
 
+    /// The one app bundle an archive contains, wherever its payload sits.
+    ///
+    /// This used to read `Payload/` and nothing else. A `.tipa` — the TrollStore
+    /// package, which is what the import screen also accepts — is a ZIP whose app
+    /// bundle is at the top level or one folder down, with no `Payload` directory at
+    /// all, so every TIPA failed here as "does not contain an app bundle in its
+    /// Payload folder" after a full extraction. The name stays because a standard
+    /// IPA layout must still win; the search only runs when that layout is absent.
     static func application(in payload: URL) throws -> URL {
         let manager = FileManager.default
-        let entries = try manager.contentsOfDirectory(at: payload, includingPropertiesForKeys: nil)
-        let apps = entries.filter { $0.pathExtension.lowercased() == "app" }
-        guard !apps.isEmpty else { throw ValidationError.missingApp }
-        guard apps.count == 1 else { throw ValidationError.multipleApps }
-        var isDirectory: ObjCBool = false
-        guard manager.fileExists(atPath: apps[0].path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            throw ValidationError.invalidApp
+
+        func oneApp(in directory: URL, recursive: Bool) throws -> URL? {
+            let entries = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
+            let apps = entries.filter { $0.pathExtension.lowercased() == "app" }
+            if apps.count > 1 { throw ValidationError.multipleApps }
+            if let app = apps.first {
+                var isDirectory: ObjCBool = false
+                guard manager.fileExists(atPath: app.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                    throw ValidationError.invalidApp
+                }
+                return app
+            }
+            guard recursive else { return nil }
+            // Only one folder deep, and only into the first folder that can hold the
+            // payload: a TIPA keeps its bundle in a single directory beside metadata.
+            for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                var isDirectory: ObjCBool = false
+                guard manager.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
+                if entry.lastPathComponent.lowercased() == "__macosx" { continue }
+                if let app = try oneApp(in: entry, recursive: false) { return app }
+            }
+            return nil
         }
-        return apps[0]
+
+        // A standard IPA: `Payload/App.app`.
+        if let app = try oneApp(in: payload, recursive: false) { return app }
+
+        // Anything else: search the extracted root. `payload` is normally
+        // `<work>/Payload`, so the root is its parent; when this is called on a
+        // directory that holds the bundle directly (the library copy), the first
+        // pass above has already answered.
+        // Only when there is no `Payload` layout at all: an archive that did claim
+        // one but left it empty is malformed, not a TIPA, and must stay rejected.
+        let root = payload.lastPathComponent == "Payload" ? payload.deletingLastPathComponent() : payload
+        let payloadHasEntries = !((try? manager.contentsOfDirectory(atPath: payload.path)) ?? []).isEmpty // try? ok: an unreadable Payload holds nothing and is reported below
+        if root.path != payload.path, !payloadHasEntries, let app = try oneApp(in: root, recursive: true) {
+            return app
+        }
+        guard payload.lastPathComponent == "Payload" else { throw ValidationError.missingApp }
+        // A TIPA has no `Payload` folder; say so rather than blaming the Payload.
+        if !manager.fileExists(atPath: payload.path) { throw ValidationError.missingPayload }
+        throw ValidationError.missingApp
     }
 
     /// Check the same minimum bundle metadata needed by the signing pipeline,

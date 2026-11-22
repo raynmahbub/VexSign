@@ -323,7 +323,7 @@ struct TweakLibraryList: View {
 
 	private func _pickIPA() {
         guard !_isImporting else { return }
-		DocumentPicker.open([.ipa, .tipa], folder: .apps) { urls in
+		DocumentPicker.open([.ipa, .tipa, .zip], folder: .apps) { urls in
 			guard let url = urls.first else { return }
 			_show(.ipaExtract(url))
 		}
