@@ -1,6 +1,5 @@
 import Foundation
 import XCTest
-import ZIPFoundation
 @testable import VexSign
 
 /// An IPA and a TIPA both keep the bundle in `Payload/`. A package repacked without
@@ -73,11 +72,9 @@ final class PackageArchiveLayoutTests: XCTestCase {
     }
 
     func testContainerTypeIsDecidedByContentNotByExtension() throws {
+        // Only the leading bytes matter for detection: a local file header is enough.
         let zip = root.appendingPathComponent("renamed.tipa")
-        do {
-            let archive = try Archive(url: zip, accessMode: .create)
-            try archive.addEntry(with: "Payload/", type: .directory, uncompressedSizeInBytes: 0)
-        }
+        try Data([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]).write(to: zip)
         XCTAssertEqual(PackageArchiveType.detect(at: zip), PackageArchiveType.zip)
 
         let gz = root.appendingPathComponent("package.tgz")
