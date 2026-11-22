@@ -26,10 +26,10 @@ struct VexSignApp: App {
     /// does not publish through its parent, so without this the restore sheet would
     /// never present when a file arrives.
     ///
-    /// Assigned once in `init` from the container that is already initialised above.
-    /// It must not be `@ObservedObject`: that wrapper requires a value at
-    /// initialisation, and reading a property initialiser from `init` is illegal.
-    @State private var sharedBackups: SharedBackupInbox
+    /// Held as its own observed object because a nested `ObservableObject` does not
+    /// publish through its parent. Created once here and handed to the container, so
+    /// the router that stages a file and this sheet are looking at one inbox.
+    @StateObject private var sharedBackups: SharedBackupInbox
     /// Single observable source of truth for theme/font/animation preferences,
     /// injected into the environment so every view updates on change.
     @StateObject private var appearance = AppearanceStore.shared
@@ -55,10 +55,10 @@ struct VexSignApp: App {
 
     init() {
         AppPreferencesBootstrap.prepare()
-        // `appContainer` is a property initialiser, so it is already constructed.
-        // `_appContainer` reads it without the wrapper accessor, and this hands the
-        // same inbox to the sheet instead of creating a second one.
-        _sharedBackups = State(initialValue: _appContainer.wrappedValue.sharedBackups)
+        // The container was created by its property initialiser and owns the inbox
+        // the router stages into; observing that exact instance is what lets the
+        // restore sheet present.
+        _sharedBackups = StateObject(wrappedValue: appContainer.sharedBackups)
     }
 
     var body: some Scene {

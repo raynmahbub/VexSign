@@ -17,9 +17,9 @@ final class AppContainer: ObservableObject {
     /// Backups handed to the app from Files/AirDrop/“Open in”. Presented once at the
     /// root so a staged file cannot be lost behind a tab the user never visits.
     ///
-    /// Injected by the composition root: the deep-link router that stages a file is
-    /// built inside `live()`, before this object exists, so it needs the same inbox
-    /// rather than one it creates for itself.
+    /// Owned by the root scene and passed in: the router that stages a file is built
+    /// inside `live()`, before this object exists, so the inbox comes from outside
+    /// rather than being created here and then reaching for it.
     let sharedBackups: SharedBackupInbox
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
@@ -166,15 +166,13 @@ final class AppContainer: ObservableObject {
         let repositories = RepositoryWorkspaceAdapter(catalog: SourceCatalogStore.shared, repository: workspaceRepository)
         let sharing = UIKitTemporaryFileSharing()
         let certificateWorkspace = CertificateWorkspaceAdapter(repository: workspaceRepository, sharing: sharing)
-        // Created here rather than inline so the closure below can reach it: reading
-        // `container` inside its own initialiser would capture a value that does not
-        // exist yet.
+        // Created here, before the container, because the deep-link router built inside
+        // this factory stages into it. The same instance is handed to the container.
         let sharedBackups = SharedBackupInbox()
-
         let container = AppContainer(
             workspaceRepository: workspaceRepository,
-            libraryCloning: LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared),
             sharedBackups: sharedBackups,
+            libraryCloning: LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared),
             fileWorkspace: FileWorkspaceAdapter(repository: workspaceRepository, sharing: sharing),
             tweakWorkspace: TweakWorkspaceAdapter(manager: TweakManager.shared, repository: workspaceRepository),
             entitlementsWorkspace: EntitlementsWorkspaceAdapter(manager: EntitlementsManager.shared),
