@@ -25,6 +25,8 @@ final class WatchSessionStore: NSObject, ObservableObject, WCSessionDelegate {
 	@Published private(set) var isReachable = false
 	@Published private(set) var lastCommand: String?
 
+	private var _pendingCommand: CompanionCommand?
+
 	private override init() {
 		super.init()
 	}
@@ -37,7 +39,12 @@ final class WatchSessionStore: NSObject, ObservableObject, WCSessionDelegate {
 		if session.delegate !== self {
 			session.delegate = self
 		}
-		session.activate()
+		if session.activationState != .activated {
+			session.activate()
+		} else {
+			isActivated = true
+			isReachable = session.isReachable
+		}
 
 		// The phone may have published before this app ever launched.
 		if snapshot == nil, !session.applicationContext.isEmpty {
@@ -50,15 +57,27 @@ final class WatchSessionStore: NSObject, ObservableObject, WCSessionDelegate {
 	// MARK: Commands
 
 	func send(_ command: CompanionCommand) {
+		guard WCSession.isSupported() else { return }
 		lastCommand = command.title
 
-		let message: [String: Any] = [CompanionCommand.contextKey: command.rawValue]
 		let session = WCSession.default
+		guard session.activationState == .activated else {
+			_pendingCommand = command
+			activate()
+			return
+		}
 
-		guard session.activationState == .activated else { return }
+		_dispatchActivatedCommand(command, on: session)
+	}
 
+	private func _dispatchActivatedCommand(_ command: CompanionCommand, on session: WCSession) {
+		let message: [String: Any] = [CompanionCommand.contextKey: command.rawValue]
 		if session.isReachable {
-			session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+			// Fall back to transferUserInfo if the live link drops mid-flight so the
+			// command is queued rather than silently discarded.
+			session.sendMessage(message, replyHandler: nil) { _ in
+				WCSession.default.transferUserInfo(message)
+			}
 		} else {
 			// Queued by the system and delivered the next time the phone is in
 			// range, so a command pressed on a wrist in airplane mode is not lost.
@@ -83,11 +102,19 @@ final class WatchSessionStore: NSObject, ObservableObject, WCSessionDelegate {
 		activationDidCompleteWith activationState: WCSessionActivationState,
 		error: Error?
 	) {
+		let reachable = session.isReachable
+		let context = session.applicationContext
 		Task { @MainActor in
 			self.isActivated = activationState == .activated
-			self.isReachable = session.isReachable
-			if activationState == .activated, !session.applicationContext.isEmpty {
-				self._ingest(session.applicationContext)
+			self.isReachable = reachable
+			if activationState == .activated {
+				if !context.isEmpty {
+					self._ingest(context)
+				}
+				if let pending = self._pendingCommand {
+					self._pendingCommand = nil
+					self._dispatchActivatedCommand(pending, on: WCSession.default)
+				}
 			}
 		}
 	}
@@ -101,6 +128,23 @@ final class WatchSessionStore: NSObject, ObservableObject, WCSessionDelegate {
 	nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
 		Task { @MainActor in
 			self._ingest(message)
+		}
+	}
+
+	nonisolated func session(
+		_ session: WCSession,
+		didReceiveMessage message: [String: Any],
+		replyHandler: @escaping ([String: Any]) -> Void
+	) {
+		replyHandler([:])
+		Task { @MainActor in
+			self._ingest(message)
+		}
+	}
+
+	nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+		Task { @MainActor in
+			self._ingest(userInfo)
 		}
 	}
 

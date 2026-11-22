@@ -57,7 +57,7 @@ struct SourceAppsTableRepresentableView: UIViewRepresentable {
     }
     
     func setupTableHeader(_ tableView: UITableView, context: Context) {
-        let hasNews = sources.count == 1 && sources.first?.news != nil && !(sources.first!.news!.isEmpty)
+        let hasNews = sources.count == 1 && !(sources.first?.news?.isEmpty ?? true)
 
         guard showTabBar || hasNews else {
             tableView.tableHeaderView = nil
@@ -308,6 +308,9 @@ extension SourceAppsTableRepresentableView {
         var cache = Cache()
         var highlightState = HighlightState()
         var searchWorkItem: DispatchWorkItem?
+        // Monotonic generation counter so off-main builds snapshot inputs on main,
+        // never touch `self.cache` from a background queue, and drop superseded results.
+        var buildGeneration: UInt64 = 0
         // True while the cache rebuilds off-main. Stops duplicate builds and keeps
         // `numberOfSections` from forcing a synchronous build on first mount (~1s freeze).
         var isBuilding = false
@@ -434,29 +437,10 @@ extension SourceAppsTableRepresentableView {
             return cache.sortedApps
         }
 
-        /// Builds the sorted/base cache off-main, then reloads on main. No-op if already building or empty.
+        /// Builds the sorted/base cache off-main from a main-thread value snapshot, then publishes on main.
         func scheduleSortedAppsBuild() {
             guard !isBuilding, !sources.isEmpty else { return }
-            isBuilding = true
-
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                guard let self = self else { return }
-                let newSorted = self.calculateSortedApps()
-
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    self.cache.sortedApps = newSorted
-                    self.rebuildSectionMetrics()
-                    self.isBuilding = false
-
-                    guard let tableView = self.uiTableView, tableView.window != nil else {
-                        self.onUIReady?()
-                        return
-                    }
-                    tableView.reloadData()
-                    self.onUIReady?()
-                }
-            }
+            invalidateCache(rebuildBase: cache.allApps.isEmpty, resetWindow: false)
         }
         
         // MARK: - Search Handling

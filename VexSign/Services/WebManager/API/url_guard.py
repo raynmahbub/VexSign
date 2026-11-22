@@ -11,8 +11,11 @@ hostnames — neither on the initial URL nor on any HTTP redirect hop.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import ipaddress
 import socket
+import ssl
 from typing import Any
 
 import httpcore
@@ -64,6 +67,48 @@ def _is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -
     return address.is_global
 
 
+class PinnedTLSStream(httpcore.NetworkStream):
+    """Verify a pinned leaf certificate SHA-256 fingerprint before returning the TLS stream."""
+
+    def __init__(self, inner: httpcore.NetworkStream, expected_sha256: str) -> None:
+        self._inner = inner
+        self._expected_sha256 = expected_sha256.lower()
+
+    def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        return self._inner.read(max_bytes, timeout=timeout)
+
+    def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        self._inner.write(buffer, timeout=timeout)
+
+    def close(self) -> None:
+        self._inner.close()
+
+    def start_tls(
+        self,
+        ssl_context: ssl.SSLContext,
+        server_hostname: str | None = None,
+        timeout: float | None = None,
+    ) -> httpcore.NetworkStream:
+        tls_stream = self._inner.start_tls(
+            ssl_context, server_hostname=server_hostname, timeout=timeout
+        )
+        ssl_object = tls_stream.get_extra_info("ssl_object")
+        der_cert = ssl_object.getpeercert(binary_form=True) if ssl_object is not None else None
+        if not der_cert:
+            tls_stream.close()
+            raise httpcore.ConnectError("TLS peer presented no certificate for SHA-256 pin check")
+        actual_sha256 = hashlib.sha256(der_cert).hexdigest().lower()
+        if not hmac.compare_digest(actual_sha256, self._expected_sha256):
+            tls_stream.close()
+            raise httpcore.ConnectError(
+                f"TLS certificate SHA-256 mismatch (got {actual_sha256}, expected {self._expected_sha256})"
+            )
+        return tls_stream
+
+    def get_extra_info(self, info: str) -> Any:
+        return self._inner.get_extra_info(info)
+
+
 class CheckedNetworkBackend(httpcore.SyncBackend):
     """Resolve, validate and connect to the same literal address.
 
@@ -72,8 +117,9 @@ class CheckedNetworkBackend(httpcore.SyncBackend):
     allowed/disallowed answers; never resolve the hostname again when dialing.
     """
 
-    def __init__(self, allows_address):
+    def __init__(self, allows_address, *, pinned_cert_sha256: str | None = None):
         self.allows_address = allows_address
+        self.pinned_cert_sha256 = pinned_cert_sha256.lower() if pinned_cert_sha256 else None
 
     def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
         try:
@@ -85,7 +131,10 @@ class CheckedNetworkBackend(httpcore.SyncBackend):
         last_error = None
         for address in sorted(addresses, key=lambda value: (value.version, int(value))):
             try:
-                return super().connect_tcp(str(address), port, timeout, local_address, socket_options)
+                stream = super().connect_tcp(str(address), port, timeout, local_address, socket_options)
+                if self.pinned_cert_sha256:
+                    return PinnedTLSStream(stream, self.pinned_cert_sha256)
+                return stream
             except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
                 last_error = exc
         assert last_error is not None
@@ -102,7 +151,13 @@ _HOOK_BROKEN = (
 )
 
 
-def checked_http_client(*, timeout: Any, allows_address) -> Any:
+def checked_http_client(
+    *,
+    timeout: Any,
+    allows_address,
+    verify: ssl.SSLContext | bool = True,
+    pinned_cert_sha256: str | None = None,
+) -> Any:
     """Build a direct HTTPX client whose TCP connector validates DNS results.
 
     HTTPX exposes no public network-backend hook. This deliberately uses the
@@ -123,12 +178,12 @@ def checked_http_client(*, timeout: Any, allows_address) -> Any:
     if not hasattr(httpcore.SyncBackend, "connect_tcp"):
         raise RuntimeError(_HOOK_BROKEN)
 
-    transport = httpx.HTTPTransport(trust_env=False)
+    transport = httpx.HTTPTransport(trust_env=False, verify=verify)
     pool = getattr(transport, "_pool", None)
     if pool is None or not hasattr(pool, "_network_backend"):
         raise RuntimeError(_HOOK_BROKEN)
 
-    backend = CheckedNetworkBackend(allows_address)
+    backend = CheckedNetworkBackend(allows_address, pinned_cert_sha256=pinned_cert_sha256)
     pool._network_backend = backend
     if getattr(pool, "_network_backend", None) is not backend:
         raise RuntimeError(_HOOK_BROKEN)

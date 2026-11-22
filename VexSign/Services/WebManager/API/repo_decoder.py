@@ -363,11 +363,13 @@ def _resolve(body: DecodeBody) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/api/Tools/repo/decode")
+@router.post("/api/tools/repo/decode", include_in_schema=False)
 def api_decode(body: DecodeBody) -> dict[str, Any]:
     return decode_payload(_resolve(body))
 
 
 @router.post("/api/Tools/repo/convert")
+@router.post("/api/tools/repo/convert", include_in_schema=False)
 def api_convert(body: ConvertBody) -> dict[str, Any]:
     if body.format not in ("altstore", "flat", "apps"):
         raise HTTPException(
@@ -532,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 @router.get("/Tools/repo-decoder")
+@router.get("/tools/repo-decoder", include_in_schema=False)
 def repo_decoder_page(request: Request):
     body = """
   <div class="card">

@@ -514,4 +514,70 @@ final class ImportAndInstallationTests: XCTestCase {
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.home))
         XCTAssertFalse(TabBarPreferences.hideableTabs.contains(.settings))
     }
+
+    func testServerInstallerManifestNilSafetyAndCapabilityTokens() throws {
+        let validApp = LibraryAppRecord(
+            id: "signed:1",
+            uuid: "uuid-1",
+            isSigned: true,
+            name: nil,
+            version: nil,
+            identifier: "com.example.nil_safe",
+            originalIdentifier: nil,
+            date: nil,
+            icon: nil,
+            appDescription: nil,
+            sortIndex: 0,
+            source: nil,
+            certificateID: nil,
+            bundleURL: nil,
+            artifactURL: nil
+        )
+        let installer = ServerInstaller(
+            app: validApp,
+            viewModel: InstallerStatusViewModel(isIdevice: false),
+            serverMethod: 0,
+            localhostOnly: true
+        )
+
+        XCTAssertGreaterThanOrEqual(installer.installToken.count, 32)
+        XCTAssertTrue(installer.plistEndpoint.path.contains(installer.installToken))
+        XCTAssertTrue(installer.payloadEndpoint.path.contains(installer.installToken))
+        let pageComponents = try XCTUnwrap(URLComponents(url: installer.pageEndpoint, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(pageComponents.queryItems?.first(where: { $0.name == "token" })?.value, installer.installToken)
+
+        let plistData = try installer.buildInstallManifestData()
+        XCTAssertFalse(plistData.isEmpty)
+        let parsed = try XCTUnwrap(PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any])
+        let items = try XCTUnwrap(parsed["items"] as? [[String: Any]])
+        let metadata = try XCTUnwrap(items.first?["metadata"] as? [String: String])
+        XCTAssertEqual(metadata["bundle-identifier"], "com.example.nil_safe")
+        XCTAssertEqual(metadata["bundle-version"], "1.0")
+        XCTAssertEqual(metadata["title"], "com.example.nil_safe")
+
+        let missingBundleIDApp = LibraryAppRecord(
+            id: "signed:2",
+            uuid: "uuid-2",
+            isSigned: true,
+            name: "Broken",
+            version: "1.0",
+            identifier: nil,
+            originalIdentifier: nil,
+            date: nil,
+            icon: nil,
+            appDescription: nil,
+            sortIndex: 0,
+            source: nil,
+            certificateID: nil,
+            bundleURL: nil,
+            artifactURL: nil
+        )
+        let brokenInstaller = ServerInstaller(
+            app: missingBundleIDApp,
+            viewModel: InstallerStatusViewModel(isIdevice: false),
+            serverMethod: 0,
+            localhostOnly: true
+        )
+        XCTAssertThrowsError(try brokenInstaller.buildInstallManifestData())
+    }
 }

@@ -189,6 +189,9 @@ verify: docs-check
 	@python3 -m unittest discover -s VexSign/Packages/NativeSigning/PythonTests -v
 	@echo "== modern-device source boundaries =="
 	@python3 VexSign/Packages/DeviceBridge/test_prepare.py
+	@echo "== cross-service relay & cloud contracts =="
+	@python3 VexSign/Tools/Development/test_cloud_signing_contract.py
+	@python3 VexSign/Tools/Development/test_webmanager_relay_contract.py
 
 # Exact production parser/storage/executor sources, no binary dependency or Apple
 # credentials. macOS permissions/backup tests do not establish iOS Data Protection,
@@ -285,8 +288,14 @@ test-server:
 
 # Do not silently install or update dependencies during a test run.
 test-cloud:
-	cd VexSign/Services/Cloud && npm run build && npm test && npm run contracts
-	git diff --exit-code -- VexSign/Services/Cloud/openapi.json
+	@before=$$(shasum -a 256 VexSign/Services/Cloud/openapi.json 2>/dev/null || sha256sum VexSign/Services/Cloud/openapi.json); \
+	(cd VexSign/Services/Cloud && npm run build && npm test && npm run contracts) && \
+	after=$$(shasum -a 256 VexSign/Services/Cloud/openapi.json 2>/dev/null || sha256sum VexSign/Services/Cloud/openapi.json); \
+	if [ "$$before" != "$$after" ]; then \
+		echo "openapi.json was out of date; commit the regenerated VexSign/Services/Cloud/openapi.json" >&2; \
+		git diff -- VexSign/Services/Cloud/openapi.json; \
+		exit 1; \
+	fi
 
 .PHONY: device-smoke
 device-smoke:

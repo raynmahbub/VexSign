@@ -188,6 +188,42 @@ final class EcosystemTests: XCTestCase {
         XCTAssertTrue(shipped.contains("password"), "generic weak passwords remain available")
     }
 
+    func testCertificateAutoImporterHashIsContentAddressed() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let p12 = dir.appendingPathComponent("cert.p12")
+        let prov = dir.appendingPathComponent("cert.mobileprovision")
+        try Data("p12-v1".utf8).write(to: p12)
+        try Data("prov-v1".utf8).write(to: prov)
+
+        let h1 = CertificateAutoImporter.calculateCertificateHash(p12: p12, provision: prov, password: "secret")
+        let h2 = CertificateAutoImporter.calculateCertificateHash(p12: p12, provision: prov, password: "secret")
+        XCTAssertEqual(h1, h2)
+
+        // Same byte length ("p12-v2" == 6 bytes) must still produce a distinct digest.
+        try Data("p12-v2".utf8).write(to: p12)
+        let h3 = CertificateAutoImporter.calculateCertificateHash(p12: p12, provision: prov, password: "secret")
+        XCTAssertNotEqual(h1, h3)
+    }
+
+    @MainActor
+    func testP12CrackerRejectsEmptyDataAndHonoursCancel() async {
+        let cracker = P12Cracker.shared
+        let emptyResult = await cracker.crack(p12Data: Data(), mode: .quickDictionary)
+        XCTAssertNil(emptyResult)
+        XCTAssertFalse(cracker.isRunning)
+
+        let task = Task { @MainActor in
+            await cracker.crack(p12Data: Data([0x30, 0x82, 0x00, 0x04, 0x02, 0x01, 0x03, 0x00]), mode: .numericPins)
+        }
+        cracker.cancel()
+        task.cancel()
+        _ = await task.value
+        XCTAssertFalse(cracker.isRunning)
+    }
+
     func testLocalCAProfileGeneratesValidMobileconfig() throws {
         // A 16-byte DER prefix in base64. It has to be valid base64 — the extractor
         // decodes it strictly — but not a certificate: what is under test is finding

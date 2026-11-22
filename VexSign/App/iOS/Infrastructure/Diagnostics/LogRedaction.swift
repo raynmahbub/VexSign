@@ -93,7 +93,7 @@ enum LogRedaction {
 	/// an email is masked before URL userinfo so a credential URL cannot leave a local part behind.
 	private static let rules: [Rule] = [
 		// PEM blocks and plist pairing-key material can span multiple lines.
-		Rule(pattern: "(?s)-----BEGIN (?:[A-Z ]*PRIVATE KEY|CERTIFICATE)-----.*?-----END (?:[A-Z ]*PRIVATE KEY|CERTIFICATE)-----", template: marker),
+		Rule(pattern: "(?s)-----BEGIN (?:[A-Z0-9 ]*KEY|CERTIFICATE)-----.*?-----END (?:[A-Z0-9 ]*KEY|CERTIFICATE)-----", template: marker),
 		Rule(pattern: #"(?is)<key>\s*(?:\#(sensitiveKeyAlternation))\s*</key>\s*<(?:data|string)>.*?</(?:data|string)>"#, template: marker),
         // Rust/JSON byte arrays must be masked as a whole, not just their first
         // token. Raw native protocol dictionaries must still never be logged.
@@ -123,9 +123,9 @@ enum LogRedaction {
 			pattern: "([A-Za-z][A-Za-z0-9+.\\-]*://)([^/\\s:@]+):([^/\\s@]+)@",
 			template: "$1\(marker)@"
 		),
-		// `password=…`, `p12Password: "…"`, `token=…`, `api-key=…`, `secret=…`.
+		// `password=…`, `p12Password: "…"`, `token=…`, `api-key=…`, `secret=…`, `passphrase=…`.
 		Rule(
-			pattern: "(?i)\\b(password|passwd|p12password|secret|token|api[_-]?key)\\b(\\s*[:=]\\s*)(\"[^\"]*\"|[^\\s,;&]+)",
+			pattern: "(?i)\\b(password|passwd|passphrase|p12password|secret|token|api[_-]?key|client[_-]?secret|access[_-]?token|x-vexsign-token)\\b(\\s*[:=]\\s*)(\"[^\"]*\"|[^\\s,;&]+)",
 			template: "$1$2\(marker)"
 		),
 		// JSON, plist and header `Key: value` / `Key=value` forms for the high-risk keys above.

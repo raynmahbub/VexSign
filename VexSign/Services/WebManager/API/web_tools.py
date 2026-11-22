@@ -45,6 +45,7 @@ router.include_router(udid_grabber.router)
 
 
 @router.get("/tools")
+@router.get("/Tools", include_in_schema=False)
 def tools_hub(request: Request):
     cards = "\n".join(
         f"""  <a class="card" href="{href}" style="text-decoration:none;color:inherit;display:block">

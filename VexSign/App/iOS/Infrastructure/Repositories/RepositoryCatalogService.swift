@@ -34,8 +34,14 @@ enum RepositoryCatalogService {
         #if canImport(AltSourceKit)
         EsignSourceKey.customApiKey = effectiveKey
         NBFetchService.apiKeyProvider = { EsignSourceKey.customApiKey }
+        NBFetchService.scopedApiKeyProvider = { url in
+            VexSignAPI.isPremiumSource(url) ? EsignSourceKey.customApiKey : nil
+        }
         #else
         NBFetchService.apiKeyProvider = { effectiveKey }
+        NBFetchService.scopedApiKeyProvider = { url in
+            VexSignAPI.isPremiumSource(url) ? effectiveKey : nil
+        }
         #endif
     }
 
@@ -95,14 +101,7 @@ enum RepositoryCatalogService {
             return
         }
 
-        var headers: [String: String] = VexSignAPI.authHeaders(for: url)
-        #if canImport(AltSourceKit)
-        // Belt-and-braces: also attach the premium key directly when a non-empty
-        // `customApiKey` is configured (single-source path through EsignSourceKey).
-        if !EsignSourceKey.customApiKey.isEmpty, headers["X-API-Key"] == nil {
-            headers["X-API-Key"] = EsignSourceKey.customApiKey
-        }
-        #endif
+        let headers: [String: String] = VexSignAPI.authHeaders(for: url)
 
         NBFetchService().fetchRaw(from: url, headers: headers) { (result: Result<Data, Error>) in
             switch result {

@@ -52,5 +52,12 @@ final class WebDAVTransferPolicyTests: XCTestCase {
         XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: alias.appendingPathComponent("new"), inbox: root))
         XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: outside.appendingPathComponent("new"), inbox: root))
         XCTAssertFalse(WebDAVTransferPolicy.permits(source: source, destination: dangling.appendingPathComponent("new"), inbox: root))
+
+        XCTAssertTrue(WebDAVTransferPolicy.isContained(root, in: root, allowRoot: true))
+        XCTAssertFalse(WebDAVTransferPolicy.isContained(root, in: root, allowRoot: false))
+        XCTAssertTrue(WebDAVTransferPolicy.isContained(source.appendingPathComponent("item.ipa"), in: root, allowRoot: false))
+        XCTAssertFalse(WebDAVTransferPolicy.isContained(outside, in: root, allowRoot: false))
+        XCTAssertFalse(WebDAVTransferPolicy.isContained(outside.appendingPathComponent("secret.txt"), in: root, allowRoot: false))
+        XCTAssertFalse(WebDAVTransferPolicy.isContained(dangling.appendingPathComponent("secret.txt"), in: root, allowRoot: false))
     }
 }

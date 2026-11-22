@@ -44,3 +44,8 @@ services:
       # service has a public address.
       - key: VEXSIGN_RELAY_TOKEN
         sync: false
+      # Render terminates TLS at its edge proxy and appends the caller's IP to
+      # X-Forwarded-For; enable forwarded-header client bucketing so callers do
+      # not share the proxy's rate-limit bucket.
+      - key: VEXSIGN_TRUST_FORWARDED_FOR
+        value: "1"

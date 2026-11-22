@@ -186,8 +186,9 @@ make test-server
 make test-cloud
 ```
 
-Cloud checks compile TypeScript, run tests and regenerate the OpenAPI contract;
-contract drift fails the command and leaves a diff to review. These checks do not
+Cloud checks compile TypeScript, run tests and verify `openapi.json` SHA-256
+stability across `npm run contracts` (even in uncommitted working trees);
+contract drift fails the command. These checks do not
 prove a deployed PostgreSQL/Redis/object-store/signing-worker installation works.
 
 

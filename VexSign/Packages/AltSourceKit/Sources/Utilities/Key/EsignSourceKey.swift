@@ -5,6 +5,8 @@
 //  Created by VexSign Contributors on 11.04.2025.
 //
 
+import Foundation
+
 let esign_key: [UInt8] = [
 	0x8c, 0x15, 0x85, 0xf5, 0xce, 0x6e, 0xc3, 0x98, 0x5c, 0xff, 0xea, 0x4e,
 	0xd4, 0x4e, 0x6b, 0x15, 0xa4, 0xd8, 0x1f, 0x21, 0x25, 0xb1, 0xd4, 0x6b,
@@ -430,14 +432,28 @@ let esign_key: [UInt8] = [
 	0x5a, 0xf3, 0xed
 ]
 
-let esign_key_len: Int = 5055
+let esign_key_len: Int = esign_key.count
 
 /// Premium repository API key switching station.
 ///
 /// Set `EsignSourceKey.customApiKey` once at app startup with the user's key
-/// (e.g. `EsignSourceKey.customApiKey = "VEX-XXXX-XXXX-XXXX"`). Every repository
-/// manifest fetch and decryption path reads this value and forwards it to the server
-/// as the `X-API-Key` HTTP header / `apikey` query parameter automatically.
+/// (e.g. `EsignSourceKey.customApiKey = "VEX-XXXX-XXXX-XXXX"`). Premium repository
+/// manifest fetch and decryption paths read this value through a lock so background
+/// fetch queues and MainActor updates never race.
 public struct EsignSourceKey {
-	public static var customApiKey: String = ""
+	private static let _lock = NSLock()
+	private static var _customApiKey: String = ""
+
+	public static var customApiKey: String {
+		get {
+			_lock.lock()
+			defer { _lock.unlock() }
+			return _customApiKey
+		}
+		set {
+			_lock.lock()
+			_customApiKey = newValue
+			_lock.unlock()
+		}
+	}
 }

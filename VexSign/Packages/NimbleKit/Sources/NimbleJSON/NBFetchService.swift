@@ -29,6 +29,9 @@ public class NBFetchService {
 	/// `RepositoryCatalogService.registerRepositoryKeyProvider()` — before any fetch runs; afterwards
 	/// the background queues in `fetch(from:headers:completion:)` only read it.
 	nonisolated(unsafe) public static var apiKeyProvider: (() -> String)?
+	/// Host-scoped variant preferred when the caller distinguishes premium feeds from
+	/// arbitrary third-party repositories so `X-API-Key` is not sent to untrusted hosts.
+	nonisolated(unsafe) public static var scopedApiKeyProvider: ((URL) -> String?)?
 
 	public enum NBFetchServiceError: Error, LocalizedError {
 		case invalidURL
@@ -169,11 +172,16 @@ extension NBFetchService {
 			// NimbleJSON target never has to depend on AltSourceKit; the host app
 			// registers a provider that returns `EsignSourceKey.customApiKey`.
 			// Explicitly passed headers win over the ambient key.
-			if
-				request.value(forHTTPHeaderField: "X-API-Key") == nil,
-				let key = Self.apiKeyProvider?(),
-				!key.isEmpty {
-				request.setValue(key, forHTTPHeaderField: "X-API-Key")
+			if request.value(forHTTPHeaderField: "X-API-Key") == nil {
+				let resolvedKey: String?
+				if let scoped = Self.scopedApiKeyProvider {
+					resolvedKey = scoped(url)
+				} else {
+					resolvedKey = Self.apiKeyProvider?()
+				}
+				if let key = resolvedKey, !key.isEmpty {
+					request.setValue(key, forHTTPHeaderField: "X-API-Key")
+				}
 			}
 
 			let task = Self.sharedSession.dataTask(with: request) { data, response, error in

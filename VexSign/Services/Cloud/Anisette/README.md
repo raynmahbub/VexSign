@@ -19,11 +19,13 @@ on Linux; the package therefore declares no Linux platform. Build and run with
 Swift 5.9+ on macOS:
 
 ```bash
-cd AnisetteServer
+cd VexSign/Services/Cloud/Anisette
 swift run            # or: swift build -c release && ./.build/release/AnisetteServer
 ```
 
-The server listens on port `8080` by default; set `PORT` to change it.
+The server binds to loopback (`127.0.0.1`, overridable via `ANISETTE_HOST`) on
+port `8080` by default; set `PORT` to change it, and caps inbound HTTP request
+headers at 16 KiB (`431 Request Header Fields Too Large`).
 
 ```bash
 curl http://localhost:8080/anisette

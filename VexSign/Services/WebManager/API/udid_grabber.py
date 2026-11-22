@@ -33,9 +33,10 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
+import rate_limit
 import request_base
 import web_chrome
 
@@ -43,6 +44,7 @@ router = APIRouter()
 
 SESSION_TTL_SECONDS = 15 * 60
 MAX_SESSIONS = 200
+MAX_CALLBACK_BYTES = 64 * 1024
 
 # What the device is asked to report. iOS ignores attributes it does not have
 # (IMEI on a Wi-Fi iPad, for example).
@@ -68,15 +70,29 @@ def _now() -> float:
     return datetime.now(timezone.utc).timestamp()
 
 
+def _evict_one_locked() -> None:
+    """Prefer evicting unclaimed waiting sessions before downloaded or received ones."""
+    for candidate_token, state in _sessions.items():
+        if state.get("status") == "waiting" and not state.get("downloaded"):
+            _sessions.pop(candidate_token, None)
+            return
+    for candidate_token, state in _sessions.items():
+        if state.get("status") != "received":
+            _sessions.pop(candidate_token, None)
+            return
+    _sessions.popitem(last=False)
+
+
 def create_session() -> str:
     token = uuid.uuid4().hex
     with _lock:
         _prune_locked()
         while len(_sessions) >= MAX_SESSIONS:
-            _sessions.popitem(last=False)
+            _evict_one_locked()
         _sessions[token] = {
             "created": _now(),
             "status": "waiting",
+            "downloaded": False,
             "device": {},
         }
         _sessions.move_to_end(token)
@@ -87,6 +103,17 @@ def get_session(token: str) -> dict[str, Any] | None:
     with _lock:
         _prune_locked()
         return _sessions.get(token)
+
+
+def mark_profile_downloaded(token: str) -> dict[str, Any] | None:
+    with _lock:
+        _prune_locked()
+        session = _sessions.get(token)
+        if session is None:
+            return None
+        session["downloaded"] = True
+        _sessions.move_to_end(token)
+        return session
 
 
 def record_device(token: str, attributes: dict[str, Any]) -> bool:
@@ -154,8 +181,9 @@ def parse_device_attributes(body: bytes) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/api/Tools/udid/profile")
+@router.get("/api/tools/udid/profile", include_in_schema=False)
 def udid_profile(request: Request, token: str, name: str = "VexSign UDID") -> Response:
-    if get_session(token) is None:
+    if mark_profile_downloaded(token) is None:
         raise HTTPException(status_code=404, detail="That session expired. Reload the UDID page for a new one.")
 
     base = request_base.base_url(request)
@@ -168,6 +196,24 @@ def udid_profile(request: Request, token: str, name: str = "VexSign UDID") -> Re
     )
 
 
+async def _read_bounded_body(request: Request, max_bytes: int) -> bytes:
+    raw_length = (request.headers.get("content-length") or "").strip()
+    if raw_length.isdigit() and int(raw_length) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Device response exceeds the {max_bytes // 1024} KiB limit.",
+        )
+    buf = bytearray()
+    async for chunk in request.stream():
+        buf.extend(chunk)
+        if len(buf) > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Device response exceeds the {max_bytes // 1024} KiB limit.",
+            )
+    return bytes(buf)
+
+
 @router.post("/api/udid/callback")
 async def udid_callback(request: Request, token: str) -> dict:
     """Where iOS posts the signed attribute plist.
@@ -175,7 +221,7 @@ async def udid_callback(request: Request, token: str) -> dict:
     iOS sends the body as raw (CMS-signed) bytes, so the raw request is parsed
     rather than a decoded form. No UDID is logged.
     """
-    body = await request.body()
+    body = await _read_bounded_body(request, MAX_CALLBACK_BYTES)
     if not body:
         raise HTTPException(status_code=422, detail="Empty device response.")
 
@@ -193,6 +239,7 @@ async def udid_callback(request: Request, token: str) -> dict:
 
 
 @router.get("/api/Tools/udid/session/{token}")
+@router.get("/api/tools/udid/session/{token}", include_in_schema=False)
 def udid_session(token: str) -> dict:
     session = get_session(token)
     if session is None:
@@ -206,7 +253,11 @@ def udid_session(token: str) -> dict:
 
 
 @router.get("/Tools/udid")
-def udid_page(request: Request):
+@router.get("/tools/udid", include_in_schema=False)
+def udid_page(
+    request: Request,
+    _throttle: None = Depends(rate_limit.enforce_udid),
+):
     token = create_session()
     body = f"""
   <div class="card">
@@ -275,8 +326,10 @@ async function poll() {
       setState('Received', 'ok');
       $('countdown').textContent = '';
       $('result').hidden = false;
-      $('facts').innerHTML = rows([
-        ['UDID', `<code>${esc(data.device.DEVICE_UDID)}</code>`],
+      const udidRow = data.device.DEVICE_UDID
+        ? `<tr><th>UDID</th><td><code>${esc(data.device.DEVICE_UDID)}</code></td></tr>`
+        : '';
+      $('facts').innerHTML = udidRow + rows([
         ['Device', data.device.PRODUCT],
         ['Name', data.device.DEVICE_NAME],
         ['iOS version', data.device.VERSION],

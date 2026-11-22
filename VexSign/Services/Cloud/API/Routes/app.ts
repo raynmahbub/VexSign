@@ -95,13 +95,17 @@ export async function buildApp(config: Config, infra: Infrastructure) {
     const part = await request.file();
     if (!part) throw new APIError(400, 'One multipart file is required');
     const id = randomUUID(); const objectKey = `inputs/${id}`;
-    const digest = createHash('sha256'); let bytes = 0; let prefix = Buffer.alloc(0);
+    const digest = createHash('sha256'); let bytes = 0; let prefix = Buffer.alloc(0); let checkedZipMagic = false;
     const limit = kind === 'ipa' ? MAX_IPA : 10 * 1024 ** 2;
     async function* chunks() {
       for await (const chunk of part!.file) {
         const data = Buffer.from(chunk); bytes += data.length;
         if (bytes > limit) throw new APIError(413, 'File too large');
         if (prefix.length < 4) prefix = Buffer.concat([prefix, data]).subarray(0, 4);
+        if (kind === 'ipa' && !checkedZipMagic && prefix.length === 4) {
+          checkedZipMagic = true;
+          if (!prefix.equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) throw new APIError(400, 'IPA must be a ZIP archive');
+        }
         digest.update(data); yield data;
       }
       if (!bytes || part!.file.truncated) throw new APIError(413, 'Empty or truncated upload');
@@ -174,7 +178,7 @@ export async function buildApp(config: Config, infra: Infrastructure) {
       const row = record.rows[0]; if (!row?.output_key) throw new APIError(404, 'Artifact not available');
       reply.header('Cache-Control', 'no-store');
       if (route.includes('/download/')) return reply.redirect(await infra.downloadLink(row.output_key));
-      const metadata = artifactMetadata.parse(row.result);
+      const metadata = contract(artifactMetadata, 'ArtifactMetadata', row.result, request);
       const manifestURL = `${config.PUBLIC_ORIGIN}/manifest/${id}?token=${encodeURIComponent(token)}`;
       if (route.includes('/manifest/')) return reply.type('application/xml').send(manifest(metadata, `${config.PUBLIC_ORIGIN}/download/${id}?token=${encodeURIComponent(token)}`));
       const link = installLink(manifestURL);

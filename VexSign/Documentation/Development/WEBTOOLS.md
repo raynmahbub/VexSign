@@ -7,13 +7,13 @@ and getting a UDID.
 
 | Page | Purpose | Module |
 | --- | --- | --- |
-| `GET /tools` | Hub linking the tools | `VexSign/Services/WebManager/API/web_tools.py` |
-| `GET /Tools/signer` | Queue IPAs and get signed ones back, via the phone | `VexSign/Services/WebManager/API/web_signer.py` |
-| `GET /Tools/repo-creator` | Build, validate and export an AltStore-compatible feed | `VexSign/Services/WebManager/API/repo_creator.py` |
-| `GET /Tools/repo-decoder` | Read any source feed, normalise it, export it elsewhere | `VexSign/Services/WebManager/API/repo_decoder.py` |
-| `GET /Tools/app-installer` | OTA install link + reachability probe for a hosted IPA | `VexSign/Services/WebManager/API/app_installer.py` |
-| `GET /Tools/cert-check` | Read a provisioning profile's validity, team, entitlements and device scope | `VexSign/Services/WebManager/API/cert_inspector.py` |
-| `GET /Tools/udid` | Read a device UDID through a one-time enrolment profile | `VexSign/Services/WebManager/API/udid_grabber.py` |
+| `GET /tools` (or `/Tools`) | Hub linking the tools | `VexSign/Services/WebManager/API/web_tools.py` |
+| `GET /Tools/signer` (`/tools/signer`) | Queue IPAs and get signed ones back, via the phone | `VexSign/Services/WebManager/API/web_signer.py` |
+| `GET /Tools/repo-creator` (`/tools/repo-creator`) | Build, validate and export an AltStore-compatible feed | `VexSign/Services/WebManager/API/repo_creator.py` |
+| `GET /Tools/repo-decoder` (`/tools/repo-decoder`) | Read any source feed, normalise it, export it elsewhere | `VexSign/Services/WebManager/API/repo_decoder.py` |
+| `GET /Tools/app-installer` (`/tools/app-installer`) | OTA install link + reachability probe for a hosted IPA | `VexSign/Services/WebManager/API/app_installer.py` |
+| `GET /Tools/cert-check` (`/tools/cert-check`) | Read a provisioning profile's validity, team, entitlements and device scope | `VexSign/Services/WebManager/API/cert_inspector.py` |
+| `GET /Tools/udid` (`/tools/udid`) | Read a device UDID through a one-time enrolment profile | `VexSign/Services/WebManager/API/udid_grabber.py` |
 
 Shared page chrome (CSS + `page()`) lives in `VexSign/Services/WebManager/API/web_chrome.py`. The app
 links to all of them from **Settings → Ecosystem → Web Tools**.
@@ -25,14 +25,17 @@ VexSign did not. It does **not** sign in the browser: it relays.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `POST /api/Tools/sign/proxy` | Read-only relay for `GET /api/{status,library,updates}` on the phone |
-| `POST /api/Tools/sign/sign` | Multipart IPA in, signed IPA streamed back |
+| `POST /api/Tools/sign/proxy` (`/api/tools/sign/proxy`) | Read-only relay for `GET /api/{status,library,updates}` on the phone |
+| `POST /api/Tools/sign/sign` (`/api/tools/sign/sign`) | Multipart IPA in, signed IPA streamed back |
 
 Workflow: start the Web Manager on the iPhone (**Settings → Web Manager**),
-paste its address (and the API token / Basic-auth pair if set) into the page,
-drop in IPAs, and each one is streamed to `POST /api/sign` and streamed back as
-`Signed-<name>.ipa`. A queue is supported, signed one at a time, because the
-phone signs serially.
+paste its HTTPS address, optional leaf SHA-256 fingerprint (`tlsCertSha256`) or
+device CA PEM (`caCertPem`) for the phone's self-managed certificate, and the
+API token / Basic-auth pair into
+the page, drop in IPAs, and each one is streamed to `POST /api/sign` and
+streamed back as `Signed-<name>.ipa`. Bare `host:port` inputs default to
+`https://` because the phone's Web Manager listens over HTTPS only. A queue is
+supported, signed one at a time, because the phone signs serially.
 
 Why a relay rather than calling the phone from the page? The Web Manager sends no
 CORS headers, so a cross-origin `fetch` cannot reach it — and adding

@@ -53,11 +53,34 @@ def problems() -> list[str]:
     return result
 
 
+def _atomic_copy(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    tmp = destination.with_name(f".{destination.name}.tmp")
+    shutil.copy2(source, tmp)
+    tmp.replace(destination)
+
+
 def sync() -> None:
-    for canonical_rel, alias_rel in ALIASES + MIRRORED:
+    for canonical_rel, alias_rel in ALIASES:
         canonical, alias = ROOT / canonical_rel, ROOT / alias_rel
-        alias.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(canonical, alias)
+        if not canonical.is_file():
+            raise FileNotFoundError(f"missing canonical file: {canonical_rel}")
+        _atomic_copy(canonical, alias)
+
+    for first_rel, second_rel in MIRRORED:
+        first, second = ROOT / first_rel, ROOT / second_rel
+        if not first.is_file() and not second.is_file():
+            raise FileNotFoundError(f"missing mirrored files: {first_rel}, {second_rel}")
+        # Neither Xcode entry point is derived from the other: when both are non-empty
+        # and differ, propagate the newer resolution file rather than clobbering it.
+        if (
+            second.is_file()
+            and second.stat().st_size > 0
+            and (not first.is_file() or first.stat().st_size == 0 or second.stat().st_mtime_ns > first.stat().st_mtime_ns)
+        ):
+            _atomic_copy(second, first)
+        else:
+            _atomic_copy(first, second)
 
 
 def main() -> int:

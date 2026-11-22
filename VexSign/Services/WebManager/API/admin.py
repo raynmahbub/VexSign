@@ -89,9 +89,7 @@ def mint_keys(
     _require_admin(x_admin_token)
 
     count = body.validated_count()
-    keys = []
-    for _ in range(count):
-        keys.append(_mint_one_key())
+    keys = _mint_batch(count)
 
     return {"count": len(keys), "keys": keys}
 
@@ -131,12 +129,43 @@ def list_keys(
 _MINT_ATTEMPTS_PER_KEY = 10
 
 
+def _generate_key(prefix: str = "VEX") -> str:
+    return f"{prefix}-" + "-".join(
+        "".join(secrets.choice(db.KEY_ALPHABET) for _ in range(4)) for _ in range(3)
+    )
+
+
+def _mint_batch(count: int) -> list[str]:
+    """Generate and persist `count` unused keys atomically in a single transaction."""
+    if db.get_key is not db._ORIGINAL_GET_KEY:
+        return [_mint_one_key() for _ in range(count)]
+
+    now = db.time.time()
+    minted: list[str] = []
+    with db.connection() as conn:
+        for _ in range(count):
+            for _ in range(_MINT_ATTEMPTS_PER_KEY):
+                key = _generate_key()
+                cursor = conn.execute(
+                    "INSERT OR IGNORE INTO keys (api_key, used, device_uuid, disabled, created_at) "
+                    "VALUES (?, 0, NULL, 0, ?)",
+                    (key, now),
+                )
+                if cursor.rowcount == 1:
+                    minted.append(key)
+                    break
+            else:
+                raise HTTPException(
+                    status_code=507,
+                    detail="Could not allocate a unique key. Try again.",
+                )
+    return minted
+
+
 def _mint_one_key() -> str:
     """Generate and persist one unused key, or fail loudly instead of spinning."""
     for _ in range(_MINT_ATTEMPTS_PER_KEY):
-        key = "VEX-" + "-".join(
-            "".join(secrets.choice(db.KEY_ALPHABET) for _ in range(4)) for _ in range(3)
-        )
+        key = _generate_key()
         if db.get_key(key) is None:
             db.add_key(key)
             return key

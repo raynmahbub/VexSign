@@ -32,6 +32,7 @@ fresh bucket per request and defeat the limiter entirely.
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import threading
 import time
@@ -66,6 +67,10 @@ FEED_WINDOW = _env_int("VEXSIGN_FEED_RATE_WINDOW_SECONDS", 60)
 # online, which matters because it is a single shared secret with no lockout.
 ADMIN_LIMIT = _env_int("VEXSIGN_ADMIN_RATE_LIMIT", 20, minimum=0)
 ADMIN_WINDOW = _env_int("VEXSIGN_ADMIN_RATE_WINDOW_SECONDS", 60)
+# UDID session creation (`GET /Tools/udid`) allocates an in-memory session per
+# page load; cap per-client creation so a single peer cannot churn the pool.
+UDID_LIMIT = _env_int("VEXSIGN_UDID_RATE_LIMIT", 30, minimum=0)
+UDID_WINDOW = _env_int("VEXSIGN_UDID_RATE_WINDOW_SECONDS", 60)
 # One bucket per client; anything past this is a flood, and dropping the oldest
 # key is cheaper than letting an attacker grow the process out of memory.
 _MAX_CLIENTS = 10_000
@@ -109,13 +114,55 @@ def _trust_forwarded() -> bool:
     return os.environ.get("VEXSIGN_TRUST_FORWARDED_FOR", "").strip().lower() in {"1", "true", "yes"}
 
 
+_INTERNAL_PROXY_NETWORKS = (
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+)
+
+
+def _is_internal_proxy_hop(candidate: str) -> bool:
+    """True when a trailing X-Forwarded-For hop is a private/loopback internal proxy."""
+    try:
+        addr = ipaddress.ip_address(candidate.split("%", 1)[0])
+    except ValueError:
+        return False
+    mapped = getattr(addr, "ipv4_mapped", None)
+    if mapped is not None:
+        addr = mapped
+    return any(addr in network for network in _INTERNAL_PROXY_NETWORKS)
+
+
 def client_key(request: Request) -> str:
-    """Best-effort client identity for the limiter (see the module docstring)."""
+    """Best-effort client identity for the limiter (see the module docstring).
+
+    When `VEXSIGN_TRUST_FORWARDED_FOR=1` is set behind a reverse proxy, reading
+    the leftmost entry (`entries[0]`) would let an attacker spoof an arbitrary
+    `X-Forwarded-For` header on every request to evade rate limits. Instead:
+      * if `VEXSIGN_TRUSTED_PROXY_HOPS` is explicitly configured (`>= 1`), select
+        that many hops from the right (`entries[-hops]`);
+      * otherwise walk right-to-left skipping trailing private/loopback internal
+        load-balancer hops so the rightmost untrusted client IP added by the
+        trusted edge proxy is selected.
+    """
     if _trust_forwarded():
         forwarded = request.headers.get("x-forwarded-for", "")
-        first = forwarded.split(",")[0].strip()
-        if first:
-            return first
+        entries = [part.strip() for part in forwarded.split(",") if part.strip()]
+        if entries:
+            raw_hops = os.environ.get("VEXSIGN_TRUSTED_PROXY_HOPS", "").strip()
+            if raw_hops:
+                hops = _env_int("VEXSIGN_TRUSTED_PROXY_HOPS", 1, minimum=1)
+                return entries[max(0, len(entries) - hops)]
+            for candidate in reversed(entries):
+                if not _is_internal_proxy_hop(candidate):
+                    return candidate
+            return entries[-1]
     peer = request.client.host if request.client else ""
     return peer or "unknown"
 
@@ -123,6 +170,7 @@ def client_key(request: Request) -> str:
 _limiter = SlidingWindowLimiter()
 _feed_limiter = SlidingWindowLimiter(limit=FEED_LIMIT, window=FEED_WINDOW)
 _admin_limiter = SlidingWindowLimiter(limit=ADMIN_LIMIT, window=ADMIN_WINDOW)
+_udid_limiter = SlidingWindowLimiter(limit=UDID_LIMIT, window=UDID_WINDOW)
 
 
 def _reject_when_over_budget(limiter: SlidingWindowLimiter, request: Request) -> None:
@@ -151,6 +199,11 @@ def enforce_admin(request: Request) -> None:
     _reject_when_over_budget(_admin_limiter, request)
 
 
+def enforce_udid(request: Request) -> None:
+    """Throttle UDID session-creating page loads per client."""
+    _reject_when_over_budget(_udid_limiter, request)
+
+
 def current() -> SlidingWindowLimiter:
     """The process-wide limiter (exposed so tests can reset or inspect it)."""
     return _limiter
@@ -164,3 +217,8 @@ def current_feed() -> SlidingWindowLimiter:
 def current_admin() -> SlidingWindowLimiter:
     """The admin limiter (exposed so tests can reset or inspect it)."""
     return _admin_limiter
+
+
+def current_udid() -> SlidingWindowLimiter:
+    """The UDID session-creation limiter (exposed so tests can reset or inspect it)."""
+    return _udid_limiter

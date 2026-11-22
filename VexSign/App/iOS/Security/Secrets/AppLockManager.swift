@@ -15,56 +15,188 @@ import NimbleExtensions
 
 @MainActor
 final class AppLockManager: ObservableObject {
+	struct VaultState: Codable, Equatable {
+		var enabled: Bool = false
+		var lockedAppUUIDs: Set<String> = []
+		var hiddenAppUUIDs: Set<String> = []
+		var strictHidingEnabled: Bool = false
+	}
+
+	struct VaultStorage {
+		var read: () throws -> Data?
+		var write: (Data) throws -> Void
+
+		static let keychain = VaultStorage(
+			read: { try SecureSecretStore.read(AppLockManager.vaultAccount, service: AppLockManager.vaultService) },
+			write: { try SecureSecretStore.write($0, account: AppLockManager.vaultAccount, service: AppLockManager.vaultService) }
+		)
+	}
+
+	/// Evaluates device-owner authentication. Returns `false` synchronously when the
+	/// device cannot evaluate `.deviceOwnerAuthentication` (no passcode configured);
+	/// otherwise invokes the completion handler on the main queue and returns `true`.
+	typealias PolicyEvaluator = (_ localizedReason: String, _ completion: @escaping (Bool, Error?) -> Void) -> Bool
+
 	static let shared = AppLockManager()
 
 	static let enabledKey = "VexSign.security.appLockEnabled"
 	private static let lockedAppsKey = "VexSign.security.lockedAppUUIDs"
 	private static let hiddenAppsKey = "VexSign.security.hiddenAppUUIDs"
 	static let strictHidingKey = "VexSign.security.strictHiding"
+	private static let vaultService = "com.vexsign.security.applock"
+	private static let vaultAccount = "appLock.vaultState.v1"
 
 	/// True while the master lock overlay should cover the UI.
 	@Published private(set) var isLocked: Bool
+	@Published private(set) var isMasterLockEnabled: Bool
 	@Published private(set) var isAuthenticating = false
 	@Published private(set) var lastMessage: String?
 
 	// MARK: - Specific App Lock & Hidden Apps Vault
-	@Published var lockedAppUUIDs: Set<String> {
-		didSet {
-			UserDefaults.standard.set(Array(lockedAppUUIDs), forKey: Self.lockedAppsKey)
-		}
-	}
-
-	@Published var hiddenAppUUIDs: Set<String> {
-		didSet {
-			UserDefaults.standard.set(Array(hiddenAppUUIDs), forKey: Self.hiddenAppsKey)
-		}
-	}
+	@Published private(set) var lockedAppUUIDs: Set<String>
+	@Published private(set) var hiddenAppUUIDs: Set<String>
 
 	/// When true, hidden apps are shown in Library (requires biometric authentication)
 	@Published var isRevealingHiddenApps = false
 
 	/// Strict mode also removes hidden apps from counts and app-facing discovery
-	/// surfaces instead of only hiding their Library rows.
+	/// surfaces instead of only hiding their Library rows. Disabling requires
+	/// either an unlocked Hidden Vault session or fresh biometric/passcode verification.
 	@Published var strictHidingEnabled: Bool {
-		didSet { UserDefaults.standard.set(strictHidingEnabled, forKey: Self.strictHidingKey) }
+		didSet {
+			guard !_suppressDidSet else { return }
+			if !strictHidingEnabled && oldValue && !isRevealingHiddenApps {
+				_suppressDidSet = true
+				strictHidingEnabled = true
+				_suppressDidSet = false
+				_evaluateGate(reason: String.localized("Reveal Hidden Applications"), allowWithoutPasscode: true) { [weak self] granted in
+					guard let self, granted else { return }
+					self._suppressDidSet = true
+					self.strictHidingEnabled = false
+					self._suppressDidSet = false
+					self._persistState()
+				}
+				return
+			}
+			_persistState()
+		}
 	}
 
 	/// Set of app UUIDs that were authenticated this session so user isn't prompted repeatedly
 	private var sessionUnlockedUUIDs: Set<String> = []
+	private let _storage: VaultStorage
+	private let _evaluator: PolicyEvaluator
+	private var _suppressDidSet = false
 
-	private init() {
-		isLocked = UserDefaults.standard.bool(forKey: Self.enabledKey)
+	init(
+		defaults: UserDefaults = .standard,
+		storage: VaultStorage = .keychain,
+		evaluator: @escaping PolicyEvaluator = AppLockManager.defaultPolicyEvaluator
+	) {
+		self._storage = storage
+		self._evaluator = evaluator
 
-		let savedLocked = UserDefaults.standard.stringArray(forKey: Self.lockedAppsKey) ?? []
-		self.lockedAppUUIDs = Set(savedLocked)
+		let state = Self._loadOrMigrateState(defaults: defaults, storage: storage)
+		self.isMasterLockEnabled = state.enabled
+		self.isLocked = state.enabled
+		self.lockedAppUUIDs = state.lockedAppUUIDs
+		self.hiddenAppUUIDs = state.hiddenAppUUIDs
+		self.strictHidingEnabled = state.strictHidingEnabled
+	}
 
-		let savedHidden = UserDefaults.standard.stringArray(forKey: Self.hiddenAppsKey) ?? []
-		self.hiddenAppUUIDs = Set(savedHidden)
-		self.strictHidingEnabled = UserDefaults.standard.bool(forKey: Self.strictHidingKey)
+	private static func _loadOrMigrateState(defaults: UserDefaults, storage: VaultStorage) -> VaultState {
+		do {
+			if let existing = try storage.read() {
+				let decoded = try JSONDecoder().decode(VaultState.self, from: existing)
+				_clearLegacyDefaults(defaults)
+				return decoded
+			}
+		} catch {
+			// Fall back to legacy defaults without deleting them when Keychain is unreadable.
+		}
+
+		let hasLegacy =
+			defaults.object(forKey: enabledKey) != nil
+			|| defaults.object(forKey: lockedAppsKey) != nil
+			|| defaults.object(forKey: hiddenAppsKey) != nil
+			|| defaults.object(forKey: strictHidingKey) != nil
+
+		let legacy = VaultState(
+			enabled: defaults.bool(forKey: enabledKey),
+			lockedAppUUIDs: Set(defaults.stringArray(forKey: lockedAppsKey) ?? []),
+			hiddenAppUUIDs: Set(defaults.stringArray(forKey: hiddenAppsKey) ?? []),
+			strictHidingEnabled: defaults.bool(forKey: strictHidingKey)
+		)
+
+		if hasLegacy {
+			do {
+				let encoded = try JSONEncoder().encode(legacy)
+				try storage.write(encoded)
+				_clearLegacyDefaults(defaults)
+			} catch {
+				// Keep legacy values in place if the initial Keychain write fails.
+			}
+		}
+		return legacy
+	}
+
+	private static func _clearLegacyDefaults(_ defaults: UserDefaults) {
+		defaults.removeObject(forKey: enabledKey)
+		defaults.removeObject(forKey: lockedAppsKey)
+		defaults.removeObject(forKey: hiddenAppsKey)
+		defaults.removeObject(forKey: strictHidingKey)
+	}
+
+	private func _persistState() {
+		let state = VaultState(
+			enabled: isMasterLockEnabled,
+			lockedAppUUIDs: lockedAppUUIDs,
+			hiddenAppUUIDs: hiddenAppUUIDs,
+			strictHidingEnabled: strictHidingEnabled
+		)
+		do {
+			let data = try JSONEncoder().encode(state)
+			try _storage.write(data)
+		} catch {
+			lastMessage = error.localizedDescription
+		}
+	}
+
+	static func defaultPolicyEvaluator(_ localizedReason: String, completion: @escaping (Bool, Error?) -> Void) -> Bool {
+		let context = LAContext()
+		context.localizedCancelTitle = String.localized("Cancel")
+		var error: NSError?
+		guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+			return false
+		}
+		context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: localizedReason) { success, authError in
+			DispatchQueue.main.async {
+				completion(success, authError)
+			}
+		}
+		return true
+	}
+
+	private func _evaluateGate(
+		reason: String,
+		allowWithoutPasscode: Bool,
+		completion: @escaping (Bool) -> Void
+	) {
+		var evaluatedSynchronously = false
+		let canEvaluate = _evaluator(reason) { [weak self] success, authError in
+			evaluatedSynchronously = true
+			if !success {
+				self?.lastMessage = authError?.localizedDescription
+			}
+			completion(success)
+		}
+		if !canEvaluate && !evaluatedSynchronously {
+			completion(allowWithoutPasscode)
+		}
 	}
 
 	static var isEnabled: Bool {
-		UserDefaults.standard.bool(forKey: enabledKey)
+		shared.isMasterLockEnabled
 	}
 
 	/// "Face ID" / "Touch ID" for labels, or nil when only the passcode is available.
@@ -80,44 +212,65 @@ final class AppLockManager: ObservableObject {
 	}
 
 	// MARK: - Master App Lock
+	func setMasterLockEnabled(_ enabled: Bool, completion: ((Bool) -> Void)? = nil) {
+		if enabled == isMasterLockEnabled {
+			completion?(true)
+			return
+		}
+		let reason = enabled ? String.localized("Enable App Lock") : String.localized("Unlock VexSign")
+		// Enabling requires a device passcode (`allowWithoutPasscode: false`);
+		// disabling when the user removed their device passcode is permitted so they are not locked out.
+		_evaluateGate(reason: reason, allowWithoutPasscode: !enabled) { [weak self] granted in
+			guard let self else {
+				completion?(false)
+				return
+			}
+			guard granted else {
+				completion?(false)
+				return
+			}
+			self.isMasterLockEnabled = enabled
+			if !enabled {
+				self.isLocked = false
+			}
+			self._persistState()
+			completion?(true)
+		}
+	}
+
 	func lockIfNeeded() {
-		guard Self.isEnabled, !isLocked, !isAuthenticating else { return }
+		guard isMasterLockEnabled, !isLocked, !isAuthenticating else { return }
 		isLocked = true
 		sessionUnlockedUUIDs.removeAll()
 		isRevealingHiddenApps = false
 	}
 
 	func authenticateIfNeeded() {
-		guard Self.isEnabled, isLocked else { return }
+		guard isMasterLockEnabled, isLocked else { return }
 		authenticate()
 	}
 
 	func authenticate() {
 		guard !isAuthenticating else { return }
 
-		let context = LAContext()
-		context.localizedCancelTitle = String.localized("Cancel")
-
-		var error: NSError?
-		guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-			UserDefaults.standard.set(false, forKey: Self.enabledKey)
-			lastMessage = error?.localizedDescription ?? String.localized("No device passcode is set, so App Lock cannot run.")
-			isLocked = false
-			return
+		isAuthenticating = true
+		let canEvaluate = _evaluator(String.localized("Unlock VexSign")) { [weak self] success, authError in
+			guard let self else { return }
+			self.isAuthenticating = false
+			if success {
+				self.isLocked = false
+				self.lastMessage = nil
+			} else {
+				self.lastMessage = authError?.localizedDescription
+			}
 		}
 
-		isAuthenticating = true
-		context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String.localized("Unlock VexSign")) { [weak self] success, authError in
-			DispatchQueue.main.async {
-				guard let self else { return }
-				self.isAuthenticating = false
-				if success {
-					self.isLocked = false
-					self.lastMessage = nil
-				} else {
-					self.lastMessage = authError?.localizedDescription
-				}
-			}
+		if !canEvaluate {
+			isAuthenticating = false
+			isMasterLockEnabled = false
+			isLocked = false
+			lastMessage = String.localized("No device passcode is set, so App Lock cannot run.")
+			_persistState()
 		}
 	}
 
@@ -132,10 +285,21 @@ final class AppLockManager: ObservableObject {
 
 	func toggleAppLock(_ uuid: String) {
 		if lockedAppUUIDs.contains(uuid) {
-			lockedAppUUIDs.remove(uuid)
-			sessionUnlockedUUIDs.remove(uuid)
+			if sessionUnlockedUUIDs.contains(uuid) {
+				lockedAppUUIDs.remove(uuid)
+				sessionUnlockedUUIDs.remove(uuid)
+				_persistState()
+				return
+			}
+			_evaluateGate(reason: String.localized("Unlock VexSign"), allowWithoutPasscode: true) { [weak self] granted in
+				guard let self, granted else { return }
+				self.lockedAppUUIDs.remove(uuid)
+				self.sessionUnlockedUUIDs.remove(uuid)
+				self._persistState()
+			}
 		} else {
 			lockedAppUUIDs.insert(uuid)
+			_persistState()
 		}
 	}
 
@@ -151,26 +315,12 @@ final class AppLockManager: ObservableObject {
 			return
 		}
 
-		let context = LAContext()
-		context.localizedCancelTitle = String.localized("Cancel")
-
-		var error: NSError?
-		guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-			// If device has no passcode, allow access
-			completion(true)
-			return
-		}
-
 		let reason = String.localized("Unlock %@", arguments: name)
-		context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { [weak self] success, _ in
-			DispatchQueue.main.async {
-				if success {
-					self?.sessionUnlockedUUIDs.insert(uuid)
-					completion(true)
-				} else {
-					completion(false)
-				}
+		_evaluateGate(reason: reason, allowWithoutPasscode: true) { [weak self] granted in
+			if granted {
+				self?.sessionUnlockedUUIDs.insert(uuid)
 			}
+			completion(granted)
 		}
 	}
 
@@ -188,9 +338,19 @@ final class AppLockManager: ObservableObject {
 
 	func toggleHideApp(_ uuid: String) {
 		if hiddenAppUUIDs.contains(uuid) {
-			hiddenAppUUIDs.remove(uuid)
+			if isRevealingHiddenApps {
+				hiddenAppUUIDs.remove(uuid)
+				_persistState()
+				return
+			}
+			_evaluateGate(reason: String.localized("Reveal Hidden Applications"), allowWithoutPasscode: true) { [weak self] granted in
+				guard let self, granted else { return }
+				self.hiddenAppUUIDs.remove(uuid)
+				self._persistState()
+			}
 		} else {
 			hiddenAppUUIDs.insert(uuid)
+			_persistState()
 		}
 	}
 
@@ -202,25 +362,11 @@ final class AppLockManager: ObservableObject {
 			return
 		}
 
-		let context = LAContext()
-		context.localizedCancelTitle = String.localized("Cancel")
-
-		var error: NSError?
-		guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-			isRevealingHiddenApps = true
-			completion(true)
-			return
-		}
-
-		context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String.localized("Reveal Hidden Applications")) { [weak self] success, _ in
-			DispatchQueue.main.async {
-				if success {
-					self?.isRevealingHiddenApps = true
-					completion(true)
-				} else {
-					completion(false)
-				}
+		_evaluateGate(reason: String.localized("Reveal Hidden Applications"), allowWithoutPasscode: true) { [weak self] granted in
+			if granted {
+				self?.isRevealingHiddenApps = true
 			}
+			completion(granted)
 		}
 	}
 

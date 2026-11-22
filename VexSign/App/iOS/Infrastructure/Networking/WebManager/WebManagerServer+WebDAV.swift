@@ -45,7 +45,8 @@ extension WebManagerServer {
 
 		// PUT — streamed write; import debounced per path (see scheduleDebouncedRoute).
 		app.on(.PUT, catchall, body: .stream) { [weak self] req -> EventLoopFuture<Response> in
-			guard let self, let url = self.resolve(req.url.path) else {
+			guard let self, let url = self.resolve(req.url.path),
+				!WebManagerDeletion.isInboxRoot(url, inbox: self.inbox) else {
 				return req.eventLoop.makeSucceededFuture(Response(status: .forbidden))
 			}
 			let path = req.url.path
@@ -64,7 +65,8 @@ extension WebManagerServer {
 		}
 
 		app.on(.init(rawValue: "MKCOL"), catchall) { [weak self] req -> Response in
-			guard let self, let url = self.resolve(req.url.path) else { return Response(status: .forbidden) }
+			guard let self, let url = self.resolve(req.url.path),
+				!WebManagerDeletion.isInboxRoot(url, inbox: self.inbox) else { return Response(status: .forbidden) }
 			do {
 				try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
 				return Response(status: .created)

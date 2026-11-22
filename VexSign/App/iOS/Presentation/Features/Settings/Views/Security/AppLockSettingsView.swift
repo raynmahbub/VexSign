@@ -13,9 +13,6 @@ import LocalAuthentication
 import NimbleExtensions
 
 struct AppLockSettingsView: View {
-	@AppStorage(AppLockManager.enabledKey)
-	private var _enabled = false
-
 	@ObservedObject private var lock = AppLockManager.shared
 
 	private var biometryLabel: String {
@@ -29,13 +26,13 @@ struct AppLockSettingsView: View {
 		NBList(.localized("App Lock")) {
 			NBSection(.localized("Protection")) {
 				Toggle(isOn: Binding(
-					get: { _enabled },
+					get: { lock.isMasterLockEnabled },
 					set: { _setEnabled($0) }
 				)) {
 					Label(biometryLabel, systemImage: "faceid")
 				}
 
-				if _enabled {
+				if lock.isMasterLockEnabled {
 					Button {
 						lock.lockIfNeeded()
 						lock.authenticate()
@@ -51,28 +48,13 @@ struct AppLockSettingsView: View {
 	}
 
 	private func _setEnabled(_ newValue: Bool) {
-		if !newValue {
-			_enabled = false
-			return
-		}
-
-		let context = LAContext()
-		var error: NSError?
-		guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-			Toast.error(error?.localizedDescription ?? .localized("No device passcode is set, so App Lock cannot run."))
-			_enabled = false
-			return
-		}
-
-		context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: String.localized("Enable App Lock")) { success, _ in
-			DispatchQueue.main.async {
-				if success {
-					_enabled = true
+		lock.setMasterLockEnabled(newValue) { granted in
+			if granted {
+				if newValue {
 					Toast.success(.localized("App Lock enabled"))
-				} else {
-					_enabled = false
-					Toast.error(.localized("App Lock was not enabled"))
 				}
+			} else if newValue {
+				Toast.error(lock.lastMessage ?? .localized("App Lock was not enabled"))
 			}
 		}
 	}

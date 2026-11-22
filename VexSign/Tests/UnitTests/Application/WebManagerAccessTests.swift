@@ -69,6 +69,27 @@ final class WebManagerAccessTests: XCTestCase {
 		// The same paths read-only are only sensitive where they carry certificates.
 		XCTAssertFalse(WebManagerAccessPolicy.requiresSensitiveAccess(path: "/api/files/a.ipa", isDestructive: false))
 		XCTAssertFalse(WebManagerAccessPolicy.requiresSensitiveAccess(path: "/api/apps/1234", isDestructive: false))
+		// WebDAV DELETE outside /api/ and POST /api/cleanup can also destroy content.
+		XCTAssertTrue(WebManagerAccessPolicy.requiresSensitiveAccess(path: "/inbox-app.ipa", isDestructive: true))
+		XCTAssertTrue(WebManagerAccessPolicy.requiresSensitiveAccess(path: "/api/cleanup", isDestructive: false))
+	}
+
+	func testBearerAndCustomHeaderTokenExtraction() {
+		XCTAssertEqual(
+			WebManagerAccessPolicy.extractProvidedToken(tokenHeader: "  tok-1  ", authorizationHeader: nil),
+			"tok-1"
+		)
+		XCTAssertEqual(
+			WebManagerAccessPolicy.extractProvidedToken(tokenHeader: nil, authorizationHeader: "Bearer tok-2"),
+			"tok-2"
+		)
+		XCTAssertEqual(
+			WebManagerAccessPolicy.extractProvidedToken(tokenHeader: "", authorizationHeader: "bearer   tok-3  "),
+			"tok-3"
+		)
+		XCTAssertNil(
+			WebManagerAccessPolicy.extractProvidedToken(tokenHeader: nil, authorizationHeader: "Basic dXNlcjpwYXNz")
+		)
 	}
 
 	func testPathNormalisationCannotBeUsedToSpellAroundTheGuard() {
@@ -363,6 +384,9 @@ final class WebDAVFileTransactionTests: XCTestCase {
             "192.168.1.20:8443",
             "172.16.5.4",
             "169.254.10.2:8443",
+            "100.64.0.1:8443",
+            "100.127.255.254:8443",
+            "iphone.tailnet.ts.net:8443",
             "vexsign.local:8443",
             "iPhone-von-Alex.local",
             "fd00::1",
@@ -382,6 +406,10 @@ final class WebDAVFileTransactionTests: XCTestCase {
             "evil.example.com:8443",
             "vexsign-premium.onrender.com",
             "8.8.8.8",
+            "100.63.255.255:8443",
+            "100.128.0.1:8443",
+            "ts.net:8443",
+            "tailnet.ts.net:8443",
             "0.0.0.0:8443",
             "",
             "evil.com/path"

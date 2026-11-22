@@ -2,6 +2,14 @@ import Foundation
 
 /// Prevent an overwrite from deleting the source or the WebDAV inbox itself.
 enum WebDAVTransferPolicy {
+    static func isContained(_ url: URL, in inbox: URL, allowRoot: Bool = false) -> Bool {
+        guard let root = components(inbox),
+              let candidate = components(url) else { return false }
+        let inside = candidate.count >= root.count && Array(candidate.prefix(root.count)) == root
+        guard inside else { return false }
+        return allowRoot || candidate != root
+    }
+
     static func permits(source: URL, destination: URL, inbox: URL) -> Bool {
         guard let root = components(inbox),
               let from = components(source),

@@ -186,4 +186,111 @@ final class LogRedactionTests: XCTestCase {
 		XCTAssertFalse(output.contains("one "))
 		XCTAssertFalse(output.contains("two"))
 	}
+
+	func testDiagnosticExporterUsesUnifiedLogRedaction() {
+		let raw = """
+		UDID: 00008120-001E348201E8001E
+		contact jane.appleseed@example.com
+		X-VexSign-Token: secret-vex-token-123
+		passphrase="cert-passphrase" client_secret=shh_client access_token=tok_abc
+		path=/private/var/mobile/Containers/Data/Application/fixture/VexSign.sqlite
+		-----BEGIN OPENSSH PRIVATE KEY-----
+		ssh-private-material
+		-----END OPENSSH PRIVATE KEY-----
+		"""
+		let sanitized = DiagnosticBundleExporter._sanitize(raw)
+		for leaked in [
+			"00008120-001E348201E8001E",
+			"jane.appleseed",
+			"secret-vex-token-123",
+			"cert-passphrase",
+			"shh_client",
+			"tok_abc",
+			"/private/var/mobile",
+			"ssh-private-material"
+		] {
+			XCTAssertFalse(sanitized.contains(leaked), "\(leaked) survived diagnostic sanitization: \(sanitized)")
+		}
+		XCTAssertTrue(sanitized.contains("@example.com"))
+	}
+
+	@MainActor
+	func testAppLockMigratesLegacyDefaultsIntoVaultAndRequiresAuthToUnlockOrUnhide() {
+		let suiteName = "test.applock.\(UUID().uuidString)"
+		let defaults = UserDefaults(suiteName: suiteName)!
+		addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
+
+		defaults.set(true, forKey: AppLockManager.enabledKey)
+		defaults.set(["app-locked-1"], forKey: "VexSign.security.lockedAppUUIDs")
+		defaults.set(["app-hidden-1"], forKey: "VexSign.security.hiddenAppUUIDs")
+		defaults.set(true, forKey: AppLockManager.strictHidingKey)
+
+		var storedBlob: Data?
+		let storage = AppLockManager.VaultStorage(
+			read: { storedBlob },
+			write: { storedBlob = $0 }
+		)
+		var allowAuth = false
+
+		let manager = AppLockManager(
+			defaults: defaults,
+			storage: storage,
+			evaluator: { _, completion in
+				completion(allowAuth, nil)
+				return true
+			}
+		)
+
+		// Legacy UserDefaults entries must be migrated to VaultStorage and purged from UserDefaults.
+		XCTAssertNotNil(storedBlob)
+		XCTAssertNil(defaults.object(forKey: AppLockManager.enabledKey))
+		XCTAssertNil(defaults.object(forKey: "VexSign.security.lockedAppUUIDs"))
+		XCTAssertNil(defaults.object(forKey: "VexSign.security.hiddenAppUUIDs"))
+		XCTAssertNil(defaults.object(forKey: AppLockManager.strictHidingKey))
+		XCTAssertTrue(manager.isMasterLockEnabled)
+		XCTAssertTrue(manager.isAppLocked("app-locked-1"))
+		XCTAssertTrue(manager.isAppHidden("app-hidden-1"))
+		XCTAssertTrue(manager.strictHidingEnabled)
+
+		// Failed biometric verification must not disable Master App Lock, unlock an app, unhide an app, or clear strictHiding.
+		allowAuth = false
+		manager.setMasterLockEnabled(false)
+		manager.toggleAppLock("app-locked-1")
+		manager.toggleHideApp("app-hidden-1")
+		manager.strictHidingEnabled = false
+		XCTAssertTrue(manager.isMasterLockEnabled)
+		XCTAssertTrue(manager.isAppLocked("app-locked-1"))
+		XCTAssertTrue(manager.isAppHidden("app-hidden-1"))
+		XCTAssertTrue(manager.strictHidingEnabled)
+
+		// Authenticated verification allows removing locks and unhiding.
+		allowAuth = true
+		manager.toggleAppLock("app-locked-1")
+		manager.toggleHideApp("app-hidden-1")
+		manager.strictHidingEnabled = false
+		manager.setMasterLockEnabled(false)
+		XCTAssertFalse(manager.isAppLocked("app-locked-1"))
+		XCTAssertFalse(manager.isAppHidden("app-hidden-1"))
+		XCTAssertFalse(manager.strictHidingEnabled)
+		XCTAssertFalse(manager.isMasterLockEnabled)
+	}
+
+	func testRedirectSanitizationStripsSensitiveHeadersAcrossOriginsAndRejectsDowngrades() throws {
+		let source = try XCTUnwrap(URL(string: "https://vexsign-premium.onrender.com/api/validate"))
+		let crossHost = try XCTUnwrap(URL(string: "https://cdn.example.net/payload"))
+		var request = URLRequest(url: crossHost)
+		request.setValue("Bearer secret-jwt", forHTTPHeaderField: "Authorization")
+		request.setValue("VEX-KEY-1234", forHTTPHeaderField: "X-API-Key")
+		request.setValue("device-uuid-1", forHTTPHeaderField: "vexSignUUID")
+		request.setValue("sid=abc", forHTTPHeaderField: "Cookie")
+
+		let sanitized = try XCTUnwrap(VexSignAPI.sanitizedRedirectRequest(from: source, to: request))
+		XCTAssertNil(sanitized.value(forHTTPHeaderField: "Authorization"))
+		XCTAssertNil(sanitized.value(forHTTPHeaderField: "X-API-Key"))
+		XCTAssertNil(sanitized.value(forHTTPHeaderField: "vexSignUUID"))
+		XCTAssertNil(sanitized.value(forHTTPHeaderField: "Cookie"))
+
+		let downgrade = URLRequest(url: try XCTUnwrap(URL(string: "http://cdn.example.net/payload")))
+		XCTAssertNil(VexSignAPI.sanitizedRedirectRequest(from: source, to: downgrade))
+	}
 }

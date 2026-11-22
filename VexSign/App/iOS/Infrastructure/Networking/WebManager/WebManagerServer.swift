@@ -22,20 +22,27 @@ struct WebManagerAuthMiddleware: AsyncMiddleware {
 	let token: String?
 
 	func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
-		guard !username.isEmpty, !password.isEmpty else {
+		let hasBasicCredentials = !username.isEmpty && !password.isEmpty
+		let trimmedToken = token?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		let hasToken = !trimmedToken.isEmpty
+		guard hasBasicCredentials || hasToken else {
 			return Self.unauthorized()
 		}
 
 		if
+			hasBasicCredentials,
 			let basic = request.headers.basicAuthorization,
 			Self.constantTimeEquals(basic.username, username),
 			Self.constantTimeEquals(basic.password, password) {
 			return try await next.respond(to: request)
 		}
 
-		if let token, !token.isEmpty {
-			let provided = request.headers.first(name: WebManagerAccessPolicy.tokenHeader)
-			if WebManagerAccessPolicy.tokenMatches(expected: token, provided: provided) {
+		if hasToken {
+			let provided = WebManagerAccessPolicy.extractProvidedToken(
+				tokenHeader: request.headers.first(name: WebManagerAccessPolicy.tokenHeader),
+				authorizationHeader: request.headers.first(name: .authorization)
+			)
+			if WebManagerAccessPolicy.tokenMatches(expected: trimmedToken, provided: provided) {
 				return try await next.respond(to: request)
 			}
 		}
@@ -85,9 +92,12 @@ struct WebManagerSensitiveAccessMiddleware: AsyncMiddleware {
 		}
 
 		if let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-			let provided = request.headers.first(name: WebManagerAccessPolicy.tokenHeader)
+			let provided = WebManagerAccessPolicy.extractProvidedToken(
+				tokenHeader: request.headers.first(name: WebManagerAccessPolicy.tokenHeader),
+				authorizationHeader: request.headers.first(name: .authorization)
+			)
 			guard WebManagerAccessPolicy.tokenMatches(expected: token, provided: provided) else {
-				return Self.reject("Missing or wrong X-VexSign-Token.", status: .unauthorized)
+				return Self.reject("Missing or wrong API token.", status: .unauthorized)
 			}
 			return try await next.respond(to: request)
 		}
@@ -367,14 +377,19 @@ final class WebManagerServer {
 			)
 		)
 
+		let hasToken = !(_token?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
 		if let auth = _auth {
 			app.middleware.use(
 				WebManagerAuthMiddleware(username: auth.username, password: auth.password, token: _token)
 			)
+		} else if hasToken {
+			app.middleware.use(
+				WebManagerAuthMiddleware(username: "", password: "", token: _token)
+			)
 		}
-		// After the Basic middleware: the sensitive gate only has to decide about
-		// what Basic auth does not cover.
-		app.middleware.use(WebManagerSensitiveAccessMiddleware(hasBasicAuth: _auth != nil, token: _token))
+		// After the Basic/token middleware: the sensitive gate only has to decide about
+		// what server-wide auth does not cover.
+		app.middleware.use(WebManagerSensitiveAccessMiddleware(hasBasicAuth: _auth != nil || hasToken, token: _token))
 		_configureHTTP(app)
 		_configureWebDAV(app)
 
@@ -496,10 +511,11 @@ final class WebManagerServer {
 	private func _setup() async throws -> Application {
 		// Reuse ServerInstaller.env — a second LoggingSystem bootstrap would crash.
 		// The Web Manager is always HTTPS. Its self-managed leaf includes the LAN
-		// address (when exposed) and loopback names; a missing identity is fatal.
+		// address (when exposed), overlay/Tailscale addresses, and loopback names; a missing identity is fatal.
 		let advertisedHost = Self.advertisedHost(for: bindHost)
+		let overlayHosts = bindHost == "0.0.0.0" ? ServerInstaller.getLocalOverlayAddresses() : []
 		let tls = try ServerInstaller.webManagerTLSConfiguration(
-			serverNames: [advertisedHost, "127.0.0.1", "localhost"]
+			serverNames: [advertisedHost, "127.0.0.1", "localhost"] + overlayHosts
 		)
 
 		// Streaming uploads still bypass this collected-body cap, as before.
@@ -510,18 +526,21 @@ final class WebManagerServer {
 
 	// MARK: Shared helpers (used by +HTTP and +WebDAV)
 
-	/// Maps a request path to a URL inside the inbox; nil on traversal attempts.
+	/// Maps a request path to a URL inside the inbox; nil on traversal or symlink-escape attempts.
 	func resolve(_ path: String) -> URL? {
 		let decoded = path.removingPercentEncoding ?? path
 		let components = decoded
 			.split(separator: "/", omittingEmptySubsequences: true)
 			.map(String.init)
 
-		guard !components.contains("..") else { return nil }
+		guard !components.contains(".."), !components.contains(".") else { return nil }
 
 		var url = inbox
 		for component in components {
 			url.appendPathComponent(component)
+		}
+		guard WebDAVTransferPolicy.isContained(url, in: inbox, allowRoot: components.isEmpty) else {
+			return nil
 		}
 		return url
 	}

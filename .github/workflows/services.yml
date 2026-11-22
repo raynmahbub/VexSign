@@ -85,6 +85,10 @@ jobs:
       - name: Run tests
         run: python -m pytest ../Tests/ -q
 
+      - name: WebManager relay matches iOS WebManagerServer contract
+        working-directory: .
+        run: python3 VexSign/Tools/Development/test_webmanager_relay_contract.py
+
       # The Python counterpart of `npm audit` below. This service parses
       # untrusted uploads and fetches user-supplied URLs, and its SSRF guard is
       # pinned to exact httpx/httpcore internals, so its dependency surface is
@@ -141,3 +145,20 @@ jobs:
         run: python3 VexSign/Tools/Development/test_cloud_signing_contract.py
       - run: npm audit --omit=dev --audit-level=high
         if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'
+
+  anisette:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public'
+      && github.event_name != 'schedule'
+    name: swift build · anisette mock
+    runs-on: macos-15
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: VexSign/Services/Cloud/Anisette
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build Anisette protocol mock
+        run: swift build
+
