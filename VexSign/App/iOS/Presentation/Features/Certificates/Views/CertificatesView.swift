@@ -76,6 +76,11 @@ struct CertificatesView: View {
 			if _coordinator == nil {
 				_coordinator = appContainer.makeCertificatesCoordinator()
 			}
+			// Keep the shared schedule current with the list the user is looking at.
+			RenewalSchedulePresentation.refresh(records: Array(_certificates))
+		}
+		.onChange(of: _certificates) { _, certificates in
+			RenewalSchedulePresentation.refresh(records: Array(certificates))
 		}
 		.overlay {
 			if _certificates.isEmpty && migration.warnings.isEmpty {
@@ -181,10 +186,18 @@ extension CertificatesView {
 	private var _healthHeader: some View {
 		let certs = Array(_certificates)
 		let revoked = certs.filter { $0.revoked }.count
-		let expiring = certs.filter {
-			guard let date = $0.expiration else { return false }
-			return date.timeIntervalSinceNow > 0 && date.timeIntervalSinceNow < 7 * 24 * 3600
-		}.count
+		// One definition of "expiring", shared with the row pill and the background pass.
+		// The previous inline `expiration < 7 days` check disagreed with both: it ignored
+		// the leaf certificate's earlier date and counted credentials this build cannot
+		// renew as if a renewal were pending.
+		let credentials = RenewalSchedulePresentation.credentials(from: certs)
+		let expiring = credentials
+			.map { RenewalPlanner.plan(for: $0) }
+			.filter { $0.status == .due || $0.status == .urgent || $0.status == .lapsed }
+			.count
+		// Revoked rows are excluded: they are already counted as revoked above, and their
+		// remedy is replacement, not renewal.
+		let unrenewable = credentials.filter { !$0.canRenewOnDevice && !$0.isRevoked }.count
 		let apps = coordinator.signedAppsCount()
 
 		VStack(alignment: .leading, spacing: 8) {
@@ -194,6 +207,14 @@ extension CertificatesView {
 				_stat(.localized("%lld valid", arguments: certs.count - revoked), color: .green)
 				if expiring > 0 { _stat(.localized("%lld expiring", arguments: expiring), color: .orange) }
 				if revoked > 0 { _stat(.localized("%lld revoked", arguments: revoked), color: .red) }
+			}
+			// Said once, in plain words, instead of leaving a countdown the user cannot act
+			// on. Native Apple Account signing is not integrated in this build, so a free
+			// Account profile can be seen expiring but not renewed here.
+			if unrenewable > 0 && !NativeRenewalCapability.isAvailable {
+				Text(.localized("VexSign cannot renew these certificates for you. Replace the certificate or re-sign affected apps with one you import."))
+					.font(.caption)
+					.foregroundStyle(.secondary)
 			}
 			Text(verbatim: .localized("%lld signed apps in the library use a certificate from this list.", arguments: apps))
 				.font(.caption)

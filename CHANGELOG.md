@@ -11,6 +11,21 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Added
 
+- Free-account renewal schedule: `RenewalPlanner` answers "which signed app stops
+  opening next, and can it be fixed here?" for imported, cloud and Apple Account
+  credentials. Windows are proportional and clamped to 1–7 days, revocation and
+  non-renewable credentials report `blocked` rather than scheduled work, and a
+  credential with no readable expiry is never treated as healthy. Pure Domain
+  rule plus a `@MainActor` coordinator and 23 boundary tests; the reference
+  register and license decision tree are in
+  [REFERENCE_PROJECTS.md](VexSign/Documentation/Architecture/REFERENCE_PROJECTS.md).
+  Wired into the certificate row, the certificate header and the background
+  pass; the header's `expiring` count now comes from the planner instead of an
+  inline seven-day check. Two sources (imported certificates, Apple Account
+  profiles) share one coordinator keyed by source, so neither refresh erases
+  the other. Renewal is still not performed: `NativeRenewalCapability` reads
+  `SigningMethodCapabilities`, so credentials this build cannot renew report
+  `blocked` and the header states the limitation rather than counting down.
 - A populated feature-oriented iOS source tree under one main `VexSign/` root,
   with App, Presentation, Application, Domain, Infrastructure, Platform, Security
   and Resources owners. The [migration record](VexSign/Documentation/Architecture/feature-layout-migration.md),
