@@ -166,7 +166,10 @@ struct VexSignApp: App {
             // A backup handed to the app from outside belongs to the app, not to a
             // tab: presenting it here means a share-sheet, AirDrop or Files "Open in"
             // cannot be silently dropped behind a screen the user is not looking at.
-            .sheet(item: $sharedBackups.staged) { staged in
+            // Bound to the published value, not through a writable key path: the
+            // inbox owns `staged` and exposes `stage`/`clear` so dismissal cannot
+            // silently drop an offer the user has not answered yet.
+            .sheet(item: sharedBackups.staged) { staged in
                 // No inner environment scope: the root scope below wraps every
                 // presentation, and adding a second one here is the exact drift the
                 // workspace boundary gate rejects.
