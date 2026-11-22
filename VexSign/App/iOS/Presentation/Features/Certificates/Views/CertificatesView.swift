@@ -76,6 +76,11 @@ struct CertificatesView: View {
 			if _coordinator == nil {
 				_coordinator = appContainer.makeCertificatesCoordinator()
 			}
+			// Keep the shared schedule current with the list the user is looking at.
+			RenewalSchedulePresentation.refresh(records: Array(_certificates))
+		}
+		.onChange(of: _certificates) { _, certificates in
+			RenewalSchedulePresentation.refresh(records: Array(certificates))
 		}
 		.overlay {
 			if _certificates.isEmpty && migration.warnings.isEmpty {
@@ -181,10 +186,15 @@ extension CertificatesView {
 	private var _healthHeader: some View {
 		let certs = Array(_certificates)
 		let revoked = certs.filter { $0.revoked }.count
-		let expiring = certs.filter {
-			guard let date = $0.expiration else { return false }
-			return date.timeIntervalSinceNow > 0 && date.timeIntervalSinceNow < 7 * 24 * 3600
-		}.count
+		// One definition of "expiring", shared with the row pill and the background pass.
+		// The previous inline `expiration < 7 days` check disagreed with both: it ignored
+		// the leaf certificate's earlier date and counted credentials this build cannot
+		// renew as if a renewal were pending.
+		let credentials = RenewalSchedulePresentation.credentials(from: certs)
+		let expiring = credentials
+			.map { RenewalPlanner.plan(for: $0) }
+			.filter { $0.status == .due || $0.status == .urgent || $0.status == .lapsed }
+			.count
 		let apps = coordinator.signedAppsCount()
 
 		VStack(alignment: .leading, spacing: 8) {
