@@ -17,10 +17,10 @@ final class AppContainer: ObservableObject {
     /// Backups handed to the app from Files/AirDrop/“Open in”. Presented once at the
     /// root so a staged file cannot be lost behind a tab the user never visits.
     ///
-    /// Owned by the root scene and passed in: the router that stages a file is built
-    /// inside `live()`, before this object exists, so the inbox comes from outside
-    /// rather than being created here and then reaching for it.
-    let sharedBackups: SharedBackupInbox
+    /// Backups handed to the app from Files/AirDrop/“Open in”. Owned here so the
+    /// deep-link router and the root scene share one offer; a nested observable is
+    /// observed separately by the scene, which is why it is not `@Published` here.
+    let sharedBackups = SharedBackupInbox()
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
     let analytics: LocalAnalyticsUseCase
@@ -57,7 +57,9 @@ final class AppContainer: ObservableObject {
     private let anisetteProvider: AnisetteConfigurationProviding
     private let directInstallFactory: () -> DirectPackageInstallUseCase
     private let firmwareDownloadFactory: () -> FirmwareDownloadUseCase
-    private let deepLinkRouterFactory: () -> DeepLinkRouterUseCase
+    /// Takes the inbox because the router stages a handed-over backup and the app
+    /// owns the one instance the root scene observes.
+    private let deepLinkRouterFactory: (SharedBackupInbox) -> DeepLinkRouterUseCase
     private let homePackageEnqueue: (URL, Bool) -> Void
     private let homeURLDownload: (URL) -> Bool
     private let homeRevealTab: (TabEnum) -> Void
@@ -65,7 +67,6 @@ final class AppContainer: ObservableObject {
     init(
         workspaceRepository: any WorkspaceCatalogProviding & LibraryRepository,
         libraryCloning: LibraryCloningProviding,
-        sharedBackups: SharedBackupInbox,
         fileWorkspace: FileWorkspaceProviding,
         tweakWorkspace: TweakWorkspaceProviding,
         entitlementsWorkspace: EntitlementsWorkspaceProviding,
@@ -98,14 +99,13 @@ final class AppContainer: ObservableObject {
         anisetteProvider: AnisetteConfigurationProviding,
         directInstallFactory: @escaping () -> DirectPackageInstallUseCase,
         firmwareDownloadFactory: @escaping () -> FirmwareDownloadUseCase,
-        deepLinkRouterFactory: @escaping () -> DeepLinkRouterUseCase,
+        deepLinkRouterFactory: @escaping (SharedBackupInbox) -> DeepLinkRouterUseCase,
         homePackageEnqueue: @escaping (URL, Bool) -> Void,
         homeURLDownload: @escaping (URL) -> Bool,
         homeRevealTab: @escaping (TabEnum) -> Void
     ) {
         self.cloudConfiguration = CloudConfigurationModel(useCase: CloudConfigurationUseCase(provider: cloudConfiguration))
         self.backups = BackupWorkspaceUseCase(provider: backupWorkspace)
-        self.sharedBackups = sharedBackups
         self.tasks = TaskWorkspaceModel(useCase: TaskWorkspaceUseCase(provider: taskWorkspace))
         self.appleAccount = AppleAccountWorkspaceModel(useCase: AppleAccountWorkspaceUseCase(provider: appleAccount))
         self.analytics = LocalAnalyticsUseCase(provider: analytics)
@@ -166,13 +166,9 @@ final class AppContainer: ObservableObject {
         let repositories = RepositoryWorkspaceAdapter(catalog: SourceCatalogStore.shared, repository: workspaceRepository)
         let sharing = UIKitTemporaryFileSharing()
         let certificateWorkspace = CertificateWorkspaceAdapter(repository: workspaceRepository, sharing: sharing)
-        // Created here, before the container, because the deep-link router built inside
-        // this factory stages into it. The same instance is handed to the container.
-        let sharedBackups = SharedBackupInbox()
         let container = AppContainer(
             workspaceRepository: workspaceRepository,
             libraryCloning: LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared),
-            sharedBackups: sharedBackups,
             fileWorkspace: FileWorkspaceAdapter(repository: workspaceRepository, sharing: sharing),
             tweakWorkspace: TweakWorkspaceAdapter(manager: TweakManager.shared, repository: workspaceRepository),
             entitlementsWorkspace: EntitlementsWorkspaceAdapter(manager: EntitlementsManager.shared),
@@ -228,7 +224,7 @@ final class AppContainer: ObservableObject {
                     }
                 )
             },
-            deepLinkRouterFactory: {
+            deepLinkRouterFactory: { backups in
                 DeepLinkRouterUseCase(
                     securityPolicy: security,
                     platform: platform,
@@ -300,7 +296,7 @@ final class AppContainer: ObservableObject {
                         TweakManager.shared.addTweak(name: name, from: url) != nil
                     },
                     stageBackupFile: { url in
-                        sharedBackups.stage(url)
+                        backups.stage(url)
                     }
                 )
             },
@@ -387,7 +383,7 @@ final class AppContainer: ObservableObject {
     }
 
     func makeDeepLinkRouter() -> DeepLinkRouterUseCase {
-        deepLinkRouterFactory()
+        deepLinkRouterFactory(sharedBackups)
     }
 
     func makeDownloadsTabViewModel() -> DownloadsTabViewModel {
