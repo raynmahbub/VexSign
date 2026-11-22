@@ -50,6 +50,13 @@ struct VexSignApp: App {
         !activeManualDownloads.isEmpty || !activeNonManualDownloads.isEmpty
     }
 
+    /// The offer the router staged, read once here rather than inline in the body.
+    /// The body is one long modifier chain and a member chain inside it is what made
+    /// the type-checker give up.
+    private var stagedBackup: SharedBackupInbox.Staged? {
+        appContainer.sharedBackups.staged
+    }
+
     init() {
         AppPreferencesBootstrap.prepare()
     }
@@ -164,7 +171,7 @@ struct VexSignApp: App {
             // silently drop an offer the user has not answered yet.
             // The container forwards the inbox's changes, so observing the container
             // is enough to present an offer the router staged.
-            .sheet(item: appContainer.sharedBackups.staged) { staged in
+            .sheet(item: stagedBackup) { staged in
                 // No inner environment scope: the root scope below wraps every
                 // presentation, and adding a second one here is the exact drift the
                 // workspace boundary gate rejects.
