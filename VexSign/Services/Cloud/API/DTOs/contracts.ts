@@ -9,7 +9,7 @@ export const batchRequest = z.object({ jobs: z.array(signRequest.extend({ idempo
 export type SignRequest = z.infer<typeof signRequest>;
 export const artifactMetadata = z.object({
   name: z.string().min(1).max(200),
-  bundleIdentifier: z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/).max(255),
+  bundleIdentifier: z.string().regex(/^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$/).max(255),
   version: z.string().min(1).max(100),
   changelog: z.string().max(20_000).default(''),
   iconURL: z.url().refine(v => new URL(v).protocol === 'https:').optional(),

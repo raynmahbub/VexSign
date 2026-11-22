@@ -7,7 +7,9 @@ import type { Config } from '../Configuration/config.js';
 
 export function infrastructure(config: Config) {
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 12, statement_timeout: 30_000 });
+  pool.on('error', () => { /* Idle client errors are handled on next checkout. */ });
   const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
+  redis.on('error', () => { /* Reconnection is managed by ioredis; avoid unhandled error crash. */ });
   const queue = new Queue('vexsign-signing-v1', { connection: redis });
   const s3 = new S3Client({ endpoint: config.S3_ENDPOINT, region: config.S3_REGION, forcePathStyle: true });
   const encryption = config.S3_KMS_KEY_ID

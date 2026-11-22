@@ -113093,6 +113093,160 @@
           }
         }
       }
+    },
+    "%lld signed apps need re-signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld signed apps need re-signing"
+          }
+        }
+      }
+    },
+    "Cannot renew here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot renew here"
+          }
+        }
+      }
+    },
+    "Expires today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expires today"
+          }
+        }
+      }
+    },
+    "Expiry unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiry unknown"
+          }
+        }
+      }
+    },
+    "No expiry date could be read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No expiry date could be read"
+          }
+        }
+      }
+    },
+    "No usable expiry date could be read for this profile, so no renewal can be scheduled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No usable expiry date could be read for this profile, so no renewal can be scheduled."
+          }
+        }
+      }
+    },
+    "Renew now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renew now"
+          }
+        }
+      }
+    },
+    "Renewal due" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewal due"
+          }
+        }
+      }
+    },
+    "Scheduled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled"
+          }
+        }
+      }
+    },
+    "The signing profile expires very soon. Apps signed with it stop opening once it lapses." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing profile expires very soon. Apps signed with it stop opening once it lapses."
+          }
+        }
+      }
+    },
+    "The signing profile has expired. Apps signed with it no longer open, but their data is still on the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing profile has expired. Apps signed with it no longer open, but their data is still on the device."
+          }
+        }
+      }
+    },
+    "The signing profile is inside its renewal window. Re-signing now replaces it while the current one still works." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing profile is inside its renewal window. Re-signing now replaces it while the current one still works."
+          }
+        }
+      }
+    },
+    "This credential cannot be renewed on this device. Revoked identities and cloud-held keys need new signing material rather than a renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This credential cannot be renewed on this device. Revoked identities and cloud-held keys need new signing material rather than a renewal."
+          }
+        }
+      }
+    },
+    "This signing profile is still valid. Re-sign before it expires so the app keeps opening." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This signing profile is still valid. Re-sign before it expires so the app keeps opening."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

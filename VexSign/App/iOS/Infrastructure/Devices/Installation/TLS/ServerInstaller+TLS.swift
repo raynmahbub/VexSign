@@ -191,4 +191,34 @@ extension ServerInstaller {
 		
 		return address
 	}
+
+	/// Returns active overlay/VPN (`utun*`) CGNAT (`100.64.0.0/10`) IPv4 addresses
+	/// so the Web Manager's TLS certificate includes Tailscale addresses in its SANs.
+	nonisolated static func getLocalOverlayAddresses() -> [String] {
+		var addresses: [String] = []
+		var ifaddr: UnsafeMutablePointer<ifaddrs>?
+		guard getifaddrs(&ifaddr) == 0 else { return [] }
+		defer { freeifaddrs(ifaddr) }
+
+		var ptr = ifaddr
+		while let current = ptr {
+			let interface = current.pointee
+			defer { ptr = interface.ifa_next }
+			guard let addr = interface.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET) else {
+				continue
+			}
+			let name = String(cString: interface.ifa_name)
+			guard name.hasPrefix("utun") else { continue }
+			var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+			if getnameinfo(addr, socklen_t(addr.pointee.sa_len),
+						   &hostname, socklen_t(hostname.count),
+						   nil, socklen_t(0), NI_NUMERICHOST) == 0 {
+				let candidate = String(cString: hostname)
+				if WebManagerAccessPolicy.isPrivateAddressLiteral(candidate), !addresses.contains(candidate) {
+					addresses.append(candidate)
+				}
+			}
+		}
+		return addresses
+	}
 }

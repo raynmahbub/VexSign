@@ -83,10 +83,26 @@ enum WebManagerAccessPolicy {
 		let normalized = normalizedPath(path)
 
 		if normalized == "/api/certs" || normalized.hasPrefix("/api/certs/") { return true }
-		if normalized == "/api/sign" { return true }
-		if isDestructive && normalized.hasPrefix("/api/") { return true }
+		if normalized == "/api/sign" || normalized == "/api/cleanup" { return true }
+		if isDestructive { return true }
 
 		return false
+	}
+
+	/// Extracts an API token from `X-VexSign-Token` or `Authorization: Bearer <token>`.
+	static func extractProvidedToken(tokenHeader: String?, authorizationHeader: String?) -> String? {
+		if let tokenHeader {
+			let trimmed = tokenHeader.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !trimmed.isEmpty { return trimmed }
+		}
+		if let authorizationHeader {
+			let trimmed = authorizationHeader.trimmingCharacters(in: .whitespacesAndNewlines)
+			if trimmed.count > 7, trimmed.prefix(7).lowercased() == "bearer " {
+				let bearer = trimmed.dropFirst(7).trimmingCharacters(in: .whitespacesAndNewlines)
+				if !bearer.isEmpty { return bearer }
+			}
+		}
+		return nil
 	}
 
 	/// A token gate that is meaningful when no token is configured.
@@ -154,11 +170,11 @@ enum WebManagerAccessPolicy {
 	static func isAllowedHostHeader(_ header: String?, allowedHosts: Set<String>) -> Bool {
 		guard let host = normalizedHost(header), !host.isEmpty else { return false }
 		if allowedHosts.contains(host) { return true }
-		if host.hasSuffix(".local") { return true }
+		if host.hasSuffix(".local") || LocalNetworkHost.isTailscaleDomain(host) { return true }
 		return isPrivateAddressLiteral(host)
 	}
 
-	/// Loopback, RFC 1918, link-local and unique-local literals.
+	/// Loopback, RFC 1918, Tailscale CGNAT (`100.64.0.0/10`), link-local and unique-local literals.
 	static func isPrivateAddressLiteral(_ host: String) -> Bool {
 		let parts = host.split(separator: ".", omittingEmptySubsequences: false)
 		if parts.count == 4, parts.allSatisfy({ UInt8(String($0)) != nil }) {
@@ -166,6 +182,7 @@ enum WebManagerAccessPolicy {
 			guard octets.count == 4 else { return false }
 			switch octets[0] {
 			case 10, 127: return true
+			case 100: return octets[1] >= 64 && octets[1] <= 127
 			case 169: return octets[1] == 254
 			case 172: return octets[1] >= 16 && octets[1] <= 31
 			case 192: return octets[1] == 168

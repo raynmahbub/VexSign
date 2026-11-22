@@ -40,6 +40,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 DEFAULT_STORE_DIR = os.path.join(os.path.dirname(__file__), "repo-store")
+MAX_INFO_PLIST_BYTES = 4 * 1024 * 1024
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -130,9 +131,17 @@ def read_ipa_metadata(path: Path) -> dict[str, Any]:
 
         # Shallowest match: the app bundle, not a nested extension.
         info_name = sorted(info_names, key=lambda name: name.count("/"))[0]
+        zip_info = archive.getinfo(info_name)
+        if zip_info.file_size > MAX_INFO_PLIST_BYTES:
+            raise RepoError("Info.plist exceeds the 4 MiB uncompressed size limit.")
         try:
             with archive.open(info_name) as handle:
-                info = plistlib.load(handle)
+                raw_plist = handle.read(MAX_INFO_PLIST_BYTES + 1)
+            if len(raw_plist) > MAX_INFO_PLIST_BYTES:
+                raise RepoError("Info.plist exceeds the 4 MiB uncompressed size limit.")
+            info = plistlib.loads(raw_plist)
+        except RepoError:
+            raise
         except Exception as exc:  # plistlib raises several types on bad input
             raise RepoError(f"Info.plist could not be parsed: {exc}") from exc
 

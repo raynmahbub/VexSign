@@ -74,6 +74,9 @@ extension WebManagerServer {
 				return req.eventLoop.makeSucceededFuture(Response(status: .badRequest))
 			}
 			let destination = self.inbox.appendingPathComponent(name)
+			guard WebDAVTransferPolicy.isContained(destination, in: self.inbox, allowRoot: false) else {
+				return req.eventLoop.makeSucceededFuture(Response(status: .forbidden))
+			}
 			return self.streamToFile(req, destination: destination, route: true, successStatus: .ok)
 		}
 
@@ -86,6 +89,9 @@ extension WebManagerServer {
 			guard let self, let raw = req.parameters.get("name"),
 				let name = self.sanitizedFilename(raw) else { return Response(status: .badRequest) }
 			let url = self.inbox.appendingPathComponent(name)
+			guard WebDAVTransferPolicy.isContained(url, in: self.inbox, allowRoot: false) else {
+				return Response(status: .forbidden)
+			}
 			guard FileManager.default.fileExists(atPath: url.path) else { return Response(status: .notFound) }
 			let response = try await req.fileio.asyncStreamFile(at: url.path)
 			response.headers.replaceOrAdd(name: .contentDisposition, value: WebManagerFilenamePolicy.contentDisposition(filename: name))
@@ -95,7 +101,11 @@ extension WebManagerServer {
 		app.on(.DELETE, "api", "files", ":name") { [weak self] req -> Response in
 			guard let self, let raw = req.parameters.get("name"),
 				let name = self.sanitizedFilename(raw) else { return Response(status: .badRequest) }
-			switch WebManagerDeletion.delete(self.inbox.appendingPathComponent(name)) {
+			let target = self.inbox.appendingPathComponent(name)
+			guard WebDAVTransferPolicy.isContained(target, in: self.inbox, allowRoot: false) else {
+				return Response(status: .forbidden)
+			}
+			switch WebManagerDeletion.delete(target) {
 			case .removed: return Response(status: .noContent)
 			case .missing: return Response(status: .notFound)
 			case .failed: return Response(status: .conflict)

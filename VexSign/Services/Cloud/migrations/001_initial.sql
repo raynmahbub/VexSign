@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS assets (
     object_key text NOT NULL UNIQUE,
     sha256 char(64) NOT NULL,
     bytes bigint NOT NULL CHECK (bytes > 0),
+    purged_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, owner)
 );
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     FOREIGN KEY (provision_id, owner) REFERENCES assets(id, owner)
 );
 CREATE INDEX IF NOT EXISTS jobs_owner ON jobs(owner, created_at DESC);
-CREATE INDEX IF NOT EXISTS jobs_outbox ON jobs(created_at) WHERE published_at IS NULL AND state = 'queued';
+CREATE INDEX IF NOT EXISTS jobs_pending_scan_idx ON jobs(id) WHERE state IN ('queued','running');
 CREATE TABLE IF NOT EXISTS webhook_deliveries (
     job_id uuid PRIMARY KEY REFERENCES jobs(id),
     owner text NOT NULL,
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
     next_attempt_at timestamptz NOT NULL DEFAULT now(),
     delivered_at timestamptz
 );
+CREATE INDEX IF NOT EXISTS webhook_deliveries_due_idx ON webhook_deliveries(next_attempt_at) WHERE delivered_at IS NULL AND attempts < 8;
 CREATE TABLE IF NOT EXISTS audit_logs (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     owner text NOT NULL,

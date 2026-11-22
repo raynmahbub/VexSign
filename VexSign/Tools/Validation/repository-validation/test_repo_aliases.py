@@ -72,6 +72,24 @@ class RepositoryAliasTests(unittest.TestCase):
         finally:
             module.ROOT = original_root
 
+    def test_newer_nonempty_workspace_mirror_propagates_to_project(self):
+        import os
+        original_root = module.ROOT
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                module.ROOT = self._temporary_root(directory)
+                module.sync()
+                canonical, alias = module.MIRRORED[0]
+                first, second = module.ROOT / canonical, module.ROOT / alias
+                second.write_bytes(b"newer workspace pin")
+                newer_ns = first.stat().st_mtime_ns + 1_000_000_000
+                os.utime(second, ns=(newer_ns, newer_ns))
+                module.sync()
+                self.assertEqual(first.read_bytes(), b"newer workspace pin")
+                self.assertEqual(module.problems(), [])
+        finally:
+            module.ROOT = original_root
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

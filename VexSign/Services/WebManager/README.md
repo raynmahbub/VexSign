@@ -91,14 +91,19 @@ Honest limits, in one place:
 
 - **Signer console** does not sign: it relays to the phone's Web Manager, so the
   phone must be reachable *from this server* (self-host on your LAN or a tailnet —
-  a public deployment cannot reach a phone behind NAT). Targets are restricted to
-  private / loopback / CGNAT addresses unless `VEXSIGN_ALLOW_PUBLIC_TARGETS=1`;
-  link-local and cloud-metadata addresses (`169.254.0.0/16`, `fe80::/10`) are
-  never allowed. The endpoint path is built from the parsed address, so an
-  address carrying `?` or `#` is refused rather than turning the appended
-  endpoint into a query string. Read-only redirects are limited to the original
-  origin and guarded at every hop; the upload relay does not follow them. All
-  relay TCP connections re-check and bind the resolved address before dialing.
+  a public deployment cannot reach a phone behind NAT). Bare `host:port` inputs
+  default to `https://` to match the phone's HTTPS-only listener, and an explicit
+  64-hex leaf SHA-256 `tlsCertSha256` (or `caCertPem`) pins the phone's
+  self-signed TLS certificate without globally disabling certificate verification. Targets are restricted to
+  private / loopback / CGNAT (`100.64.0.0/10`) addresses unless
+  `VEXSIGN_ALLOW_PUBLIC_TARGETS=1`; link-local and cloud-metadata addresses
+  (`169.254.0.0/16`, `fe80::/10`) are never allowed. Both `/Tools/*` (`/api/Tools/*`)
+  and lowercase `/tools/*` (`/api/tools/*`) routes are served. The endpoint path
+  is built from the parsed address, so an address carrying `?` or `#` is refused
+  rather than turning the appended endpoint into a query string. Read-only
+  redirects are limited to the original origin and guarded at every hop; the
+  upload relay does not follow them. All relay TCP connections re-check and bind
+  the resolved address before dialing.
 - **The relay is not an open proxy.** It can reach loopback, so a deployment
   with a public address should set `VEXSIGN_RELAY_TOKEN`; every relay request
   must then send the matching `X-Relay-Token` header (constant-time compare).
@@ -168,17 +173,21 @@ and `http`/`https` before they are interpolated, so a malformed header cannot
 produce a URL that parses as something else.
 
 Rate limits are per client, answered with `429` and `Retry-After`, and come in
-three budgets because the endpoints they cover have very different traffic
+four budgets because the endpoints they cover have very different traffic
 profiles. Clients are bucketed by the socket peer; behind Render or another proxy
-every request arrives from the proxy, so set `VEXSIGN_TRUST_FORWARDED_FOR=1`
-there to bucket on the first `X-Forwarded-For` entry instead. That header is
-caller-controlled, hence the opt-in. Set any limit to `0` to disable that budget.
+every request arrives from an internal proxy peer, so set
+`VEXSIGN_TRUST_FORWARDED_FOR=1` (and optionally `VEXSIGN_TRUSTED_PROXY_HOPS`,
+default `1`) there to extract the rightmost untrusted hop from `X-Forwarded-For`
+only when the direct socket peer is an internal proxy address. Forged leftmost
+`X-Forwarded-For` entries from untrusted clients cannot rotate buckets. Set any
+limit to `0` to disable that budget.
 
 | Budget | Endpoints | Environment | Default |
 |---|---|---|---|
 | credential | `POST /api/validate`, `GET /api/urls` | `VEXSIGN_RATE_LIMIT` / `VEXSIGN_RATE_WINDOW_SECONDS` | 60 per 60s |
 | feed | `GET /repo/premium.json` | `VEXSIGN_FEED_RATE_LIMIT` / `VEXSIGN_FEED_RATE_WINDOW_SECONDS` | 300 per 60s |
 | admin | every `X-Admin-Token` route in `admin.py` | `VEXSIGN_ADMIN_RATE_LIMIT` / `VEXSIGN_ADMIN_RATE_WINDOW_SECONDS` | 20 per 60s |
+| udid | `GET /Tools/udid`, `POST /api/udid/callback` | `VEXSIGN_UDID_RATE_LIMIT` / `VEXSIGN_UDID_RATE_WINDOW_SECONDS` | 30 per 60s |
 
 The credential budget covers the endpoints that answer yes/no about a guessable
 credential — a key, or a device UUID that only has to *have* an activation row.

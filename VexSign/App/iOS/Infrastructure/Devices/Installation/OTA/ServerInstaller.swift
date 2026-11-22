@@ -18,6 +18,7 @@ import NimbleExtensions
 // MARK: - Class
 class ServerInstaller: Identifiable, ObservableObject {
 	let id = UUID()
+	let installToken = WebManagerAccessPolicy.generateToken()
 	let port = Int.random(in: 4000...8000)
 	private var _needsShutdown = false
 	private let _serverMethod: Int
@@ -59,7 +60,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 			// Vapor's listener start is synchronous; only creation and shutdown have
 			// async variants.
 			try server.server.start()
-			FileLogger.log("server listening on \(sni()):\(port), payload=\(payloadEndpoint.absoluteString)", category: "install")
+			FileLogger.log("server listening on \(sni()):\(port)", category: "install")
 		} catch {
 			FileLogger.error("server failed to start: \(error)", category: "install")
 			startupError = error
@@ -81,13 +82,19 @@ class ServerInstaller: Identifiable, ObservableObject {
 	}
 	
 	private func _configureRoutes() {
-		_server?.get("*") { [weak self] req async throws -> Response in
+		_server?.get("**") { [weak self] req async throws -> Response in
 			guard let self else { return Response(status: .badGateway) }
-
-			FileLogger.log("request: \(req.method.rawValue) \(req.url.path)", category: "install")
 
 			switch req.url.path {
 			case plistEndpoint.path:
+				FileLogger.log("request: \(req.method.rawValue) /<session>.plist", category: "install")
+				let manifestData: Data
+				do {
+					manifestData = try self.buildInstallManifestData()
+				} catch {
+					FileLogger.error("manifest serialization failed: \(error.localizedDescription)", category: "install")
+					return Response(status: .internalServerError)
+				}
 				self._updateStatus(.sendingManifest)
 				if self.backgroundTaskManager == nil {
 					self.backgroundTaskManager = BackgroundTaskManager(
@@ -99,7 +106,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 				}
 				return Response(status: .ok, version: req.version, headers: [
 					"Content-Type": "text/xml"
-				], body: .init(data: installManifestData))
+				], body: .init(data: manifestData))
 			case displayImageSmallEndpoint.path:
 				return Response(status: .ok, version: req.version, headers: [
 					"Content-Type": "image/png"
@@ -109,6 +116,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 					"Content-Type": "image/png"
 				], body: .init(data: displayImageLargeData))
 			case payloadEndpoint.path:
+				FileLogger.log("request: \(req.method.rawValue) /<session>.ipa", category: "install")
 				guard let packageUrl = packageUrl else {
 					return Response(status: .notFound)
 				}
@@ -138,8 +146,14 @@ class ServerInstaller: Identifiable, ObservableObject {
 			case "/healthz":
 				return Response(status: .ok)
 			case "/install":
+				let providedToken = (try? req.query.get(String.self, at: "token")) ?? "" // try? ok: missing/malformed query token is treated as empty and rejected below
+				guard !providedToken.isEmpty,
+					  WebManagerAuthMiddleware.constantTimeEquals(providedToken, self.installToken) else {
+					return Response(status: .forbidden)
+				}
+				FileLogger.log("request: \(req.method.rawValue) /install", category: "install")
 				var headers = HTTPHeaders()
-				headers.add(name: .contentType, value: "text/html")
+				headers.add(name: .contentType, value: "text/html; charset=utf-8")
 				return Response(status: .ok, headers: headers, body: .init(string: self.html))
 			default:
 				return Response(status: .notFound)
@@ -222,6 +236,7 @@ extension ServerInstaller {
 	enum LocalInstallError: LocalizedError {
 		case missingTLS
 		case invalidHostname
+		case invalidManifestMetadata
 		case unreachable
 		case unavailable(Error)
 
@@ -231,6 +246,8 @@ extension ServerInstaller {
 				return .localized("The device-local HTTPS identity is unavailable. Open Settings → Installation → Server & SSL, check the local identity, then export and trust its Root CA profile.")
 			case .invalidHostname:
 				return .localized("The local HTTPS hostname is missing or invalid. Check the device identity in Settings → Installation → Server & SSL.")
+			case .invalidManifestMetadata:
+				return "The signed application metadata is incomplete (missing bundle identifier)."
 			case .unreachable:
 				return .localized("The local HTTPS server did not respond successfully.")
 			case .unavailable(let error):

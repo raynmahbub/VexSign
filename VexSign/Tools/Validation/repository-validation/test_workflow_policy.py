@@ -1018,6 +1018,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         services = (WORKFLOWS / "services.yml").read_text()
         self.assertIn('name: pytest · server', block(services, 'pytest', 2))
         self.assertIn('  cloud:', services)  # implicit check name is still cloud
+        self.assertIn('name: swift build · anisette mock', block(services, 'anisette', 2))
         self.assertIn('  links:', (WORKFLOWS / "docs.yml").read_text())
 
     def test_failure_reporting_uses_real_workflow_names_and_serializes_issues(self):

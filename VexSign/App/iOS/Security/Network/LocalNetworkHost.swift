@@ -19,7 +19,7 @@ enum LocalNetworkHost {
 	static func matches(_ rawHost: String) -> Bool {
 		let bracketless = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
 		let host = bracketless.hasSuffix(".") ? String(bracketless.dropLast()) : bracketless
-		if host == "localhost" || host == "::1" || host.hasSuffix(".local") { return true }
+		if host == "localhost" || host == "::1" || host.hasSuffix(".local") || isTailscaleDomain(host) { return true }
 
 		if host.contains(":") {
 			return host.hasPrefix("fc") || host.hasPrefix("fd") || host.hasPrefix("fe8")
@@ -37,8 +37,16 @@ enum LocalNetworkHost {
 			return false
 		}
 		switch (first, second) {
-		case (127, _), (10, _), (192, 168), (172, 16...31), (169, 254): return true
+		case (127, _), (10, _), (192, 168), (172, 16...31), (169, 254), (100, 64...127): return true
 		default: return false
 		}
+	}
+
+	/// Tailscale MagicDNS hostnames (`<node>.<tailnet>.ts.net`) resolve inside the
+	/// user's private overlay network (`100.64.0.0/10` / `fd7a:115c:a1e0::/48`).
+	static func isTailscaleDomain(_ host: String) -> Bool {
+		guard host.hasSuffix(".ts.net") else { return false }
+		let prefix = host.dropLast(".ts.net".count)
+		return !prefix.isEmpty && prefix.contains(".") && !prefix.hasPrefix(".") && !prefix.hasSuffix(".")
 	}
 }

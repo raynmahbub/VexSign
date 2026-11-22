@@ -11,31 +11,31 @@ import Foundation
 import UIKit.UIGraphicsImageRenderer
 
 extension ServerInstaller {
-	var plistEndpoint: URL {
+	private static let _fallbackEndpoint = URL(fileURLWithPath: "/")
+
+	private func _endpoint(path: String, queryItems: [URLQueryItem]? = nil) -> URL {
 		var comps = URLComponents()
 		comps.scheme = self.getServerMethod() == 1 ? "http" : "https"
 		comps.host = sni()
-		comps.path = "/\(id).plist"
+		comps.path = path
 		comps.port = port
-		return comps.url ?? URL(string: "about:blank")!
+		comps.queryItems = queryItems
+		return comps.url ?? Self._fallbackEndpoint
+	}
+
+	var plistEndpoint: URL {
+		_endpoint(path: "/\(id)-\(installToken).plist")
 	}
 
 	var payloadEndpoint: URL {
-		var comps = URLComponents()
-		comps.scheme = self.getServerMethod() == 1 ? "http" : "https"
-		comps.host = sni()
-		comps.path = "/\(id).ipa"
-		comps.port = port
-		return comps.url ?? URL(string: "about:blank")!
+		_endpoint(path: "/\(id)-\(installToken).ipa")
 	}
 	
 	var pageEndpoint: URL {
-		var comps = URLComponents()
-		comps.scheme = self.getServerMethod() == 1 ? "http" : "https"
-		comps.host = sni()
-		comps.path = "/install"
-		comps.port = port
-		return comps.url ?? URL(string: "about:blank")!
+		_endpoint(
+			path: "/install",
+			queryItems: [URLQueryItem(name: "token", value: installToken)]
+		)
 	}
 	
 	var iTunesLink: String {
@@ -62,21 +62,11 @@ extension ServerInstaller {
 	}
 
 	var displayImageSmallEndpoint: URL {
-		var comps = URLComponents()
-		comps.scheme = self.getServerMethod() == 1 ? "http" : "https"
-		comps.host = sni()
-		comps.path = "/app57x57.png"
-		comps.port = port
-		return comps.url ?? URL(string: "about:blank")!
+		_endpoint(path: "/\(installToken)-app57x57.png")
 	}
 
 	var displayImageLargeEndpoint: URL {
-		var comps = URLComponents()
-		comps.scheme = self.getServerMethod() == 1 ? "http" : "https"
-		comps.host = sni()
-		comps.path = "/app512x512.png"
-		comps.port = port
-		return comps.url ?? URL(string: "about:blank")!
+		_endpoint(path: "/\(installToken)-app512x512.png")
 	}
 	
 	var displayImageSmallData: Data {
@@ -97,43 +87,72 @@ extension ServerInstaller {
 	}
 
 	var html: String {
-		"""
+		let target = getServerMethod() == 1 ? (iTunesLinkExternal ?? "") : iTunesLink
+		let encodedLiteral: String
+		if let jsonData = try? JSONEncoder().encode(target), // try? ok: String JSON encoding is infallible; fallback escapes quotes/angle brackets
+		   let literal = String(data: jsonData, encoding: .utf8) {
+			encodedLiteral = literal.replacingOccurrences(of: "</", with: "<\\/")
+		} else {
+			encodedLiteral = "\"\""
+		}
+		return """
+		<!doctype html>
 		<html style="background-color: black;">
-		<script type="text/javascript">window.location="\(getServerMethod() == 1 ? (iTunesLinkExternal ?? "") : iTunesLink)"</script>
+		<script type="text/javascript">window.location=\(encodedLiteral)</script>
 		</html>
 		"""
 	}
 
-	var installManifest: [String: Any] {[
-		"items": [[
-			"assets": [
-				[
-					"kind": "software-package",
-					"url": payloadEndpoint.absoluteString,
-				],
-				[
-					"kind": "display-image",
-					"url": displayImageSmallEndpoint.absoluteString,
-				],
-				[
-					"kind": "full-size-image",
-					"url": displayImageLargeEndpoint.absoluteString,
-				],
-			],
-			"metadata": [
-				"bundle-identifier": app.identifier,
-				"bundle-version": app.version,
-				"kind": "software",
-				"title": app.name,
-			],
-		],],
-	]}
+	func buildInstallManifest() throws -> [String: Any] {
+		let bundleIdentifier = (app.identifier ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !bundleIdentifier.isEmpty else {
+			throw LocalInstallError.invalidManifestMetadata
+		}
+		let trimmedVersion = (app.version ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+		let bundleVersion = trimmedVersion.isEmpty ? "1.0" : trimmedVersion
+		let trimmedTitle = (app.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+		let title = trimmedTitle.isEmpty ? bundleIdentifier : trimmedTitle
 
-	var installManifestData: Data {
-		(try? PropertyListSerialization.data(
-			fromPropertyList: installManifest,
+		return [
+			"items": [[
+				"assets": [
+					[
+						"kind": "software-package",
+						"url": payloadEndpoint.absoluteString
+					],
+					[
+						"kind": "display-image",
+						"url": displayImageSmallEndpoint.absoluteString
+					],
+					[
+						"kind": "full-size-image",
+						"url": displayImageLargeEndpoint.absoluteString
+					],
+				],
+				"metadata": [
+					"bundle-identifier": bundleIdentifier,
+					"bundle-version": bundleVersion,
+					"kind": "software",
+					"title": title,
+				],
+			]]
+		]
+	}
+
+	func buildInstallManifestData() throws -> Data {
+		let manifest = try buildInstallManifest()
+		return try PropertyListSerialization.data(
+			fromPropertyList: manifest,
 			format: .xml,
 			options: .zero
-		)) ?? .init()
+		)
+	}
+
+	var installManifest: [String: Any] {
+		(try? buildInstallManifest()) ?? [:] // try? ok: computed compatibility property; route handler uses throwing buildInstallManifestData()
+	}
+
+	var installManifestData: Data {
+		(try? buildInstallManifestData()) ?? .init() // try? ok: computed compatibility property; route handler uses throwing buildInstallManifestData()
 	}
 }

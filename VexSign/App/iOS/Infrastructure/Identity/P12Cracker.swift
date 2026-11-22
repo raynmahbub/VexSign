@@ -23,7 +23,7 @@ final class P12Cracker: ObservableObject {
 	@Published private(set) var totalCount: Int = 0
 	@Published private(set) var foundPassword: String?
 
-	private var _cancelRequested = false
+	private var _activeRunID: UUID?
 
 	/// Common passwords observed across signing services, leaks, and enterprise dumps.
 	nonisolated static let commonPasswords: [String] = [
@@ -90,7 +90,7 @@ final class P12Cracker: ObservableObject {
 	}
 
 	func cancel() {
-		_cancelRequested = true
+		_activeRunID = nil
 		isRunning = false
 	}
 
@@ -109,8 +109,11 @@ final class P12Cracker: ObservableObject {
 		mode: Mode = .fullDictionary,
 		customCandidates: [String] = []
 	) async -> String? {
+		guard !p12Data.isEmpty else { return nil }
+
+		let runID = UUID()
+		_activeRunID = runID
 		isRunning = true
-		_cancelRequested = false
 		foundPassword = nil
 		testedCount = 0
 
@@ -144,23 +147,40 @@ final class P12Cracker: ObservableObject {
 		let batchSize = 50
 
 		for chunkStart in stride(from: 0, to: candidates.count, by: batchSize) {
-			if _cancelRequested {
-				isRunning = false
+			if _activeRunID != runID || Task.isCancelled {
+				if _activeRunID == runID {
+					_activeRunID = nil
+					isRunning = false
+				}
 				return nil
 			}
 
 			let chunkEnd = min(chunkStart + batchSize, candidates.count)
 			let batch = Array(candidates[chunkStart..<chunkEnd])
 
-			// Run this batch off the main actor
-			let matched = await Task.detached(priority: .userInitiated) { () -> String? in
+			// Run this batch off the main actor while honouring structured cancellation.
+			let workerTask = Task.detached(priority: .userInitiated) { () -> String? in
 				for candidate in batch {
+					if Task.isCancelled { return nil }
 					if Self.verify(p12Data: p12Data, password: candidate) {
 						return candidate
 					}
 				}
 				return nil
-			}.value
+			}
+			let matched = await withTaskCancellationHandler {
+				await workerTask.value
+			} onCancel: {
+				workerTask.cancel()
+			}
+
+			guard _activeRunID == runID, !Task.isCancelled else {
+				if _activeRunID == runID {
+					_activeRunID = nil
+					isRunning = false
+				}
+				return nil
+			}
 
 			testedCount = chunkEnd
 			progress = Double(chunkEnd) / Double(max(1, candidates.count))
@@ -168,6 +188,7 @@ final class P12Cracker: ObservableObject {
 
 			if let matched {
 				foundPassword = matched
+				_activeRunID = nil
 				isRunning = false
 				return matched
 			}
@@ -176,7 +197,10 @@ final class P12Cracker: ObservableObject {
 			await Task.yield()
 		}
 
-		isRunning = false
+		if _activeRunID == runID {
+			_activeRunID = nil
+			isRunning = false
+		}
 		return nil
 	}
 }

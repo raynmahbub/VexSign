@@ -33,14 +33,16 @@ import Foundation
 import Network
 
 actor AnisetteServer {
+    private let host: String
     private let port: UInt16
     private let deviceID: String
     private let server: HTTPServer
 
-    init(port: UInt16 = 8080) {
+    init(host: String = "127.0.0.1", port: UInt16 = 8080) {
+        self.host = host
         self.port = port
         self.deviceID = UUID().uuidString.uppercased()
-        self.server = HTTPServer(port: port)
+        self.server = HTTPServer(host: host, port: port)
     }
 
     func start() async throws {
@@ -128,10 +130,13 @@ struct HTTPResponse {
 }
 
 actor HTTPServer {
+    private static let maxHeaderBytes = 16 * 1024
+    private let host: String
     private let port: UInt16
     private var listener: NWListener?
 
-    init(port: UInt16) {
+    init(host: String = "127.0.0.1", port: UInt16) {
+        self.host = host
         self.port = port
     }
 
@@ -142,13 +147,20 @@ actor HTTPServer {
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
 
-        let listener = try NWListener(using: parameters, on: endpointPort)
+        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let listener: NWListener
+        if trimmedHost.isEmpty || trimmedHost == "0.0.0.0" || trimmedHost == "::" {
+            listener = try NWListener(using: parameters, on: endpointPort)
+        } else {
+            parameters.requiredLocalEndpoint = .hostPort(host: NWEndpoint.Host(trimmedHost), port: endpointPort)
+            listener = try NWListener(using: parameters)
+        }
         self.listener = listener
 
-        listener.stateUpdateHandler = { state in
+        listener.stateUpdateHandler = { [host = self.host, port = self.port] state in
             switch state {
             case .ready:
-                print("Mock Anisette server listening on port \(self.port)")
+                print("Mock Anisette server listening on \(host):\(port)")
             case .failed(let error):
                 print("Server failed: \(error)")
             default:
@@ -206,6 +218,9 @@ actor HTTPServer {
                 data.append(chunk)
                 if data.range(of: separator) != nil {
                     break
+                }
+                if data.count > Self.maxHeaderBytes {
+                    throw NWError.posix(.EMSGSIZE)
                 }
             } else {
                 break
@@ -289,9 +304,11 @@ actor HTTPServer {
 @main
 struct AnisetteServerMain {
     static func main() async {
-        let port = UInt16(ProcessInfo.processInfo.environment["PORT"] ?? "8080") ?? 8080
-        print("Starting PROTOCOL MOCK Anisette server (fabricated headers; not valid for Apple).")
-        let server = AnisetteServer(port: port)
+        let env = ProcessInfo.processInfo.environment
+        let host = env["ANISETTE_HOST"] ?? "127.0.0.1"
+        let port = UInt16(env["PORT"] ?? "8080") ?? 8080
+        print("Starting PROTOCOL MOCK Anisette server on \(host):\(port) (fabricated headers; not valid for Apple).")
+        let server = AnisetteServer(host: host, port: port)
 
         do {
             try await server.start()

@@ -30,6 +30,7 @@ def _limiters() -> tuple[tuple[rate_limit.SlidingWindowLimiter, int, float], ...
         (rate_limit.current(), rate_limit.DEFAULT_LIMIT, rate_limit.DEFAULT_WINDOW),
         (rate_limit.current_feed(), rate_limit.FEED_LIMIT, rate_limit.FEED_WINDOW),
         (rate_limit.current_admin(), rate_limit.ADMIN_LIMIT, rate_limit.ADMIN_WINDOW),
+        (rate_limit.current_udid(), rate_limit.UDID_LIMIT, rate_limit.UDID_WINDOW),
     )
 
 

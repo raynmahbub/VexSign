@@ -284,12 +284,14 @@ def check_revocation(sha1: str | None, sha256: str | None) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/api/Tools/cert/revoked-list")
+@router.get("/api/tools/cert/revoked-list", include_in_schema=False)
 def api_revoked_list() -> dict:
     entries = revoked_list()
     return {"count": len(entries), "entries": entries, "source": "VexSign/Services/WebManager/Configuration/data/revoked_certs.json"}
 
 
 @router.post("/api/Tools/cert/inspect")
+@router.post("/api/tools/cert/inspect", include_in_schema=False)
 async def api_inspect(file: UploadFile = File(...)) -> dict:
     filename = (file.filename or "").lower()
     if filename.endswith((".p12", ".pfx")):
@@ -326,6 +328,7 @@ async def api_inspect(file: UploadFile = File(...)) -> dict:
 
 
 @router.get("/Tools/cert-check")
+@router.get("/tools/cert-check", include_in_schema=False)
 def cert_check_page(request: Request):
     body = """
   <div class="card">

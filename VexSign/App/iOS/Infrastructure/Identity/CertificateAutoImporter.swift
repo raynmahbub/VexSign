@@ -9,35 +9,47 @@ import Foundation
 import SwiftUI
 import UIKit
 import OSLog
+import CryptoKit
 import CommonCrypto
 import NimbleExtensions
 
 class CertificateAutoImporter {
 	static let shared = CertificateAutoImporter()
 
+	private let _importLock = NSLock()
+	private var _isImporting = false
+
 	private init() {}
 
-	/// Runs `work` on the main queue, or inline when the caller is already there.
-	///
-	/// `DispatchQueue.main.sync` from the main thread is an instant deadlock. This
-	/// importer only avoided that because its one entry point dispatches to a
-	/// global queue first — an accident of the current call graph, not a property
-	/// the code enforced. `DownloadManager` guards the same pattern explicitly.
-	private static func onMain<T>(_ work: () -> T) -> T {
-		if Thread.isMainThread { return work() }
-		return DispatchQueue.main.sync(execute: work)
+	private func _beginImportRun() -> Bool {
+		_importLock.lock()
+		defer { _importLock.unlock() }
+		guard !_isImporting else { return false }
+		_isImporting = true
+		return true
 	}
 
-	/// Import certificates from signing-assets folder using hash-based change detection
+	private func _endImportRun() {
+		_importLock.lock()
+		_isImporting = false
+		_importLock.unlock()
+	}
+
+	/// Import certificates from signing-assets folder using content-addressed SHA-256 change detection.
 	func importBundledCertificatesIfNeeded() {
 		guard let signingAssetsURL = Bundle.main.url(forResource: "signing-assets", withExtension: nil)
 		else {
 			Logger.misc.info("No signing-assets folder found in bundle")
 			return
 		}
+		guard _beginImportRun() else { return }
 
-		// Off the main thread so app launch isn't blocked.
-		DispatchQueue.global(qos: .utility).async {
+		// Off the main thread so app launch isn't blocked; sequential per folder so
+		// "Distribution last" deterministically finishes last and becomes default.
+		Task.detached(priority: .utility) { [weak self] in
+			guard let self else { return }
+			defer { self._endImportRun() }
+
 			do {
 				let folderContents = try FileManager.default.contentsOfDirectory(
 					at: signingAssetsURL,
@@ -65,37 +77,6 @@ class CertificateAutoImporter {
 					let certName = folderURL.lastPathComponent
 					let hashKey = "VexSign.certHash.\(certName)"
 
-					// Fast path: compare against the stored hash before doing the import work.
-					let storedHash = UserDefaults.standard.string(forKey: hashKey)
-
-					if storedHash != nil {
-						let p12Url = folderURL.appendingPathComponent("cert.p12")
-						let provisionUrl = folderURL.appendingPathComponent("cert.mobileprovision")
-						let passwordUrl = folderURL.appendingPathComponent("cert.txt")
-
-						guard
-							FileManager.default.fileExists(atPath: p12Url.path),
-							FileManager.default.fileExists(atPath: provisionUrl.path),
-							FileManager.default.fileExists(atPath: passwordUrl.path)
-						else {
-							Logger.misc.warning("Skipping \(certName): missing required files")
-							continue
-						}
-
-						guard let password = try? String(contentsOf: passwordUrl, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) else { // try? ok: password file may be unreadable
-							Logger.misc.warning("Skipping \(certName): failed to read password")
-							continue
-						}
-
-						let certHash = self.calculateCertificateHash(p12: p12Url, provision: provisionUrl, password: password)
-
-						if certHash == storedHash {
-							Logger.misc.info("Skipping \(certName): already imported (hash match)")
-							continue
-						}
-					}
-
-					// Slow path: no stored hash (first import) or hash changed (re-import).
 					let p12Url = folderURL.appendingPathComponent("cert.p12")
 					let provisionUrl = folderURL.appendingPathComponent("cert.mobileprovision")
 					let passwordUrl = folderURL.appendingPathComponent("cert.txt")
@@ -114,79 +95,84 @@ class CertificateAutoImporter {
 						continue
 					}
 
-					let certHash = self.calculateCertificateHash(p12: p12Url, provision: provisionUrl, password: password)
+					let storedHash = UserDefaults.standard.string(forKey: hashKey)
+					let certHash = Self.calculateCertificateHash(p12: p12Url, provision: provisionUrl, password: password)
+
+					if certHash == storedHash {
+						Logger.misc.info("Skipping \(certName): already imported (hash match)")
+						continue
+					}
 
 					guard CertificateManagementService.validateSigningPair(for: p12Url, with: password, using: provisionUrl) else {
 						Logger.misc.warning("Skipping \(certName): invalid certificate or password")
 						continue
 					}
 
-					// On a hash change, update the existing cert rather than deleting it.
 					var existingCertUUID: String?
 					if storedHash != nil {
 						Logger.misc.info("Hash changed for \(certName), updating existing certificate")
-						existingCertUUID = Self.onMain {
-							let allCerts = Storage.shared.getAllCertificates()
-							return allCerts.first(where: { $0.nickname == certName })?.uuid
+						existingCertUUID = await MainActor.run {
+							Storage.shared.getAllCertificates().first(where: { $0.nickname == certName })?.uuid
 						}
 					}
 
 					if let existingCertUUID {
-						// Update in place to preserve relationships.
-						self.updateCertificate(
-							certUUID: existingCertUUID,
-							p12URL: p12Url,
-							provisionURL: provisionUrl,
-							password: password
-						) { error in
-							if let error = error {
-								Logger.misc.error("Failed to update \(certName): \(error.localizedDescription)")
-								DispatchQueue.main.async {
-									let generator = UINotificationFeedbackGenerator()
-									generator.notificationOccurred(.error)
-									UIAlertController.showAlertWithOk(
-										title: .localized("Certificate Update Failed"),
-										message: error.localizedDescription
-									)
-								}
-							} else {
-								Logger.misc.info("Successfully updated certificate: \(certName)")
-								// Store hash so we don't re-update next launch.
-								UserDefaults.standard.set(certHash, forKey: hashKey)
-
-								DispatchQueue.main.async {
-									let generator = UINotificationFeedbackGenerator()
-									generator.notificationOccurred(.success)
-								}
+						let updateError: Error? = await withCheckedContinuation { continuation in
+							self.updateCertificate(
+								certUUID: existingCertUUID,
+								p12URL: p12Url,
+								provisionURL: provisionUrl,
+								password: password
+							) { error in
+								continuation.resume(returning: error)
+							}
+						}
+						if let error = updateError {
+							Logger.misc.error("Failed to update \(certName): \(error.localizedDescription)")
+							await MainActor.run {
+								let generator = UINotificationFeedbackGenerator()
+								generator.notificationOccurred(.error)
+								UIAlertController.showAlertWithOk(
+									title: .localized("Certificate Update Failed"),
+									message: error.localizedDescription
+								)
+							}
+						} else {
+							Logger.misc.info("Successfully updated certificate: \(certName)")
+							UserDefaults.standard.set(certHash, forKey: hashKey)
+							await MainActor.run {
+								let generator = UINotificationFeedbackGenerator()
+								generator.notificationOccurred(.success)
 							}
 						}
 					} else {
-						CertificateManagementService.importCertificateFiles(
-							p12URL: p12Url,
-							provisionURL: provisionUrl,
-							p12Password: password,
-							certificateName: certName,
-							isDefault: true
-						) { error in
-							if let error = error {
-								Logger.misc.error("Failed to import \(certName): \(error.localizedDescription)")
-								DispatchQueue.main.async {
-									let generator = UINotificationFeedbackGenerator()
-									generator.notificationOccurred(.error)
-									UIAlertController.showAlertWithOk(
-										title: .localized("Certificate Import Failed"),
-										message: error.localizedDescription
-									)
-								}
-							} else {
-								Logger.misc.info("Successfully imported certificate: \(certName)")
-								// Store hash so we don't re-import next launch.
-								UserDefaults.standard.set(certHash, forKey: hashKey)
-
-								DispatchQueue.main.async {
-									let generator = UINotificationFeedbackGenerator()
-									generator.notificationOccurred(.success)
-								}
+						let importError: Error? = await withCheckedContinuation { continuation in
+							CertificateManagementService.importCertificateFiles(
+								p12URL: p12Url,
+								provisionURL: provisionUrl,
+								p12Password: password,
+								certificateName: certName,
+								isDefault: true
+							) { error in
+								continuation.resume(returning: error)
+							}
+						}
+						if let error = importError {
+							Logger.misc.error("Failed to import \(certName): \(error.localizedDescription)")
+							await MainActor.run {
+								let generator = UINotificationFeedbackGenerator()
+								generator.notificationOccurred(.error)
+								UIAlertController.showAlertWithOk(
+									title: .localized("Certificate Import Failed"),
+									message: error.localizedDescription
+								)
+							}
+						} else {
+							Logger.misc.info("Successfully imported certificate: \(certName)")
+							UserDefaults.standard.set(certHash, forKey: hashKey)
+							await MainActor.run {
+								let generator = UINotificationFeedbackGenerator()
+								generator.notificationOccurred(.success)
 							}
 						}
 					}
@@ -197,23 +183,25 @@ class CertificateAutoImporter {
 		}
 	}
 
-	// Stable hash of the cert files to detect changes.
-	private func calculateCertificateHash(p12: URL, provision: URL, password: String) -> String {
-		// Deterministic concatenation, not Hasher (which is seeded per-launch).
-		var hashComponents: [String] = []
-
-		if let p12Attrs = try? FileManager.default.attributesOfItem(atPath: p12.path), // try? ok: file attrs may be unavailable
-		   let provAttrs = try? FileManager.default.attributesOfItem(atPath: provision.path) { // try? ok: file attrs may be unavailable
-			hashComponents.append("p12size:\(p12Attrs[.size] as? Int ?? 0)")
-			hashComponents.append("provsize:\(provAttrs[.size] as? Int ?? 0)")
-			hashComponents.append("p12mod:\((p12Attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)")
-			hashComponents.append("provmod:\((provAttrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)")
+	/// Content-addressed SHA-256 over the actual `.p12` bytes, `.mobileprovision` bytes, and password.
+	nonisolated static func calculateCertificateHash(p12: URL, provision: URL, password: String) -> String {
+		var hasher = SHA256()
+		if let p12Data = try? Data(contentsOf: p12) { // try? ok: unreadable file falls back to path marker below
+			hasher.update(data: Data("p12:".utf8))
+			hasher.update(data: p12Data)
+		} else {
+			hasher.update(data: Data("p12-missing:\(p12.lastPathComponent)".utf8))
 		}
-
-		hashComponents.append("pwd:\(password)")
-
-		let combinedString = hashComponents.joined(separator: "|")
-		return combinedString.sha256() ?? combinedString
+		hasher.update(data: Data([0]))
+		if let provData = try? Data(contentsOf: provision) { // try? ok: unreadable file falls back to path marker below
+			hasher.update(data: Data("prov:".utf8))
+			hasher.update(data: provData)
+		} else {
+			hasher.update(data: Data("prov-missing:\(provision.lastPathComponent)".utf8))
+		}
+		hasher.update(data: Data([0]))
+		hasher.update(data: Data("pwd:\(password)".utf8))
+		return hasher.finalize().map { String(format: "%02x", $0) }.joined()
 	}
 
 	/// Reset all stored certificate hashes (useful for debugging or forcing re-import)

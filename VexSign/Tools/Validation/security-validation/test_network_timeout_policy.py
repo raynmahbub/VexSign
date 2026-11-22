@@ -50,7 +50,7 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                 marker_at = source.find(marker)
                 self.assertNotEqual(marker_at, -1, f"{relative}: expected {marker!r} to still exist")
                 window = source[marker_at:marker_at + 1200]
-                match = re.search(r"(?:URLSession\.shared\.data|session\.bytes)", window)
+                match = re.search(r"(?:URLSession\.shared\.data|session\.bytes|VexSignAPI\.performDataRequest)", window)
                 send = match.start() if match else -1
                 self.assertNotEqual(send, -1, f"{relative}: no request found after {marker!r}")
                 self.assertIn(
@@ -64,7 +64,7 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
         for relative, _, why in BOUNDED_REQUESTS:
             with self.subTest(file=relative):
                 source = (ROOT / relative).read_text()
-                sends = [m.start() for m in re.finditer(r"(?:URLSession\.shared\.data|session\.bytes)", source)]
+                sends = [m.start() for m in re.finditer(r"(?:URLSession\.shared\.data|session\.bytes|VexSignAPI\.performDataRequest)", source)]
                 self.assertTrue(sends, f"{relative}: expected at least one request")
                 for position in sends:
                     # Look back far enough to cover a request built and configured inline.

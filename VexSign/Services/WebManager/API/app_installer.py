@@ -97,17 +97,19 @@ def _request_with_safe_redirects(
         refusal = public_url_error(current_url, resolve_dns=resolve_dns)
         if refusal:
             raise UnsafeTargetError(refusal)
-        response = client.request(
+        request = client.build_request(
             current_method,
             current_url,
             headers=headers,
-            follow_redirects=False,
         )
+        response = client.send(request, stream=True, follow_redirects=False)
         if response.status_code in REDIRECT_STATUSES and response.headers.get("location"):
+            location = response.headers["location"].strip()
+            response.close()
             if len(redirects) >= MAX_REDIRECTS:
                 raise ValueError(f"Too many redirects (more than {MAX_REDIRECTS}).")
             redirects.append(current_url)
-            next_url = urljoin(current_url, response.headers["location"].strip())
+            next_url = urljoin(current_url, location)
             if response.status_code == 303:
                 current_method = "GET"
             current_url = next_url
@@ -115,6 +117,21 @@ def _request_with_safe_redirects(
         return response, redirects
 
     raise ValueError(f"Too many redirects (more than {MAX_REDIRECTS}).")
+
+
+def _extract_total_size(status_code: int, headers: httpx.Headers) -> int:
+    """Read total IPA byte length from Content-Range (on 206) or Content-Length (on 200)."""
+    content_range = (headers.get("content-range") or "").strip()
+    if "/" in content_range:
+        total_part = content_range.rsplit("/", 1)[-1].strip()
+        if total_part.isdigit():
+            return int(total_part)
+    if status_code == 206:
+        return 0
+    length = (headers.get("content-length") or "").strip()
+    if length.isdigit():
+        return int(length)
+    return 0
 
 
 def _issue(severity: str, message: str, suggestion: str = "") -> dict[str, str]:
@@ -157,22 +174,28 @@ def probe_url(url: str) -> dict[str, Any]:
                 return result
 
             response, redirects = _request_with_safe_redirects(client, "HEAD", url)
-            if response.status_code in (403, 405, 501):
-                # Plenty of static hosts reject HEAD; a ranged GET says the same thing.
-                result["method"] = "GET"
-                response, redirects = _request_with_safe_redirects(
-                    client,
-                    "GET",
-                    url,
-                    headers={"Range": f"bytes=0-{PROBE_RANGE_BYTES - 1}"},
-                )
-            result["status"] = response.status_code
-            result["contentType"] = response.headers.get("content-type", "").split(";")[0].strip()
-            result["effectiveURL"] = str(response.url)
-            result["redirects"] = redirects
-            length = response.headers.get("content-length")
-            if length and length.isdigit():
-                result["contentLength"] = int(length)
+            try:
+                if response.status_code in (403, 405, 501):
+                    # Plenty of static hosts reject HEAD; a ranged GET says the same thing.
+                    response.close()
+                    result["method"] = "GET"
+                    response, redirects = _request_with_safe_redirects(
+                        client,
+                        "GET",
+                        url,
+                        headers={"Range": f"bytes=0-{PROBE_RANGE_BYTES - 1}"},
+                    )
+                if result["method"] == "GET":
+                    # Read at most one bounded chunk (<= 4 KiB) so an origin that ignores
+                    # Range and answers 200 OK never buffers a multi-GB IPA in memory.
+                    next(response.iter_bytes(4096), b"")
+                result["status"] = response.status_code
+                result["contentType"] = response.headers.get("content-type", "").split(";")[0].strip()
+                result["effectiveURL"] = str(response.url)
+                result["redirects"] = redirects
+                result["contentLength"] = _extract_total_size(response.status_code, response.headers)
+            finally:
+                response.close()
     except UnsafeTargetError:
         raise
     except ValueError as error:
@@ -223,6 +246,7 @@ def probe_url(url: str) -> dict[str, Any]:
 
 
 @router.post("/api/Tools/install/probe")
+@router.post("/api/tools/install/probe", include_in_schema=False)
 def api_probe(body: ProbeBody) -> dict[str, Any]:
     url = body.ipaURL.strip()
     if not url:
@@ -236,6 +260,7 @@ def api_probe(body: ProbeBody) -> dict[str, Any]:
 
 
 @router.post("/api/Tools/install/manifest")
+@router.post("/api/tools/install/manifest", include_in_schema=False)
 def api_manifest(body: ManifestBody) -> dict[str, Any]:
     ipa = body.ipaURL.strip()
     manifest_url = body.manifestURL.strip()
@@ -421,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 @router.get("/Tools/app-installer")
+@router.get("/tools/app-installer", include_in_schema=False)
 def app_installer_page(request: Request):
     body = """
   <div class="card">

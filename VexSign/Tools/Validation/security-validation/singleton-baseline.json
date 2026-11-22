@@ -19,6 +19,7 @@
   "VexSign/App/iOS/Infrastructure/Identity/CertificateAutoImporter.swift": 1,
   "VexSign/App/iOS/Infrastructure/Identity/CertificateStatusManager.swift": 1,
   "VexSign/App/iOS/Infrastructure/Identity/P12Cracker.swift": 1,
+  "VexSign/App/iOS/Infrastructure/Identity/RenewalScheduleCoordinator.swift": 2,
   "VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManager.swift": 1,
   "VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupHistory.swift": 1,
   "VexSign/App/iOS/Infrastructure/Persistence/Cache/CleanupManager.swift": 1,

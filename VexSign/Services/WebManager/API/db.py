@@ -13,6 +13,7 @@ A key row looks like:
 import contextlib
 import os
 import sqlite3
+import threading
 import time
 
 # How long a writer waits for another writer before raising "database is
@@ -58,7 +59,24 @@ CREATE TABLE IF NOT EXISTS keys (
     disabled    INTEGER NOT NULL DEFAULT 0,
     created_at  REAL NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_keys_device_uuid ON keys(device_uuid);
 """
+
+_INIT_LOCK = threading.Lock()
+_INITIALIZED_DBS: set[tuple[str, int]] = set()
+
+
+def _db_file_key(path: str) -> tuple[str, int] | None:
+    if path == ":memory:" or path.startswith("file:"):
+        return None
+    abs_path = os.path.abspath(path)
+    try:
+        st = os.stat(abs_path)
+    except OSError:
+        return None
+    if st.st_size <= 0:
+        return None
+    return (abs_path, st.st_ino)
 
 
 def connect() -> sqlite3.Connection:
@@ -72,17 +90,25 @@ def connect() -> sqlite3.Connection:
     parent = os.path.dirname(os.path.abspath(DB_PATH))
     if parent:
         os.makedirs(parent, exist_ok=True)
+    existing_key = _db_file_key(DB_PATH)
+    with _INIT_LOCK:
+        already_initialized = existing_key is not None and existing_key in _INITIALIZED_DBS
     conn = sqlite3.connect(DB_PATH, timeout=BUSY_TIMEOUT_SECONDS)
     conn.row_factory = sqlite3.Row
     conn.execute(f"PRAGMA busy_timeout = {int(BUSY_TIMEOUT_SECONDS * 1000)}")
-    # WAL lets the app-facing read routes run while an admin request writes.
-    # A database on a read-only or unsupported filesystem keeps its old journal
-    # mode rather than failing the request that triggered the pragma.
-    try:
-        conn.execute("PRAGMA journal_mode = WAL")
-    except sqlite3.Error:
-        pass
-    conn.executescript(_SCHEMA)
+    if not already_initialized:
+        # WAL lets the app-facing read routes run while an admin request writes.
+        # A database on a read-only or unsupported filesystem keeps its old journal
+        # mode rather than failing the request that triggered the pragma.
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+        except sqlite3.Error:
+            pass
+        conn.executescript(_SCHEMA)
+        new_key = _db_file_key(DB_PATH)
+        if new_key is not None:
+            with _INIT_LOCK:
+                _INITIALIZED_DBS.add(new_key)
     return conn
 
 
@@ -108,6 +134,9 @@ def add_key(api_key: str) -> None:
 def get_key(api_key: str) -> sqlite3.Row | None:
     with connection() as conn:
         return conn.execute("SELECT * FROM keys WHERE api_key = ?", (api_key,)).fetchone()
+
+
+_ORIGINAL_GET_KEY = get_key
 
 
 def consume_key(api_key: str, device_uuid: str) -> bool:

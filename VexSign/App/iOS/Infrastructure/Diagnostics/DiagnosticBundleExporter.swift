@@ -69,109 +69,11 @@ enum DiagnosticBundleExporter {
 
 	// MARK: - Sanitization
 
-	/// Masks passwords, secret tokens, private keys, and authorization headers.
+	/// Routes all exported diagnostic text through the unified `LogRedaction` engine so
+	/// passwords, tokens, PEM blocks, pairing keys, UDIDs, emails, and container paths
+	/// are scrubbed consistently with `FileLogger`.
 	static func _sanitize(_ text: String) -> String {
-		var result = text
-
-		// Redact password values
-		let passwordRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
-			pattern: #"(password["':\s=]+)([^"'\s,\r\n]+)"#,
-			options: [.caseInsensitive]
-		)
-		if let passwordRegex {
-			let range = NSRange(result.startIndex..., in: result)
-			result = passwordRegex.stringByReplacingMatches(
-				in: result,
-				options: [],
-				range: range,
-				withTemplate: "$1[REDACTED]"
-			)
-		}
-
-		// Redact Bearer / API tokens
-		let tokenRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
-			pattern: #"(Bearer\s+)[A-Za-z0-9_\-\.]{10,}"#,
-			options: [.caseInsensitive]
-		)
-		if let tokenRegex {
-			let range = NSRange(result.startIndex..., in: result)
-			result = tokenRegex.stringByReplacingMatches(
-				in: result,
-				options: [],
-				range: range,
-				withTemplate: "$1[REDACTED_TOKEN]"
-			)
-		}
-
-		// Redact raw private key blocks if any
-		if result.contains("-----BEGIN") {
-			let keyRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
-				pattern: #"-----BEGIN[A-Z\s]+KEY-----[\s\S]*?-----END[A-Z\s]+KEY-----"#,
-				options: []
-			)
-			if let keyRegex {
-				let range = NSRange(result.startIndex..., in: result)
-				result = keyRegex.stringByReplacingMatches(
-					in: result,
-					options: [],
-					range: range,
-					withTemplate: "[REDACTED_PRIVATE_KEY_BLOCK]"
-				)
-			}
-		}
-
-		// Authorization headers. `Basic` carries the password itself, base64 is not
-		// encryption, and a header is the one place a credential is most likely to be
-		// pasted into a log by a networking layer that does not know what it is holding.
-		let authorizationRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
-			pattern: #"(?i)(authorization\s*[:=]\s*)(basic|bearer|token|digest)?\s*[A-Za-z0-9._~+/=\-]{6,}"#,
-			options: []
-		)
-		if let authorizationRegex {
-			let range = NSRange(result.startIndex..., in: result)
-			result = authorizationRegex.stringByReplacingMatches(
-				in: result,
-				options: [],
-				range: range,
-				withTemplate: "$1[REDACTED_AUTH]"
-			)
-		}
-
-		// Credentials embedded in a URL. A repository address is logged by several
-		// layers, and `https://user:password@host` is valid syntax that URLSession
-		// accepts, so the userinfo segment has to go before the text leaves the app.
-		let urlCredentialRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
-			pattern: #"([A-Za-z][A-Za-z0-9+.\-]*://)([^/\s:@]+):([^/\s@]+)@"#,
-			options: []
-		)
-		if let urlCredentialRegex {
-			let range = NSRange(result.startIndex..., in: result)
-			result = urlCredentialRegex.stringByReplacingMatches(
-				in: result,
-				options: [],
-				range: range,
-				withTemplate: "$1[REDACTED]@"
-			)
-		}
-
-		// Named secrets in key/value form (`api_key=`, `client-secret:`, `access_token=`).
-		// The password rule above only knows the word "password"; these keys are just as
-		// common and are not covered by it.
-		let namedSecretRegex = try? NSRegularExpression( // try? ok: invalid pattern falls through to no redaction
-			pattern: #"(?i)\b(password|passphrase|secret|token|api[_-]?key|client[_-]?secret|access[_-]?token)\b(\s*[:=]\s*)("[^"]*"|[^\s,"']+)"#,
-			options: []
-		)
-		if let namedSecretRegex {
-			let range = NSRange(result.startIndex..., in: result)
-			result = namedSecretRegex.stringByReplacingMatches(
-				in: result,
-				options: [],
-				range: range,
-				withTemplate: "$1$2[REDACTED]"
-			)
-		}
-
-		return result
+		LogRedaction.redact(text)
 	}
 
 	// MARK: - Builders
@@ -241,8 +143,8 @@ enum DiagnosticBundleExporter {
 		for cert in certs {
 			let prov = Storage.shared.getProvisionFileDecoded(for: cert)
 			let item: [String: Any] = [
-				"nickname": cert.nickname ?? "Unnamed",
-				"teamName": prov?.TeamName ?? "Unknown",
+				"nickname": LogRedaction.redact(cert.nickname ?? "Unnamed"),
+				"teamName": LogRedaction.redact(prov?.TeamName ?? "Unknown"),
 				"teamID": prov?.TeamIdentifier.first ?? "Unknown",
 				"hasPasswordConfigured": !(cert.signingPassword ?? "").isEmpty,
 				"provisionExpiration": prov?.ExpirationDate.description ?? "Unknown",

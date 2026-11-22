@@ -390,14 +390,13 @@ final class AppUpdateChecker: ObservableObject {
         return (selected.version, uuid, selected.name, selected.identifier ?? selected.originalIdentifier, selected.source)
     }
 
-    /// Privacy filtering is performed before values leave the view-context queue.
+    /// Privacy filtering is performed on the main actor before values leave the view-context queue.
+    @MainActor
     private func isStrictlyHidden(_ uuid: String?) -> Bool {
-        guard let uuid, !uuid.isEmpty,
-              UserDefaults.standard.bool(forKey: "VexSign.security.strictHiding") else {
+        guard let uuid, !uuid.isEmpty else {
             return false
         }
-        let hidden = Set(UserDefaults.standard.stringArray(forKey: "VexSign.security.hiddenAppUUIDs") ?? [])
-        return hidden.contains(uuid)
+        return AppLockManager.shared.isStrictlyHidden(uuid)
     }
 
     /// Detailed pending-update rows for the Updates screen and Update All

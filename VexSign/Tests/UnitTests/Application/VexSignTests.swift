@@ -62,6 +62,19 @@ final class VexSignTests: XCTestCase {
 		// Malformed envelopes must degrade to [] instead of crashing.
 		XCTAssertEqual(ASDeobfuscator.decode(with: "source[!!!not-base64!!!]"), [])
 		XCTAssertEqual(ASDeobfuscator.decode(with: ""), [])
+
+		// Invalid key lengths (0, negative, or larger than key buffer) and empty keys must never trap.
+		let validEnvelope = ASDecrypt(input: "source[QUJD]")
+		XCTAssertNil(validEnvelope.decrypt(key: [], keyLength: 0))
+		XCTAssertNil(validEnvelope.decrypt(key: [0x01, 0x02], keyLength: 0))
+		XCTAssertNil(validEnvelope.decrypt(key: [0x01, 0x02], keyLength: -1))
+		XCTAssertNil(validEnvelope.decrypt(key: [0x01, 0x02], keyLength: 99))
+		XCTAssertThrowsError(try validEnvelope.decryptValidated(key: [0x01], keyLength: 0)) { error in
+			XCTAssertEqual(error as? ASDecrypt.DecryptionError, .invalidKey)
+		}
+		XCTAssertThrowsError(try ASDecrypt(input: "not-an-envelope").decryptValidated()) { error in
+			XCTAssertEqual(error as? ASDecrypt.DecryptionError, .invalidEnvelope)
+		}
 	}
 }
 

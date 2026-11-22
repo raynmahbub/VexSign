@@ -226,12 +226,7 @@ final class SourceCatalogStore: ObservableObject {
 				continue
 			}
 			let isGitHubReleaseSource = GitHubReleaseSource.isGitHubRepositoryURL(url)
-			var headers = isGitHubReleaseSource ? [:] : VexSignAPI.authHeaders(for: url)
-			#if canImport(AltSourceKit)
-			if !isGitHubReleaseSource, !EsignSourceKey.customApiKey.isEmpty, headers["X-API-Key"] == nil {
-				headers["X-API-Key"] = EsignSourceKey.customApiKey
-			}
-			#endif
+			let headers = isGitHubReleaseSource ? [:] : VexSignAPI.authHeaders(for: url)
 			items.append(FetchItem(
 				source: source,
 				identifier: Self._id(for: source, fallbackURL: url),

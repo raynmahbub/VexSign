@@ -48,6 +48,7 @@ import ipaddress
 import os
 import re
 import socket
+import ssl
 import time
 from typing import Any, Iterator
 from urllib.parse import quote, urljoin, urlparse
@@ -131,10 +132,10 @@ def target_guard_error(raw: str) -> str | None:
     """Return a human-readable refusal reason, or None if the target is allowed."""
     url = (raw or "").strip()
     if not url:
-        return "Enter the Web Manager address, e.g. http://192.168.1.20:8000."
+        return "Enter the Web Manager address, e.g. https://192.168.1.20:8080."
 
     try:
-        parsed = urlparse(url if "//" in url else f"//{url}")
+        parsed = urlparse(url if "//" in url else f"https://{url}")
     except ValueError:
         # `urlparse` itself rejects an unterminated IPv6 literal ("http://[::1"),
         # so the parse has to be inside the guard too: it used to escape as a 500
@@ -191,7 +192,7 @@ def target_url(raw_base: str, endpoint: str) -> tuple[str | None, str | None]:
         return None, "Enter only the Web Manager's address; it has no query string or fragment."
 
     try:
-        parsed = urlparse(raw if "//" in raw else f"//{raw}")
+        parsed = urlparse(raw if "//" in raw else f"https://{raw}")
     except ValueError:
         return None, "That address is not a valid URL."
     if parsed.scheme not in ("http", "https"):
@@ -264,10 +265,13 @@ def _request_with_safe_redirects(
         )
         location = response.headers.get("location")
         if response.status_code in REDIRECT_STATUSES and location:
-            current_url = urljoin(current_url, location.strip())
-            # Never forward phone credentials to another origin via a redirect.
-            previous = httpx.URL(url)
-            destination = httpx.URL(current_url)
+            try:
+                current_url = urljoin(current_url, location.strip())
+                # Never forward phone credentials to another origin via a redirect.
+                previous = httpx.URL(url)
+                destination = httpx.URL(current_url)
+            except (ValueError, httpx.InvalidURL) as exc:
+                raise UnsafeTarget(f"Invalid redirect target: {exc}") from exc
             if (previous.scheme, previous.host, previous.port) != (destination.scheme, destination.host, destination.port):
                 raise UnsafeTarget("The phone redirected to a different origin.")
             if response.status_code == 303:
@@ -301,12 +305,88 @@ def _headers(token: str, username: str = "", password: str = "") -> dict[str, st
     return headers
 
 
-def _make_client() -> httpx.Client:
+_HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _normalize_cert_sha256(raw: str | None) -> str | None:
+    value = (raw or "").strip()
+    if not value:
+        return None
+    if value.lower().startswith("sha256:"):
+        value = value[7:].strip()
+    cleaned = re.sub(r"[:\s-]+", "", value).lower()
+    if not _HEX_SHA256.fullmatch(cleaned):
+        raise HTTPException(
+            status_code=422,
+            detail="tlsCertSha256 must be a 64-character hex SHA-256 certificate fingerprint.",
+        )
+    return cleaned
+
+
+def _resolve_tls_trust(
+    ca_cert_pem: str | None = None,
+    tls_cert_sha256: str | None = None,
+) -> tuple[ssl.SSLContext | bool, str | None]:
+    pem = (ca_cert_pem or "").strip()
+    if not pem:
+        ca_file = (os.environ.get("VEXSIGN_PHONE_CA_FILE") or "").strip()
+        if ca_file:
+            try:
+                with open(ca_file, encoding="utf-8") as handle:
+                    pem = handle.read().strip()
+            except OSError as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"VEXSIGN_PHONE_CA_FILE ({ca_file}) could not be read: {exc}",
+                ) from exc
+
+    raw_pin = (tls_cert_sha256 or "").strip() or (os.environ.get("VEXSIGN_PHONE_CERT_SHA256") or "").strip()
+    pinned_sha256 = _normalize_cert_sha256(raw_pin)
+
+    if pem:
+        try:
+            ctx = ssl.create_default_context(cadata=pem)
+        except ssl.SSLError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="caCertPem is not a valid PEM certificate.",
+            ) from exc
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        return ctx, pinned_sha256
+
+    if pinned_sha256:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx, pinned_sha256
+
+    return True, None
+
+
+def _make_client(
+    ca_cert_pem: str | None = None,
+    tls_cert_sha256: str | None = None,
+) -> httpx.Client:
     """Factory so tests can substitute an httpx.MockTransport."""
+    verify, pinned_sha256 = _resolve_tls_trust(ca_cert_pem=ca_cert_pem, tls_cert_sha256=tls_cert_sha256)
     return checked_http_client(
         timeout=httpx.Timeout(REQUEST_TIMEOUT_SECONDS, connect=CONNECT_TIMEOUT_SECONDS),
         allows_address=lambda address: allow_public_targets() or _is_local_address(address),
+        verify=verify,
+        pinned_cert_sha256=pinned_sha256,
     )
+
+
+def _open_client(ca_cert_pem: str = "", tls_cert_sha256: str = "") -> httpx.Client:
+    # Validate user-supplied TLS trust overrides up front so malformed inputs fail 422.
+    _resolve_tls_trust(ca_cert_pem=ca_cert_pem, tls_cert_sha256=tls_cert_sha256)
+    if not ca_cert_pem.strip() and not tls_cert_sha256.strip():
+        return _make_client()
+    try:
+        return _make_client(ca_cert_pem=ca_cert_pem, tls_cert_sha256=tls_cert_sha256)
+    except TypeError:
+        return _make_client()
 
 
 def _relay_error(status_code: int, detail: str) -> HTTPException:
@@ -326,9 +406,12 @@ class ProxyBody(BaseModel):
     username: str = ""
     password: str = ""
     token: str = ""
+    caCertPem: str = ""
+    tlsCertSha256: str = ""
 
 
 @router.post("/api/Tools/sign/proxy")
+@router.post("/api/tools/sign/proxy", include_in_schema=False)
 def api_proxy(
     body: ProxyBody,
     x_relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
@@ -353,7 +436,7 @@ def api_proxy(
 
     started = time.monotonic()
     try:
-        with _make_client() as client:
+        with _open_client(body.caCertPem, body.tlsCertSha256) as client:
             response = _request_with_safe_redirects(
                 client, "GET", url, headers=_headers(body.token, body.username, body.password)
             )
@@ -384,6 +467,7 @@ def api_proxy(
 
 
 @router.post("/api/Tools/sign/sign")
+@router.post("/api/tools/sign/sign", include_in_schema=False)
 def api_sign(
     request: Request,
     file: UploadFile = File(...),
@@ -391,6 +475,8 @@ def api_sign(
     username: str = Form(""),
     password: str = Form(""),
     token: str = Form(""),
+    caCertPem: str = Form(""),
+    tlsCertSha256: str = Form(""),
     x_relay_token: str | None = Header(default=None, alias=RELAY_TOKEN_HEADER),
 ):
     if refusal := relay_token_error(x_relay_token):
@@ -414,7 +500,7 @@ def api_sign(
         stem = stem[:-4]
     out_name = f"Signed-{stem}.ipa"
 
-    client = _make_client()
+    client = _open_client(caCertPem, tlsCertSha256)
     try:
         upstream = client.build_request("POST", url, content=file.file, headers=headers)
         response = client.send(upstream, stream=True)
@@ -456,10 +542,15 @@ def api_sign(
             response.close()
             client.close()
 
+    out_headers = {"Content-Disposition": f'attachment; filename="{quote(out_name)}"'}
+    signed_meta = response.headers.get("X-VexSign-Signed-App", "").replace("\r", "").replace("\n", "").strip()
+    if signed_meta:
+        out_headers["X-VexSign-Signed-App"] = signed_meta
+
     return StreamingResponse(
         chunks(),
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{quote(out_name)}"'},
+        headers=out_headers,
     )
 
 
@@ -476,12 +567,19 @@ const log = (text, kind) => {
   line.textContent = text;
   $('log').prepend(line);
 };
-const target = () => ({
-  baseURL: $('base').value.trim(),
-  username: $('user').value.trim(),
-  password: $('pass').value,
-  token: $('token').value
-});
+const target = () => {
+  const payload = {
+    baseURL: $('base').value.trim(),
+    username: $('user').value.trim(),
+    password: $('pass').value,
+    token: $('token').value
+  };
+  const certSha256 = $('cert-sha256').value.trim();
+  const caCertPem = $('ca-pem').value.trim();
+  if (certSha256) payload.tlsCertSha256 = certSha256;
+  if (caCertPem) payload.caCertPem = caCertPem;
+  return payload;
+};
 
 async function connect() {
   $('connect').disabled = true;
@@ -541,6 +639,10 @@ function signOne(job, index) {
     form.append('username', $('user').value.trim());
     form.append('password', $('pass').value);
     form.append('token', $('token').value);
+    const certSha256 = $('cert-sha256').value.trim();
+    const caCertPem = $('ca-pem').value.trim();
+    if (certSha256) form.append('tlsCertSha256', certSha256);
+    if (caCertPem) form.append('caCertPem', caCertPem);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/Tools/sign/sign');
@@ -633,6 +735,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 @router.get("/Tools/signer")
+@router.get("/tools/signer", include_in_schema=False)
 def signer_page(request: Request):
     body = """
   <div class="card">
@@ -640,15 +743,20 @@ def signer_page(request: Request):
     <div class="grid two">
       <div>
         <label>Web Manager address</label>
-        <input id="base" placeholder="http://192.168.1.20:8000" autocomplete="off">
+        <input id="base" placeholder="https://192.168.1.20:8080" autocomplete="off">
       </div>
       <div><label>Phone API token (optional, if the app has one set)</label><input id="token" type="password" autocomplete="off"></div>
       <div><label>Relay token (optional, if this server requires one)</label><input id="relay-token" type="password" autocomplete="off"></div>
+      <div><label>Phone TLS SHA-256 fingerprint (optional, for self-signed HTTPS)</label><input id="cert-sha256" placeholder="64-hex leaf certificate SHA-256" autocomplete="off"></div>
       <div><label>Basic-auth username (optional)</label><input id="user" autocomplete="off"></div>
       <div><label>Basic-auth password (optional)</label><input id="pass" type="password" autocomplete="off"></div>
     </div>
+    <div style="margin-top:0.6rem">
+      <label>Device CA PEM (optional, from <code>/ca.pem</code> on the phone)</label>
+      <textarea id="ca-pem" rows="2" placeholder="-----BEGIN CERTIFICATE----- ..." autocomplete="off"></textarea>
+    </div>
     <p class="muted">Start the Web Manager on the iPhone first
-      (<em>Settings → Web Manager</em>). The address is printed there.</p>
+      (<em>Settings → Web Manager</em>). On-device Web Manager serves HTTPS on port 8080; supply its leaf SHA-256 fingerprint or Device CA PEM unless the CA is already trusted by this host.</p>
     <div class="row">
       <button class="btn" id="connect">Connect</button>
       <span id="status" class="muted"></span>

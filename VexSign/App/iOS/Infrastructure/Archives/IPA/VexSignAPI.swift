@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import Security
+import NimbleJSON
 #if canImport(AltSourceKit)
 import AltSourceKit
 #endif
@@ -248,10 +249,19 @@ enum VexSignAPI {
 	}
 
 	static func authHeaders(for url: URL) -> [String: String] {
-		guard isPremiumSource(url), let uuid = deviceUUID else {
+		guard isPremiumSource(url) else {
 			return [:]
 		}
-		return ["vexSignUUID": uuid]
+		var headers: [String: String] = [:]
+		if let uuid = deviceUUID {
+			headers["vexSignUUID"] = uuid
+		}
+		#if canImport(AltSourceKit)
+		if !EsignSourceKey.customApiKey.isEmpty {
+			headers["X-API-Key"] = EsignSourceKey.customApiKey
+		}
+		#endif
+		return headers
 	}
 
 	/// Lets the server trim the payload instead of downloading the whole catalog first.
@@ -272,10 +282,12 @@ enum VexSignAPI {
 	}
 
 	static func applyAuthHeaders(to request: inout URLRequest) {
-		guard let url = request.url, isPremiumSource(url), let uuid = deviceUUID else {
+		guard let url = request.url, isPremiumSource(url) else {
 			return
 		}
-		request.setValue(uuid, forHTTPHeaderField: "vexSignUUID")
+		if let uuid = deviceUUID {
+			request.setValue(uuid, forHTTPHeaderField: "vexSignUUID")
+		}
 		#if canImport(AltSourceKit)
 		// Add the premium repository API key to IPA/manifest downloads from
 		// premium hosts (single source of truth: EsignSourceKey.customApiKey).
@@ -283,6 +295,26 @@ enum VexSignAPI {
 			request.setValue(EsignSourceKey.customApiKey, forHTTPHeaderField: "X-API-Key")
 		}
 		#endif
+	}
+
+	/// Redirect policy for VexSign API and premium requests: rejects HTTPS→HTTP
+	/// downgrades and strips sensitive headers (`Authorization`, `X-API-Key`,
+	/// `vexSignUUID`, cookies) on cross-origin redirects.
+	static func sanitizedRedirectRequest(from source: URL?, to request: URLRequest) -> URLRequest? {
+		NBFetchService.safeRedirectRequest(from: source, to: request)
+	}
+
+	/// Executes an API request on an ephemeral session whose redirect delegate
+	/// strips credentials on cross-origin redirects and refuses TLS downgrades.
+	static func performDataRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+		let configuration = URLSessionConfiguration.ephemeral
+		configuration.timeoutIntervalForRequest = request.timeoutInterval > 0 ? request.timeoutInterval : 60
+		configuration.httpCookieStorage = nil
+		configuration.urlCredentialStorage = nil
+		let delegate = _VexSignRedirectDelegate()
+		let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+		defer { session.finishTasksAndInvalidate() }
+		return try await session.data(for: request)
 	}
 
 	// MARK: - Excluded Sources
@@ -325,5 +357,17 @@ enum VexSignAPI {
 			return "\(message)\n\n\(contactSuffix)"
 		}
 		return message
+	}
+}
+
+private final class _VexSignRedirectDelegate: NSObject, URLSessionTaskDelegate {
+	func urlSession(
+		_ session: URLSession,
+		task: URLSessionTask,
+		willPerformHTTPRedirection response: HTTPURLResponse,
+		newRequest request: URLRequest,
+		completionHandler: @escaping @Sendable (URLRequest?) -> Void
+	) {
+		completionHandler(VexSignAPI.sanitizedRedirectRequest(from: response.url, to: request))
 	}
 }

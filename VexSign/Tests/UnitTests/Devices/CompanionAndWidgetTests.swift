@@ -504,7 +504,8 @@ final class CompanionAndWidgetTests: XCTestCase {
 		let localAddresses = [
 			"http://localhost:8080", "http://127.0.0.1:8080", "http://10.0.0.5:8080",
 			"http://172.16.4.2:8080", "http://172.31.255.254:8080", "http://192.168.1.20:8080",
-			"http://169.254.10.2:8080", "http://iphone.local:8080", "http://[fd00::1]:8080",
+			"http://169.254.10.2:8080", "http://100.100.100.100:8080", "http://iphone.tailnet.ts.net:8080",
+			"http://iphone.local:8080", "http://[fd00::1]:8080",
 			"http://[fe80::1]:8080"
 		]
 		for address in localAddresses {
@@ -517,7 +518,8 @@ final class CompanionAndWidgetTests: XCTestCase {
 
 		let publicAddresses = [
 			"http://example.com:8080", "http://8.8.8.8:8080", "http://172.15.0.1:8080",
-			"http://172.32.0.1:8080", "http://192.169.0.1:8080", "http://[2001:4860:4860::8888]:8080"
+			"http://172.32.0.1:8080", "http://192.169.0.1:8080", "http://100.63.0.1:8080",
+			"http://100.128.0.1:8080", "http://[2001:4860:4860::8888]:8080"
 		]
 		for address in publicAddresses {
 			XCTAssertThrowsError(try CompanionClient.transport(for: address, allowInsecureHTTP: true), address) {

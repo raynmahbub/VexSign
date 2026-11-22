@@ -1427,7 +1427,7 @@
           "bundleIdentifier": {
             "type": "string",
             "maxLength": 255,
-            "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"
+            "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)+$"
           },
           "version": {
             "type": "string",

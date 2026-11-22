@@ -344,6 +344,7 @@ def install_link(manifest_url: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/api/Tools/repo/validate")
+@router.post("/api/tools/repo/validate", include_in_schema=False)
 def api_validate(body: ValidateBody) -> dict:
     issues = validate_draft(body.draft)
     return {
@@ -355,6 +356,7 @@ def api_validate(body: ValidateBody) -> dict:
 
 
 @router.post("/api/Tools/repo/export")
+@router.post("/api/tools/repo/export", include_in_schema=False)
 def api_export(body: ExportBody) -> dict:
     exported = build_export(body.draft, body.format)
     issues = validate_draft(body.draft)
@@ -367,6 +369,7 @@ def api_export(body: ExportBody) -> dict:
 
 
 @router.post("/api/Tools/repo/ota")
+@router.post("/api/tools/repo/ota", include_in_schema=False)
 def api_ota(body: OTABody) -> dict:
     if not body.app.downloadURL.startswith("https://"):
         raise HTTPException(
@@ -393,6 +396,7 @@ def api_ota(body: OTABody) -> dict:
 
 
 @router.get("/Tools/repo-creator")
+@router.get("/tools/repo-creator", include_in_schema=False)
 def repo_creator_page(request: Request):
     body = """
   <div class="card">
