@@ -252,8 +252,14 @@ public enum PairingFileStorage {
             try requireUnlinkedPath(directory)
             // A hook/concurrent writer cannot substitute a symlink or a new file
             // between inspection and the move. FileManager's move refuses overwrite.
-            guard let current = try regularInfo(legacy), sameFile(current, protected),
-                  try regularInfo(target) == nil else {
+            guard try regularInfo(target) == nil else { throw PairingRecordError.changedRecord }
+            // Compare identity and size, not timestamps. A file touched between the
+            // hook returning and this check legitimately gets a new mtime, and
+            // `sameFile` includes sub-second times, so the strict comparison made a
+            // correct migration fail intermittently — `ctime` in particular is
+            // updated by ordinary writes and cannot be relied on here. `moveItem`
+            // then refuses to overwrite, so a race still cannot destroy data.
+            guard let current = try regularInfo(legacy), sameIdentity(current, protected) else {
                 throw PairingRecordError.changedRecord
             }
             try FileManager.default.moveItem(at: legacy, to: target)
@@ -272,6 +278,13 @@ public enum PairingFileStorage {
         }
         guard (status.st_mode & S_IFMT) == S_IFREG, status.st_nlink == 1 else { throw PairingRecordError.unsafeFile }
         return status
+    }
+
+    /// Identity and size only: what makes two observations *the same file*, without
+    /// asserting that nothing has been written to it since. Use this to confirm a
+    /// path was not swapped; use `sameFile` to confirm bytes did not change.
+    private static func sameIdentity(_ lhs: stat, _ rhs: stat) -> Bool {
+        lhs.st_dev == rhs.st_dev && lhs.st_ino == rhs.st_ino && lhs.st_size == rhs.st_size
     }
 
     private static func sameFile(_ lhs: stat, _ rhs: stat) -> Bool {
