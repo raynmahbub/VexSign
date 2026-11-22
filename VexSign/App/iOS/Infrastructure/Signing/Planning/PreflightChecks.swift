@@ -248,6 +248,7 @@ enum PreflightChecks {
 			NestedBundleAudit.removableExtensionIdentifiers(in: $0, removeAppExtensions: options.removeAppExtensions)
 		} ?? []
 
+		let additionalProfilePatterns = AdditionalProfiles.patterns(for: certificate)
 		let evaluation = ProfileCompatibility.evaluate(
 			profile: profile,
 			leafCertificateDER: certificate.appliedCertificateDER,
@@ -256,7 +257,7 @@ enum PreflightChecks {
 				options: options,
 				nestedBundleIdentifiers: nested,
 				removableExtensionIdentifiers: removableExtensions,
-				additionalProfilePatterns: AdditionalProfiles.patterns(for: certificate)
+				additionalProfilePatterns: additionalProfilePatterns
 			)
 		)
 
@@ -267,7 +268,8 @@ enum PreflightChecks {
 				severity: issue.isBlocking ? .blocking : .warning,
 				code: capabilityCode(for: issue.code),
 				status: capabilityStatus(for: issue.code),
-				remediation: remediation(for: issue.code)
+				remediation: remediation(for: issue.code,
+					alreadyHasExtensionProfiles: !additionalProfilePatterns.isEmpty)
 			))
 		}
 	}
@@ -317,7 +319,13 @@ enum PreflightChecks {
 		}
 	}
 
-	private static func remediation(for code: ProfileCompatibility.Issue.Code) -> String? {
+	/// Guidance for a finding. `alreadyHasExtensionProfiles` changes the wording of the
+	/// extension finding: once a certificate has extension profiles, "import a compatible
+	/// profile" is no longer the action that fixes it — the wrong pairing is.
+	private static func remediation(
+		for code: ProfileCompatibility.Issue.Code,
+		alreadyHasExtensionProfiles: Bool
+	) -> String? {
 		switch code {
 		case .profileMissing:
 			.localized("Import the .mobileprovision file that came with this certificate.")
@@ -326,7 +334,12 @@ enum PreflightChecks {
 		case .appIdentifierMismatch:
 			.localized("Choose a profile whose App ID covers this bundle identifier.")
 		case .extensionNotCovered:
-			.localized("Import a compatible profile for this extension. Compatibility mode may remove only explicitly reviewed optional extensions.")
+			// Name the feature that fixes this without dropping the extension: the certificate's
+			// own Extension Profiles list. Compatibility mode is offered second because it removes
+			// functionality rather than repairing coverage.
+			alreadyHasExtensionProfiles
+				? .localized("An extension profile is already saved for this certificate but does not cover this extension. Choose a profile whose App ID matches it, or remove the extension in compatibility mode. Saved extension profiles live under Settings → Certificates → this certificate → Extension Profiles.")
+				: .localized("Add a profile for this extension under Settings → Certificates → this certificate → Extension Profiles, where each nested bundle gets its own profile and keeps working. Compatibility mode is the alternative, but it removes the extension from the signed copy.")
 		case .entitlementNotGranted:
 			.localized("Import a profile that grants the required entitlement. Required capabilities are not silently removed.")
 		case .teamMismatch:

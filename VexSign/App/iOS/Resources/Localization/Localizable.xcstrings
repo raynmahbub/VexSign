@@ -112840,6 +112840,28 @@
           }
         }
       }
+    },
+    "Add a profile for this extension under Settings → Certificates → this certificate → Extension Profiles, where each nested bundle gets its own profile and keeps working. Compatibility mode is the alternative, but it removes the extension from the signed copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a profile for this extension under Settings → Certificates → this certificate → Extension Profiles, where each nested bundle gets its own profile and keeps working. Compatibility mode is the alternative, but it removes the extension from the signed copy."
+          }
+        }
+      }
+    },
+    "An extension profile is already saved for this certificate but does not cover this extension. Choose a profile whose App ID matches it, or remove the extension in compatibility mode. Saved extension profiles live under Settings → Certificates → this certificate → Extension Profiles." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An extension profile is already saved for this certificate but does not cover this extension. Choose a profile whose App ID matches it, or remove the extension in compatibility mode. Saved extension profiles live under Settings → Certificates → this certificate → Extension Profiles."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
