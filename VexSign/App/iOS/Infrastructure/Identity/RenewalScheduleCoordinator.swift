@@ -150,3 +150,32 @@ final class RenewalScheduleCoordinator: ObservableObject {
 		refreshedAt = nil
 	}
 }
+
+// MARK: - Renewability state
+
+/// Whether an Apple Account session exists to provision a renewal with.
+///
+/// A value-only flag, set by the account layer after it inspects the real session. It
+/// exists so presentation can ask "can this be renewed?" without naming
+/// `NativeSigningManager`, which the architecture ratchet forbids in `Presentation` — and
+/// so the answer has exactly one owner instead of each screen probing the session itself.
+///
+/// Defaults to `false`: an account nobody has signed into cannot provision anything, and
+/// guessing `true` would turn every row into a countdown that ends in an error.
+@MainActor
+final class RenewalRenewabilityState: ObservableObject {
+	static let shared = RenewalRenewabilityState()
+
+	@Published private(set) var isAccountSessionReady = false
+
+	private init() {}
+
+	/// Called by the account layer whenever the session state is known — after sign-in,
+	/// after sign-out, and on the background pass. Idempotent.
+	func setAccountSessionReady(_ ready: Bool) {
+		if isAccountSessionReady != ready { isAccountSessionReady = ready }
+	}
+
+	/// Test seam.
+	func reset() { setAccountSessionReady(false) }
+}

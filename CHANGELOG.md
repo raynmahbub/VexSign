@@ -23,9 +23,18 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   pass; the header's `expiring` count now comes from the planner instead of an
   inline seven-day check. Two sources (imported certificates, Apple Account
   profiles) share one coordinator keyed by source, so neither refresh erases
-  the other. Renewal is still not performed: `NativeRenewalCapability` reads
-  `SigningMethodCapabilities`, so credentials this build cannot renew report
-  `blocked` and the header states the limitation rather than counting down.
+  the other.
+- Corrected the renewability source. Renewal was derived from
+  `SigningMethodCapabilities.nativeAppleAccountSigning`, which is held
+  `.notIntegrated`, so every free-account certificate was reported as
+  "Cannot renew here" — wrong, and the most alarming status the screen could
+  show. Renewal is a different question from in-process CMS signing: an
+  imported pair is renewed by provisioning and re-importing fresh material,
+  which the account hand-off (`exportToCertificateStore`) already does.
+  Renewability now follows the signed-in session via `Renewability`;
+  `NativeRenewalSeamTests` pins the separation and keeps the promotion gate
+  closed. Promoting the native capability needs committed genuine-Apple-profile
+  and device-ladder evidence (`check-native-handoff.py`), not a source edit.
 - A populated feature-oriented iOS source tree under one main `VexSign/` root,
   with App, Presentation, Application, Domain, Infrastructure, Platform, Security
   and Resources owners. The [migration record](VexSign/Documentation/Architecture/feature-layout-migration.md),

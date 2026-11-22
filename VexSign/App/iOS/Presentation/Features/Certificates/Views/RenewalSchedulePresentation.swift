@@ -28,9 +28,8 @@ enum RenewalSchedulePresentation {
 	/// origin, and guessing "this is a free Apple Account profile" from a seven-day window
 	/// would be exactly the kind of inference that puts a wrong deadline on screen.
 	static func credentials(from records: [CertificateRecord]) -> [SigningCredential] {
-		let renewable = NativeRenewalCapability.isAvailable
-		return records.map {
-			SigningCredential(record: $0, canRenewOnDevice: renewable)
+		records.map {
+			SigningCredential(record: $0, canRenewOnDevice: Renewability.importedPair)
 		}
 	}
 
@@ -58,7 +57,7 @@ enum RenewalSchedulePresentation {
 	static func pill(for record: CertificateRecord, now: Date = Date()) -> NBPillItem? {
 		let credential = SigningCredential(
 			record: record,
-			canRenewOnDevice: NativeRenewalCapability.isAvailable
+			canRenewOnDevice: Renewability.importedPair
 		)
 		let plan = RenewalPlanner.plan(for: credential, now: now)
 		guard plan.status != .notDue else { return nil }
@@ -83,22 +82,39 @@ enum RenewalSchedulePresentation {
 	/// A single credential's plan for a detail screen.
 	static func plan(for record: CertificateRecord, now: Date = Date()) -> RenewalPlan {
 		RenewalPlanner.plan(
-			for: SigningCredential(record: record, canRenewOnDevice: NativeRenewalCapability.isAvailable),
+			for: SigningCredential(record: record, canRenewOnDevice: Renewability.importedPair),
 			now: now
 		)
 	}
 }
 
-// MARK: - Capability
+// MARK: - Renewability
 
-/// Whether this build can renew a credential by itself.
+/// Whether renewed signing material can be obtained on this device.
 ///
-/// Reads `SigningMethodCapabilities` rather than a preference, because turning this on is
-/// not a user choice — it requires a native account adapter to be wired into provisioning.
-/// When that happens, the capability flips in one place and every renewal status in the app
-/// changes with it.
-enum NativeRenewalCapability {
-	static var isAvailable: Bool {
-		SigningMethodCapabilities.current.nativeAppleAccountSigning == .implemented
-	}
+/// Deliberately **not** `SigningMethodCapabilities.nativeAppleAccountSigning`. That flag
+/// answers a different question — whether this build signs an in-process CMS signature
+/// against the Apple account — and it is held closed by a device-evidence gate, not by the
+/// state of any code. Renewal is not that: a certificate imported from a free account is an
+/// ordinary `CertificatePair`, and renewing it means provisioning a fresh profile and
+/// re-importing the pair, which the account flow already does.
+///
+/// Conflating the two is what made the first version of this screen report `Cannot renew
+/// here` for every free-account certificate, which was both wrong and the most alarming
+/// thing the UI could say.
+enum Renewability {
+	/// Re-signing with fresh material the user supplies is always available; an imported
+	/// `.p12` + profile pair is the ordinary path and needs no account session.
+	static let importedPair = true
+
+	/// A free-account profile can only be renewed while a signed-in session exists to
+	/// provision with. Without one there is nothing to ask Apple for, and the status is
+	/// `blocked` rather than a countdown that cannot be acted on.
+	///
+	/// The session state is published as a plain, value-only flag rather than reached for
+	/// here: `NativeSigningManager` is a consumed engine owner that presentation must not
+	/// name (`presentation_consumed_engine_owners` in the architecture ratchet). Keeping the
+	/// dependency on the infrastructure side is why the account flow owns the refresh.
+	@MainActor
+	static var freeAccount: Bool { RenewalRenewabilityState.shared.isAccountSessionReady }
 }

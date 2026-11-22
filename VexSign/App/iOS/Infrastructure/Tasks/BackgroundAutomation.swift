@@ -346,7 +346,14 @@ enum BackgroundAutomation {
 	/// user grant. The UI reads `renewalCandidates` and tells the user to renew by hand.
 	private static func trackExpiringFreeAppleIDProfiles() async {
 		let manager = NativeSigningManager.shared
-		guard manager.isBackendReady else {
+		// Publish the session fact where presentation can read it without touching the
+		// account manager. Both branches set it: a stale `true` after sign-out would leave
+		// free-account rows reporting a renewal the app cannot perform.
+		let sessionReady = manager.isBackendReady
+		await MainActor.run {
+			RenewalRenewabilityState.shared.setAccountSessionReady(sessionReady)
+		}
+		guard sessionReady else {
 			// Signed out: the profiles are gone, so their plans must be too. Leaving them
 			// would keep warning about credentials that no longer exist.
 			await MainActor.run { RenewalScheduleCoordinator.shared.clear(source: .appleAccount) }
@@ -355,11 +362,15 @@ enum BackgroundAutomation {
 		await manager.refreshRenewalCandidates()
 
 		// Feed the profiles into the one renewal schedule rather than leaving them as a
-		// second, separate answer to the same question. `canRenewOnDevice` is read from the
-		// implementation, not assumed: while native Apple Account signing is not integrated
-		// these profiles report `blocked`, which is the honest status.
+		// second, separate answer to the same question.
+		//
+		// Renewability is a signed-in session, not `SigningMethodCapabilities`: a free-account
+		// profile is renewed by provisioning a new one through the portal, then re-signing
+		// with the fresh pair. That path does not depend on in-process CMS signing, and
+		// tying the two together made every free-account certificate look unrenewable.
+		// Reaching this point already required `isBackendReady`, so the session exists.
 		await MainActor.run {
-			let renewable = NativeRenewalCapability.isAvailable
+			let renewable = Renewability.freeAccount
 			let credentials = manager.renewalCandidates.map { profile in
 				SigningCredential(
 					id: "apple-\(profile.profileUUID.uuidString)",

@@ -150,8 +150,8 @@ Implemented without copying anything:
 | `Domain/Entities/SigningCredential.swift` | A credential as renewal sees it: kind, absolute dates, revocability, whether renewal is possible here. |
 | `Domain/Services/RenewalSchedule.swift` | `RenewalStatus`, `RenewalPlan`, `RenewalPlanner` — pure, Foundation-only, clock injected. |
 | `Domain/Entities/RenewalCredentialMapping.swift` | The one conversion from `CertificateRecord`/`WorkspaceSnapshot`. |
-| `Infrastructure/Identity/RenewalScheduleCoordinator.swift` | `@MainActor` cache, one slot per source, published once per real change. |
-| `Presentation/Features/Certificates/Views/RenewalSchedulePresentation.swift` | Row pill, header counts, and `NativeRenewalCapability`. |
+| `Infrastructure/Identity/RenewalScheduleCoordinator.swift` | `@MainActor` cache, one slot per source, published once per real change. Also `RenewalRenewabilityState`, the value-only session flag. |
+| `Presentation/Features/Certificates/Views/RenewalSchedulePresentation.swift` | Row pill, header counts, and `Renewability`. |
 | `Platform/Apple/Localization/RenewalScheduleLocalization.swift` | Wording, per the repo's localization convention. |
 | `Tests/UnitTests/Identity/RenewalScheduleTests.swift` | 23 tests, boundaries asserted from both sides. |
 
@@ -167,6 +167,25 @@ Implemented without copying anything:
 refreshed by different code at different times, so the coordinator keys plans by
 `RenewalPlanSource`. A whole-array replace would have made each refresh erase the other's
 deadlines — the test `testRefreshingOneSourceDoesNotEraseTheOther` pins that.
+
+### Renewal is not the same question as in-process native signing
+
+This distinction is the most important thing in this section, because getting it wrong
+produced a UI that told every free-account user "Cannot renew here".
+
+| Question | Answered by | State |
+| --- | --- | --- |
+| Does this build sign an in-process CMS signature against an Apple account? | `SigningMethodCapabilities.nativeAppleAccountSigning` | `.notIntegrated`, held by a device-evidence gate |
+| Can fresh signing material be obtained for this credential on this device? | `Renewability` (`importedPair`, `freeAccount`) | `importedPair` is always true; `freeAccount` follows the signed-in session |
+
+They are independent. An imported `.p12` + profile pair is renewed by provisioning and
+re-importing fresh material — which the account hand-off already does end to end
+(`NativeSigningManager.exportToCertificateStore` → `CertificateManagementService`, documented
+in [NATIVE_SIGNING_HANDOFF.md](../Security/NATIVE_SIGNING_HANDOFF.md)). None of that requires
+`nativeAppleAccountSigning` to be `.implemented`.
+
+`Renewability.importedPair` is a literal `true` rather than a computation precisely so it
+cannot drift back into the gated flag. `NativeRenewalSeamTests` fails if it does.
 
 Rules encoded (each is a test):
 
@@ -189,11 +208,20 @@ Ordered by user-visible value, not by upstream popularity.
 1. ~~Wire the schedule into UI and the background pass.~~ **Done** — see "Where it is wired".
    Remaining: `nextAction` is not yet acted on. Nothing in the app renews, because the
    renewal path it would call (`nativeAppleAccountSigning`) is still `.notIntegrated`.
-2. **Make the limitation explicit, or close it.** `NativeRenewalCapability` reads
-   `SigningMethodCapabilities`, so every renewal status currently reports `blocked` for
-   credentials this build cannot renew, and the header says so in words. Flipping that enum
-   to `.implemented` — once a native account adapter is wired — turns the countdown on
-   everywhere with no other change. That is the decision still outstanding.
+2. ~~Make the limitation explicit.~~ **Done, and corrected.** The first version derived
+   renewability from `SigningMethodCapabilities.nativeAppleAccountSigning`, which reports
+   `.notIntegrated`, so every free-account certificate was labelled `Cannot renew here`.
+   That was wrong: renewal does not depend on in-process CMS signing. Renewability now
+   follows the signed-in session (`Renewability.freeAccount`), and the gated capability is
+   left to `check-native-handoff.py` alone.
+
+   **Promoting `nativeAppleAccountSigning` to `.implemented` is not a code edit.**
+   `check-native-handoff.py` fails such a change unless
+   `VexSign/Documentation/DeviceTesting/evidence/native-signing-promotion.json` records a
+   genuine Apple-issued profile reaching the pinned production roots plus an eight-case
+   physical-device ladder. Both are human observations on real hardware and a real account;
+   they cannot be produced in this workspace and must not be fabricated. The hand-off seam
+   itself is already built and reachable from `ProvisioningFlowView`.
 3. **Credential kind is caller-supplied.** `CertificateRecord` has no origin field, so
    `SigningCredential(record:)` defaults to `.importedPair`. Adding an origin column would
    let the schedule size windows correctly for free-account identities instead of relying on

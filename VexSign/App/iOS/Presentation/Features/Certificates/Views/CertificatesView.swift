@@ -209,10 +209,11 @@ extension CertificatesView {
 				if revoked > 0 { _stat(.localized("%lld revoked", arguments: revoked), color: .red) }
 			}
 			// Said once, in plain words, instead of leaving a countdown the user cannot act
-			// on. Native Apple Account signing is not integrated in this build, so a free
-			// Account profile can be seen expiring but not renewed here.
-			if unrenewable > 0 && !NativeRenewalCapability.isAvailable {
-				Text(.localized("VexSign cannot renew these certificates for you. Replace the certificate or re-sign affected apps with one you import."))
+			// on. Imported pairs can always be renewed by re-importing fresh material; a
+			// free-account profile needs a signed-in session to provision with, and when
+			// one is missing the row status is `blocked` rather than a deadline.
+			if unrenewable > 0 {
+				Text(.localized("Some certificates cannot be renewed here. Replace the certificate, or sign in to a free Apple Account to provision a new profile."))
 					.font(.caption)
 					.foregroundStyle(.secondary)
 			}
