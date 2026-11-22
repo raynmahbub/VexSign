@@ -391,8 +391,8 @@ extension ProfileCompatibility.Target {
 				automaticallyRemoveUncoveredExtensions: options.autoRemoveUnsupportedExtensions,
 				removableExtensionIdentifiers: removableExtensionIdentifiers.map { Set($0.map(rewrite)) },
 				requestedEntitlements: requested,
-				teamIdentifier: ProfileCompatibility.teamIdentifier(in: requested)
+				teamIdentifier: ProfileCompatibility.teamIdentifier(in: requested),
+				additionalProfilePatterns: additionalProfilePatterns
 			)
-			self.additionalProfilePatterns = additionalProfilePatterns
 		}
 }
