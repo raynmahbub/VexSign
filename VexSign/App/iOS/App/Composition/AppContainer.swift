@@ -171,8 +171,8 @@ final class AppContainer: ObservableObject {
         let sharedBackups = SharedBackupInbox()
         let container = AppContainer(
             workspaceRepository: workspaceRepository,
-            sharedBackups: sharedBackups,
             libraryCloning: LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared),
+            sharedBackups: sharedBackups,
             fileWorkspace: FileWorkspaceAdapter(repository: workspaceRepository, sharing: sharing),
             tweakWorkspace: TweakWorkspaceAdapter(manager: TweakManager.shared, repository: workspaceRepository),
             entitlementsWorkspace: EntitlementsWorkspaceAdapter(manager: EntitlementsManager.shared),
