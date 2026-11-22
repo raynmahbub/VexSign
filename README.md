@@ -147,7 +147,7 @@ Available from **Settings → Ecosystem**.
 - **Siri & Shortcuts**: App Intents for signing a chosen app, installation, repository refresh, certificate checks, URL downloads, section navigation, Game Mode, Update All, cleanup and signing the latest download; library-summary actions expose status to automations. See **Settings → Siri & Shortcuts**.
 - **Widgets**: certificate/update status **and a configurable Repository Apps widget** (pick a repository, sort by name or updates-first, tap a row to open that app), plus **Live Activities** for supported signing/download workflows.
 - **Automatic post-install cleanup**, delete-after-install/cache settings, cleanup history, storage breakdown and cleanup previews. Batch-install behaviour still needs device acceptance.
-- **Encrypted `.vexbackup` backup and restore**.
+- **Encrypted `.vexbackup` backup and restore**, including opening a backup from Files, AirDrop, a share sheet or “Open in”. A handed-over file is only staged: you still enter its password and choose what comes back, so nothing restores on its own.
 - **Local analytics** with daily, weekly and monthly charts for recorded signing/install activity, certificate/source events and storage gauges.
 - **Console and signing logs** for troubleshooting, plus diagnostic ZIP export with secret-redaction filters. Review diagnostics before sharing.
 
@@ -234,6 +234,8 @@ For upstream changes and porting considerations, see the
 
 </details>
 
+Implementation backlog: [signer feature parity and device acceptance criteria](VexSign/Documentation/Features/SIGNER_PARITY.md).
+
 ## Download
 
 Download an IPA or add the VexSign source to a compatible signer:
@@ -241,6 +243,7 @@ Download an IPA or add the VexSign source to a compatible signer:
 [![Download IPA](VexSign/Documentation/Features/assets/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
 [![Add Source](VexSign/Documentation/Features/assets/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
 
+- **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can [generate a first-install site](VexSign/Documentation/Features/SIGNER_PARITY.md#safari-first-install-without-vexsign-already-installed).
 - **Stable:** the download button opens the latest stable release; choose its IPA asset.
 - **Nightly:** browse [all releases](https://github.com/raynmahbub/VexSign/releases) for dated pre-releases.
 - **Temporary CI build:** open [CI runs](https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml),
@@ -320,6 +323,7 @@ The source reorganization does not establish an Xcode build or device capability
 
 - **CI:** relevant PRs/main changes get portable policy checks, an unsigned build
   and simulator tests. Component workflows validate their own paths separately.
+- **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can [generate a first-install site](VexSign/Documentation/Features/SIGNER_PARITY.md#safari-first-install-without-vexsign-already-installed).
 - **Stable:** reviewed version bump, matching `v<MARKETING_VERSION>` tag or manual
   Release run, validation/build/tests, protected publishing and a stable-source update PR.
 - **Nightly:** daily **03:00 UTC**, immutable dated pre-release, build/tests and

@@ -33,7 +33,8 @@ enum ProfileCompatibility {
 			removableExtensionIdentifiers: Set<String>? = nil,
 			requestedEntitlements: [String: Any] = [:],
 			teamIdentifier: String? = nil,
-			deviceUDID: String? = nil
+			deviceUDID: String? = nil,
+			additionalProfilePatterns: [String] = []
 		) {
 			self.bundleIdentifier = bundleIdentifier
 			self.nestedBundleIdentifiers = nestedBundleIdentifiers
@@ -43,6 +44,7 @@ enum ProfileCompatibility {
 			self.requestedEntitlements = requestedEntitlements
 			self.teamIdentifier = teamIdentifier
 			self.deviceUDID = deviceUDID
+			self.additionalProfilePatterns = additionalProfilePatterns
 		}
 
 

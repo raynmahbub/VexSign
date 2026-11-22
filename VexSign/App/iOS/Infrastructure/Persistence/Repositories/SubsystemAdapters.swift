@@ -76,7 +76,9 @@ final class CoreDataWorkspaceResetAdapter: WorkspaceResetting {
 
 @MainActor
 final class FileSystemDownloadedFilesAdapter: DownloadedFilesManaging {
-    private static let supportedExtensions: Set<String> = ["ipa", "zip", "deb"]
+    /// `.tipa` belongs here: it is an `.ipa` renamed for AirDrop, and a package
+    /// staged by the download flow is the one the user wants to import next.
+    private static let supportedExtensions: Set<String> = ["ipa", "tipa", "zip", "deb"]
 
     func listStagedPackages() -> [DownloadedFileItem] {
         let staging = FileManager.default.downloadStaging

@@ -45,6 +45,70 @@ struct SignAppIntent: AppIntent {
 	}
 }
 
+/// An explicit foreground reinstall request, not Apple account/profile renewal.
+@available(iOS 17.0, *)
+struct RepeatInstallIntent: AppIntent {
+	static var title: LocalizedStringResource = "Re-sign and Queue Install"
+	static var description = IntentDescription("Re-signs a signed library copy using its saved certificate and opens the install queue. Does not extend the profile expiry.")
+	static var openAppWhenRun = true
+
+	@Parameter(title: "App", requestValueDialog: "Which signed app should VexSign reinstall?")
+	var app: VexSignAppEntity
+
+	@MainActor
+	func perform() async throws -> some IntentResult & ProvidesDialog {
+		guard let target = VexSignAppQuery.app(for: app.uuid) else {
+			return .result(dialog: IntentDialog(stringLiteral: .localized("That app is no longer in your library.")))
+		}
+		if AppLockManager.shared.isAppLocked(app.uuid), !AppLockManager.shared.isSessionUnlocked(app.uuid) {
+			return .result(dialog: IntentDialog(stringLiteral: .localized("Unlock this library app in VexSign first.")))
+		}
+		_ = try await AutoSignManager.shared.sign(target, repeatInstall: true).get()
+		return .result(dialog: IntentDialog(stringLiteral: .localized("Re-signed and queued for installation. Check the install result in VexSign.")))
+	}
+}
+
+/// Home Screen shortcuts may open a recovery record, never perform its actions.
+@available(iOS 17.0, *)
+struct OpenFixtureSlotIntent: AppIntent {
+    static var title: LocalizedStringResource = "Open Fixture Slot Manager"
+    static var description = IntentDescription("Opens manual recovery for a signed marker fixture. Nothing is installed or removed.")
+    static var openAppWhenRun = true
+
+    @Parameter(title: "Saved fixture backup") var app: FixtureBackupEntity
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard !AppLockManager.shared.isLocked else {
+            return .result(dialog: IntentDialog(stringLiteral: .localized("Unlock VexSign before opening a backup.")))
+        }
+        guard let entry = try FixtureSlotStorage.load(app.id)?.recoveryEntry else {
+            return .result(dialog: IntentDialog(stringLiteral: .localized("This fixture backup is missing or has no saved lock identity. Open fixture recovery in Settings.")))
+        }
+        guard AppLockManager.shared.canOpenFixtureBackup(entry) else {
+            return .result(dialog: IntentDialog(stringLiteral: .localized("Reveal or unlock the protected backup in VexSign first.")))
+        }
+        TabSelectionObserver.shared.selectedTab = .settings
+        TabSelectionObserver.shared.fixtureSlotRequest = FixtureSlotRoute(copyID: entry.id, uuid: entry.uuid)
+        return .result(dialog: IntentDialog(stringLiteral: .localized("Opening fixture recovery review.")))
+    }
+}
+
+/// Navigation only. A Shortcut is not consent to modify the Apple account.
+@available(iOS 17.0, *)
+struct CellularRenewalReviewIntent: AppIntent {
+    static var title: LocalizedStringResource = "Review Renewal over Cellular"
+    static var description = IntentDescription("Opens the foreground profile renewal review. Requires mobile data and your confirmation in VexSign.")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        TabSelectionObserver.shared.selectedTab = .settings
+        TabSelectionObserver.shared.cellularRenewalRequested = true
+        return .result()
+    }
+}
+
 // MARK: - Install an app
 
 @available(iOS 17.0, *)

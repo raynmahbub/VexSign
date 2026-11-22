@@ -124,8 +124,9 @@ Honest limits, in one place:
 - **Cert checker** never accepts a `.p12` or a password (the endpoint has no such
   field), never contacts Apple, and reports a certificate as *unknown* unless its
   fingerprint appears in `VexSign/Services/WebManager/Configuration/data/revoked_certs.json`. Parsing a profile is not
-  CMS signature verification. Install the optional `cryptography` package to also
-  parse public `.cer`/`.pem` certificates; without it you still get fingerprints.
+  CMS signature verification. `cryptography` is a declared requirement, so public
+  `.cer`/`.pem` certificates are parsed in full; you still get fingerprints if that
+  import is somehow broken.
 - **UDID grabber** sessions live in process memory for 15 minutes, are capped at
   200, and are never written to disk. The generated profile is unsigned, so iOS
   says so — sign it with your own certificate to remove the warning. Anyone holding
@@ -147,7 +148,7 @@ Run the component tests from the repository root:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest cryptography
+pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest
 make test-server
 ```
 

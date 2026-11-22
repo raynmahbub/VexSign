@@ -14,6 +14,10 @@ final class AppleAccountWorkspaceBoundaryTests: XCTestCase {
         var pending: CheckedContinuation<AppleAccountProvisioningReceipt, Error>?
         func state() -> AppleAccountState { AppleAccountState() }
         func changes() -> AsyncStream<AppleAccountState> { AsyncStream { $0.finish() } }
+        var selectedSlots: [Int] = []
+        var resumes = 0
+        func selectSlot(_ slot: Int) async throws { selectedSlots.append(slot) }
+        func revalidate() async throws -> AppleAccountOperation { resumes += 1; return AppleAccountOperation(id: UUID()) }
         func synchronizeProvider() async {}
         func refreshSnapshot() async {}
         func refreshRenewalCandidates() async {}
@@ -72,6 +76,16 @@ final class AppleAccountWorkspaceBoundaryTests: XCTestCase {
         XCTAssertEqual(provider.checkCount, 1)
     }
 
+    func testSlotSelectionDoesNotImplicitlyResume() async throws {
+        let provider = Provider(), slot = 4
+        let useCase = AppleAccountWorkspaceUseCase(provider: provider)
+        try await useCase.selectSlot(slot)
+        XCTAssertEqual(provider.selectedSlots, [slot])
+        XCTAssertEqual(provider.resumes, 0)
+        _ = try await useCase.revalidate()
+        XCTAssertEqual(provider.resumes, 1)
+    }
+
     func testProvisioningAndKeyExportCannotOverlap() async throws {
         let provider = Provider()
         let started = expectation(description: "provisioning owns workflow")
@@ -86,6 +100,9 @@ final class AppleAccountWorkspaceBoundaryTests: XCTestCase {
         do { _ = try await useCase.importCertificate(receipt, consentGiven: true); XCTFail("Concurrent key export") }
         catch { XCTAssertEqual(error as? ArchitectureDomainError, .duplicateOrBusyOperation) }
         XCTAssertTrue(provider.imported.isEmpty)
+        do { try await useCase.selectSlot(2); XCTFail("Concurrent slot switch") }
+        catch { XCTAssertEqual(error as? ArchitectureDomainError, .duplicateOrBusyOperation) }
+        XCTAssertTrue(provider.selectedSlots.isEmpty)
         provider.complete()
         _ = try await operation.value
         do { _ = try await useCase.importCertificate(receipt, consentGiven: false); XCTFail("Provisioning approval is not key export consent") }

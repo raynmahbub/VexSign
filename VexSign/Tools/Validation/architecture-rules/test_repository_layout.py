@@ -173,8 +173,17 @@ class FeatureRepositoryLayoutTests(unittest.TestCase):
                          "Packages/NativeSigning/development-certificate-review.json",
                          "Documentation/Research/upstream-review-inventory.json"):
             entry = entries[original]
-            self.assertEqual(hashlib.sha256((ROOT / entry["new"]).read_bytes()).hexdigest(),
-                             entry["sha256Before"], original)
+            data = (ROOT / entry["new"]).read_bytes()
+            if original.endswith("/inputs.lock.json"):
+                # These local overlays evolve independently of the pinned upstream
+                # review. Verify their live hashes, then compare all other bytes
+                # with the historical migration snapshot.
+                for overlay in ("VexSignRegistration.swift", "VexSignProfiles.swift"):
+                    source = entries[f"Packages/NativeSigning/patches/{overlay}"]
+                    digest = hashlib.sha256((ROOT / source["new"]).read_bytes()).hexdigest().encode()
+                    self.assertIn(digest, data)
+                    data = data.replace(digest, source["sha256Before"].encode())
+            self.assertEqual(hashlib.sha256(data).hexdigest(), entry["sha256Before"], original)
 
     def test_original_binary_resources_are_byte_identical(self):
         for entry in json.loads(MAP.read_text())["fileMappings"]:

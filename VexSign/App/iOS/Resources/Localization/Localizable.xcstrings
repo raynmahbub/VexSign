@@ -112411,6 +112411,842 @@
           }
         }
       }
+    },
+    "Profile expires" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile expires"
+          }
+        }
+      }
+    },
+    "Choose a signed library copy with an unchanged bundle ID and a saved, current certificate. Review its signing settings in VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a signed library copy with an unchanged bundle ID and a saved, current certificate. Review its signing settings in VexSign."
+          }
+        }
+      }
+    },
+    "Re-sign a signed library copy with its saved certificate and queue the result. Does not renew provisioning." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-sign a signed library copy with its saved certificate and queue the result. Does not renew provisioning."
+          }
+        }
+      }
+    },
+    "Re-sign and Queue Install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-sign and Queue Install"
+          }
+        }
+      }
+    },
+    "Re-signed and queued for installation. Check the install result in VexSign." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-signed and queued for installation. Check the install result in VexSign."
+          }
+        }
+      }
+    },
+    "Unlock this library app in VexSign first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock this library app in VexSign first."
+          }
+        }
+      }
+    },
+    "Apple did not return a later-expiring profile. No signing identity was imported and no install was queued." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple did not return a later-expiring profile. No signing identity was imported and no install was queued."
+          }
+        }
+      }
+    },
+    "Checks the embedded profile before provisioning. If Apple returns the same expiry, the flow stops before key export or signing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks the embedded profile before provisioning. If Apple returns the same expiry, the flow stops before key export or signing."
+          }
+        }
+      }
+    },
+    "Require a later expiry than this signed library copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require a later expiry than this signed library copy"
+          }
+        }
+      }
+    },
+    "The library copy needs a verified embedded development profile for this team, app and device. Nothing was renewed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library copy needs a verified embedded development profile for this team, app and device. Nothing was renewed."
+          }
+        }
+      }
+    },
+    "Changes the profile on Apple’s portal. Requires the original native account receipt. An uncertain request is not automatically repeated." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes the profile on Apple’s portal. Requires the original native account receipt. An uncertain request is not automatically repeated."
+          }
+        }
+      }
+    },
+    "Request one regeneration of this app’s existing Apple profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request one regeneration of this app’s existing Apple profile"
+          }
+        }
+      }
+    },
+    "Mobile data path available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mobile data path available"
+          }
+        }
+      }
+    },
+    "Opens a foreground renewal review for a signed library app. Does not change Wi-Fi or VPN settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens a foreground renewal review for a signed library app. Does not change Wi-Fi or VPN settings."
+          }
+        }
+      }
+    },
+    "Renewal requires a signed app, mobile data and explicit confirmation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewal requires a signed app, mobile data and explicit confirmation."
+          }
+        }
+      }
+    },
+    "Review Renewal over Cellular" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Renewal over Cellular"
+          }
+        }
+      }
+    },
+    "Sign in under Settings → Signing Methods before starting renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in under Settings → Signing Methods before starting renewal."
+          }
+        }
+      }
+    },
+    "Turn off Wi-Fi and enable mobile data. This checks the default route before submission; it does not reset a VPN or verify installation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off Wi-Fi and enable mobile data. This checks the default route before submission; it does not reset a VPN or verify installation."
+          }
+        }
+      }
+    },
+    "Waiting for a mobile data path" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a mobile data path"
+          }
+        }
+      }
+    },
+    "Open Fixture Slot Manager" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Fixture Slot Manager"
+          }
+        }
+      }
+    },
+    "Open recovery for one signed test fixture. Add this action to the Home Screen in Shortcuts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open recovery for one signed test fixture. Add this action to the Home Screen in Shortcuts."
+          }
+        }
+      }
+    },
+    "Opening fixture recovery review." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening fixture recovery review."
+          }
+        }
+      }
+    },
+    "Select a retained, signed marker fixture." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a retained, signed marker fixture."
+          }
+        }
+      }
+    },
+    "The selected fixture is unavailable or locked." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected fixture is unavailable or locked."
+          }
+        }
+      }
+    },
+    "Reveal or unlock the protected backup in VexSign first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveal or unlock the protected backup in VexSign first."
+          }
+        }
+      }
+    },
+    "Saved fixture backup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved fixture backup"
+          }
+        }
+      }
+    },
+    "This fixture backup is missing or has no saved lock identity. Open fixture recovery in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This fixture backup is missing or has no saved lock identity. Open fixture recovery in Settings."
+          }
+        }
+      }
+    },
+    "Unlock VexSign before opening a backup." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock VexSign before opening a backup."
+          }
+        }
+      }
+    },
+    "The Apple account session changed. Select the app and review permissions again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Apple account session changed. Select the app and review permissions again."
+          }
+        }
+      }
+    },
+    "Contact the configured Anisette provider and Apple to resume this slot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact the configured Anisette provider and Apple to resume this slot"
+          }
+        }
+      }
+    },
+    "Saved account slot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved account slot"
+          }
+        }
+      }
+    },
+    "Backup ready to restore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup ready to restore"
+          }
+        }
+      }
+    },
+    "Discard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        }
+      }
+    },
+    "Discarding only forgets this offer. The staged copy is removed from the app's temporary files." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discarding only forgets this offer. The staged copy is removed from the app's temporary files."
+          }
+        }
+      }
+    },
+    "Open in Backups" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Backups"
+          }
+        }
+      }
+    },
+    "Received" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received"
+          }
+        }
+      }
+    },
+    "Restore Backup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Backup"
+          }
+        }
+      }
+    },
+    "Restore Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Failed"
+          }
+        }
+      }
+    },
+    "This file was handed to VexSign from outside the app. Opening it here does not restore anything yet: you will be asked for its password, then choose exactly what comes back. Backups made without a password are encrypted for the device that created them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file was handed to VexSign from outside the app. Opening it here does not restore anything yet: you will be asked for its password, then choose exactly what comes back. Backups made without a password are encrypted for the device that created them."
+          }
+        }
+      }
+    },
+    "Add a profile for this extension under Settings → Certificates → this certificate → Extension Profiles, where each nested bundle gets its own profile and keeps working. Compatibility mode is the alternative, but it removes the extension from the signed copy." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a profile for this extension under Settings → Certificates → this certificate → Extension Profiles, where each nested bundle gets its own profile and keeps working. Compatibility mode is the alternative, but it removes the extension from the signed copy."
+          }
+        }
+      }
+    },
+    "An extension profile is already saved for this certificate but does not cover this extension. Choose a profile whose App ID matches it, or remove the extension in compatibility mode. Saved extension profiles live under Settings → Certificates → this certificate → Extension Profiles." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An extension profile is already saved for this certificate but does not cover this extension. Choose a profile whose App ID matches it, or remove the extension in compatibility mode. Saved extension profiles live under Settings → Certificates → this certificate → Extension Profiles."
+          }
+        }
+      }
+    },
+    "Choose the .mobileprovision profile that was issued with this certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .mobileprovision profile that was issued with this certificate."
+          }
+        }
+      }
+    },
+    "Choose the .p12 certificate first. It can be selected together with its profile as a .zip or folder." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .p12 certificate first. It can be selected together with its profile as a .zip or folder."
+          }
+        }
+      }
+    },
+    "Choose the .p12, or a .zip / folder that contains the .p12 together with its .mobileprovision profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .p12, or a .zip / folder that contains the .p12 together with its .mobileprovision profile."
+          }
+        }
+      }
+    },
+    "Import Certificate Bundle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Certificate Bundle"
+          }
+        }
+      }
+    },
+    "No .mobileprovision profile was found. A .p12 needs the profile that was issued with it; add both to the same .zip or folder and choose that." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No .mobileprovision profile was found. A .p12 needs the profile that was issued with it; add both to the same .zip or folder and choose that."
+          }
+        }
+      }
+    },
+    "No .p12 certificate was found. Choose the .p12 file, or a .zip that contains it together with its .mobileprovision profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No .p12 certificate was found. Choose the .p12 file, or a .zip that contains it together with its .mobileprovision profile."
+          }
+        }
+      }
+    },
+    "The certificate and provisioning profile could not be paired. Import the .p12 and the profile that Apple issued for the same certificate, together with the .p12 password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate and provisioning profile could not be paired. Import the .p12 and the profile that Apple issued for the same certificate, together with the .p12 password."
+          }
+        }
+      }
+    },
+    "The certificate in this .p12 is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate in this .p12 is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate."
+          }
+        }
+      }
+    },
+    "The certificate “%@” is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate “%@” is not one of the certificates in the provisioning profile “%@”. Import the .p12 and the profile that Apple issued for the same certificate."
+          }
+        }
+      }
+    },
+    "The private key in the .p12 does not match the certificate “%@”. Export the identity again from Keychain Access and include both the certificate and its private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The private key in the .p12 does not match the certificate “%@”. Export the identity again from Keychain Access and include both the certificate and its private key."
+          }
+        }
+      }
+    },
+    "The private key in this .p12 does not match its certificate. Export the identity again from Keychain Access and include both the certificate and its private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The private key in this .p12 does not match its certificate. Export the identity again from Keychain Access and include both the certificate and its private key."
+          }
+        }
+      }
+    },
+    "The provisioning profile “%@” expired on %@. Import a current profile; the certificate can keep its existing private key." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile “%@” expired on %@. Import a current profile; the certificate can keep its existing private key."
+          }
+        }
+      }
+    },
+    "The selected .p12 file is empty. Choose the certificate file that was exported from Apple Developer, together with its password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected .p12 file is empty. Choose the certificate file that was exported from Apple Developer, together with its password."
+          }
+        }
+      }
+    },
+    "The selected file could not be read. Choose the certificate file again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected file could not be read. Choose the certificate file again."
+          }
+        }
+      }
+    },
+    "The selection contains more than one .mobileprovision. Choose a container that holds exactly one certificate and one profile, or import each file separately." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selection contains more than one .mobileprovision. Choose a container that holds exactly one certificate and one profile, or import each file separately."
+          }
+        }
+      }
+    },
+    "The selection contains more than one .p12. Choose a container that holds exactly one certificate and one profile, or import each file separately." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selection contains more than one .p12. Choose a container that holds exactly one certificate and one profile, or import each file separately."
+          }
+        }
+      }
+    },
+    "The selection contains too many files. Import a .zip or folder that holds one certificate and one profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selection contains too many files. Import a .zip or folder that holds one certificate and one profile."
+          }
+        }
+      }
+    },
+    "This archive could not be opened. It may be damaged, or protected with a password." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This archive could not be opened. It may be damaged, or protected with a password."
+          }
+        }
+      }
+    },
+    "This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside."
+          }
+        }
+      }
+    },
+    "This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded."
+          }
+        }
+      }
+    },
+    "This provisioning profile does not name any signing certificate, so it cannot be paired with a .p12. Create a new profile in the Apple Developer portal and import it together with its certificate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This provisioning profile does not name any signing certificate, so it cannot be paired with a .p12. Create a new profile in the Apple Developer portal and import it together with its certificate."
+          }
+        }
+      }
+    },
+    "%lld signed apps need re-signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld signed apps need re-signing"
+          }
+        }
+      }
+    },
+    "Cannot renew here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot renew here"
+          }
+        }
+      }
+    },
+    "Expires today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expires today"
+          }
+        }
+      }
+    },
+    "Expiry unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiry unknown"
+          }
+        }
+      }
+    },
+    "No expiry date could be read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No expiry date could be read"
+          }
+        }
+      }
+    },
+    "No usable expiry date could be read for this profile, so no renewal can be scheduled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No usable expiry date could be read for this profile, so no renewal can be scheduled."
+          }
+        }
+      }
+    },
+    "Renew now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renew now"
+          }
+        }
+      }
+    },
+    "Renewal due" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewal due"
+          }
+        }
+      }
+    },
+    "Scheduled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled"
+          }
+        }
+      }
+    },
+    "The signing profile expires very soon. Apps signed with it stop opening once it lapses." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing profile expires very soon. Apps signed with it stop opening once it lapses."
+          }
+        }
+      }
+    },
+    "The signing profile has expired. Apps signed with it no longer open, but their data is still on the device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing profile has expired. Apps signed with it no longer open, but their data is still on the device."
+          }
+        }
+      }
+    },
+    "The signing profile is inside its renewal window. Re-signing now replaces it while the current one still works." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signing profile is inside its renewal window. Re-signing now replaces it while the current one still works."
+          }
+        }
+      }
+    },
+    "This credential cannot be renewed on this device. Revoked identities and cloud-held keys need new signing material rather than a renewal." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This credential cannot be renewed on this device. Revoked identities and cloud-held keys need new signing material rather than a renewal."
+          }
+        }
+      }
+    },
+    "This signing profile is still valid. Re-sign before it expires so the app keeps opening." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This signing profile is still valid. Re-sign before it expires so the app keeps opening."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

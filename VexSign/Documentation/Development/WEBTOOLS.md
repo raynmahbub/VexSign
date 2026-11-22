@@ -143,9 +143,11 @@ Hard limits, by design:
 - **Parsing is not verification.** The plist is read out of the signed blob; that
   says nothing about who signed it.
 - **Public certificates** (`.cer`/`.pem`) get subject, issuer, validity, CA flag
-  and fingerprints when the optional `cryptography` package is installed, and
-  fingerprints alone when it is not. It is not in `requirements.txt` on purpose —
-  the profile path, which is the common case, is pure stdlib.
+  and fingerprints. `cryptography` is a declared dependency in
+  `Configuration/requirements.txt`, so that is the normal path; the import is guarded
+  only so a broken install degrades to fingerprints and says what is wrong instead of
+  failing the request. The profile path, which is the common case, is pure stdlib
+  either way.
 
 ## 6. UDID grabber
 

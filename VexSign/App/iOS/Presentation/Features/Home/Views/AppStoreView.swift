@@ -226,41 +226,32 @@ struct AppStoreView: View {
         let sortOption = appSortOption
 
         let worker = Task.detached(priority: .userInitiated) {
-            let categoryFiltered = items.filter { item in
-                guard category != "all" else { return true }
-                let appCategory = (item.app.category ?? "").lowercased()
-                let name = item.app.currentName.lowercased()
-                let description = (item.app.currentDescription ?? "").lowercased()
-                switch category {
-                case "utilities":
-                    return appCategory.contains("util") || appCategory.contains("tool") || name.contains("tool") || description.contains("util") || description.contains("manage")
-                case "emulators":
-                    return appCategory.contains("emu") || name.contains("emu") || description.contains("emulator") || description.contains("retro") || description.contains("gameboy") || description.contains("dolphin") || description.contains("utm")
-                case "tweaked":
-                    return name.contains("++") || name.contains("mod") || name.contains("pro") || name.contains("tweak") || description.contains("tweak") || description.contains("unlocked")
-                case "games":
-                    return appCategory.contains("game") || description.contains("game") || description.contains("play") || name.contains("game")
-                case "jailbreak":
-                    return appCategory.contains("jailbreak") || name.contains("troll") || description.contains("jailbreak") || description.contains("rootless") || description.contains("sileo")
-                default:
-                    return appCategory.contains(category) || name.contains(category)
-                }
-            }
-
-            let searched = query.isEmpty ? categoryFiltered : categoryFiltered.filter {
-                $0.app.currentName.localizedCaseInsensitiveContains(query) ||
-                ($0.app.currentDescription ?? "").localizedCaseInsensitiveContains(query) ||
-                $0.sourceName.localizedCaseInsensitiveContains(query)
-            }
-
+            // Cancellation is checked once, before the work, rather than between filtering and
+            // sorting. The generation guard after this task is what stops a stale result being
+            // published, so bailing early only avoids work nobody is left to read.
             guard !Task.isCancelled else { return [SourcedAppItem]() }
+            let matched = items.filter { item in
+                let inCategory = AppStoreView.matchesCategory(
+                    category,
+                    appCategory: item.app.category,
+                    name: item.app.currentName,
+                    appDescription: item.app.currentDescription
+                )
+                let inSearch = AppStoreView.matchesQuery(
+                    query,
+                    name: item.app.currentName,
+                    appDescription: item.app.currentDescription,
+                    sourceName: item.sourceName
+                )
+                return inCategory && inSearch
+            }
             switch sortOption {
             case .name:
-                return searched.sorted { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending }
+                return matched.sorted { $0.app.currentName.localizedCaseInsensitiveCompare($1.app.currentName) == .orderedAscending }
             case .date:
-                return searched.sorted { ($0.app.date?.date ?? Date.distantPast) > ($1.app.date?.date ?? Date.distantPast) }
+                return matched.sorted { ($0.app.date?.date ?? Date.distantPast) > ($1.app.date?.date ?? Date.distantPast) }
             case .size:
-                return searched.sorted { ($0.app.size ?? 0) > ($1.app.size ?? 0) }
+                return matched.sorted { ($0.app.size ?? 0) > ($1.app.size ?? 0) }
             }
         }
         let filtered = await withTaskCancellationHandler {
@@ -271,6 +262,54 @@ struct AppStoreView: View {
 
         guard !Task.isCancelled, generation == catalogFilterGeneration else { return }
         filteredCatalogItems = filtered
+    }
+
+    /// Pure half of the catalog filter: the category keyword heuristics.
+    ///
+    /// Extracted from `rebuildFilteredCatalog` so these keyword sets can be tested. They decide
+    /// what a user sees in each tab, and a typo in one of them silently empties a category rather
+    /// than failing anything. `nonisolated` because the caller runs inside `Task.detached`, and a
+    /// `View`'s members are main-actor isolated under Swift 6 concurrency.
+    nonisolated static func matchesCategory(
+        _ category: String,
+        appCategory: String?,
+        name: String,
+        appDescription: String?
+    ) -> Bool {
+        let selected = category.lowercased()
+        guard selected != "all" else { return true }
+        let appCategory = (appCategory ?? "").lowercased()
+        let name = name.lowercased()
+        let description = (appDescription ?? "").lowercased()
+        switch selected {
+        case "utilities":
+            return appCategory.contains("util") || appCategory.contains("tool") || name.contains("tool") || description.contains("util") || description.contains("manage")
+        case "emulators":
+            return appCategory.contains("emu") || name.contains("emu") || description.contains("emulator") || description.contains("retro") || description.contains("gameboy") || description.contains("dolphin") || description.contains("utm")
+        case "tweaked":
+            return name.contains("++") || name.contains("mod") || name.contains("pro") || name.contains("tweak") || description.contains("tweak") || description.contains("unlocked")
+        case "games":
+            return appCategory.contains("game") || description.contains("game") || description.contains("play") || name.contains("game")
+        case "jailbreak":
+            return appCategory.contains("jailbreak") || name.contains("troll") || description.contains("jailbreak") || description.contains("rootless") || description.contains("sileo")
+        default:
+            return appCategory.contains(selected) || name.contains(selected)
+        }
+    }
+
+    /// Pure search match over name, description and source name. An empty query matches
+    /// everything, which is what makes the search field optional instead of a filter that has to
+    /// be cleared before the list comes back.
+    nonisolated static func matchesQuery(
+        _ query: String,
+        name: String,
+        appDescription: String?,
+        sourceName: String
+    ) -> Bool {
+        guard !query.isEmpty else { return true }
+        return name.localizedCaseInsensitiveContains(query) ||
+            (appDescription ?? "").localizedCaseInsensitiveContains(query) ||
+            sourceName.localizedCaseInsensitiveContains(query)
     }
 
     var updateCount: Int { updateChecker.updateCount }

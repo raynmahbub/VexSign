@@ -97,7 +97,7 @@ class AnisetteOverlayTests(unittest.TestCase):
         marker = 'func refreshRenewalCandidates()'
         self.assertIn(marker, source, 'the read-only renewal refresh no longer exists under its honest name')
         renewal = source.split(marker, 1)[1].split('// MARK: - Backend Initialization', 1)[0]
-        self.assertIn('fetchActiveFreeAccountProfiles()', renewal)
+        self.assertIn('backend.listProfiles(contextID: scope.context)', renewal)
         self.assertNotIn('recordCertificateCreationApproval', renewal)
         self.assertNotIn('recordRegistrationApproval', renewal)
         self.assertNotIn('recordProfileCreationApproval', renewal)

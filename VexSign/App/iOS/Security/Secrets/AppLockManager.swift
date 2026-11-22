@@ -374,3 +374,12 @@ final class AppLockManager: ObservableObject {
 		isRevealingHiddenApps = false
 	}
 }
+
+extension AppLockManager {
+    func canOpenFixtureBackup(_ entry: FixtureRecoveryEntry) -> Bool {
+        return !isLocked && [entry.uuid, entry.activeUUID].compactMap { $0 }.allSatisfy { id in
+            (!hiddenAppUUIDs.contains(id) || isRevealingHiddenApps) &&
+            (!isAppLocked(id) || isSessionUnlocked(id))
+        }
+    }
+}

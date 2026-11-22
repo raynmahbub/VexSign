@@ -153,7 +153,7 @@ extension SourceAppsTableRepresentableView.Coordinator {
         }
 
         // MARK: - Sorting & Filtering (Main-Thread Entry Points)
-        
+
         func calculateSortedApps() -> [(source: ASRepository, app: ASRepository.App)] {
             let input = BuildSnapshotInput(
                 sources: sources,

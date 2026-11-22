@@ -89,6 +89,19 @@ final class CertificateWorkspaceAdapter: CertificateWorkspaceProviding {
         try await CertificateInspector.inspectAll(storage: storage, online: online)
     }
     func checkAll(online: Bool) async { await checker.checkAll(online: online) }
+    /// One selection: a `.p12`, a profile, or a folder/`.zip` with both. Resolution
+    /// happens in the existing service; this only forwards the resulting pair
+    /// through the same import path, so there is no second importer.
+    func importCertificateBundle(from url: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void) {
+        CertificateManagementService.importCertificateBundle(url, p12Password: password, certificateName: name) { result in
+            Task { @MainActor in
+                switch result {
+                case .success: completion(nil)
+                case .failure(let error): completion(error)
+                }
+            }
+        }
+    }
     func importCertificate(p12: URL, profile: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void) {
         CertificateManagementService.importCertificateFiles(p12URL: p12, provisionURL: profile, p12Password: password, certificateName: name) { error in
             Task { @MainActor in completion(error) }

@@ -7,6 +7,14 @@ final class AppleAccountWorkspaceUseCase {
     init(provider: AppleAccountWorkspaceProviding) { self.provider = provider }
     func state() -> AppleAccountState { provider.state() }
     func changes() -> AsyncStream<AppleAccountState> { provider.changes() }
+    func selectSlot(_ slot: Int) async throws {
+        guard !provisioning else { throw ArchitectureDomainError.duplicateOrBusyOperation }
+        try await provider.selectSlot(slot)
+    }
+    func revalidate() async throws -> AppleAccountOperation {
+        try Task.checkCancellation()
+        return try await provider.revalidate()
+    }
     func synchronizeProvider() async { await provider.synchronizeProvider() }
     func refreshSnapshot() async { await provider.refreshSnapshot() }
     func refreshRenewalCandidates() async { await provider.refreshRenewalCandidates() }

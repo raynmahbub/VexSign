@@ -147,6 +147,9 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/repository-validation/test_autopilot.py
 	@python3 VexSign/Tools/Release/test_release_assets.py
 	@python3 VexSign/Tools/Development/test_device_acceptance.py
+	@python3 VexSign/Tools/Development/RenewalFixture/test_observation.py
+	@python3 VexSign/Tools/Desktop/test_install.py
+	@python3 VexSign/Tools/Desktop/test_slot_export.py
 	@python3 VexSign/Tools/Validation/security-validation/test_native_promotion_evidence.py
 	@echo "== quick check (syntax-independent) =="
 	@python3 .github/scripts/quick_check.py --self-test
@@ -183,6 +186,10 @@ verify: docs-check
 	@python3 VexSign/Tools/Validation/repository-validation/test_swift6_build_regressions.py
 	@echo "== style configuration (editorconfig/swiftformat/swiftlint agree) =="
 	@python3 VexSign/Tools/Validation/repository-validation/test_style_config.py
+	@echo "== swift style drift gate (changed lines only) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py
+	@echo "== service runtimes (CI, images and blueprint agree) =="
+	@python3 VexSign/Tools/Validation/repository-validation/test_runtime_policy.py
 	@echo "== embedded-container packaging =="
 	@python3 -m unittest discover -s VexSign/Integrations/tests -v
 	@echo "== native-signing preparation =="

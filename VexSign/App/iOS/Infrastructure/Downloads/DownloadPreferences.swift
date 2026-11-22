@@ -12,6 +12,8 @@ import UIKit
 import NimbleExtensions
 
 enum DownloadPreferences {
+    /// Snapshot of the system default path; it does not describe a paired tunnel or force a route.
+    static var cellularPathAvailable: Bool { PathMonitor.shared.cellularPathAvailable }
     static let pathChanged = Notification.Name("VexSign.downloadPathChanged")
 	static let wifiOnlyKey = "VexSign.downloads.wifiOnly"
 	static let chargeOnlyKey = "VexSign.downloads.chargeOnly"
@@ -94,6 +96,11 @@ private final class PathMonitor {
 	private let queue = DispatchQueue(label: "vexsign.path")
     private let lock = NSLock()
     private var expensive = true // Unknown connectivity must not bypass Wi-Fi-only admission.
+    private var cellular = false
+    var cellularPathAvailable: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return cellular
+    }
     var isExpensive: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -105,6 +112,7 @@ private final class PathMonitor {
             guard let self else { return }
             let blocked = path.status != .satisfied || path.isExpensive || path.isConstrained || path.usesInterfaceType(.cellular)
             self.lock.lock()
+            self.cellular = path.status == .satisfied && path.usesInterfaceType(.cellular) && !path.usesInterfaceType(.wifi)
             self.expensive = blocked
             self.lock.unlock()
             DispatchQueue.main.async {

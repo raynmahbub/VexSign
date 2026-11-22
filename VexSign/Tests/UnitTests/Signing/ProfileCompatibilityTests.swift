@@ -360,6 +360,46 @@ final class ProfileCompatibilityTests: XCTestCase {
 			evaluation.issues.map { "\($0.code.rawValue)[\($0.severity)]" }.joined(separator: ", ")
 	}
 
+	// MARK: - Extension-profile guidance
+
+	/// The uncovered-extension finding must point at the feature that fixes it *without*
+	/// dropping the extension. Before extension profiles existed, compatibility mode (which
+	/// removes the extension) was the only advice, and users reported the regression as
+	/// "extensions used to sign" — the per-extension profile route is the real fix.
+	func testUncoveredExtensionIsCoveredOnceAnExtensionProfileMatches() {
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
+			target: ProfileCompatibility.Target(
+				bundleIdentifier: "com.example.app",
+				nestedBundleIdentifiers: ["com.example.app.widget"],
+				additionalProfilePatterns: ["TEAM12345.com.example.app.widget"]
+		)
+		)
+
+		XCTAssertFalse(
+			evaluation.issues.contains { $0.code == .extensionNotCovered },
+			"an extension profile for the nested App ID is exactly what makes it signable"
+		)
+		XCTAssertFalse(evaluation.hasBlocking, _describe(evaluation))
+	}
+
+	/// A saved profile for a *different* extension must not silence the finding.
+	func testExtensionProfileForAnotherBundleDoesNotCoverThisOne() {
+		let evaluation = ProfileCompatibility.evaluate(
+			profile: _profile(appIdentifier: "TEAM12345.com.example.app"),
+			target: ProfileCompatibility.Target(
+				bundleIdentifier: "com.example.app",
+				nestedBundleIdentifiers: ["com.example.app.widget"],
+				additionalProfilePatterns: ["TEAM12345.com.example.other.widget"]
+				)
+		)
+
+		XCTAssertTrue(
+			evaluation.blockingIssues.contains { $0.code == .extensionNotCovered },
+			"coverage is per identifier, not per certificate"
+		)
+	}
+
 	private func _target(
 		_ bundleIdentifier: String,
 		entitlements: [String: Any] = [:],

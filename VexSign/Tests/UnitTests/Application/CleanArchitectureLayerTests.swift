@@ -244,6 +244,22 @@ final class CleanArchitectureLayerTests: XCTestCase {
         let sharedTweak = DeepLinkCommand.parse(URL(string: "file:///tmp/tweak.dylib")!)
         XCTAssertEqual(sharedTweak, .importTweakFile(URL(string: "file:///tmp/tweak.dylib")!))
 
+        // A backup handed over from Files/AirDrop must reach the restore offer, not
+        // the tweak manager and not `.unsupported`.
+        let sharedBackup = DeepLinkCommand.parse(URL(string: "file:///tmp/VexSign-Backup.vexbackup")!)
+        XCTAssertEqual(sharedBackup, .openBackupFile(URL(string: "file:///tmp/VexSign-Backup.vexbackup")!))
+
+        // Extension matching is case-insensitive on the same path used by the document type.
+        let upperBackup = DeepLinkCommand.parse(URL(string: "file:///tmp/BACKUP.VEXBACKUP")!)
+        XCTAssertEqual(upperBackup, .openBackupFile(URL(string: "file:///tmp/BACKUP.VEXBACKUP")!))
+
+        // A file literally named `.vexbackup` has no extension in URL terms — the dot
+        // starts the name — so it is not a backup and never a workspace command. iOS
+        // cannot hand over a nameless file anyway; what matters is that this is
+        // decided, not that it crashes or resolves to some other route.
+        let unnamedBackup = DeepLinkCommand.parse(URL(string: "file:///.vexbackup")!)
+        XCTAssertEqual(unnamedBackup, .unsupported)
+
         let launchQuery = DeepLinkCommand.parse(URL(string: "vexsign://launch?bundleId=com.example.app")!)
         XCTAssertEqual(launchQuery, .launchApp(bundleIdentifier: "com.example.app"))
 

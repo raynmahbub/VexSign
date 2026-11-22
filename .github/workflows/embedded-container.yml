@@ -156,6 +156,15 @@ jobs:
             --log "$RUNNER_TEMP/native-signing-diagnostics.log" \
             --build-exit "${NATIVE_EXIT:-1}" --warnings-as-errors false \
             --title 'Native synthetic unit tests' --workspace "$GITHUB_WORKSPACE"
+      - name: SideSign vendored pure-helper tests
+        run: |
+          set -uo pipefail
+          # The vendored library's own test target. The app and the native-signing-smoke graph
+          # above link SideSign's library product but never compile a dependency's test target,
+          # so this is the only place SideSignTests is built and run. --force-resolved-versions
+          # builds against the pinned Package.resolved revisions, not the floating branch refs.
+          swift test --package-path VexSign/Packages/SideSign --force-resolved-versions 2>&1 \
+            | tee "$RUNNER_TEMP/sidesign-tests.log"
       - name: Build standalone VexSign native input
         id: native_input
         env:

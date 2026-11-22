@@ -118,15 +118,15 @@ extension ServerInstaller {
 				"assets": [
 					[
 						"kind": "software-package",
-						"url": payloadEndpoint.absoluteString,
+						"url": payloadEndpoint.absoluteString
 					],
 					[
 						"kind": "display-image",
-						"url": displayImageSmallEndpoint.absoluteString,
+						"url": displayImageSmallEndpoint.absoluteString
 					],
 					[
 						"kind": "full-size-image",
-						"url": displayImageLargeEndpoint.absoluteString,
+						"url": displayImageLargeEndpoint.absoluteString
 					],
 				],
 				"metadata": [
@@ -135,7 +135,7 @@ extension ServerInstaller {
 					"kind": "software",
 					"title": title,
 				],
-			]],
+			]]
 		]
 	}
 

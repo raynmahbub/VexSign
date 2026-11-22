@@ -30,6 +30,7 @@ struct SigningMethodsView: View {
     @State private var twoFactorCode = ""
     @State private var authenticationTask: Task<Void, Never>?
     @State private var isAuthenticating = false
+    @State private var switchingSlot = false
     @State private var authError: String?
 
     var body: some View {
@@ -208,7 +209,7 @@ struct SigningMethodsView: View {
             case .awaitingTeamSelection(let id, _, _) where id == operation.id:
                 pendingChallenge = nil
                 showTeamSelection = true
-            case .signedIn:
+            case .signedIn, .signedOut, .expired:
                 pendingChallenge = nil
                 pendingOperation = nil
                 showTeamSelection = false
@@ -277,6 +278,20 @@ struct SigningMethodsView: View {
 
     private var freeAppleIDContent: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Picker(.localized("Saved account slot"), selection: Binding(get: { nativeManager.state.selectedSlot }, set: { number in
+                guard !switchingSlot, number != nativeManager.state.selectedSlot else { return }
+                switchingSlot = true
+                appleID = ""; password = ""; twoFactorCode = ""; authError = nil
+                Task {
+                    defer { switchingSlot = false }
+                    do { try await nativeManager.selectSlot(number) }
+                    catch { authError = error.localizedDescription }
+                }
+            })) {
+                ForEach(1...5, id: \.self) { number in Text(verbatim: String(number)).tag(number) }
+            }
+            .disabled(authenticationTask != nil || pendingOperation != nil)
+            if let authError { Text(authError).font(.caption).foregroundStyle(.red) }
             if let snapshot = nativeManager.snapshot {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -342,13 +357,31 @@ struct SigningMethodsView: View {
                     .buttonStyle(.bordered)
                 }
             } else {
+                Button(.localized("Contact the configured Anisette provider and Apple to resume this slot")) {
+                    guard authenticationTask == nil else { return }
+                    authenticationTask = Task {
+                        await performAppleIDLogin(resuming: true)
+                        authenticationTask = nil
+                    }
+                }
+                .disabled(!nativeManager.isBackendReady || pendingOperation != nil || authenticationTask != nil)
+                if let operation = pendingOperation {
+                    Button(.localized("Cancel"), role: .cancel) {
+                        Task {
+                            await nativeManager.cancelAuthentication(operationID: operation.id)
+                            if pendingOperation?.id == operation.id {
+                                pendingOperation = nil; pendingChallenge = nil; twoFactorCode = ""
+                            }
+                        }
+                    }
+                }
                 Button {
                     showAppleIDLogin = true
                 } label: {
                     Label(.localized("Sign in with Apple ID"), systemImage: "person.crop.circle.badge.plus")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!nativeManager.isBackendReady)
+                .disabled(!nativeManager.isBackendReady || pendingOperation != nil || authenticationTask != nil)
 
                 if !nativeManager.isBackendReady {
                     Text(.localized("Native signing backend not initialized. Check diagnostics."))
@@ -362,6 +395,7 @@ struct SigningMethodsView: View {
             Text(.localized("Free Apple ID: 3 apps per 7 days with weekly profile refresh and limited entitlements. Selecting this method routes app installs to the embedded LiveContainer host; the combined runtime must be loaded. Account sign-in alone does not import or install a guest."))
                 .font(.caption).foregroundStyle(.secondary)
         }
+        .disabled(switchingSlot)
         .padding(.vertical, 8)
         .sheet(isPresented: $showProvisioningFlow) {
             ProvisioningFlowView()
@@ -418,23 +452,30 @@ struct SigningMethodsView: View {
         return teams
     }
 
-    private func performAppleIDLogin() async {
+    private func performAppleIDLogin(resuming: Bool = false) async {
         isAuthenticating = true
         authError = nil
         let credential = password
         password = ""
         defer { isAuthenticating = false }
         do {
-            let operation = try await nativeManager.authenticate(
-                appleID: appleID,
-                password: credential,
-                xcodeVersion: xcodeVersion
-            )
+            let operation: AppleAccountOperation
+            if resuming {
+                operation = try await nativeManager.revalidate()
+            } else {
+                operation = try await nativeManager.authenticate(appleID: appleID, password: credential, xcodeVersion: xcodeVersion)
+            }
+            if Task.isCancelled {
+                await nativeManager.cancelAuthentication(operationID: operation.id)
+                return
+            }
             pendingOperation = operation
             isAuthenticating = false
             showAppleIDLogin = false
 
-            if case .awaitingTwoFactor = nativeManager.snapshot?.phase {
+            if case .signedIn = nativeManager.snapshot?.phase {
+                pendingOperation = nil
+            } else if case .awaitingTwoFactor = nativeManager.snapshot?.phase {
                 showTeamSelection = false
             } else if case .awaitingTeamSelection = nativeManager.snapshot?.phase {
                 showTeamSelection = true

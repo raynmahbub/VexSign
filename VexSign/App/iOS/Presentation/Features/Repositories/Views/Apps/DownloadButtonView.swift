@@ -11,11 +11,19 @@ import NimbleViews
 import NimbleExtensions
 
 // MARK: - Tab Selection Observer
+struct FixtureSlotRoute: Identifiable, Equatable {
+    let id = UUID()
+    let copyID: String
+    let uuid: String
+}
+
 class TabSelectionObserver: ObservableObject {
 	static let shared = TabSelectionObserver()
 	@Published var selectedTab: TabEnum = TabBarPreferences.shared.resolvedLaunchTab
     @Published var librarySection: LibraryWorkspaceSection = .apps
     @Published var activitySection: ActivityWorkspaceSection = .downloads
+    @Published var fixtureSlotRequest: FixtureSlotRoute?
+    @Published var cellularRenewalRequested = false
     @Published var ipaExplorerRequested = false
 	@Published var highlightedAppUUID: String?
 	@Published var sourcesRetapped: Bool = false

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Combine
 import NativeSigning
@@ -21,7 +22,7 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         self.manager = manager; self.repository = repository
     }
     func state() -> AppleAccountState {
-        AppleAccountState(snapshot: manager.snapshot.map(Self.snapshot), isBackendReady: manager.isBackendReady,
+        AppleAccountState(selectedSlot: manager.selectedSlot.rawValue, snapshot: manager.snapshot.map(Self.snapshot), isBackendReady: manager.isBackendReady,
             lastError: manager.lastError, freeAccountAppCount: manager.freeAccountAppCount,
             freeAccountInventoryAvailable: manager.freeAccountInventoryAvailable,
             renewalCandidates: manager.renewalCandidates.map {
@@ -40,6 +41,17 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
             let observation = StreamObservationCancellation(subscription)
             continuation.onTermination = { _ in observation.cancel() }
         }
+    }
+    func selectSlot(_ number: Int) async throws {
+        guard let slot = NativeSigning.NativeAccountSlot(rawValue: number) else { throw NativeAccountBackendError.invalidConfiguration }
+        guard manager.selectedSlot != slot else { return }
+        operations.removeAll(); pendingProfiles.removeAll()
+        await manager.synchronizeProvider(slot: slot)
+    }
+    func revalidate() async throws -> AppleAccountOperation {
+        let operation = try await manager.revalidate()
+        operations = [operation.id: operation]
+        return AppleAccountOperation(id: operation.id)
     }
     func synchronizeProvider() async { await manager.synchronizeProvider() }
     func refreshSnapshot() async { await manager.refreshSnapshot() }
@@ -99,6 +111,49 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         try requireContext(contextID)
         return AppleAccountCertificateCheck(checkedAt: result.checkedAt)
     }
+    /// Use the selected artifact, not a cached certificate expiry or a portal display row.
+    private func renewalBaseline(for app: AppInfoPresentable, request: AppleAccountProvisioningRequest,
+                                 bundleID: String, deviceID: String) throws -> (expiry: Date, digest: String)? {
+        guard request.requireLaterProfile else { return nil }
+        guard app.isSigned, let bundle = app.bundleURL,
+              case .signedIn(let context) = state().snapshot?.phase, context.id == request.contextID else {
+            throw AppleAccountWorkspaceError.incompatibleRenewalSource
+        }
+        let data = try CertificateInputReader.read(bundle.appendingPathComponent("embedded.mobileprovision"))
+        let profile = try ProvisioningProfileParser.parse(data, allowingExpiredForDisplay: true)
+        guard profile.CreationDate <= Date(), profile.TeamIdentifier == [context.team.identifier],
+              profile.ProvisionedDevices?.contains(where: { $0.uppercased() == deviceID }) == true,
+              profile.Entitlements?["get-task-allow"]?.value as? Bool == true,
+              let appID = profile.Entitlements?["application-identifier"]?.value as? String,
+              ProfileApplicationIdentifierMatcher.match(applicationIdentifier: appID, bundleIdentifier: bundleID).outcome.isAuthorized else {
+            throw AppleAccountWorkspaceError.incompatibleRenewalSource
+        }
+        return (profile.ExpirationDate, SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined())
+    }
+    // Catch only a refusal to issue a new approval. A failed write is never retried.
+    private func resolveRegistration(contextID: UUID, subject: NativeRegistrationSubject, existingOnly: Bool) async throws -> NativeRegistrationResult {
+        if existingOnly { return try await manager.reconcileRegistration(contextID: contextID, subject: subject) }
+        let approval: NativeAccountRegistrationApproval
+        do { approval = try await manager.recordRegistrationApproval(contextID: contextID, subject: subject) }
+        catch NativeRegistrationError.reconciliationRequired {
+            try Task.checkCancellation()
+            return try await manager.reconcileRegistration(contextID: contextID, subject: subject)
+        }
+        try Task.checkCancellation()
+        return try await manager.registerResource(contextID: contextID, subject: subject, approval: approval)
+    }
+
+    private func resolveProfile(contextID: UUID, target: NativeAccountProfileTarget) async throws -> NativeAccountProfileResult {
+        let approval: NativeAccountProfileApproval
+        do { approval = try await manager.recordProfileCreationApproval(contextID: contextID, target: target) }
+        catch NativeProfileCreationError.reconciliationRequired {
+            try Task.checkCancellation()
+            return try await manager.reconcileProfile(contextID: contextID, target: target)
+        }
+        try Task.checkCancellation()
+        return try await manager.createProvisioningProfile(contextID: contextID, target: target, approval: approval)
+    }
+
     func provision(_ request: AppleAccountProvisioningRequest,
                    progress: @escaping @MainActor (AppleAccountProvisioningProgress) -> Void) async throws -> AppleAccountProvisioningReceipt {
         try requireContext(request.contextID)
@@ -107,6 +162,8 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         let contextID = request.contextID
         let deviceID = request.deviceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         try Task.checkCancellation()
+        let baseline = try renewalBaseline(for: app, request: request, bundleID: bundleID, deviceID: deviceID)
+        if request.approveRegeneration && baseline == nil { throw AppleAccountWorkspaceError.incompatibleRenewalSource }
         // Require a configured cryptographic verifier before quota-affecting work.
         try await manager.requireProfileOperations()
         progress(.init(stage: .preflight, fraction: 0.1))
@@ -114,47 +171,56 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         _ = try await manager.provisioningPreflight(contextID: contextID, request: preflight)
         try Task.checkCancellation()
         progress(.init(stage: .identity, fraction: 0.25))
-        let identity = try await manager.prepareSigningIdentity(contextID: contextID)
-        try Task.checkCancellation()
-        switch identity.phase {
-        case .prepared:
-            progress(.init(stage: .certificateApproval, fraction: 0.4))
-            let approval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identity.id)
+        let identityID: UUID
+        if request.approveRegeneration {
+            let existing = await manager.listSigningIdentities().filter { $0.phase == .certificateRecorded }
+            guard existing.count == 1, let owned = existing.first else { throw AppleAccountWorkspaceError.incompatibleRenewalSource }
+            identityID = owned.identityID
+            try requireContext(contextID)
+        } else {
+            let identity = try await manager.prepareSigningIdentity(contextID: contextID)
             try Task.checkCancellation()
-            _ = try await manager.createDevelopmentCertificate(contextID: contextID, identityID: identity.id, approval: approval)
-        case .submissionUncertain:
-            _ = try await manager.reconcileCertificate(contextID: contextID, identityID: identity.id)
-        case .certificateRecorded: break
+            switch identity.phase {
+            case .prepared:
+                progress(.init(stage: .certificateApproval, fraction: 0.4))
+                let approval = try await manager.recordCertificateCreationApproval(contextID: contextID, identityID: identity.id)
+                try Task.checkCancellation()
+                _ = try await manager.createDevelopmentCertificate(contextID: contextID, identityID: identity.id, approval: approval)
+            case .submissionUncertain:
+                _ = try await manager.reconcileCertificate(contextID: contextID, identityID: identity.id)
+            case .certificateRecorded: break
+            }
+            identityID = identity.id
         }
         try Task.checkCancellation()
         progress(.init(stage: .registration, fraction: 0.7))
         let device = try NativeRegistrationSubject(kind: .device, value: deviceID)
-        let deviceApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: device)
-        try Task.checkCancellation()
-        let deviceRegistration = try await manager.registerResource(contextID: contextID, subject: device, approval: deviceApproval)
+        let deviceRegistration = try await resolveRegistration(contextID: contextID, subject: device, existingOnly: request.approveRegeneration)
         try Task.checkCancellation()
         progress(.init(stage: .appRegistration, fraction: 0.8))
         let appID = try NativeRegistrationSubject(kind: .appID, value: bundleID)
-        let appApproval = try await manager.recordRegistrationApproval(contextID: contextID, subject: appID)
-        try Task.checkCancellation()
-        let appRegistration = try await manager.registerResource(contextID: contextID, subject: appID, approval: appApproval)
+        let appRegistration = try await resolveRegistration(contextID: contextID, subject: appID, existingOnly: request.approveRegeneration)
         try Task.checkCancellation()
         progress(.init(stage: .profile, fraction: 0.9))
-        let target = try NativeAccountProfileTarget(identityID: identity.id, bundleIdentifier: bundleID,
+        let target = try NativeAccountProfileTarget(identityID: identityID, bundleIdentifier: bundleID,
             deviceIdentifier: deviceID, appRegistration: appRegistration, deviceRegistration: deviceRegistration)
-        let approval = try await manager.recordProfileCreationApproval(contextID: contextID, target: target)
-        try Task.checkCancellation()
-        let profile = try await manager.createProvisioningProfile(contextID: contextID, target: target, approval: approval)
+        let profile: NativeAccountProfileResult
+        if request.approveRegeneration, let baseline {
+            profile = try await manager.renewApprovedProfile(contextID: contextID, target: target, baselineDigest: baseline.digest)
+        } else {
+            profile = try await resolveProfile(contextID: contextID, target: target)
+        }
         try Task.checkCancellation()
         try requireContext(contextID)
         let currentApp = try repository.storage.managedApp(matching: request.app)
         guard currentApp.identifier == bundleID, profile.expiresAt > Date() else { throw AppleAccountWorkspaceError.missingReceipt }
+        if let baseline, profile.expiresAt <= baseline.expiry { throw AppleAccountWorkspaceError.expiryNotAdvanced }
         let receipt = AppleAccountProvisioningReceipt(id: UUID(), profileUUID: profile.profileUUID, expiresAt: profile.expiresAt)
         // Keep only current, unexpired metadata; no key or password is retained here.
         pendingProfiles = pendingProfiles.filter { $0.value.profile.expiresAt > Date() && $0.value.request.contextID == contextID }
         if pendingProfiles.count >= 16 { pendingProfiles.removeAll() }
         pendingProfiles[receipt.id] = PendingProfile(receipt: receipt, request: request,
-            bundleIdentifier: bundleID, identityID: identity.id, profile: profile)
+            bundleIdentifier: bundleID, identityID: identityID, profile: profile)
         progress(.init(stage: .completed, fraction: 1))
         return receipt
     }
@@ -165,6 +231,9 @@ final class AppleAccountWorkspaceAdapter: AppleAccountWorkspaceProviding {
         try requireContext(pending.request.contextID)
         let app = try repository.storage.managedApp(matching: pending.request.app)
         guard app.identifier == pending.bundleIdentifier else { throw WorkspaceAccessError.mismatchedRecord }
+        if let currentExpiry = try renewalBaseline(for: app, request: pending.request, bundleID: pending.bundleIdentifier,
+            deviceID: pending.request.deviceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()),
+           pending.profile.expiresAt <= currentExpiry.expiry { throw AppleAccountWorkspaceError.expiryNotAdvanced }
         let consent = try await manager.recordKeyExportConsent(contextID: pending.request.contextID, identityID: pending.identityID)
         try Task.checkCancellation()
         let certificateUUID = try await manager.exportToCertificateStore(contextID: pending.request.contextID, profile: pending.profile,

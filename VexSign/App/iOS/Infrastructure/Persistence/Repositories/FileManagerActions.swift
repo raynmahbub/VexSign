@@ -304,8 +304,12 @@ enum FileManagerActions {
 	}
 
 	/// Whether the file is worth offering to the Tweak Manager.
+	///
+	/// A `.tipa` is not a tweak: it is an `.ipa` renamed for AirDrop and holds an
+	/// app in `Payload/`. Offering it here sent app packages into the tweak flow,
+	/// where importing them could not work.
 	static func isTweakArchive(_ url: URL) -> Bool {
-		["dylib", "deb", "framework", "bundle", "tipa"].contains(url.pathExtension.lowercased())
+		["dylib", "deb", "framework", "bundle"].contains(url.pathExtension.lowercased())
 	}
 
 	// MARK: - Internal

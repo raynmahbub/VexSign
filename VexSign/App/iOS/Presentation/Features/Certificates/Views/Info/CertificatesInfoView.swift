@@ -159,8 +159,26 @@ extension CertificatesInfoView {
 		}
 		
 		Section {
-			_info(.localized("Expires"), description: data.ExpirationDate.expirationInfo().formatted)
-				.foregroundStyle(data.ExpirationDate.expirationInfo().color)
+			TimelineView(.periodic(from: .now, by: 60)) { context in
+				let window = ProfileExpiryWindow(expiration: data.ExpirationDate, now: context.date)
+				VStack(alignment: .leading, spacing: 6) {
+					_info(.localized("Profile expires"), description: data.ExpirationDate.formatted())
+					ProgressView(value: window.fraction)
+						.tint(window.fraction < 1.0 / 7 ? Color.red : Color.accentColor)
+						.accessibilityHidden(true)
+					switch window.milestone {
+					case .expired:
+						Text("Expired")
+					case .finalDay:
+						Text("Less than one day remaining")
+					case .weekOrMore:
+						Text("At least seven days remaining")
+					case .days(let count):
+						Text("Full days remaining: \(count)")
+					}
+				}
+				.accessibilityElement(children: .combine)
+			}
 			
 			_info(.localized("Revoked"), description: cert.revoked ? "✓" : "✗")
 			

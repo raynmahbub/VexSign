@@ -76,7 +76,7 @@ From the repository root (historical counts above belong to the recorded review)
 git diff --exit-code -- VexSign/Services/Cloud/openapi.json
 
 # premium API
-python3 -m venv /tmp/svenv && /tmp/svenv/bin/pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest cryptography
+python3 -m venv /tmp/svenv && /tmp/svenv/bin/pip install -r VexSign/Services/WebManager/Configuration/requirements.txt pytest
 make test-server PYTHON=/tmp/svenv/bin/python
 
 # the iOS-side contract check (no Swift toolchain needed)

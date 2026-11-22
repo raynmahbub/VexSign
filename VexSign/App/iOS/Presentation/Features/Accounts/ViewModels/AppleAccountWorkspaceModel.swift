@@ -23,6 +23,14 @@ final class AppleAccountWorkspaceModel: ObservableObject {
     var freeAccountAppCount: Int { state.freeAccountAppCount }
     var freeAccountInventoryAvailable: Bool { state.freeAccountInventoryAvailable }
     var renewalCandidates: [AppleAccountRenewalCandidate] { state.renewalCandidates }
+    func selectSlot(_ slot: Int) async throws {
+        defer { state = useCase.state() }
+        try await useCase.selectSlot(slot)
+    }
+    func revalidate() async throws -> AppleAccountOperation {
+        defer { state = useCase.state() }
+        return try await useCase.revalidate()
+    }
     func synchronizeProvider() async { await useCase.synchronizeProvider(); state = useCase.state() }
     func refreshSnapshot() async { await useCase.refreshSnapshot(); state = useCase.state() }
     func refreshRenewalCandidates() async { await useCase.refreshRenewalCandidates(); state = useCase.state() }

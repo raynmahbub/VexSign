@@ -22,7 +22,7 @@ extension HomeView {
     }
 
     func browseForPackages(quickSign: Bool = false) {
-        DocumentPicker.open([.ipa, .tipa], multiple: !quickSign, folder: .apps) { urls in
+        DocumentPicker.open([.ipa, .tipa, .zip], multiple: !quickSign, folder: .apps) { urls in
             guard !urls.isEmpty else { return }
             if quickSign {
                 enqueuePackage(urls[0], quickSign: true)

@@ -52,5 +52,6 @@ final class FileWorkspaceUseCase {
         var seen = Set<URL>()
         return urls.filter { seen.insert($0).inserted }
     }
-    func isTweakArchive(_ url: URL) -> Bool { ["dylib", "deb", "framework", "bundle", "tipa"].contains(url.pathExtension.lowercased()) }
+    /// Matches `FileManagerActions.isTweakArchive`: a `.tipa` is an app package.
+    func isTweakArchive(_ url: URL) -> Bool { ["dylib", "deb", "framework", "bundle"].contains(url.pathExtension.lowercased()) }
 }

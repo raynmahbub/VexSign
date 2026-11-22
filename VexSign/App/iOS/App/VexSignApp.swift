@@ -22,6 +22,11 @@ struct VexSignApp: App {
     @StateObject private var tabSelection = TabSelectionObserver.shared
     @StateObject private var selfUpdate = SelfUpdateManager.shared
     @StateObject private var appLock = AppLockManager.shared
+    /// Observed here, not just owned by the container: a nested `ObservableObject`
+    /// does not publish through its parent, so without this the restore sheet would
+    /// never present when a file arrives.
+    ///
+
     /// Single observable source of truth for theme/font/animation preferences,
     /// injected into the environment so every view updates on change.
     @StateObject private var appearance = AppearanceStore.shared
@@ -151,9 +156,12 @@ struct VexSignApp: App {
                     SelfUpdateSheet(release: release)
                 }
             }
-            // Keep the dependency scope outside every overlay and presentation.
-            // An environment modifier only reaches the subtree before it: the
-            // always-built installation pill must receive its queue even idle.
+            // A backup handed to the app from outside belongs to the app, not to a
+            // tab: presenting it here means a share-sheet, AirDrop or Files "Open in"
+            // cannot be silently dropped behind a screen the user is not looking at.
+            // The offer the router staged is presented from a modifier that observes
+            // the inbox itself, so this scene's chain stays type-checkable.
+            .modifier(SharedBackupPresentation(inbox: appContainer.sharedBackups))
             .environmentObject(appContainer)
             .environmentObject(appContainer.cloudConfiguration)
             .environmentObject(appContainer.tasks)

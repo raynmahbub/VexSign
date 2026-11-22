@@ -14,6 +14,12 @@ import NimbleExtensions
 final class AppContainer: ObservableObject {
     let cloudConfiguration: CloudConfigurationModel
     let backups: BackupWorkspaceUseCase
+    /// Backups handed to the app from Files/AirDrop/“Open in”. Presented once at the
+    /// root so a staged file cannot be lost behind a tab the user never visits.
+    ///
+    /// Backups handed to the app from Files/AirDrop/“Open in”. Owned here so the
+    /// deep-link router and the root scene share one offer.
+    let sharedBackups = SharedBackupInbox()
     let tasks: TaskWorkspaceModel
     let appleAccount: AppleAccountWorkspaceModel
     let analytics: LocalAnalyticsUseCase
@@ -50,7 +56,9 @@ final class AppContainer: ObservableObject {
     private let anisetteProvider: AnisetteConfigurationProviding
     private let directInstallFactory: () -> DirectPackageInstallUseCase
     private let firmwareDownloadFactory: () -> FirmwareDownloadUseCase
-    private let deepLinkRouterFactory: () -> DeepLinkRouterUseCase
+    /// Takes the inbox because the router stages a handed-over backup and the app
+    /// owns the one instance the root scene observes.
+    private let deepLinkRouterFactory: (SharedBackupInbox) -> DeepLinkRouterUseCase
     private let homePackageEnqueue: (URL, Bool) -> Void
     private let homeURLDownload: (URL) -> Bool
     private let homeRevealTab: (TabEnum) -> Void
@@ -90,7 +98,7 @@ final class AppContainer: ObservableObject {
         anisetteProvider: AnisetteConfigurationProviding,
         directInstallFactory: @escaping () -> DirectPackageInstallUseCase,
         firmwareDownloadFactory: @escaping () -> FirmwareDownloadUseCase,
-        deepLinkRouterFactory: @escaping () -> DeepLinkRouterUseCase,
+        deepLinkRouterFactory: @escaping (SharedBackupInbox) -> DeepLinkRouterUseCase,
         homePackageEnqueue: @escaping (URL, Bool) -> Void,
         homeURLDownload: @escaping (URL) -> Bool,
         homeRevealTab: @escaping (TabEnum) -> Void
@@ -157,7 +165,6 @@ final class AppContainer: ObservableObject {
         let repositories = RepositoryWorkspaceAdapter(catalog: SourceCatalogStore.shared, repository: workspaceRepository)
         let sharing = UIKitTemporaryFileSharing()
         let certificateWorkspace = CertificateWorkspaceAdapter(repository: workspaceRepository, sharing: sharing)
-
         let container = AppContainer(
             workspaceRepository: workspaceRepository,
             libraryCloning: LibraryCloningAdapter(repository: workspaceRepository, cloner: AppCloner.shared),
@@ -216,7 +223,7 @@ final class AppContainer: ObservableObject {
                     }
                 )
             },
-            deepLinkRouterFactory: {
+            deepLinkRouterFactory: { backups in
                 DeepLinkRouterUseCase(
                     securityPolicy: security,
                     platform: platform,
@@ -286,6 +293,9 @@ final class AppContainer: ObservableObject {
                     },
                     addTweakFile: { name, url in
                         TweakManager.shared.addTweak(name: name, from: url) != nil
+                    },
+                    stageBackupFile: { url in
+                        backups.stage(url)
                     }
                 )
             },
@@ -372,7 +382,7 @@ final class AppContainer: ObservableObject {
     }
 
     func makeDeepLinkRouter() -> DeepLinkRouterUseCase {
-        deepLinkRouterFactory()
+        deepLinkRouterFactory(sharedBackups)
     }
 
     func makeDownloadsTabViewModel() -> DownloadsTabViewModel {

@@ -92,6 +92,10 @@ struct AutomationRunResult {
 	var cleanup: CleanupSummary?
     var failed: Int = 0
     var githubReleaseReviews: Int = 0
+    /// Credentials whose renewal deadline has arrived, across imported certificates and
+    /// Apple Account profiles. A count only: the schedule itself lives in
+    /// `RenewalScheduleCoordinator`, and the summary says where to look.
+    var renewalsDue: Int = 0
 }
 
 // Stores counts and outcomes only; no app names, credentials or source URLs.
@@ -299,6 +303,11 @@ enum BackgroundAutomation {
         // 4. Free Apple ID profile expiry check (if signed in). Discovery only — see
         // `trackExpiringFreeAppleIDProfiles`; nothing here renews or re-signs.
 		await trackExpiringFreeAppleIDProfiles()
+		result.renewalsDue = await MainActor.run {
+			RenewalScheduleCoordinator.shared.plans.filter {
+				$0.status == .urgent || $0.status == .lapsed
+			}.count
+		}
 		guard !Task.isCancelled else {
 			AutomationHistoryStore.shared.record("cancelled", fromBackground: fromBackground, result: result, duration: Date().timeIntervalSince(startedAt))
 			return nil
@@ -337,8 +346,45 @@ enum BackgroundAutomation {
 	/// user grant. The UI reads `renewalCandidates` and tells the user to renew by hand.
 	private static func trackExpiringFreeAppleIDProfiles() async {
 		let manager = NativeSigningManager.shared
-		guard manager.isBackendReady else { return }
+		// Session renewability is published by NativeSigningManager whenever its account
+		// snapshot changes. Backend availability alone is not a signed-in free-account
+		// session, so this pass must not overwrite that more precise state.
+		guard manager.isBackendReady else {
+			// Signed out: the profiles are gone, so their plans must be too. Leaving them
+			// would keep warning about credentials that no longer exist.
+			await MainActor.run { RenewalScheduleCoordinator.shared.clear(source: .appleAccount) }
+			return
+		}
 		await manager.refreshRenewalCandidates()
+
+		// Feed the profiles into the one renewal schedule rather than leaving them as a
+		// second, separate answer to the same question.
+		//
+		// Renewability is a signed-in session, not `SigningMethodCapabilities`: a free-account
+		// profile is renewed by provisioning a new one through the portal, then re-signing
+		// with the fresh pair. That path does not depend on in-process CMS signing, and
+		// tying the two together made every free-account certificate look unrenewable.
+		await MainActor.run {
+			let renewable = Renewability.freeAccount
+			let credentials = manager.renewalCandidates.map { profile in
+				SigningCredential(
+					id: "apple-\(profile.profileUUID.uuidString)",
+					kind: .appleAccount,
+					name: profile.bundleIdentifier,
+					teamID: "",
+					expiresAt: profile.expiresAt,
+					canRenewOnDevice: renewable
+				)
+			}
+			RenewalScheduleCoordinator.shared.refresh(
+				source: .appleAccount,
+				credentials: credentials,
+				names: Dictionary(
+					credentials.map { ($0.id, $0.name) },
+					uniquingKeysWith: { first, _ in first }
+				)
+			)
+		}
 	}
 
 	private nonisolated static func postSummary(_ result: AutomationRunResult) {
@@ -367,6 +413,10 @@ enum BackgroundAutomation {
 		}
         if result.failed > 0 {
             lines.append(String.localized("%lld failed", arguments: result.failed))
+        }
+        if result.renewalsDue > 0 {
+            // Says where to look, never what was done: nothing in this pass renews.
+            lines.append(String.localized("%lld signed apps need re-signing", arguments: result.renewalsDue))
         }
 		if result.skipped > 0 {
 			lines.append(String.localized("%lld skipped", arguments: result.skipped))

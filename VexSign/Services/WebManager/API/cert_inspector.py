@@ -23,9 +23,10 @@ What it deliberately does **not** do
       is extracted from the signed blob and parsed, which proves nothing about who
       signed it.
 
-Only the standard library is required. If `cryptography` is installed, public
-certificates (`.cer`/`.pem`) are fully parsed too; otherwise they still get
-fingerprints and a note.
+`cryptography` is a declared dependency (see `Configuration/requirements.txt`), so
+public certificates (`.cer`/`.pem`) are fully parsed. The import is still guarded
+because a broken install should degrade to fingerprints and say what is wrong,
+rather than serving a 500 for a file the profile path never needed.
 """
 
 from __future__ import annotations
@@ -183,9 +184,15 @@ def parse_certificate(data: bytes) -> dict[str, Any]:
     }
 
     try:
-        from cryptography import x509  # optional dependency
+        from cryptography import x509  # declared in Configuration/requirements.txt
     except ImportError:
-        report["detail"] = "Install `cryptography` on the server for subject/issuer/validity parsing."
+        # Not "install cryptography": it is a pinned requirement, so reaching this branch
+        # means the deployment is broken, and the end user reading this report cannot fix
+        # a server-side install. Say which of those it is.
+        report["detail"] = (
+            "Subject/issuer/validity parsing is unavailable: `cryptography` is declared in the "
+            "server requirements but is not importable. Reinstall them on the server."
+        )
         return report
 
     try:

@@ -99,6 +99,13 @@ extension CertificatesCellView {
 			))
 		}
 
+		// What actually stops signing, and whether it can be fixed here. `RenewalPlanner`
+		// decides; this row only renders. Suppressed for `notDue`, so a healthy
+		// long-lived certificate does not gain a pill that means "nothing to do".
+		if let renewal = RenewalSchedulePresentation.pill(for: cert) {
+			pills.append(renewal)
+		}
+
 		// "Can this sign this app?" — only answerable while picking a certificate for an app.
 		if var target, let data {
 			// Additional profiles belong to a certificate, so they are filled in per cell.

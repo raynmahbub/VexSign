@@ -387,3 +387,17 @@ extension SideSignNativePortal: SideSignProfileTransport {
         }
     }
 }
+
+extension SideSignNativePortal: SideSignProfileRenewalTransport {
+    func renewLimitedProfileOnce(remoteID: String, request: NativeProfileCreationRequest,
+                                 operationID: UUID, team: Team, session: Session) async throws {
+        do {
+            try await portal.vexsignRenewLimitedProfileOnce(profileID: remoteID, appID: request.appID,
+                certificateID: request.certificateID, deviceID: request.deviceID, operationID: operationID,
+                team: team, session: session)
+        } catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            throw NativeProfileCreationError.reconciliationRequired
+        }
+    }
+}

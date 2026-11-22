@@ -53,3 +53,10 @@ struct SideSignProfileInventoryPolicy {
                                         cms: download.encodedProfile, listedUUID: listing.uuid)
     }
 }
+
+/// Renewal is a distinct capability: ordinary create/reconcile transports never
+/// gain regeneration as a fallback for an empty or uncertain observation.
+protocol SideSignProfileRenewalTransport: SideSignProfileTransport {
+    func renewLimitedProfileOnce(remoteID: String, request: NativeProfileCreationRequest,
+                                 operationID: UUID, team: Team, session: Session) async throws
+}

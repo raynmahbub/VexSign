@@ -22,6 +22,10 @@ final class DeepLinkRouterUseCase {
     private let importStagedPackage: (URL, @escaping (Error?) -> Void) -> Void
     private let extractTweakArchive: (URL) async throws -> (workDir: URL, candidateURLs: [URL])
     private let addTweakFile: (String, URL) -> Bool
+    /// Hands a staged `.vexbackup` to the Backups screen. The screen owns the
+    /// password prompt, decrypt, preview and restore; this router must not
+    /// decrypt, restore or hold the file open itself.
+    private let stageBackupFile: (URL) -> Void
 
     init(
         securityPolicy: SecurityPolicyValidating,
@@ -41,7 +45,8 @@ final class DeepLinkRouterUseCase {
         acquireWorkLease: @escaping () throws -> AnyObject,
         importStagedPackage: @escaping (URL, @escaping (Error?) -> Void) -> Void,
         extractTweakArchive: @escaping (URL) async throws -> (workDir: URL, candidateURLs: [URL]),
-        addTweakFile: @escaping (String, URL) -> Bool
+        addTweakFile: @escaping (String, URL) -> Bool,
+        stageBackupFile: @escaping (URL) -> Void = { _ in }
     ) {
         self.securityPolicy = securityPolicy
         self.platform = platform
@@ -61,6 +66,7 @@ final class DeepLinkRouterUseCase {
         self.importStagedPackage = importStagedPackage
         self.extractTweakArchive = extractTweakArchive
         self.addTweakFile = addTweakFile
+        self.stageBackupFile = stageBackupFile
     }
 
     func handle(_ url: URL) {
@@ -123,6 +129,9 @@ final class DeepLinkRouterUseCase {
         case .importTweakFile(let fileURL):
             handleSharedTweak(fileURL)
 
+        case .openBackupFile(let fileURL):
+            handleSharedBackup(fileURL)
+
         case .unsupported:
             diagnostics.info("Ignored unsupported incoming URL.")
         }
@@ -181,6 +190,26 @@ final class DeepLinkRouterUseCase {
             } else {
                 self.platform.notifySuccess(NSLocalizedString("Imported successfully", comment: ""), systemImage: "square.and.arrow.down.fill")
             }
+        }
+    }
+
+    /// Stage a handed-over backup into the app's own temporary directory, then let
+    /// the Backups screen take it. Copying here (rather than in the screen) keeps the
+    /// security-scoped access next to the picker result that owns it; staging keeps
+    /// the restore a deliberate, reviewed action instead of an automatic one.
+    private func handleSharedBackup(_ url: URL) {
+        let tempDir = incomingFiles.temporaryDirectory(label: "VexSignSharedBackup")
+        let destinationURL = tempDir.appendingPathComponent(url.lastPathComponent)
+
+        switch incomingFiles.copyCoordinatedFile(from: url, to: destinationURL, tempDirectory: tempDir) {
+        case .failure(let reason):
+            platform.presentErrorWithCopy(title: NSLocalizedString("Restore Failed", comment: ""), message: reason.localizedDescription)
+        case .success:
+            stageBackupFile(destinationURL)
+            platform.notifyInfo(
+                NSLocalizedString("Backup ready to restore", comment: ""),
+                systemImage: "externaldrive.badge.checkmark"
+            )
         }
     }
 

@@ -31,6 +31,9 @@ protocol CertificateWorkspaceProviding: AnyObject {
     func inspectAll(online: Bool) async throws -> CertificateHealthReport
     func checkAll(online: Bool) async
     func importCertificate(p12: URL, profile: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void)
+    /// One selection that may be a `.p12`, a profile, or a container holding both.
+    /// The adapter resolves the pair and reuses the same import path.
+    func importCertificateBundle(from url: URL, password: String, name: String, completion: @escaping @MainActor (Error?) -> Void)
     func setMonitoringEnabled(_ enabled: Bool) async throws
 }
 

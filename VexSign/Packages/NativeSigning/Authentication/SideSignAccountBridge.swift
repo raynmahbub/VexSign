@@ -993,10 +993,12 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
         if let grant { try requireProfileApproval(grant, contextID: contextID, target: target, flow: flow, epoch: epoch) }
     }
 
+    private typealias RenewalWork = @Sendable (SideSignBoundProfilePortal<Portal>, NativeSigningIdentityOwner, NativeProfileCreationRequest) async throws -> NativeProfileCreationResult
+
     private func profileWork(contextID: UUID, target: NativeAccountProfileTarget,
-                             grant: NativeAccountProfileApproval?, token: AnisetteConsentToken) async throws -> NativeAccountProfileResult {
+                             grant: NativeAccountProfileApproval?, token: AnisetteConsentToken, renewedFrom: String? = nil, renewal: RenewalWork? = nil) async throws -> NativeAccountProfileResult {
         let flow = generation; let epoch = profileEpoch
-        let worker = Task { try await self.runProfile(contextID: contextID, target: target, grant: grant, token: token, flow: flow, epoch: epoch) }
+        let worker = Task { try await self.runProfile(contextID: contextID, target: target, grant: grant, token: token, flow: flow, epoch: epoch, renewedFrom: renewedFrom, renewal: renewal) }
         profileTask = worker
         let expiry = min(token.expiresAt, grant?.expiresAt ?? token.expiresAt)
         let seconds = max(0, min(900, expiry.timeIntervalSince(clock())))
@@ -1013,7 +1015,7 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
 
     private func runProfile(contextID: UUID, target: NativeAccountProfileTarget,
                             grant: NativeAccountProfileApproval?, token: AnisetteConsentToken,
-                            flow: UUID, epoch: UUID) async throws -> NativeAccountProfileResult {
+                            flow: UUID, epoch: UUID, renewedFrom: String?, renewal: RenewalWork?) async throws -> NativeAccountProfileResult {
         let check: @Sendable () async throws -> Void = {
             try await self.requireProfileCurrent(contextID: contextID, target: target, grant: grant, token: token, flow: flow, epoch: epoch)
         }
@@ -1047,7 +1049,9 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
         let executor = NativeProfileCreationExecutor(store: profileStore, portal: bound, validator: profileValidator, clock: workerClock)
         do {
             let result: NativeProfileCreationResult
-            if let grant {
+            if let renewal {
+                result = try await renewal(bound, owner, request)
+            } else if let grant {
                 let remaining = grant.expiresAt.timeIntervalSince(clock())
                 guard remaining.isFinite, remaining > 0 else { throw NativeProfileCreationError.approvalRequired }
                 let delegated = try await executor.approve(owner: owner, contextID: contextID, request: request, lifetime: min(120, remaining))
@@ -1062,7 +1066,11 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
             try await check()
             if let profileReceipts {
                 let receipt = try NativeProfileReceipt(profile: result.profile, owner: owner, request: request, recordedAt: clock())
-                try profileReceipts.record(receipt, owner: owner)
+                if let renewedFrom {
+                    try profileReceipts.recordRenewal(receipt, replacing: renewedFrom, owner: owner)
+                } else {
+                    try profileReceipts.record(receipt, owner: owner)
+                }
                 try await check()
             }
             return NativeAccountProfileResult(operationID: result.operationID, profileUUID: result.profile.constraints.uuid,
@@ -1070,6 +1078,25 @@ extension SideSignAccountBridge where Portal: SideSignProfileTransport {
         } catch {
             await bound.invalidate()
             throw error
+        }
+    }
+}
+
+extension SideSignAccountBridge where Portal: SideSignProfileRenewalTransport {
+    func renewExplicitlyApprovedProfile(contextID: UUID, target: NativeAccountProfileTarget, baselineDigest: String,
+                                        token: AnisetteConsentToken) async throws -> NativeAccountProfileResult {
+        try requireProfileSlot(token: token)
+        guard NativeRegistrationRecord.validDigest(baselineDigest), let receipts = profileReceipts else {
+            throw NativeProfileValidationError.receiptUnavailable
+        }
+        let gate = NativeProfileRenewalGate(client: SystemAppleAccountKeychainClient(), clock: clock)
+        return try await profileWork(contextID: contextID, target: target, grant: nil, token: token, renewedFrom: baselineDigest) { bound, owner, request in
+            let known = try receipts.list(owner: owner).filter {
+                $0.cmsSHA256 == baselineDigest && $0.targetDigest == request.digest && $0.identityID == target.identityID
+            }
+            guard known.count == 1 else { throw NativeProfileValidationError.receiptMismatch }
+            let review = try await bound.prepareRenewal(gate: gate, baselineCMSDigest: baselineDigest)
+            return try await bound.confirmRenewal(gate: gate, review: review)
         }
     }
 }
