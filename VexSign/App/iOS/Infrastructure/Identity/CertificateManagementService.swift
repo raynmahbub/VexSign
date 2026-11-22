@@ -98,31 +98,36 @@ enum CertificateManagementService {
     ) {
         let access = url.startAccessingSecurityScopedResource()
         Task.detached {
-            defer { if access { url.stopAccessingSecurityScopedResource() } }
             let resolved: CertificateImportBundle.Resolved
             do {
                 resolved = try CertificateImportBundle.resolve(url)
             } catch {
+                if access { url.stopAccessingSecurityScopedResource() }
                 await MainActor.run { completion(.failure(error)) }
                 return
             }
-            defer {
-                // Only an extracted staging directory belongs to this call; a file
-                // the user picked is never removed.
-                if let staging = resolved.staging { try? FileManager.default.removeItem(at: staging) } // try? ok: import already finished or failed; staging is disposable
-            }
             if let missing = CertificateImportBundle.missingRole(resolved) {
+                if let staging = resolved.staging { try? FileManager.default.removeItem(at: staging) } // try? ok: rejected bundle leaves no temporary directory
+                if access { url.stopAccessingSecurityScopedResource() }
                 await MainActor.run { completion(.failure(missing)) }
                 return
             }
+            // The extracted copies must outlive the import that reads them, so the
+            // staging directory is removed when that import reports back — never
+            // when this wrapper returns.
+            let staging = resolved.staging
             importCertificateFilesIdentified(
                 p12URL: resolved.key,
                 provisionURL: resolved.profile,
                 p12Password: p12Password,
                 certificateName: certificateName,
-                isDefault: isDefault,
-                completion: completion
-            )
+                isDefault: isDefault
+            ) { result in
+                if let staging { try? FileManager.default.removeItem(at: staging) } // try? ok: import finished; staging is disposable
+                completion(result)
+            }
+            // The importer above opened its own scope on both files before this line.
+            if access { url.stopAccessingSecurityScopedResource() }
         }
     }
 

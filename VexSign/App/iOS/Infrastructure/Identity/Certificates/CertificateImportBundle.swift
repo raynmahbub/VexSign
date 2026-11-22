@@ -95,11 +95,19 @@ enum CertificateImportBundle {
     }
 
     /// True when `resolved` still needs its other half chosen by hand.
+    ///
+    /// A single picked file resolves to itself for both roles, so this is what says
+    /// "this is only half of a pair" rather than letting the importer fail later
+    /// with a mismatch message that does not describe the problem.
     static func missingRole(_ resolved: Resolved) -> Problem? {
-        let key = keyExtensions.contains(resolved.key.pathExtension.lowercased())
-        let profile = profileExtensions.contains(resolved.profile.pathExtension.lowercased())
-        if !key && !profile { return .missingKey }
-        return nil
+        let isKey = keyExtensions.contains(resolved.key.pathExtension.lowercased())
+        let isProfile = profileExtensions.contains(resolved.profile.pathExtension.lowercased())
+        switch (isKey, isProfile) {
+        case (true, true): return nil
+        case (true, false): return .missingProfile
+        case (false, true): return .missingKey
+        case (false, false): return .missingKey
+        }
     }
 
     // MARK: - Archive
@@ -122,8 +130,10 @@ enum CertificateImportBundle {
             throw Problem.archiveUnreadable
         }
         do {
+            // `pair(inDirectory:)` already names which role is missing; re-mapping
+            // that to a fixed problem would blame the profile for a missing key.
             let resolved = try pair(inDirectory: staging, staging: staging)
-            guard missingRole(resolved) == nil else { throw Problem.missingProfile }
+            guard missingRole(resolved) == nil else { throw missingRole(resolved) ?? Problem.missingProfile }
             return resolved
         } catch {
             try? manager.removeItem(at: staging) // try? ok: rejected bundle leaves no temporary directory
