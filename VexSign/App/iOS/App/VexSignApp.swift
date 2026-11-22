@@ -26,10 +26,7 @@ struct VexSignApp: App {
     /// does not publish through its parent, so without this the restore sheet would
     /// never present when a file arrives.
     ///
-    /// Observed here because a nested `ObservableObject` does not publish through its
-    /// parent; it is the same instance the container owns, so the router that stages
-    /// a file and this sheet cannot disagree.
-    @ObservedObject private var sharedBackups: SharedBackupInbox
+
     /// Single observable source of truth for theme/font/animation preferences,
     /// injected into the environment so every view updates on change.
     @StateObject private var appearance = AppearanceStore.shared
@@ -55,8 +52,6 @@ struct VexSignApp: App {
 
     init() {
         AppPreferencesBootstrap.prepare()
-        // `appContainer` is a property initialiser, so it already exists here.
-        _sharedBackups = ObservedObject(wrappedValue: appContainer.sharedBackups)
     }
 
     var body: some Scene {
@@ -167,7 +162,9 @@ struct VexSignApp: App {
             // Bound to the published value, not through a writable key path: the
             // inbox owns `staged` and exposes `stage`/`clear` so dismissal cannot
             // silently drop an offer the user has not answered yet.
-            .sheet(item: sharedBackups.staged) { staged in
+            // The container forwards the inbox's changes, so observing the container
+            // is enough to present an offer the router staged.
+            .sheet(item: appContainer.sharedBackups.staged) { staged in
                 // No inner environment scope: the root scope below wraps every
                 // presentation, and adding a second one here is the exact drift the
                 // workspace boundary gate rejects.
