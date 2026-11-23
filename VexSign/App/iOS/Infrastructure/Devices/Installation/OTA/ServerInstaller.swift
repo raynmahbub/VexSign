@@ -178,7 +178,10 @@ class ServerInstaller: Identifiable, ObservableObject {
 		guard let url = comps.url else { return LocalInstallError.invalidHostname }
 
 		do {
-			let (_, response) = try await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 10))
+			// Status only. `bytes(for:)` returns as soon as the headers are in and hands back a
+			// body stream that is cancelled when it is dropped; `data(for:)` buffered whatever a
+			// user-supplied host chose to answer `/healthz` with before anything looked at it.
+			let (_, response) = try await URLSession.shared.bytes(for: URLRequest(url: url, timeoutInterval: 10))
 			guard (response as? HTTPURLResponse)?.statusCode == 200 else {
 				throw LocalInstallError.unreachable
 			}

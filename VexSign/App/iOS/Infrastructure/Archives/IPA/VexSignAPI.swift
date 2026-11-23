@@ -340,6 +340,11 @@ enum VexSignAPI {
 
 	/// Executes an API request on an ephemeral session whose redirect delegate
 	/// strips credentials on cross-origin redirects and refuses TLS downgrades.
+	///
+	/// The body is bounded. Its one caller outside the app's own screens is a source feed
+	/// (`premium.json`), which the user did not write, so `data(for:)` let that host decide how
+	/// much memory the request was allowed to take. 16 MB is far past any feed and far short of
+	/// a problem.
 	static func performDataRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
 		let configuration = URLSessionConfiguration.ephemeral
 		configuration.timeoutIntervalForRequest = request.timeoutInterval > 0 ? request.timeoutInterval : 60
@@ -348,7 +353,7 @@ enum VexSignAPI {
 		let delegate = _VexSignRedirectDelegate()
 		let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
 		defer { session.finishTasksAndInvalidate() }
-		return try await session.data(for: request)
+		return try await BoundedResponseFetch.fetch(request, maximumBytes: 16 * 1024 * 1024, session: session)
 	}
 
 	// MARK: - Excluded Sources

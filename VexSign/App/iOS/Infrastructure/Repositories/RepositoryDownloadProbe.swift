@@ -15,7 +15,9 @@ extension RepositoryValidator {
                         guard let url = webURL(app.downloadURL) else { return nil }
                         var request = URLRequest(url: url, timeoutInterval: RepositoryNetworkPolicy.probeTimeout); request.httpMethod = "HEAD"
                         do {
-                            let (_, response) = try await URLSession.shared.data(for: request)
+                            // HEAD has no body to keep. `bytes(for:)` keeps that true for a
+                            // server that sends one anyway: the stream is dropped, not buffered.
+                            let (_, response) = try await URLSession.shared.bytes(for: request)
                             if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) { return nil }
                             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                             return .init(appID: app.id, severity: status == 404 || status == 410 ? .error : .warning,

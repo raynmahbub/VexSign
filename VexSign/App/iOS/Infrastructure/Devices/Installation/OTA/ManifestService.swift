@@ -67,13 +67,20 @@ enum ManifestService {
 	}
 	
 	private static func _serves(_ url: URL) async -> Bool {
-		guard
-			let (data, response) = try? await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 10)),
-			(response as? HTTPURLResponse)?.statusCode == 200
-		else {
+		// This asks whether the host serves an XML document, which the first five bytes answer.
+		// `data(for:)` answered it too — after buffering the whole body, so a host that replied
+		// with a gigabyte decided the app's peak memory for a yes/no question.
+		do {
+			let (bytes, response) = try await URLSession.shared.bytes(for: URLRequest(url: url, timeoutInterval: 10))
+			guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+			var prefix = Data()
+			for try await byte in bytes {
+				prefix.append(byte)
+				if prefix.count == 5 { break }
+			}
+			return prefix.starts(with: Array("<?xml".utf8))
+		} catch {
 			return false
 		}
-		
-		return data.starts(with: Array("<?xml".utf8))
 	}
 }
