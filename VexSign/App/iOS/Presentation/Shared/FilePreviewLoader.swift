@@ -38,10 +38,12 @@ enum FilePreviewLoader {
 	/// - Parameter includesPDFImage: `FileManagerItemView` draws a PDF as an image;
 	///   the IPA explorer shows it in the binary browser instead. Passing the intent
 	///   keeps the IPA screen from decoding a document it will never show.
+	/// - Parameter files: anything that can perform the six bounded reads below —
+	///   the application use case, or the presentation model that wraps it.
 	static func load(
 		url: URL,
 		kind: IPAFileKind,
-		files: FileWorkspaceUseCase,
+		files: FilePreviewReading,
 		includesPDFImage: Bool = false
 	) -> FilePreviewContent {
 		var content = FilePreviewContent()
@@ -122,7 +124,7 @@ enum FilePreviewLoader {
 	private static func imageData(
 		url: URL,
 		size: Int64,
-		files: FileWorkspaceUseCase
+		files: FilePreviewReading
 	) -> (Data?, String?) {
 		guard size <= FilePreviewLimit.imageBytes else {
 			return (nil, tooLargeNotice(size: size, limit: FilePreviewLimit.imageBytes))

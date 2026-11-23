@@ -55,3 +55,6 @@ final class FileWorkspaceUseCase {
     /// Matches `FileManagerActions.isTweakArchive`: a `.tipa` is an app package.
     func isTweakArchive(_ url: URL) -> Bool { ["dylib", "deb", "framework", "bundle"].contains(url.pathExtension.lowercased()) }
 }
+
+/// What a preview screen is allowed to read.
+extension FileWorkspaceUseCase: FilePreviewReading {}

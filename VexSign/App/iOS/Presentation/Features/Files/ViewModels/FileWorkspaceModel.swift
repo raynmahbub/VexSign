@@ -60,3 +60,6 @@ final class FileWorkspaceModel: ObservableObject {
     func shareText(_ text: String, fileName: String) throws { try useCase.shareText(text, fileName: fileName) }
     func isTweakArchive(_ url: URL) -> Bool { useCase.isTweakArchive(url) }
 }
+
+/// The forwarding methods above already match the preview contract one for one.
+extension FileWorkspaceModel: FilePreviewReading {}
