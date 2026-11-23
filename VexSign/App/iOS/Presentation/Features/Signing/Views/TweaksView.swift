@@ -323,7 +323,7 @@ struct TweakLibraryList: View {
 
 	private func _pickIPA() {
         guard !_isImporting else { return }
-		DocumentPicker.open(.packageArchives, folder: .apps, onUnavailable: {
+		DocumentPicker.open(UTType.packageArchives, folder: .apps, onUnavailable: {
 			Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
 		}) { urls in
 			guard let url = urls.first else { return }

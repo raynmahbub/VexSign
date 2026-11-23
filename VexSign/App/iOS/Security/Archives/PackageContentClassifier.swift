@@ -73,7 +73,7 @@ enum PackageContentClassifier {
             let path = _normalized(entry.path)
             guard !path.isEmpty else { continue }
 
-            let components = path.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+            let components = path.split(separator: "/", omittingEmptySubsequences: true).map { String($0) }
             guard let first = components.first else { continue }
             let lowered = first.lowercased()
 

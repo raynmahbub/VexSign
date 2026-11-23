@@ -38,7 +38,7 @@ struct CertificatesAddView: View {
 						// A shared certificate usually arrives as one `.zip` holding
 						// cert.p12, its profile and often password.txt. Asking for the
 						// two files separately failed for exactly that case.
-						DocumentPicker.open(.certificateBundles, folder: .certificates, onUnavailable: {
+						DocumentPicker.open(UTType.certificateBundles, folder: .certificates, onUnavailable: {
 						Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
 					}) { urls in
 							_bundleURL = urls.first

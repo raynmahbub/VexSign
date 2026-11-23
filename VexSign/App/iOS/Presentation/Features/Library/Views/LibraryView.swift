@@ -519,7 +519,7 @@ struct LibraryView: View {
     @ViewBuilder
     private var importMenuActions: some View {
         Button(.localized("Import from Files"), systemImage: "folder") {
-            DocumentPicker.open(.packageArchives, multiple: true, folder: .apps, onUnavailable: {
+            DocumentPicker.open(UTType.packageArchives, multiple: true, folder: .apps, onUnavailable: {
                 Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
             }) { urls in
                 if !urls.isEmpty { tabSelection.librarySection = .apps }
