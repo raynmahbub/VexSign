@@ -366,23 +366,31 @@ enum IPAImportPayload {
         // A standard IPA: `Payload/App.app`.
         if let app = try onlyApp(of: try appsDirectly(in: payload)) { return app }
 
-        // Not the standard layout. A directory *named* `Payload` that is missing or empty
-        // is malformed, not a differently packed app: the search must not reach sideways
-        // for some unrelated bundle beside it.
-        guard payload.lastPathComponent != "Payload" else {
-            // Say "no Payload folder" rather than blaming an empty Payload that is not there.
-            if !manager.fileExists(atPath: payload.path) { throw ValidationError.missingPayload }
+        // Not the standard layout. A directory *named* `Payload` that exists and is empty is
+        // malformed, not a differently packed app: the search must not reach sideways for some
+        // unrelated bundle beside it.
+        let namedPayload = payload.lastPathComponent == "Payload"
+        if namedPayload, manager.fileExists(atPath: payload.path) {
             throw ValidationError.missingApp
         }
 
-        // A package that keeps the bundle one folder deep beside its metadata (a plain
-        // `.zip`, or a tool that wrapped the app). This search used to be reachable only
-        // when the caller passed a path literally named `Payload`, so the layout the
-        // comment above promises was refused. Two bundles in different folders are still
+        // A `Payload` that was never extracted from the archive means the package is packed
+        // differently: a plain `.zip`, a repack, or a tool that wrapped the app in a folder.
+        // Those keep the bundle beside the metadata, so the search starts at the directory the
+        // extraction produced (`Payload`'s parent) rather than at the missing folder itself.
+        let container = namedPayload ? payload.deletingLastPathComponent() : payload
+
+        // Top level: `Root/App.app` beside `iTunesMetadata.plist`.
+        if let app = try onlyApp(of: try appsDirectly(in: container)) { return app }
+
+        // One folder deep: `Root/Release/App.app`. Two bundles in different folders are still
         // ambiguous: choosing one by directory order is what this function exists to avoid.
-        let nested = try appsOneLevelDown(in: payload)
+        let nested = try appsOneLevelDown(in: container)
         guard nested.count <= 1 else { throw ValidationError.multipleApps }
-        guard let app = nested.first else { throw ValidationError.missingApp }
+        guard let app = nested.first else {
+            // Say "no Payload folder" rather than blaming an empty Payload that is not there.
+            throw namedPayload ? ValidationError.missingPayload : ValidationError.missingApp
+        }
         return app
     }
 
