@@ -119,7 +119,10 @@ func extractFile(at fileURL: inout URL) throws {
 	}
 
 	let decompressed: Data
-	switch _detectCompression(data, extensionHint: fileURL.pathExtension.lowercased()) {
+	guard let format = ArchiveFormat.detect(data, extensionHint: fileURL.pathExtension.lowercased()) else {
+		throw TweakHandlerError.unsupportedFileExtension(fileURL.pathExtension)
+	}
+	switch format {
 	case .xz:
 		// Apple's COMPRESSION_LZMA decodes the XZ container; fall back to SWCompression.
 		decompressed = try (_appleDecompress(data, algorithm: COMPRESSION_LZMA, limit: maximumExpandedBytes)
@@ -134,8 +137,6 @@ func extractFile(at fileURL: inout URL) throws {
 		// Bounded inside the decoder: the frame's declared size is refused before allocation
 		// and the growth of the output stops at the same ceiling.
 		decompressed = try ZstdDecompression.decompress(data, limit: maximumExpandedBytes)
-	case .unknown:
-		throw TweakHandlerError.unsupportedFileExtension(fileURL.pathExtension)
 	}
 
 	// XZ is bounded while it streams (see `_appleDecompress`). These decoders are single-shot, so
@@ -188,28 +189,8 @@ enum SECURE_ARCHIVE_LOG {
 
 // MARK: - Format detection
 
-private enum _CompressionFormat { case xz, lzma, gzip, bzip2, zstd, unknown }
-
-/// Detects compression by magic bytes, falling back to the extension only when no magic matches.
-private func _detectCompression(_ data: Data, extensionHint ext: String) -> _CompressionFormat {
-	let m = [UInt8](data.prefix(6))
-	if m.count >= 6, m[0] == 0xFD, m[1] == 0x37, m[2] == 0x7A, m[3] == 0x58, m[4] == 0x5A, m[5] == 0x00 {
-		return .xz // "\xFD7zXZ\x00"
-	}
-	if m.count >= 2, m[0] == 0x1F, m[1] == 0x8B { return .gzip }             // gzip
-	if m.count >= 3, m[0] == 0x42, m[1] == 0x5A, m[2] == 0x68 { return .bzip2 } // "BZh"
-	if m.count >= 4, m[0] == 0x28, m[1] == 0xB5, m[2] == 0x2F, m[3] == 0xFD { return .zstd } // zstd frame
-
-	// No recognizable magic — legacy raw `.lzma` has no fixed magic, so trust the extension.
-	switch ext {
-	case "xz": 		return .xz
-	case "lzma": 	return .lzma
-	case "gz": 		return .gzip
-	case "bz2": 	return .bzip2
-	case "zst": 	return .zstd
-	default: 		return .unknown
-	}
-}
+// `ArchiveFormat.detect` owns magic-byte detection; it is shared with the `.deb` member list so
+// the two cannot disagree about what this build can unpack.
 
 /// Heuristic for an uncompressed tar (the ustar magic sits at offset 257).
 private func _looksLikeTar(_ data: Data) -> Bool {

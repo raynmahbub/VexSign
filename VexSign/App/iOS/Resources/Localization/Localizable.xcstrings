@@ -113308,17 +113308,6 @@
         }
       }
     },
-    "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz, .tar.bz2 or .tar.zst package." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz, .tar.bz2 or .tar.zst package."
-          }
-        }
-      }
-    },
     "Downloading %lld files" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -113349,6 +113338,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overall Progress: %@"
+          }
+        }
+      }
+    },
+    "Provisioning hands the certificate and profile to the normal certificate store; signing then uses the imported-certificate engine. In-process account signing is not enabled in this build." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning hands the certificate and profile to the normal certificate store; signing then uses the imported-certificate engine. In-process account signing is not enabled in this build."
+          }
+        }
+      }
+    },
+    "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.xz, .tar.lzma, .tar.gz, .tar.bz2 or .tar.zst package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.xz, .tar.lzma, .tar.gz, .tar.bz2 or .tar.zst package."
           }
         }
       }

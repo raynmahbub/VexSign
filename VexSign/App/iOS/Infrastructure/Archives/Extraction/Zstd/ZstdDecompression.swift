@@ -51,11 +51,4 @@ enum ZstdDecompression {
 
         return Data(bytes: bytes, count: length)
     }
-
-    /// Whether `data` starts like a zstd frame (magic `28 B5 2F FD`, little endian).
-    static func looksLikeZstd(_ data: Data) -> Bool {
-        guard data.count >= 4 else { return false }
-        let magic = [UInt8](data.prefix(4))
-        return magic == [0x28, 0xB5, 0x2F, 0xFD]
-    }
 }
