@@ -76,7 +76,7 @@ struct VexSignAppQuery: EntityQuery {
 
 	@MainActor
 	func entities(for identifiers: [String]) async throws -> [VexSignAppEntity] {
-		let apps = visibleApps()
+		let apps = Self.visibleApps()
 		return identifiers.compactMap { uuid in
 			apps.first { $0.uuid == uuid }.flatMap(VexSignAppEntity.init(app:))
 		}
@@ -85,7 +85,7 @@ struct VexSignAppQuery: EntityQuery {
 	@MainActor
 	func suggestedEntities() async throws -> [VexSignAppEntity] {
 		// Unsigned apps first: they are the ones people sign from a shortcut.
-		visibleApps()
+		Self.visibleApps()
 			.sorted { lhs, rhs in
 				if lhs.isSigned != rhs.isSigned { return !lhs.isSigned }
 				return (lhs.date ?? .distantPast) > (rhs.date ?? .distantPast)
