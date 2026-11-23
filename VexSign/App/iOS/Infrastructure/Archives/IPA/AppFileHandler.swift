@@ -325,54 +325,65 @@ enum IPAImportPayload {
     /// repacked by a tool that writes the bundle at the top level, was refused as
     /// "does not contain an app bundle in its Payload folder" after a full
     /// extraction, with nothing the user could act on. The standard layout still
-    /// wins, and the search only runs when that layout is genuinely absent.
+    /// wins, then a bundle one folder deep, and the search only runs when neither
+    /// applies.
     static func application(in payload: URL) throws -> URL {
         let manager = FileManager.default
 
-        func oneApp(in directory: URL, recursive: Bool) throws -> URL? {
+        /// App bundles directly inside `directory`, not deeper: a nested watch app or an
+        /// app extension inside the bundle is not a second candidate.
+        func appsDirectly(in directory: URL) throws -> [URL] {
             let entries = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
-            let apps = entries.filter { $0.pathExtension.lowercased() == "app" }
+            return entries.filter { $0.pathExtension.lowercased() == "app" }
+        }
+
+        /// The one app among `apps`, refusing the ambiguous cases instead of picking by
+        /// directory order.
+        func onlyApp(of apps: [URL]) throws -> URL? {
             if apps.count > 1 { throw ValidationError.multipleApps }
-            if let app = apps.first {
-                var isDirectory: ObjCBool = false
-                guard manager.fileExists(atPath: app.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-                    throw ValidationError.invalidApp
-                }
-                return app
+            guard let app = apps.first else { return nil }
+            var isDirectory: ObjCBool = false
+            guard manager.fileExists(atPath: app.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                throw ValidationError.invalidApp
             }
-            guard recursive else { return nil }
-            // Only one folder deep, and only into the first folder that can hold the
-            // payload: these packages keep the bundle in a single directory beside
-            // their metadata.
+            return app
+        }
+
+        /// Every app bundle one folder below `directory`, skipping the metadata folder a
+        /// macOS zip adds.
+        func appsOneLevelDown(in directory: URL) throws -> [URL] {
+            let entries = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] // try? ok: unreadable directory holds no app bundle
+            var found: [URL] = []
             for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
                 var isDirectory: ObjCBool = false
                 guard manager.fileExists(atPath: entry.path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
                 if entry.lastPathComponent.lowercased() == "__macosx" { continue }
-                if let app = try oneApp(in: entry, recursive: false) { return app }
+                if let app = try onlyApp(of: try appsDirectly(in: entry)) { found.append(app) }
             }
-            return nil
+            return found
         }
 
         // A standard IPA: `Payload/App.app`.
-        if let app = try oneApp(in: payload, recursive: false) { return app }
+        if let app = try onlyApp(of: try appsDirectly(in: payload)) { return app }
 
-        // Anything else: search the extracted root. `payload` is normally
-        // `<work>/Payload`, so the root is its parent; when this is called on a
-        // directory that holds the bundle directly (the library copy), the first
-        // pass above has already answered.
-        // Only when there is no `Payload` folder at all. An archive that claims that
-        // layout and leaves it empty is malformed, not a differently packed app: the
-        // search must not reach sideways for some unrelated bundle beside it.
-        let root = payload.lastPathComponent == "Payload" ? payload.deletingLastPathComponent() : payload
-        let hasPayloadFolder = payload.lastPathComponent == "Payload" && manager.fileExists(atPath: payload.path)
-        if root.path != payload.path, !hasPayloadFolder, let app = try oneApp(in: root, recursive: true) {
-            return app
+        // Not the standard layout. A directory *named* `Payload` that is missing or empty
+        // is malformed, not a differently packed app: the search must not reach sideways
+        // for some unrelated bundle beside it.
+        guard payload.lastPathComponent != "Payload" else {
+            // Say "no Payload folder" rather than blaming an empty Payload that is not there.
+            if !manager.fileExists(atPath: payload.path) { throw ValidationError.missingPayload }
+            throw ValidationError.missingApp
         }
-        guard payload.lastPathComponent == "Payload" else { throw ValidationError.missingApp }
-        // No `Payload` folder and no bundle found: say so rather than blaming a
-        // Payload that was never there.
-        if !manager.fileExists(atPath: payload.path) { throw ValidationError.missingPayload }
-        throw ValidationError.missingApp
+
+        // A package that keeps the bundle one folder deep beside its metadata (a plain
+        // `.zip`, or a tool that wrapped the app). This search used to be reachable only
+        // when the caller passed a path literally named `Payload`, so the layout the
+        // comment above promises was refused. Two bundles in different folders are still
+        // ambiguous: choosing one by directory order is what this function exists to avoid.
+        let nested = try appsOneLevelDown(in: payload)
+        guard nested.count <= 1 else { throw ValidationError.multipleApps }
+        guard let app = nested.first else { throw ValidationError.missingApp }
+        return app
     }
 
     /// Check the same minimum bundle metadata needed by the signing pipeline,
