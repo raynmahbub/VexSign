@@ -59,6 +59,7 @@ struct RepositoryEditorView: View {
             }
             if let error { Text(error).foregroundStyle(.red) }
         }
+        .dismissableKeyboard()
         .disabled(busy)
         .navigationTitle(document.name)
         .toolbar {

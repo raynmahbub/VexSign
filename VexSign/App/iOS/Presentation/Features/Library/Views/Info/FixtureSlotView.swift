@@ -116,6 +116,7 @@ struct FixtureSlotView: View {
                 }
             }
         }
+        .dismissableKeyboard()
         .navigationTitle("Fixture slot manager")
         .task { refresh() }
         .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }

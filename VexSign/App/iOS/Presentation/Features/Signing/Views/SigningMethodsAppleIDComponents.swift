@@ -38,6 +38,7 @@ struct AppleIDLoginView: View {
                     }
                 }
             }
+            .dismissableKeyboard()
             .navigationTitle(.localized("Sign in with Apple ID"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -31,6 +31,7 @@ public struct NBListAdaptable<Content>: View where Content: View {
 			.listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(background)
+            .scrollDismissesKeyboard(.interactively)
 		} else {
 			NBGrid(minimumWidth: minimumCardWidth) {
 				_content

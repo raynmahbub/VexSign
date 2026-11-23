@@ -138,6 +138,7 @@ struct P12CrackerView: View {
 					}
 				}
 			}
+			.dismissableKeyboard()
 			.toolbar {
 				NBToolbarButton(role: .cancel)
 			}

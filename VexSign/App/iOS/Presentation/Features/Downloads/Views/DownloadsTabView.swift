@@ -451,6 +451,7 @@ private struct DownloadsTabContent: View {
                     .disabled(addURLText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+            .dismissableKeyboard()
             .navigationTitle(.localized("Download from URL"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

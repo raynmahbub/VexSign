@@ -63,6 +63,7 @@ struct OTAView: View {
             }
             if let error { Text(error).foregroundStyle(.red) }
         }.textInputAutocapitalization(.never).autocorrectionDisabled().navigationTitle(.localized("OTA Distribution"))
+            .dismissableKeyboard()
             .onAppear {
                 if signedApps.isEmpty {
                     signedApps = services.workspace.snapshot.apps.filter { $0.isSigned }

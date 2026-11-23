@@ -28,6 +28,7 @@ struct RepositoryBuilderView: View {
             }
             if let error = model.error { Section(.localized("Error")) { Text(error).foregroundStyle(.red) } }
         }
+        .dismissableKeyboard()
         .disabled(model.busy)
         .navigationTitle(.localized("Repository Builder"))
         .task { await model.load() }

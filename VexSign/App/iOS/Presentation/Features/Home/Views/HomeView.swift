@@ -118,6 +118,7 @@ struct HomeView: View {
                             Text(.localized("Use the same query across Library, repository apps and Settings. Each destination keeps its existing privacy rules and filters."))
                         }
                     }
+                    .dismissableKeyboard()
                     .navigationTitle(.localized("Search VexSign"))
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {

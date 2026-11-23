@@ -232,6 +232,8 @@ verify: docs-check
 	  "python3 VexSign/Tools/Validation/repository-validation/test_haptics_policy.py" \
 	  "#motion: animations go through AppMotion so Reduce Motion is honoured" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_motion_policy.py" \
+	  "#keyboard: a form with text fields can always dismiss the keyboard" \
+	  "python3 VexSign/Tools/Validation/repository-validation/test_keyboard_dismissal_policy.py" \
 	  "#swift style drift gate (changed lines only)" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py" \
 	  "#service runtimes (CI, images and blueprint agree)" \

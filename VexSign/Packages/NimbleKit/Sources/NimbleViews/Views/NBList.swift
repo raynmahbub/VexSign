@@ -47,6 +47,10 @@ public struct NBList<Content>: View where Content: View {
 		}
         .scrollContentBackground(.hidden)
         .background(background)
+        // Every screen built on NBList gets scroll-to-dismiss for free. It used to be opt-in
+        // per screen through `dismissableKeyboard()`, so a new form with a text field trapped
+        // the keyboard until the user found the Done button.
+        .scrollDismissesKeyboard(.interactively)
 		.navigationTitle(_title)
 		.navigationBarTitleDisplayMode(_mode)
 	}

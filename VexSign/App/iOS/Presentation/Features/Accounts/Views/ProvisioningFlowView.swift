@@ -612,6 +612,7 @@ private struct AppPickerView: View {
                     }
                 }
             }
+            .dismissableKeyboard()
             .task {
                 allApps = services.workspace.snapshot.apps.filter { !signedOnly || $0.isSigned }
             }

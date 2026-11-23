@@ -97,6 +97,7 @@ struct GitHubIPAImportView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .dismissableKeyboard()
             .navigationTitle(.localized("Import from GitHub"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

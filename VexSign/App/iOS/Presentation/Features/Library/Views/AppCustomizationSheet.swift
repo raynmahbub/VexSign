@@ -34,6 +34,7 @@ struct AppCustomizationSheet: View {
 
                 urlSchemeSection
             }
+            .dismissableKeyboard()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(.localized("Done")) { dismiss() }

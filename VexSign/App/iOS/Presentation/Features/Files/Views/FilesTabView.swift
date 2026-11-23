@@ -53,6 +53,7 @@ struct FilesTabView: View {
                 if !vm.visible.isEmpty { filesListSection }
                 infoSection
             }
+            .dismissableKeyboard()
             .listStyle(.insetGrouped)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: Text(.localized("Search files")))
             .onChange(of: query) { _, newQuery in vm.query = newQuery }

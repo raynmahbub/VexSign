@@ -133,6 +133,7 @@ private struct DirectInstallSheetContent: View {
                     }
                 }
             }
+            .dismissableKeyboard()
             .toolbar {
                 NBToolbarButton(role: .cancel)
             }
