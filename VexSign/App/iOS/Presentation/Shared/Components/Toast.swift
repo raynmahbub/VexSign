@@ -90,18 +90,19 @@ final class ToastManager: ObservableObject {
 
 			// Hop a runloop so the host renders empty first — makes the first toast animate in.
 			if self.current == nil {
-				DispatchQueue.main.async { self._presentNext() }
+				Task { @MainActor in self._presentNext() }
 			}
 		}
 	}
 
 	func dismiss() {
 		_dismissWork?.cancel()
-		_advance()
+		Task { @MainActor in self._advance() }
 	}
 
 	// MARK: Internal
 
+	@MainActor
 	private func _presentNext() {
 		guard current == nil, !_queue.isEmpty else { return }
 		let item = _queue.removeFirst()
@@ -119,18 +120,19 @@ final class ToastManager: ObservableObject {
 
 	private func _scheduleDismiss(after duration: TimeInterval) {
 		_dismissWork?.cancel()
-		let work = DispatchWorkItem { [weak self] in self?._advance() }
+		let work = DispatchWorkItem { [weak self] in Task { @MainActor in self?._advance() } }
 		_dismissWork = work
 		DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
 	}
 
+	@MainActor
 	private func _advance() {
 		withAppAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
 			current = nil
 		}
 		bannerFrame = .zero
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
-			self?._presentNext()
+			Task { @MainActor in self?._presentNext() }
 		}
 	}
 }
