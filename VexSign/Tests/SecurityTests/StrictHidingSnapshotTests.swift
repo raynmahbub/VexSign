@@ -19,7 +19,7 @@ final class StrictHidingSnapshotTests: XCTestCase {
 		snapshot.update(isEnabled: false, hiddenAppUUIDs: ["vaulted"])
 
 		XCTAssertFalse(snapshot.hides("vaulted"), "hidden apps are only excluded from other surfaces in strict mode")
-		XCTAssertTrue(snapshot.hides("ordinary"), "an unrestricted snapshot must not hide anything")
+		XCTAssertFalse(snapshot.hides("ordinary"), "an unrestricted snapshot must not hide anything")
 	}
 
 	func testStrictModeHidesExactlyTheVaultedApps() {

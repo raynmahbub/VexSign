@@ -96,7 +96,12 @@ final class RenewalScheduleTests: XCTestCase {
 			now: now
 		)
 		XCTAssertEqual(plan.expiresAt, at(days(1)))
-		XCTAssertEqual(plan.status, .due)
+		XCTAssertEqual(plan.daysRemaining, 1)
+		// The profile's window is capped at seven days, and one day left is inside its
+		// final sixth — the same rule that makes a two-day window urgent on its last
+		// eight hours. What this test pins is which date drives the plan, so the status
+		// is asserted rather than left to drift.
+		XCTAssertEqual(plan.status, .urgent)
 	}
 
 	func testLapsedProfileIsLapsedNotDue() {
