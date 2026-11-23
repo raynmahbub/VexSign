@@ -34,18 +34,26 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
 
     def test_root_environment_wraps_overlays_and_presented_sheets(self):
         shell = code("App/VexSignApp.swift")
-        scope = shell.index(".environmentObject(appContainer)")
-        # SwiftUI environment modifiers only reach their wrapped subtree. The
-        # always-built queue pill used to be appended outside that subtree and
-        # trapped on its first read of InstallationQueueModel, even when idle.
+        # The whole graph is injected by one modifier, applied once at the end of
+        # the scene's subtree. SwiftUI environment modifiers only reach their
+        # wrapped subtree, and the always-built queue pill used to be appended
+        # outside it, trapping on its first read of InstallationQueueModel.
+        scope = shell.index(".modifier(AppEnvironment(container: appContainer")
         for child in ["InstallQueuePill()", "AppLockScreenView()", "OnboardingView()", "SelfUpdateSheet(release: release)"]:
             self.assertLess(shell.index(child), scope, child + " must be inside the root dependency scope")
-        for model in ["appContainer", "appContainer.installationQueue", "appContainer.tweaks",
-                      "appContainer.files", "appContainer.workspace", "appearance"]:
-            token = ".environmentObject(" + model + ")"
-            self.assertEqual(shell.count(token), 1, "Use the same outer root scope for every presentation")
-            self.assertGreaterEqual(shell.index(token), scope)
-        self.assertGreater(shell.index(".environment(\\.appContainer, appContainer)"), scope)
+        self.assertEqual(shell.count("AppEnvironment(container: appContainer"), 1,
+                         "Use the same outer root scope for every presentation")
+        self.assertNotIn(".environmentObject(appContainer)", shell,
+                         "the chain lives in AppEnvironment, not in the scene")
+        environment = self.require("App/Composition/AppEnvironment.swift",
+            ".environmentObject(container)",
+            ".environmentObject(container.installationQueue)", ".environmentObject(container.tweaks)",
+            ".environmentObject(container.files)", ".environmentObject(container.workspace)",
+            ".environmentObject(appearance ?? AppearanceStore.shared)",
+            ".environment(\\.appContainer, container)")
+        self.assertIsNotNone(environment)
+        self.require("App/Composition/AppContainer.swift",
+            ".modifier(AppEnvironment(container: container))")
         self.require("Presentation/Features/Library/Views/Install/InstallQueueWindow.swift",
             "@EnvironmentObject private var queue: InstallationQueueModel")
 

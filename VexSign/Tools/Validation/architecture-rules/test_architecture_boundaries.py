@@ -185,7 +185,9 @@ class ArchitectureBoundaryTests(unittest.TestCase):
     def test_composition_root_wires_app_container_and_deep_links(self) -> None:
         app_src = _strip_comments((VEXSIGN / "App/VexSignApp.swift").read_text(encoding="utf-8"))
         self.assertIn("AppContainer.live()", app_src)
-        self.assertIn(".environment(\\.appContainer, appContainer)", app_src)
+        # The container and its stores are injected by AppEnvironment, which is also where
+        # `\.appContainer` is set; the scene applies it once. See App/Composition/AppEnvironment.swift.
+        self.assertIn("AppEnvironment(container: appContainer", app_src)
         # Every external URL goes through the lock-aware entry point; the raw
         # router call there would bypass the App Lock buffering.
         self.assertIn("appContainer.handleExternalURL(url)", app_src)
