@@ -718,10 +718,14 @@ jobs:
         if: always() && steps.test.outcome != 'skipped'
         continue-on-error: true
         run: |
+          # The baseline turns the number into a trend. It is recorded from a green run
+          # (--update-baseline) and committed; a null baseline prints no delta rather than a
+          # made-up one, so the first run after this change is not a regression.
           python3 .github/scripts/coverage_report.py \
             --result-bundle "$RESULT_BUNDLE" \
             --json "${RUNNER_TEMP}/coverage.json" \
             --fail-under 20 \
+            --baseline VexSign/Tools/Validation/repository-validation/coverage-baseline.json \
             --github-output "$GITHUB_OUTPUT"
 
       # The floor, as its own step so a *missing* number keeps the tolerant behaviour above

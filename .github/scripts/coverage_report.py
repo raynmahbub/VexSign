@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from datetime import datetime, timezone
 import subprocess
 import sys
 from pathlib import Path
@@ -96,11 +97,34 @@ def summarise(report: dict, limit: int = 20) -> tuple[float, int, int, list[dict
     return percent, covered, executable, files[:limit]
 
 
-def render_markdown(percent: float, covered: int, executable: int, files: list[dict]) -> str:
+def render_markdown(
+    percent: float,
+    covered: int,
+    executable: int,
+    files: list[dict],
+    baseline: float | None = None,
+    floor: float | None = None,
+) -> str:
     lines = [
         "### Test coverage",
         "",
         f"**{percent:.1f}%** of executable lines ({covered}/{executable}).",
+        "",
+    ]
+    if floor is not None:
+        lines.append(f"Floor: **{floor:.1f}%** ({floor_status(percent, floor)}).")
+        lines.append("")
+    # A floor only catches a collapse. The trend is what tells a reviewer whether this
+    # change moved the number, so the comparison is part of the report rather than a
+    # number someone has to remember from the previous run.
+    if baseline is None:
+        lines.append("_No baseline recorded yet._ Run `coverage_report.py --update-baseline <path>` "
+                     "against a green run to start the trend.")
+    else:
+        delta = percent - baseline
+        arrow = "+" if delta >= 0 else ""
+        lines.append(f"Baseline: **{baseline:.1f}%** → **{arrow}{delta:.1f} pt** with this change.")
+    lines += [
         "",
         "Least-covered first-party files — target these when adding regression tests:",
         "",
@@ -127,6 +151,32 @@ def floor_status(percent: float, fail_under: float | None) -> str:
     if percent < fail_under + 2:
         return "at_floor"
     return "ok"
+
+
+def load_baseline(path: Path | None) -> float | None:
+    """The recorded percentage, or None when there is no usable record.
+
+    A missing file, an unparseable one and a `null` percentage are the same answer here: the
+    report says so and prints no trend, instead of inventing a number from which a delta would
+    look meaningful.
+    """
+    if path is None or not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    percent = payload.get("percent") if isinstance(payload, dict) else None
+    return float(percent) if isinstance(percent, (int, float)) else None
+
+
+def write_baseline(path: Path, percent: float, note: str = "") -> None:
+    payload = {
+        "percent": round(percent, 1),
+        "recordedAt": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "note": note or "Recorded from a green test run; update deliberately, not to make a red run green.",
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def _write_github_output(destination, values: dict[str, str]) -> None:
@@ -160,6 +210,14 @@ def main() -> int:
         "--github-output", type=Path, default=None,
         help="append percent/floor/status lines to this file (a CI output file)",
     )
+    parser.add_argument(
+        "--baseline", type=Path, default=None,
+        help="compare against this recorded percentage and print the delta",
+    )
+    parser.add_argument(
+        "--update-baseline", action="store_true",
+        help="record the measured percentage in the --baseline file",
+    )
     arguments = parser.parse_args()
 
     if not arguments.result_bundle.exists():
@@ -178,8 +236,13 @@ def main() -> int:
         return 1
 
     percent, covered, executable, files = summarise(report, arguments.limit)
-    markdown = render_markdown(percent, covered, executable, files)
+    baseline = load_baseline(arguments.baseline)
+    markdown = render_markdown(percent, covered, executable, files,
+                               baseline=baseline, floor=arguments.fail_under)
     print(markdown)
+    if arguments.update_baseline and arguments.baseline is not None:
+        write_baseline(arguments.baseline, percent)
+        print(f"recorded baseline {percent:.1f}% in {arguments.baseline}")
 
     status = floor_status(percent, arguments.fail_under)
     _write_github_output(arguments.github_output, {

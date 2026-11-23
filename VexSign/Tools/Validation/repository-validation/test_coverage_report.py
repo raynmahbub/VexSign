@@ -133,6 +133,55 @@ class CommandLineTests(unittest.TestCase):
             self.assertEqual(json.loads(raw.read_text())["coveredLines"], 30)
 
 
+class TrendTests(unittest.TestCase):
+    def test_the_report_states_the_floor_and_its_status(self):
+        markdown = coverage.render_markdown(*coverage.summarise(REPORT), floor=20.0)
+        self.assertIn("Floor: **20.0%** (ok)", markdown)
+
+    def test_without_a_baseline_the_report_says_so_instead_of_printing_a_delta(self):
+        markdown = coverage.render_markdown(*coverage.summarise(REPORT))
+        self.assertIn("No baseline recorded yet", markdown)
+        self.assertNotIn("pt**", markdown)
+
+    def test_a_baseline_produces_a_signed_delta(self):
+        below = coverage.render_markdown(*coverage.summarise(REPORT), baseline=34.5)
+        self.assertIn("Baseline: **34.5%**", below)
+        self.assertIn("-4.5 pt", below)
+        above = coverage.render_markdown(*coverage.summarise(REPORT), baseline=25.0)
+        self.assertIn("+5.0 pt", above)
+
+    def test_a_null_or_broken_baseline_is_absent_not_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "baseline.json"
+            path.write_text(json.dumps({"percent": None}))
+            self.assertIsNone(coverage.load_baseline(path))
+            path.write_text("{ not json")
+            self.assertIsNone(coverage.load_baseline(path))
+            self.assertIsNone(coverage.load_baseline(Path(directory) / "absent.json"))
+            self.assertIsNone(coverage.load_baseline(None))
+
+    def test_recording_a_baseline_writes_a_rounded_percentage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "baseline.json"
+            coverage.write_baseline(path, 30.04)
+            payload = json.loads(path.read_text())
+            self.assertEqual(payload["percent"], 30.0)
+            self.assertTrue(payload["recordedAt"])
+            self.assertEqual(coverage.load_baseline(path), 30.0)
+
+    def test_update_baseline_records_the_measured_number(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory) / "tests.xcresult"
+            bundle.mkdir()
+            path = Path(directory) / "baseline.json"
+            with mock.patch.object(coverage.sys, "argv",
+                                   ["coverage_report.py", "--result-bundle", str(bundle),
+                                    "--baseline", str(path), "--update-baseline"]), \
+                 mock.patch.object(coverage, "xccov_json", return_value=REPORT):
+                self.assertEqual(coverage.main(), 0)
+            self.assertEqual(coverage.load_baseline(path), 30.0)
+
+
 class SchemeTests(unittest.TestCase):
     def test_coverage_is_enabled_in_the_shared_test_scheme(self):
         scheme = (ROOT / "VexSign.xcodeproj/xcshareddata/xcschemes/VexSignTests.xcscheme").read_text()
