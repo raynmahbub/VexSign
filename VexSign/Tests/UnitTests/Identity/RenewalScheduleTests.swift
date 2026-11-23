@@ -92,7 +92,7 @@ final class RenewalScheduleTests: XCTestCase {
 
 	func testEarlierCertificateExpiryDrivesThePlan() {
 		let plan = RenewalPlanner.plan(
-			for: credential(expiresIn: days(200), certificateExpiresIn: days(1), issuedDaysAgo: 300),
+			for: credential(expiresIn: days(200), issuedDaysAgo: 300, certificateExpiresIn: days(1)),
 			now: now
 		)
 		XCTAssertEqual(plan.expiresAt, at(days(1)))
