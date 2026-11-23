@@ -27,8 +27,13 @@ class AR: NSObject {
 			throw ARError.badArchive("Invalid magic")
 		}
 		
-		let data = _data.subdata(in: 8..<_data.endIndex)
-		
+		// A slice, not `subdata(in:)`: slicing a `Data` shares its storage, while `subdata`
+		// copies. Copying here meant the whole `.deb` — up to the file-size cap — was read
+		// into the heap before a single member had been bounds-checked, which is exactly the
+		// allocation that turns a large archive into a jetsam kill on a phone. Offsets below
+		// stay relative to the slice; `data.startIndex` is added when a byte is touched.
+		let data = _data[8...]
+
 		var offset = 0
 		var files: [ARFileModel] = []
 		var names = Set<String>()
@@ -43,7 +48,7 @@ class AR: NSObject {
 			files.append(fileInfo)
 			offset += fileInfo.size + 60
 			if fileInfo.size % 2 != 0 {
-				guard offset < data.count, data[offset] == 0x0a else {
+				guard offset < data.count, data[data.startIndex + offset] == 0x0a else {
 					throw ARError.badArchive("Missing or invalid member padding")
 				}
 				offset += 1
@@ -57,11 +62,14 @@ class AR: NSObject {
 			throw ARError.badArchive("Header truncated")
 		}
 
-		guard data[offset + 58] == 0x60, data[offset + 59] == 0x0a else {
+		// `data` is a slice of the mapped archive; every absolute index adds its start.
+		let base = data.startIndex
+
+		guard data[base + offset + 58] == 0x60, data[base + offset + 59] == 0x0a else {
 			throw ARError.badArchive("Invalid member header terminator")
 		}
 
-		guard let sizeStr = String(data: data.subdata(in: offset+48..<offset+58), encoding: .ascii),
+		guard let sizeStr = String(data: data[(base + offset + 48)..<(base + offset + 58)], encoding: .ascii),
 		      let size = Int(_removePadding(sizeStr)), size >= 0 else {
 			throw ARError.badArchive("Invalid size")
 		}
@@ -70,7 +78,7 @@ class AR: NSObject {
 			throw ARError.badArchive("File data truncated")
 		}
 		
-		let rawName = String(data: data.subdata(in: offset..<offset+16), encoding: .ascii) ?? ""
+		let rawName = String(data: data[(base + offset)..<(base + offset + 16)], encoding: .ascii) ?? ""
 		var name = _removePadding(rawName)
 		// Some ar writers terminate a short filename with a slash. The deb
 		// consumers write each member directly into a staging directory, so only
@@ -82,13 +90,13 @@ class AR: NSObject {
 			throw ARError.badArchive("Invalid member name")
 		}
 
-		let modDateStr = String(data: data.subdata(in: offset+16..<offset+28), encoding: .ascii) ?? "0"
+		let modDateStr = String(data: data[(base + offset + 16)..<(base + offset + 28)], encoding: .ascii) ?? "0"
 		let modTimestamp = Double(_removePadding(modDateStr)) ?? 0
-		let ownerStr = String(data: data.subdata(in: offset+28..<offset+34), encoding: .ascii) ?? "0"
+		let ownerStr = String(data: data[(base + offset + 28)..<(base + offset + 34)], encoding: .ascii) ?? "0"
 		let ownerId = Int(_removePadding(ownerStr)) ?? 0
-		let groupStr = String(data: data.subdata(in: offset+34..<offset+40), encoding: .ascii) ?? "0"
+		let groupStr = String(data: data[(base + offset + 34)..<(base + offset + 40)], encoding: .ascii) ?? "0"
 		let groupId = Int(_removePadding(groupStr)) ?? 0
-		let modeStr = String(data: data.subdata(in: offset+40..<offset+48), encoding: .ascii) ?? "0"
+		let modeStr = String(data: data[(base + offset + 40)..<(base + offset + 48)], encoding: .ascii) ?? "0"
 		let mode = Int(_removePadding(modeStr)) ?? 0
 		
 		return ARFileModel(
@@ -98,7 +106,9 @@ class AR: NSObject {
 			groupId: groupId,
 			mode: mode,
 			size: size,
-			content: data.subdata(in: offset+60..<offset+60+size)
+			// A slice, so reading a member never duplicates it: the payload is copied once,
+			// by whoever writes it to disk, instead of once per member into the heap here.
+			content: data[(base + offset + 60)..<(base + offset + 60 + size)]
 		)
 	}
 	
