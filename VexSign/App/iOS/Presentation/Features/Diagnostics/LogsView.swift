@@ -150,7 +150,15 @@ extension LogsView {
 					? String.localized("Sign, install or download something and it shows up here as it happens.")
 					: nil,
 				tone: .onDark,
-				compact: true
+				compact: true,
+				// "Nothing matches this filter" with no way to drop the filter is a dead end the
+				// user has to solve by finding the chip again.
+				action: _log.entries.isEmpty ? nil : (
+					title: String.localized("Show All Logs"),
+					systemImage: "line.3.horizontal.decrease.circle",
+					tint: Color.userTint,
+					perform: { withAppAnimation(.snappy) { _filter = nil } }
+				)
 			)
 			.padding(.horizontal, 32)
 		}

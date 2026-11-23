@@ -275,7 +275,13 @@ extension AppStoreView {
                     systemImage: "checkmark.circle.fill",
                     title: String.localized("All Apps Are Up to Date"),
                     message: String.localized("Your installed applications are on the latest versions from your sources."),
-                    tone: .accent
+                    tone: .accent,
+                    action: (
+                        title: String.localized("Check Again"),
+                        systemImage: "arrow.clockwise",
+                        tint: Color.userTint,
+                        perform: { Task { await viewModel.fetchSources(sources, refresh: true) } }
+                    )
                 )
                 .padding(.vertical, 18)
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))

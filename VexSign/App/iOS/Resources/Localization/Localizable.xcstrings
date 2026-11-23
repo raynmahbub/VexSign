@@ -113429,6 +113429,17 @@
           }
         }
       }
+    },
+    "Show All Logs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show All Logs"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
