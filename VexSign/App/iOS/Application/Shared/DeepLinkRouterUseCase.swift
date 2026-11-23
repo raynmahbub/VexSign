@@ -212,15 +212,36 @@ final class DeepLinkRouterUseCase {
     private static func isApplicationArchive(_ url: URL) -> Bool {
         guard url.pathExtension.lowercased() != "ipa",
               url.pathExtension.lowercased() != "tipa" else { return true }
-        guard PackageArchiveType.accepted(at: url) else { return false }
-        return PackageContentClassifier.classify(at: url) == .application
+        return withIncomingAccess(url) { readable in
+            guard PackageArchiveType.accepted(at: readable) else { return false }
+            return PackageContentClassifier.classify(at: readable) == .application
+        }
+    }
+
+    /// Reads the incoming file with the access it needs.
+    ///
+    /// A file opened from Files, AirDrop or another app arrives as a
+    /// security-scoped URL: reading its bytes without starting the scope fails on
+    /// a device, even though the file is perfectly good. The coordinated copy
+    /// takes the scope for itself, but these classification reads happen *before*
+    /// it, so the URL was refused as unreadable on hardware while the simulator —
+    /// where the URL points inside the sandbox — looked fine.
+    ///
+    /// `startAccessingSecurityScopedResource` answers `false` for a URL that was
+    /// never scoped, so the replay is safe for an in-sandbox file too.
+    private static func withIncomingAccess<T>(_ url: URL, _ body: (URL) -> T) -> T {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        return body(url)
     }
 
     private func handleSharedPackage(_ url: URL) {
         // Refuse a container the importer cannot unpack before copying it into
         // the workspace: a handed-over `.tar.gz` is otherwise staged in full and
-        // only then rejected by the extractor.
-        if let reason = PackageArchiveType.rejectionReason(at: url) {
+        // only then rejected by the extractor. The read is scoped, or a shared
+        // IPA would be refused as unreadable on a device.
+        let rejection = Self.withIncomingAccess(url) { PackageArchiveType.rejectionReason(at: $0) }
+        if let reason = rejection {
             platform.presentErrorWithCopy(title: NSLocalizedString("Import Failed", comment: ""), message: reason)
             return
         }
