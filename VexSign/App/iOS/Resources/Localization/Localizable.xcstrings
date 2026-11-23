@@ -113682,6 +113682,17 @@
           }
         }
       }
+    },
+    "The library could not be read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library could not be read"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
