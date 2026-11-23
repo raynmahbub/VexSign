@@ -54,26 +54,129 @@ SEND_PATTERN = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Source scoping
+#
+# The property under test is "the request this line builds is bounded". The
+# first version of this gate measured *characters* from the marker to the send
+# and from the send back to `timeoutInterval`. That made comment length part of
+# the contract: a four-line explanation above `let configuration` pushed a real
+# request out of the window and the gate failed on a file that plainly sets its
+# timeout. Scopes below are found by matching braces, so prose cannot move them.
+# ---------------------------------------------------------------------------
+
+_SWIFT_STRING_DELIMITERS = ('"""', '"')
+
+
+def _skip_string(source: str, index: int) -> int:
+    """Returns the index just past the string literal that starts at `index`."""
+    for delimiter in _SWIFT_STRING_DELIMITERS:
+        if source.startswith(delimiter, index):
+            cursor = index + len(delimiter)
+            while cursor < len(source):
+                if source[cursor] == "\\":
+                    cursor += 2
+                    continue
+                if source.startswith(delimiter, cursor):
+                    return cursor + len(delimiter)
+                cursor += 1
+            return len(source)
+    return index + 1
+
+
+def _code_mask(source: str) -> list:
+    """True for characters that are code, False inside comments and literals.
+
+    Braces inside a log message or a JSON template must not open a scope, and
+    a `//` inside a URL string must not start a comment, so both are tracked.
+    """
+    mask = [True] * len(source)
+    index = 0
+    length = len(source)
+    while index < length:
+        char = source[index]
+        if char == "/" and source.startswith("//", index):
+            end = source.find("\n", index)
+            end = length if end == -1 else end
+            for position in range(index, end):
+                mask[position] = False
+            index = end
+            continue
+        if char == "/" and source.startswith("/*", index):
+            end = source.find("*/", index + 2)
+            end = length if end == -1 else end + 2
+            for position in range(index, end):
+                mask[position] = False
+            index = end
+            continue
+        if char == "\"":
+            end = _skip_string(source, index)
+            for position in range(index, end):
+                mask[position] = False
+            index = end
+            continue
+        index += 1
+    return mask
+
+
+def _blocks(source: str) -> list:
+    """Every matched `{ ... }` span in `source`, as (open, close) indices."""
+    mask = _code_mask(source)
+    stack = []
+    spans = []
+    for index, char in enumerate(source):
+        if not mask[index]:
+            continue
+        if char == "{":
+            stack.append(index)
+        elif char == "}" and stack:
+            spans.append((stack.pop(), index))
+    return spans
+
+
+def enclosing_blocks(source: str, index: int) -> list:
+    """Spans around `index`, innermost first, so a caller can walk outward."""
+    spans = [span for span in _blocks(source) if span[0] < index < span[1]]
+    return sorted(spans, key=lambda span: span[0], reverse=True)
+
+
+def bounded_before(source: str, index: int) -> bool:
+    """Whether `timeoutInterval` is set in code before `index`, in any scope.
+
+    A timeout assigned in the function that builds the request, in a nested
+    `do`/`for` inside it, or in the configuration that function constructs all
+    count; one assigned in a *different* function does not.
+    """
+    mask = _code_mask(source)
+    for start, _ in enclosing_blocks(source, index):
+        window = source[start:index]
+        for offset, char in enumerate(window):
+            if char == "t" and window.startswith("timeoutInterval", offset) and mask[start + offset]:
+                return True
+    return False
+
+
 class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
     def test_each_bounded_request_sets_a_timeout(self) -> None:
         for relative, marker, why in BOUNDED_REQUESTS:
             with self.subTest(file=relative):
                 source = (ROOT / relative).read_text()
-                # The request built from `marker` must have a timeout before it is sent.
+                # The request built from `marker` must be bounded in the scope that
+                # builds it. Scopes come from matched braces, so comment length and
+                # formatting cannot move the assertion.
                 marker_at = source.find(marker)
                 self.assertNotEqual(marker_at, -1, f"{relative}: expected {marker!r} to still exist")
-                # Wide enough to cover a request builder plus its comments: the check
-                # below still requires `timeoutInterval` to appear *before* the send, and
-                # the old 1200 was so close to the length of RepositoryDirectoryClient's
-                # builder that a four-line comment pushed the send out of the window and
-                # the gate reported "no request" for a file that plainly has one.
-                window = source[marker_at:marker_at + 2000]
-                match = re.search(SEND_PATTERN, window)
-                send = match.start() if match else -1
-                self.assertNotEqual(send, -1, f"{relative}: no request found after {marker!r}")
-                self.assertIn(
-                    "timeoutInterval",
-                    window[:send],
+                scopes = enclosing_blocks(source, marker_at)
+                self.assertTrue(scopes, f"{relative}: {marker!r} is not inside a scope")
+                outermost = scopes[-1]
+                match = re.search(SEND_PATTERN, source[marker_at:outermost[1]])
+                self.assertIsNotNone(
+                    match,
+                    f"{relative}: no request found in the scope that builds {marker!r}",
+                )
+                send = marker_at + match.start()
+                self.assertTrue(
+                    bounded_before(source, send),
                     f"{relative}: {why} has no timeout, so a stalled server hangs the screen",
                 )
 
@@ -85,12 +188,10 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                 sends = [m.start() for m in re.finditer(SEND_PATTERN, source)]
                 self.assertTrue(sends, f"{relative}: expected at least one request")
                 for position in sends:
-                    # Look back far enough to cover a request built and configured inline.
-                    window = source[max(0, position - 1200):position]
-                    self.assertIn(
-                        "timeoutInterval",
-                        window,
-                        f"{relative}: an unbounded request was added ({why})",
+                    line = source.count("\n", 0, position) + 1
+                    self.assertTrue(
+                        bounded_before(source, position),
+                        f"{relative}:{line}: an unbounded request was added ({why})",
                     )
 
     def test_repository_traffic_uses_one_shared_budget(self) -> None:
@@ -138,6 +239,42 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
 
         self.assertIn("privateKeyUploadDisabled", source,
                       "if upload becomes enabled, its requests need timeouts too")
+
+
+class ScopeScannerTests(unittest.TestCase):
+    """The scanner must see code, not prose, or every rule above is noise."""
+
+    def test_brace_in_comment_does_not_open_a_scope(self) -> None:
+        source = "func f() {\n    // a } brace in prose\n    send()\n}\n"
+        spans = _blocks(source)
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(source[spans[0][0]], "{")
+        self.assertEqual(spans[0][1], source.rindex("}"))
+
+    def test_brace_in_string_does_not_open_a_scope(self) -> None:
+        source = 'func f() {\n    let s = "a } brace in a string"\n    send()\n}\n'
+        self.assertEqual(len(_blocks(source)), 1)
+        self.assertTrue(bounded_before('func f() { timeoutInterval = 2; send() }', 32))
+
+    def test_timeout_in_another_function_does_not_count(self) -> None:
+        source = (
+            "func bounded() {\n    request.timeoutInterval = 20\n}\n"
+            "func unbounded() {\n    send()\n}\n"
+        )
+        position = source.index("send()")
+        self.assertFalse(bounded_before(source, position))
+
+    def test_timeout_in_an_outer_scope_counts(self) -> None:
+        source = (
+            "func bounded() {\n    request.timeoutInterval = 20\n"
+            "    for _ in 0 ..< 3 {\n        send()\n    }\n}\n"
+        )
+        position = source.index("send()")
+        self.assertTrue(bounded_before(source, position))
+
+    def test_url_with_slashes_is_not_read_as_a_comment(self) -> None:
+        source = 'func f() {\n    let u = "https://host/path"\n    send()\n}\n'
+        self.assertEqual(len(_blocks(source)), 1)
 
 
 if __name__ == "__main__":
