@@ -1,5 +1,6 @@
 import XCTest
 import ZIPFoundation
+import IDeviceSwift
 @testable import VexSign
 
 final class ImportAndInstallationTests: XCTestCase {
