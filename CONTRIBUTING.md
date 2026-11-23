@@ -74,6 +74,7 @@ do not change historical feed or commit-pinned URLs by mass substitution.
 make hooks        # once: pre-push runs the fast gate (undo: git config --unset core.hooksPath)
 make verify
 make test
+make test-packages  # the SideSign and NativeSigning test targets
 make lint        # when SwiftLint is installed
 ```
 

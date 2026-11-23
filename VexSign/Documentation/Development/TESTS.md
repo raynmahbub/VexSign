@@ -12,7 +12,11 @@ name runs zero tests and still exits 0, so read the `Test Suite` line in the out
 | `Tests/PerformanceTests/` | 4 | Sendability and shared-state stress under concurrency. Despite the folder name there is no `measure {}`/`XCTMetric` here — the assertions are correctness under load, not timings. The name is legacy and is not worth the churn of a rename: 4 files, and two architecture documents pin the paths. |
 | `Tests/Support/` | 4 | Fixtures and helpers, not test cases. |
 
-Running them: `make test` (~2,300 tests, ~30 minutes), `make test SUITE=<Class>[,<Class>]` while
+The packages carry their own targets as well: `make test-packages` runs
+`VexSign/Packages/SideSign/Tests` and `VexSign/Packages/NativeSigning/Tests` (~318 cases) on
+macOS, which is what `embedded-container.yml` does for a change that touches `Packages/**`.
+
+Running the app suite: `make test` (~2,300 tests, ~30 minutes), `make test SUITE=<Class>[,<Class>]` while
 iterating. See [CONTRIBUTING.md](../../../CONTRIBUTING.md#validate-changes) for the full
 contract — the short version is that `make verify` is not a build and CI's `build` job is the
 first real compiler a change meets.

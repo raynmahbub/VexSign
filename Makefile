@@ -26,6 +26,7 @@ help:
 	  'make test             App simulator tests (macOS/Xcode)' \
 	  'make test SUITE=A,B   Only the named test classes (fast iterate loop)' \
 	  'make test-device-foundation  Credential-free parser/storage/executor tests (macOS Swift)' \
+	  'make test-packages   SideSign and NativeSigning test targets (macOS Swift)' \
 	  'make device-smoke     Install/launch signed app on an explicitly selected physical device' \
 	  'make test-server      Python backend tests (install server requirements first)' \
 	  'make test-cloud       Cloud build, tests and contract drift check (npm ci first)' \
@@ -295,6 +296,18 @@ test-device-foundation:
 .PHONY: test-signing-core
 test-signing-core:
 	@python3 VexSign/Tools/Validation/security-validation/test_native_signing_core.py
+
+# The two first-party packages ship their own test targets: `VexSign/Packages/SideSign/Tests`
+# and `VexSign/Packages/NativeSigning/Tests` (~318 cases). They run in
+# `embedded-container.yml` on macOS for a change that touches `Packages/**`, which left anyone
+# editing a package locally to read the workflow to find out they existed.
+#   make test-packages
+.PHONY: test-packages
+test-packages:
+	@test "$$(uname -s)" = Darwin && command -v swift >/dev/null 2>&1 || { \
+		echo "test-packages needs macOS with Swift/Xcode; no tests were run."; exit 1; }
+	swift test --package-path VexSign/Packages/SideSign
+	swift test --package-path VexSign/Packages/NativeSigning
 
 # Read-only upstream check for the root Xcode SwiftPM requirements. Dependabot
 # reads Package.swift (the three VexSign/Packages/ manifests in .github/dependabot.yml)
