@@ -25,12 +25,13 @@ struct ServerView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(.localized("Fully Local uses this device's own HTTPS identity and loopback address. No certificate server is needed. Semi Local still requires an online manifest service."))
                     if _serverMethod == 1 {
-                        Text(
-                            .localized(
-                                "Semi Local sends this device's local install link, including its one-time token, to a third-party manifest service (%@), and serves the signed IPA over plain HTTP on your network. Use Fully Local unless the installing device cannot trust your local CA.",
-                                arguments: ManifestService.manifestHosts.joined(separator: ", ")
-                            )
-                        )
+                        // `Text(.localized(…))` only works for a literal (the leading dot picks
+                        // `LocalizedStringKey`, which has no `arguments:` parameter); a formatted
+                        // string has to arrive as a `String`.
+                        Text(String.localized(
+                            "Semi Local sends this device's local install link, including its one-time token, to a third-party manifest service (%@), and serves the signed IPA over plain HTTP on your network. Use Fully Local unless the installing device cannot trust your local CA.",
+                            arguments: ManifestService.manifestHosts.joined(separator: ", ")
+                        ))
                         .font(.footnote)
                         .foregroundStyle(.orange)
                     }
