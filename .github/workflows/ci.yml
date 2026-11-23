@@ -635,6 +635,7 @@ jobs:
             -only-testing:VexSignTests \
             -parallel-testing-enabled YES \
             -parallel-testing-worker-count 2 \
+            -enableCodeCoverage YES \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
@@ -682,10 +683,14 @@ jobs:
             --title "Tests" \
             --workspace "$GITHUB_WORKSPACE"
 
-      # The shared VexSignTests scheme enables code coverage. Report the overall
-      # number and the least-covered first-party files so test work (and the
-      # try?/singleton burn-down) can be targeted instead of guessed at.
-      # Reporting only: this never turns a passing test run red.
+      # The shared VexSignTests scheme enables code coverage, and `-enableCodeCoverage
+      # YES` above repeats it on the command line because the scheme setting alone has
+      # been lost before: this step used to log "Could not read coverage … skipping" on
+      # every run, leaving an empty artifact and no least-covered list.
+      #
+      # Reporting only: a low number never turns a passing test run red. A *missing*
+      # number is different — coverage_report.py exits 1 so this step turns orange with
+      # xccov's own message, instead of looking like a clean step that did nothing.
       - name: Report coverage
         if: always() && steps.test.outcome != 'skipped'
         continue-on-error: true

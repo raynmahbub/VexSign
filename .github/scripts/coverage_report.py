@@ -7,8 +7,13 @@ xcresult carries per-file line coverage; this reads it with `xccov`, prints the
 overall number plus the least-covered first-party files, and appends a Markdown
 table to the job summary.
 
-Reporting only: a low number never fails the job. Use the least-covered list to
+Reporting only: a low number never fails the build. Use the least-covered list to
 target tests (and the `try?`/singleton burn-down) instead of guessing.
+
+A *missing* report is different from a low one. When `xccov` cannot read the
+bundle this exits 1 with xccov's own message: the CI step tolerates that failure
+(`continue-on-error`) but shows it, because a coverage pipeline that silently
+reports nothing is worse than one that is honestly broken.
 
 Usage (macOS, after xcodebuild test):
     python3 .github/scripts/coverage_report.py --result-bundle path/to.xcresult
@@ -29,12 +34,25 @@ FIRST_PARTY_PREFIXES = ("VexSign/App/iOS/",)
 EXCLUDE_MARKERS = ("/SourcePackages/", "/Checkouts/", "VexSignTests", ".xctest")
 
 
+class CoverageUnavailable(RuntimeError):
+    """`xccov` could not read the bundle. Carries its stderr, not just the command."""
+
+
 def xccov_json(result_bundle: Path) -> dict:
     completed = subprocess.run(
         ["xcrun", "xccov", "view", "--report", "--json", str(result_bundle)],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True,
     )
-    return json.loads(completed.stdout)
+    if completed.returncode != 0:
+        # `check=True` raised a CalledProcessError whose str() is the *command*, so the
+        # CI annotation said "returned non-zero exit status 1" and hid the reason
+        # ("no coverage data", "not a result bundle", …) that xccov had printed.
+        detail = (completed.stderr or completed.stdout or "").strip().splitlines()
+        raise CoverageUnavailable(detail[0] if detail else f"xccov exited {completed.returncode}")
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise CoverageUnavailable(f"xccov printed no JSON: {error}") from error
 
 
 def is_first_party(name: str) -> bool:
@@ -87,6 +105,16 @@ def render_markdown(percent: float, covered: int, executable: int, files: list[d
     return "\n".join(lines)
 
 
+def _write_unavailable(destination, reason: str) -> None:
+    """Records *why* there is no coverage, so the artifact is never an empty file."""
+    if destination is None:
+        return
+    destination.write_text(
+        json.dumps({"coverageAvailable": False, "error": reason}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--result-bundle", required=True, type=Path)
@@ -96,14 +124,18 @@ def main() -> int:
 
     if not arguments.result_bundle.exists():
         print(f"::warning::No xcresult bundle at {arguments.result_bundle}; skipping coverage report.")
+        _write_unavailable(arguments.json, f"no xcresult at {arguments.result_bundle}")
         return 0
 
     try:
         report = xccov_json(arguments.result_bundle)
-    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as error:
-        # Coverage is a diagnostic. Never turn a green test run red over it.
-        print(f"::warning::Could not read coverage ({error}); skipping.")
-        return 0
+    except (CoverageUnavailable, FileNotFoundError) as error:
+        # Still not a build failure — the CI step is `continue-on-error` — but it must
+        # not look like success either. Returning non-zero turns the step orange, and
+        # the JSON keeps the reason in the uploaded artifact instead of an empty file.
+        print(f"::warning::Coverage unavailable: {error}")
+        _write_unavailable(arguments.json, str(error))
+        return 1
 
     percent, covered, executable, files = summarise(report, arguments.limit)
     markdown = render_markdown(percent, covered, executable, files)

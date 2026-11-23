@@ -84,13 +84,39 @@ class CommandLineTests(unittest.TestCase):
             with mock.patch.object(coverage.sys, "argv", ["coverage_report.py", "--result-bundle", str(missing)]):
                 self.assertEqual(coverage.main(), 0)
 
-    def test_xccov_failure_does_not_fail_the_job(self):
+    def test_xccov_failure_is_visible_but_tolerated(self):
+        # The CI step carries `continue-on-error`, so a non-zero exit turns the step
+        # orange without failing the build. It used to return 0, which is how the
+        # coverage pipeline stayed dead for the whole life of the job.
         with tempfile.TemporaryDirectory() as directory:
             bundle = Path(directory) / "tests.xcresult"
             bundle.mkdir()
             with mock.patch.object(coverage.sys, "argv", ["coverage_report.py", "--result-bundle", str(bundle)]), \
-                 mock.patch.object(coverage, "xccov_json", side_effect=subprocess.CalledProcessError(1, "xccov")):
-                self.assertEqual(coverage.main(), 0)
+                 mock.patch.object(coverage, "xccov_json",
+                                   side_effect=coverage.CoverageUnavailable("no coverage data")):
+                self.assertEqual(coverage.main(), 1)
+
+    def test_failure_records_the_reason_in_the_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory) / "tests.xcresult"
+            bundle.mkdir()
+            raw = Path(directory) / "coverage.json"
+            with mock.patch.object(coverage.sys, "argv",
+                                   ["coverage_report.py", "--result-bundle", str(bundle), "--json", str(raw)]), \
+                 mock.patch.object(coverage, "xccov_json",
+                                   side_effect=coverage.CoverageUnavailable("not a result bundle")):
+                self.assertEqual(coverage.main(), 1)
+            self.assertEqual(json.loads(raw.read_text()),
+                             {"coverageAvailable": False, "error": "not a result bundle"})
+
+    def test_xccov_stderr_reaches_the_annotation(self):
+        # The old `check=True` surfaced only the argv, which is why every failing run
+        # said "returned non-zero exit status 1" and nothing about why.
+        completed = mock.Mock(returncode=1, stdout="", stderr="Error: no coverage data\n")
+        with mock.patch.object(coverage.subprocess, "run", return_value=completed):
+            with self.assertRaises(coverage.CoverageUnavailable) as raised:
+                coverage.xccov_json(Path("/tmp/absent.xcresult"))
+        self.assertIn("no coverage data", str(raised.exception))
 
     def test_report_is_appended_to_the_job_summary(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -119,6 +145,15 @@ class SchemeTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text()
         self.assertIn("coverage_report.py", workflow)
         self.assertIn("-resultBundlePath", workflow)
+
+    def test_ci_enables_coverage_on_the_test_command(self):
+        # The scheme sets it too, but the flag on the command line is what survives a
+        # scheme edit; without either, xccov has nothing to read.
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        # The tests job is the only place a `test` action runs; the build job's
+        # `xcodebuild build` has no coverage to enable.
+        tests_job = workflow.split("- name: Run tests", 1)[1].split("- name: Surface failures", 1)[0]
+        self.assertIn("-enableCodeCoverage YES", tests_job)
 
 
 if __name__ == "__main__":
