@@ -67,7 +67,7 @@ struct OnboardingView: View {
 			.sheet(isPresented: $_isAddingSource) {
 				SourcesAddView()
 			}
-			.fileImporter(isPresented: $_isImportingIPA, allowedContentTypes: [.ipa, .tipa, .item], allowsMultipleSelection: false) { result in
+			.fileImporter(isPresented: $_isImportingIPA, allowedContentTypes: UTType.packageArchives, allowsMultipleSelection: false) { result in
 				if case .success(let urls) = result, let url = urls.first {
 					_importFirstApp(from: url)
 				}

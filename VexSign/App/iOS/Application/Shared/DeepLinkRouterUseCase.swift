@@ -127,7 +127,15 @@ final class DeepLinkRouterUseCase {
             handleSharedPackage(fileURL)
 
         case .importTweakFile(let fileURL):
-            handleSharedTweak(fileURL)
+            // The extension parser cannot tell an app someone zipped from a tweak
+            // bundle: both are `.zip`. Reading the entry names here keeps the
+            // parser pure and still routes the app to the library instead of
+            // reporting "no tweaks found" for a file that was never a tweak.
+            if Self.isApplicationArchive(fileURL) {
+                handleSharedPackage(fileURL)
+            } else {
+                handleSharedTweak(fileURL)
+            }
 
         case .openBackupFile(let fileURL):
             handleSharedBackup(fileURL)
@@ -195,7 +203,27 @@ final class DeepLinkRouterUseCase {
         }
     }
 
+    /// Whether a handed-over archive is an app package, whichever suffix it has.
+    ///
+    /// A `.zip` is byte-identical to an IPA when it holds `Payload/<name>.app`,
+    /// so the content decides. An `.ipa` whose bytes are not a ZIP is left to
+    /// `PackageImportService`, which refuses it with the same sentence the
+    /// picker path uses.
+    private static func isApplicationArchive(_ url: URL) -> Bool {
+        guard url.pathExtension.lowercased() != "ipa",
+              url.pathExtension.lowercased() != "tipa" else { return true }
+        guard PackageArchiveType.accepted(at: url) else { return false }
+        return PackageContentClassifier.classify(at: url) == .application
+    }
+
     private func handleSharedPackage(_ url: URL) {
+        // Refuse a container the importer cannot unpack before copying it into
+        // the workspace: a handed-over `.tar.gz` is otherwise staged in full and
+        // only then rejected by the extractor.
+        if let reason = PackageArchiveType.rejectionReason(at: url) {
+            platform.presentErrorWithCopy(title: NSLocalizedString("Import Failed", comment: ""), message: reason)
+            return
+        }
         let workLease: AnyObject
         do {
             workLease = try acquireWorkLease()

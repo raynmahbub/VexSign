@@ -38,25 +38,27 @@ struct CertificatesAddView: View {
 						// A shared certificate usually arrives as one `.zip` holding
 						// cert.p12, its profile and often password.txt. Asking for the
 						// two files separately failed for exactly that case.
-						DocumentPicker.open([.zip, .p12, .mobileProvision], folder: .certificates) { urls in
+						DocumentPicker.open(.certificateBundles, folder: .certificates, onUnavailable: {
+						Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+					}) { urls in
 							_bundleURL = urls.first
 							// One selection replaces a stale half-pair, so the import
 							// cannot silently mix files from two different certificates.
 							if _bundleURL != nil { _p12URL = nil; _provisionURL = nil }
 						}
 					}
-					Text(.localized("Choose the .p12, or a .zip / folder that contains the .p12 together with its .mobileprovision profile."))
+					Text(.localized("Choose the .p12 (or .pfx), or a .zip / folder that contains the key together with its .mobileprovision profile."))
 						.font(.caption)
 						.foregroundStyle(.secondary)
 					Divider()
 					_importButton(.localized("Import Certificate File"), file: _p12URL) {
-						DocumentPicker.open([.p12], folder: .certificates) { urls in
+						DocumentPicker.open([.p12, .pfx], folder: .certificates) { urls in
 							_p12URL = urls.first
 							if _p12URL != nil { _bundleURL = nil }
 						}
 					}
 					_importButton(.localized("Import Provisioning File"), file: _provisionURL) {
-						DocumentPicker.open([.mobileProvision], folder: .certificates) { urls in
+						DocumentPicker.open([.mobileProvision, .provisionProfile], folder: .certificates) { urls in
 							_provisionURL = urls.first
 							if _provisionURL != nil, _p12URL != nil { _bundleURL = nil }
 						}

@@ -100,17 +100,15 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 
 	/// Rejects a container this app cannot unpack, before copying it into the
 	/// workspace and before extraction fails with an unrelated message.
+	///
+	/// The sentences come from `PackageArchiveType.rejectionReason(at:)` so the
+	/// shared-file path and this one cannot describe the same bytes differently.
+	/// Some providers hand over a zero-byte or still-downloading file; that case
+	/// has its own "could not be read" wording rather than being called a broken
+	/// ZIP the user never wrote.
 	private func _requireReadableContainer(at url: URL) throws {
-		switch PackageArchiveType.detect(at: url) {
-		case .zip:
-			return
-		case .tarGzip:
-			throw _error(.copy, reason: .localized("This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside."))
-		case .unsupported, .none:
-			// Some providers hand over a zero-byte or still-downloading file; both
-			// are reported as unreadable rather than as a broken ZIP.
-			throw _error(.copy, reason: .localized("This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded."))
-		}
+		guard let reason = PackageArchiveType.rejectionReason(at: url) else { return }
+		throw _error(.copy, reason: reason)
 	}
 
 	/// Check the temporary copy separately from extraction. The extractor validates

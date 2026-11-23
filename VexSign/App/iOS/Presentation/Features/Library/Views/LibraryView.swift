@@ -519,7 +519,9 @@ struct LibraryView: View {
     @ViewBuilder
     private var importMenuActions: some View {
         Button(.localized("Import from Files"), systemImage: "folder") {
-            DocumentPicker.open([.ipa, .tipa, .zip], multiple: true, folder: .apps) { urls in
+            DocumentPicker.open(.packageArchives, multiple: true, folder: .apps, onUnavailable: {
+                Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+            }) { urls in
                 if !urls.isEmpty { tabSelection.librarySection = .apps }
                 for url in urls {
                     _ = downloadManager.startArchive(from: url, id: "VexSignManualDownload_\(UUID().uuidString)", reviewDuplicates: true)

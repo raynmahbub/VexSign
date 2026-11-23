@@ -22,9 +22,15 @@ enum PackageArchiveType: Equatable {
     /// Not a container VexSign can open.
     case unsupported
 
-    /// Extensions offered by the package pickers. Content still decides; this
-    /// only stops the system picker from greying out a valid archive.
-    static let pickerExtensions = ["ipa", "tipa", "zip", "tgz"]
+    /// Extensions offered by the package pickers.
+    ///
+    /// Content still decides; this only stops the system picker from greying out
+    /// a valid archive. `.tgz` is deliberately absent: a gzipped tar has no
+    /// reader here, so offering it in the picker would invite a file that
+    /// `rejectionReason(at:)` has to refuse a moment later. It is still
+    /// *detected*, because a download or a shared link can deliver one and the
+    /// refusal has to name the format.
+    static let pickerExtensions = ["ipa", "tipa", "zip"]
 
     /// Identifies an archive from its leading bytes.
     ///
@@ -48,12 +54,41 @@ enum PackageArchiveType: Equatable {
 
     /// The extension is a hint for the file picker, never the decision.
     ///
-    /// A `.zip` is only worth offering when its content is a container we can
-    /// open, so callers pass the detected type rather than the suffix.
+    /// A file is only worth routing to the app importer when its *content* is a
+    /// container that importer can unpack, which is a ZIP. A gzipped tar is
+    /// detected and refused with its own message rather than accepted and
+    /// failed later.
     static func accepted(at url: URL) -> Bool {
+        detect(at: url) == .zip
+    }
+
+    /// Why the file at `url` cannot be imported as an app package, or `nil` when
+    /// it can.
+    ///
+    /// The sentences live here so the picker, the shared-file path and
+    /// `AppFileHandler` give the same answer for the same bytes. Before this
+    /// existed, three call sites each carried their own wording, so the same
+    /// `.tar.gz` could be reported as an unsupported format, a broken ZIP or a
+    /// failed download depending on which route it arrived on.
+    static func rejectionReason(at url: URL) -> String? {
         switch detect(at: url) {
-        case .zip, .tarGzip: true
-        case .unsupported, nil: false
+        case .zip:
+            return nil
+        case .tarGzip:
+            return NSLocalizedString(
+                "This archive is compressed as .tar.gz, which VexSign cannot unpack. Extract it and import the .ipa or .tipa inside.",
+                comment: ""
+            )
+        case .unsupported:
+            return NSLocalizedString(
+                "This file is not an IPA, TIPA or ZIP archive. Import the app package exactly as it was downloaded.",
+                comment: ""
+            )
+        case .none:
+            return NSLocalizedString(
+                "This file could not be read. Copy it to this device again and retry the import.",
+                comment: ""
+            )
         }
     }
 

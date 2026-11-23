@@ -113440,6 +113440,248 @@
           }
         }
       }
+    },
+    "Choose an app package (.ipa, .tipa or .zip), not a certificate or provisioning profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an app package (.ipa, .tipa or .zip), not a certificate or provisioning profile."
+          }
+        }
+      }
+    },
+    "Choose the .p12 (or .pfx), or a .zip / folder that contains the key together with its .mobileprovision profile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the .p12 (or .pfx), or a .zip / folder that contains the key together with its .mobileprovision profile."
+          }
+        }
+      }
+    },
+    "This file could not be read. Copy it to this device again and retry the import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be read. Copy it to this device again and retry the import."
+          }
+        }
+      }
+    },
+    "The host in this build does not implement the entry points this version calls: %@. Install a host build that matches this VexSign version; until then, importing into the embedded container cannot work." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host in this build does not implement the entry points this version calls: %@. Install a host build that matches this VexSign version; until then, importing into the embedded container cannot work."
+          }
+        }
+      }
+    },
+    "This is a combined build, and its host is an older or different version than this app expects. One of the two needs updating; reinstalling this app alone will not change it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a combined build, and its host is an older or different version than this app expects. One of the two needs updating; reinstalling this app alone will not change it."
+          }
+        }
+      }
+    },
+    "The file picker could not open because another sheet is on screen. Close it and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file picker could not open because another sheet is on screen. Close it and try again."
+          }
+        }
+      }
+    },
+    "Approve the certificate, the device registration and the profile to start." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve the certificate, the device registration and the profile to start."
+          }
+        }
+      }
+    },
+    "Choose the app this profile is for." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the app this profile is for."
+          }
+        }
+      }
+    },
+    "Provisioning is already running. Wait for it to finish or cancel it first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provisioning is already running. Wait for it to finish or cancel it first."
+          }
+        }
+      }
+    },
+    "Sign in under Settings → Signing Methods, then choose the app to provision." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in under Settings → Signing Methods, then choose the app to provision."
+          }
+        }
+      }
+    },
+    "Copy install link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy install link"
+          }
+        }
+      }
+    },
+    "Install link copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install link copied"
+          }
+        }
+      }
+    },
+    "Packaging this build — this takes a minute." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Packaging this build — this takes a minute."
+          }
+        }
+      }
+    },
+    "Paste the link into SideStore on a device where it is set up. Copying does not start an install or confirm that one succeeded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste the link into SideStore on a device where it is set up. Copying does not start an install or confirm that one succeeded."
+          }
+        }
+      }
+    },
+    "Save this build as an IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save this build as an IPA"
+          }
+        }
+      }
+    },
+    "Share the packaged IPA" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share the packaged IPA"
+          }
+        }
+      }
+    },
+    "The IPA is written to Documents/Exports and can be shared from here. Installing it on a device still needs a signing identity that device trusts." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The IPA is written to Documents/Exports and can be shared from here. Installing it on a device still needs a signing identity that device trusts."
+          }
+        }
+      }
+    },
+    "This build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build"
+          }
+        }
+      }
+    },
+    "This build could not be packaged: %@ could not be read." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build could not be packaged: %@ could not be read."
+          }
+        }
+      }
+    },
+    "This build does not run from its own app bundle, so there is nothing to package. Export the host build instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build does not run from its own app bundle, so there is nothing to package. Export the host build instead."
+          }
+        }
+      }
+    },
+    "This build is packaged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build is packaged"
+          }
+        }
+      }
+    },
+    "This copy was installed by TrollStore, which replaces an app in place without a certificate. Save the IPA and open it in TrollStore to update VexSign itself." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy was installed by TrollStore, which replaces an app in place without a certificate. Save the IPA and open it in TrollStore to update VexSign itself."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

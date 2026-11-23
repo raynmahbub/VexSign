@@ -22,7 +22,9 @@ extension HomeView {
     }
 
     func browseForPackages(quickSign: Bool = false) {
-        DocumentPicker.open([.ipa, .tipa, .zip], multiple: !quickSign, folder: .apps) { urls in
+        DocumentPicker.open(.packageArchives, multiple: !quickSign, folder: .apps, onUnavailable: {
+            Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+        }) { urls in
             guard !urls.isEmpty else { return }
             if quickSign {
                 enqueuePackage(urls[0], quickSign: true)
