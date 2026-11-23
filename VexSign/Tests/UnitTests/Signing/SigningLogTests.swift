@@ -44,8 +44,12 @@ final class SigningLogTests: XCTestCase {
 	}
 
 	func testTheDefaultLimitIsTheConfiguredOne() {
-		let batch = (1...5).map { entry("batch \($0)") }
-		XCTAssertEqual(SigningLog.merged(batch, onto: []).count, min(5, SigningLog.maxEntries))
+		// Ten past the cap, in the order the console would hold them: the oldest ten fall off.
+		let batch = (1...(SigningLog.maxEntries + 10)).map { entry("batch \($0)") }
+		let merged = SigningLog.merged(batch, onto: [])
+		XCTAssertEqual(merged.count, SigningLog.maxEntries)
+		XCTAssertEqual(merged.first?.message, "batch 1")
+		XCTAssertEqual(merged.last?.message, "batch \(SigningLog.maxEntries)")
 	}
 
 	// MARK: - The export shape
