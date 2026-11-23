@@ -53,8 +53,17 @@ The single source of truth is `VexSign/App/iOS/Presentation/DesignSystem/Colors/
 | `Theme.Spacing.section` | 24 |
 | `Theme.Spacing.row` | Platform row rhythm |
 
-Do not introduce one-off corner radii or spacing values in a feature view.
-Extend the token file when a new role is genuinely needed.
+Do not introduce one-off corner radii, spacing values or colour literals in a
+feature view. Extend the token file when a new role is genuinely needed;
+`test_color_policy.py` fails a `Color(red:)`/`UIColor(white:)` outside
+`Presentation/DesignSystem/Colors`.
+
+Named palettes that are not general surfaces live in
+`DesignSystem/Colors/ThemePalettes.swift`: `Theme.Console` (the fixed dark log
+console), `Theme.LogLevel` and `Theme.LogPhase` (light-surface log colours),
+`Theme.Overlay` (the download overlay's presets), `Theme.Flare` (the Flare
+presentation), `Theme.Accent` (file roots and setup tiles) and `Theme.Banner`
+(the app store gradient).
 
 ## Typography
 

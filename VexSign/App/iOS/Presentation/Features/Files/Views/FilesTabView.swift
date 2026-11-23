@@ -34,12 +34,12 @@ struct FilesTabView: View {
 
     private var quickFolders: [QuickFolder] {
         [
-            QuickFolder(title: .localized("Documents"), icon: "folder.fill", color: Color(red: 0.0, green: 0.48, blue: 1.0), url: services.files.roots.documents),
-            QuickFolder(title: .localized("Downloads"), icon: "arrow.down.circle.fill", color: Color(red: 0.12, green: 0.65, blue: 0.95), url: services.files.roots.downloads),
-            QuickFolder(title: .localized("Archives"), icon: "archivebox.fill", color: Color(red: 0.55, green: 0.36, blue: 0.96), url: services.files.roots.archives),
-            QuickFolder(title: .localized("Certificates"), icon: "checkmark.seal.fill", color: Color(red: 0.20, green: 0.66, blue: 0.44), url: services.files.roots.certificates),
-            QuickFolder(title: .localized("Signed"), icon: "app.badge.checkmark.fill", color: Color(red: 0.95, green: 0.55, blue: 0.15), url: services.files.roots.signed),
-            QuickFolder(title: .localized("Tweaks"), icon: "wrench.and.screwdriver.fill", color: Color(red: 0.96, green: 0.33, blue: 0.26), url: services.files.roots.tweaks),
+            QuickFolder(title: .localized("Documents"), icon: "folder.fill", color: Theme.Accent.documents, url: services.files.roots.documents),
+            QuickFolder(title: .localized("Downloads"), icon: "arrow.down.circle.fill", color: Theme.Accent.downloads, url: services.files.roots.downloads),
+            QuickFolder(title: .localized("Archives"), icon: "archivebox.fill", color: Theme.Accent.archives, url: services.files.roots.archives),
+            QuickFolder(title: .localized("Certificates"), icon: "checkmark.seal.fill", color: Theme.Accent.certificates, url: services.files.roots.certificates),
+            QuickFolder(title: .localized("Signed"), icon: "app.badge.checkmark.fill", color: Theme.Accent.signed, url: services.files.roots.signed),
+            QuickFolder(title: .localized("Tweaks"), icon: "wrench.and.screwdriver.fill", color: Theme.Accent.tweaks, url: services.files.roots.tweaks),
         ]
     }
 

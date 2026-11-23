@@ -130,11 +130,11 @@ extension LogsView {
 	private func _tint(for kind: LogKind?) -> Color {
 		switch kind {
 		case .none: .white
-		case .info: Color(red: 0.40, green: 0.64, blue: 1.00)
-		case .success: Color(red: 0.34, green: 0.86, blue: 0.60)
-		case .warn: Color(red: 1.00, green: 0.78, blue: 0.34)
-		case .error: Color(red: 1.00, green: 0.45, blue: 0.47)
-		case .detail: Color(red: 0.62, green: 0.65, blue: 0.72)
+		case .info: Theme.LogLevel.info
+		case .success: Theme.LogLevel.success
+		case .warn: Theme.LogLevel.warning
+		case .error: Theme.LogLevel.error
+		case .detail: Theme.LogLevel.detail
 		}
 	}
 

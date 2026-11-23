@@ -29,20 +29,20 @@ struct DownloadOverlaySheetContent: View {
     private var overlayBackgroundColor: Color {
         if overlayTheme == "greyish" {
             if colorScheme == .dark {
-                return Color(uiColor: UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0))
+                return Theme.Overlay.greyish
             } else {
                 return Color(uiColor: .systemBackground)
             }
         } else if overlayTheme == "darkGrey" {
             if colorScheme == .dark {
-                return Color(uiColor: UIColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1.0))
+                return Theme.Overlay.darkGrey
             } else {
                 return Color(uiColor: .systemBackground)
             }
         } else {
             // AMOLED black in dark mode
             if colorScheme == .dark {
-                return Color(uiColor: UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0))
+                return Theme.Overlay.amoled
             } else {
                 return Color(uiColor: .systemBackground)
             }
@@ -51,7 +51,7 @@ struct DownloadOverlaySheetContent: View {
 
     private var cardBackgroundColor: Color {
         if colorScheme == .dark {
-            return Color(uiColor: UIColor(red: 0.12, green: 0.12, blue: 0.12, alpha: 1.0))
+            return Theme.Overlay.card
         } else {
             return Color(uiColor: .secondarySystemBackground)
         }

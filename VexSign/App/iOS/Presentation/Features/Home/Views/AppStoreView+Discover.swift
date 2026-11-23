@@ -156,9 +156,9 @@ extension AppStoreView {
             // Vibrant Apple-style gradient with depth
             LinearGradient(
                 colors: [
-                    Color(red: 0.04, green: 0.36, blue: 0.95),
-                    Color(red: 0.20, green: 0.52, blue: 1.0),
-                    Color(red: 0.45, green: 0.20, blue: 0.95)
+                    Theme.Banner.start,
+                    Theme.Banner.middle,
+                    Theme.Banner.end
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -237,7 +237,7 @@ extension AppStoreView {
         }
         .frame(minHeight: 250)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color(red: 0.04, green: 0.36, blue: 0.95).opacity(0.28), radius: 18, y: 10)
+        .shadow(color: Theme.Banner.start.opacity(0.28), radius: 18, y: 10)
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(0.18), lineWidth: 1))
     }
 

@@ -658,7 +658,7 @@ struct VexHomeDashboard: View {
                             title: .localized("Add repository"),
                             detail: .localized("Connect an AltStore-compatible source"),
                             systemImage: "plus.circle.fill",
-                            tint: Color(red: 0.36, green: 0.78, blue: 0.58)
+                            tint: Theme.Accent.mint
                         )
                     }
                     .buttonStyle(.plain)
@@ -670,7 +670,7 @@ struct VexHomeDashboard: View {
                             title: .localized("Companion apps"),
                             detail: .localized("Apple TV, Watch and Vision"),
                             systemImage: "arrow.triangle.branch",
-                            tint: Color(red: 0.96, green: 0.56, blue: 0.32)
+                            tint: Theme.Accent.orange
                         )
                     }
                     .buttonStyle(.plain)

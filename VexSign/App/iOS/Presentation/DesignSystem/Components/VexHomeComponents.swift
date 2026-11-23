@@ -157,10 +157,10 @@ struct VexSetupRow: View {
             HStack(spacing: 12) {
                 Image(systemName: done ? "checkmark.circle.fill" : systemImage)
                     .font(Theme.Typography.rowTitle)
-                    .foregroundStyle(done ? Color(red: 0.36, green: 0.78, blue: 0.58) : Theme.tint)
+                    .foregroundStyle(done ? Theme.Accent.mint : Theme.tint)
                     .frame(width: 36, height: 36)
                     .background(
-                        (done ? Color(red: 0.36, green: 0.78, blue: 0.58) : Theme.tint).opacity(0.12),
+                        (done ? Theme.Accent.mint : Theme.tint).opacity(0.12),
                         in: Circle()
                     )
                 VStack(alignment: .leading, spacing: 2) {
