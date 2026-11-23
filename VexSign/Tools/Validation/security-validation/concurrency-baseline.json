@@ -1,9 +1,7 @@
 {
   "VexSign/App/iOS/Application/Shared/RemovalUndoLease.swift": 1,
   "VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift": 1,
-  "VexSign/App/iOS/Infrastructure/Devices/Installation/AppOperationRegistry.swift": 1,
   "VexSign/App/iOS/Infrastructure/Downloads/Download.swift": 1,
   "VexSign/App/iOS/Infrastructure/Observation/StreamObservationCancellation.swift": 1,
-  "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift": 1,
-  "VexSign/App/iOS/Security/Secrets/StrictHidingSnapshot.swift": 1
+  "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift": 1
 }

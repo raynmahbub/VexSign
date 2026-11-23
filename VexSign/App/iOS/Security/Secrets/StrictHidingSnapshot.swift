@@ -26,14 +26,23 @@
 //
 
 import Foundation
+import os
 
 /// Thread-safe read side of the Hidden Apps Vault, for code that is not a view.
-final class StrictHidingSnapshot: @unchecked Sendable {
+///
+/// The mutable state lives *inside* `OSAllocatedUnfairLock`, so the class holds one immutable
+/// value of a `Sendable` type and is `Sendable` to the compiler. It used to be an `@unchecked`
+/// escape around an `NSLock` and two stored properties, which asked a reader to verify by hand
+/// that every access took the lock — and would have kept compiling if one stopped.
+final class StrictHidingSnapshot: Sendable {
 	static let shared = StrictHidingSnapshot()
 
-	private let _lock = NSLock()
-	private var _isEnabled = false
-	private var _hiddenAppUUIDs: Set<String> = []
+	private struct State: Sendable {
+		var isEnabled = false
+		var hiddenAppUUIDs: Set<String> = []
+	}
+
+	private let state = OSAllocatedUnfairLock(initialState: State())
 
 	/// Internal rather than private so a test can hold an isolated snapshot; the
 	/// app reads `shared`, which `AppLockManager` keeps current.
@@ -41,10 +50,10 @@ final class StrictHidingSnapshot: @unchecked Sendable {
 
 	/// Replaces the snapshot. Called by `AppLockManager` after every vault change.
 	func update(isEnabled: Bool, hiddenAppUUIDs: Set<String>) {
-		_lock.lock()
-		defer { _lock.unlock() }
-		_isEnabled = isEnabled
-		_hiddenAppUUIDs = hiddenAppUUIDs
+		state.withLock { current in
+			current.isEnabled = isEnabled
+			current.hiddenAppUUIDs = hiddenAppUUIDs
+		}
 	}
 
 	/// Whether this app is strictly hidden right now.
@@ -53,15 +62,11 @@ final class StrictHidingSnapshot: @unchecked Sendable {
 	/// visible: failing closed there would hide unrelated apps from their owner.
 	func hides(_ uuid: String?) -> Bool {
 		guard let uuid, !uuid.isEmpty else { return false }
-		_lock.lock()
-		defer { _lock.unlock() }
-		return _isEnabled && _hiddenAppUUIDs.contains(uuid)
+		return state.withLock { $0.isEnabled && $0.hiddenAppUUIDs.contains(uuid) }
 	}
 
 	/// Current snapshot, for tests and diagnostics. Never used to gate a write.
-	var state: (isEnabled: Bool, hiddenAppUUIDs: Set<String>) {
-		_lock.lock()
-		defer { _lock.unlock() }
-		return (_isEnabled, _hiddenAppUUIDs)
+	var snapshot: (isEnabled: Bool, hiddenAppUUIDs: Set<String>) {
+		state.withLock { ($0.isEnabled, $0.hiddenAppUUIDs) }
 	}
 }
