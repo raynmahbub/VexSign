@@ -54,7 +54,7 @@ device acceptance — the caveats in each section still apply.
 <summary><strong>🧩 Customization & IPA tools</strong></summary>
 
 
-- **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support.
+- **Tweak injection** for `.dylib`, `.deb`, `.framework`, `.bundle` and `.appex` inputs, with ElleKit support. A `.deb` payload may be uncompressed or compressed as `.xz`, `.lzma`, `.gz`, `.bz2` or `.zst`; the same list is what the refusal message names, and `ArchiveFormat` is its single source.
 - **Tweak management** to organize injection components, with dependency-aware ElleKit injection and legacy Substrate replacement.
 - **Mach-O thinning** to remove non-target architectures from supported universal binaries.
 - **Document picker fixes**, keychain isolation and optional JIT entitlement settings. Entitlements alone do not guarantee JIT availability on a device.
