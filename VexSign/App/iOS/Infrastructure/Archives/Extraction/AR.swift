@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NimbleExtensions
 
 class AR: NSObject {
 	private var _data: Data
@@ -106,6 +107,19 @@ class AR: NSObject {
 	}
 }
 
-enum ARError: Error {
+/// A `.deb` whose `ar` envelope cannot be read. Carries the parser's own reason, because
+/// "the archive is bad" is not something a user can act on; the tweak pipeline wraps this in
+/// `TweakInjectionFailure`, which shows this sentence.
+enum ARError: LocalizedError, Equatable {
 	case badArchive(String)
+
+	var errorDescription: String? {
+		switch self {
+		case .badArchive(let reason):
+			let detail = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+			return detail.isEmpty
+				? .localized("This Debian package's archive could not be read. It may be damaged or not a .deb file.")
+				: .localized("This Debian package's archive could not be read: %@", arguments: detail)
+		}
+	}
 }

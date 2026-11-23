@@ -16,11 +16,24 @@
 //
 
 import Foundation
+import NimbleExtensions
 
 enum BoundedResponseFetch {
-	enum Failure: Error, Equatable {
+	enum Failure: LocalizedError, Equatable {
 		/// The body passed the caller's cap and the transfer was stopped.
 		case tooLarge(limitBytes: Int64)
+
+		/// Every caller that reports a failed fetch shows `localizedDescription`, so the cap has
+		/// to say what it refused and why rather than reading as a system error code.
+		var errorDescription: String? {
+			switch self {
+			case .tooLarge(let limitBytes):
+				return .localized(
+					"The server sent more than %@, which is all this request accepts. Nothing was kept.",
+					arguments: ByteCountFormatter.string(fromByteCount: limitBytes, countStyle: .file)
+				)
+			}
+		}
 	}
 
 	/// Fetch `request`, refusing to hold more than `maximumBytes` of the body.

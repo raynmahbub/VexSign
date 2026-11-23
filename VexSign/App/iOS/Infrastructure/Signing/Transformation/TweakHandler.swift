@@ -867,9 +867,39 @@ struct TweakInjectionFailure: LocalizedError {
 	}
 }
 
-enum TweakHandlerError: Error {
+/// Failures the tweak pipeline reports to the user.
+///
+/// These used to be a bare `Error`. `extractFile` throws `unsupportedFileExtension` for an
+/// archive whose compression it cannot decode, and the injection path wraps whatever it
+/// caught in `TweakInjectionFailure`, which renders `underlying.localizedDescription` — so
+/// for an unsupported `.rar`/`.7z` tweak the user read "Failed to inject X: The operation
+/// couldn't be completed. (VexSign.TweakHandlerError error 0.)" with nothing to act on. Each
+/// case now names the file and says what to do about it.
+enum TweakHandlerError: LocalizedError, Equatable {
 	case unsupportedFileExtension(String)
 	case decompressionFailed(String)
 	case missingFile(String)
 	case noAccess
+
+	var errorDescription: String? {
+		switch self {
+		case .unsupportedFileExtension(let ext):
+			// A path with no extension gets a word rather than an empty slot, so the sentence
+			// reads "cannot unpack unknown-format archives" instead of "cannot unpack  archives".
+			let named = ext.isEmpty ? .localized("unknown-format") : "." + ext.lowercased()
+			return .localized(
+				"VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz or .tar.bz2 package.",
+				arguments: named
+			)
+		case .decompressionFailed(let detail):
+			let reason = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+			return reason.isEmpty
+				? .localized("The tweak archive could not be decompressed. It may be damaged.")
+				: .localized("The tweak archive could not be decompressed: %@", arguments: reason)
+		case .missingFile(let name):
+			return .localized("%@ is missing from the tweak package.", arguments: name)
+		case .noAccess:
+			return .localized("The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again.")
+		}
+	}
 }

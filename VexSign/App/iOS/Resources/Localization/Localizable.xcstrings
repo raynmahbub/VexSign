@@ -114162,6 +114162,259 @@
           }
         }
       }
+    },
+    "%@ is missing from the tweak package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is missing from the tweak package."
+          }
+        }
+      }
+    },
+    "A previous sign-out did not finish, so no session material may be written yet. Retry signing out." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A previous sign-out did not finish, so no session material may be written yet. Retry signing out."
+          }
+        }
+      }
+    },
+    "A saved Apple account session is waiting to be checked. Continue with it, or sign out first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A saved Apple account session is waiting to be checked. Continue with it, or sign out first."
+          }
+        }
+      }
+    },
+    "An Apple account sign-in is already in progress. Finish or cancel it before starting another." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An Apple account sign-in is already in progress. Finish or cancel it before starting another."
+          }
+        }
+      }
+    },
+    "Another Apple account session is already in use. Sign out before selecting a different one." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another Apple account session is already in use. Sign out before selecting a different one."
+          }
+        }
+      }
+    },
+    "Apple returned a session without a usable team, or one that has already expired. Sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple returned a session without a usable team, or one that has already expired. Sign in again."
+          }
+        }
+      }
+    },
+    "Choose a signing certificate. Nothing was signed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a signing certificate. Nothing was signed."
+          }
+        }
+      }
+    },
+    "Signing out of the Apple account did not finish. Retry, so no session material is left behind." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing out of the Apple account did not finish. Retry, so no session material is left behind."
+          }
+        }
+      }
+    },
+    "The saved Apple account session changed while it was being checked. Sign out and sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved Apple account session changed while it was being checked. Sign out and sign in again."
+          }
+        }
+      }
+    },
+    "The saved Apple account session record is damaged, so it cannot be trusted. Sign out to clear it, then sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved Apple account session record is damaged, so it cannot be trusted. Sign out to clear it, then sign in again."
+          }
+        }
+      }
+    },
+    "The selected Apple account session is no longer stored on this device. Sign out and sign in again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected Apple account session is no longer stored on this device. Sign out and sign in again."
+          }
+        }
+      }
+    },
+    "The selected certificate expired on %@. Import a current certificate and sign again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected certificate expired on %@. Import a current certificate and sign again."
+          }
+        }
+      }
+    },
+    "The selected certificate has been revoked. Import a valid certificate and sign again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected certificate has been revoked. Import a valid certificate and sign again."
+          }
+        }
+      }
+    },
+    "The server sent more than %@, which is all this request accepts. Nothing was kept." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server sent more than %@, which is all this request accepts. Nothing was kept."
+          }
+        }
+      }
+    },
+    "The tweak archive could not be decompressed. It may be damaged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak archive could not be decompressed. It may be damaged."
+          }
+        }
+      }
+    },
+    "The tweak archive could not be decompressed: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak archive could not be decompressed: %@"
+          }
+        }
+      }
+    },
+    "The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again."
+          }
+        }
+      }
+    },
+    "This Apple account session was saved by a newer version of VexSign. Update the app, or sign out to clear it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Apple account session was saved by a newer version of VexSign. Update the app, or sign out to clear it."
+          }
+        }
+      }
+    },
+    "This Debian package's archive could not be read. It may be damaged or not a .deb file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Debian package's archive could not be read. It may be damaged or not a .deb file."
+          }
+        }
+      }
+    },
+    "This Debian package's archive could not be read: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Debian package's archive could not be read: %@"
+          }
+        }
+      }
+    },
+    "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz or .tar.bz2 package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz or .tar.bz2 package."
+          }
+        }
+      }
+    },
+    "this" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this"
+          }
+        }
+      }
+    },
+    "unknown-format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unknown-format"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -21,4 +21,25 @@ Create a unique attempt ID and record input identity before work. Never mutate o
 
 Use Keychain and the existing protected-file mechanisms. Never put P12 passwords/private keys in `UserDefaults`, logs, task titles, crash reports, exported release bundles, or diagnostics. Do not send signing material to a remote service without a separately reviewed, explicit cloud-signing flow.
 
+## What a failed run says
+
+A signing run can stop for a reason the user has to act on — no certificate, an expired or
+revoked one, a tweak archive the app cannot unpack, a `.deb` whose envelope is unreadable, a
+server body over a fetch cap. Each of those has to carry a sentence, because the sheet, the
+task history and the diagnostics bundle all render `localizedDescription`: an error that is a
+bare `Error` reads "The operation couldn't be completed. (VexSign.Rejection error 1.)".
+
+The copy therefore lives with the error, not with the view:
+
+| Where | What it says |
+| --- | --- |
+| `SigningRejectionMessages.swift` | the certificate refusals `SigningPipeline` returns before any work starts |
+| `AppleAccountSessionErrorMessages.swift` | the session coordinator and durable-journal refusals |
+| `TweakHandlerError`, `ARError`, `BoundedResponseFetch.Failure` | the type itself carries `LocalizedError` |
+
+`test_error_message_policy.py` (in `make verify`) fails when an `enum ... : Error` under
+`VexSign/App` has neither `LocalizedError` nor an `errorDescription`/`message`, and the five
+types it records in `error-message-baseline.json` are the plumbing ones with a written reason
+why they never reach a screen.
+
 See [Personal Team limitations](apple-account-limitations.md) and [security boundaries](security.md).
