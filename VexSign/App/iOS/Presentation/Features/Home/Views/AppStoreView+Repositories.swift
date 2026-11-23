@@ -271,19 +271,13 @@ extension AppStoreView {
                 }
                 .buttonStyle(.plain)
             } else {
-                VStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Color.userTint)
-                    Text(.localized("All Apps Are Up to Date"))
-                        .font(.headline)
-                    Text(.localized("Your installed applications are on the latest versions from your sources."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 36)
+                EmptyStateView(
+                    systemImage: "checkmark.circle.fill",
+                    title: String.localized("All Apps Are Up to Date"),
+                    message: String.localized("Your installed applications are on the latest versions from your sources."),
+                    tone: .accent
+                )
+                .padding(.vertical, 18)
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }

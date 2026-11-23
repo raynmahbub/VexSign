@@ -141,19 +141,17 @@ extension LogsView {
 	@ViewBuilder
 	private var _emptyState: some View {
 		if _visible.isEmpty {
-			VStack(spacing: 6) {
-				Image(systemName: _log.entries.isEmpty ? "text.alignleft" : "line.3.horizontal.decrease.circle")
-					.font(.title3)
-				Text(verbatim: _log.entries.isEmpty ? String.localized("No logs yet") : String.localized("Nothing matches this filter"))
-					.font(.footnote)
-				if _log.entries.isEmpty {
-					Text(.localized("Sign, install or download something and it shows up here as it happens."))
-						.font(.caption2)
-						.multilineTextAlignment(.center)
-						.opacity(0.7)
-				}
-			}
-			.foregroundStyle(.white.opacity(0.4))
+			EmptyStateView(
+				systemImage: _log.entries.isEmpty ? "text.alignleft" : "line.3.horizontal.decrease.circle",
+				title: _log.entries.isEmpty
+					? String.localized("No logs yet")
+					: String.localized("Nothing matches this filter"),
+				message: _log.entries.isEmpty
+					? String.localized("Sign, install or download something and it shows up here as it happens.")
+					: nil,
+				tone: .onDark,
+				compact: true
+			)
 			.padding(.horizontal, 32)
 		}
 	}

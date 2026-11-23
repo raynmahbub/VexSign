@@ -375,18 +375,19 @@ private struct DownloadsTabContent: View {
 
     private var emptyState: some View {
         Section {
-            VStack(spacing: 12) {
-                Image(systemName: filter == .all ? "arrow.down.circle" : "tray")
-                    .font(.system(size: 44)).foregroundStyle(.secondary).padding(.top, 8)
-                Text(verbatim: filter == .all ? String.localized("No downloads") : String.localized("No %@ downloads", arguments: filter.rawValue.lowercased()))
-                    .font(.headline)
-                Text(.localized("Download apps from the App Store tab or paste a direct IPA link.")).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal)
-                Button { showAddSheet = true } label: {
-                    Label(.localized("Download from URL"), systemImage: "link").font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.borderedProminent).tint(Color.userTint).padding(.top, 4)
-            }
-            .frame(maxWidth: .infinity).padding(.vertical, 18)
+            EmptyStateView(
+                systemImage: filter == .all ? "arrow.down.circle" : "tray",
+                title: filter == .all
+                    ? String.localized("No downloads")
+                    : String.localized("No %@ downloads", arguments: filter.rawValue.lowercased()),
+                message: String.localized("Download apps from the App Store tab or paste a direct IPA link."),
+                action: (
+                    title: String.localized("Download from URL"),
+                    systemImage: "link",
+                    tint: Color.userTint,
+                    perform: { showAddSheet = true }
+                )
+            )
             .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
         }
     }
