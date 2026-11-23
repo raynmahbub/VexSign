@@ -133,6 +133,15 @@ push to main
 ```
 
 - `quick` runs first; `build` and `tests` run concurrently after it.
+- The two heavy jobs each compile the whole package graph, and that is not
+  waste to remove casually: `build` compiles for `generic/platform=iOS` and
+  `tests` for the simulator, so they are different products, and the simulator
+  one carries the test bundle and code coverage. Collapsing them into
+  `build-for-testing` plus `test-without-building` would remove one compile, but
+  it moves several hundred megabytes between runners and requires the
+  `.xctestrun` paths to survive the move to a second machine. Both job names are
+  required checks, so that change has to be observed on real runs before it can
+  land — do not restructure this without a green run of the new shape.
 - `platform-check` is a separate workflow because it compiles the companion
   targets and is intentionally not a per-PR cost.
 - `release` builds and publishes on a tag, or by a manual build-only dispatch.

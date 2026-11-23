@@ -21,6 +21,16 @@ answers:
 | `isGuestBuild` | `VexSignEmbeddedGuest` in the app's Info.plist | The combined package, running VexSign as a guest of the host. |
 | `isPrimaryHost` | `VexSignPrimaryHost` in the app's Info.plist | The native-primary layout: VexSign owns the entry point, the runtime is a tenant. |
 | `runtimeLoaded` | `VEXEmbeddedRuntimeAvailable()`, resolved when the runtime dylib is present | This process can reach the host entry point. |
+| `missingHostSelectors` | `VEXEmbeddedRuntimeMissingSelectors()` | Which entry points the loaded host does not answer. Empty in a matching host. |
+
+`runtimeLoaded` alone answers "is a host switched on", not "is it the host this
+version calls". An older or renamed fork answered the availability selector and
+then failed every operation, and the app reported that as
+`runtimeNotLoaded` — the ordinary install's sentence, which sends a
+combined-build user to reinstall the app they already have. The selector list
+makes the difference visible: `Reason.hostIncomplete` and
+`EmbeddedContainerRuntime.hostDiagnosis` name the missing entry points, and
+`EmbeddedRuntimeAvailabilityNote` prints them under the explanation.
 
 Those three values map to an `Environment` — `standalone`, `combinedNativePrimary`,
 `combinedGuestPrototype`, or `combinedUnidentified` when the flags are missing or contradictory —
@@ -39,9 +49,9 @@ evidence that a separately installed container would accept an import.
 ## 2. What the user sees
 
 Because the runtime is a build property, the app must not present the controls as broken. Each
-`Reason` carries an `explanation` — `runtimeNotLoaded`, `notPartOfThisLayout`,
-`unsupportedByDesign` — and `EmbeddedRuntimeAvailabilityNote` renders it wherever the feature is
-missing:
+`Reason` carries an `explanation` — `runtimeNotLoaded`, `hostIncomplete`,
+`notPartOfThisLayout`, `unsupportedByDesign` — and `EmbeddedRuntimeAvailabilityNote` renders it
+wherever the feature is missing:
 
 - Home shows the "Built-in apps" card with the explanation instead of omitting it.
 - Installation shows the note in place of two unlabelled GitHub links.
@@ -55,10 +65,12 @@ profile and transport the user configured, and they work in every build.
 
 The handoff is deliberately narrow, because a container import is not an installation:
 
-1. `EmbeddedContainerRuntime.stageIPA` copies the file into VexSign's own Caches (LiveContainer
-   symlinks guest `tmp` to the host's, so a staged file must be owned by the guest before the
-   native home-containment check), validates it with `ArchiveSafetyValidator`, and cancels
-   between steps if the task is cancelled.
+1. `EmbeddedContainerRuntime.stageIPA` validates the source with `ArchiveSafetyValidator`
+   *before* copying it — a rejected guest used to be copied into Caches in full first — then
+   copies it into VexSign's own Caches (LiveContainer symlinks guest `tmp` to the host's, so a
+   staged file must be owned by the guest before the native home-containment check), and
+   validates the copy again to cover a provider that changed the file in between. It cancels
+   between every step if the task is cancelled.
 2. The native call copies it into the host's inbox synchronously and commits
    `VexSignPendingImport`. After that point only the host may discard it.
 3. The host imports it. A successful handoff proves none of: Apple-authorised signing, a
@@ -67,6 +79,31 @@ The handoff is deliberately narrow, because a container import is not an install
 `ContainerGuestState` keeps that honest: `unavailable` (no runtime), `unknown` (the host was
 asked and did not answer), `notImported`, and `imported(version:)` are separate states, and only
 the last one claims the file arrived.
+
+## 3a. The host ABI
+
+The bridge in `Platform/Compatibility/EmbeddedContainerRuntime.m` talks to the
+host through Objective-C selectors on `LCSharedUtils`, and nothing in either
+repository's build produces a header both sides compile against. This is the
+contract a host has to satisfy — `VEXRequiredHostSelectors()` is the single list
+the probe and the calls share, so adding one here is a deliberate act:
+
+| Selector | Called by | Meaning |
+| --- | --- | --- |
+| `vexSignCombinedHostAvailable` | `VEXHostRuntime`, every operation | `BOOL`. The host is the combined build and will serve these calls. A `NO` here is the same as "no host". |
+| `launchToGuestAppWithURL:` | `VEXEmbeddedRuntimeOpen` | `BOOL(NSURL *)`. Main thread only. A `YES` means restart requested, never login success. |
+| `vexSignStageIPA:` | `VEXEmbeddedRuntimeStageIPA` | `BOOL(NSURL *)`. Copy the guest-local IPA into the host inbox and commit `VexSignPendingImport`. No launch, no credential transfer. |
+| `vexSignGuestInfo:` | `VEXEmbeddedRuntimeGuestInfo` | Dictionary with `state` (`imported` / `notImported`) and optional `version`, or `nil` when the host cannot answer. Only these two keys are read. |
+
+Rules that follow from the list:
+
+- A host that implements a subset is *incomplete*, not absent. The app says which
+  selectors are missing instead of hiding the feature.
+- Renaming or removing a selector is a breaking host change. Add the new name to
+  `VEXRequiredHostSelectors()` and keep the old behaviour reachable, or a host
+  built against the previous version silently loses one operation.
+- Never infer availability from `canOpenURL` or from an installed container app:
+  the call is process-local by design (see `externalAppHandoff`).
 
 ## 4. Building and validating one
 
@@ -91,6 +128,8 @@ runs them on hardware. See [device-testing.md](device-testing.md).
   itself instead of disappearing.
 - Anything user-visible about import or execution must keep the distinction between "the host
   accepted the file" and "the app runs".
+- New host entry point? Add it to `VEXRequiredHostSelectors()` and to the table in §3a in the
+  same change, so an incomplete host reports itself rather than failing silently.
 - Diagnostics export the report as `environment` plus `unavailable:<reason>` per operation —
   redaction-safe by construction: no paths, bundle identifiers or guest names.
 

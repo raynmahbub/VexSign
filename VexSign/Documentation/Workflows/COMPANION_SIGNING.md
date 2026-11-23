@@ -12,9 +12,29 @@ signing or an embedded guest runtime.
 3. Open a Library app’s details (or long-press its row) → **SideStore & LiveContainer** → **Prepare library IPA for sharing**,
    then use **Share IPA to companion app**. App-specific biometric locks are checked
    before opening this action. The stored bundle is exported as-is, without re-signing
-   or uploading. Alternatively, select a guest IPA through the file picker. If the system
+   or uploading. Alternatively, select a guest app package through the file picker — an
+   `.ipa`, a `.tipa`, or a `.zip` that holds `Payload/<name>.app`. If the system
    does not offer it, save to Files and import from LiveContainer instead.
 4. Follow LiveContainer's instructions for its signing mode and JIT requirements.
+
+## Sending work back to VexSign
+
+SideStore and LiveContainer can hand work back through the app's own scheme. The
+routes exist and are validated, but none of them installs anything silently:
+
+| Link | Effect |
+| --- | --- |
+| `vexsign://install?url=<https IPA>` | Stages an HTTPS download into the normal import queue, where it is signed like any other import. The URL is checked before anything is fetched. |
+| `vexsign://direct-install?url=<https IPA>` | Same route, and reports that a direct download started. |
+| `vexsign://launch?bundleId=<bundle id>` | Opens an app VexSign already manages (`bundleIdentifier` and a path segment are also accepted). It cannot launch an app it does not know. |
+| `vexsign://repo-app?…`, `vexsign://tweak-repository?…` | Opens a repository entry or adds a tweak repository, after the same URL checks. |
+| `vexsign://import-certificate?…`, `vexsign://export-certificate?…` | Stages a certificate for explicit confirmation, or returns an export through a caller-supplied template. |
+
+A link is an untrusted sender: every route validates its URL, and the ones that
+would create a signing identity ask first. `CompanionHandoffLink` builds the
+outbound `sidestore://install?url=…` link with the same rules, and the companion
+screen offers **Copy install link** so the URL is still usable on a device where
+SideStore is not installed — copying starts nothing and claims nothing.
 
 ## Boundaries and privacy
 
@@ -24,7 +44,7 @@ signing or an embedded guest runtime.
   explicit confirmation. Only HTTPS URLs without embedded credentials are accepted.
 - Opening a URL handler is not proof of app identity, account status, successful
   installation, guest launch or renewal. No completion callback is claimed.
-- Sharing stages a copy of the selected `.ipa` in the OS temporary directory.
+- Sharing stages a copy of the selected app package in the OS temporary directory.
   Replacing a staged IPA removes the previous copy; the OS may purge remaining
   temporary files. IPA contents are not validated by this handoff: the receiving
   app must perform its own validation. No source archive protections are disabled.
