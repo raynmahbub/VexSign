@@ -111,7 +111,7 @@ reported as one:
 Whether a given account can *complete* a device install is a policy question decided by Apple, not
 by VexSign, and the app reports that instead of pretending success.
 
-### 4. Initial installation — Built for other apps, Absent for itself
+### 4. Installation — Built for other apps and for in-place updates, absent for a cold first boot
 
 Two delivery pipelines coexist behind `SigningModeManager`:
 
@@ -124,10 +124,18 @@ Both are guarded: `InstallEvidenceSummary` distinguishes "the device confirmed i
 "we did not get an answer", and an unconfirmed install demands a separate device check
 before it can be retried — that is what stops an install loop from hammering a device.
 
-**What is absent:** VexSign cannot install *itself* onto a device with no developer
-account. AltLoad/Impactor solve that with a computer-assisted first boot; there is no
-self-bootstrap path in this tree. If you want a computer-free first install, that is a
-genuine new subsystem, not a refactor of what is here.
+**In-place update — Built.** Updating VexSign is the same pipeline pointed at VexSign: the
+release IPA is imported and signed locally with the certificate the installed build was signed
+with, served from the app's own HTTPS installer, and handed to iOS through
+`.itms-services`, which replaces the bundle. `SelfReplacementPolicy` is the condition (same
+bundle identifier, signed, higher version by the comparator the update check uses) and
+`SelfUpdateManager` reports success only when the shared installer confirms it. No key is
+exported and no paired-device mutation is claimed, which is why this route is allowed where the
+two remote self-update routes are not.
+
+**What is absent:** a *cold first install* with no developer account. That needs a computer-assisted
+first boot; there is no self-bootstrap path in this tree, and it is a genuine new subsystem rather
+than a refactor of what is here.
 
 ### 5. Device pairing — Built
 

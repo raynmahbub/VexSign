@@ -50,15 +50,19 @@ open. None of these is a licence to skip a regression test for a change in the a
 | Web Manager server | No request-level test. `WebManagerAccessTests` covers the policy, and `test_webmanager_wiring.py` greps the source for routes; nothing opens a socket. | The suite would need Vapor linked into the test target (`import Vapor` to build a `Request`) plus a TLS identity from the Keychain, and Vapor's logging bootstrap is process-wide. The transfer bounds that mattered are pure and covered (`WebManagerTransferLimitsTests`); a request test is the next step, and it starts with adding Vapor to the test target's link graph. |
 | Tweak pipeline | `TweakExtractor` scanning is covered (`TweakExtractorTests`); `TweakManager` (877 lines) and `TweakHandler` (905) are only covered through `TweakInjectionDefaultsTests`. The archive-format half *is* covered: `ArchiveFormatTests` pins detection, the `.deb` member list and the refusal copy, and `ZstdDecompressionTests` covers the zstd payload path through `extractFile`. | They are `ObservableObject` facades over the filesystem plus a live signing session. The filesystem half is testable next; the session half needs the seam above. |
 | `@unchecked Sendable` | Five types assert their own safety: `Download`, `AppFileHandler`, `RemovalUndoLease`, `RepositoryDirectoryClient`, `StreamObservationCancellation`. Each documents its invariant; `RemovalUndoLease` is covered functionally but none is stress-tested. (`StrictHidingSnapshot` and `AppOperationRegistry.Lease` no longer need the escape — the lock and the `@Sendable` closure replaced it.) | A stress test has to run the real callbacks on a second thread; several of these types are only reachable through their owners. `RemovalUndoLease` is the model to copy — offer/undo/expire/discard with the lock held across every mutation. |
+| Detached concurrency | `Task.detached` starts work nothing owns: no isolation is inherited, nothing cancels it with its screen, and no diagnostic mentions it. 77 sites across 48 files are inventoried in `detached-task-baseline.json`; each site is either work that must outlive its screen or a stale write waiting to happen, and the baseline cannot tell them apart. | The inventory ratchets (a file may not gain a site, the total may not drop unrecorded), so the next site is a reviewed line rather than an invisible one. Deciding *which* of the 77 can become a stored `Task` needs the owner's cancellation to exist first, one file at a time. |
 | The `concurrency` CI job | It reports first-party Swift package diagnostics with `continue-on-error` on the step. | Making it required is a policy change, not a code change: it needs the package graph to be warning-free on a pinned toolchain first, verified on a green run. |
 
 ## Gates that keep the tests honest
 
-- `make verify` runs the repository gates, including the coverage-reporting check
-  (`test_coverage_report.py`) and the accessibility gates
-  ([ACCESSIBILITY.md](ACCESSIBILITY.md)).
+- `make verify` runs the repository gates (69 of them), including the coverage-reporting check
+  (`test_coverage_report.py`), the detached-task inventory
+  (`test_detached_task_audit.py`, baseline in `detached-task-baseline.json`) and the accessibility
+  gates ([ACCESSIBILITY.md](ACCESSIBILITY.md)).
 - CI reports line coverage from the `tests` job (`.github/scripts/coverage_report.py`, uploaded
-  as the `coverage-*` artifact) and enforces a 20% floor as a separate step. The number is not a
+  as the `coverage-*` artifact, printed in the run summary with its floor and its change against
+  `coverage-baseline.json`) and enforces a 20% floor as a separate step. The trend is what catches
+  a slow slide; the floor only catches the collapse. The number is not a
   quality bar — a threshold picked to be "about right" mostly measures which files the last
   author touched — but a *collapse* is worth failing on: a suite that stops running, or a target
   dropped from the scheme, otherwise shows up only as a smaller artifact. Raise the floor in

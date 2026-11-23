@@ -34,11 +34,14 @@ review; the app cannot silently enable Developer Mode or another app's VPN.
 
 These are restrictions, not supported-device acceptance claims. A recognized
 record, reachable socket or even a successful fresh query is **not** signing or
-installation readiness. Paired installation/removal and self-replacement remain
-gated pending native binary/failure-path and physical acceptance of the now-wired
-same-device exact version/build confirmation. Removal has an independent gate:
-a positive inventory list cannot prove absence. The app
-never turns an OTA handoff or native acknowledgement into installed success.
+installation readiness. Paired installation/removal remain gated pending native
+binary/failure-path and physical acceptance of the now-wired same-device exact
+version/build confirmation; paired self-replacement is gated with them, because it
+would be the same mutation over the same unaccepted transport. Updating VexSign does
+not depend on that route: the update sheet signs the release locally and hands it to
+the app's own OTA installer, which needs no pairing at all. Removal has an independent
+gate: a positive inventory list cannot prove absence. The app never turns an OTA
+handoff or native acknowledgement into installed success.
 
 To inspect metadata without starting an install, explicitly approve queries,
 check the intended UDID and VPN peer, then choose **Verify selected device**.

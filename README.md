@@ -84,7 +84,7 @@ device acceptance — the caveats in each section still apply.
 - **Last-known-good source retention** when refreshes fail, plus opt-in startup/background refresh.
 - **Per-app update rules** — ignore a version, ignore or prefer a source, pin a certificate, disable automatic updates and preserve custom signing options across updates.
 - **Premium activation, restore and device recovery** through the configured backend, with premium catalog filters.
-- **App self-update checking**, with a one-time local notification when a newer release appears, and controls for skipped source updates.
+- **App self-update checking**, with a one-time local notification when a newer release appears, and controls for skipped source updates. Updating VexSign itself is done in place: sign the release in Library with the certificate the installed build was signed with, and the update sheet serves it from this device so iOS replaces the bundle. No certificate, key or password is ever sent to an updater, and paired self-replacement stays gated.
 
 </details>
 
