@@ -378,7 +378,12 @@ jobs:
           # before exiting so diagnostics never receive an "unknown" status.
           set +e
           set -uo pipefail
+          # `licenseplist` ships a build-tool plugin that Xcode wants a human to
+          # approve; the approval is per-user DerivedData, so a runner can never
+          # have it. The plugin still runs; only the trust prompt is skipped. Same
+          # flag as the Makefile targets, and the package is pinned exactly.
           xcodebuild \
+            -skipPackagePluginValidation \
             -workspace VexSign.xcworkspace \
             -scheme VexSign \
             -configuration Debug \
@@ -620,6 +625,7 @@ jobs:
           set +e
           set -uo pipefail
           xcodebuild \
+            -skipPackagePluginValidation \
             -workspace VexSign.xcworkspace \
             -scheme VexSignTests \
             -configuration Debug \
