@@ -495,8 +495,7 @@ class DownloadManager: NSObject, ObservableObject {
 
 	func showUIErrorMessage(for download: Download, error: NSError) {
 		DispatchQueue.main.async {
-			let generator = UINotificationFeedbackGenerator()
-			generator.notificationOccurred(.error)
+			Haptics.error()
 
 			self.errorDelegate?.showUIErrorMessage(
 				title: .localized("Failed to download IPA"),
@@ -640,7 +639,7 @@ class DownloadManager: NSObject, ObservableObject {
                         completion?(error)
                         return
                     }
-                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    Haptics.error()
 
 					if let completion = completion {
 						// Caller owns the error UI; don't also fire the generic delegate alert.

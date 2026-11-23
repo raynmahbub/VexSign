@@ -222,7 +222,7 @@ extension DownloadManager {
                     self.finishImport(of: dl, succeeded: false)
                     return
                 }
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                Haptics.error()
 
 				if self.isAppInBackground {
 					self.sendCompletionNotification(for: dl, status: "❌ " + String.localized("Import failed: %@", arguments: error.localizedDescription))

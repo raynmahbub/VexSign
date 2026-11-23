@@ -136,8 +136,7 @@ class CertificateAutoImporter {
 						if let error = updateError {
 							Logger.misc.error("Failed to update \(certName): \(error.localizedDescription)")
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.error)
+								Haptics.error()
 								UIAlertController.showAlertWithOk(
 									title: .localized("Certificate Update Failed"),
 									message: error.localizedDescription
@@ -147,8 +146,7 @@ class CertificateAutoImporter {
 							Logger.misc.info("Successfully updated certificate: \(certName)")
 							UserDefaults.standard.set(certHash, forKey: hashKey)
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.success)
+								Haptics.success()
 							}
 						}
 					} else {
@@ -166,8 +164,7 @@ class CertificateAutoImporter {
 						if let error = importError {
 							Logger.misc.error("Failed to import \(certName): \(error.localizedDescription)")
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.error)
+								Haptics.error()
 								UIAlertController.showAlertWithOk(
 									title: .localized("Certificate Import Failed"),
 									message: error.localizedDescription
@@ -177,8 +174,7 @@ class CertificateAutoImporter {
 							Logger.misc.info("Successfully imported certificate: \(certName)")
 							UserDefaults.standard.set(certHash, forKey: hashKey)
 							await MainActor.run {
-								let generator = UINotificationFeedbackGenerator()
-								generator.notificationOccurred(.success)
+								Haptics.success()
 							}
 						}
 					}

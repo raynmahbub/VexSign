@@ -98,7 +98,7 @@ enum GameMode {
 	/// why a button did nothing.
 	@MainActor
 	static func reportBlocked(_ action: String) {
-		UINotificationFeedbackGenerator().notificationOccurred(.warning)
+		Haptics.warning()
 		UIAlertController.showAlertWithOptions(
 			title: .localized("Game Mode is On"),
 			message: .localized("%@ is paused while Game Mode is on. Turn it off in Settings to continue.", arguments: action),

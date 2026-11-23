@@ -10,7 +10,6 @@ import NimbleViews
 import AltSourceKit
 import NimbleJSON
 import OSLog
-import UIKit.UIImpactFeedbackGenerator
 import NimbleExtensions
 
 // MARK: - View

@@ -108,7 +108,7 @@ struct AppearanceTintColorView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
                 _selectedColorHex = option.hex
             }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.lightImpact()
         }
         .accessibilityLabel(Text(option.name))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
