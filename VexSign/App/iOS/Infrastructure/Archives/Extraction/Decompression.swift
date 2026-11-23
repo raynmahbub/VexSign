@@ -130,6 +130,10 @@ func extractFile(at fileURL: inout URL) throws {
 		decompressed = try GzipArchive.unarchive(archive: data)
 	case .bzip2:
 		decompressed = try BZip2.decompress(data: data)
+	case .zstd:
+		// Bounded inside the decoder: the frame's declared size is refused before allocation
+		// and the growth of the output stops at the same ceiling.
+		decompressed = try ZstdDecompression.decompress(data, limit: maximumExpandedBytes)
 	case .unknown:
 		throw TweakHandlerError.unsupportedFileExtension(fileURL.pathExtension)
 	}
@@ -184,7 +188,7 @@ enum SECURE_ARCHIVE_LOG {
 
 // MARK: - Format detection
 
-private enum _CompressionFormat { case xz, lzma, gzip, bzip2, unknown }
+private enum _CompressionFormat { case xz, lzma, gzip, bzip2, zstd, unknown }
 
 /// Detects compression by magic bytes, falling back to the extension only when no magic matches.
 private func _detectCompression(_ data: Data, extensionHint ext: String) -> _CompressionFormat {
@@ -194,6 +198,7 @@ private func _detectCompression(_ data: Data, extensionHint ext: String) -> _Com
 	}
 	if m.count >= 2, m[0] == 0x1F, m[1] == 0x8B { return .gzip }             // gzip
 	if m.count >= 3, m[0] == 0x42, m[1] == 0x5A, m[2] == 0x68 { return .bzip2 } // "BZh"
+	if m.count >= 4, m[0] == 0x28, m[1] == 0xB5, m[2] == 0x2F, m[3] == 0xFD { return .zstd } // zstd frame
 
 	// No recognizable magic — legacy raw `.lzma` has no fixed magic, so trust the extension.
 	switch ext {
@@ -201,6 +206,7 @@ private func _detectCompression(_ data: Data, extensionHint ext: String) -> _Com
 	case "lzma": 	return .lzma
 	case "gz": 		return .gzip
 	case "bz2": 	return .bzip2
+	case "zst": 	return .zstd
 	default: 		return .unknown
 	}
 }

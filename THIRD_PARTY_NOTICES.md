@@ -21,12 +21,28 @@ different obligations.
 | `VexSign/Packages/Vendor/Zsign` | MIT, plus an Apache-2.0 component notice | [`VexSign/Packages/Vendor/Zsign/LICENSE`](VexSign/Packages/Vendor/Zsign/LICENSE), [`VexSign/Packages/Vendor/Zsign/LICENSE_LC`](VexSign/Packages/Vendor/Zsign/LICENSE_LC) |
 | `VexSign/Packages/Vendor/IDeviceKitten` | MIT | [`VexSign/Packages/Vendor/IDeviceKitten/LICENSE`](VexSign/Packages/Vendor/IDeviceKitten/LICENSE) |
 | Anisette server attribution | See bundled notice for applicable terms | [`VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt`](VexSign/App/iOS/Resources/AnisetteServers-LICENSE.txt) |
+| zstd decoder derived from SayoSign (`VexZstd.c`) | GNU GPL version 3.0 (same as this repository) | [`LICENSE`](LICENSE); provenance below |
 
 `VexSign/Packages/Vendor/README.md` and `VexSign/Packages/Vendor/manifest.json` identify the vendored upstream
 projects, pins, and retained notices. Some package manifests also resolve
 external dependencies or binary targets at build time; consult those manifests
 and the upstream license files for their terms. This table is not a complete
 software bill of materials.
+
+## zstd decoder (`VexZstd.c`)
+
+`VexSign/App/iOS/Infrastructure/Archives/Extraction/Zstd/VexZstd.c` is derived from SayoSign's
+`core/src/zstd.c` (`murk-sus/SayoSign`, GPL-3.0, file last changed in commit
+`f250ff324f7b7cad7bb87a33fa9ebc38c837aa8d`). It is GPL-3.0 code used in a GPL-3.0 repository, so
+no additional licence obligation is introduced beyond the top-level `LICENSE`; the attribution
+stays here and in the file header.
+
+What changed in the copy: the decoder algorithm is upstream; the surrounding boundary is not.
+The adapted file adds a caller-supplied output ceiling (bomb guard, also checked against the
+frame's declared content size), verifies the 4-byte XXH64 frame checksum that upstream skipped,
+checks `malloc` results, and keeps its buffer/error helpers private so nothing collides with the
+app's other C sources. Its tests are `ZstdDecompressionTests`, whose fixtures are produced by the
+reference `zstandard` implementation rather than by the code under test.
 
 ## Device bootstrap/pairing foundation
 

@@ -821,7 +821,7 @@ enum DebianDataMember {
 		let candidates = names.filter { $0 == "data.tar" || $0.hasPrefix("data.tar.") }
 		guard !candidates.isEmpty else { throw SelectionError.missing }
 		guard candidates.count == 1, let name = candidates.first else { throw SelectionError.multiple }
-		guard ["data.tar", "data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2"].contains(name) else {
+		guard ["data.tar", "data.tar.lzma", "data.tar.gz", "data.tar.xz", "data.tar.bz2", "data.tar.zst"].contains(name) else {
 			throw SelectionError.unsupported(name)
 		}
 		return name
@@ -888,7 +888,7 @@ enum TweakHandlerError: LocalizedError, Equatable {
 			// reads "cannot unpack unknown-format archives" instead of "cannot unpack  archives".
 			let named = ext.isEmpty ? .localized("unknown-format") : "." + ext.lowercased()
 			return .localized(
-				"VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz or .tar.bz2 package.",
+				"VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz, .tar.bz2 or .tar.zst package.",
 				arguments: named
 			)
 		case .decompressionFailed(let detail):

@@ -388,7 +388,7 @@ enum TweakAnalyzer {
 	static func readControl(fromTar tarURL: URL) -> [String: String]? {
 		var file = tarURL
 		do {
-			// decompress (.gz/.xz/.lzma) → .tar. An already-uncompressed tar is untarred here
+			// decompress (.gz/.xz/.lzma/.bz2/.zst) → .tar. An already-uncompressed tar is untarred here
 			// instead, which is why the second step is conditional.
 			try extractFile(at: &file)
 			// untar → directory. Re-running extraction on the directory the first step produced

@@ -113329,6 +113329,17 @@
           }
         }
       }
+    },
+    "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz, .tar.bz2 or .tar.zst package." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz, .tar.bz2 or .tar.zst package."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
