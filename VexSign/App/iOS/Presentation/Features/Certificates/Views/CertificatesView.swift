@@ -193,6 +193,10 @@ extension CertificatesView {
 		let expiring: Int
 		let revoked: Int
 		let apps: Int
+		let validText: String
+		let expiringText: String
+		let revokedText: String
+		let appsText: String
 	}
 
 	private func _healthCounts() -> HealthCounts {
@@ -203,12 +207,24 @@ extension CertificatesView {
 		// the leaf certificate's earlier date and counted credentials this build cannot
 		// renew as if a renewal were pending.
 		let credentials = RenewalSchedulePresentation.credentials(from: certs)
-		let expiring = credentials
-			.map { RenewalPlanner.plan(for: $0) }
-			.filter { $0.status == .due || $0.status == .urgent || $0.status == .lapsed }
-			.count
-		return HealthCounts(valid: certs.count - revoked, expiring: expiring, revoked: revoked,
-			apps: coordinator.signedAppsCount())
+		// Named types on both lines: the untyped `map`/`filter`/`count` chain was what the
+		// type-checker could not finish in reasonable time.
+		let plans: [RenewalPlan] = credentials.map { RenewalPlanner.plan(for: $0) }
+		let expiring: Int = plans.filter { plan in
+			plan.status == .due || plan.status == .urgent || plan.status == .lapsed
+		}.count
+		let valid = certs.count - revoked
+		let apps = coordinator.signedAppsCount()
+		return HealthCounts(
+			valid: valid,
+			expiring: expiring,
+			revoked: revoked,
+			apps: apps,
+			validText: .localized("%lld valid", arguments: valid),
+			expiringText: .localized("%lld expiring", arguments: expiring),
+			revokedText: .localized("%lld revoked", arguments: revoked),
+			appsText: .localized("%lld signed apps in the library use a certificate from this list.", arguments: apps)
+		)
 	}
 
 	@ViewBuilder
@@ -219,7 +235,7 @@ extension CertificatesView {
 			Text(.localized("Certificate Health"))
 				.font(.headline)
 			_healthPills(counts)
-			Text(verbatim: .localized("%lld signed apps in the library use a certificate from this list.", arguments: counts.apps))
+			Text(verbatim: counts.appsText)
 				.font(.caption)
 				.foregroundStyle(.secondary)
 			Button(.localized("Check Revokage")) {
@@ -232,12 +248,12 @@ extension CertificatesView {
 	@ViewBuilder
 	private func _healthPills(_ counts: HealthCounts) -> some View {
 		HStack(spacing: 12) {
-			_stat(.localized("%lld valid", arguments: counts.valid), color: .green)
+			_stat(counts.validText, color: .green)
 			if counts.expiring > 0 {
-				_stat(.localized("%lld expiring", arguments: counts.expiring), color: .orange)
+				_stat(counts.expiringText, color: .orange)
 			}
 			if counts.revoked > 0 {
-				_stat(.localized("%lld revoked", arguments: counts.revoked), color: .red)
+				_stat(counts.revokedText, color: .red)
 			}
 		}
 	}
