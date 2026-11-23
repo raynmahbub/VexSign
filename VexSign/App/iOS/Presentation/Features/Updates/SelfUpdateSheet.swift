@@ -222,6 +222,16 @@ struct SelfUpdateSheet: View {
 				.fixedSize(horizontal: false, vertical: true)
 				.frame(maxWidth: .infinity, alignment: .leading)
 
+			// The route that does work here, stated as what is still missing rather than as
+			// "unavailable": sign the release in Library and this sheet installs it in place.
+			if let requirement = _plan.selfReplacement {
+				Label(requirement.message, systemImage: "signature")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+					.frame(maxWidth: .infinity, alignment: .leading)
+			}
+
 			if let alternative = _plan.alternative {
 				_installButton(String.localized("Install with %@", arguments: alternative.title))
 			}

@@ -113363,6 +113363,72 @@
           }
         }
       }
+    },
+    "No signed copy of VexSign is in Library yet. Download the release IPA, import it, sign it with the certificate you installed VexSign with, then come back here to install it in place." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No signed copy of VexSign is in Library yet. Download the release IPA, import it, sign it with the certificate you installed VexSign with, then come back here to install it in place."
+          }
+        }
+      }
+    },
+    "The copy of VexSign in Library is not signed. Sign it with the certificate you installed VexSign with, then install it from here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy of VexSign in Library is not signed. Sign it with the certificate you installed VexSign with, then install it from here."
+          }
+        }
+      }
+    },
+    "The install did not reach the device. Try again from the update sheet." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The install did not reach the device. Try again from the update sheet."
+          }
+        }
+      }
+    },
+    "The signed copy in Library is a different app. An in-place update has to carry VexSign's bundle identifier." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy in Library is a different app. An in-place update has to carry VexSign's bundle identifier."
+          }
+        }
+      }
+    },
+    "The signed copy of VexSign in Library is not newer than the build that is running. iOS only replaces a bundle with a higher version." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The signed copy of VexSign in Library is not newer than the build that is running. iOS only replaces a bundle with a higher version."
+          }
+        }
+      }
+    },
+    "iOS installed a different version than the one served (%@)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS installed a different version than the one served (%@)."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

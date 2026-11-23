@@ -140,13 +140,52 @@ final class AppInstaller: ObservableObject {
 
 	var canRetryUsingLocalhost: Bool { !_isSharing && _installationMethod == 0 && _serverMethod == 0 }
 
+	/// The policy call, static and free of instance state so a test asks the same question the
+	/// installer asks. The verdict does not depend on how the attempt was started: an unsigned or
+	/// older copy cannot become installable because a caller asked for an in-place update.
+	static func inPlaceVerdict(
+		for app: AppInfoPresentable,
+		runningIdentifier: String?,
+		runningVersion: String
+	) -> SelfReplacementBlocker? {
+		SelfReplacementPolicy.verdict(
+			candidate: SelfReplacementCandidate(
+				identifier: app.identifier,
+				version: app.version,
+				isSigned: app.isSigned
+			),
+			runningIdentifier: runningIdentifier,
+			runningVersion: runningVersion
+		)
+	}
+
+	/// The in-place verdict for a copy of the running app, computed once per attempt.
+	///
+	/// `nil` means the same-bundle restriction does not apply to this attempt (it is not the running
+	/// app, or the copy passed `SelfReplacementPolicy`). Anything else is the reason to refuse, and
+	/// it is what the card shows instead of a sentence about "updating with itself".
+	private let _inPlaceVerdict: SelfReplacementBlocker?
+	private let _isSelfTarget: Bool
+	/// Set only by the update sheet's in-place attempt. A library card tapping VexSign itself keeps
+	/// the old refusal, because nothing there proved the copy is a newer signed build.
+	private let _allowsInPlaceUpdate: Bool
 
 	init(
 		app: AppInfoPresentable,
 		isSharing: Bool = false,
 		useLocalhost: Bool = false,
+		allowsInPlaceUpdate: Bool = false,
 		probe: InstalledAppProbing = UnavailableInstallationProbe()
 	) {
+		let runningIdentifier = Bundle.main.bundleIdentifier
+		let identifier = app.identifier
+		self._allowsInPlaceUpdate = allowsInPlaceUpdate
+		self._isSelfTarget = identifier != nil && identifier == runningIdentifier
+		self._inPlaceVerdict = Self.inPlaceVerdict(
+			for: app,
+			runningIdentifier: runningIdentifier,
+			runningVersion: Bundle.main.version
+		)
         if isSharing {
             _pipeline = nil
             _installationMethod = 0
@@ -198,8 +237,15 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
         do { if _sourceLease == nil { _sourceLease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(app)) } }
         catch { _finish(.failure(error)); return }
 
-		guard _isSharing || app.identifier != Bundle.main.bundleIdentifier || _installationMethod == 1 else {
-			_finish(.failure(Self.error(.localized("You cannot update '%@' with itself, please use an alternative tool to update it.", arguments: Bundle.main.name))))
+		// The refusal used to be a sentence about "updating with itself" with no way forward. The
+		// rule is the same bundle identifier, and a copy that passed the in-place policy is exactly
+		// the case iOS supports: same bundle, higher version, signed here, served locally.
+		let inPlaceAllowed = _allowsInPlaceUpdate && _inPlaceVerdict == nil
+		guard _isSharing || !_isSelfTarget || _installationMethod == 1 || inPlaceAllowed else {
+			let message = _inPlaceVerdict?.message
+				?? String.localized("You cannot update '%@' with itself, please use an alternative tool to update it.",
+				                    arguments: Bundle.main.name)
+			_finish(.failure(Self.error(message)))
 			return
 		}
 

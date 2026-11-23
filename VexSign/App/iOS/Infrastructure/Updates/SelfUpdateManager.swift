@@ -67,14 +67,36 @@ enum SelfUpdateBlocker: String, Equatable {
 	}
 }
 
-/// The verdict for one attempt: which method would run, what stops it, and what else would work.
+/// The verdict for one attempt: what would run, what stops it, and what else would work.
+///
+/// `selfReplacement` is the in-place route's own verdict. It is `nil` exactly when a signed, newer
+/// copy of this build is in the library — the only route this build can finish without exporting a
+/// key or trusting an unverified device mutation, and therefore the only one that clears `blocker`.
 struct SelfUpdatePlan: Equatable {
 	let method: SelfUpdateMethod
 	let blocker: SelfUpdateBlocker?
 	/// The other method, when it is ready right now.
 	let alternative: SelfUpdateMethod?
+	/// Why the in-place route is not available; `nil` when it is.
+	let selfReplacement: SelfReplacementBlocker?
+
+	init(
+		method: SelfUpdateMethod,
+		blocker: SelfUpdateBlocker?,
+		alternative: SelfUpdateMethod?,
+		selfReplacement: SelfReplacementBlocker? = .missing
+	) {
+		self.method = method
+		self.blocker = blocker
+		self.alternative = alternative
+		self.selfReplacement = selfReplacement
+	}
 
 	var canInstall: Bool { blocker == nil }
+
+	/// True when the plan that can run is the in-place one: sign here, serve locally, let iOS
+	/// replace the bundle. The remote methods answer `false` in every configuration.
+	var usesInPlaceUpdate: Bool { blocker == nil && selfReplacement == nil }
 }
 
 struct SelfUpdateRelease: Identifiable, Equatable {
@@ -131,6 +153,10 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	}
 
 	private var _flow: Task<Void, Never>?
+	/// Last answer from the library, so a view body does not fetch on every render.
+	@MainActor private var _localCopy: (blocker: SelfReplacementBlocker?, at: Date)?
+	/// The in-place attempt, kept so closing the sheet stops its server.
+	@MainActor private var _installer: AppInstaller?
 
 	private override init() {
 		super.init()
@@ -248,10 +274,18 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		isPrimaryHost: Bool,
 		serverConfigured: Bool,
 		hasPairing: Bool,
-		hasDownload: Bool
+		hasDownload: Bool,
+		selfReplacement: SelfReplacementBlocker? = .missing
 	) -> SelfUpdatePlan {
 		guard !isPrimaryHost else {
-			return SelfUpdatePlan(method: preferred, blocker: .combinedHost, alternative: nil)
+			return SelfUpdatePlan(method: preferred, blocker: .combinedHost, alternative: nil, selfReplacement: selfReplacement)
+		}
+
+		// A signed, newer copy in the library is the one route that finishes without sending the
+		// signing key anywhere and without claiming an unverified device mutation, so it is decided
+		// before the method picker is consulted.
+		if selfReplacement == nil {
+			return SelfUpdatePlan(method: preferred, blocker: nil, alternative: nil, selfReplacement: nil)
 		}
 
         // Configuration/file presence never grants permission to export keys,
@@ -265,19 +299,53 @@ final class SelfUpdateManager: NSObject, ObservableObject {
             else if !hasPairing { blocker = .pairingMissing }
             else { blocker = .pairedRouteUnavailable }
         }
-        return SelfUpdatePlan(method: preferred, blocker: blocker, alternative: nil)
+        return SelfUpdatePlan(method: preferred, blocker: blocker, alternative: nil, selfReplacement: selfReplacement)
     }
 
 	/// The plan for the current device and configuration. `release` is optional because the Settings
 	/// screen asks "could this work at all?" before a release is chosen.
+	@MainActor
 	func plan(for release: SelfUpdateRelease?) -> SelfUpdatePlan {
 		Self.plan(
 			preferred: method,
 			isPrimaryHost: EmbeddedContainerRuntime.isPrimaryHost,
 			serverConfigured: isServerConfigured,
 			hasPairing: hasPairing,
-			hasDownload: release.map { $0.downloadURL != nil } ?? true
+			hasDownload: release.map { $0.downloadURL != nil } ?? true,
+			selfReplacement: localCopyVerdict()
 		)
+	}
+
+	// MARK: - In-place update source
+
+	/// What the library currently offers for an in-place update. Fetched at most once every two
+	/// seconds because the update sheet asks on every render, and signing a copy in another screen
+	/// is expected to show up when the sheet is reopened.
+	@MainActor
+	func localCopyVerdict() -> SelfReplacementBlocker? {
+		if let cached = _localCopy, Date().timeIntervalSince(cached.at) < 2 { return cached.blocker }
+		let blocker = Self.localReplacement().blocker
+		_localCopy = (blocker, Date())
+		return blocker
+	}
+
+	/// The library copy an in-place update would hand to iOS, and why nothing qualified when that
+	/// is the case. Reads only the stores the caller already trusts.
+	static func localReplacement(runningVersion: String = Bundle.main.version)
+		-> (app: AppInfoPresentable?, blocker: SelfReplacementBlocker?) {
+		let apps = Storage.shared.getAllApps()
+		let candidates = apps.map {
+			SelfReplacementCandidate(identifier: $0.identifier, version: $0.version, isSigned: $0.isSigned)
+		}
+		let result = SelfReplacementPolicy.select(
+			from: candidates,
+			runningIdentifier: Bundle.main.bundleIdentifier,
+			runningVersion: runningVersion
+		)
+		guard let selected = result.selected, let index = candidates.firstIndex(of: selected) else {
+			return (nil, result.blocker)
+		}
+		return (apps[index], nil)
 	}
 
 	var canSelfInstall: Bool { plan(for: nil).canInstall }
@@ -457,6 +525,10 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 	func endFlow() {
 		_flow?.cancel()
 		_flow = nil
+		// An in-place attempt owns a local HTTPS server; leaving it up after the sheet closes is
+		// how a served payload outlives the screen that explained it.
+		_installer?.stop()
+		_installer = nil
 		// A failure belongs to the attempt, not to the sheet: keeping it here made the next open
 		// show a stale error before anything was tried.
 		phase = .idle
@@ -465,10 +537,65 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 
     @MainActor
     func performUpdate(to release: SelfUpdateRelease) async {
-        let blocker = plan(for: release).blocker ?? .pairedRouteUnavailable
-        phase = .failed(blocker.message)
-        // No certificate lookup/export, private progress probe, undocumented
-        // suspend invocation, automatic method switch, or signing-key upload.
-        FileLogger.log("Self-update blocked [\(blocker.rawValue)]; use local signing and an eligible external installer.", category: "update")
+        let plan = plan(for: release)
+        guard plan.canInstall, plan.usesInPlaceUpdate else {
+            let blocker = plan.blocker ?? .pairedRouteUnavailable
+            phase = .failed(blocker.message)
+            // No certificate lookup/export, private progress probe, undocumented
+            // suspend invocation, automatic method switch, or signing-key upload.
+            FileLogger.log("Self-update blocked [\(blocker.rawValue)]; use local signing and an eligible external installer.", category: "update")
+            return
+        }
+
+        guard let copy = Self.localReplacement().app else {
+            // The library changed between the plan and the tap.
+            _localCopy = nil
+            let reason = Self.localReplacement().blocker ?? .missing
+            phase = .failed(reason.message)
+            FileLogger.log("In-place update found no signing copy [\(reason.rawValue)].", category: "update")
+            return
+        }
+
+        // Invariant before anything is served: the copy's bundle identifier is ours and its
+        // version is higher. `AppInstaller` re-checks the same policy, so this is the message, not
+        // the guard.
+        FileLogger.log(
+            "In-place update: serving library copy \(copy.version ?? "?") over \(Bundle.main.version) from this device.",
+            category: "update"
+        )
+        phase = .installing
+        installProgress = 0
+
+        // The ordinary install pipeline, with the same-bundle restriction lifted for a copy the
+        // policy accepted. Signing already happened; the key is not read here.
+        let installer = AppInstaller(app: copy, allowsInPlaceUpdate: true)
+        _installer = installer
+        defer { _installer = nil; _flow = nil }
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            installer.start { [weak self] result in
+                Task { @MainActor in
+                    guard let self else { continuation.resume(); return }
+                    switch result {
+                    case .success(.installed):
+                        self.installProgress = 1
+                        self.phase = .done
+                    case .success(.installedOtherVersion(let version)):
+                        self.installProgress = 1
+                        self.phase = .failed(String.localized(
+                            "iOS installed a different version than the one served (%@).",
+                            arguments: version ?? String.localized("unknown")
+                        ))
+                    case .success(.cancelled):
+                        self.phase = .idle
+                    case .success(.exported), .success(.guestImportPrepared):
+                        self.phase = .failed(String.localized("The install did not reach the device. Try again from the update sheet."))
+                    case .failure(let error):
+                        self.phase = .failed(error.localizedDescription)
+                    }
+                    continuation.resume()
+                }
+            }
+        }
     }
 }
