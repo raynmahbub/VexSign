@@ -64,6 +64,14 @@ open. None of these is a licence to skip a regression test for a change in the a
   dropped from the scheme, otherwise shows up only as a smaller artifact. Raise the floor in
   `.github/workflows/ci.yml` after reading a real run; a number within two points of it produces
   a warning annotation instead.
+- Import → artifact is covered end to end by
+  `FullSignPipelineIntegrationTests.testImportedBundleRepackagesIntoACompleteArtifact`: a
+  synthetic IPA is imported through `PackageImportService`, the library's bundle is re-zipped by
+  `AppArchiver`, and the result is checked against `ArchiveSafetyValidator` and the source
+  archive's entry list. The producing half — a *verified signed* artifact — needs an
+  Apple-authorised identity and a device or a signed simulator entitlement, which this suite does
+  not have. `make test-signing-core` covers the native sealer's CodeDirectory construction,
+  hashing, DER entitlements and CMS independently, with generated keys and no Apple account.
 - `PythonTests/` inside `VexSign/Packages/NativeSigning` generates a Swift package test target
   (`NativeSigningCodecTests`), so the native signing core does have a Swift suite — it just does
   not live in this tree. `make test-signing-core` runs it.

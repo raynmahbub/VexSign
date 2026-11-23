@@ -7,6 +7,7 @@
 
 import Foundation
 import XCTest
+import ZIPFoundation
 @testable import VexSign
 
 @MainActor
@@ -130,6 +131,59 @@ final class FullSignPipelineIntegrationTests: XCTestCase {
         // Releasing the lease frees the copy for cleanup
         XCTAssertFalse(registry.isBusy(key))
         XCTAssertNotNil(registry.acquireCleanup())
+    }
+
+    /// Import → artifact, end to end: the bundle the library holds must re-zip into an IPA that
+    /// the installer's own validator accepts and that keeps the `Payload/` layout it came from.
+    ///
+    /// This is the half of the sign chain that does not need an Apple identity, and it is the half
+    /// that breaks in practice — an import that unpacks correctly but cannot be repackaged leaves
+    /// the user with an app they can see and cannot install. The producing half (a *verified
+    /// signed* artifact) needs an Apple-authorised identity, which the simulator suite does not
+    /// have; `TESTS.md` records that, and `make test-signing-core` covers the native sealer's
+    /// CodeDirectory, hashing and CMS independently.
+    func testImportedBundleRepackagesIntoACompleteArtifact() async throws {
+        let ipa = try createTestIPA()
+        defer { try? FileManager.default.removeItem(at: ipa.deletingLastPathComponent()) } // try? ok: synthetic archive cleanup
+
+        let completed = expectation(description: "Synthetic IPA import completes")
+        var imported: AppInfoPresentable?
+        PackageImportService.importPackage(ipa) { result in
+            switch result {
+            case .success(let app): imported = app
+            case .failure(let error): XCTFail("Synthetic import failed: \(error)")
+            }
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 30)
+        let app = try XCTUnwrap(imported)
+        defer { XCTAssertTrue(Storage.shared.deleteApp(for: app), "Only the test-created library artifact may be removed.") }
+
+        let record = try CoreDataWorkspaceRepository(storage: Storage.shared).appRecord(app)
+        let bundle = try XCTUnwrap(record.bundleURL)
+        XCTAssertEqual(record.identifier, "com.vexsign.test.pipeline")
+
+        let directory = ipa.deletingLastPathComponent()
+        let repackaged = directory.appendingPathComponent("Repackaged.ipa")
+        try AppArchiver.archive(appDir: bundle, to: repackaged, compression: .defaultCompression)
+
+        let scratch = directory.appendingPathComponent("validator", isDirectory: true)
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        XCTAssertNoThrow(
+            try ArchiveSafetyValidator.validate(repackaged, destination: scratch),
+            "the artifact the installer consumes must pass the same validator the import path applies"
+        )
+        XCTAssertEqual(
+            try Self.entryPaths(in: repackaged),
+            try Self.entryPaths(in: ipa),
+            "re-packaging must preserve the Payload/ layout entry for entry"
+        )
+    }
+
+    /// Every entry path in an archive, sorted, so two archives can be compared by layout.
+    private static func entryPaths(in url: URL) throws -> [String] {
+        let archive = try Archive(url: url, accessMode: .read)
+        return archive.map(\.path).sorted()
     }
 
     /// Non-runnable generated Mach-O data, not a dummy text executable or an
