@@ -113693,6 +113693,17 @@
           }
         }
       }
+    },
+    "Not supported in this build" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not supported in this build"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

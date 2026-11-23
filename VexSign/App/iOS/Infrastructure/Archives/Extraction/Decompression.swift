@@ -57,7 +57,10 @@ func extractFile(at fileURL: inout URL) throws {
 	if let size = (attributes[.size] as? NSNumber)?.int64Value, size > maximumArchiveBytes {
 		throw ArchiveExtractionError.tooLarge(size)
 	}
-	let data = try Data(contentsOf: fileURL)
+	// Mapped, not copied: the decoders below read it once, and the archive is untrusted
+	// input that may be hundreds of megabytes. A copy puts the whole file in the heap
+	// beside the bytes it expands to, which is the pair that jetsam kills.
+	let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
 
 	// A .tar (already decompressed) → unpack into a directory.
 	if fileURL.pathExtension.lowercased() == "tar" || _looksLikeTar(data) {

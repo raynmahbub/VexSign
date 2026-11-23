@@ -141,6 +141,23 @@ private var _writeContext: NSManagedObjectContext {
 		return results
 	}
 
+	/// Same queue contract as `fetchOnQueue`, but a read failure is reported instead of being
+	/// flattened into an empty result.
+	///
+	/// `fetchOnQueue` answers "no rows" for a store it could not read, and that is right for the
+	/// optional lookups around it: an unavailable artifact is a missing artifact. It is wrong for
+	/// the catalog read behind the Library, where "no rows" is rendered as an empty library - an
+	/// import that committed looks like an import that never happened, and nothing anywhere says
+	/// otherwise. Callers that can say why use this one.
+	func fetchOnQueueThrowing<T>(_ request: NSFetchRequest<T>) throws -> [T] {
+		let context = self.context
+		var result: Result<[T], Error> = .success([])
+		context.performAndWait {
+			result = Result { try context.fetch(request) }
+		}
+		return try result.get()
+	}
+
 	/// Runs `changes` on the private-queue write context, saves it, and returns
 	/// the permanent object ID of the row the block inserted or updated.
 	///

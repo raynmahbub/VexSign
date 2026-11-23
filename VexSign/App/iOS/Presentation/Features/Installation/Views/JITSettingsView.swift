@@ -134,7 +134,7 @@ struct JITSettingsView: View {
         NBSection(.localized("JIT Support Status")) {
             LabeledContent(
                 .localized("In-App Debugserver JIT"),
-                value: String.localized("Not Implemented")
+                value: String.localized("Not supported in this build")
             )
             LabeledContent(
                 .localized("TrollStore Install Detected"),

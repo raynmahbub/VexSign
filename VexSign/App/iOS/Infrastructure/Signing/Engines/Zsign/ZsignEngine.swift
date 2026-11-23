@@ -28,6 +28,7 @@
 
 import Foundation
 import NimbleExtensions
+import os
 import ZsignSwift
 
 /// The pinned signing engine, addressed in VexSign's terms.
@@ -115,8 +116,13 @@ enum ZsignEngine {
 	// MARK: - Signing
 
 	/// Signs one bundle. Blocking — call it off the main actor.
+	///
+	/// The engine reports its own failure through a completion that the wrapper is expected to
+	/// run before it returns. `OSAllocatedUnfairLock` carries that answer out of the closure: an
+	/// unsynchronised `var` would be a data race the moment the engine defers, and the read after
+	/// `sign` could then report a failed run as a success with no error text.
 	static func sign(_ request: Request) -> Outcome {
-		var engineError: Error?
+		let engineError = OSAllocatedUnfairLock<Error?>(initialState: nil)
 
 		let success = Zsign.sign(
 			appPath: request.appPath,
@@ -134,7 +140,7 @@ enum ZsignEngine {
                 ["p12": $0.p12Path, "password": $0.password, "entitlements": $0.entitlementsPath]
             },
 			completion: { _, error in
-				engineError = error
+				engineError.withLock { $0 = error }
 			}
 		)
 
@@ -143,7 +149,7 @@ enum ZsignEngine {
 		// carried out unchanged; the caller treats either as a failed run.
 		return Outcome(
 			succeeded: success,
-			errorMessage: engineError?.localizedDescription
+			errorMessage: engineError.withLock { $0 }?.localizedDescription
 		)
 	}
 

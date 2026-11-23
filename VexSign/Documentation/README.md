@@ -17,7 +17,7 @@ versioned with the code.
 
 | Guide | Use it when |
 | --- | --- |
-| [Architecture](Architecture/ARCHITECTURE.md) | You are changing the app shell, task pipeline, storage or packages. |
+| [Architecture](Architecture/ARCHITECTURE.md) · [repository map](Architecture/repository-map.png) | You are changing the app shell, task pipeline, storage or packages, or you want the layers, the layout and the gates in one picture. |
 | [Data architecture](Architecture/DATA_ARCHITECTURE.md) | You are changing the library store and need its actual invariants, not its intentions. |
 | [Accessibility](Development/ACCESSIBILITY.md) | You are adding a screen or reviewing one, and need the Dynamic Type/VoiceOver rule and the gate that enforces it. |
 | [Deletion](Development/DELETION.md) | You are adding or reviewing a reset/clear action and need the order (lease, rows, files, memory) it must follow. |
