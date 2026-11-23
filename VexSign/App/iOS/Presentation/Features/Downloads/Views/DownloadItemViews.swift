@@ -50,6 +50,7 @@ struct DetailedMiniDownloadItemView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(Text(.localized("Cancel")))
             }
         }
         .padding(.horizontal, 4)

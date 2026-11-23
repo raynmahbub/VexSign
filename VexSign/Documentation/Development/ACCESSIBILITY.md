@@ -86,6 +86,36 @@ rely on colour or on a `play.fill`/`pause.fill` swap.
 - New `.sheet`, `.alert` or custom overlay? It needs a title and a dismiss action that
   VoiceOver can reach.
 
-The font-size rule is now gated (see above); the label rules are still review items. The list of
-remaining unlabelled icon buttons is the backlog for the next accessibility pass; add a label
-when you touch a file rather than leaving it for a dedicated sweep.
+## 4. What is gated
+
+Both rules above are now enforced, not remembered.
+
+| Rule | Gate | Baseline |
+| --- | --- | --- |
+| Fixed point sizes stay where they were justified | [`test_accessibility_baseline.py`](../../Tools/Validation/repository-validation/test_accessibility_baseline.py) | [`accessibility-font-size-baseline.json`](../../Tools/Validation/repository-validation/accessibility-font-size-baseline.json) |
+| Icon-only buttons carry a name | [`test_icon_button_labels.py`](../../Tools/Validation/repository-validation/test_icon_button_labels.py) | [`accessibility-icon-button-baseline.json`](../../Tools/Validation/repository-validation/accessibility-icon-button-baseline.json) |
+
+The label gate brace-matches each `Button`'s action and `label:` closures and reports a closure
+whose whole body is an `Image(systemName:)` with no `Text`, `Label`, `title:`, trailing
+`.accessibilityLabel`, or reasoned opt-out. It is a ratchet in both directions: a new unlabelled
+icon button fails, and so does deleting one without re-recording, so the improvement cannot be
+spent again by the next unrelated edit.
+
+25 sites across 17 files are recorded when the gate was added — that is the accessibility
+backlog, not an allowance. Two ways to clear an entry:
+
+```swift
+Button { collapse() } label: { Image(systemName: "chevron.down") }
+    .accessibilityLabel(Text(.localized("Collapse downloads")))     // preferred
+
+// a11y: decorative: the enclosing picker row supplies the name       // must carry a reason
+```
+
+A bare `// a11y: decorative` with no reason counts as a finding, so the opt-out cannot be used to
+silence the gate quietly. After either change, run
+
+```sh
+python3 VexSign/Tools/Validation/repository-validation/test_icon_button_labels.py --update
+```
+
+in the same commit. `make verify` runs the gate, so a label added without the re-record fails.

@@ -223,6 +223,8 @@ verify: docs-check
 	  "python3 VexSign/Tools/Validation/repository-validation/test_style_config.py" \
 	  "#accessibility: fixed point sizes stay where they were declared" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_accessibility_baseline.py" \
+	  "#accessibility: icon-only buttons carry a name" \
+	  "python3 VexSign/Tools/Validation/repository-validation/test_icon_button_labels.py" \
 	  "#swift style drift gate (changed lines only)" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py" \
 	  "#service runtimes (CI, images and blueprint agree)" \

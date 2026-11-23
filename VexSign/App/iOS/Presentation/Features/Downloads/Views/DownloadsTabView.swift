@@ -432,6 +432,7 @@ private struct DownloadsTabContent: View {
                                     .foregroundStyle(Color.userTint)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(Text(.localized("Paste")))
                         }
                     }
                 } header: {

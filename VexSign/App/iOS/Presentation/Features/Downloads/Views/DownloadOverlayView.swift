@@ -147,6 +147,7 @@ struct DownloadOverlaySheetContent: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text(.localized("Close")))
                     }
                 }
 

@@ -46,6 +46,7 @@ struct MergedDownloadsView: View {
                             .padding(12)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text(.localized("More")))
                     
                     if showCustomMenu {
                         VStack(alignment: .leading, spacing: 0) {
