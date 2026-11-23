@@ -46,7 +46,7 @@ final class SelfReplacementPolicyTests: XCTestCase {
 
     func testAnUnsignedCopyIsRefusedBeforeItsVersionIsConsidered() {
         XCTAssertEqual(verdict(signed: false), .notSigned)
-        XCTAssertEqual(verdict(signed: false, version: nil), .notSigned)
+        XCTAssertEqual(verdict(version: nil, signed: false), .notSigned)
     }
 
     func testSameOlderAndUnknownVersionsAreRefused() {
