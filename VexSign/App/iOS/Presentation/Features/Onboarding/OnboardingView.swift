@@ -91,6 +91,7 @@ struct OnboardingView: View {
 			Text(.localized("VexSign uses your certificate to sign IPAs, then installs them over the local server or a pairing file. Nothing is uploaded."))
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
+			BootstrapFact()
 			Spacer()
 		}
 		.padding(28)
@@ -207,6 +208,36 @@ struct OnboardingView: View {
 		}
 		.padding(28)
 		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+}
+
+/// The one thing a new user has to understand before anything else works: VexSign cannot
+/// install itself.
+///
+/// The app is already installed by the time this screen appears, which makes the question "how
+/// did it get here, and how do I install the *next* copy" easy to skip — and then a failed
+/// self-update or a reinstall reads as a bug. The bootstrap routes are the subject of
+/// `Documentation/Workflows/bootstrap.md`; this card is the sentence from it that matters at
+/// first launch.
+private struct BootstrapFact: View {
+	var body: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Label(.localized("VexSign cannot install itself"), systemImage: "exclamationmark.shield")
+				.font(.subheadline.weight(.semibold))
+			Text(.localized("This copy is already installed. Installing VexSign — or the next update — needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. VexSign then installs other apps; it never re-signs or reinstalls itself."))
+				.font(.caption)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+			if EmbeddedContainerRuntime.isAvailable {
+				Text(.localized("This combined build can also host LiveContainer guests."))
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		}
+		.padding(12)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+		.accessibilityElement(children: .combine)
 	}
 }
 

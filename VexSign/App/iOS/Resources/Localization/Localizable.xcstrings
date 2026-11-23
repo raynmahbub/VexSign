@@ -113296,6 +113296,39 @@
           }
         }
       }
+    },
+    "This combined build can also host LiveContainer guests." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This combined build can also host LiveContainer guests."
+          }
+        }
+      }
+    },
+    "This copy is already installed. Installing VexSign — or the next update — needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. VexSign then installs other apps; it never re-signs or reinstalls itself." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy is already installed. Installing VexSign — or the next update — needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. VexSign then installs other apps; it never re-signs or reinstalls itself."
+          }
+        }
+      }
+    },
+    "VexSign cannot install itself" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot install itself"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
