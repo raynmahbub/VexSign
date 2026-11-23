@@ -495,7 +495,7 @@ final class ImportAndInstallationTests: XCTestCase {
     }
 
     @MainActor
-    func testInstallQueueAdvanceSchedulerCancelsStaleAutomaticAdvance() async {
+    func testInstallQueueAdvanceSchedulerCancelsStaleAutomaticAdvance() async throws {
         let scheduler = InstallQueueAdvanceScheduler()
         var advances = 0
 
@@ -503,7 +503,9 @@ final class ImportAndInstallationTests: XCTestCase {
         scheduler.cancel()
         scheduler.schedule(after: 0.02) { advances += 1 }
 
-        try? await Task.sleep(nanoseconds: 120_000_000)
+        // Wait for the event the test is about, not for a duration: a loaded runner can
+        // deliver the timer later than any fixed sleep, and 120 ms used to be the guess.
+        try await AsyncWait.until("the automatic advance fires") { advances == 1 }
         XCTAssertEqual(advances, 1, "A stale completion timer must not advance a later install.")
     }
 
