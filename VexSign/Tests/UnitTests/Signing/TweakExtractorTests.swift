@@ -53,8 +53,8 @@ final class TweakExtractorTests: XCTestCase {
 
 		let candidates = TweakExtractor.candidates(inDirectory: root)
 		XCTAssertEqual(
-			Set(candidates.map(\.type)),
-			Set([.dylib, .deb, .framework, .bundle, .appex]),
+			candidates.map(\.type.rawValue).sorted(),
+			["appex", "bundle", "deb", "dylib", "framework"],
 			"Every documented tweak artifact type must be surfaced"
 		)
 		XCTAssertEqual(candidates.count, 5, "A matched bundle must not also yield its contents")
