@@ -951,19 +951,21 @@ func start(completion: @escaping (Result<Outcome, Error>) -> Void) {
         // the transport's completed callback (which can precede verification).
         installationPhase = .finished(verdict)
 
-		switch verdict {
-		case .installed:
+		// Which verdicts mean what is a rule, not an installer detail: it lives in
+		// `InstallVerdictPolicy` and is tested there. This switch only applies it.
+		switch InstallVerdictPolicy.outcome(for: verdict) {
+		case .confirmed:
 			viewModel.installProgress = 1
 			_finish(.success(.installed))
 
-        case .installedOtherVersion:
-            // Presence of another version does not prove this artifact was installed.
-            _finish(.failure(InstallConfirmation.Failure(verdict: verdict)))
+		case .anotherVersion:
+			// Presence of another version does not prove this artifact was installed.
+			_finish(.failure(InstallConfirmation.Failure(verdict: verdict)))
 
 		case .cancelled:
 			_finish(.success(.cancelled))
 
-		case .notInstalled, .timedOutWaiting, .timedOutVerifying:
+		case .notConfirmed:
 			let error = InstallConfirmation.Failure(verdict: verdict)
 			FileLogger.error("install not confirmed: \(verdict) after \(verificationAttempt) device checks", category: "install")
             // Lack of evidence is not proof of rejection. Do not silently

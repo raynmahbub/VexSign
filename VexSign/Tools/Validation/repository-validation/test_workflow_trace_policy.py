@@ -84,8 +84,14 @@ class WorkflowTracePolicyTests(unittest.TestCase):
                         wrapper.index('withDeviceSession'))
 
     def test_ota_observation_failure_does_not_trigger_reinstall(self):
+        # The three "no evidence" verdicts are classified in one place (`InstallVerdictPolicy`) and
+        # the installer switches on that classification. Both halves are checked: the grouping, and
+        # the arm that must not turn a filtered probe into a broken install or a reinstall.
         source = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift')
-        failure = source.split('case .notInstalled, .timedOutWaiting, .timedOutVerifying:', 1)[1].split('private func _confirmIdeviceInstall', 1)[0]
+        policy = self.text('VexSign/App/iOS/Infrastructure/Devices/Installation/InstallVerdictPolicy.swift')
+        self.assertIn('case .notInstalled, .timedOutWaiting, .timedOutVerifying:', policy)
+        self.assertIn('return .notConfirmed', policy)
+        failure = source.split('case .notConfirmed:', 1)[1].split('private func _confirmIdeviceInstall', 1)[0]
         self.assertIn('_finish(.failure(error))', failure)
         self.assertNotIn('viewModel.status = .broken', failure)
 
