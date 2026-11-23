@@ -242,6 +242,8 @@ verify: docs-check
 	  "python3 VexSign/Tools/Validation/repository-validation/test_swift_indentation_ratchet.py" \
 	  "#detached-task inventory ratchet (unowned work may shrink, never grow)" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_detached_task_audit.py" \
+	  "#strict-concurrency ratchet (first-party diagnostics may shrink, never grow)" \
+	  "python3 VexSign/Tools/Validation/repository-validation/test_strict_concurrency_ratchet.py" \
 	  "#swift style drift gate (changed lines only)" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py" \
 	  "#service runtimes (CI, images and blueprint agree)" \

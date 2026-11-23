@@ -789,7 +789,7 @@ jobs:
   concurrency:
     if: >-
       github.event.repository.private == false && github.event.repository.visibility == 'public' && (github.event_name != 'workflow_dispatch' || inputs.validation != 'quick') && needs.quick.outputs.native == 'true'
-    name: concurrency · first-party packages (report)
+    name: concurrency · first-party packages (ratchet)
     needs: quick
     runs-on: macos-15
     timeout-minutes: 30
@@ -835,6 +835,19 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "${status}"
+
+      # Its own step, without `continue-on-error`: a package that will not build stays tolerated
+      # above, but first-party diagnostics growing is a regression this job is supposed to catch.
+      # Vendored checkouts are outside the count — nobody here can fix them, and they used to be
+      # the reason the report could only ever be a report.
+      - name: Strict concurrency ratchet
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/strict_concurrency_ratchet.py \
+            --log "${RUNNER_TEMP}/strict-concurrency.log" \
+            --baseline VexSign/Tools/Validation/repository-validation/strict-concurrency-baseline.json \
+            --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Upload log
         if: always()

@@ -1,0 +1,5 @@
+{
+  "count": null,
+  "recordedAt": null,
+  "note": "Not recorded yet. The next run of the `concurrency` job should record it: python3 .github/scripts/strict_concurrency_ratchet.py --log <log> --baseline VexSign/Tools/Validation/repository-validation/strict-concurrency-baseline.json --update, then commit the file. A null baseline reports without failing, so the first run after this change is not a regression."
+}
