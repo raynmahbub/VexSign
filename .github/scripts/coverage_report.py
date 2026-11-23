@@ -7,8 +7,15 @@ xcresult carries per-file line coverage; this reads it with `xccov`, prints the
 overall number plus the least-covered first-party files, and appends a Markdown
 table to the job summary.
 
-Reporting only: a low number never fails the build. Use the least-covered list to
-target tests (and the `try?`/singleton burn-down) instead of guessing.
+Reporting and a floor. The number is printed, summarised and uploaded either way; the
+`--fail-under` floor only has to catch a collapse, not rank the suite — a threshold picked to
+be "about right" would turn every unrelated pull request red the first time it was missed, and
+would be raised by guesswork. Use the least-covered list to target tests (and the
+`try?`/singleton burn-down) instead of guessing.
+
+The floor is separate from "no data": `--github-output` publishes the percentage and a
+`floor` status, so CI can keep the report step tolerant of a missing xccov while a second step
+fails the job when a real number is below the floor.
 
 A *missing* report is different from a low one. When `xccov` cannot read the
 bundle this exits 1 with xccov's own message: the CI step tolerates that failure
@@ -17,6 +24,8 @@ reports nothing is worse than one that is honestly broken.
 
 Usage (macOS, after xcodebuild test):
     python3 .github/scripts/coverage_report.py --result-bundle path/to.xcresult
+    python3 .github/scripts/coverage_report.py --result-bundle path/to.xcresult \\
+        --fail-under 20 --github-output "$GITHUB_OUTPUT"
 """
 
 from __future__ import annotations
@@ -105,6 +114,29 @@ def render_markdown(percent: float, covered: int, executable: int, files: list[d
     return "\n".join(lines)
 
 
+def floor_status(percent: float, fail_under: float | None) -> str:
+    """`below_floor`, `at_floor` or `ok` for a measured percentage.
+
+    `at_floor` is the band within two points above the floor: still passing, but worth an
+    annotation before the next change is the one that drops it.
+    """
+    if fail_under is None:
+        return "ok"
+    if percent < fail_under:
+        return "below_floor"
+    if percent < fail_under + 2:
+        return "at_floor"
+    return "ok"
+
+
+def _write_github_output(destination, values: dict[str, str]) -> None:
+    if destination is None:
+        return
+    with open(destination, "a", encoding="utf-8") as handle:
+        for key, value in values.items():
+            handle.write(f"{key}={value}\n")
+
+
 def _write_unavailable(destination, reason: str) -> None:
     """Records *why* there is no coverage, so the artifact is never an empty file."""
     if destination is None:
@@ -120,6 +152,14 @@ def main() -> int:
     parser.add_argument("--result-bundle", required=True, type=Path)
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--json", type=Path, help="also write the raw xccov report here")
+    parser.add_argument(
+        "--fail-under", type=float, default=None, metavar="PERCENT",
+        help="exit 2 when line coverage is below this percentage",
+    )
+    parser.add_argument(
+        "--github-output", type=Path, default=None,
+        help="append percent/floor/status lines to this file (a CI output file)",
+    )
     arguments = parser.parse_args()
 
     if not arguments.result_bundle.exists():
@@ -141,13 +181,32 @@ def main() -> int:
     markdown = render_markdown(percent, covered, executable, files)
     print(markdown)
 
+    status = floor_status(percent, arguments.fail_under)
+    _write_github_output(arguments.github_output, {
+        "percent": f"{percent:.1f}",
+        "floor": f"{arguments.fail_under:.1f}" if arguments.fail_under is not None else "",
+        "floor_status": status,
+    })
+    if status == "below_floor":
+        print(
+            f"::error::Line coverage {percent:.1f}% is below the {arguments.fail_under:.1f}% floor. "
+            "Add tests for the paths this change touched, or lower the floor deliberately in .github/workflows/ci.yml."
+        )
+    elif status == "at_floor":
+        print(
+            f"::warning::Line coverage {percent:.1f}% is within two points of the "
+            f"{arguments.fail_under:.1f}% floor."
+        )
+
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as handle:
             handle.write(markdown + "\n")
     if arguments.json:
         arguments.json.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    return 0
+    # Exit 1 means "no coverage to read" and is tolerated by the CI step; exit 2 means the
+    # suite ran, produced a number, and it is below the floor, which is not.
+    return 2 if status == "below_floor" else 0
 
 
 if __name__ == "__main__":

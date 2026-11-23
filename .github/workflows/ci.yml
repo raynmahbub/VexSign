@@ -712,12 +712,29 @@ jobs:
       # number is different — coverage_report.py exits 1 so this step turns orange with
       # xccov's own message, instead of looking like a clean step that did nothing.
       - name: Report coverage
+        id: coverage
         if: always() && steps.test.outcome != 'skipped'
         continue-on-error: true
         run: |
           python3 .github/scripts/coverage_report.py \
             --result-bundle "$RESULT_BUNDLE" \
-            --json "${RUNNER_TEMP}/coverage.json"
+            --json "${RUNNER_TEMP}/coverage.json" \
+            --fail-under 20 \
+            --github-output "$GITHUB_OUTPUT"
+
+      # The floor, as its own step so a *missing* number keeps the tolerant behaviour above
+      # (orange, with xccov's own message) while a *measured* number below the floor turns the
+      # job red. Twenty percent is a collapse detector, not a quality bar: a suite that stops
+      # running, or a target dropped from the scheme, lands here. Raise it after reading a real
+      # run rather than by guessing, and lower it only as a deliberate change to this file.
+      - name: Coverage floor
+        if: always() && steps.coverage.outputs.floor_status == 'below_floor'
+        env:
+          PERCENT: ${{ steps.coverage.outputs.percent }}
+          FLOOR: ${{ steps.coverage.outputs.floor }}
+        run: |
+          echo "::error::Line coverage ${PERCENT}% is below the ${FLOOR}% floor."
+          exit 1
 
       - name: Upload coverage report
         if: always() && steps.test.outcome != 'skipped'

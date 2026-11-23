@@ -156,5 +156,34 @@ class SchemeTests(unittest.TestCase):
         self.assertIn("-enableCodeCoverage YES", tests_job)
 
 
+
+class FloorTests(unittest.TestCase):
+    """The floor is a collapse detector, and a missing number is not a floor breach."""
+
+    def test_below_the_floor(self):
+        self.assertEqual(coverage.floor_status(12.0, 20.0), "below_floor")
+
+    def test_at_the_floor_still_passes_but_warns(self):
+        self.assertEqual(coverage.floor_status(20.0, 20.0), "at_floor")
+        self.assertEqual(coverage.floor_status(21.9, 20.0), "at_floor")
+
+    def test_above_the_floor(self):
+        self.assertEqual(coverage.floor_status(30.0, 20.0), "ok")
+
+    def test_no_floor_means_no_verdict(self):
+        self.assertEqual(coverage.floor_status(1.0, None), "ok")
+
+    def test_github_output_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "output"
+            coverage._write_github_output(target, {"percent": "71.5", "floor": "20.0", "floor_status": "ok"})
+            self.assertEqual(
+                target.read_text(encoding="utf-8"),
+                "percent=71.5\nfloor=20.0\nfloor_status=ok\n",
+            )
+
+    def test_no_output_file_is_not_an_error(self):
+        coverage._write_github_output(None, {"percent": "1"})
+
 if __name__ == "__main__":
     unittest.main()

@@ -58,8 +58,12 @@ open. None of these is a licence to skip a regression test for a change in the a
   (`test_coverage_report.py`) and the accessibility gates
   ([ACCESSIBILITY.md](ACCESSIBILITY.md)).
 - CI reports line coverage from the `tests` job (`.github/scripts/coverage_report.py`, uploaded
-  as the `coverage-*` artifact). Coverage is reported, not enforced: a threshold on a 2,300-test
-  suite mostly measures which files the last author touched.
+  as the `coverage-*` artifact) and enforces a 20% floor as a separate step. The number is not a
+  quality bar — a threshold picked to be "about right" mostly measures which files the last
+  author touched — but a *collapse* is worth failing on: a suite that stops running, or a target
+  dropped from the scheme, otherwise shows up only as a smaller artifact. Raise the floor in
+  `.github/workflows/ci.yml` after reading a real run; a number within two points of it produces
+  a warning annotation instead.
 - `PythonTests/` inside `VexSign/Packages/NativeSigning` generates a Swift package test target
   (`NativeSigningCodecTests`), so the native signing core does have a Swift suite — it just does
   not live in this tree. `make test-signing-core` runs it.
