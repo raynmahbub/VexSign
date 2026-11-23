@@ -245,13 +245,12 @@ jobs:
           install "$RUNNER_TEMP/SwiftFormat/.build/release/swiftformat" /usr/local/bin/swiftformat
           swiftformat --version
 
-      # Report-only for now: the tree still mixes tab and space indentation, so a
-      # whole-tree lint lists hundreds of pre-existing files rather than anything
-      # this change did. The two configs no longer disagree about which is correct
-      # — .editorconfig and .swiftformat now both say spaces for Swift — so what is
-      # left is the one-time mechanical pass, not a decision. `make format FIX=1`
-      # is the adoption path and this step surfaces the count as an annotation
-      # until it lands; drop `continue-on-error` afterwards.
+      # Report-only, because 552 first-party files still indent with tabs: a whole-tree
+      # lint would fail every pull request over code it never touched. The enforcing
+      # halves are separate — `test_swift_indentation_ratchet.py` fails when the backlog
+      # grows and when it shrinks without being recorded, and the changed-lines drift gate
+      # below fails on the lines this diff owns. When the count reaches zero, replace this
+      # step with `swiftformat --lint .` and delete the ratchet.
       #
       # Kept ahead of the drift gate below on purpose: this step always completes,
       # so the backlog count is still reported on a pull request the gate fails.
