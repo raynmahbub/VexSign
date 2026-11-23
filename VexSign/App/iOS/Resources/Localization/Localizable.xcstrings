@@ -113098,6 +113098,17 @@
           }
         }
       }
+    },
+    "Sign before it expires, or import a certificate with more time left." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign before it expires, or import a certificate with more time left."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

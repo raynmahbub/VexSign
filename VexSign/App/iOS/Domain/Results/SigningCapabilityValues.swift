@@ -85,6 +85,11 @@ struct SigningCapability: Equatable {
 			case certificateMissing
 			case certificateExpired
 			case certificateRevoked
+			/// Not expired yet, but inside the seven-day window. Separate from
+			/// `.certificateExpired` because the code is what the log line, the tests and any
+			/// consumer keyed on classification read: an advisory finding must not claim the
+			/// blocking one's identity.
+			case certificateExpiringSoon
 			case certificatePasswordUnavailable
 			case certificateNotInProfile
 			case profileMissing
