@@ -40,13 +40,7 @@ struct CompanionSigningWorkflowView: View {
     var body: some View {
         NBList(.localized("SideStore & LiveContainer")) {
             if embedded { EmbeddedContainerControls().disabled(preparingIPA) }
-            if EmbeddedContainerRuntime.isGuestBuild && !embedded {
-                Section {
-                    Label(.localized("Embedded runtime unavailable"), systemImage: "exclamationmark.triangle")
-                    Text(.localized("Launch this guest from the compatible VexSign Container in main-process mode. External app launchers are not substituted for a missing embedded runtime."))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
+            EmbeddedRuntimeAvailabilityNote()
             Section {
                 DisclosureGroup(.localized("How the apps work together")) {
                     VStack(alignment: .leading, spacing: Theme.Spacing.medium) {

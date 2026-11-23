@@ -200,6 +200,40 @@ struct RuntimeCapabilityReport: Equatable {
     }
 }
 
+// MARK: - Explaining a missing capability
+
+extension RuntimeCapabilityReport.Reason {
+    /// The sentence a screen shows when a control is unavailable, or `nil` when the reason is
+    /// already carried by that control's own copy.
+    ///
+    /// The reason codes were only ever exported to diagnostics: a standalone build simply
+    /// omitted the "Built-in apps" section and left the user to conclude the feature was broken
+    /// or their device was at fault. Nothing was missing from the device — the embedded runtime
+    /// is a different build — and that is worth saying where the user looks for the feature.
+    var explanation: String? {
+        switch self {
+        case .runtimeNotLoaded:
+            return .localized("LiveContainer and SideStore ship in the combined build, not in an ordinary install. This copy signs and installs apps; it cannot host them, and nothing is missing from your device.")
+        case .notPartOfThisLayout:
+            return .localized("This layout of the combined app deliberately does not install that hook, so the operation restarts nothing and leaves no state behind.")
+        case .restartsHost:
+            return nil
+        case .unsupportedByDesign:
+            return .localized("VexSign never hands an import to a separately installed container: a detected URL handler does not prove that container would accept the file.")
+        }
+    }
+}
+
+extension RuntimeCapabilityReport {
+    /// The explanation for the runtime operations this build cannot reach, in operation order.
+    var unavailableExplanations: [(operation: Operation, explanation: String)] {
+        Operation.allCases.compactMap { operation in
+            guard let reason = reason(for: operation), let explanation = reason.explanation else { return nil }
+            return (operation, explanation)
+        }
+    }
+}
+
 // MARK: - Session switch
 
 extension RuntimeCapabilityReport {

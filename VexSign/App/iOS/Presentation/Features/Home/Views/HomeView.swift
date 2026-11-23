@@ -71,7 +71,11 @@ struct HomeView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         universalSearchBar
-                        if EmbeddedContainerRuntime.isAvailable { embeddedSwitches }
+                        if EmbeddedContainerRuntime.isAvailable {
+                            embeddedSwitches
+                        } else {
+                            embeddedRuntimeUnavailableCard
+                        }
                         if appearance.visualTheme.isLegacyPresentation {
                             header
                             if isFlareWebTheme { flareHero }
@@ -153,6 +157,23 @@ struct HomeView: View {
             showUniversalSearch = false
             TabSelectionObserver.shared.search(universalQuery, in: tab)
         } label: { Label(title, systemImage: icon) }
+    }
+
+    /// The same card, for a build that cannot host apps: it names the build rather than leaving
+    /// the section to disappear. See `RuntimeCapabilityReport.Reason.explanation`.
+    private var embeddedRuntimeUnavailableCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(.localized("Built-in apps")).font(.headline)
+            Text(verbatim: EmbeddedContainerRuntime.capabilityReport
+                .reason(for: .embeddedContainerUI)?.explanation
+                ?? String.localized("This build has no embedded runtime."))
+                .font(.caption)
+                .foregroundStyle(FlarePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FlarePalette.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var embeddedSwitches: some View {
