@@ -23,8 +23,8 @@ enum DownloadNotificationBuilder {
             let percent = Int(averageProgress * 100)
             let received = downloads.reduce(Int64(0)) { $0 + $1.bytesDownloaded }
             let expected = downloads.reduce(Int64(0)) { $0 + $1.totalBytes }
-            content.title = .localized("%lld file(s) downloading", arguments: downloads.count)
-            content.subtitle = .localized("Overall progress: %@", arguments: "\(percent)%")
+            content.title = .localized("Downloading %lld files", arguments: downloads.count)
+            content.subtitle = .localized("Overall Progress: %@", arguments: "\(percent)%")
             content.body = "\(formatBytes(received)) / \(formatBytes(expected))"
         }
         content.sound = nil

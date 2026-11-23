@@ -113110,17 +113110,6 @@
         }
       }
     },
-    "%lld file(s) downloading" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld file(s) downloading"
-          }
-        }
-      }
-    },
     "Download failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -113183,17 +113172,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Import failed: %@"
-          }
-        }
-      }
-    },
-    "Overall progress: %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Overall progress: %@"
           }
         }
       }
@@ -113337,6 +113315,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "VexSign cannot unpack %@ archives. Import a .deb, .zip, .tar, .tar.gz, .tar.xz, .tar.bz2 or .tar.zst package."
+          }
+        }
+      }
+    },
+    "Downloading %lld files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Downloading %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Downloading %lld files"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Overall Progress: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overall Progress: %@"
           }
         }
       }
