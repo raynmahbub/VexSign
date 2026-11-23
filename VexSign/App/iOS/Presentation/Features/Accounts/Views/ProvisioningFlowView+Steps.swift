@@ -12,7 +12,7 @@ import NimbleExtensions
 extension ProvisioningFlowView {
     // MARK: - Progress Header
 
-    private var provisioningProgressHeader: some View {
+    var provisioningProgressHeader: some View {
         VStack(spacing: 8) {
             HStack {
                 ForEach(ProvisioningStep.allCases, id: \.self) { s in
@@ -38,7 +38,7 @@ extension ProvisioningFlowView {
 
     // MARK: - Step 1: Select App
 
-    private var selectAppStep: some View {
+    var selectAppStep: some View {
         VStack(spacing: 16) {
             Image(systemName: "app.badge.plus")
                 .font(.system(size: 48))
@@ -78,7 +78,7 @@ extension ProvisioningFlowView {
 
     // MARK: - Step 2: Select Device
 
-    private var selectDeviceStep: some View {
+    var selectDeviceStep: some View {
         VStack(spacing: 16) {
             Image(systemName: "iphone.gen3.radiowaves.left.and.right")
                 .font(.system(size: 48))
@@ -136,7 +136,7 @@ extension ProvisioningFlowView {
 
     // MARK: - Step 3: Review
 
-    private var reviewStep: some View {
+    var reviewStep: some View {
         VStack(spacing: 16) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 48))
@@ -204,7 +204,7 @@ extension ProvisioningFlowView {
 
     // MARK: - Step 4: Provisioning
 
-    private var provisioningStep: some View {
+    var provisioningStep: some View {
         VStack(spacing: 16) {
             Image(systemName: "gearshape.2.fill")
                 .font(.system(size: 48))
@@ -248,7 +248,7 @@ extension ProvisioningFlowView {
 
     // MARK: - Step 5: Complete
 
-    private var completeStep: some View {
+    var completeStep: some View {
         VStack(spacing: 16) {
             Image(systemName: certificateImported ? "checkmark.seal.fill" : "checkmark.circle.fill")
                 .font(.system(size: 64))

@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 struct ProvisioningFlowView: View {
     @EnvironmentObject var manager: AppleAccountWorkspaceModel
     @EnvironmentObject var services: AppContainer
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
 
     @State var step: ProvisioningStep = .selectApp
     @State var selectedApp: AppInfoPresentable?

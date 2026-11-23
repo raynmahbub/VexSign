@@ -31,6 +31,7 @@ one file has scoped to itself may be referenced from a sibling file.
 
 from __future__ import annotations
 
+import bisect
 import re
 import sys
 import unittest
@@ -45,10 +46,36 @@ SKIP_DIRS = {"Vendor", ".build", "build", "DerivedData", "Pods", "node_modules",
 # The keyword is required: without it this matches a parameter named `destination`
 # and reports every local variable that happens to share a member's name.
 DECL = re.compile(
-    r"^[ \t]*(?:(?:@\w+)[ \t]+)*(private|fileprivate)[ \t]+"
+    r"^[ \t]*(?:(?:@\w+(?:\([^)\n]*\))?)[ \t]+)*(private|fileprivate)[ \t]+"
     r"(?:(?:static|class|override|final|nonisolated|weak|lazy|mutating)[ \t]+)*"
     r"(?:func|var|let)[ \t]+(\w+)"
 )
+
+def declares_member(line: str, member: str) -> bool:
+    """True when `line` declares a member called `member`, at any access level.
+
+    A file that *declares* the type also declares its stored properties, so
+    `let fileCount: Int` reads as a reference to a `private func fileCount(in:)`
+    declared in a sibling extension. It is a second, unrelated member with the same
+    name; only a body reference can fail to compile.
+    """
+    stripped_line = line.lstrip()
+    while stripped_line.startswith("@"):
+        space = stripped_line.find(" ")
+        if space == -1:
+            return False
+        stripped_line = stripped_line[space + 1:].lstrip()
+    for keyword in ("static ", "class ", "override ", "final ", "nonisolated ",
+                    "weak ", "lazy ", "mutating ", "public ", "internal ", "private ",
+                    "fileprivate ", "open "):
+        while stripped_line.startswith(keyword):
+            stripped_line = stripped_line[len(keyword):].lstrip()
+    for keyword in ("func ", "var ", "let "):
+        if stripped_line.startswith(keyword):
+            rest = stripped_line[len(keyword):]
+            return rest == member or rest[: len(member) + 1] in (member + ":", member + " ", member + "(")
+    return False
+
 
 # `extension Foo {` / `struct Foo:` — the type a file contributes to.
 #
@@ -246,10 +273,24 @@ def cross_file_private_violations() -> list[str]:
             for path in files:
                 if path == owner:
                     continue
-                if type_name not in extended_types(path):
+                # `files` are exactly the files that declare or extend `type_name`, so the
+                # declaring file's *siblings* include the primary file too: a split moves a
+                # body into `+Sections.swift` and leaves the use site in `AppStoreView.swift`.
+                # Requiring an `extension` here skipped that direction and let ten
+                # `is inaccessible due to 'private' protection level` errors reach CI.
+                if type_name not in declared_types(path):
                     continue
                 code = stripped(path)
+                lines = code.splitlines()
+                starts: list[int] = []
+                offset = 0
+                for line in lines:
+                    starts.append(offset)
+                    offset += len(line) + 1
                 for ref in re.finditer(r"(?<![\w])" + re.escape(member) + r"(?![\w])", code):
+                    line_index = bisect.bisect_right(starts, ref.start()) - 1
+                    if line_index >= 0 and declares_member(lines[line_index], member):
+                        continue
                     # `self.member` and bare `member` are this type's; `other.member`
                     # is a different object's member. Only `self.` was ever safe to skip,
                     # and skipping every `.` hid `self.releaseKeepAliveIfIdle()`.
@@ -264,6 +305,27 @@ def cross_file_private_violations() -> list[str]:
                     )
                     break
     return violations
+
+
+class ScannerTests(unittest.TestCase):
+    """The scanner has to see the shapes a split actually moves."""
+
+    def test_a_property_wrapper_with_arguments_is_part_of_the_declaration(self):
+        for line, member in [
+            ("    @Environment(\\.dismiss) private var dismiss", "dismiss"),
+            ("    @State private var showShare", "showShare"),
+            ("    @AppStorage(\"theme\") private var theme = \"dark\"", "theme"),
+            ("    private var plain: Int", "plain"),
+        ]:
+            match = DECL.match(line)
+            self.assertIsNotNone(match, line)
+            self.assertEqual(match.group(2), member, line)
+
+    def test_a_member_declaration_is_not_a_reference(self):
+        self.assertTrue(declares_member("    let fileCount: Int", "fileCount"))
+        self.assertTrue(declares_member("\tprivate func fileCount(in url: URL) -> Int {", "fileCount"))
+        self.assertFalse(declares_member("\t\t\tfileCount: fileCount(in: appURL),", "fileCount"))
+        self.assertFalse(declares_member("\t\tif fileCount > 0 {", "fileCount"))
 
 
 class CrossFilePrivacyTests(unittest.TestCase):

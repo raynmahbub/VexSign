@@ -11,7 +11,7 @@ import NimbleExtensions
 
 extension AppStoreView {
     // MARK: - Apps Catalog Section
-    private var appsCatalogSection: some View {
+    var appsCatalogSection: some View {
         VStack(spacing: 16) {
             // Category filter pills
             ScrollView(.horizontal, showsIndicators: false) {
@@ -118,7 +118,7 @@ extension AppStoreView {
 
     // MARK: - Search Results View
     @ViewBuilder
-    private var searchResultsView: some View {
+    var searchResultsView: some View {
         VStack(alignment: .leading, spacing: 16) {
             if !sortedAndFilteredApps.isEmpty {
                 Text(verbatim: String.localized("%lld Matching Apps", arguments: sortedAndFilteredApps.count))
@@ -229,7 +229,7 @@ extension AppStoreView {
     }
 
     // MARK: - Footer: Activity Logs Link (Moved to Settings)
-    private var logsMovedFooter: some View {
+    var logsMovedFooter: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "text.alignleft")
