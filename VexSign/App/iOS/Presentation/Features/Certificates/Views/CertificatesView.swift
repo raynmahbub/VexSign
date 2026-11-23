@@ -182,8 +182,20 @@ extension CertificatesView {
 		}
 	}
 
-	@ViewBuilder
-	private var _healthHeader: some View {
+	/// The three counts the header renders.
+	///
+	/// They used to be five `let`s inside the view-builder property, and once the
+	/// renewal planner's generic chain joined them there the type-checker gave up
+	/// ("unable to type-check this expression in reasonable time"). A named struct
+	/// gives the numbers explicit types and the view only layout to infer.
+	private struct HealthCounts {
+		let valid: Int
+		let expiring: Int
+		let revoked: Int
+		let apps: Int
+	}
+
+	private func _healthCounts() -> HealthCounts {
 		let certs = Array(_certificates)
 		let revoked = certs.filter { $0.revoked }.count
 		// One definition of "expiring", shared with the row pill and the background pass.
@@ -195,27 +207,39 @@ extension CertificatesView {
 			.map { RenewalPlanner.plan(for: $0) }
 			.filter { $0.status == .due || $0.status == .urgent || $0.status == .lapsed }
 			.count
-		let apps = coordinator.signedAppsCount()
+		return HealthCounts(valid: certs.count - revoked, expiring: expiring, revoked: revoked,
+			apps: coordinator.signedAppsCount())
+	}
+
+	@ViewBuilder
+	private var _healthHeader: some View {
+		let counts = _healthCounts()
 
 		VStack(alignment: .leading, spacing: 8) {
 			Text(.localized("Certificate Health"))
 				.font(.headline)
-			HStack(spacing: 12) {
-				_stat(.localized("%lld valid", arguments: certs.count - revoked), color: .green)
-				if expiring > 0 { _stat(.localized("%lld expiring", arguments: expiring), color: .orange) }
-				if revoked > 0 { _stat(.localized("%lld revoked", arguments: revoked), color: .red) }
-			}
-			Text(verbatim: .localized("%lld signed apps in the library use a certificate from this list.", arguments: apps))
+			_healthPills(counts)
+			Text(verbatim: .localized("%lld signed apps in the library use a certificate from this list.", arguments: counts.apps))
 				.font(.caption)
 				.foregroundStyle(.secondary)
 			Button(.localized("Check Revokage")) {
-				coordinator.checkRevokage(for: certs)
+				coordinator.checkRevokage(for: Array(_certificates))
 			}
 			.font(.subheadline.weight(.semibold))
 		}
-		.padding()
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(uiColor: .quaternarySystemFill)))
+	}
+
+	@ViewBuilder
+	private func _healthPills(_ counts: HealthCounts) -> some View {
+		HStack(spacing: 12) {
+			_stat(.localized("%lld valid", arguments: counts.valid), color: .green)
+			if counts.expiring > 0 {
+				_stat(.localized("%lld expiring", arguments: counts.expiring), color: .orange)
+			}
+			if counts.revoked > 0 {
+				_stat(.localized("%lld revoked", arguments: counts.revoked), color: .red)
+			}
+		}
 	}
 
 	private func _stat(_ title: String, color: Color) -> some View {
