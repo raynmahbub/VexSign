@@ -193,5 +193,71 @@ class LiveCatalogueTests(unittest.TestCase):
         self.assertEqual(raw, rendered)
 
 
+class PlaceholderConsistencyTests(unittest.TestCase):
+    """A translation must consume exactly the arguments its key was written for.
+
+    `String.localized(_:arguments:)` is `String(format:)`: a `%@` where the key
+    says `%lld` is a crash on that locale, and a dropped specifier is a sentence
+    that silently loses its number.
+    """
+
+    @staticmethod
+    def catalogue(key, **translations):
+        units = {
+            language: {"stringUnit": {"state": "translated", "value": value}}
+            for language, value in translations.items()
+        }
+        return {"sourceLanguage": "en", "strings": {key: {"localizations": units}}}
+
+    def test_matching_specifiers_are_not_a_gap(self):
+        data = self.catalogue("%@: %lld added", de="%1$@: %2$lld hinzugefügt")
+        self.assertEqual(sync.placeholder_gaps(data), [])
+
+    def test_reordered_positional_specifiers_are_equivalent(self):
+        data = self.catalogue("%@ added %lld", fr="%2$lld ajoutés par %1$@")
+        self.assertEqual(sync.placeholder_gaps(data), [])
+
+    def test_dropped_specifier_is_a_gap(self):
+        data = self.catalogue("%@: %lld added", it="%1$@ aggiunti")
+        gaps = sync.placeholder_gaps(data)
+        self.assertEqual(len(gaps), 1)
+        self.assertEqual(gaps[0][1], "it")
+
+    def test_changed_conversion_is_a_gap(self):
+        # %d prints the wrong value for an Int and truncates above 2^31; %@ on an
+        # Int is an outright crash.
+        data = self.catalogue("Added %lld files", es="Añadidos %@ archivos")
+        self.assertEqual(len(sync.placeholder_gaps(data)), 1)
+
+    def test_plural_forms_are_checked(self):
+        data = {
+            "sourceLanguage": "en",
+            "strings": {
+                "%lld items": {
+                    "localizations": {
+                        "en": {"variations": {"plural": {
+                            "one": {"stringUnit": {"value": "%lld item"}},
+                            "other": {"stringUnit": {"value": "%lld items"}},
+                        }}},
+                        "ru": {"variations": {"plural": {
+                            "one": {"stringUnit": {"value": "%@ элемент"}},
+                            "other": {"stringUnit": {"value": "%lld элементов"}},
+                        }}},
+                    }
+                }
+            },
+        }
+        gaps = sync.placeholder_gaps(data)
+        self.assertEqual([(gap[1], gap[2]) for gap in gaps], [("ru", "plural.one")])
+
+    def test_literal_percent_is_not_an_argument(self):
+        data = self.catalogue("100%% sure: %lld", de="100%% sicher: %lld")
+        self.assertEqual(sync.placeholder_gaps(data), [])
+
+    def test_source_language_is_not_compared_with_itself(self):
+        data = self.catalogue("%lld files", en="%lld file(s)")
+        self.assertEqual(sync.placeholder_gaps(data), [])
+
+
 if __name__ == "__main__":
     unittest.main()

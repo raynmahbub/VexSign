@@ -21,6 +21,11 @@ value is not a stable key, so a catalogue entry for them would be dead weight.
 The catalogue is edited textually — new entries are appended to the existing `"strings"` object —
 so the diff stays additive instead of reformatting 1,400 keys the way a JSON round-trip would.
 
+It also refuses a translation whose format specifiers disagree with the key. `String.localized(_:arguments:)`
+is `String(format:)`: a key written with `%lld` and a translation that says `%@` crashes that locale on
+first render, and a translation that drops a specifier prints the wrong sentence with no error at all.
+Positional forms (`%1$@`) are equivalent to the plain ones and are compared as such.
+
 It also refuses a *new* countable string that ships without plural forms. `String.localized("%lld items", arguments: 1)`
 renders "1 items" in English, and a single Western form is wrong for most counts in the languages this
 catalogue carries. The rule has no exemptions: a countable string either has plural forms or the check
@@ -28,6 +33,7 @@ fails.
 """
 
 import argparse
+import collections
 import json
 import pathlib
 import re
@@ -214,6 +220,56 @@ def countable_key(entry):
     return value
 
 
+# A printf specifier: optional position, flags, width, precision, length modifier,
+# conversion. `%%` is a literal percent sign and is not an argument.
+SPECIFIER = re.compile(r"%(?:\d+\$)?[-+ 0#]*\d*(?:\.\d+)?(ll|l|h|hh|z|t|q)?([@dDiuUxXoOfFeEgGcsSpaA])")
+
+
+def specifiers(text):
+    """Multiset of format specifiers in `text`, position-insensitive.
+
+    `%1$@` and `%@` are the same argument: only the count and the conversion
+    matter, because that is what `String(format:)` is told to consume.
+    """
+    return collections.Counter(
+        f"{(match.group(1) or '').lower()}{match.group(2)}"
+        for match in SPECIFIER.finditer(text)
+    )
+
+
+def _translated_values(entry):
+    """Every translated string in one localisation entry, with a label for messages."""
+    unit = entry.get("stringUnit")
+    if unit and unit.get("value") is not None:
+        yield "value", unit["value"]
+    for category, forms in (entry.get("variations", {}).get("plural") or {}).items():
+        value = (forms.get("stringUnit") or {}).get("value")
+        if value is not None:
+            yield f"plural.{category}", value
+
+
+def placeholder_gaps(data):
+    """Translations whose format specifiers disagree with their key.
+
+    Returns (key, language, label, expected, found) tuples; sorted so the output
+    is stable between runs.
+    """
+    gaps = []
+    source_language = data.get("sourceLanguage", "en")
+    for key, entry in data.get("strings", {}).items():
+        expected = specifiers(key)
+        if not expected:
+            continue
+        for language, localisation in entry.get("localizations", {}).items():
+            if language == source_language:
+                continue
+            for label, value in _translated_values(localisation):
+                found = specifiers(value)
+                if found != expected:
+                    gaps.append((key, language, label, expected, found))
+    return sorted(gaps, key=lambda gap: (gap[0], gap[1], gap[2]))
+
+
 def plural_gaps(data):
     """Countable keys that ship without plural forms."""
     return sorted(
@@ -311,7 +367,16 @@ def main():
                 print(f"  {json.dumps(key, ensure_ascii=False)}")
             print("  Add \"variations\" -> \"plural\" (one/other) for `en` in the catalogue.")
             return 1
-        print("✅ every literal has a catalogue key, and every new countable string has plurals")
+        mismatched = placeholder_gaps(data)
+        if mismatched:
+            print(f"❌ {len(mismatched)} translation(s) disagree with their key's format specifiers:")
+            for key, language, label, expected, found in mismatched[: arguments.limit]:
+                print(f"  {language} [{label}] {json.dumps(key, ensure_ascii=False)}: "
+                      f"key has {dict(expected)}, translation has {dict(found)}")
+            print("  A wrong specifier crashes that locale (or prints the wrong sentence) at render time.")
+            return 1
+        print("✅ every literal has a catalogue key, every countable string has plurals, "
+              "and every translation keeps its format specifiers")
         return 0
 
     print(f"❌ {len(missing)} literal(s) have no catalogue key (run: python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --write)")
