@@ -348,6 +348,9 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		return (apps[index], nil)
 	}
 
+	/// Whether an update could run right now. Main-actor bound because the library lookup it needs
+	/// is a store read, not a computation over published state.
+	@MainActor
 	var canSelfInstall: Bool { plan(for: nil).canInstall }
 
 	/// Switch methods from the sheet and keep the publication honest.
