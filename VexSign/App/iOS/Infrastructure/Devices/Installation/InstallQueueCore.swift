@@ -51,9 +51,17 @@ final class InstallQueue: ObservableObject {
     /// Exports bypass app routing. An unresolved route stays invalid (-1), so the real installer
     /// reports its actionable error rather than queue bookkeeping accidentally treating it as OTA.
     private func _installationMethod(for entry: AnyApp) -> Int {
-        guard !entry.archive else { return 0 }
-        do { return try SigningModeManager.shared.pipeline(for: entry.base).installationMethodValue }
-        catch { return -1 }
+        Self.installationMethod(isExport: entry.archive) {
+            try SigningModeManager.shared.pipeline(for: entry.base).installationMethodValue
+        }
+    }
+
+    /// The mapping every queue branch keys off: export → 0, unresolvable → -1, else the
+    /// pipeline's own code (0 OTA, 2 guest). Extracted from the entry type so it can be
+    /// exercised without a signing pipeline; `resolve` is not called for exports at all.
+    static func installationMethod(isExport: Bool, resolve: () throws -> Int) -> Int {
+        guard !isExport else { return 0 }
+        do { return try resolve() } catch { return -1 }
     }
 
 	/// Exports share the success counter, but must never get an Open action.
