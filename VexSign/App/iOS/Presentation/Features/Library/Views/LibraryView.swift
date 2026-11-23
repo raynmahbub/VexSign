@@ -391,7 +391,7 @@ struct LibraryView: View {
             }
             .nbOnChange(of: tabSelection.highlightedAppUUID) { newUUID in
                 if let uuid = newUUID {
-                    withAnimation(.easeInOut(duration: 0.5)) {
+                    withAppAnimation(.easeInOut(duration: 0.5)) {
                         proxy.scrollTo(uuid, anchor: .center)
                     }
                 }

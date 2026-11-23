@@ -70,7 +70,7 @@ struct BackupView: View {
             }
         }
         .disabled(_isWorking)
-        .animation(.easeInOut(duration: 0.2), value: _isWorking)
+        .appAnimation(.easeInOut(duration: 0.2), value: _isWorking)
         .overlay { _workingOverlay }
         .sheet(isPresented: $_showExportPicker, onDismiss: _runExport) {
             let offerGeneration = _exportPickerGeneration

@@ -62,7 +62,7 @@ struct ConditionalDownloadHeaderView: View {
                     )
                 }
             }
-            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: viewState)
+            .appAnimation(.spring(response: 0.35, dampingFraction: 0.85), value: viewState)
             .onChange(of: viewState) { _, newValue in
                 Self.sessionState = newValue
             }
@@ -123,7 +123,7 @@ struct MinimizedConditionalHeader: View {
                     }
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         if value.translation.height > 15 {
                             viewState = .collapsed
                             ConditionalDownloadHeaderView.sessionState = .collapsed
@@ -226,7 +226,7 @@ struct CollapsedConditionalHeader: View {
                     dragOffset = max(-100, min(100, value.translation.height))
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         if value.translation.height < -15 {
                             viewState = .minimized
                             ConditionalDownloadHeaderView.sessionState = .minimized
@@ -314,7 +314,7 @@ struct ExpandedConditionalHeader: View {
                     }
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         if value.translation.height < -15 {
                             viewState = .collapsed
                             ConditionalDownloadHeaderView.sessionState = .collapsed

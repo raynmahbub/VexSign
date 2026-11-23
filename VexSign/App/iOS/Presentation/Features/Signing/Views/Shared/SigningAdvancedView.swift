@@ -93,7 +93,7 @@ struct SigningAdvancedView: View {
 			.onChange(of: _isModifyExpanded) { _, expanded in
 				guard expanded else { return }
 				DispatchQueue.main.async {
-					withAnimation(.smooth) {
+					withAppAnimation(.smooth) {
 						scrollProxy?.scrollTo(Self._modifyID, anchor: .top)
 					}
 				}

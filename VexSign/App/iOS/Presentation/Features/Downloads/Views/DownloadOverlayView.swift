@@ -201,7 +201,7 @@ struct DownloadOverlaySheetContent: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: activeDownloads.map { $0.id })
+                .appAnimation(.spring(response: 0.3, dampingFraction: 0.7), value: activeDownloads.map { $0.id })
             }
         }
         .background(overlayBackgroundColor)

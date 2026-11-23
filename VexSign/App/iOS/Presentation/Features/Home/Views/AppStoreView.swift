@@ -509,7 +509,7 @@ struct AppStoreView: View {
                         // a toolbar Menu are not consistently routed by TabView and
                         // were one of the reasons the store controls appeared dead.
                         Button {
-                            withAnimation(.snappy) {
+                            withAppAnimation(.snappy) {
                                 selectedSegment = .updates
                                 searchText = ""
                             }
@@ -517,7 +517,7 @@ struct AppStoreView: View {
                             Label(updateCount > 0 ? String.localized("Pending Updates (%lld)", arguments: updateCount) : .localized("Pending Updates"), systemImage: "arrow.triangle.2.circlepath")
                         }
                         Button {
-                            withAnimation(.snappy) {
+                            withAppAnimation(.snappy) {
                                 selectedSegment = .repositories
                                 searchText = ""
                             }
@@ -533,7 +533,7 @@ struct AppStoreView: View {
                             Label(.localized("Refresh All Sources"), systemImage: "arrow.clockwise")
                         }
                         Button {
-                            withAnimation(.snappy) {
+                            withAppAnimation(.snappy) {
                                 selectedSegment = .repositories
                                 searchText = ""
                             }
@@ -576,7 +576,7 @@ struct AppStoreView: View {
                     ForEach(appCategories, id: \.self) { cat in
                         let isSel = selectedCategory == cat
                         Button {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            withAppAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                                 selectedCategory = cat
                             }
                         } label: {

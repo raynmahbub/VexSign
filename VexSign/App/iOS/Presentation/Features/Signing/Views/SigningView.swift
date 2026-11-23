@@ -63,7 +63,6 @@ struct SigningView: View {
     @State private var _signOverridingBlockingIssues = false
     @State private var _reviewedSetup: SigningPreflightSnapshot?
     @State private var _wasCancelled = false
-    @Environment(\.accessibilityReduceMotion) private var _reduceMotion
 	@State private var _postSignAction: (() -> Void)?
 	@State var appIcon: UIImage?
 	@AppStorage("VexSign.autoShowSigningLogs") private var _autoShowLogs: Bool = false
@@ -231,7 +230,7 @@ struct SigningView: View {
                 .background(Theme.background)
 			}
 			.disabled(_isSigning)
-            .animation(_reduceMotion ? nil : .easeInOut(duration: 0.18), value: _isSigning)
+            .appAnimation(.easeInOut(duration: 0.18), value: _isSigning)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 signingActionPanel
             }

@@ -36,7 +36,7 @@ struct MergedDownloadsView: View {
 
                 ZStack(alignment: .topTrailing) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             showCustomMenu.toggle()
                         }
                     } label: {
@@ -171,7 +171,7 @@ struct MergedDownloadsView: View {
                     }
                 }
                 .onEnded { value in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         if !showDetails && value.translation.height > 30 {
                             showDetails = true
                         } else if showDetails && value.translation.height < -30 {
@@ -181,10 +181,10 @@ struct MergedDownloadsView: View {
                     }
                 }
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showDetails)
+        .appAnimation(.spring(response: 0.3, dampingFraction: 0.8), value: showDetails)
         .onTapGesture {
             if showCustomMenu {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     showCustomMenu = false
                 }
             }
@@ -195,7 +195,7 @@ struct MergedDownloadsView: View {
                     Color.clear
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 showCustomMenu = false
                             }
                         }
@@ -219,7 +219,7 @@ struct MergedDownloadsView: View {
     }
     
     private func stopAllDownloads() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             showCustomMenu = false
         }
 
@@ -232,7 +232,7 @@ struct MergedDownloadsView: View {
     }
     
     private func toggleDetails() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAppAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             showCustomMenu = false
             showDetails.toggle()
         }

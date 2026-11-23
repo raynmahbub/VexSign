@@ -103,7 +103,7 @@ extension LogsView {
 		let count = _count(of: kind)
 
 		Button {
-			withAnimation(.snappy) { _filter = isSelected ? nil : kind }
+			withAppAnimation(.snappy) { _filter = isSelected ? nil : kind }
 		} label: {
 			HStack(spacing: 5) {
 				Image(systemName: systemImage)

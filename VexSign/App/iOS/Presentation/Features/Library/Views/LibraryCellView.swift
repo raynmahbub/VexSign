@@ -269,7 +269,7 @@ struct LibraryCellView: View {
 
 		RoundedRectangle(cornerRadius: radius, style: .continuous)
 			.fill(fill)
-			.animation(.easeInOut(duration: 0.3), value: isHighlighted)
+			.appAnimation(.easeInOut(duration: 0.3), value: isHighlighted)
 	}
 	
 	/// What the device reports, when it reports anything.

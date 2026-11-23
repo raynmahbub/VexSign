@@ -56,7 +56,7 @@ struct LibraryGridSwipeDelete: ViewModifier {
                 .overlay {
                     if revealedRowID != nil {
                         Button {
-                            withAnimation(actionAnimation) { revealedRowID = nil }
+                            withAppAnimation(actionAnimation) { revealedRowID = nil }
                         } label: {
                             Color.clear.contentShape(Rectangle())
                         }
@@ -69,7 +69,7 @@ struct LibraryGridSwipeDelete: ViewModifier {
                 .background(alignment: .trailing) {
                     if isOpen || drag < 0 {
                         Button(role: .destructive) {
-                            withAnimation(actionAnimation) { revealedRowID = nil }
+                            withAppAnimation(actionAnimation) { revealedRowID = nil }
                             onDelete()
                         } label: {
                             VStack(spacing: 2) {
@@ -93,7 +93,7 @@ struct LibraryGridSwipeDelete: ViewModifier {
                 }
             .clipped()
             .contentShape(Rectangle())
-            .animation(drag == 0 ? actionAnimation : nil, value: isOpen)
+            .appAnimation(drag == 0 ? actionAnimation : nil, value: isOpen)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 18)
                     .updating($drag) { gesture, state, transaction in
@@ -110,7 +110,7 @@ struct LibraryGridSwipeDelete: ViewModifier {
                             vertical: gesture.translation.height, row: rowID, current: revealedRowID)
                         guard next != revealedRowID else { return }
                         NBHaptic.selection()
-                        withAnimation(actionAnimation) { revealedRowID = next }
+                        withAppAnimation(actionAnimation) { revealedRowID = next }
                     }
             )
             .accessibilityAction(named: Text(.localized("Delete"))) { onDelete() }

@@ -85,15 +85,19 @@ rely on colour or on a `play.fill`/`pause.fill` swap.
 - New progress indicator? Give the container a label *and* a value.
 - New `.sheet`, `.alert` or custom overlay? It needs a title and a dismiss action that
   VoiceOver can reach.
+- New animation? Use `withAppAnimation(...)` or `.appAnimation(...)`, never `withAnimation(...)`
+  or `.animation(someCurve, value:)` — the former pair honours Reduce Motion without the call
+  site having to read the setting.
 
 ## 4. What is gated
 
-Both rules above are now enforced, not remembered.
+The rules above are enforced, not remembered.
 
 | Rule | Gate | Baseline |
 | --- | --- | --- |
 | Fixed point sizes stay where they were justified | [`test_accessibility_baseline.py`](../../Tools/Validation/repository-validation/test_accessibility_baseline.py) | [`accessibility-font-size-baseline.json`](../../Tools/Validation/repository-validation/accessibility-font-size-baseline.json) |
 | Icon-only buttons carry a name | [`test_icon_button_labels.py`](../../Tools/Validation/repository-validation/test_icon_button_labels.py) | [`accessibility-icon-button-baseline.json`](../../Tools/Validation/repository-validation/accessibility-icon-button-baseline.json) |
+| Motion goes through `AppMotion` and honours Reduce Motion | [`test_motion_policy.py`](../../Tools/Validation/repository-validation/test_motion_policy.py) | none — the rule is absolute |
 
 The label gate brace-matches each `Button`'s action and `label:` closures and reports a closure
 whose whole body is an `Image(systemName:)` with no `Text`, `Label`, `title:`, trailing

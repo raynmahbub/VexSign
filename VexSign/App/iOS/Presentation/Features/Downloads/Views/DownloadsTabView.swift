@@ -204,7 +204,7 @@ private struct DownloadsTabContent: View {
                     ForEach(Filter.allCases) { f in
                         let selected = filter == f
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { filter = f }
+                            withAppAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { filter = f }
                         } label: {
                             HStack(spacing: 6) {
                                 Circle().fill(color(for: f)).frame(width: 7, height: 7)

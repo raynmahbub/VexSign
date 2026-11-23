@@ -48,7 +48,7 @@ struct UpdateMatchingSettingsView: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(Color.userTint)
                         .rotationEffect(.degrees(isChecking && !reduceMotion ? 360 : 0))
-                        .animation(
+                        .appAnimation(
                             isChecking && !reduceMotion
                                 ? Animation.linear(duration: 1).repeatForever(autoreverses: false)
                                 : .default,

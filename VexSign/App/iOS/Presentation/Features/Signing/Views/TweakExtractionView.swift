@@ -111,12 +111,12 @@ struct TweakExtractionView: View {
 						ToolbarItem(placement: .topBarTrailing) {
 							Menu {
 								Button {
-									withAnimation(.smooth) { _expanded = Set(_groups.map { $0.folder }) }
+									withAppAnimation(.smooth) { _expanded = Set(_groups.map { $0.folder }) }
 								} label: {
 									Label(.localized("Expand All"), systemImage: "chevron.down")
 								}
 								Button {
-									withAnimation(.smooth) { _expanded = [] }
+									withAppAnimation(.smooth) { _expanded = [] }
 								} label: {
 									Label(.localized("Collapse All"), systemImage: "chevron.right")
 								}
@@ -128,7 +128,7 @@ struct TweakExtractionView: View {
 					ToolbarItem(placement: .bottomBar) {
 						HStack {
 							Button(_selection.count == candidates.count ? .localized("Deselect All") : .localized("Select All")) {
-								withAnimation(.smooth) {
+								withAppAnimation(.smooth) {
 									if _selection.count == candidates.count { _selection.removeAll() } else { _selection = Set(candidates.map { $0.id }) }
 								}
 							}
@@ -173,7 +173,7 @@ struct TweakExtractionView: View {
 		Binding(
 			get: { _expanded.contains(folder) },
 			set: { open in
-				withAnimation(.smooth(duration: 0.25)) {
+				withAppAnimation(.smooth(duration: 0.25)) {
 					if open { _expanded.insert(folder) } else { _expanded.remove(folder) }
 				}
 			}
@@ -219,7 +219,7 @@ struct TweakExtractionView: View {
 		let allSelected = selectedInFolder == group.items.count
 		HStack(spacing: 10) {
 			Button {
-				withAnimation(.smooth) {
+				withAppAnimation(.smooth) {
 					if allSelected { group.items.forEach { _selection.remove($0.id) } } else { group.items.forEach { _selection.insert($0.id) } }
 				}
 			} label: {

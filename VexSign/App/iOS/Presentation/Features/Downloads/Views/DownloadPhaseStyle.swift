@@ -91,8 +91,8 @@ struct DownloadPhaseBar: View {
 				RoundedRectangle(cornerRadius: height / 2)
 					.frame(width: geometry.size.width * min(max(progress, 0), 1), height: height)
 					.foregroundStyle(phase.gradient)
-					.animation(.easeOut(duration: 0.3), value: progress)
-					.animation(.easeInOut(duration: 0.25), value: phase)
+					.appAnimation(.easeOut(duration: 0.3), value: progress)
+					.appAnimation(.easeInOut(duration: 0.25), value: phase)
 			}
 		}
 		.frame(height: height)
@@ -114,7 +114,7 @@ struct DownloadPhaseRing: View {
 				.trim(from: 0, to: min(max(progress, 0), 1))
 				.stroke(phase.gradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
 				.rotationEffect(.degrees(-90))
-				.animation(.linear(duration: 0.2), value: progress)
+				.appAnimation(.linear(duration: 0.2), value: progress)
 		}
 		.frame(width: size, height: size)
 	}

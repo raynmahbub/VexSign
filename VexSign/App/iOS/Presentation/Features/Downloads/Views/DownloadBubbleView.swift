@@ -35,7 +35,7 @@ struct DownloadBubbleOverlayContainer: View {
             }
         }
         // Animate only on active-count change, not every child update
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: hasActiveDownloads)
+        .appAnimation(.spring(response: 0.5, dampingFraction: 0.7), value: hasActiveDownloads)
     }
 }
 
@@ -133,7 +133,7 @@ struct DownloadBubbleView: View {
 
                                     currentPosition.y = min(max(currentPosition.y, topPadding), geometry.size.height - bottomPadding)
 
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    withAppAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                                         dragAmount = currentPosition
                                     }
 

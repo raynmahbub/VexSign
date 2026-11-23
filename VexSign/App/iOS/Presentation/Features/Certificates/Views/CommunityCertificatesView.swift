@@ -39,9 +39,9 @@ struct CommunityCertificatesView: View {
 					_catalogList
 				}
 			}
-			.animation(.default, value: _catalogSections.map(\.id))
-			.animation(.default, value: _isLoading)
-			.animation(.default, value: _hasAcknowledged)
+			.appAnimation(.default, value: _catalogSections.map(\.id))
+			.appAnimation(.default, value: _isLoading)
+			.appAnimation(.default, value: _hasAcknowledged)
 			.toolbar {
 				NBToolbarButton(role: .cancel)
 

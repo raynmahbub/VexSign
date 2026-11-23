@@ -32,7 +32,7 @@ struct PremiumSettingsView: View {
 			_filterSection
 			_manageSection
 		}
-		.animation(.default, value: _prefs.mode)
+		.appAnimation(.default, value: _prefs.mode)
 		.dismissableKeyboard()
 		.alert(String.localized("Reset Premium?"), isPresented: $_showResetConfirmation) {
 			Button(String.localized("Reset"), role: .destructive) {

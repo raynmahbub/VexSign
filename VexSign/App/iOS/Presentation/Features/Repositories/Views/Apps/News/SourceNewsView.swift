@@ -59,7 +59,7 @@ struct SourceNewsView: View {
 	}
 	
 	private func _load() {
-		withAnimation(.easeIn(duration: 0.3)) {
+		withAppAnimation(.easeIn(duration: 0.3)) {
 			isLoading = false
 		}
 	}

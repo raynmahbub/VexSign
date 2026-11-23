@@ -37,7 +37,7 @@ private struct InstallQueueSheet: View {
 
 	var body: some View {
 		_surfaceView(surface)
-			.animation(.easeInOut(duration: 0.22), value: queue.index)
+			.appAnimation(.easeInOut(duration: 0.22), value: queue.index)
 			.presentationDetents(queue.hasFailure ? [.medium, .large] : [.height(250), .medium])
 			.presentationDragIndicator(.visible)
 			.onAppear { queue.activate() }
@@ -279,8 +279,8 @@ struct InstallQueuePill: View {
 					.transition(.move(edge: .bottom).combined(with: .opacity))
 			}
 		}
-		.animation(.spring(response: 0.4, dampingFraction: 0.85), value: queue.showsPill)
-		.animation(.spring(response: 0.35, dampingFraction: 0.9), value: bottomBar.height)
+		.appAnimation(.spring(response: 0.4, dampingFraction: 0.85), value: queue.showsPill)
+		.appAnimation(.spring(response: 0.35, dampingFraction: 0.9), value: bottomBar.height)
 	}
 
 	@ViewBuilder

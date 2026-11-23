@@ -73,7 +73,7 @@ struct VexSignApp: App {
                             .onOpenURL(perform: _handleURL)
                             .zIndex(0)
                     }
-                    .animation(
+                    .appAnimation(
                         appearance.animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.8) : nil,
                         value: hasActiveDownloads
                     )
@@ -123,7 +123,7 @@ struct VexSignApp: App {
                         .zIndex(100)
                 }
             }
-            .animation(.easeInOut(duration: 0.18), value: appLock.isLocked)
+            .appAnimation(.easeInOut(duration: 0.18), value: appLock.isLocked)
             .onReceive(NotificationCenter.default.publisher(for: .heartbeatInvalidHost)) { _ in
                 DispatchQueue.main.async {
                     UIAlertController.showAlertWithOk(

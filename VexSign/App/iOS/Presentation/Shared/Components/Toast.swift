@@ -105,7 +105,7 @@ final class ToastManager: ObservableObject {
 	private func _presentNext() {
 		guard current == nil, !_queue.isEmpty else { return }
 		let item = _queue.removeFirst()
-		withAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
+		withAppAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
 			current = item
 		}
 		item.haptic.fire()
@@ -125,7 +125,7 @@ final class ToastManager: ObservableObject {
 	}
 
 	private func _advance() {
-		withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
+		withAppAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
 			current = nil
 		}
 		bannerFrame = .zero
@@ -224,18 +224,18 @@ struct ToastBanner: View {
 					// Fling away in whatever direction the user swiped.
 					let distance = hypot(value.translation.width, value.translation.height)
 					if distance > 44 {
-						withAnimation(.easeOut(duration: 0.2)) {
+						withAppAnimation(.easeOut(duration: 0.2)) {
 							_offset = CGSize(width: value.translation.width * 4, height: value.translation.height * 4)
 						}
 						DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { onDismiss() }
 					} else {
-						withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { _offset = .zero }
+						withAppAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { _offset = .zero }
 					}
 				}
 		)
 		.onAppear {
-			withAnimation(.spring(response: 0.5, dampingFraction: 0.5).delay(0.08)) { _iconPop = true }
-			withAnimation(.easeOut(duration: 0.28).delay(0.12)) { _textIn = true }
+			withAppAnimation(.spring(response: 0.5, dampingFraction: 0.5).delay(0.08)) { _iconPop = true }
+			withAppAnimation(.easeOut(duration: 0.28).delay(0.12)) { _textIn = true }
 		}
 	}
 }
@@ -262,7 +262,7 @@ private struct ToastHostView: View {
 			Spacer(minLength: 0)
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-		.animation(.spring(response: 0.45, dampingFraction: 0.62), value: manager.current?.id)
+		.appAnimation(.spring(response: 0.45, dampingFraction: 0.62), value: manager.current?.id)
 	}
 }
 

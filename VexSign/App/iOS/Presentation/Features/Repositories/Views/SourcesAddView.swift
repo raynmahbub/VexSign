@@ -78,7 +78,7 @@ struct SourcesAddView: View {
 		NBNavigationView(.localized("Add Source"), displayMode: .inline) {
 			formContent
 				.toolbar { toolbarContent }
-				.animation(.default, value: _filteredRecommendedSourcesData.map { $0.data.id ?? "" })
+				.appAnimation(.default, value: _filteredRecommendedSourcesData.map { $0.data.id ?? "" })
 				.alert("Failed to Load Vex Repos", isPresented: $_showVexErrorAlert) {
 					Button("OK", role: .cancel) { }
 					Button("Retry") {

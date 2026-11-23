@@ -109,8 +109,8 @@ private struct InstallStatusView: View {
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 		.padding(12)
-		.animation(.easeInOut(duration: 0.3), value: installation.isCompleted)
-		.animation(.easeInOut(duration: 0.25), value: isPaused)
+		.appAnimation(.easeInOut(duration: 0.3), value: installation.isCompleted)
+		.appAnimation(.easeInOut(duration: 0.25), value: isPaused)
 	}
 
     private var _presentation: InstallPresentation {
@@ -157,7 +157,7 @@ private struct InstallStatusView: View {
 		}
 		.padding()
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-		.animation(.smooth, value: _presentation.symbol)
+		.appAnimation(.smooth, value: _presentation.symbol)
 	}
 
 	@ViewBuilder
@@ -175,7 +175,7 @@ private struct InstallStatusView: View {
 			}
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-		.animation(.easeInOut(duration: 0.3), value: installation.isCompleted)
+		.appAnimation(.easeInOut(duration: 0.3), value: installation.isCompleted)
 	}
 
 	@ViewBuilder

@@ -235,10 +235,10 @@ struct TweakLibraryList: View {
 		} message: {
 			_alertMessage
 		}
-		.animation(.smooth, value: manager.tweaks)
-		.animation(.smooth, value: manager.folders)
-		.animation(.smooth, value: _isEditing)
-		.animation(.smooth, value: _selection)
+		.appAnimation(.smooth, value: manager.tweaks)
+		.appAnimation(.smooth, value: manager.folders)
+		.appAnimation(.smooth, value: _isEditing)
+		.appAnimation(.smooth, value: _selection)
 	}
 
 	// MARK: - Alert content

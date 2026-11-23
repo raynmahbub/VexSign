@@ -52,7 +52,7 @@ struct SelfUpdateSheet: View {
 				}
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
-			.animation(.spring(response: 0.42, dampingFraction: 0.82), value: _isWorking)
+			.appAnimation(.spring(response: 0.42, dampingFraction: 0.82), value: _isWorking)
 			.toolbar {
 				ToolbarItem(placement: .topBarTrailing) {
 					Button(.localized("Close")) { dismiss() }
@@ -125,7 +125,7 @@ struct SelfUpdateSheet: View {
 						.trim(from: 0, to: value)
 						.stroke(Color.accentColor, style: StrokeStyle(lineWidth: 6, lineCap: .round))
 						.rotationEffect(.degrees(-90))
-						.animation(.easeInOut(duration: 0.25), value: value)
+						.appAnimation(.easeInOut(duration: 0.25), value: value)
 					Text("\(Int(value * 100))%")
 						.font(.callout.bold().monospacedDigit())
 						.contentTransition(.numericText())
@@ -137,7 +137,7 @@ struct SelfUpdateSheet: View {
 			}
 			.frame(width: 92, height: 92)
 			.transition(.opacity)
-			.animation(.smooth(duration: 0.3), value: _determinateValue == nil)
+			.appAnimation(.smooth(duration: 0.3), value: _determinateValue == nil)
 
 			VStack(spacing: 4) {
 				Text(_statusText)
@@ -150,7 +150,7 @@ struct SelfUpdateSheet: View {
 						.multilineTextAlignment(.center)
 				}
 			}
-			.animation(.smooth(duration: 0.25), value: _statusText)
+			.appAnimation(.smooth(duration: 0.25), value: _statusText)
 
 			Spacer()
 

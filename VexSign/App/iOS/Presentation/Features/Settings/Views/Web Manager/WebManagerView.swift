@@ -29,10 +29,10 @@ struct WebManagerView: View {
 			_recentSection
 		}
 		.dismissableKeyboard()
-		.animation(.smooth, value: manager.isRunning)
-		.animation(.smooth, value: manager.recentUploads)
-		.animation(.smooth, value: manager.authActive)
-		.animation(.smooth, value: manager.effectiveBindMode)
+		.appAnimation(.smooth, value: manager.isRunning)
+		.appAnimation(.smooth, value: manager.recentUploads)
+		.appAnimation(.smooth, value: manager.authActive)
+		.appAnimation(.smooth, value: manager.effectiveBindMode)
 	}
 }
 

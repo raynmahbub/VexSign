@@ -135,7 +135,7 @@ extension CertificatesAddView {
 		}
 		.foregroundColor(.accentColor)
 		.accessibilityValue(file?.lastPathComponent ?? "")
-		.animation(.easeInOut(duration: 0.3), value: file != nil)
+		.appAnimation(.easeInOut(duration: 0.3), value: file != nil)
 	}
 }
 

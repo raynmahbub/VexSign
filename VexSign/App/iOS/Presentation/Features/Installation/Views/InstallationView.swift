@@ -139,7 +139,7 @@ struct InstallationView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { _refreshPreflight() }
         }
-        .animation(.default, value: _modeManager.preference)
+        .appAnimation(.default, value: _modeManager.preference)
     }
 
     // MARK: Preflight

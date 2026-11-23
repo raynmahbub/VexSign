@@ -92,7 +92,7 @@ extension AppStoreView {
                 ForEach(StoreSegment.allCases) { seg in
                     let isSelected = selectedSegment == seg
                     Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        withAppAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                             selectedSegment = seg
                             // A segment is a real destination, not a filter on
                             // the current search result. Clear search so every

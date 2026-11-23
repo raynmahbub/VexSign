@@ -74,7 +74,7 @@ struct StorageDetailView: View {
 		.overlay { _empty }
 		.toolbar { _toolbar }
 		.safeAreaInset(edge: .bottom) { _deleteBar }
-		.animation(.snappy, value: _isEditing)
+		.appAnimation(.snappy, value: _isEditing)
 		.task {
 			await _manager.refreshEntries(at: location)
 			_isLoading = false
