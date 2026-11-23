@@ -9,6 +9,7 @@
 import SwiftUI
 import UIKit
 import NimbleViews
+import UniformTypeIdentifiers
 import NimbleExtensions
 
 // MARK: - Tab wrapper
