@@ -74,7 +74,7 @@ struct DownloadBubbleView: View {
                                     } else {
                                         VStack(spacing: 0) {
                                             Text(verbatim: "\(Int(model.summary.progress * 100))")
-                                                .font(.system(size: 12, weight: .semibold))
+                                                .font(.caption.weight(.semibold))
                                                 .foregroundColor(.primary)
                                                 .id(Int(model.summary.progress * 100))
 

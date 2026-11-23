@@ -233,7 +233,7 @@ extension AppStoreView {
                             .fill(Color.userTint.opacity(0.12))
                             .frame(width: 36, height: 36)
                         Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(Color.userTint)
                     }
 
@@ -295,7 +295,7 @@ extension AppStoreView {
                 ZStack {
                     Circle().fill(Color.userTint.opacity(0.14)).frame(width: 44, height: 44)
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(Color.userTint)
                 }
                 VStack(alignment: .leading, spacing: 2) {

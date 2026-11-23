@@ -223,7 +223,7 @@ private struct FavoritesAndAutoUpdatesContent: View {
                             prefs.toggleAutoUpdate(for: app.uuid, allUUIDs: Set(viewModel.apps.map(\.uuid)))
                         } label: {
                             Image(systemName: isAuto ? "arrow.triangle.2.circlepath.circle.fill" : "arrow.triangle.2.circlepath.circle")
-                                .font(.system(size: 20))
+                                .font(.title3)
                                 .foregroundStyle(isAuto ? Color.userTint : Color.secondary.opacity(0.4))
                                 .padding(6)
                         }

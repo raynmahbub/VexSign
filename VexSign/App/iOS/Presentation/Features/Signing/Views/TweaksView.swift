@@ -627,7 +627,7 @@ extension TweakLibraryList {
 		} label: {
 			HStack(spacing: 12) {
 				Image(systemName: "folder.fill")
-					.font(.system(size: 17))
+					.font(.body)
 					.foregroundStyle(.tint)
 					.frame(width: 30)
 				Text(folder.name)

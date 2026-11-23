@@ -509,7 +509,7 @@ private struct AppSelectionCard: View {
                     .cornerRadius(12)
             } else {
                 Image(systemName: "app.fill")
-                    .font(.system(size: 28))
+                    .font(.title)
                     .frame(width: 56, height: 56)
                     .background(Color.accentColor.opacity(0.2))
                     .cornerRadius(12)

@@ -490,7 +490,7 @@ struct AppStoreView: View {
                     SourcePriorityView(sources: Array(sources))
                 } label: {
                     Image(systemName: "list.number")
-                        .font(.body.weight(.semibold))
+                        .font(Theme.Typography.rowTitle)
                 }
                 .accessibilityLabel(Text(.localized("Repository Priority")))
 
@@ -498,7 +498,7 @@ struct AppStoreView: View {
                     isAddingPresenting = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.body.weight(.semibold))
+                        .font(Theme.Typography.rowTitle)
                 }
                 .accessibilityLabel(Text(.localized("Add Source")))
 

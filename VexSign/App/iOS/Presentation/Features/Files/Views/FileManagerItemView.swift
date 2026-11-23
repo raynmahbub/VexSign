@@ -165,7 +165,7 @@ struct FileManagerItemView: View {
 	private var _binaryContent: some View {
 		Section {
 			Text(_hex)
-				.font(.system(size: 11, design: .monospaced))
+				.font(.system(.caption2, design: .monospaced))
 				.lineLimit(80)
 				.textSelection(.enabled)
 		} header: {
@@ -180,7 +180,7 @@ struct FileManagerItemView: View {
 		Section {
 			if let text = _text, !text.isEmpty {
 				Text(String(text.prefix(limit)))
-					.font(.system(size: 12, design: .monospaced))
+					.font(Theme.Typography.identifier)
 					.textSelection(.enabled)
 					.lineLimit(400)
 

@@ -45,7 +45,7 @@ struct UpdateMatchingSettingsView: View {
                         .fill(Color.userTint.opacity(0.14))
                         .frame(width: 44, height: 44)
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(Color.userTint)
                         .rotationEffect(.degrees(isChecking && !reduceMotion ? 360 : 0))
                         .appAnimation(

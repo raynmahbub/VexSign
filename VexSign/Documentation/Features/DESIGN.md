@@ -61,8 +61,16 @@ Extend the token file when a new role is genuinely needed.
 - The environment applies the user's font family and scale through
   `VexWorkspaceTypography`.
 - Prefer semantic styles: `.largeTitle`, `.title2`, `.headline`, `.subheadline`,
-  `.caption`. Fixed point sizes are reserved for the brand mark and compact
-  badges.
+  `.caption`. A point size that matches a style's default (`11` `caption2`,
+  `12` `caption`, `13` `footnote`, `15` `subheadline`, `16` `callout`, `17`
+  `body`, `20` `title3`, `22` `title2`, `28` `title`, `34` `largeTitle`) is that
+  style — it renders the same at the default setting and scales for everyone
+  else.
+- Fixed point sizes are reserved for the brand mark and glyphs inside a fixed
+  frame. `test_accessibility_baseline.py` pins what remains per feature area.
+- The app's own compositions live in `Theme.Typography`
+  (`Presentation/DesignSystem/Components/ThemeTypography.swift`): a screen
+  title, a row title, tabular metadata, monospaced identifiers.
 - Use `.monospacedDigit()` for counts, versions, sizes and progress.
 - Never force a font on dense technical content; logs and binary metadata may
   opt into monospaced styles locally.
@@ -126,10 +134,18 @@ is layered on top. Semantic state colours stay constant across themes.
 
 ## Motion
 
+- Motion goes through `AppMotion`
+  (`Presentation/DesignSystem/Modifiers/AppMotion.swift`): `withAppAnimation(...)`
+  for a state change, `.appAnimation(...)` for a modifier. Never `withAnimation`
+  or `.animation(curve, value:)` — `test_motion_policy.py` fails them, because
+  neither has any way to see Reduce Motion.
+- Named curves rather than repeated literals: `AppMotion.quick` (a press or a
+  row arriving), `.standard` (a header changing size), `.emphasized` (a card or
+  the download bubble arriving), `.selection` (a segment moving), `.fade`.
+- Reduce Motion drops the animation and keeps the state change, so
+  `onChange`/`task` side effects still run.
 - Standard press feedback comes from `VexSignFlareButtonStyle`.
-- Use `easeInOut(duration: 0.18–0.28)` for state changes.
 - Do not animate layout in response to scrolling.
-- Respect `accessibilityReduceMotion` and the app's animation preference.
 - Avoid symbol effects and spring APIs that are newer than the deployment
   target unless guarded by availability.
 

@@ -50,7 +50,7 @@ struct RefreshAndDownloadsSettingsView: View {
                             .fill(Color.pink.opacity(0.18))
                             .frame(width: 32, height: 32)
                         Image(systemName: "gearshape")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(Color.pink)
                     }
 
@@ -94,7 +94,7 @@ struct RefreshAndDownloadsSettingsView: View {
                             .fill(Color.red.opacity(0.18))
                             .frame(width: 32, height: 32)
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(Color.red)
                     }
 
@@ -125,7 +125,7 @@ struct RefreshAndDownloadsSettingsView: View {
                             .fill(Color.purple.opacity(0.18))
                             .frame(width: 32, height: 32)
                         Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(Color.purple)
                     }
 

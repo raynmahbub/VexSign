@@ -53,8 +53,8 @@ private struct CertificateDashboardContent: View {
                     ) {
                         Label(.localized("Share Redacted Health Card"), systemImage: "square.and.arrow.up")
                     }
-                    NavigationLink(.localized("Entitlements")) { ScrollView { Text(cert.entitlements).font(.system(.caption, design: .monospaced)).textSelection(.enabled).padding() }.navigationTitle(.localized("Entitlements")) }
-                    NavigationLink(.localized("Provision Payload")) { ScrollView { Text(cert.provision).font(.system(.caption, design: .monospaced)).textSelection(.enabled).padding() }.navigationTitle(.localized("Provision")) }
+                    NavigationLink(.localized("Entitlements")) { ScrollView { Text(cert.entitlements).font(Theme.Typography.identifier).textSelection(.enabled).padding() }.navigationTitle(.localized("Entitlements")) }
+                    NavigationLink(.localized("Provision Payload")) { ScrollView { Text(cert.provision).font(Theme.Typography.identifier).textSelection(.enabled).padding() }.navigationTitle(.localized("Provision")) }
                 }
             }
             ForEach(errors, id: \.self) { Text($0).foregroundStyle(.red) }

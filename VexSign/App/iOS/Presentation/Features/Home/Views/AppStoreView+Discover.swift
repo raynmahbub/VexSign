@@ -54,7 +54,7 @@ extension AppStoreView {
     var offlineBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "wifi.slash")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 1) {
                 Text(.localized("Showing Saved Copies"))

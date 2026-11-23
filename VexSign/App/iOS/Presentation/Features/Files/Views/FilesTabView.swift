@@ -134,7 +134,7 @@ struct FilesTabView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle().fill(Theme.tintSoft).frame(width: 48, height: 48)
-                        Image(systemName: "internaldrive.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.tint)
+                        Image(systemName: "internaldrive.fill").font(.title2.weight(.semibold)).foregroundStyle(Theme.tint)
                             .accessibilityHidden(true)
                     }
                     VStack(alignment: .leading, spacing: 2) {
@@ -191,7 +191,7 @@ struct FilesTabView: View {
                         VStack(spacing: 6) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous).fill(folder.color.opacity(0.13)).frame(width: 44, height: 44)
-                                Image(systemName: folder.icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(folder.color)
+                                Image(systemName: folder.icon).font(.title3.weight(.semibold)).foregroundStyle(folder.color)
                             }
                             Text(folder.title).font(.caption.weight(.medium)).lineLimit(1).foregroundStyle(.primary).minimumScaleFactor(0.7)
                             Text(verbatim: "\(count) • \(size)").font(.caption2).foregroundStyle(.secondary).lineLimit(1).monospacedDigit()
@@ -304,7 +304,7 @@ struct FilesTabView: View {
     private func fileRowView(entry: IPAFileEntry) -> some View {
         HStack(spacing: 12) {
             Image(systemName: entry.kind.systemImage)
-                .font(.system(size: 20))
+                .font(.title3)
                 .foregroundStyle(entry.kind.tint)
                 .frame(width: 30, height: 30)
 

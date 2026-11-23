@@ -127,7 +127,7 @@ struct SourceHealthDashboardView: View {
 	private func summaryTile(_ title: String, value: Int, icon: String, tint: Color) -> some View {
 		VStack(spacing: 6) {
 			Image(systemName: icon)
-				.font(.system(size: 16, weight: .semibold))
+				.font(.callout.weight(.semibold))
 				.foregroundStyle(tint)
 			Text("\(value)")
 				.font(.headline.monospacedDigit())
@@ -232,7 +232,7 @@ struct SourceHealthDashboardView: View {
 						.fill(statusColor(health: health, isStale: isStale).opacity(0.14))
 						.frame(width: 40, height: 40)
 					Image(systemName: statusIcon(health: health, isStale: isStale))
-						.font(.system(size: 17, weight: .semibold))
+						.font(Theme.Typography.rowTitle)
 						.foregroundStyle(statusColor(health: health, isStale: isStale))
 				}
 

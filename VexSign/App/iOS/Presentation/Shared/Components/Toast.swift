@@ -167,7 +167,7 @@ struct ToastBanner: View {
 	var body: some View {
 		HStack(spacing: 11) {
 			Image(systemName: item.systemImage)
-				.font(.system(size: 16, weight: .semibold))
+				.font(.callout.weight(.semibold))
 				.foregroundStyle(.white)
 				.frame(width: 30, height: 30)
 				.background(item.tint.gradient, in: Circle())
@@ -187,7 +187,7 @@ struct ToastBanner: View {
 			if item.duration == nil {
 				Button(action: onDismiss) {
 					Image(systemName: "xmark")
-						.font(.system(size: 11, weight: .bold))
+						.font(.caption2.weight(.bold))
 						.foregroundStyle(.secondary)
 						.frame(width: 22, height: 22)
 						.background(.quaternary, in: Circle())

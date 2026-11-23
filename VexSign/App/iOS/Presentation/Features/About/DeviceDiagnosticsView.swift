@@ -70,7 +70,7 @@ struct DeviceDiagnosticsView: View {
                         .fill(Color.userTint.opacity(0.14))
                         .frame(width: 44, height: 44)
                     Image(systemName: "iphone.gen3")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(Color.userTint)
                 }
 

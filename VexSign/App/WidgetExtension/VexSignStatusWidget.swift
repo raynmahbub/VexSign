@@ -58,7 +58,7 @@ struct VexSignStatusWidgetView: View {
 			Spacer(minLength: 0)
 
 			Text(entry.payload.certLabel)
-				.font(.system(size: 34, weight: .bold, design: .rounded))
+				.font(.system(.largeTitle, design: .rounded, weight: .bold))
 				.foregroundStyle(entry.payload.certTint)
 				.contentTransition(.numericText())
 

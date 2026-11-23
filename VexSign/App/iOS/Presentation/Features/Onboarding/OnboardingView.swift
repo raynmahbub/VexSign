@@ -52,7 +52,7 @@ struct OnboardingView: View {
 							dismiss()
 						}
 					}
-					.font(.body.weight(.semibold))
+					.font(Theme.Typography.rowTitle)
 				}
 				if _page > 0 {
 					ToolbarItem(placement: .topBarLeading) {

@@ -197,7 +197,7 @@ struct HomeView: View {
                         .font(.system(size: 19, weight: .bold, design: .rounded))
                         .foregroundStyle(FlarePalette.text)
                     Text(.localized("Sign, install, and manage your apps on-device."))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(.footnote, design: .rounded, weight: .medium))
                         .foregroundStyle(FlarePalette.muted)
                 }
                 Spacer(minLength: 0)
@@ -225,7 +225,7 @@ struct HomeView: View {
 
     private func flareBadge(_ title: String, icon: String) -> some View {
         Label(title, systemImage: icon)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(.system(.caption2, design: .rounded, weight: .semibold))
             .foregroundStyle(Theme.websiteAccentSecondary)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
@@ -340,7 +340,7 @@ struct HomeView: View {
                 .shadow(color: FlarePalette.pink.opacity(0.42), radius: 18)
 
                 Text(.localized("Import IPA / TIPA"))
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.system(.title3, design: .monospaced, weight: .bold))
                     .foregroundStyle(FlarePalette.text)
 
                 Text(.localized("Tap to browse or drag & drop files"))

@@ -33,7 +33,7 @@ struct AdvancedSigningSettingsView: View {
 						.fill(Color.orange.opacity(0.15))
 						.frame(width: 44, height: 44)
 					Image(systemName: "cpu.fill")
-						.font(.system(size: 20, weight: .bold))
+						.font(.title3.weight(.bold))
 						.foregroundStyle(Color.orange)
 				}
 

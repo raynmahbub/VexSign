@@ -180,7 +180,7 @@ extension IPAFileViewerView {
 			.pickerStyle(.segmented)
 
 			Text(_binaryMode == 0 ? _hex : _strings)
-				.font(.system(size: 11, design: .monospaced))
+				.font(.system(.caption2, design: .monospaced))
 				.lineLimit(_binaryMode == 0 ? 80 : 240)
 				.textSelection(.enabled)
 		} header: {
@@ -196,7 +196,7 @@ extension IPAFileViewerView {
 			if let text = _text, !text.isEmpty {
 				let shown = String(text.prefix(limit))
 				Text(shown)
-					.font(.system(size: 12, design: .monospaced))
+					.font(Theme.Typography.identifier)
 					.textSelection(.enabled)
 					.lineLimit(400)
 
@@ -310,7 +310,7 @@ extension IPAFileViewerView {
 								   value: slice.isEncrypted ? String.localized("Yes") : String.localized("No"))
 					ForEach(slice.runtimeSearchPaths, id: \.self) { path in
 						Text(path)
-							.font(.system(size: 12, design: .monospaced))
+							.font(Theme.Typography.identifier)
 							.textSelection(.enabled)
 					}
 				}
@@ -338,7 +338,7 @@ extension IPAFileViewerView {
 			Section {
 				ForEach(_dylibs, id: \.self) { dylib in
 					Text(dylib)
-						.font(.system(size: 12, design: .monospaced))
+						.font(Theme.Typography.identifier)
 						.textSelection(.enabled)
 				}
 			} header: {

@@ -61,7 +61,7 @@ struct JITSettingsView: View {
                         .fill(Color.teal.opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "bolt.badge.automatic.fill")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(Color.teal)
                 }
 

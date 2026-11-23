@@ -114,7 +114,7 @@ struct PerAppUpdateRulesView: View {
 						store.setRule(rule, forBundleID: bundleID)
 						dismiss()
 					}
-					.font(.body.weight(.semibold))
+					.font(Theme.Typography.rowTitle)
 					.disabled(rule.isEmpty && store.rule(forBundleID: bundleID).isEmpty)
 				}
 			}

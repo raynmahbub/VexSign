@@ -27,7 +27,7 @@ struct LocationSimulatorSettingsView: View {
                         .fill(Color.secondary.opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "location.slash.fill")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(Color.secondary)
                 }
 

@@ -107,7 +107,7 @@ struct VexHomeDashboard: View {
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(WorkspaceGreeting.title(hour: Calendar.current.component(.hour, from: context.date)))
-                        .font(.system(.title2, design: .rounded).weight(.bold))
+                        .font(Theme.Typography.screenTitle)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
@@ -126,7 +126,7 @@ struct VexHomeDashboard: View {
                     Circle()
                         .stroke(Theme.separator, lineWidth: 0.5)
                     Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(Theme.Typography.rowTitle)
                         .foregroundStyle(Theme.tint)
                 }
                 .frame(width: 44, height: 44)
@@ -369,7 +369,7 @@ struct VexHomeDashboard: View {
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
                         .fill(Theme.tintSoft)
                     Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 28, weight: .medium))
+                        .font(.title.weight(.medium))
                         .foregroundStyle(Theme.tint)
                 }
                 .frame(width: 54, height: 54)
@@ -399,7 +399,7 @@ struct VexHomeDashboard: View {
 
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(14)
@@ -431,7 +431,7 @@ struct VexHomeDashboard: View {
                 .shadow(color: Theme.tint.opacity(0.2), radius: 18)
 
                 Text(.localized("Import IPA / TIPA"))
-                    .font(.system(.title2, design: .rounded).weight(.bold))
+                    .font(Theme.Typography.screenTitle)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
 
@@ -467,7 +467,7 @@ struct VexHomeDashboard: View {
     private var packageURLField: some View {
         HStack(spacing: 12) {
             Image(systemName: "link")
-                .font(.system(size: 20, weight: .medium))
+                .font(.title3.weight(.medium))
                 .foregroundStyle(.secondary)
 
             TextField("https://example.com/app.ipa", text: $urlText)
@@ -482,7 +482,7 @@ struct VexHomeDashboard: View {
 
             Button(action: startURLDownload) {
                 Image(systemName: "arrow.down.circle.fill")
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.title.weight(.medium))
                     .foregroundStyle(Theme.tint)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())

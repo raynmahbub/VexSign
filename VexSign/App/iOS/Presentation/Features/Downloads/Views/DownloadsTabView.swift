@@ -156,7 +156,7 @@ private struct DownloadsTabContent: View {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.tintSoft).frame(width: 44, height: 44)
-                        Image(systemName: "arrow.down.circle.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.tint)
+                        Image(systemName: "arrow.down.circle.fill").font(.title2.weight(.semibold)).foregroundStyle(Theme.tint)
                             .accessibilityHidden(true)
                     }
                     VStack(alignment: .leading, spacing: 2) {

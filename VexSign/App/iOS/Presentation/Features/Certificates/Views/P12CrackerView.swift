@@ -56,7 +56,7 @@ struct P12CrackerView: View {
 									.font(.footnote.monospaced())
 								Spacer()
 								Text("\(cracker.testedCount) / \(cracker.totalCount)")
-									.font(.caption.monospacedDigit())
+									.font(Theme.Typography.metadata)
 									.foregroundColor(.secondary)
 							}
 

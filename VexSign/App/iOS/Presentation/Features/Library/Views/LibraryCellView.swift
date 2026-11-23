@@ -653,7 +653,7 @@ extension LibraryCellView {
 	) -> some View {
 		Button(action: action) {
 			Image(systemName: systemImage)
-				.font(.system(size: 15, weight: .semibold))
+				.font(.subheadline.weight(.semibold))
 				.frame(width: 36, height: 36)
 		}
 		.buttonStyle(.bordered)
