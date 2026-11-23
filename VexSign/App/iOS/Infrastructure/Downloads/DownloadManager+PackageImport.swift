@@ -225,10 +225,10 @@ extension DownloadManager {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
 
 				if self.isAppInBackground {
-					self.sendCompletionNotification(for: dl, status: "❌ Import failed: \(error.localizedDescription)")
+					self.sendCompletionNotification(for: dl, status: "❌ " + String.localized("Import failed: %@", arguments: error.localizedDescription))
 				} else {
 					self.errorDelegate?.showUIErrorMessage(
-						title: "Import Failed",
+						title: .localized("Import failed"),
 						message: error.localizedDescription
 					)
 				}
@@ -254,7 +254,7 @@ extension DownloadManager {
 	@MainActor
 	func autoSignOrFinish(_ app: AppInfoPresentable, for download: Download) {
 		guard AutoSignManager.isEnabled else {
-			if isAppInBackground { sendCompletionNotification(for: download, status: "✅ Added to Library") }
+			if isAppInBackground { sendCompletionNotification(for: download, status: "✅ " + .localized("Added to Library")) }
 			finishImport(of: download, succeeded: true)
 			return
 		}

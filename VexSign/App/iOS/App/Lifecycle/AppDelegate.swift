@@ -43,10 +43,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
 
     // MARK: - DownloadManager.ErrorDelegate
 
+    /// `title` is already localized by the caller: it is a sentence, not a catalogue key.
+    /// Re-wrapping it here looked the translation up a second time, so a title that happened to
+    /// match another key could show that key's string instead.
     func showUIErrorMessage(title: String, message: String) {
         DispatchQueue.main.async {
             UIAlertController.showErrorWithCopy(
-                title: .localized(title),
+                title: title,
                 message: message
             )
         }
@@ -64,7 +67,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
     ) {
         DispatchQueue.main.async {
             UIAlertController.showAlertWithOptions(
-                title: .localized(title),
+                title: title,
                 message: message,
                 actions: [
                     (actionTitle, .default, action),

@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import NimbleExtensions
 
 /// Builds requests only. DownloadManager still owns eligibility, delivery,
 /// lifecycle, Live Activity preference and clearing delivered notifications.
@@ -15,15 +16,15 @@ enum DownloadNotificationBuilder {
             let percent = Int(download.progress * 100)
             content.title = download.fileName
             content.body = "\(formatBytes(download.bytesDownloaded)) / \(formatBytes(download.totalBytes))"
-            content.subtitle = "Progress: \(percent)%"
+            content.subtitle = .localized("Progress: %@", arguments: "\(percent)%")
         } else {
             let totalProgress = downloads.reduce(0.0) { $0 + $1.progress }
             let averageProgress = totalProgress / Double(downloads.count)
             let percent = Int(averageProgress * 100)
             let received = downloads.reduce(Int64(0)) { $0 + $1.bytesDownloaded }
             let expected = downloads.reduce(Int64(0)) { $0 + $1.totalBytes }
-            content.title = "Downloading \(downloads.count) files"
-            content.subtitle = "Overall Progress: \(percent)%"
+            content.title = .localized("%lld file(s) downloading", arguments: downloads.count)
+            content.subtitle = .localized("Overall progress: %@", arguments: "\(percent)%")
             content.body = "\(formatBytes(received)) / \(formatBytes(expected))"
         }
         content.sound = nil

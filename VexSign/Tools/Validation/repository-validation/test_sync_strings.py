@@ -8,6 +8,7 @@ that still appears as a literal in the app (for example inside `Text("…")`, wh
 
 import importlib.util
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -276,3 +277,57 @@ class PlaceholderConsistencyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+#: A string handed to a UI boundary instead of to `.localized` never reaches the catalogue:
+#: `collect()` only sees `.localized("…")`, so `--check` stays green while the dialog stays
+#: English in all twelve locales. These are the two boundaries where that happened.
+BARE_USER_FACING = (
+    ("showUIErrorMessage(title:)", re.compile(r"showUIErrorMessage\([^)]*?title:\s*\"[^\"]*\"\s*[,)\n]")),
+    ("sendCompletionNotification(status:)", re.compile(r"sendCompletionNotification\([^)]*?status:\s*\"[^\"]*\"\s*[,)\n]")),
+)
+
+
+def bare_user_facing_literals(text):
+    """Line numbers of titles/statuses passed as a bare literal rather than `.localized(…)`.
+
+    A literal that is concatenated (``status: "❌ " + .localized(…)``) does not match: the
+    character after the closing quote is not ``,``, ``)`` or a newline.
+    """
+    found = []
+    for label, pattern in BARE_USER_FACING:
+        for match in pattern.finditer(text):
+            found.append((text.count("\n", 0, match.start()) + 1, label))
+    return sorted(found)
+
+
+class UserFacingLiteralTests(unittest.TestCase):
+    """A dialog title has to come from the catalogue, like every other sentence in the app."""
+
+    def test_a_bare_title_is_reported(self):
+        sample = '\t\tself.errorDelegate?.showUIErrorMessage(title: "Import Failed", message: "x")\n'
+        self.assertEqual(bare_user_facing_literals(sample), [(1, "showUIErrorMessage(title:)")])
+
+    def test_a_bare_status_is_reported(self):
+        sample = 'sendCompletionNotification(for: download, status: "❌ Download failed")\n'
+        self.assertEqual(bare_user_facing_literals(sample), [(1, "sendCompletionNotification(status:)")])
+
+    def test_a_localized_title_is_accepted(self):
+        sample = 'showUIErrorMessage(title: .localized("Import failed"), message: message)\n'
+        self.assertEqual(bare_user_facing_literals(sample), [])
+
+    def test_a_concatenated_status_is_accepted(self):
+        sample = 'sendCompletionNotification(for: download, status: "❌ " + .localized("Download failed"))\n'
+        self.assertEqual(bare_user_facing_literals(sample), [])
+
+    def test_the_tree_passes_titles_through_the_catalogue(self):
+        offences = []
+        for path in sorted(sync.SOURCE_ROOT.rglob("*.swift")):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for line, label in bare_user_facing_literals(text):
+                offences.append(f"{path.relative_to(sync.ROOT).as_posix()}:{line} {label}")
+        self.assertEqual(
+            offences,
+            [],
+            "these user-facing strings skip .localized(…) and so stay English in every locale",
+        )

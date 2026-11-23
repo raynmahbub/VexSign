@@ -17,6 +17,8 @@ class DownloadManager: NSObject, ObservableObject {
 	static let shared = DownloadManager()
 
 	protocol ErrorDelegate: AnyObject {
+		/// `title` and both option labels arrive already localized (`.localized("…")`), so a
+		/// conformer presents them as given rather than looking them up again.
 		func showUIErrorMessage(title: String, message: String)
 
 		/// The same message with one explicit choice. Used where doing nothing is not a safe default
@@ -497,7 +499,7 @@ class DownloadManager: NSObject, ObservableObject {
 			generator.notificationOccurred(.error)
 
 			self.errorDelegate?.showUIErrorMessage(
-				title: "Failed to download ipa",
+				title: .localized("Failed to download IPA"),
 				message: error.localizedDescription
 			)
 		}
@@ -573,7 +575,7 @@ class DownloadManager: NSObject, ObservableObject {
 			download.isActive = false
 			download.isWaitingForSlot = false
 			let error = NSError(domain: "VexSign.Download", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download sessions not initialized"])
-			DispatchQueue.main.async { self.errorDelegate?.showUIErrorMessage(title: "Download Failed", message: error.localizedDescription) }
+			DispatchQueue.main.async { self.errorDelegate?.showUIErrorMessage(title: .localized("Download failed"), message: error.localizedDescription) }
 			return download
 		}
 
@@ -645,7 +647,7 @@ class DownloadManager: NSObject, ObservableObject {
 						DispatchQueue.main.async { completion(error) }
 					} else if !self.isAppInBackground {
 						self.errorDelegate?.showUIErrorMessage(
-							title: "Import Failed",
+							title: .localized("Import failed"),
 							message: error.localizedDescription
 						)
 					}
