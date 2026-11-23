@@ -362,7 +362,9 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         for forbidden in (".provision(", ".sign(", "InstallQueue", "approveRegeneration"):
             self.assertNotIn(forbidden, intent)
         view = code("Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
-        submission = view.split("private func runProvisioning() async", 1)[1]
+        # The wizard's steps live in `ProvisioningFlowView+Steps.swift`; this check is about the
+        # submission path, which stays with the flow that owns it.
+        submission = view.split("func runProvisioning() async", 1)[1]
         self.assertLess(submission.index("!DownloadPreferences.cellularPathAvailable"), submission.index("await manager.provision("))
         self.assertIn("!app.isSigned || !approveRegeneration", submission)
 

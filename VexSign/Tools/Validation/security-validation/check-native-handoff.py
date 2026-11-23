@@ -48,7 +48,10 @@ ROOT = Path(__file__).resolve().parents[4]
 # Repository-relative so `evaluate` can run against a scratch checkout in tests.
 CAPABILITIES = Path("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethodCapabilities.swift")
 MANAGER = Path("VexSign/App/iOS/Infrastructure/Accounts/NativeSigningManager.swift")
-FLOW = Path("VexSign/App/iOS/Presentation/Features/Accounts/Views/ProvisioningFlowView.swift")
+# The wizard is split across three files (`ProvisioningFlowView.swift`, `+Steps.swift` and
+# `ProvisioningFlowSupportingViews.swift`). The caveat copy this gate checks lives in the review
+# step, so the path names that file rather than the type's first one.
+FLOW = Path("VexSign/App/iOS/Presentation/Features/Accounts/Views/ProvisioningFlowView+Steps.swift")
 BACKEND = Path("VexSign/Packages/NativeSigning/Authentication/NativeAccountBackend.swift")
 AUTOMATION = Path("VexSign/App/iOS/Infrastructure/Tasks/BackgroundAutomation.swift")
 SIGNING_METHOD = Path("VexSign/App/iOS/Infrastructure/Signing/Execution/SigningMethod.swift")
