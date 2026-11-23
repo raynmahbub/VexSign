@@ -22,7 +22,19 @@ struct ServerView: View {
                 Toggle(.localized("Only use localhost address"), systemImage: "lifepreserver", isOn: $_ipFix)
                     .disabled(_serverMethod != 1)
             } footer: {
-                Text(.localized("Fully Local uses this device's own HTTPS identity and loopback address. No certificate server is needed. Semi Local still requires an online manifest service."))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(.localized("Fully Local uses this device's own HTTPS identity and loopback address. No certificate server is needed. Semi Local still requires an online manifest service."))
+                    if _serverMethod == 1 {
+                        Text(
+                            .localized(
+                                "Semi Local sends this device's local install link, including its one-time token, to a third-party manifest service (%@), and serves the signed IPA over plain HTTP on your network. Use Fully Local unless the installing device cannot trust your local CA.",
+                                arguments: ManifestService.manifestHosts.joined(separator: ", ")
+                            )
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                    }
+                }
             }
             Section {
                 Button(.localized("Check Local HTTPS Identity"), systemImage: "checkmark.shield") {

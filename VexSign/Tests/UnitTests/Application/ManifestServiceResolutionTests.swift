@@ -44,4 +44,15 @@ final class ManifestServiceResolutionTests: XCTestCase {
         XCTAssertNil(resolved)
         XCTAssertEqual(probeCount, 0)
     }
+
+    /// Semi Local sends the LAN payload URL — including the per-install token — to
+    /// these hosts, and the UI names them before the first attempt. If the list
+    /// changes, the disclosure has to change with it.
+    func testDisclosedManifestHostsAreTheOnesUsed() {
+        XCTAssertEqual(
+            ManifestService.manifestHosts,
+            ["vexsign-install.vexsign.workers.dev", "api.palera.in"]
+        )
+        XCTAssertEqual(Set(ManifestService.manifestHosts).count, ManifestService.manifestHosts.count)
+    }
 }

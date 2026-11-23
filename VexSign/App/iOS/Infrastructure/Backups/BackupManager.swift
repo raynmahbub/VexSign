@@ -11,8 +11,9 @@ import NimbleExtensions
 
 /// What a backup archive may contain.
 ///
-/// There is deliberately no task-history component. The Activity log is a JSON journal that marks
-/// itself `isExcludedFromBackup`, so the app already treats it as data that must not travel, and it
+/// There is deliberately no task-history component. The Activity log is the plain-text journal under
+/// `Documents/Logs`, which `BackgroundAndLifecyclePlatform.ensureDocumentsDirectories` marks
+/// `isExcludedFromBackup` at launch: the app already treats it as data that must not travel, and it
 /// records what *this* install did on *this* device — restoring it elsewhere would report work that
 /// install never performed. A backup therefore carries what a user configured and produced
 /// (certificates, sources, settings, tweaks, signed and imported apps), not what they did.
@@ -146,8 +147,19 @@ final class BackupManager {
 		// the Keychain now, but an older backup may still carry the plaintext copy. Both spellings
 		// are listed because both prefixes are accepted and the deny list is exact.
 		"VexSign.cloudSigningKey",
-		"vexsign.cloudSigningKey"
+		"vexsign.cloudSigningKey",
+		// Security switches. A restore writes preferences straight into `UserDefaults`, and a
+		// handed-over backup is a file the user may not have written: carrying these would let
+		// it pre-set an unauthenticated LAN server (`VexSign.webManager.allowUnauthenticatedLAN`,
+		// `.auth`, `.bindMode`, `.certificateExport`), cleartext OTA (`serverMethod`) or a
+		// cleartext repository opt-in. Each stays a decision for this install.
+		"VexSign.serverMethod",
+		"VexSign.ipFix",
+		"VexSign.sources.allowInsecureHTTP"
 	]
+
+	/// Namespaces whose every key is a security decision, never a portable preference.
+	private static let _securityPrefixes = ["VexSign.webManager."]
 
 	/// Namespaces that hold secrets, never settings a backup should carry.
 	private static let _credentialPrefixes = ["VexSign.vault.", "vexsign.vault."]
@@ -167,6 +179,7 @@ final class BackupManager {
 
 	static func isBackupableSettingKey(_ key: String) -> Bool {
 		guard _settingPrefixes.contains(where: { key.hasPrefix($0) }) else { return false }
+		if _securityPrefixes.contains(where: { key.hasPrefix($0) }) { return false }
 		if _settingDenylist.contains(key) { return false }
 		if key.hasPrefix("VexSign.certHash.") { return false }
 		if isCredentialSettingKey(key) { return false }
@@ -175,7 +188,9 @@ final class BackupManager {
 
 	func availableComponents() -> (components: BackupComponents, counts: [BackupComponents: Int]) {
 		let counts: [BackupComponents: Int] = [
-            .library: Storage.shared.getAllApps().count,
+            // Same filter as the archive writer, so the manifest never promises an
+            // app the file does not contain.
+            .library: Storage.shared.getAllApps().filter { !StrictHidingSnapshot.shared.hides($0.uuid) }.count,
             .certificates: Storage.shared.getAllCertificates().count,
 			.sources: Storage.shared.getSources().count,
 			.tweaks: TweakManager.shared.tweaks.count,
@@ -264,18 +279,24 @@ final class BackupManager {
         if components.contains(.library) {
             // Snapshot managed-object metadata on the main actor; only URLs/value records
             // cross into the file-copy worker. A missing app fails the backup, never skips it.
-            let snapshots = try Storage.shared.getAllApps().map { app -> (LibraryBackupEntry, URL) in
-                guard let uuid = app.uuid, let bundle = Storage.shared.getAppDirectory(for: app) else {
-                    throw LibraryBackupSupport.Failure.invalidEntry
+            // Strict Hiding promises to exclude hidden apps from "export
+            // suggestions". A backup is the export that leaves the device, so the
+            // entries are filtered here — before a name, bundle ID or description
+            // reaches the file — rather than only in the picker that shows rows.
+            let snapshots = try Storage.shared.getAllApps()
+                .filter { !StrictHidingSnapshot.shared.hides($0.uuid) }
+                .map { app -> (LibraryBackupEntry, URL) in
+                    guard let uuid = app.uuid, let bundle = Storage.shared.getAppDirectory(for: app) else {
+                        throw LibraryBackupSupport.Failure.invalidEntry
+                    }
+                    let entry = LibraryBackupEntry(uuid: uuid, bundleName: bundle.lastPathComponent,
+                        signed: app.isSigned, name: app.name, identifier: app.identifier,
+                        originalIdentifier: app.originalIdentifier, version: app.version,
+                        appDescription: app.appDescription, certificateUUID: (app as? Signed)?.certificate?.uuid,
+                        sourceURL: app.source)
+                    try LibraryBackupSupport.validate(entry)
+                    return (entry, bundle)
                 }
-                let entry = LibraryBackupEntry(uuid: uuid, bundleName: bundle.lastPathComponent,
-                    signed: app.isSigned, name: app.name, identifier: app.identifier,
-                    originalIdentifier: app.originalIdentifier, version: app.version,
-                    appDescription: app.appDescription, certificateUUID: (app as? Signed)?.certificate?.uuid,
-                    sourceURL: app.source)
-                try LibraryBackupSupport.validate(entry)
-                return (entry, bundle)
-            }
             libraryEntries = try await Task.detached(priority: .utility) {
                 var total: Int64 = 0
                 for (entry, bundle) in snapshots {

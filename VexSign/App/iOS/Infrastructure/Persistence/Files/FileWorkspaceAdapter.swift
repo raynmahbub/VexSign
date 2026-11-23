@@ -95,7 +95,12 @@ final class FileWorkspaceAdapter: FileWorkspaceProviding {
     func text(at url: URL) -> String? { IPAFileLoader.text(at: url) }
     func plistText(at url: URL) -> String? { IPAFileLoader.plistText(at: url) }
     func plist(at url: URL) -> Any? { IPAFileLoader.plist(at: url) }
-    func data(at url: URL) -> Data? { try? Data(contentsOf: url) } // try? ok: optional file preview/metadata or owner lookup is unavailable, not a successful mutation
+    /// Bounded like every other preview read: a PDF or image over the limit is refused
+    /// here as well, so a caller that skips `FilePreviewLoader` cannot read it whole.
+    func data(at url: URL) -> Data? {
+        guard IPAFileLoader.isWithinReadLimit(url, limit: FilePreviewLimit.imageBytes) else { return nil }
+        return try? Data(contentsOf: url) // try? ok: optional file preview/metadata or owner lookup is unavailable, not a successful mutation
+    }
     func head(of url: URL, count: Int) -> Data? { IPAFileLoader.head(of: url, count: count) }
     func names(at directory: URL) -> [String] { (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? [] } // try? ok: optional file preview/metadata or owner lookup is unavailable, not a successful mutation
     func count(at directory: URL) -> Int { names(at: directory).count }

@@ -70,7 +70,12 @@ final class AppCloner {
 			throw CloneError.appNotFound
 		}
 
-        guard appBundle.resolvingSymlinksInPath().path.hasPrefix(destDir.resolvingSymlinksInPath().path + "/") else { throw CloneError.appNotFound }
+        // A bundle that resolves outside the copy is not this clone; drop the copy
+        // rather than leave a directory no row points at.
+        guard appBundle.resolvingSymlinksInPath().path.hasPrefix(destDir.resolvingSymlinksInPath().path + "/") else {
+            try? _fm.removeItem(at: destDir) // try? ok: best-effort cleanup of the partial copy
+            throw CloneError.appNotFound
+        }
         let newName = customName ?? "\(app.name ?? .localized("App")) Copy"
 		let newBundleId = customBundleId ?? "\(app.identifier ?? "app").copy"
 

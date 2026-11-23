@@ -56,6 +56,32 @@ final class WebManagerAccessTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Hidden Apps Vault
+
+	func testHiddenAppsAreAbsentFromTheAutomationSurface() {
+		let hidden: Set<String> = ["vault-1", "vault-2"]
+
+		XCTAssertFalse(
+			WebManagerAccessPolicy.isVisibleToAutomation(uuid: "vault-1", hiddenAppUUIDs: hidden),
+			"a hidden app must not be named by /api/library, /api/updates, /api/status or /api/cleanup"
+		)
+		XCTAssertTrue(
+			WebManagerAccessPolicy.isVisibleToAutomation(uuid: "library-1", hiddenAppUUIDs: hidden),
+			"hiding one app must not remove the others"
+		)
+	}
+
+	func testUnmatchedRowsStayVisible() {
+		// The vault is keyed by UUID; a row without one cannot be matched, and
+		// failing closed would hide unrelated apps from their owner.
+		XCTAssertTrue(WebManagerAccessPolicy.isVisibleToAutomation(uuid: nil, hiddenAppUUIDs: ["vault-1"]))
+		XCTAssertTrue(WebManagerAccessPolicy.isVisibleToAutomation(uuid: "", hiddenAppUUIDs: ["vault-1"]))
+	}
+
+	func testTheFilterIsInertWhenNothingIsHidden() {
+		XCTAssertTrue(WebManagerAccessPolicy.isVisibleToAutomation(uuid: "any", hiddenAppUUIDs: []))
+	}
+
 	func testEveryAPIDeleteIsGuarded() {
 		let deletes = ["/api/files/a.ipa", "/api/apps/1234", "/api/tweaks/5678", "/api/certs/1234"]
 

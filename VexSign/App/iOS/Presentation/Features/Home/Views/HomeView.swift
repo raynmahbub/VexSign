@@ -168,7 +168,9 @@ struct HomeView: View {
     private var header: some View {
         HStack {
             Text("VexSign")
-                .font(.system(size: 36, weight: .bold, design: .default))
+                // Semantic style, not a point size: the app title is the most visible
+                // text on the screen and must grow with the user's text-size setting.
+                .font(.system(.largeTitle, weight: .bold))
                 .foregroundStyle(FlarePalette.text)
                 .tracking(-1.2)
             Spacer()

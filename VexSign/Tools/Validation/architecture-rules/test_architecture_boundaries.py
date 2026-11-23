@@ -186,7 +186,10 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         app_src = _strip_comments((VEXSIGN / "App/VexSignApp.swift").read_text(encoding="utf-8"))
         self.assertIn("AppContainer.live()", app_src)
         self.assertIn(".environment(\\.appContainer, appContainer)", app_src)
-        self.assertIn("appContainer.makeDeepLinkRouter().handle(url)", app_src)
+        # Every external URL goes through the lock-aware entry point; the raw
+        # router call there would bypass the App Lock buffering.
+        self.assertIn("appContainer.handleExternalURL(url)", app_src)
+        self.assertNotIn("appContainer.makeDeepLinkRouter().handle(url)", app_src)
         delegate = _strip_comments((VEXSIGN / "App/Lifecycle/AppDelegate.swift").read_text(encoding="utf-8"))
         self.assertIn("BackgroundAndLifecyclePlatform.configureImagePipeline()", delegate)
         self.assertIn("BackgroundAndLifecyclePlatform.ensureDocumentsDirectories()", delegate)

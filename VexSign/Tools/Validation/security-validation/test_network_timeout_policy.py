@@ -41,6 +41,19 @@ BOUNDED_REQUESTS = [
 ]
 
 
+# A request is "sent" when it leaves through one of these. `BoundedResponseFetch` is the
+# size-limited path (it streams to disk and stops at the caller's cap), so a call site that
+# moved there is still a request whose wait must be bounded.
+SEND_PATTERN = (
+    r"(?:URLSession\.shared\.data"
+    r"|session\.data"
+    r"|session\.bytes"
+    r"|session\.download"
+    r"|BoundedResponseFetch\.fetch"
+    r"|VexSignAPI\.performDataRequest)"
+)
+
+
 class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
     def test_each_bounded_request_sets_a_timeout(self) -> None:
         for relative, marker, why in BOUNDED_REQUESTS:
@@ -50,7 +63,7 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                 marker_at = source.find(marker)
                 self.assertNotEqual(marker_at, -1, f"{relative}: expected {marker!r} to still exist")
                 window = source[marker_at:marker_at + 1200]
-                match = re.search(r"(?:URLSession\.shared\.data|session\.bytes|VexSignAPI\.performDataRequest)", window)
+                match = re.search(SEND_PATTERN, window)
                 send = match.start() if match else -1
                 self.assertNotEqual(send, -1, f"{relative}: no request found after {marker!r}")
                 self.assertIn(
@@ -64,7 +77,7 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
         for relative, _, why in BOUNDED_REQUESTS:
             with self.subTest(file=relative):
                 source = (ROOT / relative).read_text()
-                sends = [m.start() for m in re.finditer(r"(?:URLSession\.shared\.data|session\.bytes|VexSignAPI\.performDataRequest)", source)]
+                sends = [m.start() for m in re.finditer(SEND_PATTERN, source)]
                 self.assertTrue(sends, f"{relative}: expected at least one request")
                 for position in sends:
                     # Look back far enough to cover a request built and configured inline.
@@ -74,6 +87,18 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                         window,
                         f"{relative}: an unbounded request was added ({why})",
                     )
+
+    def test_repository_traffic_uses_one_shared_budget(self) -> None:
+        # The GitHub path had an explicit 20 s / 16 MB budget while the generic feed and the
+        # download probe used `URLSession.shared` defaults. Both numbers now have one home, so a
+        # new call site cannot invent a third policy (or none).
+        catalog = (ROOT / "VexSign/App/iOS/Infrastructure/Repositories/RepositoryCatalogService.swift").read_text()
+        self.assertIn("enum RepositoryNetworkPolicy", catalog)
+        self.assertIn("request.timeoutInterval = RepositoryNetworkPolicy.requestTimeout", catalog)
+        self.assertIn("data.count <= RepositoryNetworkPolicy.maxFeedBytes", catalog)
+        probe = (ROOT / "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDownloadProbe.swift").read_text()
+        self.assertIn("RepositoryNetworkPolicy.probeTimeout", probe)
+        self.assertIn("RepositoryNetworkPolicy.maxConcurrentProbes", probe)
 
     def test_directory_transport_keeps_redirect_credential_and_size_bounds(self) -> None:
         source = (ROOT / "VexSign/App/iOS/Infrastructure/Repositories/RepositoryDirectoryClient.swift").read_text()

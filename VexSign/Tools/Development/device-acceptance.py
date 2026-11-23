@@ -74,7 +74,7 @@ NATIVE_PRIMARY_CASES = ('native_primary_bootstrap', 'host_session_switches',
 
 
 # Free Apple ID → certificate-store handoff ladder, step 5 of
-# VexSign/Documentation/NATIVE_SIGNING_HANDOFF.md. These are recorded only when a device run
+# VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md. These are recorded only when a device run
 # actually exercised the native account flow (`init --include-native-handoff`);
 # `VexSign/Tools/Validation/security-validation/native-promotion-evidence.py` requires every one of them, plus genuine
 # Apple-issued CMS evidence, before

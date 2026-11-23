@@ -159,11 +159,12 @@ struct ArchiveSafetyValidator {
     /// Rejects two entries that resolve to one output path.
     ///
     /// `IPAExtractor` already refuses these while writing, but it is not the only backend:
-    /// `TweakExtractor` and `IPAWorkspace` hand the same validated archive to
-    /// `Zip.unzipFile(overwrite: true)`, which resolves a conflict by letting the *last* entry
-    /// win. A crafted archive could then present one file to everything that inspects the
-    /// bundle and write a different one over it during extraction. Deciding here puts the rule
-    /// ahead of every backend instead of inside one of them.
+    /// `TweakExtractor` and `IPAWorkspace` extract the same validated archive with ZIPFoundation
+    /// (and the framework's payload with SWCompression). The ZIP spec does not forbid two entries
+    /// with one name, and a reader resolving a conflict by letting the *last* entry win would show
+    /// one file to everything that inspects the bundle and write a different one over it during
+    /// extraction. Deciding here puts the rule ahead of every backend instead of inside one of
+    /// them.
     ///
     /// The comparison is case-insensitive because the destination filesystem is: APFS on iOS
     /// treats `Info.plist` and `info.plist` as the same file, so entries differing only in case
@@ -188,9 +189,9 @@ struct ArchiveSafetyValidator {
     ///
     /// `Payload/App.app/Info.plist` implies `payload/app.app` is a directory. If another entry
     /// declares `Payload/App.app` as a *file*, the archive is ambiguous: a real filesystem
-    /// cannot hold both, and which entry wins depends on the backend (`unzipFile(overwrite:)`
-    /// and the streaming extractor resolve it differently). The archive is rejected instead
-    /// of letting the extraction order decide what the inspected bundle becomes.
+    /// cannot hold both, and which entry wins depends on the backend (ZIPFoundation's
+    /// `extract` and the streaming extractor resolve it differently). The archive is rejected
+    /// instead of letting the extraction order decide what the inspected bundle becomes.
     ///
     /// Parents are recorded too, so the rule holds whichever of the two entries comes first.
     struct ImpliedDirectories {

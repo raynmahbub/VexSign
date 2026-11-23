@@ -202,8 +202,21 @@ enum IPAFileLoader {
 
 	// MARK: Reading
 
+	/// Whether a file is small enough to be read whole for an in-place editor.
+	///
+	/// Every reader below is reached from a screen that appears on the main thread, so
+	/// the cap is what keeps "preview" from meaning "load whatever this is".
+	static func isWithinReadLimit(_ url: URL, limit: Int64 = FilePreviewLimit.textBytes) -> Bool {
+		// A size that cannot be read is not evidence of a large file: the read itself will
+		// fail if the file is missing, and refusing here would break the callers that read
+		// an `Info.plist` out of a bundle.
+		guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) else { return true } // try? ok: unknown size means "try the read", which fails on its own
+		return Int64(size) <= limit
+	}
+
 	/// Raw text of a file, when it decodes.
 	static func text(at url: URL) -> String? {
+		guard isWithinReadLimit(url) else { return nil }
 		guard let data = try? Data(contentsOf: url) else { return nil } // try? ok: optional file read; nil when unreadable
 		if let text = String(data: data, encoding: .utf8) { return text }
 		if let text = String(data: data, encoding: .isoLatin1) { return text }
@@ -212,6 +225,7 @@ enum IPAFileLoader {
 
 	/// XML text for a property list, binary or not. `nil` when it can't be parsed.
 	static func plistText(at url: URL) -> String? {
+		guard isWithinReadLimit(url) else { return nil }
 		guard
 			let data = try? Data(contentsOf: url), // try? ok: optional plist read; nil when unreadable
 			let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil), // try? ok: optional plist parse; nil when not a plist
@@ -224,6 +238,7 @@ enum IPAFileLoader {
 
 	/// Parsed property list, when it is one.
 	static func plist(at url: URL) -> Any? {
+		guard isWithinReadLimit(url) else { return nil }
 		guard
 			let data = try? Data(contentsOf: url), // try? ok: optional plist read; nil when unreadable
 			let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) // try? ok: optional plist parse; nil when not a plist

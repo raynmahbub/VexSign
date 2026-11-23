@@ -18,9 +18,18 @@ something else (`VEXSIGN_RATE_LIMIT` / `VEXSIGN_RATE_WINDOW_SECONDS`,
 `VEXSIGN_FEED_RATE_LIMIT` / `VEXSIGN_FEED_RATE_WINDOW_SECONDS`,
 `VEXSIGN_ADMIN_RATE_LIMIT` / `VEXSIGN_ADMIN_RATE_WINDOW_SECONDS`). The three
 budgets differ on purpose; see each constant below for why. State is in-process
-and deliberately tiny (a deque of timestamps per client, keys evicted when they
-go quiet), so a single uvicorn worker needs no extra dependency and a restart
-simply forgets — this is a brute-force speed bump, not an accounting system.
+and deliberately tiny (a deque of timestamps per client), so a single uvicorn
+worker needs no extra dependency and a restart simply forgets — this is a
+brute-force speed bump, not an accounting system. It is one *process*, so the
+effective budget is multiplied by the worker count: keep `uvicorn` at its
+default single worker (the `render.yaml` start command does) or add a shared
+store before scaling out.
+
+The table is bounded, and it fails closed: once `_MAX_CLIENTS` distinct clients
+are being tracked, further new clients are accounted to one shared overflow
+bucket instead of evicting an existing one. Evicting would have handed anyone who
+can vary their key — which is exactly what a spoofable `X-Forwarded-For` gives —
+a way to reset their own budget by flooding new keys.
 
 Clients are identified by the socket peer. Behind Render or another proxy every
 request arrives from the proxy, which would collapse all callers into one
@@ -71,17 +80,24 @@ ADMIN_WINDOW = _env_int("VEXSIGN_ADMIN_RATE_WINDOW_SECONDS", 60)
 # page load; cap per-client creation so a single peer cannot churn the pool.
 UDID_LIMIT = _env_int("VEXSIGN_UDID_RATE_LIMIT", 30, minimum=0)
 UDID_WINDOW = _env_int("VEXSIGN_UDID_RATE_WINDOW_SECONDS", 60)
-# One bucket per client; anything past this is a flood, and dropping the oldest
-# key is cheaper than letting an attacker grow the process out of memory.
+# One bucket per client; anything past this is a flood. New clients share one
+# overflow bucket rather than evicting a live one (see the module docstring).
 _MAX_CLIENTS = 10_000
+_OVERFLOW_KEY = "\0overflow"
 
 
 class SlidingWindowLimiter:
     """At most `limit` events per `window` seconds, per key."""
 
-    def __init__(self, limit: int = DEFAULT_LIMIT, window: float = DEFAULT_WINDOW) -> None:
+    def __init__(
+        self,
+        limit: int = DEFAULT_LIMIT,
+        window: float = DEFAULT_WINDOW,
+        max_clients: int = _MAX_CLIENTS,
+    ) -> None:
         self.limit = int(limit)
         self.window = max(0.001, float(window))
+        self.max_clients = max(1, int(max_clients))
         self._events: dict[str, deque[float]] = {}
         self._lock = threading.Lock()
 
@@ -94,10 +110,16 @@ class SlidingWindowLimiter:
         with self._lock:
             events = self._events.get(key)
             if events is None:
-                if len(self._events) >= _MAX_CLIENTS:
-                    self._events.pop(next(iter(self._events)), None)
-                events = deque()
-                self._events[key] = events
+                if len(self._events) >= self.max_clients:
+                    # Fail closed. Evicting "the oldest" bucket would let a caller who can
+                    # vary their key (a spoofable X-Forwarded-For) walk past _MAX_CLIENTS
+                    # and reset their own budget; a shared overflow bucket keeps one flood
+                    # under one budget instead.
+                    key = _OVERFLOW_KEY
+                    events = self._events.get(key)
+                if events is None:
+                    events = deque()
+                    self._events[key] = events
             while events and events[0] <= cutoff:
                 events.popleft()
             if len(events) >= self.limit:
@@ -146,7 +168,9 @@ def client_key(request: Request) -> str:
     the leftmost entry (`entries[0]`) would let an attacker spoof an arbitrary
     `X-Forwarded-For` header on every request to evade rate limits. Instead:
       * if `VEXSIGN_TRUSTED_PROXY_HOPS` is explicitly configured (`>= 1`), select
-        that many hops from the right (`entries[-hops]`);
+        that many hops from the right (`entries[-hops]`); a header with fewer
+        entries than hops did not come through every proxy, so the socket peer
+        is used instead of trusting it;
       * otherwise walk right-to-left skipping trailing private/loopback internal
         load-balancer hops so the rightmost untrusted client IP added by the
         trusted edge proxy is selected.
@@ -158,7 +182,14 @@ def client_key(request: Request) -> str:
             raw_hops = os.environ.get("VEXSIGN_TRUSTED_PROXY_HOPS", "").strip()
             if raw_hops:
                 hops = _env_int("VEXSIGN_TRUSTED_PROXY_HOPS", 1, minimum=1)
-                return entries[max(0, len(entries) - hops)]
+                if len(entries) < hops:
+                    # The header is short by at least one hop, so this request did not
+                    # traverse every trusted proxy: it is direct traffic wearing a forged
+                    # header. Indexing anyway would clamp to entries[0] — the value the
+                    # caller chose — and hand them a fresh bucket per request.
+                    peer = request.client.host if request.client else ""
+                    return peer or "unknown"
+                return entries[len(entries) - hops]
             for candidate in reversed(entries):
                 if not _is_internal_proxy_hop(candidate):
                     return candidate

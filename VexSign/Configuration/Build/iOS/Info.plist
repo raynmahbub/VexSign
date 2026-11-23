@@ -184,7 +184,6 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>vexsign</string>
-				<string>feather</string>
 			</array>
 		</dict>
 	</array>

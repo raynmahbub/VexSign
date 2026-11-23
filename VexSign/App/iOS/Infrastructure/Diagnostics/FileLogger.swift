@@ -34,7 +34,10 @@ enum FileLogger {
 		_queue.async {
 			let url = logFileURL
 			do {
-				try _fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+				let directory = url.deletingLastPathComponent()
+				let directoryExisted = _fm.fileExists(atPath: directory.path)
+				try _fm.createDirectory(at: directory, withIntermediateDirectories: true)
+				if !directoryExisted { _fm.excludeFromBackup(directory, logFailure: false) }
 				_rotateIfNeeded(url)
 				if let handle = try? FileHandle(forWritingTo: url) { // try? ok: open for append; fallback to atomic write
 					defer { try? handle.close() } // try? ok: best-effort close

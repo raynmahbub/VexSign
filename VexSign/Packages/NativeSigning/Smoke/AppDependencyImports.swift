@@ -7,7 +7,6 @@ import NimbleExtensions
 import NimbleJSON
 import NimbleViews
 import AltSourceKit
-import Zip
 import SWCompression
 import ZIPFoundation
 import IDevice

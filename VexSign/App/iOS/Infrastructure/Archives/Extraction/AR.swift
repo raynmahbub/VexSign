@@ -11,7 +11,10 @@ class AR: NSObject {
 	private var _data: Data
 	
 	init(with url: URL) throws {
-		self._data = try Data(contentsOf: url)
+		// A `.deb` is untrusted input and can be large. Mapping keeps the archive
+		// out of the heap: only the pages this parser actually touches are read,
+		// instead of a full-size buffer being allocated before the first bounds check.
+		self._data = try Data(contentsOf: url, options: .mappedIfSafe)
 		super.init()
 	}
 	

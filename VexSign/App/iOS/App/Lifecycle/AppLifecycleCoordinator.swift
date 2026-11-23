@@ -25,9 +25,13 @@ enum AppLifecycleCoordinator {
             // Bootstrap retries after unlock; it never falls back to Documents.
             FileLogger.error("Pairing storage recovery deferred; unlock and review device bootstrap.", category: "bootstrap")
         }
+        // Prime the vault before anything can publish a widget payload or start a
+        // backup: `StrictHidingSnapshot` only knows what the vault has published, and
+        // an unprimed mirror would report hidden apps as visible.
+        _ = AppLockManager.shared
         await SelfUpdateManager.shared.checkOnLaunch()
         await EcosystemMaintenance.run()
         await CertificateExpiryMonitor.checkOnLaunch()
-        StorageRules.warnIfOverLimit()
+        await StorageRules.warnIfOverLimit()
     }
 }

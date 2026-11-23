@@ -63,10 +63,27 @@ extension FileManager {
 	/// cannot allocate unbounded memory, and keep the staged write best-effort:
 	/// the caller validates the resulting file before importing anything.
 	public func decodeAndWrite(base64: String, pathComponent: String, maxBytes: Int = 16 << 20) -> URL? {
+		guard maxBytes > 0 else { return nil }
+
+		// Reject on the *encoded* length before touching the payload. Whitespace
+		// filtering and the two base64url substitutions each copy the whole string,
+		// so checking `data.count` afterwards meant a hostile megabyte link allocated
+		// several times `maxBytes` before the cap was ever consulted. Base64 expands by
+		// 4/3; the slack covers whitespace and padding a well-formed link may carry.
+		let encodedLimit = ((maxBytes + 2) / 3) * 4
+		let slack = encodedLimit / 16 + 1024
+		guard base64.utf8.count <= encodedLimit + slack else { return nil }
+
 		var cleaned = base64
-			.filter { !$0.isWhitespace }
-			.replacingOccurrences(of: "-", with: "+")
-			.replacingOccurrences(of: "_", with: "/")
+		if cleaned.contains(where: { $0.isWhitespace }) {
+			cleaned = cleaned.filter { !$0.isWhitespace }
+		}
+		if cleaned.contains("-") {
+			cleaned = cleaned.replacingOccurrences(of: "-", with: "+")
+		}
+		if cleaned.contains("_") {
+			cleaned = cleaned.replacingOccurrences(of: "_", with: "/")
+		}
 		guard !cleaned.isEmpty else { return nil }
 		let remainder = cleaned.count % 4
 		if remainder != 0 {

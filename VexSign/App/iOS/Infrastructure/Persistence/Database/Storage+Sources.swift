@@ -41,7 +41,7 @@ extension Storage {
 			do {
 				try SourceURLPolicy.validate(url)
 			} catch {
-				Logger.security.warning("Rejected repository with insecure transport: \(url.absoluteString, privacy: .public)")
+				Logger.security.warning("Rejected repository with insecure transport: \(url.logSafeDescription, privacy: .public)")
 				completion(error)
 				return
 			}

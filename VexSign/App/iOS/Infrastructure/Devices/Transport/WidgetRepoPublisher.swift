@@ -165,7 +165,8 @@ enum WidgetRepoPublisher {
 		do {
 			var request = URLRequest(url: url)
 			request.timeoutInterval = 15
-			let (data, response) = try await URLSession.shared.data(for: request)
+			// The icon cap used to be checked after the whole body was in memory.
+			let (data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Int64(_maxIconBytes))
 
 			guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return }
 			guard data.count <= _maxIconBytes, UIImage(data: data) != nil else { return }
@@ -173,7 +174,7 @@ enum WidgetRepoPublisher {
 			try data.write(to: destination, options: .atomic)
 		} catch {
 			// A missing icon is cosmetic; the widget has a placeholder.
-			Logger.misc.debug("Widget icon fetch failed for \(url.absoluteString, privacy: .public)")
+			Logger.misc.debug("Widget icon fetch failed for \(url.logSafeDescription, privacy: .public)")
 		}
 	}
 }

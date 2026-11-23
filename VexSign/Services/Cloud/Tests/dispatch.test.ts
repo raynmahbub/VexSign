@@ -8,16 +8,23 @@ function fixture(count: number) {
   const ids = Array.from({ length: count }, (_, index) => id(index + 1));
   const queue = new Map<string, 'waiting' | 'failed'>();
   const added: string[] = []; const marked: string[] = []; const cursors: (string | null)[] = [];
+  const resets: string[] = [];
+  const running = new Set<string>();
   let failNextAdd = false;
   const infra = {
     pool: { async query(sql: string, params: unknown[] = []) {
-      if (sql.startsWith('SELECT id FROM jobs')) {
+      if (sql.startsWith('SELECT id, state FROM jobs')) {
         const cursor = params[0] as string | null;
         cursors.push(cursor);
-        return { rows: ids.filter(value => !cursor || value > cursor).slice(0, 100).map(value => ({ id: value })) };
+        return { rows: ids.filter(value => !cursor || value > cursor).slice(0, 100)
+          .map(value => ({ id: value, state: running.has(value) ? 'running' : 'queued' })) };
+      }
+      if (sql.startsWith('UPDATE jobs SET state=\'queued\'')) {
+        resets.push(params[0] as string); running.delete(params[0] as string);
+        return { rows: [], rowCount: 1 };
       }
       if (sql.startsWith('UPDATE jobs SET published_at')) marked.push(params[0] as string);
-      return { rows: [] };
+      return { rows: [], rowCount: 0 };
     } },
     queue: {
       async getJob(key: string) {
@@ -31,7 +38,8 @@ function fixture(count: number) {
       },
     },
   } as unknown as Infrastructure;
-  return { infra, ids, queue, added, marked, cursors, failAdd: () => { failNextAdd = true; } };
+  return { infra, ids, queue, added, marked, cursors, resets, running,
+    failAdd: () => { failNextAdd = true; } };
 }
 
 test('published jobs cannot starve later pages and the scan wraps for Redis recovery', async () => {
@@ -69,4 +77,21 @@ test('failed Redis jobs are handed to the terminal-state writer', async () => {
   await dispatcher.dispatch(f.infra, async key => { failed.push(key); });
   assert.deepEqual(failed, [f.ids[0]]);
   assert.deepEqual(f.added, []);
+});
+
+test('an abandoned claim is reset so a job whose worker died can run again', async () => {
+  const f = fixture(1); const dispatcher = new PendingJobDispatcher();
+  // The worker claimed the row, then died before finishing; Redis lost its job too.
+  f.running.add(f.ids[0]!);
+  await dispatcher.dispatch(f.infra, async () => {});
+  // Without the reset the worker's claim guard (`state='queued'`) could never win again and the
+  // job would sit in `running` forever.
+  assert.deepEqual(f.resets, [f.ids[0]]);
+  assert.deepEqual(f.added, [f.ids[0]]);
+});
+
+test('a queued job is never rewritten by the dispatcher', async () => {
+  const f = fixture(2); const dispatcher = new PendingJobDispatcher();
+  await dispatcher.dispatch(f.infra, async () => {});
+  assert.deepEqual(f.resets, []);
 });

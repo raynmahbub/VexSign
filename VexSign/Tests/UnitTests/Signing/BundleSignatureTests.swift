@@ -515,11 +515,12 @@ final class BundleSignatureTests: XCTestCase {
 		try await waitUntil { probe.count == 2 }
 		probe.first.signal()
 		try await waitUntil { probe.returned == 1 }
-		try await Task.sleep(nanoseconds: 100_000_000)
+		// Nothing to await: the old completion must not publish a status.
+		await AsyncWait.settle()
 		XCTAssertNil(store.statuses["row"])
 		// An ordinary read must not replace the still-pending newer probe.
 		store.request(request, maxAge: 0)
-		try await Task.sleep(nanoseconds: 100_000_000)
+		await AsyncWait.settle()
 		XCTAssertEqual(probe.count, 2)
 		probe.second.signal()
 		try await waitUntil { store.statuses["row"]?.installed == .installed }
@@ -548,20 +549,17 @@ final class BundleSignatureTests: XCTestCase {
 		probe.second.signal()
 		try await waitUntil { store.statuses["row"]?.installed == .installed }
 		probe.first.signal()
-		// Let the detached result return, then allow its main-actor delivery to run.
+		// Let the detached result return, then give its main-actor delivery a settle
+		// window: the point is that the stale result must *not* overwrite `.installed`,
+		// which is an absence to wait out rather than an event to await.
 		try await waitUntil { probe.returned == 2 }
-		try await Task.sleep(nanoseconds: 100_000_000)
+		await AsyncWait.settle()
 		XCTAssertEqual(store.statuses["row"]?.installed, .installed)
 	}
 
 	@MainActor
 	private func waitUntil(_ condition: () -> Bool) async throws {
-		for _ in 0..<500 {
-			if condition() { return }
-			try await Task.sleep(nanoseconds: 10_000_000)
-		}
-		XCTFail("Timed out waiting for status read")
-		throw NSError(domain: "LibraryStatusTests", code: 1)
+		try await AsyncWait.until("the status read", condition)
 	}
 
 	// MARK: Helpers

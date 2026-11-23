@@ -61,7 +61,7 @@ final class PremiumManager: ObservableObject {
 			}
 			isWorking = true
 			defer { isWorking = false }
-			return try await _activate(with: urls)
+			return try await _activate(with: urls, origin: .localConfiguration)
 		}
 
 		guard let endpoint = URL(string: VexSignAPI.apiValidateEndpoint) else {
@@ -130,7 +130,7 @@ final class PremiumManager: ObservableObject {
 		if !VexSignAPI.localModePremiumKey.isEmpty {
 			let urls = VexSignAPI.localModePremiumURLs.compactMap { URL(string: $0) }
 			guard !urls.isEmpty else { throw PremiumError.unavailable }
-			return try await _activate(with: urls)
+			return try await _activate(with: urls, origin: .localConfiguration)
 		}
 
 		guard let uuid = VexSignAPI.deviceUUID else { throw PremiumError.noDeviceID }
@@ -199,14 +199,39 @@ final class PremiumManager: ObservableObject {
 		return urls
 	}
 
-	private func _activate(with urls: [URL]) async throws -> Int {
-		VexSignAPI.registerPremiumSources(urls)
+	/// Where a premium URL list came from. A server response is untrusted input; local
+	/// mode is configuration the operator typed in, and may legitimately be a LAN address
+	/// over cleartext HTTP.
+	private enum ActivationOrigin {
+		case serverResponse
+		case localConfiguration
+	}
 
-		let repositories = await RepositoryCatalogService.fetchRepositories(from: urls)
-		guard !repositories.isEmpty else { throw PremiumError.empty }
+	private func _activate(with urls: [URL], origin: ActivationOrigin = .serverResponse) async throws -> Int {
+		// The list comes from the network, so it is checked before anything is trusted:
+		// a host is only premium once its feed has actually loaded, and only an https URL
+		// (no credentials, no fragment) can become one at all.
+		let usable: [URL]
+		switch origin {
+		case .serverResponse:
+			usable = urls.filter { VexSignAPI.isRecordablePremiumSource($0) }
+			guard usable.count == urls.count, !usable.isEmpty else { throw PremiumError.unavailable }
+		case .localConfiguration:
+			usable = urls.filter { $0.host?.isEmpty == false }
+			guard !usable.isEmpty else { throw PremiumError.unavailable }
+		}
 
+		let repositories = await RepositoryCatalogService.fetchRepositories(from: usable)
+		guard !repositories.isEmpty else {
+			// Nothing loaded: the hosts in this response must not keep a premium badge.
+			VexSignAPI.unregisterPremiumSources(usable)
+			throw PremiumError.empty
+		}
+
+		VexSignAPI.registerPremiumSources(repositories.map(\.url),
+										 requireSecureTransport: origin == .serverResponse)
 		VexSignAPI.isPremium = true
-		VexSignAPI.savePremiumURLs(urls)
+		VexSignAPI.savePremiumURLs(usable)
 
 		let repos = Dictionary(repositories.map { ($0.url, $0.data) }, uniquingKeysWith: { first, _ in first })
 

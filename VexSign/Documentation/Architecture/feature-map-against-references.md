@@ -1,7 +1,9 @@
 # VexSign — feature map against the reference projects
 
-Status of every subsystem in your mapping, read from the code on branch
-`arena/f807c4e1-vexsign`, not from the reference repositories' feature lists.
+Status of every subsystem in your mapping, read from this repository's code, not
+from the reference repositories' feature lists. (The original note named the agent
+workspace branch it was checked out on; that branch is gone, so the source tree is
+the reference.)
 
 Legend: **Built** = code path exists end to end · **Partial** = core exists, a stated
 piece is missing · **Adapted** = the capability exists but with a different, deliberately

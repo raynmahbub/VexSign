@@ -11,30 +11,21 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
 
 ### Added
 
-- Free-account renewal schedule: `RenewalPlanner` answers "which signed app stops
-  opening next, and can it be fixed here?" for imported, cloud and Apple Account
-  credentials. Windows are proportional and clamped to 1–7 days, revocation and
-  non-renewable credentials report `blocked` rather than scheduled work, and a
-  credential with no readable expiry is never treated as healthy. Pure Domain
-  rule plus a `@MainActor` coordinator and 23 boundary tests; the reference
-  register and license decision tree are in
-  [REFERENCE_PROJECTS.md](VexSign/Documentation/Architecture/REFERENCE_PROJECTS.md).
-  Wired into the certificate row, the certificate header and the background
-  pass; the header's `expiring` count now comes from the planner instead of an
-  inline seven-day check. Two sources (imported certificates, Apple Account
-  profiles) share one coordinator keyed by source, so neither refresh erases
-  the other.
-- Corrected the renewability source. Renewal was derived from
-  `SigningMethodCapabilities.nativeAppleAccountSigning`, which is held
-  `.notIntegrated`, so every free-account certificate was reported as
-  "Cannot renew here" — wrong, and the most alarming status the screen could
-  show. Renewal is a different question from in-process CMS signing: an
-  imported pair is renewed by provisioning and re-importing fresh material,
-  which the account hand-off (`exportToCertificateStore`) already does.
-  Renewability now follows the signed-in session via `Renewability`;
-  `NativeRenewalSeamTests` pins the separation and keeps the promotion gate
-  closed. Promoting the native capability needs committed genuine-Apple-profile
-  and device-ladder evidence (`check-native-handoff.py`), not a source edit.
+- Build provenance for releases. The publisher attests the IPA, `SHA256SUMS` and
+  `RELEASE.json` with `actions/attest-build-provenance` after verifying the
+  checksums, so a download can be traced to this workflow at this commit with
+  `gh attestation verify` instead of only to a checksum list that ships in the
+  same release.
+- Plural forms for countable strings. Fifty-four user-facing counts now carry
+  `one`/`other` variations in English (`%lld item`, `Added %lld file`,
+  `%lld day remaining`, …), the certificate renewal lines moved from Swift
+  string interpolation into the catalogue so they can be translated at all, and
+  `sync-strings.py --check` now fails a countable string that ships without
+  plural forms.
+- The quarantine notice after an unreadable library store is finally shown. The
+  Library explains that the app list was rebuilt, names the folder the old store
+  was moved to, and can be dismissed; before, the notice was published and never
+  read, so the only visible symptom was an empty library.
 - A populated feature-oriented iOS source tree under one main `VexSign/` root,
   with App, Presentation, Application, Domain, Infrastructure, Platform, Security
   and Resources owners. The [migration record](VexSign/Documentation/Architecture/feature-layout-migration.md),
@@ -78,8 +69,162 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   [migration report](VexSign/Documentation/Decisions/History/root-layout-migration.md).
   This organizes App, Extensions, Integrations, Packages, Resources, Services,
   Tools and Documentation; it is not an Xcode-build or device-verification claim.
+- A privacy manifest for every shipped bundle. `PrivacyInfo.xcprivacy` now declares
+  what the app and its widget, watch, tvOS and visionOS extensions actually do:
+  no tracking, nothing collected off the device, and the required-reason APIs each
+  bundle touches — user defaults (app and app group), file timestamps, disk space
+  and boot time — with the reason codes that justify them.
+- Tests for four pieces of untrusted-input logic that had none: the provisioning
+  profile reader (oversized file, missing plist envelope, missing expiry, a key
+  file that is not PKCS#12), the bounded certificate file reader, the storage
+  warning threshold, the download speed smoothing, and the clone guards that
+  refuse an app whose bundle is not on disk.
+
+### Changed
+
+- Hidden apps are hidden from the automation surface too. `GET /api/library`,
+  `GET /api/updates`, the `/api/status` counts and the `/api/cleanup` report omit
+  apps in the Hidden Apps Vault, matching the Library rows, instead of naming
+  their bundle IDs and versions to whoever holds the Web Manager password or API
+  token. The Web Manager still authenticates independently of App Lock, which is
+  what lets it work while the phone is locked.
+- Deep links wait for the lock. A link that arrives behind the App Lock is held
+  by the container (bounded, in arrival order) and replayed after unlock, so it
+  can no longer stage a package into the library or raise an alert above the lock
+  screen.
+- The app-switcher snapshot can no longer show the unlocked library. A
+  non-interactive cover is installed at `.inactive`, one phase before App Lock
+  engages, for users who turned App Lock on.
+- Device backups no longer carry the folders the app can rebuild. Firmware, the
+  Web Manager inbox and the log folder are marked `isExcludedFromBackup` by the
+  launch sweep, which keeps a multi-gigabyte `.ipsw` and a device's diagnostics out
+  of iCloud; the library folders stay backed up because they are the user's own
+  content.
 
 ### Fixed
+
+- Release notes linked two documents that no longer exist at those paths
+  (`Documentation/Engineering/PLATFORMS.md`, `Documentation/Design/assets/…`),
+  so every published release body carried two 404s. The platform limits and the
+  interface-preview links now resolve.
+- Documentation references in tooling point at the files' real locations
+  (`Documentation/Release/RELEASING.md`, `Documentation/Security/NATIVE_SIGNING_HANDOFF.md`,
+  `VexSign/Documentation/Development/PLATFORMS.md`), and `make docs-check` now
+  resolves `Documentation/...` paths written in workflows and tools that the
+  Markdown link check never saw.
+- `MockPlatformAdapter.presentYesNoAlert` recorded the alert title where a test
+  would expect the confirm button's, which made a consent assertion pass for the
+  wrong reason.
+- The certificate deep-link branch has tests: parsing (including the malformed
+  and non-base64 cases), validate-before-prompt, install-only-after-consent, the
+  declined path leaving nothing installed, and the export callback template
+  being refused unless it is ours.
+- `TRANSLATING.md` now states the real localisation coverage (twelve locales at roughly
+  20% each, English fallback at runtime, `sync-strings.py --report` as the source of
+  truth), and the CI run summary carries the same table.
+- Free-account renewal schedule: `RenewalPlanner` answers "which signed app stops
+  opening next, and can it be fixed here?" for imported, cloud and Apple Account
+  credentials. Windows are proportional and clamped to 1–7 days, revocation and
+  non-renewable credentials report `blocked` rather than scheduled work, and a
+  credential with no readable expiry is never treated as healthy. Pure Domain
+  rule plus a `@MainActor` coordinator and 23 boundary tests; the reference
+  register and license decision tree are in
+  [REFERENCE_PROJECTS.md](VexSign/Documentation/Architecture/REFERENCE_PROJECTS.md).
+  Wired into the certificate row, the certificate header and the background
+  pass; the header's `expiring` count now comes from the planner instead of an
+  inline seven-day check. Two sources (imported certificates, Apple Account
+  profiles) share one coordinator keyed by source, so neither refresh erases
+  the other.
+- Corrected the renewability source. Renewal was derived from
+  `SigningMethodCapabilities.nativeAppleAccountSigning`, which is held
+  `.notIntegrated`, so every free-account certificate was reported as
+  "Cannot renew here" — wrong, and the most alarming status the screen could
+  show. Renewal is a different question from in-process CMS signing: an
+  imported pair is renewed by provisioning and re-importing fresh material,
+  which the account hand-off (`exportToCertificateStore`) already does.
+  Renewability now follows the signed-in session via `Renewability`;
+  `NativeRenewalSeamTests` pins the separation and keeps the promotion gate
+  closed. Promoting the native capability needs committed genuine-Apple-profile
+  and device-ladder evidence (`check-native-handoff.py`), not a source edit.
+- Strict Hiding now holds on the two surfaces that are not views. The widget
+  payload and the backup archive used to include vaulted apps: the tile counted
+  them and a backup file carried their names, bundle IDs and descriptions. Both
+  now read the vault's published snapshot instead of re-deriving it, and a hidden
+  app never reaches either.
+- The Web Manager's phone relay no longer silently drops the user's TLS trust. A
+  `TypeError` from the checked transport fell back to a client with neither the
+  custom CA nor the certificate pin, so a relay configured to trust a private
+  phone certificate connected against the system store instead. Trust settings
+  now fail loudly, and the transport tests that had been passing *because* of the
+  fallback pass on their own.
+- The background-transition flag follows `didEnterBackground`, not
+  `willResignActive`. Pulling down Control Center or the app switcher marked the
+  app as backgrounded, which rerouted new downloads onto the background
+  `URLSession` and posted completion notifications for a download still on screen.
+- The launch-time "storage is over the warning limit" check no longer walks every
+  file in Documents on the main actor. The walk runs off it and only the
+  comparison and the toast come back, so the first frame after launch is not
+  waiting on a directory traversal.
+
+### Security
+
+- `feather://` is no longer registered or parsed. The app declared another
+  product's URL scheme, so any installed app could name it to reach the whole
+  `vexsign://` command set — installs, `import-certificate`, source adds — without
+  the user typing anything. The scheme is gone from `Info.plist` and from the
+  parser, and a test pins that those URLs are now unsupported.
+- `signing-assets/` is gitignored and validated: the folder is imported at launch as the
+  *default* identity from `cert.p12` + `cert.mobileprovision` + `cert.txt` (plaintext password),
+  and nothing previously stopped it from being committed or bundled. `check-pbxproj.py` also
+  fails when a target carries a deployment target for another platform, or when any target sits
+  below the floor `PLATFORMS.md` documents; the iOS target's stale
+  `TVOS_DEPLOYMENT_TARGET`/`XROS_DEPLOYMENT_TARGET` values were removed and the `FilePickerFix`
+  shim now defaults to the app's own iOS 17 floor.
+- The premium backend's admin surface no longer hands over the key inventory. `GET
+  /api/admin/keys` now returns a masked key and a stable id; handing a key out is the
+  explicit `POST /api/admin/keys/reveal`, and every mint, state change, reveal and app
+  upload is written to a new `admin_audit` table with the key id and client address
+  (`GET /api/admin/audit` reads it). `ADMIN_TOKEN` accepts a comma-separated list for an
+  overlapping rotation, and `ADMIN_TOKEN_FILE` is read per request so a rotation no longer
+  needs a redeploy. An unreadable token file disables the surface instead of falling back
+  to the previous secret.
+- The premium rate limiter no longer trusts a short `X-Forwarded-For`. When the header
+  carried fewer hops than `VEXSIGN_TRUSTED_PROXY_HOPS`, the old code clamped to
+  `entries[0]` — the value the caller chose — so a request that bypassed a proxy could
+  pick a fresh bucket per attempt. It now falls back to the socket peer. The bounded client
+  table also fails closed: past `_MAX_CLIENTS` new clients share one overflow bucket
+  instead of evicting a live one, so a flood of keys cannot reset an attacker's budget.
+- Premium activation validates the URL list it receives before trusting any of it. Only
+  `https` URLs with a host and no credentials or fragment may become premium sources, and
+  a host is recorded only after its feed actually loaded, so a failed activation no longer
+  leaves a "premium" badge on an arbitrary host. Local mode (operator-configured, possibly
+  a LAN address over HTTP) keeps its exemption through an explicit origin parameter.
+- The archive-extraction gate now covers the extraction routes it claims to. It matches
+  ZIPFoundation's `Archive(url:)` alongside the writer calls, skips the validator itself,
+  and counts `IPAExtractor.extract` call sites so a route that stops using the validating
+  wrapper fails the gate instead of quietly leaving the scan empty.
+
+### Fixed
+
+- A `vexsign://import-certificate` link no longer installs a signing identity silently. The
+  staged pair is validated first, the user is asked to confirm, and the staged `.p12`/
+  `.mobileprovision` copies are deleted once the outcome is known. A custom-scheme link is an
+  untrusted sender; a handed-over backup was already staged for review, and a certificate can
+  sign every later install.
+- Cloud signing claims a job with `UPDATE … WHERE state='queued'` and stops when it loses that
+  transition, so a dispatcher re-publish or a BullMQ retry can no longer sign the same IPA twice
+  or overwrite a finished result. `PendingJobDispatcher` resets a `running` row whose Redis job
+  is gone (older than 30 minutes) to `queued` so it stays claimable.
+- `decodeAndWrite` rejects an oversized deep-link payload on the encoded length, before
+  whitespace filtering, base64url substitution and the decode copy the payload, and skips those
+  passes entirely when the input needs none of them.
+- The background download task now arms `com.vexsign.background.refresh`; the identifier was
+  registered and permitted but never scheduled, so its handler could never run. Submission
+  failures are logged instead of swallowed, and `BGContinuedProcessingTask` is gated on iOS 26
+  (the release that ships it) rather than an `iOS 19.0` that does not exist.
+- Home's title and stat text use semantic fonts, so they follow the system text size.
+- Download headers, the download bubble and the device picker carry accessibility labels; the
+  bubble also exposes its progress as an accessibility value.
 
 - Direct Install owns/cancels its screen task, serializes overlapping imports,
   and binds each once-only warning confirmation to the reviewed request. A
@@ -160,6 +305,24 @@ Releases are cut from a tag whose name matches `MARKETING_VERSION` — see
   local dependency path, pbxproj membership-exception validation and moved
   Python tool/test roots were corrected after the ownership-root move. Portable
   gates cover these regressions; Xcode, simulator and device checks remain open.
+
+### Changed
+
+- CI's cost policy is split from its validation policy. Only jobs that spend premium
+  runner minutes (every `macos-15` job) and workflows that write to the repository stay
+  gated on the repository being public; the Linux validation jobs now run for private
+  repositories and private forks too. Before this, making the repository private — or
+  working in a private fork — skipped every workflow while the check stayed green. The
+  rule is asserted in `test_workflow_policy.py` and described in `MAINTENANCE.md`.
+- `make verify` runs every gate in one pass and lists the failures together instead of
+  stopping at the first, runs the Swift syntax parse when a `swiftc` is installed (it used
+  to pass `--no-swiftc` unconditionally), and covers the gates that were CI-only:
+  `test_docs.py`, `test_capability_disclosure.py`, `test_task_history_resilience.py` and
+  `sync_repo_aliases.py --check`.
+- SwiftPM's `-skipPackagePluginValidation` and `-skipMacroValidation` are gone from CI,
+  `platform-check.yml`, the `Makefile` and `bootstrap.sh`. The package graph declares no
+  build-tool plugin and no macro, so the flags only hid the question; a build that ever
+  needs one should name it and skip only that.
 
 ### Changed
 

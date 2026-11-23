@@ -282,7 +282,7 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 	}
 
 	@MainActor
-	func testRetryCannotRaceAnOldCompletionThroughTheScheduler() async {
+	func testRetryCannotRaceAnOldCompletionThroughTheScheduler() async throws {
 		let scheduler = InstallQueueAdvanceScheduler()
 		var advances: [String] = []
 
@@ -291,7 +291,8 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 		scheduler.cancel()
 		scheduler.schedule(after: 0.02) { advances.append("retry") }
 
-		try? await Task.sleep(nanoseconds: 150_000_000)
+		try await AsyncWait.until { advances == ["retry"] }
+		await AsyncWait.settle()
 		XCTAssertEqual(advances, ["retry"], "An old completion must not advance the queue after a retry")
 	}
 
@@ -305,7 +306,8 @@ final class InstallQueueSheetLifecycleTests: XCTestCase {
 		scheduler.schedule(after: 0.02) { ran = true }
 		scheduler.cancel()
 
-		try? await Task.sleep(nanoseconds: 150_000_000)
+		// Nothing to await: the assertion is that no callback lands at all.
+		await AsyncWait.settle()
 		XCTAssertFalse(ran, "A queue reset must not be undone by a stale callback")
 	}
 

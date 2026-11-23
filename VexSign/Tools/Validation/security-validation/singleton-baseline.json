@@ -61,5 +61,6 @@
   "VexSign/App/iOS/Presentation/Shared/Components/VexAppIconView.swift": 1,
   "VexSign/App/iOS/Presentation/Shared/Navigation/TabBarPreferences.swift": 1,
   "VexSign/App/iOS/Security/Logging/CredentialMigrationDiagnostics.swift": 1,
-  "VexSign/App/iOS/Security/Secrets/AppLockManager.swift": 1
+  "VexSign/App/iOS/Security/Secrets/AppLockManager.swift": 1,
+  "VexSign/App/iOS/Security/Secrets/StrictHidingSnapshot.swift": 1
 }

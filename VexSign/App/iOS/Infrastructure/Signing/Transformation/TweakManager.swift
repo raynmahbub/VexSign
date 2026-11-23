@@ -544,11 +544,32 @@ final class TweakManager: ObservableObject {
 	}
 
 	/// Wipes the entire tweak library — all tweaks, folders, and files on disk.
+	/// Removes every tweak, after the library has gone quiet.
+	///
+	/// The old version emptied the lists and then did a best-effort delete, so a failed
+	/// delete left tweaks that could no longer be reached from the UI but were still on
+	/// disk, and a signing job reading a dylib out of this folder could have it removed
+	/// underneath it. The reset now takes the cleanup lease (the same gate the workspace
+	/// cleanup uses), reports a refusal, and only empties the lists once the folder is
+	/// really gone — so memory and disk cannot disagree.
 	func resetLibrary() {
+		guard let lease = AppOperationRegistry.shared.acquireCleanup() else {
+			Toast.error(.localized("A download, install or signing job is still running. Reset the tweak library when it has finished."), duration: .long)
+			return
+		}
+		defer { withExtendedLifetime(lease) {} }
+
+		do {
+			try _fm.removeFileIfNeeded(at: _fm.tweaksLibrary)
+		} catch {
+			Logger.misc.error("Tweak library reset failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+			Toast.error(error.localizedDescription, duration: .long)
+			return
+		}
+
 		tweaks = []
 		folders = []
 		repositories = []
-		try? _fm.removeFileIfNeeded(at: _fm.tweaksLibrary) // try? ok: best-effort disk cleanup; the in-memory library is authoritative
 	}
 
 	func deleteVersion(_ versionId: UUID, from tweakId: UUID) {

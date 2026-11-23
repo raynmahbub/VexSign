@@ -102,6 +102,7 @@ final class AppLockManager: ObservableObject {
 		self.lockedAppUUIDs = state.lockedAppUUIDs
 		self.hiddenAppUUIDs = state.hiddenAppUUIDs
 		self.strictHidingEnabled = state.strictHidingEnabled
+		_publishStrictSnapshot()
 	}
 
 	private static func _loadOrMigrateState(defaults: UserDefaults, storage: VaultStorage) -> VaultState {
@@ -148,6 +149,7 @@ final class AppLockManager: ObservableObject {
 	}
 
 	private func _persistState() {
+		_publishStrictSnapshot()
 		let state = VaultState(
 			enabled: isMasterLockEnabled,
 			lockedAppUUIDs: lockedAppUUIDs,
@@ -160,6 +162,17 @@ final class AppLockManager: ObservableObject {
 		} catch {
 			lastMessage = error.localizedDescription
 		}
+	}
+
+	/// Mirrors the vault into `StrictHidingSnapshot` for the surfaces that are not
+	/// views (the widget payload and the backup writer). Strict-ness is mirrored
+	/// without `isRevealingHiddenApps`: an open vault shows rows on screen, it does
+	/// not licence a Home Screen tile or an exported backup to name hidden apps.
+	private func _publishStrictSnapshot() {
+		StrictHidingSnapshot.shared.update(
+			isEnabled: strictHidingEnabled,
+			hiddenAppUUIDs: hiddenAppUUIDs
+		)
 	}
 
 	static func defaultPolicyEvaluator(_ localizedReason: String, completion: @escaping (Bool, Error?) -> Void) -> Bool {

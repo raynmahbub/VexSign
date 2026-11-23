@@ -379,14 +379,17 @@ def _make_client(
 
 
 def _open_client(ca_cert_pem: str = "", tls_cert_sha256: str = "") -> httpx.Client:
+    """Build the relay client, carrying the user's TLS trust settings through.
+
+    A `TypeError` here used to be swallowed and replaced with a client that had
+    neither the CA nor the pin — a relay configured to trust a private CA would
+    then connect against the public store and, worse, silently drop the pin the
+    user asked for. Trust settings are validated up front, so drift between this
+    call and `checked_http_client` must surface as a failure, not a downgrade.
+    """
     # Validate user-supplied TLS trust overrides up front so malformed inputs fail 422.
     _resolve_tls_trust(ca_cert_pem=ca_cert_pem, tls_cert_sha256=tls_cert_sha256)
-    if not ca_cert_pem.strip() and not tls_cert_sha256.strip():
-        return _make_client()
-    try:
-        return _make_client(ca_cert_pem=ca_cert_pem, tls_cert_sha256=tls_cert_sha256)
-    except TypeError:
-        return _make_client()
+    return _make_client(ca_cert_pem=ca_cert_pem, tls_cert_sha256=tls_cert_sha256)
 
 
 def _relay_error(status_code: int, detail: str) -> HTTPException:

@@ -154,10 +154,16 @@ class DownloadManager: NSObject, ObservableObject {
 
 		requestNotificationPermissions()
 
+		// `didEnterBackground`, not `willResignActive`: the latter also fires for the
+		// app switcher, Control Center and an incoming call, and this flag selects the
+		// background URLSession and the completion notifications. Treating a
+		// notification pull-down as "backgrounded" moved in-flight work onto the
+		// background session and announced "added to Library" for a download the user
+		// was still watching.
 		NotificationCenter.default.addObserver(
 			self,
-			selector: #selector(appWillEnterBackground),
-			name: UIApplication.willResignActiveNotification,
+			selector: #selector(appDidEnterBackground),
+			name: UIApplication.didEnterBackgroundNotification,
 			object: nil
 		)
 		
@@ -242,7 +248,7 @@ class DownloadManager: NSObject, ObservableObject {
 		UNUserNotificationCenter.current().delegate = self
 	}
 	
-	@objc private func appWillEnterBackground() {
+	@objc private func appDidEnterBackground() {
 		isAppInBackground = true
 		backgroundEntryTime = Date()
 
@@ -576,7 +582,9 @@ class DownloadManager: NSObject, ObservableObject {
 		request.networkServiceType = .responsiveData
 		request.allowsExpensiveNetworkAccess = !DownloadPreferences.wifiOnly
 		request.allowsConstrainedNetworkAccess = !DownloadPreferences.wifiOnly
-		request.setValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
+		// `Accept-Encoding` is left to URLSession, which negotiates it and decodes
+		// the body itself. Setting it manually would hand the staging file
+		// compressed bytes and corrupt the IPA.
 
 		// Auth headers for premium sources.
 		VexSignAPI.applyAuthHeaders(to: &request)
@@ -594,9 +602,14 @@ class DownloadManager: NSObject, ObservableObject {
         if configureSystemServices {
             startProgressTimer()
             if isAppInBackground { ensureKeepAlive() }
-            if #available(iOS 19.0, *), let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+            // iOS 26: BGContinuedProcessingTask. Needs the continued-processing entitlement, which
+            // sideloaded profiles do not carry, so submit is a no-op there (see PLATFORMS.md).
+            if #available(iOS 26.0, *), let appDelegate = UIApplication.shared.delegate as? AppDelegate {
                 appDelegate.submitContinuedProcessingTask()
             }
+            // Arm the processing task (and, through it, the refresh fallback) so a download that
+            // outlives the foreground session is resumed by the system rather than only by the user.
+            (UIApplication.shared.delegate as? AppDelegate)?._scheduleBackgroundDownloadTask()
             startLiveActivityIfNeeded()
         }
 

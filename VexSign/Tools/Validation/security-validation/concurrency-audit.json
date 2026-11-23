@@ -44,6 +44,14 @@
       "kind": "unchecked-sendable",
       "invariant": "Only subscription ownership crosses executors. Taking and clearing the AnyCancellable array is serialized by NSLock; cancellation happens once, outside the lock, and deinit uses the same path. No subscription is added after initialization. Producer closures hop to their owning MainActor before reading manager state. Reading subscriptions unlocked, cancelling under the lock, or mutating a manager directly from termination would break the invariant.",
       "risk": "medium"
+    },
+    {
+      "file": "VexSign/App/iOS/Security/Secrets/StrictHidingSnapshot.swift",
+      "symbol": "StrictHidingSnapshot",
+      "kind": "unchecked-sendable",
+      "invariant": "A mirror of the Hidden Apps Vault for the two consumers that are not views: WidgetStatusPublisher (payload written from storage mutations and a background pass) and BackupManager's library snapshot. All state is two fields behind an NSLock, written only by AppLockManager through update(isEnabled:hiddenAppUUIDs:) and read through hides(_:)/state. `shared` is never mutated in place: update replaces both fields together, so a reader can observe an older complete snapshot but never a half-written one. Nothing here can call back into the vault, so the lock is never held across a hop. The intentional omissions are part of the invariant: the reveal session (isRevealingHiddenApps) is not mirrored, so unlocking the vault cannot make a widget tile or a backup file start naming hidden apps.",
+      "risk": "low",
+      "watch": "Safe only while this stays a mirror. Reading AppLockManager from here, adding a field that can be written from two places without the lock, or publishing from anywhere other than the vault's own funnel would make it a second source of truth for who is hidden."
     }
   ]
 }

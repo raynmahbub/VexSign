@@ -226,6 +226,7 @@ struct ProvisioningFlowView: View {
                         Image(systemName: "list.bullet")
                             .foregroundStyle(Color.accentColor)
                     }
+                    .accessibilityLabel(Text(.localized("Choose a device")))
                 }
             }
 

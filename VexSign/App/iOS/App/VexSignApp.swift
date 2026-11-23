@@ -109,6 +109,20 @@ struct VexSignApp: App {
                         .zIndex(99)
                 }
             }
+            .overlay {
+                // The switcher snapshot is taken on the way to `.background`, i.e.
+                // before App Lock engages. Obscure at `.inactive`, one phase earlier,
+                // so the frame iOS keeps is never the Library.
+                // The lock screen is already opaque and already the right thing to
+                // show, so the cover only fills the gap between `.inactive` and it.
+                if scenePhase != .active,
+                   appLock.isMasterLockEnabled,
+                   !appLock.isLocked,
+                   !appLock.isAuthenticating {
+                    PrivacySnapshotCover()
+                        .zIndex(100)
+                }
+            }
             .animation(.easeInOut(duration: 0.18), value: appLock.isLocked)
             .onReceive(NotificationCenter.default.publisher(for: .heartbeatInvalidHost)) { _ in
                 DispatchQueue.main.async {
@@ -197,6 +211,8 @@ struct VexSignApp: App {
     }
 
     private func _handleURL(_ url: URL) {
-        appContainer.makeDeepLinkRouter().handle(url)
+        // Router entry point for the scene; the container holds the command while
+        // the lock covers the app and replays it after unlock.
+        appContainer.handleExternalURL(url)
     }
 }

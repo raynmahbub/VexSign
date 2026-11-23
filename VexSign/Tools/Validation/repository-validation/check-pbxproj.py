@@ -220,6 +220,71 @@ if host_targets and extension_targets and _version(max(extension_targets)) > _ve
         "an embedded extension cannot require a newer iOS than its host app"
     )
 
+#
+# 7. Deployment targets must describe the target's own platform and meet the
+#    floors VexSign/Documentation/Development/PLATFORMS.md promises. The iOS target
+#    carried TVOS/XROS keys copied from a template: Xcode ignores them for an
+#    iphoneos build, so they were never wrong at build time, only misleading —
+#    and they hid the fact that no gate compared any target against the doc.
+PLATFORM_FLOORS = {
+    "IPHONEOS_DEPLOYMENT_TARGET": "17.0",
+    "TVOS_DEPLOYMENT_TARGET": "17.0",
+    "XROS_DEPLOYMENT_TARGET": "2.0",
+    "WATCHOS_DEPLOYMENT_TARGET": "10.0",
+}
+PLATFORM_KEY_FOR_SDK = {
+    "iphoneos": "IPHONEOS_DEPLOYMENT_TARGET",
+    "appletvos": "TVOS_DEPLOYMENT_TARGET",
+    "xros": "XROS_DEPLOYMENT_TARGET",
+    "watchos": "WATCHOS_DEPLOYMENT_TARGET",
+}
+
+def sdkroot_of(target_name: str) -> str:
+    """SDKROOT for a target, from the known table or from its own build settings."""
+    known = expected.get(target_name)
+    if known:
+        return known[0]
+    target_body = body(targets[target_name])
+    found = re.search(r"buildConfigurationList = ([0-9A-F]{24})", target_body)
+    if found:
+        for config_id in ids_in(body(found.group(1))):
+            sdk = re.search(r"SDKROOT = (\w+);", body(config_id))
+            if sdk:
+                return sdk.group(1)
+    return ""
+
+
+for target_name in sorted(targets):
+    sdkroot = sdkroot_of(target_name)
+    if sdkroot == "auto":
+        # The app target defers to the destination SDK; every product it ships is iOS.
+        sdkroot = "iphoneos"
+    platform_key = PLATFORM_KEY_FOR_SDK.get(sdkroot, "")
+    if not platform_key:
+        notes.append(f"{target_name}: SDKROOT {sdkroot or 'unset'} has no documented floor to check")
+        continue
+    if target_name in expected and expected[target_name][1] != platform_key:
+        problems.append(
+            f"{target_name}: {expected[target_name][1]} does not belong to SDKROOT {sdkroot}; "
+            f"expected {platform_key}"
+        )
+    for value in sorted(deployment_target(target_name, platform_key)):
+        floor = PLATFORM_FLOORS.get(platform_key)
+        if floor and _version(value) < _version(floor):
+            problems.append(
+                f"{target_name}: {platform_key} {value} is below the {floor} documented in "
+                "VexSign/Documentation/Development/PLATFORMS.md"
+            )
+    for other_key in PLATFORM_FLOORS:
+        if other_key == platform_key:
+            continue
+        stray = deployment_target(target_name, other_key)
+        if stray:
+            problems.append(
+                f"{target_name}: {other_key} {sorted(stray)} belongs to another platform "
+                f"(SDKROOT {sdkroot}); Xcode ignores it here, so it is a stale default"
+            )
+
 print(f"targets found: {', '.join(sorted(targets))}")
 print(f"object ids defined: {len(defined)}")
 for note in notes:

@@ -116,7 +116,6 @@ final class BackupRestorePolicyTests: XCTestCase {
 			"VexSign.installationMethod",
             SigningModeManager.preferenceKey,
             SigningModeManager.preferredDirectMethodKey,
-			"VexSign.serverMethod",
 			"VexSign.appearance.theme",
 			"vexsign.selectedTab",
 			"signing_options.compatibility"
@@ -134,10 +133,36 @@ final class BackupRestorePolicyTests: XCTestCase {
 			"VexSign.defaultImportFolderBookmark", // security-scoped, dead elsewhere
 			"VexSign.downloadBubblePositionX",
 			"VexSign.downloadBubblePositionY",
-			"VexSign.certHash.ABCDEF"           // derived from the stored bundle
+			"VexSign.certHash.ABCDEF",          // derived from the stored bundle
+			// Security switches: carrying them would let a handed-over backup
+			// pre-enable cleartext OTA or a cleartext repository opt-in.
+			"VexSign.serverMethod",
+			"VexSign.ipFix",
+			"VexSign.sources.allowInsecureHTTP"
 		] {
 			XCTAssertFalse(BackupManager.isBackupableSettingKey(key), key)
 		}
+	}
+
+	@MainActor
+	func testWebManagerSecuritySettingsNeverLeaveInABackup() {
+		// A restore writes these straight into `UserDefaults`; the Web Manager reads
+		// them at init and at `start()`. A backup the user was handed must not be able
+		// to pre-set an unauthenticated server that is reachable from the network, or
+		// turn certificate export on.
+		for key in [
+			"VexSign.webManager.auth",
+			"VexSign.webManager.user",
+			"VexSign.webManager.port",
+			"VexSign.webManager.bindMode",
+			"VexSign.webManager.allowUnauthenticatedLAN",
+			"VexSign.webManager.certificateExport",
+			"VexSign.webManager.keepAlive"
+		] {
+			XCTAssertFalse(BackupManager.isBackupableSettingKey(key), key)
+		}
+		// The namespace rule has to survive a key added later in the same namespace.
+		XCTAssertFalse(BackupManager.isBackupableSettingKey("VexSign.webManager.anythingAddedLater"))
 	}
 
 	@MainActor

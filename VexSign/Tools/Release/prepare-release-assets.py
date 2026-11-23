@@ -32,7 +32,7 @@ def prepare(output, version, channel, repository):
     intro = (f'![VexSign app icon]({raw}/icon.png)\n\n'
              f'> **{channel.title()}** — {warning}\n\n'
              f'Commit: [`{commit[:7]}`](https://github.com/{repository}/commit/{commit}) · '
-             f'[Install and platform limits]({raw}/Documentation/Engineering/PLATFORMS.md)\n\n'
+             f'[Install and platform limits]({raw}/VexSign/Documentation/Development/PLATFORMS.md)\n\n'
              '### Install and verify\n\nDownload the IPA below, verify it against `SHA256SUMS`, then sign it with your own identity. '
              'Do not import certificates from release attachments. See `RELEASE.json` for artifact provenance.\n\n')
     # Optional, reviewed, version-specific highlights; never machine-invented claims.
@@ -46,7 +46,7 @@ def prepare(output, version, channel, repository):
             # dump of historical development claims.
             notes = f'### Detailed changelog\n\n[Read the versioned changelog]({raw}/CHANGELOG.md).\n'
             notes_source = 'reviewed-version-notes'
-    ending = (f'\n### Interface preview\n\n[Home layout preview]({raw}/Documentation/Design/assets/home-preview.svg) '
+    ending = (f'\n### Interface preview\n\n[Home layout preview]({raw}/VexSign/Documentation/Features/assets/home-preview.svg) '
               'is a design illustration, **not a screenshot or proof of device testing**. '
               'The app icon and preview are also attached.\n')
     (output / 'CHANGELOG.md').write_text(intro + notes + ending)

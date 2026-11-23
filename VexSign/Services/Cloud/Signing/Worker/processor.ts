@@ -183,9 +183,18 @@ export async function processJob(deps: WorkerDeps, job: Job<{ id: string }>): Pr
   // rather than leaving it stuck in `queued` with nothing in the log.
   let directory: string | null = null;
   try {
+    // Claim the row instead of overwriting it. The dispatcher re-publishes rows that are still
+    // `queued` or `running`, and BullMQ retries a stalled delivery while the previous attempt may
+    // still be signing, so two attempts can enter this function for one job. Winning the
+    // `queued → running` transition is what makes the run exclusive; the loser must not fetch
+    // assets, run the signer, or write a result the winner is about to overwrite.
+    const claim = await infra.pool.query(
+      "UPDATE jobs SET state='running',started_at=now() WHERE id=$1 AND state='queued'",
+      [row.id],
+    );
+    if (!claim.rowCount) return;
     directory = await mkdtemp(join(tmpdir(), 'vexsign-job-'));
     await chmod(directory, 0o700);
-    await infra.pool.query("UPDATE jobs SET state='running',started_at=now() WHERE id=$1", [row.id]);
     const input: SignerInput = {
       protocolVersion: 1,
       kind: row.kind,

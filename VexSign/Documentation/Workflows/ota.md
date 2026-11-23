@@ -4,6 +4,27 @@
 
 VexSign implements device-local installation/OTA handoff and an OTA exporter in `VexSign/App/iOS/Infrastructure/` and `VexSign/App/iOS/Infrastructure/Devices/Installation/OTAExporter.swift`. That path does not publish VexSign remotely, supply a public eligible signing identity, or turn arbitrary IPAs into installable packages. The release workflow publishes unsigned IPAs, which cannot be installed as-is.
 
+## Semi Local is not private
+
+*Settings → Installation → Server & SSL* offers two server types. **Fully Local** (the
+default) keeps the manifest on the device over its own HTTPS identity and needs the
+installing device to trust the exported root CA. **Semi Local** exists because
+`itms-services` only accepts a manifest from a publicly trusted host: the app asks a
+third-party manifest service to build the plist around this device's payload URL.
+
+That means:
+
+- the payload URL — `http://<lan-ip>:<port>/<session>-<install-token>.ipa` — is sent as
+  the `fetchurl` query parameter to `vexsign-install.vexsign.workers.dev` and
+  `api.palera.in`, whose operators see it in their logs;
+- the signed IPA is then served over **plain HTTP** on the local network, because the
+  installing device does not trust the local CA in this mode;
+- anyone who obtains that URL before the install finishes can download the IPA, and the
+  token is only secret for as long as the link is.
+
+The app shows this in the server picker before the first Semi Local attempt. Use it for
+a device that cannot trust your CA, and use Fully Local for everything else.
+
 ## Eligibility
 
 An OTA manifest is transport metadata, not an authorization or signing format. The IPA must be signed for an eligible route:

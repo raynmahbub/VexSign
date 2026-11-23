@@ -221,7 +221,7 @@ final class SourceCatalogStore: ObservableObject {
 			} catch {
 				let id = Self._id(for: source, fallbackURL: url)
 				if targets.contains(source) { SourcePreferences.recordFetch(id: id, error: error.localizedDescription) }
-				Logger.security.warning("Skipping refresh of insecure repository: \(url.absoluteString, privacy: .public)")
+				Logger.security.warning("Skipping refresh of insecure repository: \(url.logSafeDescription, privacy: .public)")
 				transportBlocked.append((source, id))
 				continue
 			}

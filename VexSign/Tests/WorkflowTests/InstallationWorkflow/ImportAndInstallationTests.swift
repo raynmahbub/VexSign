@@ -49,9 +49,9 @@ final class ImportAndInstallationTests: XCTestCase {
     // MARK: - Duplicate output paths
 
     /// Two entries resolving to one output path. `IPAExtractor` rejects these while writing, but
-    /// `TweakExtractor` and `IPAWorkspace` hand the same validated archive to
-    /// `Zip.unzipFile(overwrite: true)`, which lets the last entry win — so the rule has to live
-    /// in the validator every backend shares, not in one backend.
+    /// the ZIP spec does not forbid them and a reader that lets the last entry win would extract a
+    /// different file than the one that was inspected — so the rule has to live in the validator
+    /// every backend shares, not in one backend.
     func testArchiveRejectsTwoEntriesClaimingTheSameOutputPath() {
         var claimed = Set<String>()
         XCTAssertNoThrow(try ArchiveSafetyValidator.validateDuplicate("Payload/Test.app/Info.plist", in: &claimed))

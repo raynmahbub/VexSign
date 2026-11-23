@@ -96,6 +96,7 @@ struct MinimizedDownloadHeader: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel(Text(.localized("Collapse downloads")))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -179,6 +180,7 @@ struct CollapsedDownloadHeader: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(Text(.localized("Minimize downloads")))
                 
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -191,6 +193,7 @@ struct CollapsedDownloadHeader: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(Text(.localized("Expand downloads")))
             }
         }
         .padding(.horizontal)
@@ -259,6 +262,7 @@ struct ExpandedDownloadHeader: View {
 							.foregroundStyle(isPaused ? .green : .orange)
 					}
 					.buttonStyle(.borderless)
+					.accessibilityLabel(Text(isPaused ? String.localized("Resume all downloads") : String.localized("Pause all downloads")))
 
 					Button {
 						viewState = .collapsed
@@ -269,6 +273,7 @@ struct ExpandedDownloadHeader: View {
 							.foregroundStyle(.secondary)
 					}
 					.buttonStyle(.borderless)
+					.accessibilityLabel(Text(.localized("Collapse downloads")))
 				}
 				.padding(.bottom, 4)
 				

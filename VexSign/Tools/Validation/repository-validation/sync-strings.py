@@ -20,6 +20,11 @@ value is not a stable key, so a catalogue entry for them would be dead weight.
 
 The catalogue is edited textually — new entries are appended to the existing `"strings"` object —
 so the diff stays additive instead of reformatting 1,400 keys the way a JSON round-trip would.
+
+It also refuses a *new* countable string that ships without plural forms. `String.localized("%lld items", arguments: 1)`
+renders "1 items" in English, and a single Western form is wrong for most counts in the languages this
+catalogue carries. The rule has no exemptions: a countable string either has plural forms or the check
+fails.
 """
 
 import argparse
@@ -178,6 +183,45 @@ def prune_stale(remove):
     return updated
 
 
+# A count followed by a plain English plural: `%lld items`, `Added %lld files`.
+COUNT_SPECIFIER = re.compile(r"%(?:lld|ld|d)\s+([A-Za-z][A-Za-z'’-]*)")
+# Words that end in "s" but are not the plural noun the count governs: verbs
+# ("%lld items need review"), units ("%lld ms") and "{index} points at".
+COUNT_FOLLOWERS = {
+    "is", "was", "has", "plus", "as", "this", "its", "ms", "vs",
+    "needs", "requires", "matches", "exceeds", "remains", "points",
+}
+
+
+def countable_key(entry):
+    """The English source of a countable string, or None when it is not one."""
+    english = entry.get("localizations", {}).get("en", {})
+    if "variations" in english:
+        return None
+    value = english.get("stringUnit", {}).get("value")
+    if not value:
+        return None
+    words = [match.group(1) for match in COUNT_SPECIFIER.finditer(value)]
+    if len(words) != 1:
+        # Two counts in one sentence need both to agree; the singular is not a
+        # mechanical rewrite, so those are left to a translator.
+        return None
+    word = words[0]
+    if word.lower() in COUNT_FOLLOWERS:
+        return None
+    if not word.endswith("s") or word.endswith("ss"):
+        return None
+    return value
+
+
+def plural_gaps(data):
+    """Countable keys that ship without plural forms."""
+    return sorted(
+        key for key, entry in data.get("strings", {}).items()
+        if countable_key(entry) is not None
+    )
+
+
 def coverage_report(data, markdown=False):
     """Per-language translation coverage across every catalogue key."""
     strings = data.get("strings", {})
@@ -260,7 +304,14 @@ def main():
         return 0
 
     if not missing:
-        print("✅ every literal has a catalogue key")
+        gaps = plural_gaps(data)
+        if gaps:
+            print(f"❌ {len(gaps)} countable string(s) have no plural forms:")
+            for key in gaps[: arguments.limit]:
+                print(f"  {json.dumps(key, ensure_ascii=False)}")
+            print("  Add \"variations\" -> \"plural\" (one/other) for `en` in the catalogue.")
+            return 1
+        print("✅ every literal has a catalogue key, and every new countable string has plurals")
         return 0
 
     print(f"❌ {len(missing)} literal(s) have no catalogue key (run: python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --write)")

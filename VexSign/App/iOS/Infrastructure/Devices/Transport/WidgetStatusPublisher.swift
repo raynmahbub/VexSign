@@ -37,7 +37,11 @@ enum WidgetStatusPublisher {
 			?? certificates.first(where: { !$0.revoked })
 			?? certificates.first
 
-		let apps = Storage.shared.getAllApps()
+		// Strict Hiding promises to exclude hidden apps from widgets. This reads the
+		// vault's published snapshot instead of re-deriving the rule: the backup
+		// writer asks the same question from another thread, and two independent
+		// answers would eventually disagree about who is hidden.
+		let apps = Storage.shared.getAllApps().filter { !StrictHidingSnapshot.shared.hides($0.uuid) }
 
 		return WidgetStatusPayload(
 			certDaysRemaining: active?.expiration.map { Int(floor($0.timeIntervalSinceNow / 86_400)) },

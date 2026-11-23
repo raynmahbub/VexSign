@@ -9,7 +9,7 @@ Git are available; the app and simulator tests need macOS with Xcode.
 | --- | --- |
 | OS | macOS 15 or later for the current SDK |
 | Xcode | A current Xcode supported by the project. The app uses iOS 26 SDK APIs, so Xcode 16 cannot build the default branch. |
-| Deployment target | iOS 17.0 and later (the app and the widget extension share it) |
+| Deployment target | iOS 17.0 and later (the app and the widget extension share it); tvOS 17.0, visionOS 2.0 and watchOS 10.0 for the companion targets below |
 | Tools | `git`, `make`, Python 3, and the Xcode command-line tools |
 | Optional | `swiftlint` for `make lint`; Docker for `make deploy-server` |
 
@@ -45,6 +45,21 @@ If package resolution reports a network error, note that
 target. Xcode downloads that xcframework once and caches it. The remaining
 SwiftPM packages resolve from their upstreams and are cached by Xcode.
 
+### Fast checks before you build
+
+```bash
+make verify
+```
+
+`make verify` runs the repository, security and documentation gates without Xcode. It needs a few
+Python packages that CI installs in its own step, so install them once in a clean checkout:
+
+```bash
+python3 -m pip install --break-system-packages fastapi uvicorn httpx cryptography pyyaml
+```
+
+A gate that fails on `ModuleNotFoundError` is reporting a missing local dependency, not a defect.
+
 ## 3. Open and run
 
 ```bash
@@ -55,6 +70,23 @@ open VexSign.xcworkspace
 2. Choose your development team in **Signing & Capabilities**.
 3. Pick a device or simulator.
 4. Build and run.
+
+### Schemes in this workspace
+
+| Scheme | Platform | Notes |
+| --- | --- | --- |
+| `VexSign` | iOS 17+ | The phone app: signing engine, IPA library, installs |
+| `VexSignTV` | tvOS 17+ | Companion mirror over the Web Manager REST API |
+| `VexSignVision` | visionOS 2+ | Companion mirror, spatial layout |
+| `VexSignWatch` | watchOS 10+ | Wrist mirror + four remote commands over WatchConnectivity |
+| `VexSignWidgetExtensionExtension` | iOS | Home/lock screen widget; embedded by `VexSign` |
+| `VexSignWatchWidgets` | watchOS 10+ | Complication; embedded by `VexSignWatch` |
+| `VexSignTests` | iOS | Unit, security and workflow tests; the only test target |
+
+The companions compile in CI but have no unit tests of their own — see
+[PLATFORMS.md](PLATFORMS.md) for what that means when you change shared code, and
+[ACCESSIBILITY.md](ACCESSIBILITY.md) for the Dynamic Type and VoiceOver rules that apply to
+every target.
 
 The app requires a signing identity only for the signing features, not to
 launch. Some install paths need a paired device, a provisioning profile or a

@@ -32,7 +32,8 @@ claim that Free Apple ID renewal happens. `renewExpiringProfiles()`,
 picker copy each described a capability this build does not have.
 
 This check encodes the current, deliberate state. It is meant to be updated in
-the same change that implements the seam — see VexSign/Documentation/NATIVE_SIGNING_HANDOFF.md.
+the same change that implements the seam — see
+VexSign/Documentation/Security/NATIVE_SIGNING_HANDOFF.md.
 """
 
 from __future__ import annotations

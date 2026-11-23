@@ -53,7 +53,7 @@ def mock_factory(handler, seen: list[httpx.Request] | None = None):
     request, which overrides this.
     """
 
-    def factory():
+    def factory(**kwargs):  # mirrors `_make_client(ca_cert_pem=, tls_cert_sha256=)`
         def respond(request: httpx.Request):
             if seen is not None:
                 seen.append(request)

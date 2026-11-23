@@ -104,6 +104,10 @@ enum SelfUpdatePhase: Equatable {
 final class SelfUpdateManager: NSObject, ObservableObject {
 	static let shared = SelfUpdateManager()
 
+	/// A page of releases is tens of kilobytes. Four megabytes leaves room for a
+	/// large page without letting the response decide the app's memory use.
+	static let releasePageMaxBytes: Int64 = 4 * 1024 * 1024
+
 	@Published private(set) var latest: SelfUpdateRelease?
 	@Published private(set) var latestSemver: SelfUpdateRelease?
 	@Published private(set) var available: SelfUpdateRelease?
@@ -371,7 +375,9 @@ final class SelfUpdateManager: NSObject, ObservableObject {
 		// GitHub reports.
 		request.timeoutInterval = 20
 
-		let (data, response) = try await URLSession.shared.data(for: request)
+		// GitHub pages are small; the cap exists so a redirected or hostile host cannot
+		// make the update screen's memory use its own decision.
+		let (data, response) = try await BoundedResponseFetch.fetch(request, maximumBytes: Self.releasePageMaxBytes)
 		guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
 			throw NSError(domain: "SelfUpdate", code: (response as? HTTPURLResponse)?.statusCode ?? -1,
 						  userInfo: [NSLocalizedDescriptionKey: String.localized("Couldn't reach GitHub releases.")])

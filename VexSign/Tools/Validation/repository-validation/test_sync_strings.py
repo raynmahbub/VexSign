@@ -28,6 +28,45 @@ def entry(state=None, langs=("en",)):
     return data
 
 
+class PluralCoverageTests(unittest.TestCase):
+    """A count with no plural form reads "1 items" in English and is wrong in most languages."""
+
+    @staticmethod
+    def catalogue(*values):
+        return {"strings": {
+            value: {"localizations": {"en": {"stringUnit": {"state": "translated", "value": value}}}}
+            for value in values
+        }}
+
+    @staticmethod
+    def pluralised(value, one, other):
+        return {"localizations": {"en": {"variations": {"plural": {
+            "one": {"stringUnit": {"state": "translated", "value": one}},
+            "other": {"stringUnit": {"state": "translated", "value": other}},
+        }}}}}
+
+    def test_countable_english_without_variations_is_a_gap(self):
+        data = self.catalogue("%lld items", "Added %lld files", "Deleted %lld items")
+        self.assertEqual(sync.plural_gaps(data), ["%lld items", "Added %lld files", "Deleted %lld items"])
+
+    def test_variations_close_the_gap(self):
+        data = {"strings": {"%lld items": self.pluralised("%lld items", "%lld item", "%lld items")}}
+        self.assertEqual(sync.plural_gaps(data), [])
+
+    def test_a_verb_follower_is_not_a_plural_noun(self):
+        # "%lld items need review" is a sentence, not a noun phrase; demanding the
+        # mechanical rewrite the rule cannot produce would be a false failure.
+        data = self.catalogue("%lld ms", "Load command %lld points at a name outside itself.")
+        self.assertEqual(sync.plural_gaps(data), [])
+
+    def test_two_counts_in_one_sentence_are_left_to_a_translator(self):
+        data = self.catalogue("%lld updates · %lld signed · %lld queued · %lld skipped")
+        self.assertEqual(sync.plural_gaps(data), [])
+
+    def test_existing_catalogue_has_no_gaps(self):
+        self.assertEqual(sync.plural_gaps(sync.catalog()), [])
+
+
 class LiteralCollectionTests(unittest.TestCase):
     def test_foundation_localization_and_legacy_calls_share_catalog_keys(self):
         with tempfile.TemporaryDirectory() as directory:

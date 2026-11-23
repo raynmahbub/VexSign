@@ -105,12 +105,12 @@ struct HomeMetricCard: View {
                     .frame(height: 30)
 
                 Text(value)
-                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                    .font(.system(.title2, design: .monospaced, weight: .bold))
                     .foregroundStyle(FlarePalette.text)
                     .monospacedDigit()
 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced, weight: .medium))
                     .foregroundStyle(FlarePalette.muted)
             }
             .frame(maxWidth: .infinity)
@@ -138,12 +138,12 @@ struct HomeFeatureRow: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(title)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.system(.title3, design: .monospaced, weight: .bold))
                     .foregroundStyle(FlarePalette.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Text(subtitle)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced, weight: .medium))
                     .foregroundStyle(FlarePalette.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)

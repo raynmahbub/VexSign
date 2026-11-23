@@ -209,14 +209,40 @@ private var _writeContext: NSManagedObjectContext {
 		}
 	}
 	
+	/// Deletes every row of one entity.
+	///
+	/// A batch delete goes straight to the store and never touches the view context's
+	/// object graph: rows the context already holds stay visible, so the "count" rows
+	/// drop to zero while lists built from the same context keep showing them until the
+	/// app relaunches. `deleteAppsWithOutcome` merges its deletions for exactly this
+	/// reason; the clear paths did not.
 	func clearContext<T: NSManagedObject>(request: NSFetchRequest<T>) {
 		StorageConcurrency.requireMainQueue()
-		let deleteRequest = NSBatchDeleteRequest(fetchRequest: (request as? NSFetchRequest<NSFetchRequestResult>)!)
+		guard let entityName = request.entityName else { return }
+		let deleteRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+		deleteRequest.includesPropertyValues = false
+
+		// IDs only: a delete-all should not fault every row into the view context just to
+		// learn their identities.
+		let idRequest = NSFetchRequest<NSManagedObjectID>(entityName: entityName)
+		idRequest.resultType = .managedObjectIDResultType
+
+		let ids: [NSManagedObjectID]
 		do {
-			_ = try context.execute(deleteRequest)
+			ids = try context.fetch(idRequest)
 		} catch {
-			Logger.misc.error("Batch delete failed: \(error.localizedDescription, privacy: .public)")
+			Logger.misc.error("Could not read rows to clear: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+			return
 		}
+		guard !ids.isEmpty else { return }
+
+		do {
+			_ = try context.execute(NSBatchDeleteRequest(fetchRequest: deleteRequest))
+		} catch {
+			Logger.misc.error("Batch delete failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+			return
+		}
+		NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
 	}
 	
 	func countContent<T: NSManagedObject>(for type: T.Type) -> String {
@@ -235,6 +261,9 @@ private var _writeContext: NSManagedObjectContext {
 	}
 
 	func clearSignedApps(removeDirectory: Bool = true) {
+		let apps = fetchOnQueue(Signed.fetchRequest()).map { $0 as AppInfoPresentable }
+		guard let leases = _libraryLeases(apps) else { return }
+		defer { withExtendedLifetime(leases) {} }
 		clearContext(request: Signed.fetchRequest())
 		guard removeDirectory else { return }
 		do {
@@ -245,12 +274,35 @@ private var _writeContext: NSManagedObjectContext {
 	}
 
 	func clearImportedApps(removeDirectory: Bool = true) {
+		let apps = fetchOnQueue(Imported.fetchRequest()).map { $0 as AppInfoPresentable }
+		guard let leases = _libraryLeases(apps) else { return }
+		defer { withExtendedLifetime(leases) {} }
 		clearContext(request: Imported.fetchRequest())
 		guard removeDirectory else { return }
 		do {
 			try FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
 		} catch {
 			Logger.misc.error("Failed to remove imported apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+		}
+	}
+
+	/// The same per-app leases `deleteApps` takes, for the paths that remove a whole
+	/// library folder instead of one app.
+	///
+	/// Without them a "clear signed apps" could delete `signed/` while a signing or
+	/// install job was writing into it, which is the one thing the single-app path
+	/// spends its quarantine dance to avoid. `nil` means an app is busy and nothing
+	/// was removed.
+	private func _libraryLeases(_ apps: [AppInfoPresentable]) -> [AppOperationRegistry.Lease]? {
+		var leases: [AppOperationRegistry.Lease] = []
+		do {
+			for key in Set(apps.compactMap(AppOperationRegistry.key)) {
+				leases.append(try AppOperationRegistry.shared.acquire(key))
+			}
+			return leases
+		} catch {
+			Toast.error(error.localizedDescription)
+			return nil
 		}
 	}
 
@@ -394,6 +446,15 @@ private var _writeContext: NSManagedObjectContext {
 			}
 		}
 		UserDefaults.standard.set(true, forKey: key)
+	}
+
+	/// Dismisses the one-shot notice about a quarantined store.
+	///
+	/// Only the banner goes away: the quarantined files stay on disk where the
+	/// user can recover them from, and the next launch opens the fresh store with
+	/// no notice because the store itself is readable again.
+	func acknowledgeRecoveryNotice() {
+		recoveryNotice = nil
 	}
 
 	private func _quarantineStore(at url: URL?, reason: String) {

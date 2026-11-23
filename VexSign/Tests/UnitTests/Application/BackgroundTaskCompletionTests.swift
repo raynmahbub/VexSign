@@ -314,15 +314,17 @@ final class BackgroundTaskCompletionTests: XCTestCase {
         var samples: [BackgroundDownloadWork]
         var resumeCount = 0
         var pauseCount = 0
-        private var index = 0
+        /// Samples taken so far. A test can wait for the first one instead of sleeping and
+        /// hoping the runner got that far.
+        private(set) var observed = 0
 
         init(samples: [BackgroundDownloadWork]) {
             self.samples = samples
         }
 
         func currentWork() -> BackgroundDownloadWork {
-            defer { index += 1 }
-            return samples[min(index, samples.count - 1)]
+            defer { observed += 1 }
+            return samples[min(observed, samples.count - 1)]
         }
 
         func resumeAll() { resumeCount += 1 }
@@ -372,7 +374,7 @@ final class BackgroundTaskCompletionTests: XCTestCase {
     }
 
     @MainActor
-    func testRunnerExpirationPausesAndReportsFailureOnce() async {
+    func testRunnerExpirationPausesAndReportsFailureOnce() async throws {
         let recorder = Recorder()
         let gate = BackgroundTaskCompletionGate { recorder.record($0) }
         let monitor = StubMonitor(samples: [busy(0.1)])
@@ -386,8 +388,9 @@ final class BackgroundTaskCompletionTests: XCTestCase {
         )
 
         let run = Task { await runner.run() }
-        // Let the loop reach its first sleep, then expire it the way the system would.
-        try? await Task.sleep(for: .milliseconds(50))
+        // Expire it once the loop has taken its first sample, i.e. it is about to sleep —
+        // the moment the system would. A fixed 50 ms sleep here raced a loaded runner.
+        try await AsyncWait.until { monitor.observed >= 1 }
         runner.cancellation.cancel()
         await run.value
 

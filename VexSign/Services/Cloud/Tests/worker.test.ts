@@ -118,13 +118,19 @@ test('a truncated, oversized, missing or already-present asset is refused', asyn
   });
 });
 
-function routedDeps(routes: { job: Record<string, unknown> | null; asset: Record<string, unknown> | null }) {
+function routedDeps(
+  routes: { job: Record<string, unknown> | null; asset: Record<string, unknown> | null },
+  options: { claimWins?: boolean } = {},
+) {
   const statements: { sql: string; values: unknown[] }[] = [];
+  const claimed = options.claimWins ?? true;
   const infra = {
     pool: {
       query: async (sql: string, values: unknown[] = []) => {
         if (sql.startsWith('SELECT * FROM jobs')) return { rows: routes.job ? [routes.job] : [], rowCount: routes.job ? 1 : 0 };
         if (sql.startsWith('SELECT object_key')) return { rows: routes.asset ? [routes.asset] : [], rowCount: routes.asset ? 1 : 0 };
+        // The claim `queried` the transition, not just wrote the state: a losing attempt sees 0.
+        if (sql.startsWith("UPDATE jobs SET state='running'")) return { rows: [], rowCount: claimed ? 1 : 0 };
         return { rows: [], rowCount: 0 };
       },
       connect: async () => ({
@@ -148,6 +154,19 @@ test('a job already in a terminal state is left alone', async () => {
     // the password envelope that the terminal write cleared.
     assert.equal(statements.length, 0, `${state}: must not write`);
   }
+});
+
+test('a job that lost the claim writes nothing', async () => {
+  const sealed = seal('correct horse battery staple', key, jobId);
+  // The dispatcher re-published a job that another attempt had already claimed; the loser must
+  // not fetch assets, invoke the signer, or write a result over the winner's.
+  const { deps, statements } = routedDeps({
+    job: { id: jobId, state: 'queued', kind: 'sign', owner: 'owner-a', sealed_password: sealed,
+      p12_id: 'p12', provision_id: 'provision', ipa_id: 'ipa' },
+    asset: null,
+  }, { claimWins: false });
+  await processJob(deps, job());
+  assert.equal(statements.length, 0, 'a losing attempt must not write');
 });
 
 test('a failed job records and logs the specific reason, not a generic one', async () => {

@@ -317,6 +317,27 @@ struct LibraryView: View {
     // MARK: Main Content View
     @ViewBuilder
     private var mainContent: some View {
+        VStack(spacing: 0) {
+            if workspaceSection == nil {
+                recoveryBanner
+            }
+            libraryContent
+        }
+    }
+
+    /// One-shot after a quarantined store; invisible in every normal launch.
+    @ViewBuilder
+    private var recoveryBanner: some View {
+        if let notice = services.storeRecovery.pendingLibraryRecovery {
+            LibraryRecoveryBanner(notice: notice) {
+                services.storeRecovery.acknowledgeLibraryRecovery()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+        }
+    }
+
+    private var libraryContent: some View {
         ScrollViewReader { proxy in
             NBListAdaptable(
                 layout: libraryLayout != "list" && !_editMode.isEditing ? .grid : .list,

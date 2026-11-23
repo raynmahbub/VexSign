@@ -142,8 +142,9 @@ jobs:
   # Fast gate: everything that can be decided without Xcode.
   # ---------------------------------------------------------------------------
   quick:
-    if: >-
-      github.event.repository.private == false && github.event.repository.visibility == 'public'
+    # Not gated on public visibility, unlike the macOS jobs: it consumes no paid
+    # runner minutes, and gating it meant a private repository (or a private fork)
+    # silently skipped every validation while the check went green.
     name: quick · syntax, resources, gates
     outputs:
       native: ${{ steps.scope.outputs.native }}
@@ -196,6 +197,10 @@ jobs:
           python3 VexSign/Tools/Validation/repository-validation/test_repo_aliases.py
           python3 VexSign/Tools/Validation/architecture-rules/test_repository_layout.py
           python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --check
+          # Coverage, not just key presence: 12 locales are declared and each is
+          # about a fifth translated. The table goes to the run summary so the gap is
+          # visible before someone adds a thirteenth locale.
+          python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --report --markdown >> "$GITHUB_STEP_SUMMARY"
           python3 VexSign/Tools/Validation/repository-validation/test_sync_strings.py
           python3 VexSign/Tools/Validation/security-validation/error-discipline.py
           python3 VexSign/Tools/Validation/security-validation/singleton-freeze.py
@@ -280,6 +285,7 @@ jobs:
           python3 VexSign/Tools/Validation/security-validation/test_native_promotion_evidence.py
           python3 VexSign/Tools/Validation/security-validation/test_private_defaults_policy.py
           python3 VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py
+          python3 VexSign/Tools/Validation/security-validation/test_webmanager_wiring.py
           python3 VexSign/Tools/Validation/security-validation/test_network_timeout_policy.py
           python3 VexSign/Tools/Development/test_cloud_signing_contract.py
           python3 VexSign/Tools/Development/test_task_history_resilience.py
@@ -379,8 +385,6 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$DERIVED_DATA" \
             -resultBundlePath "$RESULT_BUNDLE" \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -543,6 +547,14 @@ jobs:
           REQUESTED_XCODE: ${{ inputs.xcode || vars.BUILD_XCODE || '' }}
         run: bash .github/scripts/select_xcode.sh
 
+      # The quick gate runs on Linux, where there is no swiftc, so its syntax parse is
+      # skipped and a green run says nothing about the Swift it never read. This job has
+      # the toolchain: parse every first-party module here, before the slower test build,
+      # and make a missing toolchain fatal instead of a warning.
+      - name: Swift syntax parse · every module
+        run: |
+          SWIFTC="$(xcrun --find swiftc)" python3 .github/scripts/quick_check.py --root . --require-swiftc
+
       # Isolated macOS tests compile the exact production foundation sources.
       # No IDevice binary, network service, account, signing identity or iPhone.
       - name: Device foundation · parser, storage and executor
@@ -617,8 +629,6 @@ jobs:
             -only-testing:VexSignTests \
             -parallel-testing-enabled YES \
             -parallel-testing-worker-count 2 \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
             VEXSIGN_SOURCE_COMMIT="$(git rev-parse HEAD)" \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
@@ -684,8 +694,10 @@ jobs:
         with:
           name: coverage-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/coverage.json
+          # Longer than every other artifact: this is a trend, not a failure log, and the
+          # least-covered list is only useful while the previous run is still there.
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 30
 
       # A failure is usually a destination or embedding problem, not an
       # assertion. Print what this runner actually offers.

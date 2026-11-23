@@ -51,7 +51,7 @@ extension ArchitectureDomainError: LocalizedError {
 
 // MARK: - Workspace Routes & Deep-Link Parsing
 
-/// Pure workspace destination identifiers decoded from `vexsign://` / `feather://` URLs.
+/// Pure workspace destination identifiers decoded from `vexsign://` URLs.
 enum WorkspaceDestination: String, Equatable, Sendable, CaseIterable {
     case home
     case apps
@@ -98,7 +98,10 @@ enum DeepLinkCommand: Equatable, Sendable {
     case openBackupFile(URL)
     case unsupported
 
-    private static let customAppSchemes: Set<String> = ["vexsign", "feather"]
+    /// Only the scheme this app registers in `Info.plist`. It used to also accept
+    /// `feather://`, which meant another installed app could drive installs,
+    /// certificate import and source adds through us by name; that scheme is gone.
+    private static let customAppSchemes: Set<String> = ["vexsign"]
     private static let packageExtensions: Set<String> = ["ipa", "tipa"]
     private static let tweakExtensions: Set<String> = ["dylib", "deb", "framework", "bundle", "zip"]
     /// Matches the `com.vexsign.backup` document type the app declares in
@@ -338,6 +341,19 @@ struct AppPrivacyItem: Identifiable, Equatable, Sendable {
     let isLocked: Bool
     let isHidden: Bool
     let bundleURL: URL?
+}
+
+/// A library that had to be set aside because its store could not be opened.
+///
+/// The rows are gone; the app bundles and certificates on disk are not. Without
+/// this the app just looks empty after an unreadable store is quarantined, which
+/// is indistinguishable from data loss to whoever is holding the phone.
+struct LibraryRecoveryNotice: Identifiable, Equatable, Sendable {
+    /// Quarantine folder name, unique per recovery and safe to show.
+    let id: String
+    let recoveredAt: Date
+    /// Redaction-safe one-line reason ("store could not be opened", etc.).
+    let summary: String
 }
 
 struct CertificateOptionItem: Identifiable, Equatable, Sendable {

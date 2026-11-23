@@ -282,5 +282,63 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertIn("guard verdict.isVerified else", verifier)
 
 
+class DeepLinkCertificateConsentTests(unittest.TestCase):
+    """A custom-scheme link must not install a signing identity by itself.
+
+    `vexsign://import-certificate?p12=…&mobileprovision=…&password=…` is reachable from any app or
+    web page. Importing stages a `.p12` and commits a row that can sign later installs, so the
+    user has to say yes; the files must also be removed once the outcome is known.
+    """
+
+    ROUTER = ROOT / "VexSign/App/iOS/Application/Shared/DeepLinkRouterUseCase.swift"
+
+    def test_the_import_waits_for_a_confirmation(self) -> None:
+        source = self.ROUTER.read_text()
+        self.assertIn("presentYesNoAlert(", source,
+                      "a link-originated certificate import must ask the user first")
+        self.assertLess(source.index("presentYesNoAlert("), source.index("self.importCertificateFiles("),
+                        "confirmation must come before the importer runs")
+
+    def test_an_invalid_pair_is_rejected_before_the_prompt(self) -> None:
+        source = self.ROUTER.read_text()
+        self.assertLess(source.index("guard validateCertificatePassword("),
+                        source.index("presentYesNoAlert("),
+                        "do not prompt for a pair that does not validate")
+
+    def test_the_staged_pair_is_discarded_through_the_port(self) -> None:
+        source = self.ROUTER.read_text()
+        self.assertIn("incomingFiles.discardTemporaryFile(", source)
+        self.assertNotIn("FileManager.default.removeItem", source,
+                         "application use cases reach the filesystem through their port")
+        self.assertIn("func discardTemporaryFile(_ url: URL)",
+                      (ROOT / "VexSign/App/iOS/Domain/Protocols/IncomingFilesProviding.swift").read_text())
+
+
+class BundledSigningMaterialTests(unittest.TestCase):
+    """A private key must never be able to travel inside a build.
+
+    `CertificateAutoImporter` reads `signing-assets/<name>/{cert.p12,cert.mobileprovision,cert.txt}`
+    out of the app bundle at launch and imports each folder as the default signing identity. That is
+    a developer convenience, but nothing stopped the folder from being committed or added to the
+    project: `*.p12` and `*.mobileprovision` are ignored while `cert.txt` — the password in
+    plaintext — is not, and no gate looked at the folder at all.
+    """
+
+    def test_the_drop_folder_is_ignored_by_git(self) -> None:
+        gitignore = (ROOT / ".gitignore").read_text()
+        self.assertIn("signing-assets/", gitignore,
+                      "the password file (cert.txt) is not covered by *.p12/*.mobileprovision")
+
+    def test_the_drop_folder_cannot_be_bundled_into_a_target(self) -> None:
+        project = (ROOT / "VexSign.xcodeproj/project.pbxproj").read_text()
+        self.assertNotIn("signing-assets", project,
+                         "a certificate folder added to the project ships in every archive")
+
+    def test_no_password_file_is_present_in_a_drop_folder(self) -> None:
+        offenders = [str(path.relative_to(ROOT))
+                     for path in ROOT.rglob("signing-assets/*/cert.txt")]
+        self.assertEqual(offenders, [], "plaintext certificate passwords must not sit in the tree")
+
+
 if __name__ == "__main__":
     unittest.main()

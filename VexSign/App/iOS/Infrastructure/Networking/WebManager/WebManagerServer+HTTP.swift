@@ -36,6 +36,19 @@ private struct AppInfo: Content {
 	let signed: Bool
 }
 
+/// One library row, resolved on the main actor so the recursive size walk can run
+/// off it. Value-only, so crossing actors needs no escape hatch.
+private struct AppListing: Sendable {
+	let uuid: String
+	let name: String
+	let version: String
+	let identifier: String
+	let added: String
+	let ts: Double
+	let signed: Bool
+	let directory: URL?
+}
+
 private struct TweakInfo: Content {
 	let id: String
 	let name: String
@@ -157,8 +170,18 @@ extension WebManagerServer {
 
 		app.on(.DELETE, "api", "tweaks", ":id") { req async -> Response in
 			guard let raw = req.parameters.get("id"), let id = UUID(uuidString: raw) else { return Response(status: .badRequest) }
-			await MainActor.run { TweakManager.shared.deleteTweak(id) }
-			return Response(status: .noContent)
+			// `deleteTweak` is a no-op for an id it does not hold, so the route has to
+			// look first to avoid reporting a removal that never happened.
+			let outcome: WebManagerDeletion.Result = await MainActor.run { () -> WebManagerDeletion.Result in
+				guard TweakManager.shared.tweaks.contains(where: { $0.id == id }) else { return .missing }
+				TweakManager.shared.deleteTweak(id)
+				return .removed
+			}
+			switch outcome {
+			case .removed: return Response(status: .noContent)
+			case .missing: return Response(status: .notFound)
+			case .failed: return Self.text("The tweak could not be removed.", .conflict)
+			}
 		}
 	}
 
@@ -248,11 +271,15 @@ extension WebManagerServer {
 
 		app.on(.DELETE, "api", "certs", ":uuid") { req async -> Response in
             guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
-            let deleted = await MainActor.run {
-                guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == uuid }) else { return true }
-                return Storage.shared.deleteCertificate(for: cert)
+            let outcome: WebManagerDeletion.Result = await MainActor.run { () -> WebManagerDeletion.Result in
+                guard let cert = Storage.shared.getAllCertificates().first(where: { $0.uuid == uuid }) else { return .missing }
+                return WebManagerDeletion.outcome(exists: true, removed: Storage.shared.deleteCertificate(for: cert))
             }
-            return deleted ? Response(status: .noContent) : Self.text("Certificate deletion could not be saved.", .internalServerError)
+            switch outcome {
+            case .removed: return Response(status: .noContent)
+            case .missing: return Response(status: .notFound)
+            case .failed: return Self.text("Certificate deletion could not be saved.", .internalServerError)
+            }
         }
 	}
 
@@ -260,20 +287,39 @@ extension WebManagerServer {
 
 	private func _configureApps(_ app: Application) {
 		app.get("api", "apps") { _ async -> Response in
-			let infos = await MainActor.run {
-				Storage.shared.getAllApps().map {
-					AppInfo(
-						uuid: $0.uuid ?? "",
-						name: $0.name ?? "App",
-						version: $0.version ?? "",
-						identifier: $0.identifier ?? "",
-						added: Self.dateString($0.date),
-						ts: $0.date?.timeIntervalSince1970 ?? 0,
-						size: Self.dirSize(Storage.shared.getAppDirectory(for: $0)),
-						signed: $0.isSigned
+			// The same library `/api/library` reports: a vaulted app is absent from the
+			// page the app itself serves, not only from the automation routes.
+			let rows: [AppListing] = await MainActor.run {
+				WebManagerServer.appsVisibleToAutomation().map { app in
+					AppListing(
+						uuid: app.uuid ?? "",
+						name: app.name ?? "App",
+						version: app.version ?? "",
+						identifier: app.identifier ?? "",
+						added: WebManagerServer.dateString(app.date),
+						ts: app.date?.timeIntervalSince1970 ?? 0,
+						signed: app.isSigned,
+						directory: Storage.shared.getAppDirectory(for: app)
 					)
 				}
 			}
+			// `dirSize` is a recursive walk over every bundle. It used to run inside the
+			// main-actor hop above, so loading this page blocked the app's own UI (and
+			// every other route) for as long as the library took to measure.
+			let infos: [AppInfo] = await Task.detached(priority: .utility) {
+				rows.map { row in
+					AppInfo(
+						uuid: row.uuid,
+						name: row.name,
+						version: row.version,
+						identifier: row.identifier,
+						added: row.added,
+						ts: row.ts,
+						size: WebManagerServer.dirSize(row.directory),
+						signed: row.signed
+					)
+				}
+			}.value
 			return Self.json(infos)
 		}
 
@@ -291,7 +337,8 @@ extension WebManagerServer {
             let info: (dir: URL, name: String, version: String, lease: AppOperationRegistry.Lease)?
             do {
                 info = try await MainActor.run {
-                    guard let target = Storage.shared.app(withUuid: uuid),
+                    guard !AppLockManager.shared.isAppHidden(uuid),
+                          let target = Storage.shared.app(withUuid: uuid),
                           let dir = Storage.shared.getAppDirectory(for: target) else { return nil }
                     let lease = try AppOperationRegistry.shared.acquire(AppOperationRegistry.key(target))
                     return (dir, target.name ?? "App", target.version ?? "", lease)
@@ -322,12 +369,19 @@ extension WebManagerServer {
 
 		app.on(.DELETE, "api", "apps", ":uuid") { req async -> Response in
 			guard let uuid = req.parameters.get("uuid") else { return Response(status: .badRequest) }
-			await MainActor.run {
-				if let target = Storage.shared.app(withUuid: uuid) {
-					Storage.shared.deleteApp(for: target)
-				}
+			// A 204 used to mean "the request was accepted", so a script that named a
+			// uuid the library did not have — or one the vault hides — was told the
+			// app was gone. The outcome now matches `/api/files/:name`.
+			let outcome: WebManagerDeletion.Result = await MainActor.run { () -> WebManagerDeletion.Result in
+				guard !uuid.isEmpty, !AppLockManager.shared.isAppHidden(uuid),
+				      let target = Storage.shared.app(withUuid: uuid) else { return .missing }
+				return WebManagerDeletion.outcome(exists: true, removed: Storage.shared.deleteApp(for: target))
 			}
-			return Response(status: .noContent)
+			switch outcome {
+			case .removed: return Response(status: .noContent)
+			case .missing: return Response(status: .notFound)
+			case .failed: return Self.text("The app is in use or its deletion could not be saved.", .conflict)
+			}
 		}
 	}
 

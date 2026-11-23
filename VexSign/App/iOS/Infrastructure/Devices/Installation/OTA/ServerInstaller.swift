@@ -185,7 +185,7 @@ class ServerInstaller: Identifiable, ObservableObject {
 			FileLogger.log("self check reached the server: HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)", category: "install")
 			return nil
 		} catch {
-			FileLogger.error("self check could not reach \(url.absoluteString): \(error.localizedDescription)", category: "install")
+			FileLogger.error("self check could not reach \(url.logSafeDescription): \(error.localizedDescription)", category: "install")
 			return error
 		}
 	}

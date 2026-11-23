@@ -87,6 +87,9 @@ before rotation. iOS does not allow the app to silently install or trust a CA.
 
 **Semi Local still uses a remote manifest service.** This change removes the
 certificate-pack dependency, not all network services or Apple's signing rules.
+Semi Local sends the device's LAN payload URL (including its per-install token) to
+`vexsign-install.vexsign.workers.dev` and `api.palera.in`, and serves the signed IPA
+over plain HTTP on the LAN; see [Direct OTA](../Workflows/ota.md#semi-local-is-not-private).
 Profile trust and `itms-services` behavior require real-device testing; TLS
 certificate generation alone does not prove successful installation.
 
@@ -159,8 +162,18 @@ build and simulator validation. Each attaches:
 - the app icon and Home **design illustration**, not a device screenshot;
 - `SHA256SUMS` covering the IPA, notes, metadata and both visual assets.
 
-The publisher verifies checksums before publishing. These are integrity checks,
-not cryptographic attestations or independent proof of installation. Optional
+The publisher verifies checksums before publishing, then attests build provenance
+for the IPA, `SHA256SUMS` and `RELEASE.json` with
+`actions/attest-build-provenance`. `SHA256SUMS` travels in the same release as
+the files it describes, so it proves the bytes match that list and nothing about
+their origin; the attestation is the signed statement that this workflow, at this
+commit, produced them:
+
+```bash
+gh attestation verify VexSign-unsigned-<version>.ipa --repo raynmahbub/VexSign
+```
+
+Neither proves the app was installed on a device. Optional
 version-specific highlights belong in `VexSign/Documentation/Release/<version>.md`; see the
 [authoring guide](README.md). Images in notes are commit-pinned so future
 main-branch changes do not alter old release presentations.

@@ -67,17 +67,17 @@ extension RenewalPlan {
 	var summary: String {
 		switch status {
 		case .notDue:
-			.localized("Renews in \(daysRemaining) days")
+			.localized("Renews in %lld days", arguments: daysRemaining)
 		case .due:
-			.localized("Renew within \(daysRemaining) days")
+			.localized("Renew within %lld days", arguments: daysRemaining)
 		case .urgent:
 			daysRemaining <= 0
 				? .localized("Expires today")
-				: .localized("Expires in \(daysRemaining) days")
+				: .localized("Expires in %lld days", arguments: daysRemaining)
 		case .lapsed:
-			.localized("Expired \(abs(daysRemaining)) days ago")
+			.localized("Expired %lld days ago", arguments: abs(daysRemaining))
 		case .blocked:
-			.localized("Expires in \(daysRemaining) days — needs a new certificate")
+			.localized("Expires in %lld days — needs a new certificate", arguments: daysRemaining)
 		case .unknown:
 			.localized("No expiry date could be read")
 		}
@@ -88,6 +88,9 @@ extension RenewalPlan {
 		let date = DateFormatter()
 		date.dateStyle = .medium
 		date.timeStyle = .none
-		return .localized("Signing stops on \(date.string(from: expiresAt)). \(status.explanation)")
+		return .localized(
+			"Signing stops on %@. %@",
+			arguments: date.string(from: expiresAt), status.explanation
+		)
 	}
 }

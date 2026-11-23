@@ -5,7 +5,7 @@ name: Release
 # Check build_only for an unpublished test IPA. The build job is read-only;
 # publishing runs in a separate protected job. CI-completion events only detect
 # version bumps; they cannot build. Configure the release environment first —
-# see VexSign/Documentation/RELEASING.md. Device TLS is created on device.
+# see VexSign/Documentation/Release/RELEASING.md. Device TLS is created on device.
 
 on:
   workflow_run:
@@ -446,6 +446,9 @@ jobs:
     environment: ${{ needs.build.outputs.channel == 'nightly' && 'nightly' || 'release' }}
     permissions:
       contents: write
+      # Build provenance: the attestation is signed by this workflow's identity.
+      id-token: write
+      attestations: write
     steps:
       # No checkout or execution of repository build scripts with a write token.
       - name: Download this run's verified release bundle
@@ -457,6 +460,18 @@ jobs:
       - name: Verify asset checksums
         working-directory: upload
         run: sha256sum --check SHA256SUMS
+
+      # SHA256SUMS ships in the same release as the artifacts it describes, so it
+      # proves "these bytes match this list" and nothing about who produced them.
+      # The attestation is a signed statement that this workflow, at this commit,
+      # built these bytes — verifiable with `gh attestation verify`.
+      - name: Attest build provenance for the verified assets
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            upload/*.ipa
+            upload/SHA256SUMS
+            upload/RELEASE.json
 
       - name: Refuse overwriting an existing release
         env:

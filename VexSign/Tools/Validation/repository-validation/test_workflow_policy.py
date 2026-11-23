@@ -581,6 +581,18 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('artifact-ids: ${{ needs.build.outputs.artifact_id }}', publish)
         self.assertIn('sha256sum --check SHA256SUMS', publish)
         self.assertIn('Release already exists', publish)
+
+    def test_publisher_attests_the_bytes_it_publishes(self):
+        """SHA256SUMS ships beside the artifacts, so it cannot vouch for who built them."""
+        publish = block((WORKFLOWS / "release.yml").read_text(), 'publish', 2)
+        self.assertIn('actions/attest-build-provenance@', publish)
+        self.assertIn('id-token: write', publish)
+        self.assertIn('attestations: write', publish)
+        self.assertIn('subject-path:', publish)
+        self.assertIn('upload/*.ipa', publish)
+        # The attestation has to cover what was verified, not a re-downloaded copy.
+        self.assertLess(publish.index('sha256sum --check SHA256SUMS'),
+                        publish.index('actions/attest-build-provenance@'))
         for name in ('release.yml',):
             for use in re.findall(r'uses: ([^\s]+)', (WORKFLOWS / name).read_text()):
                 self.assertRegex(use, r'@[a-f0-9]{40}$')
@@ -746,12 +758,49 @@ class WorkflowPolicyTests(unittest.TestCase):
             events = block((WORKFLOWS / name).read_text(), 'on', 0)
             self.assertNotIn('pull_request', events)
 
+    #: Runners whose minutes are billed at a premium on a private repository.
+    PAID_RUNNERS = ('macos-15',)
+    #: Workflows that *act on* the repository — publishing releases, pushing commits,
+    #: filing issues — rather than validating it. They stay tied to the canonical public
+    #: repository: a private fork must not publish releases or open maintenance issues.
+    PUBLISHING_WORKFLOWS = frozenset({
+        'release.yml', 'repo-maintenance.yml', 'ci-repair-assistant.yml', 'update_repo.yml',
+    })
+
     def test_free_only_workflow_policy(self):
-        for path in WORKFLOWS.glob('*.yml'):
+        """Paid runner minutes stay behind the visibility gate; free validation does not.
+
+        The gate exists to keep Actions free (macOS minutes are billed), and it used to
+        cover every job in every workflow. That made a private repository — or a private
+        fork, or a temporary visibility change during a security scare — skip *all*
+        validation with a green check and no annotation. Ubuntu validation jobs now run
+        regardless; the premium runner jobs and the workflows that write to the repository
+        keep the gate, so the cost policy is unchanged where it actually costs.
+        """
+        validated_gate_free = []
+        for path in sorted(WORKFLOWS.glob('*.yml')):
             text = path.read_text()
-            for job in re.findall(r'^  ([A-Za-z0-9_-]+):$', block(text, 'jobs', 0), re.MULTILINE):
-                self.assertIn('github.event.repository.private == false', block(block(text, 'jobs', 0), job, 2))
-                self.assertIn("github.event.repository.visibility == 'public'", block(block(text, 'jobs', 0), job, 2))
+            jobs = block(text, 'jobs', 0)
+            for job in re.findall(r'^  ([A-Za-z0-9_-]+):$', jobs, re.MULTILINE):
+                job_block = block(jobs, job, 2)
+                gated = 'github.event.repository.private == false' in job_block
+                paid = any(f'runs-on: {runner}' in job_block for runner in self.PAID_RUNNERS)
+                must_gate = paid or path.name in self.PUBLISHING_WORKFLOWS
+                if must_gate:
+                    self.assertTrue(
+                        gated,
+                        f'{path.name}:{job} spends paid runner minutes or writes to the '
+                        'repository, so it needs the public-visibility gate',
+                    )
+                    self.assertIn("github.event.repository.visibility == 'public'", job_block)
+                else:
+                    self.assertFalse(
+                        gated,
+                        f'{path.name}:{job} is free validation: gating it means a private '
+                        'repository skips every check and still reports success',
+                    )
+                    self.assertNotIn("github.event.repository.visibility == 'public'", job_block)
+                    validated_gate_free.append(f'{path.name}:{job}')
             self.assertNotIn('models: read', text)
             for runner in re.findall(r'runs-on: (.+)', text):
                 self.assertIn(runner, ('ubuntu-24.04', 'macos-15'))
@@ -769,8 +818,19 @@ class WorkflowPolicyTests(unittest.TestCase):
                     self.assertIsNotNone(match)
                     self.assertEqual(re.findall(r'retention-days: (\d+)', match[0]), ['14'])
                     retention_text = retention_text[:match.start()] + retention_text[match.end():]
+            if path.name == 'ci.yml':
+                # The coverage JSON is a trend, not a failure log: it is the only artifact
+                # allowed past three days, and only for that reason.
+                match = re.search(r'(?ms)^      - name: Upload coverage report\n.*?retention-days: (\d+)', retention_text)
+                self.assertIsNotNone(match)
+                self.assertEqual(match[1], '30')
+                retention_text = retention_text[:match.start()] + retention_text[match.end():]
             for retention in re.findall(r'retention-days: (\d+)', retention_text):
                 self.assertLessEqual(int(retention), 3)
+        # Something must actually run for a private repository, or the policy above is
+        # satisfied by a tree where every job is gated.
+        for expected in ('ci.yml:quick', 'docs.yml:links', 'services.yml:pytest'):
+            self.assertIn(expected, validated_gate_free, expected)
         for removed in ('autopilot.yml', 'auto-stable.yml', 'dependency-audit.yml',
                         'server-tests.yml', 'ecosystem.yml'):
             self.assertFalse((WORKFLOWS / removed).exists())

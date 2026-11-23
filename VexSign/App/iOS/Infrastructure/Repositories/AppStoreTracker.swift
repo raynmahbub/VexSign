@@ -46,6 +46,10 @@ enum AppStoreTracker {
 	/// iTunes Search API — free, unauthenticated, returns JSON.
 	static let lookupEndpoint = "https://itunes.apple.com/lookup"
 
+	/// One lookup answers with a single entry (metadata and artwork URLs), so the
+	/// body is bounded well below what an unbounded buffer would allow.
+	static let maximumResponseBytes: Int64 = 2 * 1024 * 1024
+
 	/// Builds the lookup request. `country` only affects which storefront answers.
 	static func requestURL(for bundleID: String, country: String = "us") -> URL? {
 		let trimmed = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -67,7 +71,13 @@ enum AppStoreTracker {
 
 		let data: Data
 		do {
-			let (fetched, _) = try await session.data(from: url)
+			// The lookup body is one small JSON object; the cap is what keeps a
+			// misdirected request from becoming an unbounded buffer.
+			let (fetched, _) = try await BoundedResponseFetch.fetch(
+				URLRequest(url: url),
+				maximumBytes: Self.maximumResponseBytes,
+				session: session
+			)
 			data = fetched
 		} catch {
 			throw TrackerError.transport(error.localizedDescription)

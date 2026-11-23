@@ -128,6 +128,7 @@ Available from **Settings → Ecosystem**.
 - **Certificate Dashboard** with profile payloads, entitlements, team information, expiry countdowns and device/bundle scope.
 - **Local trust / OCSP checks**, status indicators and opt-in best-effort daily checks and alerts.
 - **Local HTTPS trust setup** using a device-generated TLS identity; no shared certificate pack is downloaded by the normal build.
+- **Optional community certificate catalogue** (hosted by a third party, off until you read and accept its warning). It imports a shared identity whose password is published, so anyone can sign apps that claim to come from it and its owner can revoke it at any time — fine for trying the workflow, not for anything you care about. See [security](VexSign/Documentation/Security/THREAT_MODEL.md).
 - **P12 password recovery tools** for your own password-protected certificates.
 - **Face ID / passcode app lock** when the app leaves the foreground.
 - **Keychain-backed secret storage and migration** for supported passwords and API credentials.
@@ -284,7 +285,8 @@ Read [Free Apple ID setup](VexSign/Documentation/Security/FREE_APPLE_ID_SETUP.md
 ## Build & test
 
 Use macOS and an Xcode with the SDK required by the current branch (the app uses
-iOS 26 SDK APIs). `make bootstrap` validates your environment and resolves packages.
+iOS 26 SDK APIs; the minimum deployment target is iOS 17.0, and newer APIs are behind
+availability checks). `make bootstrap` validates your environment and resolves packages.
 
 ```bash
 git clone https://github.com/raynmahbub/VexSign.git

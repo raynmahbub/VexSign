@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import NimbleExtensions
 
 struct DownloadBubbleOverlayContainer: View {
     @ObservedObject var downloadManager: DownloadManager
@@ -101,6 +102,12 @@ struct DownloadBubbleView: View {
                         .onTapGesture {
                             showOverlay = true
                         }
+                        // The bubble is a drawn ring with a fixed-size percentage inside it, so there
+                        // is no text for VoiceOver to read: name the action and give the value.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel(Text(.localized("Downloads")))
+                        .accessibilityValue(Text(verbatim: "\(Int(model.summary.progress * 100))%"))
                         .frame(width: 56, height: 56)
                         .padding(0)
                         .position(dragAmount ?? CGPoint(x: geometry.size.width - 40, y: geometry.size.height - 100))

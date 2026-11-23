@@ -39,6 +39,7 @@ public class NBFetchService {
 		case noData
 		case httpError(Int)
 		case parsingError(Error)
+		case responseTooLarge(Int)
 
 		public var errorDescription: String? {
 			switch self {
@@ -47,6 +48,7 @@ public class NBFetchService {
 			case .noData: "No data received."
 			case .httpError(let code): "Server returned HTTP \(code)."
 			case .parsingError(let error): "Failed to parse data: \(error.localizedDescription)"
+			case .responseTooLarge(let limit): "The response is larger than the \(limit)-byte limit for a repository feed."
 			}
 		}
 	}
@@ -104,9 +106,25 @@ private final class NBFetchRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
 // MARK: - Class extension: fetch
 extension NBFetchService {
+	/// Ceiling for one response body. A repository feed is metadata: the catalog
+	/// and sync paths already refuse anything above 20 MB, and a directory
+	/// listing above 2 MB is not a feed. The limit exists so a hostile or broken
+	/// host cannot make the app allocate an unbounded buffer before anyone
+	/// inspects the payload.
+	public static let defaultMaxBytes = 20 * 1024 * 1024
+
+	/// Host-only description used in logs. The full URL can carry credentials,
+	/// premium tokens or signed download parameters, and the log stream is
+	/// readable by the system and included in diagnostics.
+	static func logTarget(_ url: URL) -> String {
+		guard let host = url.host, !host.isEmpty else { return "<no host>" }
+		return url.port.map { "\(host):\($0)" } ?? host
+	}
+
 	public func fetch<T: Decodable>(
 		from urlString: String,
 		headers: [String: String] = [:],
+		maxBytes: Int = NBFetchService.defaultMaxBytes,
 		completion: @escaping (Result<T, Error>) -> Void
 	) {
 		guard let url = URL(string: urlString) else {
@@ -114,15 +132,16 @@ extension NBFetchService {
 			return
 		}
 
-		fetch(from: url, headers: headers, completion: completion)
+		fetch(from: url, headers: headers, maxBytes: maxBytes, completion: completion)
 	}
 
 	public func fetch<T: Decodable>(
 		from url: URL,
 		headers: [String: String] = [:],
+		maxBytes: Int = NBFetchService.defaultMaxBytes,
 		completion: @escaping (Result<T, Error>) -> Void
 	) {
-		fetchRaw(from: url, headers: headers) { result in
+		fetchRaw(from: url, headers: headers, maxBytes: maxBytes) { result in
 			switch result {
 			case .success(let data):
 				do {
@@ -130,8 +149,9 @@ extension NBFetchService {
 					let decodedData = try decoder.decode(T.self, from: data)
 					completion(.success(decodedData))
 				} catch {
-					let snippet = String(data: data.prefix(512), encoding: .utf8) ?? "<non-utf8 \(data.count) bytes>"
-					Self.log.error("Request PARSE FAIL \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)\nBody: \(snippet, privacy: .public)")
+					// The body is not logged: feeds can be private, and a snippet is
+					// enough to identify an account or a signed download URL.
+					Self.log.error("Request PARSE FAIL \(Self.logTarget(url), privacy: .public): \(error.localizedDescription, privacy: .public) (\(data.count, privacy: .public) bytes)")
 					completion(.failure(NBFetchServiceError.parsingError(error)))
 				}
 			case .failure(let error):
@@ -143,9 +163,15 @@ extension NBFetchService {
 	/// Fetches the raw response body. Host apps use this when they need the
 	/// undecoded payload — e.g. to keep an offline snapshot of a repository
 	/// that can be re-decoded later without another request.
+	///
+	/// The transfer goes to disk (`downloadTask`) rather than into a growing
+	/// `Data`, so `maxBytes` is a real ceiling: the decoded size is checked before
+	/// the body is read, and a response that exceeds it fails with
+	/// `responseTooLarge` instead of being buffered into memory.
 	public func fetchRaw(
 		from url: URL,
 		headers: [String: String] = [:],
+		maxBytes: Int = NBFetchService.defaultMaxBytes,
 		completion: @escaping (Result<Data, Error>) -> Void
 	) {
 		// The completion runs on the URLSession callback queue; boxing it
@@ -155,13 +181,15 @@ extension NBFetchService {
 			init(_ handler: @escaping (Result<Data, Error>) -> Void) { self.handler = handler }
 		}
 		let box = CompletionBox(completion)
+		let limit = max(1, maxBytes)
 
 		DispatchQueue.global(qos: .userInitiated).async {
-			// Create URLRequest with gzip support
 			var request = URLRequest(url: url)
-			request.setValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
 			request.cachePolicy = .reloadIgnoringLocalCacheData
 			request.timeoutInterval = 30
+			// `Accept-Encoding` is deliberately not set. URLSession negotiates it
+			// and decodes the body itself; setting the header manually hands this
+			// code compressed bytes that nothing here inflates.
 
 			// Apply custom headers
 			for (key, value) in headers {
@@ -184,32 +212,47 @@ extension NBFetchService {
 				}
 			}
 
-			let task = Self.sharedSession.dataTask(with: request) { data, response, error in
+			let task = Self.sharedSession.downloadTask(with: request) { location, response, error in
 				if let error = error {
-					Self.log.error("Request FAILED \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+					Self.log.error("Request FAILED \(Self.logTarget(url), privacy: .public): \(error.localizedDescription, privacy: .public)")
 					box.handler(.failure(NBFetchServiceError.networkError(error)))
 					return
 				}
 
 				let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
 
-				guard let data = data else {
-					Self.log.error("Request NO DATA \(url.absoluteString, privacy: .public) (HTTP \(statusCode, privacy: .public))")
+				guard let location else {
+					Self.log.error("Request NO DATA \(Self.logTarget(url), privacy: .public) (HTTP \(statusCode, privacy: .public))")
 					box.handler(.failure(NBFetchServiceError.noData))
 					return
 				}
 
-				// Non-2xx responses are logged with a body snippet so auth/server
-				// rejections (e.g. premium 401/403/422) are visible instead of
-				// silently failing to decode and looking like an infinite load.
-				if !(200..<300).contains(statusCode) {
-					let snippet = String(data: data.prefix(512), encoding: .utf8) ?? "<non-utf8 \(data.count) bytes>"
-					Self.log.error("Request HTTP \(statusCode, privacy: .public) \(url.absoluteString, privacy: .public)\nBody: \(snippet, privacy: .public)")
+				// The downloaded file holds the decoded body, so this is the size the
+				// caller would actually have to hold. It is checked before any read.
+				let attributes = try? FileManager.default.attributesOfItem(atPath: location.path)
+				let byteCount = (attributes?[.size] as? NSNumber)?.intValue ?? 0
+				guard byteCount <= limit else {
+					Self.log.error("Request TOO LARGE \(Self.logTarget(url), privacy: .public) (HTTP \(statusCode, privacy: .public)): \(byteCount, privacy: .public) bytes, limit \(limit, privacy: .public)")
+					box.handler(.failure(NBFetchServiceError.responseTooLarge(limit)))
+					return
+				}
+
+				// Non-2xx responses are reported with the status and host only, so
+				// auth/server rejections stay diagnosable without copying a body
+				// snippet into the system log.
+				guard (200..<300).contains(statusCode) else {
+					Self.log.error("Request HTTP \(statusCode, privacy: .public) \(Self.logTarget(url), privacy: .public) (\(byteCount, privacy: .public) bytes)")
 					box.handler(.failure(NBFetchServiceError.httpError(statusCode)))
 					return
 				}
 
-				Self.log.debug("Request OK (HTTP \(statusCode, privacy: .public)) \(url.absoluteString, privacy: .public)")
+				guard let data = try? Data(contentsOf: location) else {
+					Self.log.error("Request UNREADABLE \(Self.logTarget(url), privacy: .public) (HTTP \(statusCode, privacy: .public))")
+					box.handler(.failure(NBFetchServiceError.noData))
+					return
+				}
+
+				Self.log.debug("Request OK (HTTP \(statusCode, privacy: .public)) \(Self.logTarget(url), privacy: .public) (\(data.count, privacy: .public) bytes)")
 				box.handler(.success(data))
 			}
 

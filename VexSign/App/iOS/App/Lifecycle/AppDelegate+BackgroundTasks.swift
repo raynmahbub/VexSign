@@ -15,7 +15,12 @@ import UIKit
 extension AppDelegate {
 	func _registerBackgroundTasks() {
         guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
-        if #available(iOS 19.0, *) {
+        // BGContinuedProcessingTask ships with iOS 26 (the release after iOS 18 — there is no
+        // iOS 19, so an `#available(iOS 19.0, *)` gate was true only by accident). Submitting a
+        // request also needs `com.apple.developer.background-tasks.continued-processing`, which
+        // provisioning profiles for sideloaded installs do not carry; the submit below therefore
+        // fails harmlessly on those builds. See Documentation/Development/PLATFORMS.md.
+        if #available(iOS 26.0, *) {
             // BGContinuedProcessingTask: user-initiated download that starts foreground, continues backgrounded.
             BGTaskScheduler.shared.register(
                 forTaskWithIdentifier: "com.vexsign.background.download.continued",
@@ -97,7 +102,7 @@ extension AppDelegate {
         }
     }
 	
-	@available(iOS 19.0, *)
+	@available(iOS 26.0, *)
 	private func _handleContinuedProcessing(task: BGContinuedProcessingTask) {
         // Progress reporting is required by the system for a continued-processing task.
         task.progress.totalUnitCount = 100
@@ -212,14 +217,44 @@ extension AppDelegate {
         request.requiresExternalPower = false
         request.earliestBeginDate = Date(timeIntervalSinceNow: 1)
 
+        // Submitting twice for one identifier is rejected by the scheduler ("too many pending
+        // task requests"), and this is now also called when a download starts, so replace any
+        // pending request instead of stacking one per download.
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: request.identifier)
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
+            // Silent failure made a rejected request indistinguishable from "nothing pending".
+            Logger.misc.error("Failed to schedule background download: \(error.localizedDescription)")
+        }
+        // The processing task is the fast path; this is the fallback that re-wakes the app if
+        // the system never grants it.
+        _scheduleBackgroundRefreshTask()
+    }
+
+    /// Arms the `background.refresh` fallback task.
+    ///
+    /// The handler was registered (and the identifier permitted in Info.plist) but no
+    /// `BGAppRefreshTaskRequest` was ever submitted, so the system could never launch it and
+    /// `_handleBackgroundRefresh` was unreachable. Cancel before submitting: repeated calls
+    /// would otherwise stack duplicate requests and spend the refresh budget for nothing.
+    func _scheduleBackgroundRefreshTask() {
+        guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
+        let identifier = "com.vexsign.background.refresh"
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+
+        let request = BGAppRefreshTaskRequest(identifier: identifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            Logger.misc.error("Failed to schedule background refresh: \(error.localizedDescription)")
         }
     }
 
-    // iOS 19+: for active foreground downloads that may be backgrounded.
-    @available(iOS 19.0, *)
+    // iOS 26+: for active foreground downloads that may be backgrounded. Requires the
+    // continued-processing entitlement, which is granted per provisioning profile.
+    @available(iOS 26.0, *)
     func submitContinuedProcessingTask() {
         guard EmbeddedContainerRuntime.supportsScheduledGuestTasks else { return }
         let activeDownloads = DownloadManager.shared.downloads.filter {

@@ -16,6 +16,10 @@ Security and device acceptance stay separate.
 4. Occasionally review failure issues, major upgrades, conflicts and pending
    approvals. Signing/provisioning/security changes and real-device tests need you.
 
+App-side destructive actions (reset tweak library, reset certificates, reset signed/imported
+apps) follow one contract: guarded by leases, rows before files, memory after disk. See
+[Deletion](DELETION.md).
+
 A bounded AI repair assistant is available for eligible failed same-repository PRs; it proposes a draft replacement PR and never merges source-code changes. It requires the optional `OPENAI_API_KEY` Actions secret. See [CI repair assistant](CI_REPAIR_ASSISTANT.md) for its limits and setup.
 
 ## Workflow map
@@ -161,6 +165,35 @@ Set Actions variables to the literal `false`:
 Unset means enabled. Disable the relevant workflow to stop scheduled operations
 entirely, and cancel already-running jobs separately. Never commit credentials.
 
+## Local-only inputs that must never be committed
+
+- `signing-assets/` — the dev-only certificate drop folder read by
+  `CertificateAutoImporter` at launch. Each `<name>/` holds `cert.p12`,
+  `cert.mobileprovision` and `cert.txt` (the password, in plaintext), and every folder is
+  imported as the **default** identity. It is gitignored, and
+  `security-validation/test_signing_identity_policy.py` fails if the folder is added to
+  `project.pbxproj` or if a `cert.txt` appears in the tree — an archive that ships the folder
+  ships a signing key.
+- Anything under `VexSign/Configuration/Build/` that is generated (the `FilePickerFix.dylib`
+  shim) is built by a run-script phase, not checked in.
+
+## Background tasks
+
+Registered identifiers live in `AppDelegate+BackgroundTasks` and must also appear in
+`Configuration/Build/iOS/Info.plist` under `BGTaskSchedulerPermittedIdentifiers`.
+
+- `com.vexsign.background.download` (`BGProcessingTask`) and
+  `com.vexsign.background.refresh` (`BGAppRefreshTask`) are both submitted;
+  `_scheduleBackgroundDownloadTask()` arms the processing task and the refresh task arms the
+  fallback, so neither identifier exists only as a registration.
+- `com.vexsign.background.maintenance` is submitted when the user enables automation.
+- `com.vexsign.background.download.continued` (`BGContinuedProcessingTask`, iOS 26) additionally
+  needs `com.apple.developer.background-tasks.continued-processing`. Provisioning profiles used
+  for sideloaded installs do not carry it, so the submit throws and is logged; the app keeps
+  using the processing task path. Do not add the entitlement to
+  `Configuration/Entitlements/iOS/VexSign.entitlements` unless your profile actually grants it —
+  signing fails at install time when the profile and the entitlements disagree.
+
 ## Build cost and workflow boundaries
 
 Ten workflow entry points are retained intentionally: CI, documentation, service
@@ -172,6 +205,17 @@ workflow runs emit completion events. Maintenance's own failures remain visible
 through GitHub Actions notifications rather than recursively opening issues.
 VexSign/Documentation/services do not need macOS. Optional native link diagnostics run
 only on request. Release/listing write permissions never run PR code.
+
+Visibility and cost are separate decisions. Only the jobs that spend premium runner
+minutes — every `macos-15` job (build, simulator tests, concurrency report, Platform
+check, combined host, Release) — and the workflows that write to the repository
+(Release, repository maintenance, the CI repair assistant, stable listing updates) are
+gated on the repository being public. The Linux validation jobs (`CI → quick`,
+Documentation, Service checks, the combined-host `checks` job, the device-bridge
+`native` job) run for private repositories and private forks as well, because gating
+them meant a visibility change silently skipped the entire safety net while the check
+stayed green. The rule is asserted by
+`VexSign/Tools/Validation/repository-validation/test_workflow_policy.py`.
 
 CI examines the complete PR diff, not just its latest commit. Known portable
 Python tooling/changelog/docs-only changes keep Linux gates but skip the native

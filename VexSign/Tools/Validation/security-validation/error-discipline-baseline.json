@@ -13,7 +13,6 @@
   "VexSign/App/iOS/Infrastructure/Devices/CapabilityDetection/AntiRevokeManager.swift": 2,
   "VexSign/App/iOS/Infrastructure/Devices/Installation/InstallConfirmation.swift": 1,
   "VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ManifestService.swift": 1,
-  "VexSign/App/iOS/Infrastructure/Devices/Installation/OTA/ServerInstaller+Compute.swift": 1,
   "VexSign/App/iOS/Infrastructure/Devices/Installation/TLS/LocalCAProfile.swift": 3,
   "VexSign/App/iOS/Infrastructure/Devices/Installation/TLS/LocalTLSIdentity.swift": 3,
   "VexSign/App/iOS/Infrastructure/Devices/Installation/TLS/ServerInstaller+TLS.swift": 1,
