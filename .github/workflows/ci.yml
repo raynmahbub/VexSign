@@ -323,6 +323,26 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+      # The macOS jobs below are gated on public visibility so a private mirror cannot spend the
+      # project's macOS runner budget (see `test_workflow_policy.py::test_free_only_workflow_policy`).
+      # A job that never starts leaves nothing in the check list but its absence, so say it here:
+      # a green pull request from a private fork must not read as a validated one.
+      - name: Say that the macOS jobs are skipped
+        if: github.event.repository.private == true || github.event.repository.visibility != 'public'
+        run: |
+          {
+            echo "### macOS build and tests were skipped"
+            echo
+            echo "This repository is private, so \`build\`, \`tests\`, \`concurrency\` and the"
+            echo "platform builds did not start — they are paid-runner jobs. The portable gates"
+            echo "in this job ran. Nothing here compiled the Swift in this change."
+            echo
+            echo "Policy: \`Tools/Validation/repository-validation/test_workflow_policy.py\`,"
+            echo "\`test_free_only_workflow_policy\`. Validate a change that must be compiled in a"
+            echo "public fork."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=macOS validation skipped::private repository; the app was not built and its tests did not run"
+
   # ---------------------------------------------------------------------------
   # Does it compile?
   # ---------------------------------------------------------------------------
