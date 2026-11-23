@@ -584,7 +584,8 @@ final class WebManagerServer {
 	) -> EventLoopFuture<Response> {
         // Require the reserve, plus the declared body when the client sent a length. A body
         // without one is bounded as it arrives by `spaceCheckInterval` below.
-        let declared = request.headers.contentLength
+        // `HTTPHeaders.contentLength` is internal in Vapor; the public read is the header itself.
+        let declared = request.headers.first(name: .contentLength).flatMap(Int.init) ?? 0
         let expected = declared > 0 ? min(declared, maximumBytes) : 0
         guard WebManagerTransferLimits.hasRoom(
             freeBytes: WebManagerTransferLimits.availableBytes(),

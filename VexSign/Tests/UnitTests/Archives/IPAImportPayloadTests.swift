@@ -45,6 +45,27 @@ final class IPAImportPayloadTests: XCTestCase {
 		return url
 	}
 
+	/// Compares by resolved path: `appendingPathComponent(_:isDirectory:)` keeps a trailing
+	/// slash that `contentsOfDirectory` does not return, and both name the same directory.
+	private func assertApp(
+		_ expected: URL,
+		in payload: URL,
+		_ message: String = "",
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) {
+		do {
+			let found = try IPAImportPayload.application(in: payload)
+			XCTAssertEqual(
+				found.resolvingSymlinksInPath().standardizedFileURL.path,
+				expected.resolvingSymlinksInPath().standardizedFileURL.path,
+				message, file: file, line: line
+			)
+		} catch {
+			XCTFail("\(message) Expected \(expected.path), got \(error)", file: file, line: line)
+		}
+	}
+
 	private func assertThrows(
 		_ expected: IPAImportPayload.ValidationError,
 		in payload: URL,
@@ -65,13 +86,13 @@ final class IPAImportPayloadTests: XCTestCase {
 	func testStandardPayloadLayoutWins() throws {
 		let app = try makeDirectory("Payload/Example.app")
 		_ = try makeFile("Payload/Example.app/Example")
-		XCTAssertEqual(try IPAImportPayload.application(in: try makeDirectory("Payload")), app)
+		assertApp(app, in: try makeDirectory("Payload"))
 	}
 
 	func testAppAtTheTopLevelOfAPlainArchive() throws {
 		let app = try makeDirectory("Example.app")
 		_ = try makeFile("Example.app/Example")
-		XCTAssertEqual(try IPAImportPayload.application(in: root), app)
+		assertApp(app, in: root)
 	}
 
 	// MARK: - One folder deep (the case that was refused)
@@ -80,9 +101,9 @@ final class IPAImportPayloadTests: XCTestCase {
 		let app = try makeDirectory("Wrapped/Example.app")
 		_ = try makeFile("Wrapped/Example.app/Example")
 		_ = try makeFile("Wrapped/README.txt")
-		XCTAssertEqual(
-			try IPAImportPayload.application(in: root),
+		assertApp(
 			app,
+			in: root,
 			"A package that wraps the bundle in a folder must import, not fail as 'no app bundle'"
 		)
 	}
@@ -91,7 +112,7 @@ final class IPAImportPayloadTests: XCTestCase {
 		let app = try makeDirectory("Release/Example.app")
 		_ = try makeFile("Release/Example.app/Example")
 		_ = try makeDirectory("__MACOSX/Example.app")
-		XCTAssertEqual(try IPAImportPayload.application(in: root), app, "__MACOSX is metadata, not a candidate")
+		assertApp(app, in: root, "__MACOSX is metadata, not a candidate")
 	}
 
 	func testTwoAppsOneFolderDeepAreAmbiguous() throws {
@@ -112,7 +133,7 @@ final class IPAImportPayloadTests: XCTestCase {
 		let app = try makeDirectory("Example.app")
 		_ = try makeDirectory("Example.app/Watch/Watch.app")
 		_ = try makeDirectory("Example.app/PlugIns/Widget.appex")
-		XCTAssertEqual(try IPAImportPayload.application(in: root), app)
+		assertApp(app, in: root)
 	}
 
 	func testAnEmptyExtractionNamesTheMissingPayload() throws {
