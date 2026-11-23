@@ -113286,28 +113286,6 @@
         }
       }
     },
-    "This copy is already installed. Installing VexSign — or the next update — needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. VexSign then installs other apps; it never re-signs or reinstalls itself." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This copy is already installed. Installing VexSign — or the next update — needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. VexSign then installs other apps; it never re-signs or reinstalls itself."
-          }
-        }
-      }
-    },
-    "VexSign cannot install itself" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VexSign cannot install itself"
-          }
-        }
-      }
-    },
     "Downloading %lld files" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -113437,6 +113415,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show All Logs"
+          }
+        }
+      }
+    },
+    "This copy is already installed. Getting VexSign onto a device in the first place needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. Updates do not: sign the release in Library with the certificate this build was signed with, and the update sheet installs it in place. Nothing is ever sent to an updater." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy is already installed. Getting VexSign onto a device in the first place needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. Updates do not: sign the release in Library with the certificate this build was signed with, and the update sheet installs it in place. Nothing is ever sent to an updater."
+          }
+        }
+      }
+    },
+    "VexSign cannot perform its first install by itself" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VexSign cannot perform its first install by itself"
           }
         }
       }

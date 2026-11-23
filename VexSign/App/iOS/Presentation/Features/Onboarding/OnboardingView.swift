@@ -211,20 +211,21 @@ struct OnboardingView: View {
 	}
 }
 
-/// The one thing a new user has to understand before anything else works: VexSign cannot
-/// install itself.
+/// The one thing a new user has to understand before anything else works: VexSign cannot perform
+/// its own *first* install.
 ///
 /// The app is already installed by the time this screen appears, which makes the question "how
-/// did it get here, and how do I install the *next* copy" easy to skip — and then a failed
-/// self-update or a reinstall reads as a bug. The bootstrap routes are the subject of
+/// did it get here, and how do I get the next copy" easy to skip — and then a failed install or a
+/// missing store route reads as a bug. The bootstrap routes are the subject of
 /// `Documentation/Workflows/bootstrap.md`; this card is the sentence from it that matters at
-/// first launch.
+/// first launch. Updates are the exception and are named as one: a signed copy in Library can be
+/// installed in place from the update sheet, which needs no installer at all.
 private struct BootstrapFact: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 6) {
-			Label(.localized("VexSign cannot install itself"), systemImage: "exclamationmark.shield")
+			Label(.localized("VexSign cannot perform its first install by itself"), systemImage: "exclamationmark.shield")
 				.font(.subheadline.weight(.semibold))
-			Text(.localized("This copy is already installed. Installing VexSign — or the next update — needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. VexSign then installs other apps; it never re-signs or reinstalls itself."))
+			Text(.localized("This copy is already installed. Getting VexSign onto a device in the first place needs one of: an existing installer such as SideStore or AltStore, a signed IPA installed through Xcode, or an OTA/enterprise route you already trust. Updates do not: sign the release in Library with the certificate this build was signed with, and the update sheet installs it in place. Nothing is ever sent to an updater."))
 				.font(.caption)
 				.foregroundStyle(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
