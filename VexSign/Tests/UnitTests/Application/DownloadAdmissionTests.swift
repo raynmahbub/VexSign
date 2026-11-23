@@ -145,7 +145,7 @@ final class DownloadAdmissionTests: XCTestCase {
 
     @MainActor
     func testCapQueuesExcessWorkAndDuplicateDoesNotReplaceRunningTask() throws {
-        withManager { manager in
+        try withManager { manager in
             let first = manager.startDownload(from: url(1))
             let task = try XCTUnwrap(first.task)
             let second = manager.startDownload(from: url(2))
@@ -162,7 +162,7 @@ final class DownloadAdmissionTests: XCTestCase {
 
     @MainActor
     func testSlotReleaseAdmitsNextWaitingTransfer() throws {
-        withManager { manager in
+        try withManager { manager in
             let first = manager.startDownload(from: url(1))
             let second = manager.startDownload(from: url(2))
             let third = manager.startDownload(from: url(3))
@@ -178,7 +178,7 @@ final class DownloadAdmissionTests: XCTestCase {
 
     @MainActor
     func testPauseAllIncludesQueuedTransfersAndResumePreservesTaskOwnership() throws {
-        withManager { manager in
+        try withManager { manager in
             let first = manager.startDownload(from: url(1))
             let second = manager.startDownload(from: url(2))
             let original = try XCTUnwrap(first.task)
@@ -227,7 +227,7 @@ final class DownloadAdmissionTests: XCTestCase {
 
     @MainActor
     func testOldCompletionCannotReleaseReplacementTaskSlot() throws {
-        withManager { manager in
+        try withManager { manager in
             let first = manager.startDownload(from: url(1))
             let oldTask = try XCTUnwrap(first.task)
             let replacement = try XCTUnwrap(try XCTUnwrap(manager._foregroundSession).downloadTask(with: url(1)))
