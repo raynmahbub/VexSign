@@ -13,10 +13,11 @@ enum RepositoryDirectoryClient {
         }
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
-        // Scope repository credentials strictly to configured premium origins; never send
-        // a redeemed API key to raw.githubusercontent.com or other public directory hosts.
-        if VexSignAPI.shouldAttachAPIKey(to: url), let key = EsignSourceKey.customApiKey {
-            request.setValue(key, forHTTPHeaderField: "X-API-Key")
+        // Credentials go to configured premium origins only (the rule `authHeaders` uses),
+        // never to raw.githubusercontent.com or another public directory host.
+        let apiKey = EsignSourceKey.customApiKey
+        if VexSignAPI.isPremiumSource(url), !apiKey.isEmpty {
+            request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
         }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20

@@ -62,7 +62,12 @@ class NetworkRequestTimeoutPolicyTests(unittest.TestCase):
                 # The request built from `marker` must have a timeout before it is sent.
                 marker_at = source.find(marker)
                 self.assertNotEqual(marker_at, -1, f"{relative}: expected {marker!r} to still exist")
-                window = source[marker_at:marker_at + 1200]
+                # Wide enough to cover a request builder plus its comments: the check
+                # below still requires `timeoutInterval` to appear *before* the send, and
+                # the old 1200 was so close to the length of RepositoryDirectoryClient's
+                # builder that a four-line comment pushed the send out of the window and
+                # the gate reported "no request" for a file that plainly has one.
+                window = source[marker_at:marker_at + 2000]
                 match = re.search(SEND_PATTERN, window)
                 send = match.start() if match else -1
                 self.assertNotEqual(send, -1, f"{relative}: no request found after {marker!r}")
