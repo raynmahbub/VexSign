@@ -35,6 +35,7 @@ versioned with the code.
 | [Free Apple ID handoff](Security/NATIVE_SIGNING_HANDOFF.md) | You are wiring (or reviewing) the join between native provisioning and the signer — read this before promising a Free Apple ID flow. |
 | [Signing and import reliability](Decisions/History/native-signing-and-import.md) | You need native execution ownership, input validation, extraction guarantees and their acceptance tests. |
 | [Web tools](Development/WEBTOOLS.md) | You are integrating with the browser manager, API or WebDAV. |
+| [Web Manager routes](Workflows/web-manager.md) | You are adding or reviewing a `/api/…` endpoint, a WebDAV method or an auth gate, and need the route table and what each one exposes. |
 | [Source signing](Architecture/SOURCE_SIGNING.md) | You publish a repository and want signed source metadata. |
 | [Distribution architecture and audit](Workflows/architecture.md) | You need the iOS bootstrap/signing feasibility matrix and phased repository map. |
 | [iPhone-only bootstrap](Workflows/bootstrap.md) | You need to understand which initial installation routes are actually available. |

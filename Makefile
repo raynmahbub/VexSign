@@ -11,7 +11,7 @@ TMP := $(if $(TMPDIR),$(TMPDIR),/tmp)/$(NAME)
 SPM_CACHE_PATH ?=
 STAGE := $(TMP)/stage
 APP := $(TMP)/Build/Products/Release-$(PLATFORM)
-.PHONY: test-server test-cloud verify-services help docs-check all clean bootstrap test verify typecheck lint format deploy-server strict-concurrency audit-packages $(SCHEMES)
+.PHONY: test-server test-cloud verify-services help docs-check all clean bootstrap test verify typecheck lint format deploy-server strict-concurrency audit-packages hooks $(SCHEMES)
 
 all: $(SCHEMES)
 
@@ -24,17 +24,27 @@ help:
 	  'make typecheck        Type-check the app with xcodebuild (macOS/Xcode)' \
 	  'make docs-check       Check local Markdown file links (offline)' \
 	  'make test             App simulator tests (macOS/Xcode)' \
+	  'make test SUITE=A,B   Only the named test classes (fast iterate loop)' \
 	  'make test-device-foundation  Credential-free parser/storage/executor tests (macOS Swift)' \
 	  'make device-smoke     Install/launch signed app on an explicitly selected physical device' \
 	  'make test-server      Python backend tests (install server requirements first)' \
 	  'make test-cloud       Cloud build, tests and contract drift check (npm ci first)' \
 	  'make verify-services  Both service suites above, in one command' \
+	  'make hooks            Install the pre-push hook that runs the fast gate' \
 	  'make lint [FIX=1]     Optional SwiftLint report or corrections' \
 	  'make format [FIX=1]   Optional swiftformat report or corrections' \
 	  'make strict-concurrency  Build local packages with concurrency diagnostics' \
 	  'make audit-packages   Read-only upstream dependency audit (network)' \
 	  'make deploy-server    Build optional server Docker image' \
 	  'make clean            Remove local IPA staging/output'
+
+# Opt in to the pre-push hook: `git config core.hooksPath .githooks`, no global
+# configuration and nothing installed into .git. Undo with `git config --unset core.hooksPath`.
+hooks:
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/*
+	@printf '%s\n' "pre-push hook installed: quick_check.py + sync-strings.py --check"
+	@printf '%s\n' "undo with: git config --unset core.hooksPath"
 
 docs-check:
 	@python3 VexSign/Tools/Validation/repository-validation/check-docs.py
@@ -155,6 +165,7 @@ verify: docs-check
 	  "python3 VexSign/Tools/Validation/security-validation/test_private_defaults_policy.py" \
 	  "python3 VexSign/Tools/Validation/security-validation/test_archive_extraction_policy.py" \
 	  "python3 VexSign/Tools/Validation/security-validation/test_webmanager_wiring.py" \
+  "python3 VexSign/Tools/Validation/security-validation/test_webmanager_doc_routes.py" \
 	  "python3 VexSign/Tools/Validation/security-validation/test_network_timeout_policy.py" \
 	  "python3 VexSign/Tools/Validation/security-validation/test_capability_disclosure.py" \
 	  "python3 VexSign/Tools/Validation/security-validation/test_logging_message_policy.py" \
@@ -318,6 +329,17 @@ format:
 #   make test                     # newest available iPhone simulator
 #   make test SIMULATOR="platform=iOS Simulator,name=iPhone 16"   # explicit
 SIMULATOR ?= auto
+# Which suites to run. Empty means the whole target, which is what CI runs.
+#
+#   make test                                  # all 2,300 tests, ~30 min
+#   make test SUITE=RenewalScheduleTests       # one class, seconds after the build
+#   make test SUITE=RenewalScheduleTests,WebManagerAccessTests
+#
+# Hand-assembling that `-only-testing` list is what people get wrong (workspace,
+# scheme, signing flags, derived-data path), and a mistyped suite silently runs
+# zero tests. The comment is the only reason this variable exists.
+SUITE ?=
+comma := ,
 test:
 	@if [ "$(SIMULATOR)" = "auto" ]; then \
 		dest="$$(python3 .github/scripts/select_simulator.py --print-id 2>/dev/null)"; \
@@ -339,7 +361,7 @@ test:
 	    -configuration Debug \
 	    -destination "$$dest" \
 	    -derivedDataPath "$(TMP)/TestDerivedData" \
-	    -only-testing:VexSignTests \
+	    $(if $(strip $(SUITE)),$(foreach suite,$(subst $(comma), ,$(SUITE)),-only-testing:VexSignTests/$(strip $(suite))),-only-testing:VexSignTests) \
 	    -parallel-testing-enabled YES \
 	    -parallel-testing-worker-count 2 \
 	    CODE_SIGNING_ALLOWED=YES \

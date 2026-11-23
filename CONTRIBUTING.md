@@ -71,9 +71,24 @@ do not change historical feed or commit-pinned URLs by mass substitution.
 ## Validate changes
 
 ```bash
+make hooks        # once: pre-push runs the fast gate (undo: git config --unset core.hooksPath)
 make verify
 make test
 make lint        # when SwiftLint is installed
+```
+
+`make hooks` points `core.hooksPath` at `.githooks/` in this clone only. The pre-push
+hook runs `quick_check.py` and `sync-strings.py --check` — a few seconds, and it catches
+the failures nobody wants to learn about from a 30-minute CI run (an unparseable Swift
+file, a resource missing from the project, a literal with no catalogue key). `make verify`
+is still the real gate, and CI runs both.
+
+`make test` runs the whole simulator suite (~2,300 tests, ~30 minutes). While iterating,
+name the suites you are changing:
+
+```bash
+make test SUITE=RenewalScheduleTests
+make test SUITE=RenewalScheduleTests,WebManagerAccessTests
 ```
 
 `make verify` runs repository checks without Xcode — every gate, in one pass, with the
@@ -91,6 +106,14 @@ them (they need `pip` and `npm` installs), so a backend change — the install s
 `VexSign/Services/WebManager` or the cloud API in `VexSign/Services/Cloud` — needs
 `make verify-services` as well. That is the pair that keeps the request and response shapes
 documented in [WEBTOOLS.md](VexSign/Documentation/Development/WEBTOOLS.md) honest.
+
+The on-device Web Manager's routes and their authentication are documented in
+[web-manager.md](VexSign/Documentation/Workflows/web-manager.md); adding or removing an
+endpoint fails `make verify` until that table is updated (`test_webmanager_doc_routes.py`).
+
+`make test` builds once and then runs the selection, so the second and later runs are
+the cheap ones. Test code is compiled into one target, so a file's suite name is its
+class name, not its folder.
 
 Two CI gates are deliberately not in `make verify` because they need a tool most machines
 do not have and fail rather than skip: `check-swift-format-drift.py` (the pinned
