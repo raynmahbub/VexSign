@@ -425,7 +425,9 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         self.assertNotIn('contents(of: fm.webManagerInbox)', leftovers)
         server = self.text('VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer.swift')
         self.assertNotIn('Self.stagedCopy(of: url) ?? url', server)
-        self.assertIn('WebManagerUploadFile(destination: destination)', server)
+        # The ceiling is passed alongside the destination (WebManagerTransferLimits); the
+        # transfer must still go through WebManagerUploadFile rather than a raw FileHandle.
+        self.assertRegex(server, r'WebManagerUploadFile\(destination: destination, maximumBytes: maximumBytes\)')
         self.assertIn('try upload.commit()', server)
         self.assertIn('WebManagerRouter.route(staged, lease:', server)
         dav = self.text('VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer+WebDAV.swift')

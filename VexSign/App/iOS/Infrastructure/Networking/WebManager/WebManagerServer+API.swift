@@ -178,7 +178,14 @@ extension WebManagerServer {
 			let ipaURL = staging.appendingPathComponent("upload.ipa")
 			let promise = req.eventLoop.makePromise(of: Response.self)
 
-			let streamed = self.streamToFile(req, destination: ipaURL, route: false, report: false, successStatus: .ok)
+			let streamed = self.streamToFile(
+				req,
+				destination: ipaURL,
+				route: false,
+				report: false,
+				successStatus: .ok,
+				maximumBytes: WebManagerTransferLimits.signing
+			)
 			streamed.whenSuccess { response in
                 guard response.status == .ok else {
                     if FileManager.default.fileExists(atPath: staging.path) {
