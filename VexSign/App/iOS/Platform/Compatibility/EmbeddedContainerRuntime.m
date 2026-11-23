@@ -38,7 +38,7 @@ static BOOL VEXHostImageIsExecutable(Class runtime) {
     NSString *path = [NSString stringWithUTF8String:image];
     if (path.length == 0) return NO;
     if ([path containsString:@".framework/"]) return NO;
-    return ![path.pathExtension.lowercased() isEqualToString:@"dylib"];
+    return ![[path.pathExtension lowercaseString] isEqualToString:@"dylib"];
 }
 
 NSArray<NSString *> *VEXEmbeddedRuntimeMissingSelectors(void) {
