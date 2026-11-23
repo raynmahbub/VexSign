@@ -70,6 +70,11 @@ struct RuntimeCapabilityReport: Equatable {
     enum Reason: String, Equatable {
         /// The ordinary app: the embedded runtime is a different build.
         case runtimeNotLoaded
+        /// A combined build whose host is loaded but incomplete: an older fork, or
+        /// one built before this version's entry points existed. Distinct from
+        /// `runtimeNotLoaded`, because the fix is a matching host, not a reinstall
+        /// of the same app.
+        case hostIncomplete
         /// The host is present but this layout never installs the relevant hooks.
         case notPartOfThisLayout
         /// The operation restarts the host process, which the caller has to consent to.
@@ -93,11 +98,20 @@ struct RuntimeCapabilityReport: Equatable {
         var isGuestBuild: Bool
         var isPrimaryHost: Bool
         var runtimeLoaded: Bool
+        /// Host entry points the loaded host does not answer. Empty for an
+        /// ordinary install and for a host that implements the whole contract.
+        var missingHostSelectors: [String]
 
-        init(isGuestBuild: Bool, isPrimaryHost: Bool, runtimeLoaded: Bool) {
+        init(
+            isGuestBuild: Bool,
+            isPrimaryHost: Bool,
+            runtimeLoaded: Bool,
+            missingHostSelectors: [String] = []
+        ) {
             self.isGuestBuild = isGuestBuild
             self.isPrimaryHost = isPrimaryHost
             self.runtimeLoaded = runtimeLoaded
+            self.missingHostSelectors = missingHostSelectors
         }
     }
 
@@ -153,6 +167,13 @@ struct RuntimeCapabilityReport: Equatable {
             return environment == .combinedGuestPrototype ? .unavailable(.notPartOfThisLayout) : .available
         }
         guard facts.runtimeLoaded, environment != .standalone else {
+            // A combined build whose host answered but is missing an entry point is
+            // not the same failure as an ordinary install with no host: telling
+            // that user "the runtime is not loaded" sends them to reinstall the
+            // app they already have.
+            if environment != .standalone, !facts.missingHostSelectors.isEmpty {
+                return .unavailable(.hostIncomplete)
+            }
             return .unavailable(.runtimeNotLoaded)
         }
 
@@ -214,6 +235,8 @@ extension RuntimeCapabilityReport.Reason {
         switch self {
         case .runtimeNotLoaded:
             return .localized("LiveContainer and SideStore ship in the combined build, not in an ordinary install. This copy signs and installs apps; it cannot host them, and nothing is missing from your device.")
+        case .hostIncomplete:
+            return .localized("This is a combined build, and its host is an older or different version than this app expects. One of the two needs updating; reinstalling this app alone will not change it.")
         case .notPartOfThisLayout:
             return .localized("This layout of the combined app deliberately does not install that hook, so the operation restarts nothing and leaves no state behind.")
         case .restartsHost:

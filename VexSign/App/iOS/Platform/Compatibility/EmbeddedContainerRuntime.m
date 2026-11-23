@@ -2,10 +2,42 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-static Class VEXHostRuntime(void) {
+/// The entry points this build calls on the host, in one place so the probe and
+/// the availability gate cannot disagree about the contract.
+static NSArray<NSString *> *VEXRequiredHostSelectors(void) {
+    return @[
+        @"vexSignCombinedHostAvailable",
+        @"launchToGuestAppWithURL:",
+        @"vexSignStageIPA:",
+        @"vexSignGuestInfo:",
+    ];
+}
+
+/// Whether this process was packaged as part of a combined host at all.
+static BOOL VEXDeclaresHostMetadata(void) {
     NSDictionary *metadata = NSBundle.mainBundle.infoDictionary;
-    if (![metadata[@"VexSignEmbeddedGuest"] boolValue] && ![metadata[@"VexSignPrimaryHost"] boolValue]) return Nil;
-    Class runtime = NSClassFromString(@"LCSharedUtils");
+    return [metadata[@"VexSignEmbeddedGuest"] boolValue] || [metadata[@"VexSignPrimaryHost"] boolValue];
+}
+
+static Class VEXHostClass(void) {
+    return NSClassFromString(@"LCSharedUtils");
+}
+
+NSArray<NSString *> *VEXEmbeddedRuntimeMissingSelectors(void) {
+    if (!VEXDeclaresHostMetadata()) return VEXRequiredHostSelectors();
+    Class runtime = VEXHostClass();
+    NSMutableArray<NSString *> *missing = [NSMutableArray array];
+    for (NSString *name in VEXRequiredHostSelectors()) {
+        if (!runtime || ![runtime respondsToSelector:NSSelectorFromString(name)]) {
+            [missing addObject:name];
+        }
+    }
+    return missing;
+}
+
+static Class VEXHostRuntime(void) {
+    if (!VEXDeclaresHostMetadata()) return Nil;
+    Class runtime = VEXHostClass();
     SEL available = NSSelectorFromString(@"vexSignCombinedHostAvailable");
     if (!runtime || ![runtime respondsToSelector:available]) return Nil;
     BOOL (*invoke)(id, SEL) = (BOOL (*)(id, SEL))(void *)objc_msgSend;

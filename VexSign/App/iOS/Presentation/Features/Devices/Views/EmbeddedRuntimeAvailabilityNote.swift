@@ -35,6 +35,14 @@ struct EmbeddedRuntimeAvailabilityNote: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                // A combined build can reach a host that is present but older than
+                // this app. Naming the entry points it does not answer is the
+                // difference between "update the host" and "something is broken".
+                if let diagnosis = EmbeddedContainerRuntime.hostDiagnosis {
+                    Text(verbatim: diagnosis)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 Text(.localized("Signing and installation are unaffected: they use the certificate, provisioning profile and transport you already configured."))
                     .font(.caption)
                     .foregroundStyle(.secondary)

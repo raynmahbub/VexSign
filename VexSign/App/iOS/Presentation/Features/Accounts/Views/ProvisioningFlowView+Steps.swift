@@ -157,11 +157,11 @@ extension ProvisioningFlowView {
             )
 
             if selectedApp?.isSigned == true {
-                Toggle(.localized("Require a later expiry than this signed library copy"), isOn: $requireLaterProfile)
+                Toggle(.localized("Require a later expiry than this signed library copy"), isOn: $consent.laterProfile)
                     .disabled(cellularReview)
-                    .onChange(of: requireLaterProfile) { _, _ in approveRegeneration = false }
-                if requireLaterProfile {
-                    Toggle(.localized("Request one regeneration of this app’s existing Apple profile"), isOn: $approveRegeneration)
+                    .onChange(of: consent.laterProfile) { _, _ in consent.regeneration = false }
+                if consent.laterProfile {
+                    Toggle(.localized("Request one regeneration of this app’s existing Apple profile"), isOn: $consent.regeneration)
                     Text(.localized("Changes the profile on Apple’s portal. Requires the original native account receipt. An uncertain request is not automatically repeated."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -169,9 +169,20 @@ extension ProvisioningFlowView {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Toggle(.localized("Approve one development certificate if no owned certificate exists (uses Apple quota)"), isOn: $approveCertificate)
-            Toggle(.localized("Approve this device and App ID registration"), isOn: $approveRegistration)
-            Toggle(.localized("Approve a profile for this exact app, device and owned identity"), isOn: $approveProfile)
+            Toggle(.localized("Approve one development certificate if no owned certificate exists (uses Apple quota)"), isOn: $consent.certificate)
+            Toggle(.localized("Approve this device and App ID registration"), isOn: $consent.registration)
+            Toggle(.localized("Approve a profile for this exact app, device and owned identity"), isOn: $consent.profile)
+
+            if let blocked = consent.blockedReason(
+                hasSession: contextID != nil,
+                hasApp: true,
+                isProvisioning: isProvisioning
+            ) {
+                Text(verbatim: blocked)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
             VStack(spacing: 12) {
                 Button {
@@ -191,10 +202,10 @@ extension ProvisioningFlowView {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isProvisioning || (cellularReview && (!cellularAvailable || !approveRegeneration)) || contextID == nil || !approveCertificate || !approveRegistration || !approveProfile)
+                .disabled(isProvisioning || (cellularReview && (!cellularAvailable || !consent.regeneration)) || contextID == nil || !consent.certificate || !consent.registration || !consent.profile)
 
                 Button(.localized("Back")) {
-                    approveCertificate = false; approveRegistration = false; approveProfile = false; approveRegeneration = false
+                    consent.certificate = false; consent.registration = false; consent.profile = false; consent.regeneration = false
                     step = .selectDevice
                 }
                 .buttonStyle(.bordered)
@@ -287,7 +298,7 @@ extension ProvisioningFlowView {
             }
 
             if !certificateImported {
-                Toggle(.localized("I consent to exporting this device-only private key once into VexSign's certificate store."), isOn: $approveKeyExport)
+                Toggle(.localized("I consent to exporting this device-only private key once into VexSign's certificate store."), isOn: $consent.keyExport)
                     .disabled(isProvisioning)
                 Button {
                     guard provisioningTask == nil else { return }
@@ -303,7 +314,7 @@ extension ProvisioningFlowView {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isProvisioning || !approveKeyExport)
+                .disabled(isProvisioning || !consent.keyExport)
 
                 Text(.localized("Experimental: strict Apple CMS verification is configured. Genuine current Apple-profile compatibility and physical-device acceptance remain unverified; unsupported profiles are refused, not decoded as trusted plists."))
                     .font(.caption)
@@ -319,16 +330,16 @@ extension ProvisioningFlowView {
 
     @MainActor
     private func importCreatedCertificate() async {
-        guard let context = reviewedContextID, context == contextID, let profile = createdProfile, approveKeyExport, !certificateImported else { return }
+        guard let context = reviewedContextID, context == contextID, let profile = createdProfile, consent.keyExport, !certificateImported else { return }
         isProvisioning = true
         errorMessage = nil
         defer { isProvisioning = false }
         do {
-            let result = try await manager.importCertificate(profile, consentGiven: approveKeyExport)
+            let result = try await manager.importCertificate(profile, consentGiven: consent.keyExport)
             guard !Task.isCancelled, contextID == context, reviewedContextID == context else { return }
             signingHandoff = result
             certificateImported = true
-            approveKeyExport = false
+            consent.keyExport = false
         } catch {
             if !(error is CancellationError) { errorMessage = error.localizedDescription }
         }

@@ -15,13 +15,43 @@ enum EmbeddedContainerRuntime {
 
     static var isAvailable: Bool { VEXEmbeddedRuntimeAvailable() }
 
+    /// Host entry points this build calls that the loaded host does not answer.
+    ///
+    /// Empty in a host that implements the whole contract. Non-empty in an
+    /// ordinary install (there is no host) *and* in a combined build whose host
+    /// is an older or renamed fork, which is the case the single availability
+    /// boolean could not describe: both looked identical from here.
+    static var missingHostSelectors: [String] {
+        VEXEmbeddedRuntimeMissingSelectors()
+    }
+
+    /// One sentence naming what a combined build's host is missing, or `nil`.
+    ///
+    /// Deliberately `nil` for an ordinary install: that build has no host, and
+    /// saying so twice — once as "not part of this build" and once as a list of
+    /// missing methods — would read as two separate problems.
+    static var hostDiagnosis: String? {
+        guard isGuestBuild || isPrimaryHost else { return nil }
+        let missing = missingHostSelectors
+        guard !missing.isEmpty else { return nil }
+        return String.localized(
+            "The host in this build does not implement the entry points this version calls: %@. Install a host build that matches this VexSign version; until then, importing into the embedded container cannot work.",
+            arguments: missing.joined(separator: ", ")
+        )
+    }
+
     /// The one answer to "what can this build do with the runtime".
     ///
-    /// Built from the same three flags the callers used to read one at a time, so it cannot
+    /// Built from the same flags the callers used to read one at a time, so it cannot
     /// drift from them. Tests inject `Facts` instead of a bundle.
     static var capabilityReport: RuntimeCapabilityReport {
         RuntimeCapabilityReport.make(
-            .init(isGuestBuild: isGuestBuild, isPrimaryHost: isPrimaryHost, runtimeLoaded: isAvailable)
+            .init(
+                isGuestBuild: isGuestBuild,
+                isPrimaryHost: isPrimaryHost,
+                runtimeLoaded: isAvailable,
+                missingHostSelectors: missingHostSelectors
+            )
         )
     }
 
@@ -54,6 +84,13 @@ enum EmbeddedContainerRuntime {
         defer { try? manager.removeItem(at: root) } // try? ok: best-effort cleanup of a private staging copy
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        // Validated before it is copied and again afterwards. The first pass
+        // refuses a hostile archive without materialising it — a rejected 1.5 GB
+        // guest used to be copied into Caches in full before anyone looked at its
+        // entries — and the second covers the window in which a document provider
+        // can change the file between that check and the copy.
+        try ArchiveSafetyValidator.validate(source)
+        try Task.checkCancellation()
         let local = root.appendingPathComponent("Import.ipa")
         try manager.copyItem(at: source, to: local)
         try Task.checkCancellation()

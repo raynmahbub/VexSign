@@ -334,8 +334,11 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
 
     def test_profile_regeneration_requires_separate_opt_in_before_handoff(self):
         self.require("Domain/Protocols/AppleAccountWorkspaceProviding.swift", "var approveRegeneration = false")
+        # The three approvals live in `ProvisioningConsentState` now; what this
+        # pins is that the renewal opt-in still has to be checked against the app
+        # and the later-profile flag before the request is built.
         self.require("Presentation/Features/Accounts/Views/ProvisioningFlowView.swift",
-                     "approveRegeneration: app.isSigned && requireLaterProfile && approveRegeneration")
+                     "approveRegeneration: app.isSigned && consent.laterProfile && consent.regeneration")
         adapter = self.require("Infrastructure/Accounts/AppleAccountWorkspaceAdapter.swift",
                                "if request.approveRegeneration, let baseline", "baselineDigest: baseline.digest")
         self.assertLess(adapter.index("profile.expiresAt <= baseline.expiry"), adapter.index("pendingProfiles[receipt.id]"))
@@ -366,7 +369,7 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
         # submission path, which stays with the flow that owns it.
         submission = view.split("func runProvisioning() async", 1)[1]
         self.assertLess(submission.index("!DownloadPreferences.cellularPathAvailable"), submission.index("await manager.provision("))
-        self.assertIn("!app.isSigned || !approveRegeneration", submission)
+        self.assertIn("!app.isSigned || !consent.regeneration", submission)
 
     def test_backup_boundary_contains_only_allowlisted_preview_metadata(self):
         domain = code("Domain/Entities/BackupWorkspace.swift")

@@ -240,6 +240,10 @@ struct SettingsView: View {
                 } footer: {
                     Text(.localized("Inspect storage footprint, wipe cached downloads, create full backup archives, browse firmware files, and export diagnostic logs."))
                 }
+                // Kept next to maintenance rather than under About: producing the
+                // file is an operation, and the row sits where the user looks for
+                // "move or reinstall this build".
+                SelfBuildExportSection()
                 NBSection(.localized("Companion Apps & Devices"), systemName: "arrow.triangle.branch") {
                     NavigationLink(destination: CompanionSigningWorkflowView()) {
                         Label(.localized("SideStore & LiveContainer"), systemImage: "arrow.triangle.branch")

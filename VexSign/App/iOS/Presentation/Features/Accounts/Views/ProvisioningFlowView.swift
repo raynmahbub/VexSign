@@ -29,19 +29,15 @@ struct ProvisioningFlowView: View {
     @State var certificateImported = false
     @State var signingHandoff: AppleAccountSigningHandoff?
     @State var reviewedContextID: UUID?
-    @State var approveCertificate = false
-    @State var approveRegistration = false
-    @State var approveProfile = false
-    @State var requireLaterProfile = false
-    @State var approveRegeneration = false
-    @State var approveKeyExport = false
+    /// Every approval this flow collects, in one testable value.
+    @State var consent: ProvisioningConsentState
 
     let cellularReview: Bool
     @State var cellularAvailable = false
 
     init(cellularReview: Bool = false) {
         self.cellularReview = cellularReview
-        _requireLaterProfile = State(initialValue: cellularReview)
+        _consent = State(initialValue: ProvisioningConsentState(cellularReview: cellularReview))
     }
 
     // Context from signed-in state
@@ -60,10 +56,18 @@ struct ProvisioningFlowView: View {
                         Label(cellularAvailable ? .localized("Mobile data path available") : .localized("Waiting for a mobile data path"),
                               systemImage: "antenna.radiowaves.left.and.right")
                         Text(.localized("Turn off Wi-Fi and enable mobile data. This checks the default route before submission; it does not reset a VPN or verify installation."))
-                        if contextID == nil {
-                            Text(.localized("Sign in under Settings → Signing Methods before starting renewal."))
-                        }
                     }.font(.caption).padding(.horizontal)
+                }
+                // The wizard used to open with every action disabled and, outside
+                // renewal mode, not one word about why; the only sign-in hint was
+                // inside the renewal banner. One sentence from the same value that
+                // disables the buttons answers it on both paths.
+                if contextID == nil {
+                    Label(.localized("Sign in under Settings → Signing Methods, then choose the app to provision."), systemImage: "person.crop.circle.badge.exclamationmark")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 // Step Content
@@ -107,8 +111,9 @@ struct ProvisioningFlowView: View {
                 guard let reviewedContextID, current != reviewedContextID else { return }
                 provisioningTask?.cancel()
                 self.reviewedContextID = nil
-                approveCertificate = false; approveRegistration = false; approveProfile = false
-                approveKeyExport = false; approveRegeneration = false
+                // Every approval belongs to the account that granted it, so a
+                // session change clears them all in one place.
+                consent.reset()
                 createdProfile = nil; signingHandoff = nil; certificateImported = false
                 selectedApp = nil; deviceIdentifier = ""; step = .selectApp
                 errorMessage = .localized("The Apple account session changed. Select the app and review permissions again.")
@@ -131,12 +136,14 @@ struct ProvisioningFlowView: View {
             errorMessage = .localized("Missing context or app selection")
             return
         }
-        if cellularReview && (!DownloadPreferences.cellularPathAvailable || !app.isSigned || !approveRegeneration) {
+        if cellularReview && (!DownloadPreferences.cellularPathAvailable || !app.isSigned || !consent.regeneration) {
             errorMessage = .localized("Renewal requires a signed app, mobile data and explicit confirmation.")
             return
         }
-        let approval = AppleAccountProvisioningApproval(certificate: approveCertificate,
-            registration: approveRegistration, profile: approveProfile)
+        // The approval object and the disabled state of the button are derived
+        // from the same value, so the flow cannot start with a consent the screen
+        // has not shown.
+        let approval = consent.approval
         guard approval.isComplete else { return }
         isProvisioning = true
         step = .provisioning
@@ -146,9 +153,9 @@ struct ProvisioningFlowView: View {
         do {
             let request = AppleAccountProvisioningRequest(contextID: contextID,
                 app: try LibraryAppReference(app: app), deviceIdentifier: deviceIdentifier,
-                requireLaterProfile: app.isSigned && requireLaterProfile,
-                approveRegeneration: app.isSigned && requireLaterProfile && approveRegeneration)
-            approveRegeneration = false // consume the UI confirmation even if the portal request fails
+                requireLaterProfile: app.isSigned && consent.laterProfile,
+                approveRegeneration: app.isSigned && consent.laterProfile && consent.regeneration)
+            consent.regeneration = false // consume the UI confirmation even if the portal request fails
             let receipt = try await manager.provision(request, approval: approval) { progress in
                 guard self.contextID == contextID, reviewedContextID == contextID else { return }
                 updateStage(progress.stage.title, progress.fraction)
