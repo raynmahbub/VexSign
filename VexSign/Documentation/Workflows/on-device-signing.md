@@ -33,9 +33,14 @@ The copy therefore lives with the error, not with the view:
 
 | Where | What it says |
 | --- | --- |
-| `SigningRejectionMessages.swift` | the certificate refusals `SigningPipeline` returns before any work starts |
-| `AppleAccountSessionErrorMessages.swift` | the session coordinator and durable-journal refusals |
+| `AppleAccountSessionErrorMessages.swift` | the session coordinator and durable-journal refusals (extensions: those files are mirrored byte-for-byte in `Packages/NativeSigning/Services/`) |
+| `Platform/Apple/Localization/SigningIdentityPolicyLocalization.swift` | the certificate refusals `SigningPipeline` returns before any work starts |
 | `TweakHandlerError`, `ARError`, `BoundedResponseFetch.Failure` | the type itself carries `LocalizedError` |
+
+`Rejection` is the case that shows why the gate looks beyond the declaring file: it is declared
+`enum Rejection: Error` in the Domain layer and conforms to `LocalizedError` in a Platform
+extension, so a scanner that only read the declaration would have reported a defect that does
+not exist.
 
 `test_error_message_policy.py` (in `make verify`) fails when an `enum ... : Error` under
 `VexSign/App` has neither `LocalizedError` nor an `errorDescription`/`message`, and the five

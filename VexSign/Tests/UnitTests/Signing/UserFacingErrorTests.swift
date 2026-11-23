@@ -20,12 +20,16 @@ import XCTest
 
 final class UserFacingErrorTests: XCTestCase {
 
-	/// The sentence Foundation substitutes when nothing conforms to `LocalizedError`.
+	/// The sentence Foundation substitutes when nothing conforms to `LocalizedError`:
+	/// "The operation couldn't be completed. (VexSign.TweakHandlerError error 0.)"
+	///
+	/// Matched as a shape, not as the substring "VexSign." — a real message may end a sentence
+	/// with the app's name ("…saved by a newer version of VexSign. Update the app…").
 	private func isGeneric(_ message: String) -> Bool {
-		message.contains("couldn’t be completed")
-			|| message.contains("couldn't be completed")
-			|| message.contains("VexSign.")
-			|| message.contains("error 0")
+		if message.contains("couldn’t be completed") || message.contains("couldn't be completed") {
+			return true
+		}
+		return message.range(of: #"VexSign\.[A-Za-z]+Error error \d+"#, options: .regularExpression) != nil
 	}
 
 	private func assertActionable(
