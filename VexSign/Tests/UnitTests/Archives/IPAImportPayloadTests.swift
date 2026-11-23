@@ -95,6 +95,23 @@ final class IPAImportPayloadTests: XCTestCase {
 		assertApp(app, in: root)
 	}
 
+	// MARK: - A folder wrapped around Payload
+
+	func testPayloadInsideAWrappingFolderIsFound() throws {
+		// Zipping the folder an archive was extracted into produces `Wrapped/Payload/App.app`.
+		// The one-level search looks inside `Wrapped` and sees only a directory called
+		// `Payload`, so this shape used to fail after a full extraction.
+		let app = try makeDirectory("Wrapped/Payload/Example.app")
+		_ = try makeFile("Wrapped/Payload/Example.app/Example")
+		assertApp(app, in: root, "A zip of the folder that holds Payload must import")
+	}
+
+	func testWrappedPayloadStillRefusesTwoBundles() throws {
+		_ = try makeDirectory("Wrapped/Payload/One.app")
+		_ = try makeDirectory("Wrapped/Payload/Two.app")
+		assertThrows(.multipleApps, in: root, "Two bundles in the wrapped Payload stay ambiguous")
+	}
+
 	// MARK: - One folder deep (the case that was refused)
 
 	func testAppOneFolderDeepIsFound() throws {

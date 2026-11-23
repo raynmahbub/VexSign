@@ -113704,6 +113704,17 @@
           }
         }
       }
+    },
+    "This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -381,6 +381,17 @@ enum IPAImportPayload {
         // Top level: `Root/App.app` beside `iTunesMetadata.plist`.
         if let app = try onlyApp(of: try appsDirectly(in: container)) { return app }
 
+        // A folder wrapped around the standard layout: `Root/Payload/App.app`. Zipping the
+        // folder an archive was extracted into is an ordinary thing to do in Files, and it
+        // used to be refused by the one-level search below, which looks inside `Root` and
+        // finds only a directory called `Payload`.
+        let wrappedPayloads = ((try? manager.contentsOfDirectory(at: container, includingPropertiesForKeys: nil)) ?? []) // try? ok: unreadable directory holds no app bundle
+            .filter { $0.lastPathComponent == "Payload" }
+        if wrappedPayloads.count == 1, let wrapped = wrappedPayloads.first,
+           let app = try onlyApp(of: try appsDirectly(in: wrapped)) {
+            return app
+        }
+
         // One folder deep: `Root/Release/App.app`. Two bundles in different folders are still
         // ambiguous: choosing one by directory order is what this function exists to avoid.
         let nested = try appsOneLevelDown(in: container)

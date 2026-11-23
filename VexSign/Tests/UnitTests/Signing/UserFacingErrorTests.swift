@@ -55,6 +55,7 @@ final class UserFacingErrorTests: XCTestCase {
 			.decompressionFailed("   "),
 			.missingFile("Library/MobileSubstrate/DynamicLibraries/Reveal.dylib"),
 			.noAccess,
+			.filePickerFixUnavailable,
 		]
 	}
 

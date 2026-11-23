@@ -52,13 +52,17 @@ struct CertificatesAddView: View {
 						.foregroundStyle(.secondary)
 					Divider()
 					_importButton(.localized("Import Certificate File"), file: _p12URL) {
-						DocumentPicker.open([.p12, .pfx], folder: .certificates) { urls in
+						DocumentPicker.open([.p12, .pfx], folder: .certificates, onUnavailable: {
+							Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+						}) { urls in
 							_p12URL = urls.first
 							if _p12URL != nil { _bundleURL = nil }
 						}
 					}
 					_importButton(.localized("Import Provisioning File"), file: _provisionURL) {
-						DocumentPicker.open([.mobileProvision, .provisionProfile], folder: .certificates) { urls in
+						DocumentPicker.open([.mobileProvision, .provisionProfile], folder: .certificates, onUnavailable: {
+							Toast.error(.localized("The file picker could not open because another sheet is on screen. Close it and try again."), duration: .long)
+						}) { urls in
 							_provisionURL = urls.first
 							if _provisionURL != nil, _p12URL != nil { _bundleURL = nil }
 						}

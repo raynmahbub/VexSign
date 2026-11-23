@@ -37,14 +37,20 @@ class TweakHandler {
 		!_options.injectionFiles.isEmpty || !_enabledSpecs.isEmpty
 	}
 
-	/// Bundled document picker fix
+	/// Bundled document picker fix.
+	///
+	/// Throws when the fix was requested and the dylib is not in the build. Returning nil used to
+	/// continue the run and produce an app whose file picker is still broken — the exact symptom
+	/// the user asked to have fixed — with the only trace on a screen they were not looking at.
 	private var _filePickerFixURL: URL? {
-		guard _options.fixFilePicker else { return nil }
-		guard let url = Bundle.main.url(forResource: "FilePickerFix", withExtension: "dylib") else {
-			SigningLog.shared.error(.localized("File picker fix is unavailable"))
-			return nil
+		get throws {
+			guard _options.fixFilePicker else { return nil }
+			guard let url = Bundle.main.url(forResource: "FilePickerFix", withExtension: "dylib") else {
+				SigningLog.shared.error(.localized("File picker fix is unavailable"))
+				throw TweakHandlerError.filePickerFixUnavailable
+			}
+			return url
 		}
-		return url
 	}
 
 	/// `Frameworks/` can be absent from apps, so the parent has to exist before the move.
@@ -149,7 +155,7 @@ class TweakHandler {
 		try Task.checkCancellation()
 		Logger.misc.info("Attempting to inject")
 
-		let filePickerFix = _filePickerFixURL
+		let filePickerFix = try _filePickerFixURL
 
 		if !_options.experiment_replaceSubstrateWithEllekit {
 			guard _hasAnyInjection || filePickerFix != nil else { return }
@@ -819,6 +825,7 @@ enum TweakHandlerError: LocalizedError, Equatable {
 	case decompressionFailed(String)
 	case missingFile(String)
 	case noAccess
+	case filePickerFixUnavailable
 
 	var errorDescription: String? {
 		switch self {
@@ -839,6 +846,8 @@ enum TweakHandlerError: LocalizedError, Equatable {
 			return .localized("%@ is missing from the tweak package.", arguments: name)
 		case .noAccess:
 			return .localized("The tweak could not be read because access to it was denied. Copy it into VexSign's folder and try again.")
+		case .filePickerFixUnavailable:
+			return .localized("This build does not include the bundled file-picker fix, and signing without it would leave the picker broken. Update VexSign, or turn off Fix file picker and sign again.")
 		}
 	}
 }
