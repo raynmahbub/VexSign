@@ -97,9 +97,19 @@ provisioning profile) and it is solved with two packages plus a coordinator:
   stream, renewal, inventory), `AnisetteProvider`, `SigningModeManager`.
 - UI: `Presentation/Features/Accounts`.
 
-**Honest boundary:** authentication and certificate/profile issuance are implemented;
-whether a given account can *complete* a device install is a policy question decided by
-Apple, not by VexSign, and the app reports that instead of pretending success.
+**Honest boundary:** authentication and certificate/profile issuance are implemented, and the
+flow ends by *importing* what it obtained: `NativeSigningManager.exportToCertificateStore` writes
+the account's `.p12` and profile into the ordinary certificate store as a `CertificatePair`, which
+the imported-certificate engine then signs with. Two things are therefore separate, and used to be
+reported as one:
+
+| Question | Answer | Evidence |
+| --- | --- | --- |
+| Can an account's certificate be used to sign here? | Yes, through the certificate store | `AppleAccountWorkspaceAdapter.importCertificate` → `exportToCertificateStore`; `Renewability.importedPair` |
+| Does this build sign *inside* the account engine? | No — `notIntegrated` | `SigningMethodCapabilities.nativeAppleAccountSigning`, enforced by `check-native-handoff.py` until `Documentation/DeviceTesting/evidence/native-signing-promotion.json` exists |
+
+Whether a given account can *complete* a device install is a policy question decided by Apple, not
+by VexSign, and the app reports that instead of pretending success.
 
 ### 4. Initial installation — Built for other apps, Absent for itself
 
