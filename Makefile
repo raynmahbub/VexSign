@@ -51,16 +51,20 @@ clean:
 bootstrap:
 	@bash VexSign/Tools/Scripts/bootstrap.sh
 
-# SwiftPM plugin and macro validation is deliberately not skipped here (or in CI):
-# the package graph declares no build-tool plugin and no macro, so the flags only
-# hid the question — and a blanket skip would run whatever a dependency ships.
-# If a build ever stops with a plugin awaiting approval, name that plugin and skip
-# only it, with the reason next to it.
+# `licenseplist` ships a build-tool plugin (`LicensePlistBuildTool`) that writes the
+# licence list while the app builds. Xcode asks a human to approve a plugin the
+# first time it sees one, and that approval lives in a user's DerivedData, not in a
+# shared project, so every non-interactive build — CI and `make` alike — must skip
+# the prompt. The plugin still runs; only the validation step is skipped. It is not
+# a blanket trust: the package is pinned to an exact version (3.27.1) in
+# `project.pbxproj` and to a revision in the checked-in `Package.resolved`, and
+# `check-package-graph.py` fails if those disagree.
 #
 # Install-server TLS is generated and persisted on each device, not in an IPA.
 $(SCHEMES):
 	xcodebuild \
 	    $(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",) \
+	    -skipPackagePluginValidation \
 	    -workspace VexSign.xcworkspace \
 	    -scheme "$@" \
 	    -configuration Release \
@@ -248,6 +252,7 @@ typecheck:
 		echo "so without a toolchain only CI's build job will catch a type error."; \
 		exit 1; }
 	xcodebuild \
+	    -skipPackagePluginValidation \
 	    -workspace VexSign.xcworkspace \
 	    -scheme VexSign \
 	    -configuration Debug \
@@ -328,6 +333,7 @@ test:
 	echo "Testing on $$dest"; \
 	xcodebuild \
 	    $(if $(SPM_CACHE_PATH),-packageCachePath "$(SPM_CACHE_PATH)",) \
+	    -skipPackagePluginValidation \
 	    -workspace VexSign.xcworkspace \
 	    -scheme VexSignTests \
 	    -configuration Debug \
