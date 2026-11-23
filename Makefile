@@ -236,6 +236,8 @@ verify: docs-check
 	  "python3 VexSign/Tools/Validation/repository-validation/test_keyboard_dismissal_policy.py" \
 	  "#colours: literals live in DesignSystem/Colors, not in views" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_color_policy.py" \
+	  "#injection: the container graph is injected in one place" \
+	  "python3 VexSign/Tools/Validation/repository-validation/test_environment_injection_policy.py" \
 	  "#swift style drift gate (changed lines only)" \
 	  "python3 VexSign/Tools/Validation/repository-validation/test_swift_format_drift.py" \
 	  "#service runtimes (CI, images and blueprint agree)" \

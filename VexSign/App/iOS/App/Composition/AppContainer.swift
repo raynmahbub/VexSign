@@ -344,11 +344,9 @@ final class AppContainer: ObservableObject {
         )
         InstallQueueWindow.shared.configure(makeRootView: {
             AnyView(InstallQueueHostView(queue: container.installationQueue)
-                .environmentObject(container).environmentObject(container.workspace)
-                .environmentObject(container.sources).environmentObject(container.certificates)
-                .environmentObject(container.signingPreferences).environmentObject(container.discovery)
-                .environmentObject(container.installationQueue).environmentObject(container.files)
-                .environmentObject(container.cloudConfiguration).environmentObject(container.tasks).environmentObject(container.appleAccount).environmentObject(container.fileBrowser).environmentObject(container.tweaks).environmentObject(container.entitlements).environmentObject(container.repositoryBuilder).environment(\.appContainer, container))
+                // The window is hosted outside the scene's view tree, so it needs the same
+                // injection the scene applies — from the same definition.
+                .modifier(AppEnvironment(container: container)))
         }, mayTeardown: { InstallQueue.shared.current == nil })
         return container
     }

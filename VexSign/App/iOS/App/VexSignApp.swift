@@ -176,23 +176,8 @@ struct VexSignApp: App {
             // The offer the router staged is presented from a modifier that observes
             // the inbox itself, so this scene's chain stays type-checkable.
             .modifier(SharedBackupPresentation(inbox: appContainer.sharedBackups))
-            .environmentObject(appContainer)
-            .environmentObject(appContainer.cloudConfiguration)
-            .environmentObject(appContainer.tasks)
-            .environmentObject(appContainer.appleAccount)
-            .environmentObject(appContainer.workspace)
-            .environmentObject(appContainer.sources)
-            .environmentObject(appContainer.certificates)
-            .environmentObject(appContainer.signingPreferences)
-            .environmentObject(appContainer.discovery)
-            .environmentObject(appContainer.installationQueue)
-            .environmentObject(appContainer.files)
-            .environmentObject(appContainer.tweaks)
-            .environmentObject(appContainer.entitlements)
-            .environmentObject(appContainer.repositoryBuilder)
-            .environmentObject(appContainer.fileBrowser)
-            .environment(\.appContainer, appContainer)
-            .environmentObject(appearance)
+            // One injection point for the whole graph; see AppEnvironment.
+            .modifier(AppEnvironment(container: appContainer, appearance: appearance))
         }
     }
 
