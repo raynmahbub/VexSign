@@ -31,18 +31,16 @@ software bill of materials.
 
 ## zstd decoder (`VexZstd.c`)
 
-`VexSign/App/iOS/Infrastructure/Archives/Extraction/Zstd/VexZstd.c` is derived from SayoSign's
-`core/src/zstd.c` (`murk-sus/SayoSign`, GPL-3.0, file last changed in commit
-`f250ff324f7b7cad7bb87a33fa9ebc38c837aa8d`). It is GPL-3.0 code used in a GPL-3.0 repository, so
-no additional licence obligation is introduced beyond the top-level `LICENSE`; the attribution
-stays here and in the file header.
+`VexSign/App/iOS/Infrastructure/Archives/Extraction/Zstd/VexZstd.c` contains third-party GPL-3.0
+code whose decoding core comes from SayoSign's `core/src/zstd.c` (`murk-sus/SayoSign`), taken at
+commit `f250ff324f7b7cad7bb87a33fa9ebc38c837aa8d`. Copyright remains with the upstream author;
+GPL-3.0 obligations are satisfied by this repository's own GPL-3.0 `LICENSE`.
 
-What changed in the copy: the decoder algorithm is upstream; the surrounding boundary is not.
-The adapted file adds a caller-supplied output ceiling (bomb guard, also checked against the
-frame's declared content size), verifies the 4-byte XXH64 frame checksum that upstream skipped,
-checks `malloc` results, and keeps its buffer/error helpers private so nothing collides with the
-app's other C sources. Its tests are `ZstdDecompressionTests`, whose fixtures are produced by the
-reference `zstandard` implementation rather than by the code under test.
+Modified 2026 for VexSign: a caller-supplied output ceiling (bomb guard, also checked against the
+frame's declared content size), verification of the 4-byte XXH64 frame checksum that upstream
+skipped, checked allocations, and buffer/error helpers made private. Its tests are
+`ZstdDecompressionTests`, and their fixtures come from the reference `zstandard` implementation
+rather than from the code under test.
 
 ## Device bootstrap/pairing foundation
 

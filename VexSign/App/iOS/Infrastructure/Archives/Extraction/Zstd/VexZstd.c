@@ -1,22 +1,20 @@
 /*
- * VexZstd.c — zstd frame decoder for archive payloads.
+ * VexZstd.c — zstd frame decoding for archive payloads.
  *
- * Derived from SayoSign's from-scratch decoder (`core/src/zstd.c`), which is the reason this
- * works without linking libzstd: iOS ships no zstd decoder, and `.deb` payloads have moved to
- * `data.tar.zst`. SayoSign is GPL-3.0, the same licence as this repository — see
- * THIRD_PARTY_NOTICES.md for the attribution and the commit the code was taken from.
+ * iOS ships no zstd decoder, and Debian payloads now arrive as `data.tar.zst`, so a `.deb` cannot
+ * be unpacked without one. Modified 2026 for VexSign.
  *
- * Changes from the upstream file, all on the boundary rather than in the algorithm:
+ * Changes to the decoding boundary, which is where an untrusted payload is decided:
  *
  *   - a caller-supplied output ceiling, checked while the buffer grows and against the frame's
- *     declared content size, so a decompression bomb becomes an error instead of a jetsam kill;
- *   - the 4-byte XXH64 frame checksum is verified instead of skipped, so a truncated or
- *     corrupted `.deb` payload is refused rather than half-parsed;
- *   - `malloc` results are checked, and the error string is thread-local;
- *   - the buffer/error helpers are private to this file (`vex_` prefix), so nothing collides
- *     with the app's other C sources.
+ *     declared content size, so a decompression bomb is an error instead of a memory kill;
+ *   - the 4-byte XXH64 frame checksum is verified, so a truncated or corrupted payload is refused
+ *     rather than half-parsed;
+ *   - `malloc` results are checked, the error string is thread-local, and the buffer and error
+ *     helpers are private to this file (`vex_` prefix).
  *
- * The decoder itself (FSE, Huffman, sequences, repeat offsets, block types) is upstream code.
+ * Third-party code under GPL-3.0. The upstream copyright notice, the provenance and the exact list
+ * of changes are recorded in THIRD_PARTY_NOTICES.md at the repository root.
  */
 
 #include "VexZstd.h"
