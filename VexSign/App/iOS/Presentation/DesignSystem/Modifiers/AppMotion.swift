@@ -46,9 +46,9 @@ enum AppMotion {
 	}
 
 	/// The animation to use, or `nil` — which SwiftUI reads as "no animation" — when the user
-	/// asked for less motion.
+	/// asked for less motion, or when the call site already passed `nil` for its own reasons.
 	@MainActor
-	static func resolved(_ animation: Animation) -> Animation? {
+	static func resolved(_ animation: Animation?) -> Animation? {
 		isReduceMotionEnabled ? nil : animation
 	}
 }
@@ -58,19 +58,23 @@ enum AppMotion {
 /// The body still runs; only the animation is dropped, so state changes keep their ordering and
 /// their `onChange`/`task` side effects.
 @MainActor
-func withAppAnimation(_ animation: Animation = AppMotion.standard, _ body: () -> Void) {
+func withAppAnimation(_ animation: Animation? = AppMotion.standard, _ body: () -> Void) {
 	withAnimation(AppMotion.resolved(animation), body)
 }
 
 extension View {
 	/// `.animation(_:value:)`, except it does nothing when the user asked for less motion.
-	func appAnimation<V: Equatable>(_ animation: Animation = AppMotion.standard, value: V) -> some View {
+	///
+	/// The curve is optional so a call site can keep its own gate —
+	/// `hasAppeared ? .easeInOut(duration: 0.25) : nil`, an entrance that must not play on the
+	/// first pass — without giving up Reduce Motion, which is applied on top.
+	func appAnimation<V: Equatable>(_ animation: Animation? = AppMotion.standard, value: V) -> some View {
 		modifier(AppAnimationModifier(animation: animation, value: value))
 	}
 }
 
 private struct AppAnimationModifier<V: Equatable>: ViewModifier {
-	let animation: Animation
+	let animation: Animation?
 	let value: V
 
 	@Environment(\.accessibilityReduceMotion) private var reduceMotion
