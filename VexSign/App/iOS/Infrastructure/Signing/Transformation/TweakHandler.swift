@@ -797,67 +797,6 @@ enum TweakFrameworkLoad {
 	}
 }
 
-/// Debian packages must identify one data archive. Unknown compression formats
-/// are refused explicitly instead of producing a successful, empty injection.
-enum DebianDataMember {
-	enum SelectionError: LocalizedError, Equatable {
-		case missing
-		case multiple
-		case unsupported(String)
-
-		var errorDescription: String? {
-			switch self {
-			case .missing:
-				return .localized("This Debian package has no data archive to inject.")
-			case .multiple:
-				return .localized("This Debian package contains multiple data archives. VexSign cannot choose one safely.")
-			case .unsupported(let name):
-				return .localized("The Debian data archive %@ uses an unsupported format.", arguments: name)
-			}
-		}
-	}
-
-	static func select(from names: [String]) throws -> String {
-		let candidates = names.filter { $0 == "data.tar" || $0.hasPrefix("data.tar.") }
-		guard !candidates.isEmpty else { throw SelectionError.missing }
-		guard candidates.count == 1, let name = candidates.first else { throw SelectionError.multiple }
-		guard ArchiveFormat.debianDataMembers.contains(name) else {
-			throw SelectionError.unsupported(name)
-		}
-		return name
-	}
-
-	/// Use the same extraction steps for preview and signing. An uncompressed
-	/// tar is unpacked directly; compressed members first produce the tar.
-	static func extract(_ member: URL) throws -> URL {
-		var result = member
-		try extractFile(at: &result)
-		if member.lastPathComponent != "data.tar" {
-			try extractFile(at: &result)
-		}
-		return result
-	}
-}
-
-/// Never treat a conflicting framework or resource bundle as a successful placement.
-/// FileManager.moveItem also refuses collisions that arise after the check.
-enum TweakPlacement {
-	struct Conflict: LocalizedError {
-		let name: String
-		var errorDescription: String? {
-			.localized("Cannot add %@ because an item with that name already exists in the app.", arguments: name)
-		}
-	}
-
-	static func move(_ source: URL, to destination: URL, fileManager: FileManager = .default) throws {
-		try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-		guard !fileManager.fileExists(atPath: destination.path) else {
-			throw Conflict(name: destination.lastPathComponent)
-		}
-		try fileManager.moveItem(at: source, to: destination)
-	}
-}
-
 struct TweakInjectionFailure: LocalizedError {
 	let fileName: String
 	let underlying: Error
