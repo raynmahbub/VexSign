@@ -43,6 +43,7 @@ versioned with the code.
 | [Apple account limitations](Workflows/apple-account-limitations.md) · [security](Workflows/security.md) | You need Personal Team limits, trust boundaries and security requirements. |
 | [GitHub Actions / releases / device acceptance](Workflows/github-actions.md) · [release process](Workflows/release-process.md) · [device testing](Workflows/device-testing.md) | You are configuring CI, cutting a release or planning physical-device validation. |
 | [Distribution troubleshooting](Workflows/troubleshooting.md) | You need help diagnosing download, profile, signing or installation failures. |
+| [Embedded host (LiveContainer and SideStore)](Workflows/embedded-host.md) | You are reasoning about the combined build: which layout is running, what each one can do, and why a capability is missing. |
 
 ## Operate and ship
 
