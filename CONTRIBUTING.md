@@ -113,7 +113,9 @@ endpoint fails `make verify` until that table is updated (`test_webmanager_doc_r
 
 `make test` builds once and then runs the selection, so the second and later runs are
 the cheap ones. Test code is compiled into one target, so a file's suite name is its
-class name, not its folder.
+class name, not its folder. [TESTS.md](VexSign/Documentation/Development/TESTS.md) is the
+inventory: what each folder holds, the conventions a new test follows, and the areas that are
+still untested with the reason each one is open.
 
 Two CI gates are deliberately not in `make verify` because they need a tool most machines
 do not have and fail rather than skip: `check-swift-format-drift.py` (the pinned

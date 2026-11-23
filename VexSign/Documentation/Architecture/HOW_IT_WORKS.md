@@ -558,7 +558,7 @@ Test tiers:
 | Unit | `Tests/UnitTests/{Application,Archives,Devices,Identity,Persistence,Repositories,Signing}` | Pure logic, fakes for ports |
 | Workflow | `Tests/WorkflowTests/{SigningWorkflow,InstallationWorkflow,RecoveryWorkflow}` | Multi-step state machines end to end |
 | Security | `Tests/SecurityTests/*` | Adversarial inputs, redaction |
-| Performance | `Tests/PerformanceTests` | Fixture-driven budgets |
+| Concurrency | `Tests/PerformanceTests` | Sendability and shared-state stress (no timing assertions) |
 | Package/contract | `Packages/*/Tests`, `Tools/Development/test_*contract.py` | Swift package + cross-repo contracts |
 
 CI (`.github/workflows/ci.yml`) runs `quick` (verify/format), `build`, `tests` and
