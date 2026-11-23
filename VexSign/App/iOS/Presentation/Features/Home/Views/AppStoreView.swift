@@ -77,7 +77,17 @@ struct AppStoreView: View {
         case name = "Name"
         case updated = "Last Updated"
 
-        var label: String { .localized(rawValue) }
+        /// The raw values are persisted in `@AppStorage`, so they are keys, not copy: they must
+        /// never change. `.localized(rawValue)` read them as English text to translate, and
+        /// neither "Priority" nor "Last Updated" is a catalogue key, so those two rows stayed
+        /// English in all twelve locales. The copy is named here instead.
+        var label: String {
+            switch self {
+            case .priority: return .localized("Priority")
+            case .name: return .localized("Name")
+            case .updated: return .localized("Last updated")
+            }
+        }
     }
 
     // Model representing an app combined with its source repository

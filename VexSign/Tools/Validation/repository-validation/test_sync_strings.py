@@ -187,6 +187,21 @@ class LiveCatalogueTests(unittest.TestCase):
         stale = [k for k, v in data["strings"].items() if v.get("extractionState") == "stale"]
         self.assertTrue(all(sync.key_in_source(k, blob) for k in stale if k not in removable))
 
+    def test_the_tree_carries_no_prunable_stale_key(self):
+        """Nothing else stopped dead keys accumulating in twelve locales at once.
+
+        `--prune-stale` never removes a key that still appears as a literal, so a key it
+        would remove is dead weight in the catalogue and in every translation of it. Run the
+        prune when this fails; the diff is deletions only.
+        """
+        removable = sync.stale_absent_keys(sync.catalog(), sync.source_blob())
+        self.assertEqual(
+            removable,
+            [],
+            "stale catalogue keys no source string uses: run "
+            "`python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --prune-stale`",
+        )
+
     def test_catalogue_formatting_round_trips(self):
         raw = sync.CATALOGUE.read_text(encoding="utf-8")
         rendered = json.dumps(json.loads(raw), indent=2, ensure_ascii=False, separators=(",", " : ")) + "\n"
