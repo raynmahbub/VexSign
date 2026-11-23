@@ -569,32 +569,31 @@ final class SelfUpdateManager: NSObject, ObservableObject {
         // The ordinary install pipeline, with the same-bundle restriction lifted for a copy the
         // policy accepted. Signing already happened; the key is not read here.
         let installer = AppInstaller(app: copy, allowsInPlaceUpdate: true)
+        // Held for the length of the attempt: the installer owns the HTTPS server, and dropping the
+        // last reference to it stops that server mid-transfer. `endFlow` is the other way out.
         _installer = installer
-        defer { _installer = nil; _flow = nil }
-
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            installer.start { [weak self] result in
-                Task { @MainActor in
-                    guard let self else { continuation.resume(); return }
-                    switch result {
-                    case .success(.installed):
-                        self.installProgress = 1
-                        self.phase = .done
-                    case .success(.installedOtherVersion(let version)):
-                        self.installProgress = 1
-                        self.phase = .failed(String.localized(
-                            "iOS installed a different version than the one served (%@).",
-                            arguments: version ?? String.localized("unknown")
-                        ))
-                    case .success(.cancelled):
-                        self.phase = .idle
-                    case .success(.exported), .success(.guestImportPrepared):
-                        self.phase = .failed(String.localized("The install did not reach the device. Try again from the update sheet."))
-                    case .failure(let error):
-                        self.phase = .failed(error.localizedDescription)
-                    }
-                    continuation.resume()
+        installer.start { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success(.installed):
+                    self.installProgress = 1
+                    self.phase = .done
+                case .success(.installedOtherVersion(let version)):
+                    self.installProgress = 1
+                    self.phase = .failed(String.localized(
+                        "iOS installed a different version than the one served (%@).",
+                        arguments: version ?? String.localized("unknown")
+                    ))
+                case .success(.cancelled):
+                    self.phase = .idle
+                case .success(.exported), .success(.guestImportPrepared):
+                    self.phase = .failed(String.localized("The install did not reach the device. Try again from the update sheet."))
+                case .failure(let error):
+                    self.phase = .failed(error.localizedDescription)
                 }
+                self._installer = nil
+                self._flow = nil
             }
         }
     }

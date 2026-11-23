@@ -121,22 +121,24 @@ final class TweakManager: ObservableObject {
 		_saveFolders()
 	}
 
-	/// Unique folder name among siblings, appending " 2", " 3"… on collision.
+	/// Unique folder name among siblings. The suffix rule lives in `TweakFolderRules` so creating
+	/// and renaming cannot drift apart, and so it can be tested without the JSON files behind this
+	/// object.
 	private func _uniqueFolderName(_ desired: String, excluding id: UUID? = nil) -> String {
-		var base = desired.trimmingCharacters(in: .whitespacesAndNewlines)
-		if base.isEmpty { base = .localized("New Folder") }
-		let taken = Set(folders.filter { $0.id != id }.map { $0.name.lowercased() })
-		guard taken.contains(base.lowercased()) else { return base }
-		var n = 2
-		while taken.contains("\(base) \(n)".lowercased()) { n += 1 }
-		return "\(base) \(n)"
+		TweakFolderRules.uniqueName(
+			desired,
+			taken: folders.filter { $0.id != id }.map { $0.name },
+			fallback: .localized("New Folder")
+		)
 	}
 
 	/// Deletes a folder; its tweaks fall back to uncategorized (never deleted).
 	func deleteFolder(_ id: UUID) {
 		var touched = false
-		for index in tweaks.indices where tweaks[index].folderId == id {
-			tweaks[index].folderId = nil
+		for index in tweaks.indices {
+			let next = TweakFolderRules.folder(afterDeleting: id, from: tweaks[index].folderId)
+			guard next != tweaks[index].folderId else { continue }
+			tweaks[index].folderId = next
 			touched = true
 		}
 		folders.removeAll { $0.id == id }

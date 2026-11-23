@@ -89,7 +89,9 @@ final class SelfUpdateReadinessTests: XCTestCase {
 		for reason in [SelfReplacementBlocker.missing, .notSigned, .notNewer, .differentApp] {
 			let result = SelfUpdateManager.plan(
 				preferred: .server,
+				isPrimaryHost: false,
 				serverConfigured: true,
+				hasPairing: true,
 				hasDownload: true,
 				selfReplacement: reason
 			)
@@ -105,6 +107,7 @@ final class SelfUpdateReadinessTests: XCTestCase {
 			preferred: .server,
 			isPrimaryHost: true,
 			serverConfigured: true,
+			hasPairing: true,
 			hasDownload: true,
 			selfReplacement: nil
 		)

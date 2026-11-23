@@ -75,9 +75,7 @@ enum SelfReplacementPolicy {
 
         // No version is treated as unusable rather than as "assume newer": the gamble would be
         // resolved by iOS showing an error after the transfer.
-        guard let version = candidate.version, SelfUpdateManager.isSemver(version) || !version.isEmpty else {
-            return .notNewer
-        }
+        guard let version = candidate.version, !version.isEmpty else { return .notNewer }
         // A token submitted for an update is not proof of anything, so the comparison is the same
         // one the update check uses, including prerelease ordering.
         guard SelfUpdateManager.compare(version, runningVersion) == .orderedDescending else {
