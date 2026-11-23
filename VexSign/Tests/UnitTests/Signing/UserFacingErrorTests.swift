@@ -74,14 +74,17 @@ final class UserFacingErrorTests: XCTestCase {
 
 	func testAnEmptyExtensionStillReads() {
 		let text = TweakHandlerError.unsupportedFileExtension("").localizedDescription
-		XCTAssertFalse(text.contains(" ."), text, "An empty extension must not leave a dangling dot: \(text)")
+		// A path with no extension has nothing to name, so the sentence says "unknown-format"
+		// rather than leaving a gap ("cannot unpack  archives").
+		XCTAssertTrue(text.lowercased().contains("unknown-format"), text)
+		XCTAssertFalse(text.contains("  "), "A missing extension must not leave a double space: \(text)")
 	}
 
 	func testDecompressionDetailIsIncludedOnlyWhenPresent() {
 		let withDetail = TweakHandlerError.decompressionFailed("truncated header").localizedDescription
 		XCTAssertTrue(withDetail.contains("truncated header"), withDetail)
 		let withoutDetail = TweakHandlerError.decompressionFailed("   ").localizedDescription
-		XCTAssertFalse(withoutDetail.hasSuffix(":"), withoutDetail, "A blank detail must not end in a colon")
+		XCTAssertFalse(withoutDetail.hasSuffix(":"), "A blank detail must not end in a colon: \(withoutDetail)")
 	}
 
 	func testInjectionFailureComposesTheInnerReason() {
@@ -89,7 +92,7 @@ final class UserFacingErrorTests: XCTestCase {
 		let failure = TweakInjectionFailure(fileName: "MyTweak.7z", underlying: inner)
 		let message = failure.localizedDescription
 		XCTAssertTrue(message.contains("MyTweak.7z"), message)
-		XCTAssertTrue(message.contains("cannot unpack"), message, "The inner reason has to survive the wrapper: \(message)")
+		XCTAssertTrue(message.contains("cannot unpack"), "The inner reason has to survive the wrapper: \(message)")
 		XCTAssertFalse(isGeneric(message), message)
 	}
 
