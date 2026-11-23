@@ -205,6 +205,9 @@ jobs:
           python3 VexSign/Tools/Validation/security-validation/error-discipline.py
           python3 VexSign/Tools/Validation/security-validation/singleton-freeze.py
           python3 VexSign/Tools/Validation/security-validation/concurrency-discipline.py
+          # Uncaught detached work is invisible to strict concurrency; the inventory is the
+          # only place a new site shows up before a device does.
+          python3 VexSign/Tools/Validation/repository-validation/test_detached_task_audit.py
           # A count is not a reason: every escape needs its invariant on record.
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py --self-test
           python3 VexSign/Tools/Validation/security-validation/test_concurrency_audit.py
