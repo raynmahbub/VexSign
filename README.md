@@ -8,7 +8,7 @@
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
   <p><a href="#download">Download</a> · <a href="#build--test">Build</a></p>
-  <img src="Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
+  <img src="VexSign/Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -240,8 +240,8 @@ For upstream changes and pinned revisions, see
 
 Download an IPA or add the VexSign source to a compatible signer:
 
-[![Download IPA](Resources/brand/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
-[![Add Source](Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+[![Download IPA](VexSign/Resources/brand/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
+[![Add Source](VexSign/Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
 
 - **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
   generate a first-install site from the signing screen.

@@ -17,31 +17,34 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT
-APP = ROOT / "App"
+APP = ROOT / "VexSign" / "App"
 PLATFORM = ROOT / "Platform"
 PBX = ROOT / "VexSign.xcodeproj/project.pbxproj"
 WORKSPACE = ROOT / "VexSign.xcworkspace/contents.xcworkspacedata"
 ROOT_LAYERS = {
-    "App", "Shared", "Services", "Storage", "Networking", "Apple", "DesignSystem",
-    "Resources", "Packages", "Tests", "Tools", "Configuration", "Platform",
+    "VexSign", "Packages", "Tests", "Tools", "Configuration", "Platform",
+    "Services", "Documentation",
 }
-APP_LAYERS = {"Features", "Navigation", "Resources", "Composition", "Bootstrap"}
+APP_LAYERS = {"Navigation", "Composition", "Bootstrap"}
 SKIP = {".git", "node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".build", ".swiftpm"}
 ALIASES = (
     ("VexSign/Resources/icon.png", "icon.png"),
-    ("Resources/Templates/app-repo.json", "app-repo.json"),
-    ("Resources/Templates/repos.json", "repos.json"),
+    ("VexSign/Resources/Templates/app-repo.json", "app-repo.json"),
+    ("VexSign/Resources/Templates/repos.json", "repos.json"),
     ("Configuration/Signing/license_plist.yml", "license_plist.yml"),
     ("Services/WebManager/Configuration/render.yaml", "render.yaml"),
 )
 GROUPS = {
-    "3379C1BB2DA869A1004372DA": "App",
-    "E0E0E0000000000000000001": "Shared",
-    "E0E0E0000000000000000002": "Storage",
-    "E0E0E0000000000000000003": "Networking",
-    "E0E0E0000000000000000004": "Apple",
-    "E0E0E0000000000000000005": "DesignSystem",
+    "3379C1BB2DA869A1004372DA": "VexSign/App",
+    "E0E0E0000000000000000001": "VexSign/Shared",
+    "E0E0E0000000000000000002": "VexSign/Storage",
+    "E0E0E0000000000000000003": "VexSign/Networking",
+    "E0E0E0000000000000000004": "VexSign/System",
+    "E0E0E0000000000000000005": "VexSign/DesignSystem",
     "E0E0E0000000000000000006": "VexSign/Services",
+    "E0E0E0000000000000000007": "VexSign/Features",
+    "E0E0E0000000000000000008": "VexSign/Resources",
+    "E0E0E0000000000000000009": "VexSign/Security",
     "AABA5D1A2DB3C87800BFCD2C": "Tests",
     "3A2F0EE82E96DA5A009DE4CE": "Platform/Extensions/WidgetExtension",
     "C0FFEE000000000000000001": "Platform/TV",
@@ -61,11 +64,10 @@ def code(path: Path) -> str:
 class RepositoryLayoutTests(unittest.TestCase):
     def test_requested_root_tree_is_the_repository_root(self):
         self.assertEqual({p.name for p in ROOT.iterdir() if p.is_dir()} - {".git", ".githooks", ".github", ".arena", ".cache", "__pycache__", ".build", ".swiftpm", ".vite", "build", "dist", "node_modules"},
-                         ROOT_LAYERS | {"VexSign", "VexSign.xcodeproj", "VexSign.xcworkspace"})
-        # The intermediate wrapper is gone: sources live at the repository root.
-        for legacy in ("VexSign/App/iOS", "VexSign/Packages", "VexSign/Tests", "VexSign/Tools",
-                       "VexSign/Configuration", "VexSign/Resources",
-                       "VexSign/Integrations", "Integrations", "app", "services", "res"):
+                         ROOT_LAYERS | {"VexSign.xcodeproj", "VexSign.xcworkspace"})
+        for legacy in ("App", "Apple", "DesignSystem", "Networking", "Shared", "Storage", "Resources",
+                       "VexSign/App/iOS", "VexSign/Packages", "VexSign/Tests", "VexSign/Tools",
+                       "VexSign/Configuration", "Integrations", "app", "services", "res"):
             self.assertFalse((ROOT / legacy).exists(), f"legacy root remains: {legacy}")
         for name in ("README.md", "Makefile", "LICENSE", "LICENSE_ELLEKIT",
                      ".github", ".github/workflows",
@@ -92,7 +94,7 @@ class RepositoryLayoutTests(unittest.TestCase):
                          {"VexSignWatch", "VexSignWatchWidgets"})
         self.assertTrue((PLATFORM / "Watch/VexSignWatch/VexSignWatchApp.swift").is_file())
         self.assertTrue((PLATFORM / "Watch/VexSignWatchWidgets/VexSignWatchWidgetBundle.swift").is_file())
-        self.assertTrue((APP / "Resources/SharedPlatformInfo/Companion-Info.plist").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/SharedPlatformInfo/Companion-Info.plist").is_file())
 
     def test_requested_app_shell_and_navigation(self):
         for name in ("VexSignApp.swift", "AppDelegate.swift", "AppDelegate+BackgroundTasks.swift"):
@@ -108,42 +110,38 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_features_named_in_the_target_tree_all_exist(self):
         for feature in ("Dashboard", "Library", "Import", "Signing", "Certificates", "Accounts",
                         "Devices", "Installation", "Sources", "Downloads", "Tasks", "Backup", "Settings"):
-            self.assertTrue(list((APP / "Features" / feature).rglob("*.swift")), feature)
-        # Reviewed additions: existing shipped features stay first-class units.
+            self.assertTrue(list((ROOT / "VexSign/Features" / feature).rglob("*.swift")), feature)
         for feature in ("Updates",):
-            self.assertTrue(list((APP / "Features" / feature).rglob("*.swift")), feature)
+            self.assertTrue(list((ROOT / "VexSign/Features" / feature).rglob("*.swift")), feature)
         for legacy in ("Home", "Repositories", "Backups"):
-            self.assertFalse((APP / "Features" / legacy).exists(), legacy)
+            self.assertFalse((ROOT / "VexSign/Features" / legacy).exists(), legacy)
 
     def test_shared_design_and_support_layers(self):
         for layer in ("Models/Entities", "Models/ValueObjects", "Models/Enums", "Models/Policies",
                       "Models/Results", "Protocols", "Errors", "Localization", "Services"):
-            self.assertTrue(list((ROOT / "Shared" / layer).rglob("*.swift")), layer)
+            self.assertTrue(list((ROOT / "VexSign/Shared" / layer).rglob("*.swift")), layer)
         self.assertTrue((ROOT / "VexSign/Shared/Protocols/SigningEngine.swift").is_file())
         for layer in ("Components", "Styles", "Typography"):
-            self.assertTrue(list((ROOT / "DesignSystem" / layer).rglob("*.swift")), layer)
+            self.assertTrue(list((ROOT / "VexSign/DesignSystem" / layer).rglob("*.swift")), layer)
 
     def test_services_storage_networking_and_apple_layers(self):
         for service in ("Signing", "Identity", "Import", "Installation", "Repository",
                         "Download", "Backup", "Tasks", "Updates", "Accounts", "Diagnostics", "WebManager"):
             self.assertTrue(list((ROOT / "VexSign/Services" / service).rglob("*.swift")), service)
         for layer in ("Database", "Keychain", "FileSystem", "Repositories"):
-            self.assertTrue(list((ROOT / "Storage" / layer).rglob("*.swift")), layer)
+            self.assertTrue(list((ROOT / "VexSign/Storage" / layer).rglob("*.swift")), layer)
         self.assertTrue((ROOT / "VexSign/Storage/Database/VexSign.xcdatamodeld").is_dir())
-        for layer in ("Security/Validation", "Security/Transport", "Security/Archives",
-                      "Security/Certificates", "Security/Storage", "Security/Logging"):
-            self.assertTrue((ROOT / "Networking" / layer).is_dir(), layer)
         self.assertTrue(list((ROOT / "VexSign/Security").rglob("*.swift")))
-        for layer in ("DeviceServices", "BackgroundTasks", "Notifications", "Compatibility",
+        for layer in ("DeviceCommunication", "BackgroundTasks", "Notifications", "Compatibility",
                       "FileCoordination", "AppIntents", "Haptics"):
-            self.assertTrue(list((ROOT / "Apple" / layer).rglob("*.swift")), layer)
+            self.assertTrue(list((ROOT / "VexSign/System" / layer).rglob("*.swift")), layer)
 
     def test_design_system_resources_are_app_owned(self):
-        self.assertTrue((APP / "Resources/Assets.xcassets/Contents.json").is_file())
-        self.assertTrue((APP / "Resources/AppIcon.icon/icon.json").is_file())
-        self.assertTrue((APP / "Resources/Settings.bundle/Root.plist").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/Assets.xcassets/Contents.json").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/AppIcon.icon/icon.json").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/Settings.bundle/Root.plist").is_file())
         self.assertTrue((ROOT / "VexSign/Resources/Localizations/Localizable.xcstrings").is_file())
-        self.assertTrue((APP / "Resources/ellekit.deb").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/ellekit.deb").is_file())
         self.assertTrue((ROOT / "VexSign/Resources/icon.png").is_file())
 
     def test_packages_use_the_canonical_sources_wrapper(self):
@@ -195,7 +193,7 @@ class RepositoryLayoutTests(unittest.TestCase):
                 self.assertNotRegex(source, pattern, str(path))
 
     def test_application_use_cases_depend_on_ports_not_implementations(self):
-        files = list(APP.rglob("Features/*/UseCases/**/*.swift"))
+        files = list((ROOT / "VexSign/Features").rglob("*/UseCases/**/*.swift"))
         self.assertTrue(files)
         for path in files:
             source = code(path)
@@ -220,14 +218,14 @@ class RepositoryLayoutTests(unittest.TestCase):
                       (ROOT / "VexSign/Services/Signing/Execution/ZsignHandler.swift").read_text())
         for name in ("SigningService", "UnifiedTaskCenter", "InstallQueue", "Storage"):
             declarations = []
-            for root in (ROOT / "VexSign/Services", ROOT / "Storage"):
+            for root in (ROOT / "VexSign/Services", ROOT / "VexSign/Storage"):
                 for path in root.rglob("*.swift"):
                     if re.search(r"(?m)^\s*(?:final\s+)?(?:class|actor|struct)\s+" + name + r"\b", code(path)):
                         declarations.append(path)
             self.assertEqual(len(declarations), 1, f"{name}: {declarations}")
 
     def test_install_submission_is_not_reported_as_device_confirmation(self):
-        use_case = code(APP / "Features/Installation/UseCases/DirectPackageInstallUseCase.swift")
+        use_case = code(ROOT / "VexSign/Features/Installation/UseCases/DirectPackageInstallUseCase.swift")
         self.assertIn(".submittedForInstallation", use_case)
         self.assertIn(".submittedForGuestImport", use_case)
         self.assertNotIn(".installedDirectly", use_case)
@@ -315,7 +313,8 @@ class RepositoryLayoutTests(unittest.TestCase):
         for pattern in ("VexSign/App/**", "Packages/**", "Tests/**", "Tools/**",
                         "Configuration/**", "Services/Cloud/**", "Services/WebManager/**",
                         "VexSign/Shared/**", "VexSign/Services/**", "VexSign/Storage/**", "VexSign/Networking/**",
-                        "VexSign/System/**", "VexSign/DesignSystem/**", "Resources/**"):
+                        "VexSign/System/**", "VexSign/DesignSystem/**", "VexSign/Resources/**",
+                        "VexSign/Features/**", "VexSign/Security/**"):
             self.assertIn(pattern, text, pattern)
         for path in (ROOT / "Makefile", workflows / "ci.yml"):
             self.assertIn("Tools/Validation/architecture-rules/test_repository_layout.py", path.read_text())

@@ -1148,7 +1148,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertFalse((ROOT / "tools").exists())
         self.assertFalse((ROOT / "Scripts").exists())
         self.assertFalse((ROOT / "update-repo.sh").exists())
-        self.assertTrue((ROOT / "Resources/brand/logo.svg").is_file())
+        self.assertTrue((ROOT / "VexSign/Resources/brand/logo.svg").is_file())
         self.assertTrue((ROOT / "icon.png").is_file())  # published feed compatibility
 
     def test_security_schedule_and_release_boundaries_are_preserved(self):

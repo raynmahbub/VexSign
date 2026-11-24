@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-labelledby="title desc">
+  <title id="title">VexSign Home dashboard — layout preview</title>
+  <desc id="desc">A layout preview of the rebuilt VexSign Home tab: a certificate-aware hero, workspace metrics, quick actions and recent activity in a calm, native layout.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08070f"/>
+      <stop offset="1" stop-color="#130f26"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="0.55" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9d5ff"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#ffffff" stroke-opacity="0.035"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="18" stdDeviation="26" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <clipPath id="screen"><rect x="792" y="66" width="322" height="586" rx="38"/></clipPath>
+  </defs>
+
+  <rect width="1200" height="720" fill="url(#bg)"/>
+  <rect width="1200" height="720" fill="url(#grid)"/>
+  <circle cx="210" cy="140" r="320" fill="url(#glow)"/>
+
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <g transform="translate(76 120)">
+      <rect width="184" height="34" rx="17" fill="#8b5cf6" fill-opacity="0.14" stroke="#a78bfa" stroke-opacity="0.28"/>
+      <text x="18" y="22" fill="#d8b4fe" font-size="12" font-weight="700" letter-spacing="1.2">THE HOME TAB</text>
+
+      <text x="0" y="94" fill="#ffffff" font-size="46" font-weight="800" letter-spacing="-1.8">Everything important.</text>
+      <text x="0" y="144" fill="#ffffff" font-size="46" font-weight="800" letter-spacing="-1.8">Nothing in the way.</text>
+      <text x="0" y="188" fill="#b8b1d4" font-size="17">A certificate-aware hero, one-tap actions and live</text>
+      <text x="0" y="212" fill="#b8b1d4" font-size="17">workspace status — with empty sections removed.</text>
+
+      <g transform="translate(0 268)">
+        <circle cx="18" cy="18" r="18" fill="#8b5cf6" fill-opacity="0.14"/>
+        <path d="M11 18l5 5 9-10" fill="none" stroke="#c4b5fd" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="52" y="15" fill="#f4f1ff" font-size="16" font-weight="700">Certificate-aware hero</text>
+        <text x="52" y="36" fill="#9d95bd" font-size="13">Know whether you are ready to sign before you start.</text>
+      </g>
+      <g transform="translate(0 344)">
+        <circle cx="18" cy="18" r="18" fill="#22d3ee" fill-opacity="0.13"/>
+        <path d="M12 18h12M18 12v12" stroke="#67e8f9" stroke-width="2.2" stroke-linecap="round"/>
+        <text x="52" y="15" fill="#f4f1ff" font-size="16" font-weight="700">Quick actions</text>
+        <text x="52" y="36" fill="#9d95bd" font-size="13">Import, Quick Sign, Library and Discover in one grid.</text>
+      </g>
+      <g transform="translate(0 420)">
+        <circle cx="18" cy="18" r="18" fill="#4ade80" fill-opacity="0.13"/>
+        <path d="M11 19l4 4 10-12" fill="none" stroke="#86efac" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="52" y="15" fill="#f4f1ff" font-size="16" font-weight="700">A real getting-started path</text>
+        <text x="52" y="36" fill="#9d95bd" font-size="13">Certificate, source, first IPA — then the card disappears.</text>
+      </g>
+      <g transform="translate(0 496)">
+        <circle cx="18" cy="18" r="18" fill="#f59e0b" fill-opacity="0.13"/>
+        <path d="M18 10v9M18 25v.5" stroke="#fcd34d" stroke-width="2.4" stroke-linecap="round"/>
+        <text x="52" y="15" fill="#f4f1ff" font-size="16" font-weight="700">Status only when it matters</text>
+        <text x="52" y="36" fill="#9d95bd" font-size="13">Progress, updates and attention items stay visible.</text>
+      </g>
+    </g>
+
+    <!-- Phone -->
+    <g filter="url(#shadow)">
+      <rect x="780" y="46" width="346" height="626" rx="54" fill="#15121f" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1.5"/>
+      <rect x="792" y="66" width="322" height="586" rx="38" fill="#0a0812"/>
+    </g>
+
+    <g clip-path="url(#screen)">
+      <rect x="792" y="66" width="322" height="586" fill="#0a0812"/>
+      <rect x="900" y="78" width="106" height="12" rx="6" fill="#000000"/>
+
+      <!-- header -->
+      <g transform="translate(814 104)">
+        <rect width="34" height="34" rx="11" fill="url(#mark)"/>
+        <text x="10" y="24" fill="#1a0b33" font-size="17" font-weight="900">V</text>
+        <text x="46" y="15" fill="#ffffff" font-size="15" font-weight="800">Good evening</text>
+        <text x="46" y="31" fill="#8f87aa" font-size="10">Your signing workspace</text>
+        <circle cx="288" cy="17" r="16" fill="#171321" stroke="#ffffff" stroke-opacity="0.10"/>
+        <path d="M281 17h14M285 13v8M291 13v8" stroke="#c4b5fd" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+
+      <!-- hero -->
+      <g transform="translate(814 154)">
+        <rect width="278" height="150" rx="24" fill="url(#hero)"/>
+        <rect x="14" y="14" width="86" height="20" rx="10" fill="#ffffff" fill-opacity="0.16"/>
+        <text x="24" y="28" fill="#ffffff" fill-opacity="0.9" font-size="8" font-weight="700">CERTIFICATE READY</text>
+        <text x="14" y="66" fill="#ffffff" font-size="22" font-weight="800" letter-spacing="-0.6">Your apps. Your</text>
+        <text x="14" y="90" fill="#ffffff" font-size="22" font-weight="800" letter-spacing="-0.6">signing. On device.</text>
+        <rect x="14" y="108" width="118" height="28" rx="14" fill="#ffffff"/>
+        <text x="28" y="126" fill="#4c1d95" font-size="10" font-weight="800">Import IPA</text>
+        <rect x="140" y="108" width="118" height="28" rx="14" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.32"/>
+        <text x="158" y="126" fill="#ffffff" font-size="10" font-weight="700">Quick sign</text>
+        <circle cx="244" cy="26" r="44" fill="#ffffff" fill-opacity="0.12"/>
+        <circle cx="258" cy="128" r="28" fill="#22d3ee" fill-opacity="0.26"/>
+      </g>
+
+      <!-- metrics -->
+      <g transform="translate(814 316)">
+        <rect width="278" height="54" rx="18" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+        <g font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">
+          <text x="46" y="25">12</text><text x="139" y="25">3</text><text x="232" y="25">5</text>
+        </g>
+        <g font-size="8" fill="#9d95bd" text-anchor="middle">
+          <text x="46" y="39">Library</text><text x="139" y="39">Certificates</text><text x="232" y="39">Repositories</text>
+        </g>
+        <path d="M93 14v26M186 14v26" stroke="#ffffff" stroke-opacity="0.08"/>
+      </g>
+
+      <text x="814" y="400" fill="#ffffff" font-size="14" font-weight="800">Quick actions</text>
+
+      <!-- 2x2 quick actions -->
+      <g transform="translate(814 414)">
+        <rect width="133" height="58" rx="16" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+        <rect x="145" width="133" height="58" rx="16" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+        <rect y="68" width="133" height="58" rx="16" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+        <rect x="145" y="68" width="133" height="58" rx="16" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+
+        <g fill="#c4b5fd"><rect x="12" y="14" width="28" height="28" rx="9" fill="#8b5cf6" fill-opacity="0.18"/><path d="M19 28l5 5 8-10" fill="none" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <text x="50" y="26" fill="#f4f1ff" font-size="10" font-weight="700">Import IPA</text>
+        <text x="50" y="40" fill="#8f87aa" font-size="8">From Files</text>
+
+        <g transform="translate(145 0)"><rect x="12" y="14" width="28" height="28" rx="9" fill="#22d3ee" fill-opacity="0.16"/><path d="M20 29l10-10M22 18h8v8" fill="none" stroke="#67e8f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <text x="195" y="26" fill="#f4f1ff" font-size="10" font-weight="700">Quick sign</text>
+        <text x="195" y="40" fill="#8f87aa" font-size="8">Pick and sign</text>
+
+        <g transform="translate(0 68)"><rect x="12" y="14" width="28" height="28" rx="9" fill="#4ade80" fill-opacity="0.14"/><rect x="19" y="21" width="14" height="14" rx="4" fill="none" stroke="#86efac" stroke-width="2"/></g>
+        <text x="50" y="94" fill="#f4f1ff" font-size="10" font-weight="700">Library</text>
+        <text x="50" y="108" fill="#8f87aa" font-size="8">12 apps</text>
+
+        <g transform="translate(145 68)"><rect x="12" y="14" width="28" height="28" rx="9" fill="#f59e0b" fill-opacity="0.14"/><circle cx="26" cy="28" r="7" fill="none" stroke="#fcd34d" stroke-width="2"/><path d="M26 18v-3" stroke="#fcd34d" stroke-width="2" stroke-linecap="round"/></g>
+        <text x="195" y="94" fill="#f4f1ff" font-size="10" font-weight="700">Discover</text>
+        <text x="195" y="108" fill="#8f87aa" font-size="8">Browse sources</text>
+      </g>
+
+      <text x="814" y="548" fill="#ffffff" font-size="14" font-weight="800">Recently added</text>
+      <g transform="translate(814 560)">
+        <rect width="133" height="48" rx="14" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+        <rect x="12" y="10" width="28" height="28" rx="8" fill="#8b5cf6" fill-opacity="0.42"/>
+        <text x="50" y="22" fill="#f4f1ff" font-size="9" font-weight="700">App name</text>
+        <text x="50" y="34" fill="#8f87aa" font-size="8">Signed</text>
+        <rect x="145" width="133" height="48" rx="14" fill="#15111f" stroke="#ffffff" stroke-opacity="0.08"/>
+        <rect x="157" y="10" width="28" height="28" rx="8" fill="#22d3ee" fill-opacity="0.42"/>
+        <text x="195" y="22" fill="#f4f1ff" font-size="9" font-weight="700">App name</text>
+        <text x="195" y="34" fill="#8f87aa" font-size="8">Imported</text>
+      </g>
+
+      <!-- tab bar -->
+      <g transform="translate(792 610)">
+        <rect width="322" height="42" fill="#0f0c18" fill-opacity="0.96"/>
+        <g text-anchor="middle" font-size="7" fill="#6f6888">
+          <text x="40" y="34">Home</text><text x="121" y="34">Discover</text><text x="201" y="34">Library</text><text x="282" y="34">Settings</text>
+        </g>
+        <circle cx="40" cy="18" r="3" fill="#c4b5fd"/>
+        <path d="M121 13l5 5-5 5M201 12h10v10h-10zM282 14a4 4 0 018 0v8h-8z" fill="none" stroke="#6f6888" stroke-width="1.6" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </g>
+</svg>

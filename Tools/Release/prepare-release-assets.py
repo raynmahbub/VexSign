@@ -58,12 +58,12 @@ def prepare(output, version, channel, repository):
             # dump of historical development claims.
             notes = f'### Changelog\n\n[Every commit in this build]({raw}/commits/{commit}).\n'
             notes_source = 'reviewed-version-notes'
-    ending = (f'\n### Interface preview\n\n[Home layout preview]({raw}/Resources/brand/home-preview.svg) '
+    ending = (f'\n### Interface preview\n\n[Home layout preview]({raw}/VexSign/Resources/brand/home-preview.svg) '
               'is a design illustration, **not a screenshot or proof of device testing**. '
               'The app icon and preview are also attached.\n')
     (output / 'CHANGELOG.md').write_text(intro + notes + ending)
     shutil.copyfile(ROOT / "icon.png", output / 'VexSign-icon.png')
-    shutil.copyfile(ROOT / "Resources/brand/home-preview.svg", output / 'Home-layout-preview.svg')
+    shutil.copyfile(ROOT / "VexSign/Resources/brand/home-preview.svg", output / 'Home-layout-preview.svg')
     with ipas[0].open('rb') as handle:
         digest = hashlib.file_digest(handle, 'sha256').hexdigest()
     metadata = dict(schema_version=1, version=version, channel=channel, repository=repository,
