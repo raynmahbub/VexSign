@@ -93,7 +93,12 @@ enum CertificateImportDiagnosis: LocalizedError, Equatable {
         }
         if let profileFailure = error as? ProvisioningProfileParser.Failure {
             switch profileFailure {
-            case .missing, .unreadable, .malformed, .untrustedCMS, .missingApplicationIdentifier:
+            case .expired:
+                return CertificateCompatibilityDiagnostic.make(
+                    reason: .provisioningProfileExpired,
+                    detail: profileFailure.errorDescription
+                )
+            case .malformed, .untrustedCMS:
                 return CertificateCompatibilityDiagnostic.make(
                     reason: .unsupportedSigningCapability,
                     detail: profileFailure.errorDescription
