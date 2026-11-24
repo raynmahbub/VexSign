@@ -137,25 +137,25 @@ final class ZsignEngineTests: XCTestCase {
 	/// not name the .p12's certificate. Each case now has a sentence instead.
 	func testAMissingProfileIsNamedAsSuch() {
 		XCTAssertEqual(
-			ZsignEngine.identityProblem(provisioningProfile: nil, certificate: Data([0x01]), leafCertificate: nil, profile: nil),
+			ZsignEngine.identityProblem(provisioningProfile: nil, certificate: Data([0x01]), leafFingerprint: nil, profile: nil),
 			.missingProvisioningProfile
 		)
 		XCTAssertEqual(
-			ZsignEngine.identityProblem(provisioningProfile: Data(), certificate: Data([0x01]), leafCertificate: nil, profile: nil),
+			ZsignEngine.identityProblem(provisioningProfile: Data(), certificate: Data([0x01]), leafFingerprint: nil, profile: nil),
 			.missingProvisioningProfile
 		)
 	}
 
 	func testAMissingCertificateIsNamedAsSuch() {
 		XCTAssertEqual(
-			ZsignEngine.identityProblem(provisioningProfile: Data([0x01]), certificate: nil, leafCertificate: nil, profile: nil),
+			ZsignEngine.identityProblem(provisioningProfile: Data([0x01]), certificate: nil, leafFingerprint: nil, profile: nil),
 			.missingCertificate
 		)
 	}
 
 	func testAnUnreadableProfileIsNamedAsSuch() {
 		XCTAssertEqual(
-			ZsignEngine.identityProblem(provisioningProfile: Data([0x01]), certificate: Data([0x02]), leafCertificate: nil, profile: nil),
+			ZsignEngine.identityProblem(provisioningProfile: Data([0x01]), certificate: Data([0x02]), leafFingerprint: nil, profile: nil),
 			.profileUnreadable
 		)
 	}
@@ -167,7 +167,7 @@ final class ZsignEngineTests: XCTestCase {
 			ZsignEngine.identityProblem(
 				provisioningProfile: Data([0x01]),
 				certificate: Data([0x02]),
-				leafCertificate: nil,
+				leafFingerprint: nil,
 				profile: profile
 			),
 			.missingTeamIdentifier
@@ -180,7 +180,7 @@ final class ZsignEngineTests: XCTestCase {
 			ZsignEngine.identityProblem(
 				provisioningProfile: Data([0x01]),
 				certificate: Data([0x02]),
-				leafCertificate: nil,
+				leafFingerprint: nil,
 				profile: _profile()
 			),
 			.unreadableCertificate
@@ -189,7 +189,7 @@ final class ZsignEngineTests: XCTestCase {
 			ZsignEngine.identityProblem(
 				provisioningProfile: Data([0x01]),
 				certificate: Data([0x02]),
-				leafCertificate: Data(),
+				leafFingerprint: "",
 				profile: _profile()
 			),
 			.unreadableCertificate
@@ -202,12 +202,13 @@ final class ZsignEngineTests: XCTestCase {
 	func testAProfileThatDoesNotNameTheCertificateIsNamedAsSuch() {
 		let leaf = Data([0xAA, 0xBB, 0xCC])
 		let other = Data([0x01, 0x02, 0x03])
+		let leafFingerprint = SigningIdentity.fingerprint(of: leaf)
 
 		XCTAssertEqual(
 			ZsignEngine.identityProblem(
 				provisioningProfile: Data([0x01]),
 				certificate: Data([0x02]),
-				leafCertificate: leaf,
+				leafFingerprint: leafFingerprint,
 				profile: _profile(developerCertificates: [other])
 			),
 			.certificateNotInProfile
@@ -217,18 +218,52 @@ final class ZsignEngineTests: XCTestCase {
 			ZsignEngine.identityProblem(
 				provisioningProfile: Data([0x01]),
 				certificate: Data([0x02]),
-				leafCertificate: leaf,
+				leafFingerprint: leafFingerprint,
 				profile: _profile(developerCertificates: [other, leaf])
 			),
 			"the metadata names this leaf; actual CMS, validity and private-key proof are still required"
 		)
 	}
 
+	/// Each refusal is a different problem with a different file to import, so no two may share
+	/// a sentence, and none may be short enough to leave the user guessing.
+	func testEveryRefusalSaysSomethingDifferentAndActionable() {
+		let problems: [ZsignEngine.IdentityProblem] = [
+			.missingProvisioningProfile, .missingCertificate, .profileUnreadable,
+			.unreadableCertificate, .missingTeamIdentifier, .certificateNotInProfile
+		]
+		let messages = problems.map(\.message)
+		XCTAssertEqual(Set(messages).count, problems.count, "Two refusals share a sentence: \(messages)")
+		for message in messages {
+			XCTAssertGreaterThan(message.count, 40, "Too terse to act on: \(message)")
+			XCTAssertFalse(message.contains("error "), message)
+		}
+	}
+
+	// MARK: - What a failed run reports
+
+	/// Ad-hoc runs have no identity, and must not be told to import a profile they do not use.
+	func testAnAdHocRunHasNoRefusalReason() {
+		let request = ZsignEngine.Request(appPath: "/tmp/A.app", isAdHoc: true)
+		XCTAssertNil(ZsignEngine.refusalReason(for: request))
+	}
+
+	/// A device run with no inputs is the commonest silent refusal: nothing to read, so the
+	/// sentence is the one about the missing profile.
+	func testADeviceRunWithoutInputsBlamesTheMissingProfile() {
+		let request = ZsignEngine.Request(appPath: "/tmp/A.app")
+		XCTAssertEqual(
+			ZsignEngine.refusalReason(for: request),
+			ZsignEngine.IdentityProblem.missingProvisioningProfile.message
+		)
+	}
+
     func testAProfileThatNamesNoCertificatesCannotAuthorizeTheLeaf() {
         let values: [[Data]?] = [nil, []]
+        let leafFingerprint = SigningIdentity.fingerprint(of: Data([0xAA, 0xBB, 0xCC]))
         for certificates in values {
             XCTAssertEqual(ZsignEngine.identityProblem(provisioningProfile: Data([0x01]),
-                certificate: Data([0x02]), leafCertificate: Data([0xAA, 0xBB, 0xCC]),
+                certificate: Data([0x02]), leafFingerprint: leafFingerprint,
                 profile: _profile(developerCertificates: certificates)), .certificateNotInProfile)
         }
     }
