@@ -28,9 +28,12 @@ final class ImportAndInstallationTests: XCTestCase {
         defer { try? manager.removeItem(at: root) }
         try manager.createSymbolicLink(at: root.appendingPathComponent("escape"), withDestinationURL: root.deletingLastPathComponent())
         XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: "escape/outside", root: root))
-        for path in ["/Payload/", "../escape", "Payload/../escape", "C:/escape", "", "./Payload"] {
+        for path in ["/Payload/", "../escape", "Payload/../escape", "C:/escape", ""] {
             XCTAssertThrowsError(try ArchiveSafetyValidator.validateDestination(relativePath: path, root: root))
         }
+        // A `./` prefix names the same file, and packers disagree about writing it. Refusing it
+        // rejected ordinary archives at the first entry; only `..` can leave the destination.
+        XCTAssertNoThrow(try ArchiveSafetyValidator.validateDestination(relativePath: "./Payload", root: root))
     }
 
     func testArchiveDestinationAcceptsPayloadDirectoryAndFiles() throws {

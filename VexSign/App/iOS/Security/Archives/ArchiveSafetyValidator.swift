@@ -122,13 +122,18 @@ struct ArchiveSafetyValidator {
                 throw ValidationError.traversalPath(path)
             }
 
-            let components = path.split(separator: "/", omittingEmptySubsequences: true)
-            guard !components.contains(where: { $0 == ".." || $0 == "." }) else {
+            let components = normalizedComponents(path)
+            // Only `..` can leave the destination. A `.` component is the same file spelled at
+            // greater length, and ZIP writers disagree about whether to prefix entries with it:
+            // refusing `./Payload/App.app/Info.plist` rejected a perfectly ordinary archive.
+            guard !components.contains(where: { $0 == ".." }) else {
                 throw ValidationError.traversalPath(path)
             }
             guard components.count <= limits.maxDepth else {
                 throw ValidationError.excessiveDepth(path)
             }
+            // `./`, `/.` or `/`: an entry that names no file. Nothing to claim or extract.
+            guard !components.isEmpty else { continue }
 
             if entry.type == .symlink {
                 throw ValidationError.symbolicLink(path)
@@ -241,15 +246,28 @@ struct ArchiveSafetyValidator {
         return normalized.isEmpty ? nil : normalized
     }
 
+    /// The components of an entry name with the `.` components removed.
+    ///
+    /// `./Payload/App.app/Info.plist`, `Payload/./App.app/Info.plist` and
+    /// `Payload/App.app/Info.plist` all name one file, and the first is what several packers
+    /// write. Removing the `.` components here keeps a validation this file performs and the
+    /// path `IPAExtractor` writes describing the same file. `..` is left in place, so the
+    /// checks that refuse it stay the ones that decide.
+    static func normalizedComponents(_ path: String) -> [Substring] {
+        path.replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .filter { $0 != "." }
+    }
+
     /// Normalize the base before appending, so Foundation cannot resolve an
     /// alias such as /var -> /private/var on only one side of the comparison.
     /// Compare path components, not string prefixes ("work-other" is not "work").
     static func validateDestination(relativePath: String, root: URL) throws {
         let base = root.resolvingSymlinksInPath().standardizedFileURL
         let path = relativePath.replacingOccurrences(of: "\\", with: "/")
-        let parts = path.split(separator: "/", omittingEmptySubsequences: true)
+        let parts = normalizedComponents(path)
         guard !path.hasPrefix("/"), !path.hasPrefix("~"), !path.contains("\0"),
-              !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.contains(":") }) else {
+              !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0.contains(":") }) else {
             throw ValidationError.traversalPath(relativePath)
         }
 
