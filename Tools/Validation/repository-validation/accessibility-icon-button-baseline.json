@@ -5,7 +5,7 @@
   "VexSign/Features/Import/Files/Views/IPSWBrowserView.swift": 1,
   "VexSign/Features/Installation/Views/AntiRevokeView.swift": 1,
   "VexSign/Features/Library/Views/AppCustomizationSheet.swift": 1,
-  "VexSign/Features/Settings/Views/VexSign/Storage/StorageDetailView.swift": 1,
+  "VexSign/Features/Settings/Views/Storage/StorageDetailView.swift": 1,
   "VexSign/Features/Signing/Views/Entitlements/SigningEntitlementsEditorView.swift": 3,
   "VexSign/Features/Signing/Views/Entitlements/SigningEntitlementsView.swift": 1,
   "VexSign/Features/Signing/Views/InfoPlist/SigningInfoPlistView.swift": 2,

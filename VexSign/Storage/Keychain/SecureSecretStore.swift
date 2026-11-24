@@ -2,6 +2,12 @@ import Foundation
 import Security
 
 enum SecureSecretStore {
+    /// One place derives the account key for a certificate's password. A typo in a
+    /// second copy would silently read nothing and fail a signature as "wrong password".
+    static func certificatePasswordAccount(_ uuid: String) -> String {
+        "certificate.password.\(uuid)"
+    }
+
     struct Failure: LocalizedError {
         let status: OSStatus
         var errorDescription: String? { SecCopyErrorMessageString(status, nil) as String? ?? "Keychain error \(status)" }

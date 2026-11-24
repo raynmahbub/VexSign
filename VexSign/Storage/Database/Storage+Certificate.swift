@@ -28,7 +28,7 @@ extension Storage {
         let transaction = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         transaction.persistentStoreCoordinator = container.persistentStoreCoordinator
         transaction.mergePolicy = NSErrorMergePolicy
-        let account = "certificate.password.\(uuid)"
+        let account = SecureSecretStore.certificatePasswordAccount(uuid)
         var wrotePassword = false
         do {
             guard UUID(uuidString: uuid) != nil else { throw WorkspaceAccessError.invalidReference }
@@ -117,7 +117,7 @@ extension Storage {
         }
         NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: [id],
             NSUpdatedObjectsKey: linkedIDs], into: [context])
-        do { try SecureSecretStore.delete("certificate.password.\(uuid)") }
+        do { try SecureSecretStore.delete(SecureSecretStore.certificatePasswordAccount(uuid)) }
         catch { Logger.misc.error("Could not remove certificate Keychain item; cleanup requires an unlocked Keychain.") }
         if let directory {
             let root = directory.deletingLastPathComponent()

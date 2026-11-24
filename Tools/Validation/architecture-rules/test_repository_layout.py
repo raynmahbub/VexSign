@@ -124,6 +124,30 @@ class RepositoryLayoutTests(unittest.TestCase):
         for layer in ("Components", "Styles", "Typography"):
             self.assertTrue(list((ROOT / "VexSign/DesignSystem" / layer).rglob("*.swift")), layer)
 
+    def test_security_networking_and_design_system_areas(self):
+        # Security is a first-class area with named responsibilities, not a bucket: each
+        # sub-area answers a different question, and `Policies/` holds the rules the rest
+        # of the app calls instead of re-deciding them.
+        for area in ("Certificates", "Cryptography", "CodeSigning", "Entitlements",
+                     "Provisioning", "ArchiveValidation", "Trust", "Credentials", "Policies"):
+            self.assertTrue(list((ROOT / "VexSign/Security" / area).rglob("*.swift")), area)
+        for legacy in ("Validation", "Transport", "Storage", "Logging"):
+            self.assertFalse((ROOT / "VexSign/Security" / legacy).exists(),
+                             f"Security keeps no catch-all `{legacy}` folder")
+        for area in ("HTTP", "API", "Downloads", "Authentication", "Monitoring"):
+            self.assertTrue(list((ROOT / "VexSign/Networking" / area).rglob("*.swift")), area)
+        for area in ("HTTP/TransferSecuritySession.swift", "HTTP/BoundedResponseFetch.swift",
+                     "HTTP/HTTPTimeoutPolicy.swift",
+                     "Downloads/PackageDownloadRedirectDelegate.swift",
+                     "Authentication/AuthenticatedRequestBuilder.swift",
+                     "Monitoring/LocalNetworkHost.swift",
+                     "Monitoring/NetworkReachabilityMonitor.swift"):
+            self.assertTrue((ROOT / "VexSign/Networking" / area).is_file(), area)
+        for area in ("Components", "Styles", "Typography", "Modifiers"):
+            self.assertTrue(list((ROOT / "VexSign/DesignSystem" / area).rglob("*.swift")), area)
+        self.assertFalse((ROOT / "VexSign/DesignSystem/Styles/Modifiers").exists(),
+                         "Modifiers is a sibling of Styles, not a child of it")
+
     def test_services_storage_networking_and_apple_layers(self):
         for service in ("Signing", "Identity", "Import", "Installation", "Repository",
                         "Download", "Backup", "Tasks", "Updates", "Accounts", "Diagnostics", "WebManager"):

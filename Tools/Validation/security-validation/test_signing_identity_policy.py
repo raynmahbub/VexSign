@@ -25,12 +25,12 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 PKCS12 = ROOT / "Packages/SideSign/Sources/Certificates/PKCS12Parser.swift"
 KEYSTORE = ROOT / "Packages/SideSign/Sources/Models/KeyStore.swift"
-VERIFIER = ROOT / "VexSign/Services/Signing/Verification/SignatureVerifier.swift"
-AUDIT = ROOT / "VexSign/Services/Signing/Verification/NestedBundleAudit.swift"
+VERIFIER = ROOT / "VexSign/Security/CodeSigning/SignatureVerifier.swift"
+AUDIT = ROOT / "VexSign/Security/CodeSigning/NestedBundleAudit.swift"
 ENGINE = ROOT / "Packages/Vendor/Zsign/src/bundle.cpp"
 PLAN = ROOT / "VexSign/Services/Signing/Planning/SigningPlan.swift"
-EXECUTABLE_AUDIT = ROOT / "VexSign/Services/Signing/Verification/BundleExecutableAudit.swift"
-SEALS = ROOT / "VexSign/Services/Signing/Verification/SignatureVerifier+Seals.swift"
+EXECUTABLE_AUDIT = ROOT / "VexSign/Security/CodeSigning/BundleExecutableAudit.swift"
+SEALS = ROOT / "VexSign/Security/CodeSigning/SignatureVerifier+Seals.swift"
 SESSION = ROOT / "VexSign/Services/Signing/Planning/SigningResolutionSession.swift"
 
 
@@ -265,17 +265,30 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
         self.assertIn("if hasValidUUID", source)
 
     def test_password_migration_never_saves_the_callers_context_or_lossily_decodes_a_secret(self):
-        source = (ROOT / "VexSign/Security/Certificates/CertificateSecrets.swift").read_text()
-        self.assertIn("String(data: stored, encoding: .utf8)", source)
-        self.assertNotIn("String(decoding: stored", source)
-        self.assertIn("transaction.performAndWait", source)
-        self.assertIn("try save(transaction)", source)
-        self.assertNotIn("managedObjectContext?.save()", source)
-        self.assertNotIn("try context.save()", source)
+        # The ordering rule is Security's; the managed-object side is Storage's. The two
+        # halves are pinned separately so neither can absorb the other's job.
+        policy = (ROOT / "VexSign/Security/Credentials/CertificatePasswordMigration.swift").read_text()
+        self.assertIn("String(data: stored, encoding: .utf8)", policy)
+        self.assertNotIn("String(decoding: stored", policy)
+        self.assertNotIn("NSManagedObjectContext", policy)
+        self.assertNotIn("import CoreData", policy)
+
+        bridge = (ROOT / "VexSign/Storage/Keychain/CertificateSecrets.swift").read_text()
+        self.assertIn("import CoreData", bridge)
+        self.assertIn("transaction.performAndWait", bridge)
+        self.assertIn("try save(transaction)", bridge)
+        self.assertIn("CertificatePasswordMigration.resolve", bridge)
+        self.assertNotIn("managedObjectContext?.save()", bridge)
+        self.assertNotIn("try context.save()", bridge)
+        # One account key, derived by the store that owns the Keychain namespace.
+        self.assertIn("SecureSecretStore.certificatePasswordAccount(uuid)", bridge)
+        removal = (ROOT / "VexSign/Services/Identity/CertificateRemoval.swift").read_text()
+        self.assertIn("SecureSecretStore.certificatePasswordAccount(uuid)", removal)
+        self.assertNotIn('String(decoding: $0, as: UTF8.self)', removal)
 
     def test_fresh_signatures_require_the_complete_verdict_before_registration(self):
         handler = (ROOT / "VexSign/Services/Signing/Execution/SigningHandler.swift").read_text()
-        verifier = (ROOT / "VexSign/Services/Signing/Verification/SignatureVerifier.swift").read_text()
+        verifier = (ROOT / "VexSign/Security/CodeSigning/SignatureVerifier.swift").read_text()
         self.assertIn("try report.requireVerified()", handler)
         self.assertLess(handler.index("try _verifySignedBundle("), handler.index("try await self.move()"))
         self.assertIn("func requireVerified() throws", verifier)

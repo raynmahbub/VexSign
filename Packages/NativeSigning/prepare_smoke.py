@@ -385,7 +385,7 @@ def install_smoke_sources(work):
     # Include actual platform storage byte-for-byte, not test-only substitutes.
     for source in [ROOT / "VexSign/Storage/Keychain/AppleAccountCredentialStore.swift",
                    ROOT / "VexSign/Storage/Keychain/AppleAccountResumeJournalStore.swift",
-                   ROOT / "VexSign/Security/VexSign/Storage/AppleAccountStorageRuntimePolicy.swift"]:
+                   ROOT / "VexSign/Security/Policies/AppleAccountStorageRuntimePolicy.swift"]:
         destination = work / 'Sources/NativeSigningLinkSmoke' / source.name
         shutil.copy2(source, destination)
         hashes[str(source.relative_to(ROOT))] = digest(destination.read_bytes())

@@ -357,27 +357,30 @@ The `Makefile` is the supported entry point; `make help` lists every target.
 > which yields `Unable to find module dependency` and `Multiple commands produce
 > .../PrivacyInfo.xcprivacy`. And every first-party source root must be named by some
 > target's synchronized groups: a root no target lists is never compiled, so the types
-> it holds go missing. The iOS target therefore synchronizes `App`, `Shared`, `Storage`,
-> `Networking`, `Apple`, `DesignSystem` and `VexSign/Services`, while each companion
-> synchronizes its own folder in `Platform/` plus the specific files it shares with the
-> app. `check_project_wiring.py` enforces both rules before Xcode runs.
+> it holds go missing. The iOS target therefore synchronizes the ten roots under
+> `VexSign/` (`App`, `Features`, `Shared`, `Storage`, `Networking`, `System`, `Security`,
+> `DesignSystem`, `Services`, `Resources`), while each companion synchronizes its own
+> folder in `Platform/` plus the specific files it shares with the app.
+> `check_project_wiring.py` enforces both rules before Xcode runs.
 
 ### Source layout
 
-Project content lives at the repository root in one directory per layer: `App`,
-`Platform`, `Shared`, `Storage`, `Networking`, `Apple`, `DesignSystem`, `Packages`,
-`Services`, `Tests`, `Tools` and `Configuration`. Source-only assets stay under `Resources`;
-anything the app must contain at runtime lives in `VexSign/Resources`, because the
-targets use Xcode folder-synchronization and only bundle what is inside their own
-folder. The iOS app at `VexSign/App/` separates App composition/lifecycle, feature-oriented
-Presentation, Application workflows, Domain contracts, Infrastructure adapters,
-Platform-facing code, Security and bundled Resources. The companion targets live in
-`Platform/`: `TV/`, `Vision/`, `Extensions/WidgetExtension/` and `Watch/` (both
-existing targets). `SharedPlatformInfo/` stays in `VexSign/Resources/` because the iOS
-app bundles it. Existing target names,
-bundle identifiers, schemes and the experimental host integration are retained.
-`test_repository_layout.py` enforces the layout, including the exact tool-owned
-wrapper exceptions. Multi-child folders are not flattened.
+There is one application source root, `VexSign/`, and one directory per layer inside it:
+`App`, `Features`, `DesignSystem`, `Shared`, `Services`, `Storage`, `Networking`,
+`Security`, `System` and `Resources`. Repository-level directories sit beside it:
+`Platform` (TV, Vision, Watch and the widget extension), `Packages`, `Services` (the
+separately deployed `Cloud`, `WebManager` and `Integrations` backends), `Tests`, `Tools`,
+`Configuration` and `Documentation`. Anything the app must contain at runtime lives in
+`VexSign/Resources`, because the targets use Xcode folder-synchronization and only bundle
+what is inside their own folder. `App/` holds lifecycle, bootstrap, composition and
+navigation; `Features/` holds the user-facing screens; `Services/` orchestrates
+workflows; `Security/` owns signing, cryptography, certificate and policy decisions;
+`System/` owns the operating-system integrations. The companion targets live in
+`Platform/`. `SharedPlatformInfo/` stays in `VexSign/Resources/` because the iOS app
+bundles it. Existing target names, bundle identifiers, schemes and the experimental host
+integration are retained. `Documentation/Architecture/README.md` is the baseline for
+which layer owns what, and `test_repository_layout.py` enforces the layout, including the
+exact tool-owned wrapper exceptions. Multi-child folders are not flattened.
 
 Domain/Application are Foundation-only; migrated workflows use injected ports.
 Legacy UI-to-storage/service coupling is still tracked, not claimed to be fully

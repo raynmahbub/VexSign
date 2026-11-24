@@ -218,7 +218,7 @@ final class AppContainer: ObservableObject {
                 DirectPackageInstallUseCase(
                     securityPolicy: security,
                     transferService: transfer,
-                    maximumPackageBytes: DownloadIntegrity.maximumPackageBytes,
+                    maximumPackageBytes: TransferAcceptancePolicy.maximumPackageBytes,
                     installation: DirectPackageInstallationAdapter()
                 )
             },

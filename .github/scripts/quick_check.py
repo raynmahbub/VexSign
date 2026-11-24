@@ -47,7 +47,9 @@ from pathlib import Path
 # Swift "targets" as they exist on disk. Duplicate names/types are only a
 # problem inside one module, so each directory is checked on its own.
 SWIFT_MODULES: dict[str, str] = {
-    "VexSign": "App",
+    # The app target's synchronized root is the whole application source tree; it used to
+    # be read as `App`, which is why two files could declare the same type and still pass.
+    "VexSign": "VexSign",
     "VexSignWidgetExtension": "Platform/Extensions/WidgetExtension",
     "VexSignTV": "Platform/TV",
     "VexSignVision": "Platform/Vision",
@@ -112,6 +114,8 @@ APP_ROOT = "App"
 # reintroduced `VexSign/App/TV`-style wrapper is what these entries still catch.
 LEGACY_APP_WRAPPERS = {
     APP_ROOT + "/VexSign": APP_ROOT,
+    "VexSign/App/VexSign": "VexSign/App",
+    "VexSign/App/iOS": "VexSign/App",
     "Platform/TV/VexSignTV": "Platform/TV",
     "Platform/Vision/VexSignVision": "Platform/Vision",
 }
@@ -754,7 +758,7 @@ def run_self_tests() -> int:
                 APP_ROOT + "/Presentation/Features/Signing/Models/SigningModel.swift",
                 APP_ROOT + "/Presentation/Features/Home/HomeView.swift",
                 APP_ROOT + "/Presentation/Navigation.swift",
-                APP_ROOT + "/VexSign/App/VexSignApp.swift",
+                APP_ROOT + "/VexSignApp.swift",
             ]), [])
             findings = layout_findings([APP_ROOT + "/Presentation/Features/Signing/Views/Misc/Helpers/Code.swift"])
             self.assertTrue(any("Misc/Helpers" in f.message for f in findings))

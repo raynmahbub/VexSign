@@ -44,10 +44,13 @@ CATALOGUE = ROOT / "VexSign/Resources/Localizations/Localizable.xcstrings"
 # First-party Swift that can hold user-facing copy. `App` is the shell; the
 # companion targets in `Platform/` and the shared layers and in-process services
 # ship inside the same catalogue.
-DEFAULT_SOURCE_ROOT = ROOT / "App"
+DEFAULT_SOURCE_ROOT = ROOT / "VexSign"
 SOURCE_ROOT = DEFAULT_SOURCE_ROOT
-SOURCE_ROOTS = (SOURCE_ROOT, ROOT / "Platform", ROOT / "Shared", ROOT / "Apple",
-                ROOT / "DesignSystem", ROOT / "VexSign/Services")
+#: Every first-party root the catalogued targets compile, plus the separate platform targets.
+SOURCE_ROOTS = (SOURCE_ROOT / "App", SOURCE_ROOT / "Features", ROOT / "Platform",
+                SOURCE_ROOT / "Shared", SOURCE_ROOT / "Storage", SOURCE_ROOT / "Networking",
+                SOURCE_ROOT / "System", SOURCE_ROOT / "Security", SOURCE_ROOT / "DesignSystem",
+                SOURCE_ROOT / "Services")
 
 
 def source_paths():

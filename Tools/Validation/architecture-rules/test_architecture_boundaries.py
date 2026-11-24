@@ -13,13 +13,14 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-VEXSIGN = ROOT / "App"
-SHARED = ROOT / "Shared"
+VEXSIGN = ROOT / "VexSign"
+APP = ROOT / "VexSign" / "App"
+SHARED = ROOT / "VexSign" / "Shared"
 SERVICES = ROOT / "VexSign/Services"
-NETWORKING = ROOT / "Networking"
-STORAGE = ROOT / "Storage"
-DESIGN = ROOT / "DesignSystem"
-APPLE = ROOT / "Apple"
+NETWORKING = ROOT / "VexSign" / "Networking"
+STORAGE = ROOT / "VexSign" / "Storage"
+DESIGN = ROOT / "VexSign" / "DesignSystem"
+APPLE = ROOT / "VexSign" / "System"
 
 
 def _strip_comments(text: str) -> str:
@@ -99,7 +100,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
     def test_presentation_layer_avoids_coredata_and_direct_urlsession(self) -> None:
         pres_dir = VEXSIGN / "Features"
         strict_originals = (
-            "../Navigation/State/AppContainerEnvironment.swift",
+            "../App/Navigation/State/AppContainerEnvironment.swift",
             "Certificates/ViewModels/CertificatesCoordinator.swift",
             "Installation/ViewModels/DirectInstallViewModel.swift",
             "Downloads/ViewModels/DownloadsTabViewModel.swift",
@@ -192,7 +193,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                 )
 
     def test_composition_root_wires_app_container_and_deep_links(self) -> None:
-        app_src = _strip_comments((VEXSIGN / "VexSignApp.swift").read_text(encoding="utf-8"))
+        app_src = _strip_comments((APP / "VexSignApp.swift").read_text(encoding="utf-8"))
         self.assertIn("AppContainer.live()", app_src)
         # The container and its stores are injected by AppEnvironment, which is also where
         # `\.appContainer` is set; the scene applies it once. See VexSign/App/Composition/AppEnvironment.swift.
@@ -201,7 +202,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         # router call there would bypass the App Lock buffering.
         self.assertIn("appContainer.handleExternalURL(url)", app_src)
         self.assertNotIn("appContainer.makeDeepLinkRouter().handle(url)", app_src)
-        delegate = _strip_comments((VEXSIGN / "AppDelegate.swift").read_text(encoding="utf-8"))
+        delegate = _strip_comments((APP / "AppDelegate.swift").read_text(encoding="utf-8"))
         self.assertIn("BackgroundAndLifecyclePlatform.configureImagePipeline()", delegate)
         self.assertIn("BackgroundAndLifecyclePlatform.ensureDocumentsDirectories()", delegate)
         self.assertIn("AppPreferencesBootstrap.prepare()", app_src)
@@ -212,15 +213,75 @@ class ArchitectureBoundaryTests(unittest.TestCase):
 
     def test_transfer_security_session_enforces_http_2xx_and_redirects(self) -> None:
         transfer_src = _strip_comments(
-            (NETWORKING / "Security/Transport/TransferSecuritySession.swift").read_text(encoding="utf-8")
+            (NETWORKING / "HTTP/TransferSecuritySession.swift").read_text(encoding="utf-8")
+        )
+        policy_src = _strip_comments(
+            (VEXSIGN / "Security/Policies/TransferAcceptancePolicy.swift").read_text(encoding="utf-8")
         )
         integrity_src = _strip_comments(
             (SERVICES / "Download/DownloadIntegrity.swift").read_text(encoding="utf-8")
         )
-        self.assertIn("DownloadIntegrity.isAcceptableHTTPStatus(status)", transfer_src)
-        self.assertIn("(200..<300).contains", integrity_src)
+        # Transport asks the policy, not the download workflow that happens to use it.
+        self.assertIn("TransferAcceptancePolicy.isAcceptableHTTPStatus(status)", transfer_src)
+        self.assertNotIn("DownloadIntegrity", transfer_src)
+        self.assertIn("(200..<300).contains", policy_src)
+        # One definition of the rule: the workflow layer delegates instead of copying it.
+        self.assertNotIn("(200..<300).contains", integrity_src)
+        self.assertIn("TransferAcceptancePolicy.isAcceptableHTTPStatus", integrity_src)
         self.assertIn("PackageDownloadRedirectDelegate", transfer_src)
         self.assertIn("ephemeral", transfer_src)
+
+    def test_security_layer_has_no_ui_or_persistence_dependency(self) -> None:
+        # Security decides; it never renders and it never opens a managed object context.
+        # Storage owns persistence, so a Core Data bridge belongs in Storage/Keychain.
+        forbidden = {"SwiftUI", "UIKit", "CoreData", "Nuke", "AppKit"}
+        offenders = {}
+        for path in sorted((VEXSIGN / "Security").rglob("*.swift")):
+            hits = _imports(_strip_comments(path.read_text(encoding="utf-8"))) & forbidden
+            if hits:
+                offenders[path.relative_to(ROOT).as_posix()] = sorted(hits)
+        self.assertEqual({}, offenders, "Security must not import UI or persistence frameworks")
+
+    def test_networking_layer_has_no_ui_or_workflow_dependency(self) -> None:
+        # Transport compiles without SwiftUI, without persistence, and without the
+        # download workflow that consumes it: the shared rules live in Security/Policies.
+        forbidden = {"SwiftUI", "UIKit", "CoreData", "Nuke", "AppKit"}
+        offenders = {}
+        workflow_types = ("DownloadIntegrity.", "DownloadManager.", "DownloadPreferences.")
+        leaks = {}
+        for path in sorted((NETWORKING).rglob("*.swift")):
+            source = _strip_comments(path.read_text(encoding="utf-8"))
+            hits = _imports(source) & forbidden
+            if hits:
+                offenders[path.relative_to(ROOT).as_posix()] = sorted(hits)
+            named = [name for name in workflow_types if name in source]
+            if named:
+                leaks[path.relative_to(ROOT).as_posix()] = named
+        self.assertEqual({}, offenders, "Networking must not import UI or persistence frameworks")
+        self.assertEqual({}, leaks, "Networking must not depend on the Services/Download workflow")
+
+    def test_app_target_declares_each_type_once(self) -> None:
+        # A type that is declared in two files cannot compile, and the copy that survives
+        # the fix is invisible in review: `PackageDownloadRedirectDelegate` lived in both
+        # Security/Validation and Networking/Downloads until the networking area moved.
+        declaration = re.compile(
+            r"^(?:@[A-Za-z0-9_]+(?:\([^)]*\))?\s*)*"
+            r"(?:public |internal |private |fileprivate |final |open )*"
+            r"(?:class|struct|enum|protocol|actor)\s+([A-Za-z_][A-Za-z0-9_]*)"
+        )
+        declared: dict[str, list[str]] = {}
+        for path in sorted(VEXSIGN.rglob("*.swift")):
+            if "Resources" in path.parts:
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                match = declaration.match(line)
+                if match:
+                    declared.setdefault(match.group(1), []).append(
+                        f"{path.relative_to(ROOT).as_posix()}:{number}"
+                    )
+        self.assertTrue(declared, "no type declarations found; the scan is broken")
+        duplicates = {name: where for name, where in declared.items() if len(where) > 1}
+        self.assertEqual({}, duplicates, "one type declared in more than one file")
 
 
 if __name__ == "__main__":

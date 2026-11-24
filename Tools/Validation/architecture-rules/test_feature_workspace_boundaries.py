@@ -10,7 +10,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
-APP = ROOT / "App"
+APP = ROOT / "VexSign"
 def code(path: str) -> str:
     """Read a first-party source file, given its current repository path."""
     for base in (ROOT, APP):
@@ -162,7 +162,7 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
 
     def test_bundled_debian_payload_is_generic_resource_not_a_linker_archive(self):
         project = (ROOT / "VexSign.xcodeproj/project.pbxproj").read_text()
-        self.assertRegex(project, r'explicitFileTypes = \{\s*"Resources/ellekit\.deb" = file;\s*\};')
+        self.assertRegex(project, r'explicitFileTypes = \{\s*"ellekit\.deb" = file;\s*\};')
         payload = (APP / "Resources/ellekit.deb").read_bytes()
         self.assertTrue(payload.startswith(b"!<arch>\n"))
         self.assertIn(b"debian-binary", payload[:128])
@@ -190,7 +190,7 @@ class FeatureWorkspaceBoundaryTests(unittest.TestCase):
             "for certificate: CertificateRecord?", "certificate?.profile?.Entitlements?.mapValues { $0.value }")
         self.assertNotIn("CertificatePair", diff)
         self.assertNotIn("Storage", diff)
-        for path in ["VexSign/Shared/SigningAdvancedView.swift", "Entitlements/SigningEntitlementsView.swift",
+        for path in ["Shared/SigningAdvancedView.swift", "Entitlements/SigningEntitlementsView.swift",
                      "Entitlements/SigningEntitlementsEditorView.swift"]:
             self.require("VexSign/Features/Signing/Views/" + path,
                 "var certificate: CertificateRecord?", "PlistDiff.grantedEntitlements(for: certificate)")

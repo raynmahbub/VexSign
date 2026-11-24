@@ -35,7 +35,7 @@ enum TransferSecuritySession {
         }
 
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard DownloadIntegrity.isAcceptableHTTPStatus(status) else {
+        guard TransferAcceptancePolicy.isAcceptableHTTPStatus(status) else {
             removeTemporaryFile(at: tempURL)
             throw ArchitectureDomainError.httpError(statusCode: status)
         }

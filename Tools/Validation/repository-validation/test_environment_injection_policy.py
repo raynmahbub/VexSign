@@ -25,10 +25,10 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-IOS = ROOT / "App"
+IOS = ROOT / "VexSign" / "App"
 
-# Platform targets sit beside App so their folders cannot nest inside the iOS
-# synchronized root; policy scans have to cover both roots.
+# Platform targets sit beside the application source root so their folders cannot nest
+# inside the iOS synchronized root; policy scans have to cover both roots.
 SCANNED = [IOS, ROOT / "Platform"]
 SHELL = IOS
 ALLOWED = SHELL / "Composition" / "AppEnvironment.swift"

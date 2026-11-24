@@ -22,9 +22,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-APP = ROOT / "App"
-# Platform targets live beside App so the iOS synchronized root cannot claim
-# them; their Swift files still count against the fixed-size budget.
+APP = ROOT / "VexSign"
+# Platform targets live beside the application source root so the iOS synchronized
+# root cannot claim them; their Swift files still count against the fixed-size budget.
 PLATFORM = ROOT / "Platform"
 BASELINE = Path(__file__).resolve().parent / "accessibility-font-size-baseline.json"
 

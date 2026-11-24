@@ -47,9 +47,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-# Platform/ scans too: those folders sit beside App so they cannot be nested
-# inside the iOS synchronized root, but they are still first-party sources.
-SWIFT_ROOTS = [ROOT / "App", ROOT / "Platform", ROOT / "Packages/NativeSigning",
+# Platform/ scans too: those folders sit beside the application source root so they cannot
+# be nested inside the iOS synchronized root, but they are still first-party sources.
+SWIFT_ROOTS = [ROOT / "VexSign", ROOT / "Platform", ROOT / "Packages/NativeSigning",
                ROOT / "Packages/NimbleKit", ROOT / "Packages/SideSign"]
 
 # `Logger.misc.fault(`, `Logger.signing.error(`, `logger.info(` ...

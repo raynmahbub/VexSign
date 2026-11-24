@@ -32,7 +32,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 #: The first-party roots whose code can open an archive.
-SOURCE_ROOTS = ("App", "VexSign/Services", "Networking", "Shared", "Apple", "Storage")
+SOURCE_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Services", "VexSign/Networking",
+                "VexSign/Shared", "VexSign/System", "VexSign/Security", "VexSign/Storage",
+                "VexSign/DesignSystem")
 VALIDATOR = ROOT / "VexSign/Security/ArchiveValidation/ArchiveSafetyValidator.swift"
 
 # The calls that write an untrusted archive to disk.

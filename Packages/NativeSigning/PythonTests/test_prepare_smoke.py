@@ -141,7 +141,7 @@ class PreparationTests(unittest.TestCase):
         module.install_smoke_sources(self.root)
         for source_path in ['VexSign/Storage/Keychain/AppleAccountCredentialStore.swift',
                             'VexSign/Storage/Keychain/AppleAccountResumeJournalStore.swift',
-                            'VexSign/Security/VexSign/Storage/AppleAccountStorageRuntimePolicy.swift']:
+                            'VexSign/Security/Policies/AppleAccountStorageRuntimePolicy.swift']:
             actual = (self.root / 'Sources/NativeSigningLinkSmoke' / Path(source_path).name).read_bytes()
             self.assertEqual(actual, (REPO / source_path).read_bytes())
             self.assertNotIn(b'import NimbleExtensions', actual)

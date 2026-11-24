@@ -18,6 +18,9 @@ included:
   - VexSign/Networking
   - VexSign/System
   - VexSign/DesignSystem
+  # Security owns certificate, CMS and archive validation; it was in neither list, so the
+  # most security-sensitive app-layer Swift was never read by the linter.
+  - VexSign/Security
   - VexSign/Services
   - VexSign/Resources
   - Platform/Extensions/WidgetExtension

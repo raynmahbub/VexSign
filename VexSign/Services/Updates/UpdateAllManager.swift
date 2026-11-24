@@ -264,7 +264,7 @@ final class UpdateAllManager: ObservableObject {
 		let configuration = URLSessionConfiguration.ephemeral
 		configuration.allowsExpensiveNetworkAccess = !wifiOnly
 		configuration.allowsConstrainedNetworkAccess = !wifiOnly
-		let redirectDelegate = PackageDownloadRedirectDelegate(maximumBytes: DownloadIntegrity.maximumPackageBytes)
+		let redirectDelegate = PackageDownloadRedirectDelegate(maximumBytes: TransferAcceptancePolicy.maximumPackageBytes)
 		let session = URLSession(configuration: configuration, delegate: redirectDelegate, delegateQueue: nil)
 		defer { session.finishTasksAndInvalidate() }
 		let tempURL: URL

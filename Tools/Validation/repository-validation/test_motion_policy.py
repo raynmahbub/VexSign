@@ -30,12 +30,18 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-APP = ROOT / "App"
+APP = ROOT / "VexSign"
 
-# Platform targets sit beside App so their folders cannot nest inside the iOS
-# synchronized root; policy scans have to cover both roots.
+# Platform targets sit beside the application source root so their folders cannot nest
+# inside the iOS synchronized root; policy scans have to cover both roots.
 SCANNED = [APP, ROOT / "Platform"]
-ALLOWED_DIR = APP / "iOS" / "Presentation" / "DesignSystem" / "Modifiers"
+ALLOWED_DIRS = (
+    # Where the motion primitives live: `withAppAnimation` and `.appAnimation`.
+    APP / "DesignSystem" / "Modifiers",
+    # The flare button's press animation is part of the style it belongs to, and it reads
+    # `accessibilityReduceMotion` itself before choosing a curve.
+    APP / "DesignSystem" / "Styles" / "AppStyle.swift",
+)
 
 BARE_WITH_ANIMATION = re.compile(r"\bwithAnimation\(")
 ANIMATION_MODIFIER = re.compile(r"(?<![\w])\.animation\(")
@@ -82,7 +88,8 @@ def findings() -> list[str]:
     for root in SCANNED:
         for path in sorted(root.rglob("*.swift")):
             text = path.read_text(encoding="utf-8", errors="ignore")
-            is_design_system = path.is_relative_to(ALLOWED_DIR)
+            is_design_system = any(path == allowed or path.is_relative_to(allowed)
+                                   for allowed in ALLOWED_DIRS)
             lines = findings_in(text, check_bare=not is_design_system,
                                 check_modifier=not is_design_system)
             reported.extend(f"{path.relative_to(ROOT).as_posix()}:{line}" for line in lines)
