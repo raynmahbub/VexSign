@@ -47,17 +47,17 @@ from pathlib import Path
 # Swift "targets" as they exist on disk. Duplicate names/types are only a
 # problem inside one module, so each directory is checked on its own.
 SWIFT_MODULES: dict[str, str] = {
-    "VexSign": "VexSign/App/iOS",
-    "VexSignWidgetExtension": "VexSign/App/WidgetExtension",
-    "VexSignTV": "VexSign/App/TV",
-    "VexSignVision": "VexSign/App/Vision",
-    "VexSignWatch": "VexSign/App/Watch/VexSignWatch",
-    "VexSignWatchWidgets": "VexSign/App/Watch/VexSignWatchWidgets",
-    "VexSignTests": "VexSign/Tests",
-    "AltSourceKit": "VexSign/Packages/AltSourceKit/Sources",
-    "NimbleExtensions": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions",
-    "NimbleJSON": "VexSign/Packages/NimbleKit/Sources/NimbleJSON",
-    "NimbleViews": "VexSign/Packages/NimbleKit/Sources/NimbleViews",
+    "VexSign": "App",
+    "VexSignWidgetExtension": "Platform/Extensions/WidgetExtension",
+    "VexSignTV": "Platform/TV",
+    "VexSignVision": "Platform/Vision",
+    "VexSignWatch": "Platform/Watch/VexSignWatch",
+    "VexSignWatchWidgets": "Platform/Watch/VexSignWatchWidgets",
+    "VexSignTests": "Tests",
+    "AltSourceKit": "Packages/AltSourceKit/Sources",
+    "NimbleExtensions": "Packages/NimbleKit/Sources/NimbleKit/NimbleExtensions",
+    "NimbleJSON": "Packages/NimbleKit/Sources/NimbleKit/NimbleJSON",
+    "NimbleViews": "Packages/NimbleKit/Sources/NimbleKit/NimbleViews",
 }
 
 # Parse-only coverage for the modules SWIFT_MODULES cannot describe: their
@@ -69,15 +69,15 @@ SWIFT_MODULES: dict[str, str] = {
 # plus the vendored SideSign target it now links.
 PARSE_ONLY_MODULES: dict[str, list[str]] = {
     "NativeSigning": [
-        "VexSign/Packages/NativeSigning/Authentication",
-        "VexSign/Packages/NativeSigning/Codec",
-        "VexSign/Packages/NativeSigning/Identity",
-        "VexSign/Packages/NativeSigning/Provisioning",
-        "VexSign/Packages/NativeSigning/Security",
-        "VexSign/Packages/NativeSigning/Services",
-        "VexSign/Packages/NativeSigning/Signing",
+        "Packages/NativeSigning/Authentication",
+        "Packages/NativeSigning/Codec",
+        "Packages/NativeSigning/Identity",
+        "Packages/NativeSigning/Provisioning",
+        "Packages/NativeSigning/Security",
+        "Packages/NativeSigning/Services",
+        "Packages/NativeSigning/Signing",
     ],
-    "SideSign": ["VexSign/Packages/SideSign/Sources"],
+    "SideSign": ["Packages/SideSign/Sources"],
 }
 
 # Symbols that are only visible when their module is imported. `-parse` cannot see this, and
@@ -101,28 +101,42 @@ SKIP_DIRS = {".git", ".build", "Zsign", "IDeviceKitten", "packages", "Payload", 
 # Category roots are stable ownership boundaries, not disposable module names.
 # Everything below them follows the same wrapper rule. Exceptions are exact
 # tool-owned parent/child pairs, not blanket feature/vendor/Xcode exemptions.
-OWNERSHIP_ROOTS = {"VexSign"} | {
-    "VexSign/" + name for name in
-    ("App", "Integrations", "Packages", "Resources", "Services", "Tools", "Documentation", "Configuration")
+OWNERSHIP_ROOTS = {
+    "App", "Shared", "Storage", "Networking", "Apple", "DesignSystem", "Packages",
+    "Services", "Tests", "Tools", "Configuration", "Resources", "VexSign",
 }
-APP_ROOT = "VexSign/App/iOS"
+APP_ROOT = "App"
 # Wrappers that used to nest one directory deeper than the layout allows. They are declared
 # even though the directories are gone: if one is reintroduced, the same "Redundant app
-# wrapper" finding fires again. `VexSign/App/Extensions` was dropped from every tree, so an
-# entry for it would only ever describe a path Xcode cannot be asked about.
+# wrapper" finding fires again. The platform targets live in their own root, so a
+# reintroduced `App/TV`-style wrapper is what these entries still catch.
 LEGACY_APP_WRAPPERS = {
     APP_ROOT + "/VexSign": APP_ROOT,
-    "VexSign/App/TV/VexSignTV": "VexSign/App/TV",
-    "VexSign/App/Vision/VexSignVision": "VexSign/App/Vision",
+    "Platform/TV/VexSignTV": "Platform/TV",
+    "Platform/Vision/VexSignVision": "Platform/Vision",
 }
 PRESERVED_DIRECTORY_WRAPPERS = {
+    "Platform/Extensions": (
+        "WidgetExtension", "Xcode platform-extension root; the widget target owns its own synchronized group"),
+    "Networking": (
+        "Security", "Security boundary of the networking layer, named as its own layer by the target tree"),
+    "Packages/AltSourceKit/Sources": (
+        "AltSourceKit", "SwiftPM's default source-target layout; the manifest declares this path"),
+    "Packages/NimbleKit/Sources": (
+        "NimbleKit", "SwiftPM's default source-target layout; the manifest declares this path"),
+    "Tools/Fixtures": (
+        "RenewalFixture", "Self-contained fixture with its own build script and observation tests"),
+    "App/Resources": (
+        "SharedPlatformInfo", "Shared companion Info.plist inputs; one reviewed bundle-content folder"),
+    "VexSign": (
+        "Services", "In-process service layer of the app target, named as its own layer by the target tree"),
     "VexSign.xcodeproj/project.xcworkspace/xcshareddata": (
         "swiftpm", "Xcode-owned package-resolution metadata location"),
     "VexSign.xcodeproj/xcshareddata": (
         "xcschemes", "Xcode discovers shared schemes at this location"),
     "VexSign.xcworkspace/xcshareddata": (
         "swiftpm", "Xcode-owned workspace package-resolution metadata location"),
-    "VexSign/Packages/Vendor/IDeviceKitten/Sources": (
+    "Packages/Vendor/IDeviceKitten/Sources": (
         "IDeviceSwift", "Vendored manifest's default source-target layout; retain upstream snapshot"),
 }
 
@@ -249,11 +263,11 @@ def layout_findings(paths: list[str]) -> list[Finding]:
         child = next(iter(names))
         if parent + "/" + child not in children:
             continue  # A directory with a single FILE is fine.
-        if parent in OWNERSHIP_ROOTS:
-            continue
         required_child, _ = PRESERVED_DIRECTORY_WRAPPERS.get(parent, (None, None))
         if child == required_child:
             continue  # Only the reviewed tool-owned edge, never its descendants.
+        if parent in OWNERSHIP_ROOTS:
+            continue
         findings.append(Finding("repository-layout", "error",
             f"Redundant single-child folder chain {parent}/{child}; flatten it unless required by a tool layout.",
             parent, 1, 1))
@@ -281,7 +295,7 @@ def check_tool_syntax(root: Path, paths: list[str], report: Report) -> None:
     checked = 0
     for name in paths:
         path = root / name
-        if name.startswith(("Vendor/", "VexSign/Packages/Vendor/")) or path.suffix not in {".py", ".sh"}:
+        if name.startswith(("Vendor/", "Packages/Vendor/")) or path.suffix not in {".py", ".sh"}:
             continue
         if path.is_symlink():
             continue
@@ -529,7 +543,7 @@ def check_security_settings(root: Path, report: Report) -> None:
     signed build; the ATS check is an error because there is no configuration in which
     the app needs it.
     """
-    info = root / "VexSign/Configuration/Build/iOS/Info.plist"
+    info = root / "Configuration/Build/iOS/Info.plist"
     if info.is_file():
         try:
             plist = plistlib.loads(info.read_bytes())
@@ -548,7 +562,7 @@ def check_security_settings(root: Path, report: Report) -> None:
                 "NSAllowsArbitraryLoadsInWebContent is enabled: web views load plaintext content.",
                 rel(root, info), _line_of(info, "NSAllowsArbitraryLoadsInWebContent"), 1))
 
-    entitlements = root / "VexSign/Configuration/Entitlements/iOS/VexSign.entitlements"
+    entitlements = root / "Configuration/Entitlements/iOS/VexSign.entitlements"
     if entitlements.is_file():
         try:
             values = plistlib.loads(entitlements.read_bytes())
@@ -659,37 +673,54 @@ def run_self_tests() -> int:
     import unittest
 
     class RepositoryChecksTests(unittest.TestCase):
+        def test_every_declared_swift_module_points_at_real_sources(self):
+            # A module directory that does not resolve makes swift_files_for return [], so
+            # the duplicate-type, duplicate-filename and cross-module-import checks quietly
+            # inspect nothing and still report success. Every entry must find Swift files.
+            root = Path(__file__).resolve().parents[2]
+            for module, module_dir in SWIFT_MODULES.items():
+                with self.subTest(module=module, directory=module_dir):
+                    self.assertTrue((root / module_dir).is_dir(), module_dir)
+                    self.assertTrue(swift_files_for(root, module_dir), f"{module_dir} has no Swift files")
+
         def test_single_file_is_not_redundant(self):
-            self.assertEqual(layout_findings(["VexSign/Configuration/Build/FilePickerFix.m"]), [])
+            self.assertEqual(layout_findings(["Configuration/Build/FilePickerFix.m"]), [])
 
         def test_redundant_chain_detected(self):
-            findings = layout_findings(["VexSign/Tools/Development/FilePickerFix/FilePickerFix.m"])
+            findings = layout_findings(["Tools/Development/FilePickerFix/FilePickerFix.m"])
             self.assertTrue(any("single-child" in f.message for f in findings))
 
         def test_reviewed_tool_layouts_preserved(self):
-            paths = [parent + "/" + child + "/File" for parent, (child, _) in
-                     PRESERVED_DIRECTORY_WRAPPERS.items()]
+            paths = []
+            for parent, (child, _) in PRESERVED_DIRECTORY_WRAPPERS.items():
+                # Every ancestor in the real tree has a sibling file, which is what makes the
+                # preserved pair the only single-child edge rather than a chain.
+                parts = parent.split("/")
+                paths += ["/".join(parts[:i]) + "/README.md" for i in range(1, len(parts) + 1)]
+                paths.append(parent + "/" + child + "/File")
             paths += ["VexSign.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
                       "VexSign.xcworkspace/contents.xcworkspacedata",
-                      "VexSign/Packages/Vendor/manifest.json",
-                      "VexSign/Packages/Vendor/IDeviceKitten/Package.swift"]
+                      "VexSign.xcodeproj/README.md", "VexSign.xcworkspace/README.md",
+                      "VexSign.xcodeproj/project.xcworkspace/README.md",
+                      "Packages/Vendor/manifest.json",
+                      "Packages/Vendor/IDeviceKitten/Package.swift"]
             self.assertEqual(layout_findings(paths), [])
             self.assertTrue(all(reason for _, reason in PRESERVED_DIRECTORY_WRAPPERS.values()))
 
         def test_tool_wrapper_exceptions_do_not_hide_arbitrary_descendant_nesting(self):
             for parent, (child, _) in PRESERVED_DIRECTORY_WRAPPERS.items():
+                root = parent.split("/")[0]
                 with self.subTest(parent=parent):
-                    findings = layout_findings([parent + "/" + child + "/Extra/File"])
+                    findings = layout_findings([root + "/README.md", parent + "/" + child + "/Extra/File"])
                     self.assertTrue(any(f.file == parent + "/" + child for f in findings))
 
         def test_former_blueprint_exemptions_cannot_hide_wrappers(self):
             for parent, child in (
-                (APP_ROOT + "/Presentation/Features/About", "Views"),
-                ("VexSign/Documentation/Features", "Design"),
-                ("VexSign/Services/Cloud/Security", "Authentication"),
-                ("VexSign/Services/WebManager/Dashboard", "Assets"),
-                ("VexSign/Packages/AltSourceKit/Sources", "AltSourceKit"),
-                ("VexSign/Resources/Templates", "RepositoryMetadata"),
+                ("App/Presentation/Features/About", "Views"),
+                ("App/Features/Settings/Security", "Authentication"),
+                ("App/Features/Downloads/Dashboard", "Assets"),
+                ("App/Features/Library/RepositoryMetadata", "Info"),
+                ("Shared/Templates", "RepositoryMetadata"),
             ):
                 with self.subTest(parent=parent):
                     findings = layout_findings([parent + "/" + child + "/File"])
@@ -697,14 +728,15 @@ def run_self_tests() -> int:
 
         def test_flat_platform_roots_and_existing_watch_targets_preserved(self):
             self.assertEqual(layout_findings([
-                APP_ROOT + "/App/VexSignApp.swift",
-                APP_ROOT + "/Domain/Contract.swift",
-                "VexSign/App/TV/VexSignTVApp.swift",
-                "VexSign/App/Vision/VexSignVisionApp.swift",
-                "VexSign/App/WidgetExtension/VexSignWidgetExtensionBundle.swift",
-                "VexSign/App/Watch/VexSignWatch/VexSignWatchApp.swift",
-                "VexSign/App/Watch/VexSignWatchWidgets/VexSignWatchWidgetBundle.swift",
-                "VexSign/App/SharedPlatformInfo/Companion-Info.plist",
+                "App/VexSignApp.swift",
+                "Shared/Contract.swift",
+                "Platform/TV/VexSignTVApp.swift",
+                "Platform/Vision/VexSignVisionApp.swift",
+                "Platform/Extensions/WidgetExtension/VexSignWidgetExtensionBundle.swift",
+                "Platform/Watch/VexSignWatch/VexSignWatchApp.swift",
+                "Platform/Watch/VexSignWatchWidgets/VexSignWatchWidgetBundle.swift",
+                "Platform/Watch/VexSignWatchWidgets/README.md",
+                "App/Resources/SharedPlatformInfo/Companion-Info.plist",
             ]), [])
 
         def test_legacy_app_wrappers_are_rejected_even_with_multiple_children(self):
@@ -767,8 +799,8 @@ def run_self_tests() -> int:
         def test_security_settings_catch_ats_and_debug_entitlements(self):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                (root / "VexSign/Configuration/Build/iOS").mkdir(parents=True)
-                info = root / "VexSign/Configuration/Build/iOS/Info.plist"
+                (root / "Configuration/Build/iOS").mkdir(parents=True)
+                info = root / "Configuration/Build/iOS/Info.plist"
                 info.write_bytes(plistlib.dumps({"NSAppTransportSecurity": {"NSAllowsArbitraryLoads": True}}))
                 report = Report(root)
                 check_security_settings(root, report)
@@ -779,8 +811,8 @@ def run_self_tests() -> int:
                 check_security_settings(root, clean)
                 self.assertEqual(clean.findings, [])
 
-                (root / "VexSign/Configuration/Entitlements/iOS").mkdir(parents=True)
-                (root / "VexSign/Configuration/Entitlements/iOS/VexSign.entitlements").write_bytes(
+                (root / "Configuration/Entitlements/iOS").mkdir(parents=True)
+                (root / "Configuration/Entitlements/iOS/VexSign.entitlements").write_bytes(
                     plistlib.dumps({"get-task-allow": True}))
                 debug = Report(root)
                 check_security_settings(root, debug)
@@ -790,10 +822,10 @@ def run_self_tests() -> int:
         def test_script_input_rename(self):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                (root / "VexSign/Configuration/Build").mkdir(parents=True)
-                (root / "VexSign/Configuration/Build/FilePickerFix.m").touch()
+                (root / "Configuration/Build").mkdir(parents=True)
+                (root / "Configuration/Build/FilePickerFix.m").touch()
                 project = root / "Project.xcodeproj/project.pbxproj"
-                for value, errors in (("$(SRCROOT)/VexSign/Configuration/Build/FilePickerFix.m", 0),
+                for value, errors in (("$(SRCROOT)/Configuration/Build/FilePickerFix.m", 0),
                                       ("$(SRCROOT)/Tools/Development/FilePickerFix/FilePickerFix.m", 1),
                                       ("$(BUILT_PRODUCTS_DIR)/FilePickerFix.dylib", 0)):
                     report = Report(root)

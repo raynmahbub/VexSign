@@ -5,14 +5,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/Packages/DeviceBridge/**'
-      - 'VexSign/Packages/Vendor/IDeviceKitten/**'
+      - 'Packages/DeviceBridge/**'
+      - 'Packages/Vendor/IDeviceKitten/**'
       - '.github/workflows/device-bridge.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/Packages/DeviceBridge/**'
-      - 'VexSign/Packages/Vendor/IDeviceKitten/**'
+      - 'Packages/DeviceBridge/**'
+      - 'Packages/Vendor/IDeviceKitten/**'
       - '.github/workflows/device-bridge.yml'
   workflow_dispatch:
 
@@ -36,7 +36,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Offline source-boundary regressions
-        run: python3 VexSign/Packages/DeviceBridge/test_prepare.py
+        run: python3 Packages/DeviceBridge/test_prepare.py
       - name: Pinned Rust toolchain
         run: rustup toolchain install 1.94.0 --profile minimal
       - name: Restore locked native downloads
@@ -46,12 +46,12 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             .build/device-bridge
-          key: device-bridge-linux-rust-1.94.0-${{ hashFiles('VexSign/Packages/DeviceBridge/**') }}
+          key: device-bridge-linux-rust-1.94.0-${{ hashFiles('Packages/DeviceBridge/**') }}
           restore-keys: device-bridge-linux-rust-1.94.0-
       - name: Native unit tests · no device or credentials
         run: |
           set -euo pipefail
-          python3 VexSign/Packages/DeviceBridge/prepare.py --test 2>&1 | tee "$RUNNER_TEMP/device-bridge-native.log"
+          python3 Packages/DeviceBridge/prepare.py --test 2>&1 | tee "$RUNNER_TEMP/device-bridge-native.log"
       - name: Preserve native diagnostics and source provenance
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -87,12 +87,12 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             .build/device-bridge
-          key: device-bridge-apple-rust-1.94.0-${{ hashFiles('VexSign/Packages/DeviceBridge/**') }}
+          key: device-bridge-apple-rust-1.94.0-${{ hashFiles('Packages/DeviceBridge/**') }}
           restore-keys: device-bridge-apple-rust-1.94.0-
       - name: Build pinned native source and local tests
         run: |
           set -euo pipefail
-          python3 VexSign/Packages/DeviceBridge/prepare.py --build 2>&1 | tee "$RUNNER_TEMP/device-bridge-apple.log"
+          python3 Packages/DeviceBridge/prepare.py --build 2>&1 | tee "$RUNNER_TEMP/device-bridge-apple.log"
       - name: Preserve unsigned framework and provenance · no product acceptance
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -101,6 +101,6 @@ jobs:
           path: |
             ${{ runner.temp }}/device-bridge-apple.log
             .build/device-bridge/source-provenance.json
-            VexSign/Packages/Vendor/IDeviceKitten/.build/ModernDevice
+            Packages/Vendor/IDeviceKitten/.build/ModernDevice
           if-no-files-found: warn
           retention-days: 3

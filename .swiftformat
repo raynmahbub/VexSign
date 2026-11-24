@@ -81,7 +81,7 @@ rules indent,trailingSpace,braces,spaceAroundOperators,spaceAroundBraces,spaceAr
 # them makes the next re-vendor a wall of noise instead of a real diff. Vendor/ held Zsign and
 # IDeviceKitten; SideSign is vendored the same way (AGPL-3.0, see its Package.swift header) and
 # was missing, so `make format FIX=1` would have rewritten it. .swiftlint.yml excludes both.
-exclude VexSign/Packages/Vendor,VexSign/Packages/SideSign,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
+exclude Packages/Vendor,Packages/SideSign,Pods,.build,DerivedData,*.xcodeproj,*.xcworkspace
 
 # Custom options
 # Indentation of `case` labels and `#if` bodies, both measured against the tree

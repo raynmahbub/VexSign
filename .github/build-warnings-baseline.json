@@ -3,147 +3,147 @@
   "generated": "2026-11-05: removed six Vapor warnings after migrating application startup and file responses to async APIs",
   "warnings": [
     {
-      "file": "VexSign/Packages/AltSourceKit/Sources/Extensions/Color/Color+Codable.swift",
+      "file": "Packages/AltSourceKit/Sources/Extensions/Color/Color+Codable.swift",
       "message": "extension declares a conformance of imported type 'Color' to imported protocols 'Decodable', 'Encodable'; this will not behave correctly if the owners of 'SwiftUICore' introduce this conformance in the future",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Binding/Binding+optional.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Binding/Binding+optional.swift",
       "message": "capture of 'self' with non-Sendable type 'Binding<Value>' in a '@Sendable' closure",
       "count": 2
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
       "message": "call to main actor-isolated initializer 'init()' in a synchronous nonisolated context",
       "count": 2
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
       "message": "call to main actor-isolated initializer 'init(style:)' in a synchronous nonisolated context",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
       "message": "call to main actor-isolated instance method 'impactOccurred()' in a synchronous nonisolated context",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
       "message": "call to main actor-isolated instance method 'notificationOccurred' in a synchronous nonisolated context",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
       "message": "call to main actor-isolated instance method 'prepare()' in a synchronous nonisolated context",
       "count": 3
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleExtensions/Haptic/NBHaptic.swift",
       "message": "call to main actor-isolated instance method 'selectionChanged()' in a synchronous nonisolated context",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
       "message": "capture of 'completion' with non-Sendable type '(Result<T, any Error>) -> Void' in a '@Sendable' closure",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleJSON/NBFetchService.swift",
       "message": "capture of non-Sendable type 'T.Type' in an isolated closure",
       "count": 1
     },
     {
-      "file": "VexSign/Packages/NimbleKit/Sources/NimbleViews/UIKit/FileImporterRepresentableView.swift",
+      "file": "Packages/NimbleKit/Sources/NimbleViews/UIKit/FileImporterRepresentableView.swift",
       "message": "call to main actor-isolated instance method 'release()' in a synchronous nonisolated context",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Devices/Installation/AppInstaller.swift",
+      "file": "services/Installation/Installation/AppInstaller.swift",
       "message": "call to main actor-isolated instance method '_scheduleDeclineCheck(after:)' in a synchronous nonisolated context",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Updates/AppUpdateChecker.swift",
+      "file": "services/Updates/AppUpdateChecker.swift",
       "message": "capture of 'self' with non-Sendable type 'AppUpdateChecker' in a '@Sendable' closure",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift",
+      "file": "services/Signing/Execution/AutoSignManager.swift",
       "message": "conformance of 'NSManagedObject' to 'Sendable' is unavailable in iOS; this is an error in the Swift 6 language mode",
       "count": 4
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift",
+      "file": "services/Signing/Execution/AutoSignManager.swift",
       "message": "main actor-isolated static property 'enabledKey' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift",
+      "file": "services/Signing/Execution/AutoSignManager.swift",
       "message": "non-Sendable type 'Result<Signed, any Error>' of nonisolated property 'value' cannot be sent to main actor-isolated context; this is an error in the Swift 6 language mode",
       "count": 2
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Signing/Execution/AutoSignManager.swift",
+      "file": "services/Signing/Execution/AutoSignManager.swift",
       "message": "non-Sendable type 'Task<Result<Signed, any Error>, Never>' cannot exit main actor-isolated context in call to nonisolated property 'value'; this is an error in the Swift 6 language mode",
       "count": 2
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Updates/SelfUpdateManager.swift",
+      "file": "services/Updates/SelfUpdateManager.swift",
       "message": "no 'async' operations occur within 'await' expression",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Updates/UpdateAllManager.swift",
+      "file": "services/Updates/UpdateAllManager.swift",
       "message": "value 'url' was defined but never used; consider replacing with boolean test",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer+API.swift",
+      "file": "services/WebManager/WebManagerServer+API.swift",
       "message": "'catch' block is unreachable because no errors are thrown in 'do' block",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Networking/WebManager/WebManagerServer+API.swift",
+      "file": "services/WebManager/WebManagerServer+API.swift",
       "message": "no calls to throwing functions occur within 'try' expression",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Platform/Apple/Background/BackgroundTaskManager.swift",
+      "file": "Apple/BackgroundTasks/BackgroundTaskManager.swift",
       "message": "capture of 'self' with non-Sendable type 'BackgroundTaskManager?' in a '@Sendable' closure",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Identity/CertificateAutoImporter.swift",
+      "file": "services/Identity/CertificateAutoImporter.swift",
       "message": "capture of 'cert' with non-Sendable type 'CertificatePair' in a '@Sendable' closure; this is an error in the Swift 6 language mode",
       "count": 4
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Identity/P12Cracker.swift",
+      "file": "services/Identity/P12Cracker.swift",
       "message": "main actor-isolated static property 'commonPasswords' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode",
       "count": 2
     },
     {
-      "file": "VexSign/App/iOS/Presentation/Features/Library/Views/LibraryCellView.swift",
+      "file": "app/Features/Library/Views/LibraryCellView.swift",
       "message": "conformance of 'NSManagedObject' to 'Sendable' is unavailable in iOS; this is an error in the Swift 6 language mode",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Presentation/Features/Library/Views/LibraryView.swift",
+      "file": "app/Features/Library/Views/LibraryView.swift",
       "message": "result of call to 'startArchive(from:id:appName:completion:)' is unused",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Presentation/Features/Repositories/Views/Apps/UIKit/SourceAppsCoordinator+Data.swift",
+      "file": "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+Data.swift",
       "message": "immutable value 'deduped' was never used; consider removing it",
       "count": 1
     },
     {
-      "file": "VexSign/App/iOS/Presentation/Features/Repositories/Views/SourcesView.swift",
+      "file": "app/Features/Sources/Views/SourcesView.swift",
       "message": "'init(isActive:destination:label:)' was deprecated in iOS 16.0: use NavigationLink(value:label:), or navigationDestination(isPresented:destination:), inside a NavigationStack or NavigationSplitView",
       "count": 2
     },
     {
-      "file": "VexSign/App/iOS/Presentation/Features/Home/Views/HomeView.swift",
+      "file": "app/Features/Dashboard/Screens/Home/Views/HomeView.swift",
       "message": "'init(isActive:destination:label:)' was deprecated in iOS 16.0: use NavigationLink(value:label:), or navigationDestination(isPresented:destination:), inside a NavigationStack or NavigationSplitView",
       "count": 1
     }

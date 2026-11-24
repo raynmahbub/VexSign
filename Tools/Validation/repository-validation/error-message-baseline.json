@@ -1,0 +1,7 @@
+{
+  "Networking/Security/Validation/ReleaseManifestVerifier.swift:Failure": "thrown only inside ReleaseManifestVerifier, which reports through its own verification summary",
+  "Shared/Models/Entities/DistributionModels.swift:ReleaseManifestFailure": "release-manifest verification has no call site yet (the same scaffolding as the gated native/cloud paths); when it is wired it must gain copy",
+  "Shared/Protocols/DirectInstallationProviding.swift:DirectInstallationRequestError": "caught at every call site (LibraryCellView, DirectPackageInstallUseCase), which renders the verification issues itself",
+  "Shared/Services/ProfileApplicationIdentifierMatcher.swift:Malformation": "internal matcher state; ProfileCompatibility turns it into a preflight issue with its own sentence",
+  "VexSign/Services/Identity/CertificateAutoImporter.swift:CertificateUpdateError": "private to CertificateAutoImporter, which catches it to skip one certificate file and logs the reason"
+}

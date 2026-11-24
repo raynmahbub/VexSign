@@ -13,7 +13,7 @@ step; an unrecorded (`null`) baseline reports and passes, so the first run after
 a failure.
 
     python3 .github/scripts/strict_concurrency_ratchet.py --log run.log \
-        --baseline VexSign/Tools/Validation/repository-validation/strict-concurrency-baseline.json
+        --baseline Tools/Validation/repository-validation/strict-concurrency-baseline.json
     python3 .github/scripts/strict_concurrency_ratchet.py --log run.log --baseline ... --update
 
 Exit status: 0 = clean or unchanged, 1 = more first-party diagnostics than the baseline.
@@ -32,9 +32,10 @@ from pathlib import Path
 DIAGNOSTIC = re.compile(r"^(?P<path>[^\s:][^:]*\.swift):(?P<line>\d+):(?P<column>\d+):\s*(?P<kind>warning|error):\s*(?P<message>.*)$")
 
 #: Where first-party source lives, mirroring `.swiftformat`'s excludes the other way round.
-FIRST_PARTY_PREFIXES = ("VexSign/App/", "VexSign/Tests/", "VexSign/Packages/NimbleKit/",
-                        "VexSign/Packages/AltSourceKit/", "VexSign/Packages/NativeSigning/",
-                        "VexSign/Packages/DeviceBridge/")
+FIRST_PARTY_PREFIXES = ("App/", "Shared/", "Storage/", "Networking/", "Apple/",
+                        "DesignSystem/", "VexSign/Services/", "Tests/",
+                        "Packages/NimbleKit/", "Packages/AltSourceKit/",
+                        "Packages/NativeSigning/", "Packages/DeviceBridge/")
 
 
 def first_party(path: str, root: Path) -> bool:
@@ -52,6 +53,16 @@ def first_party(path: str, root: Path) -> bool:
     return any(relative.startswith(prefix) for prefix in FIRST_PARTY_PREFIXES)
 
 
+def repo_relative(path: str) -> str:
+    """Strip the checkout prefix from an absolute diagnostic path."""
+    parts = path.replace("\\", "/").lstrip("/").split("/")
+    for index, part in enumerate(parts):
+        candidate = "/".join(parts[index:])
+        if candidate.startswith(FIRST_PARTY_PREFIXES):
+            return candidate
+    return "/".join(parts)
+
+
 def collect(log: str, root: Path) -> list[dict[str, str]]:
     """Every first-party diagnostic in the log, in the order the compiler emitted it."""
     found = []
@@ -62,7 +73,7 @@ def collect(log: str, root: Path) -> list[dict[str, str]]:
         if not first_party(match.group("path"), root):
             continue
         found.append({
-            "file": match.group("path").replace("\\", "/").split("VexSign/")[-1],
+            "file": repo_relative(match.group("path")),
             "line": match.group("line"),
             "kind": match.group("kind"),
             "message": match.group("message").strip(),

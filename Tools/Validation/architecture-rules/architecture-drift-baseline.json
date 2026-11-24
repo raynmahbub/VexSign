@@ -1,0 +1,557 @@
+{
+  "description": "Reviewed whole-Presentation boundary ratchet; zero violations are allowed and synthetic probes keep each rule live.",
+  "generatedAt": "2026-11-13",
+  "history": [
+    {
+      "previousGeneratedAt": "2026-11-13",
+      "reason": "Consumed feature ports replace legacy Storage/I/O/engine access; original review retained.",
+      "rules": {
+        "application_external_integration_imports": [],
+        "application_platform_imports": [],
+        "domain_forbidden_imports": [],
+        "presentation_direct_storage": [
+          "app/Features/Dashboard/Screens/About/DeviceDiagnosticsView.swift",
+          "app/Features/Accounts/Views/ProvisioningFlowView.swift",
+          "app/Features/Certificates/ViewModels/CertificatesCoordinator.swift",
+          "app/Features/Certificates/Views/CertificateDashboardView.swift",
+          "app/Features/Certificates/Views/CertificatesCellView.swift",
+          "app/Features/Certificates/Views/CertificatesView.swift",
+          "app/Features/Certificates/Views/Info/CertificatesInfoEntitlementView.swift",
+          "app/Features/Certificates/Views/Info/CertificatesInfoView.swift",
+          "app/Features/Devices/Views/CompanionSigningWorkflowView.swift",
+          "app/Features/Dashboard/Screens/Diagnostics/AnalyticsView.swift",
+          "app/Features/Dashboard/Screens/Diagnostics/LogsView.swift",
+          "Storage/Repositories/FileManagerActions.swift",
+          "app/Features/Import/Screens/Files/Views/FileManagerItemView.swift",
+          "app/Features/Import/Screens/Files/Views/FilesTabView.swift",
+          "app/Features/Dashboard/Screens/Home/ViewModels/HomeActionCoordinator.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Discover.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Repositories.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView.swift",
+          "app/Features/Dashboard/Screens/Home/Views/HomeView.swift",
+          "services/Import/IPA/IPAExplorerActions.swift",
+          "app/Features/Import/Views/IPAExplorerView.swift",
+          "app/Features/Import/Views/IPAFileViewerView.swift",
+          "app/Features/Installation/Views/OTAView.swift",
+          "app/Features/Library/Views/AppCustomizationSheet.swift",
+          "app/Features/Library/Views/Batch/BatchSignView.swift",
+          "app/Features/Library/Views/CloneWizardView.swift",
+          "app/Features/Library/Views/Info/LibraryInfoView.swift",
+          "app/Features/Library/Views/LibraryCellView.swift",
+          "app/Features/Library/Views/LibraryView+BatchActions.swift",
+          "app/Features/Library/Views/LibraryView.swift",
+          "app/Features/Dashboard/Screens/Onboarding/OnboardingView.swift",
+          "app/Features/Sources/ViewModels/DiscoveryViewModel.swift",
+          "app/Features/Sources/Views/Apps/DownloadButtonView.swift",
+          "app/Features/Sources/Views/Apps/SourceAppsView.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+Data.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+TableView.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceAppsTableRepresentableView.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceTabBarView.swift",
+          "app/Features/Sources/Views/SourceHealthDashboardView.swift",
+          "app/Features/Sources/Views/SourcesAddView+Repositories.swift",
+          "app/Features/Sources/Views/SourcesAddView.swift",
+          "app/Features/Sources/Views/SourcesView.swift",
+          "app/Features/Settings/Views/Automation/AutomationView.swift",
+          "app/Features/Settings/Views/Automation/UnattendedSigningGrantSection.swift",
+          "app/Features/Settings/Views/Security/AntiRevokeSettingsView.swift",
+          "app/Features/Settings/Views/SettingsView.swift",
+          "app/Features/Settings/Views/SetupHealthView.swift",
+          "app/Features/Signing/Views/Entitlements/SigningEntitlementsView.swift",
+          "app/Features/Signing/Views/InfoPlist/SigningInfoPlistView.swift",
+          "app/Features/Signing/Views/Shared/SigningAlternativeIconView.swift",
+          "app/Features/Signing/Views/Shared/SigningCustomizationView.swift",
+          "app/Features/Signing/Views/Shared/SigningDylibView.swift",
+          "app/Features/Signing/Views/Shared/SigningFrameworksView.swift",
+          "app/Features/Signing/Views/Shared/SigningToggleCellView.swift",
+          "app/Features/Signing/Views/Signing Options/SigningProfilesView.swift",
+          "app/Features/Signing/Views/SigningMethodsTrollStoreViews.swift",
+          "app/Features/Signing/Views/SigningPreflightReviewView.swift",
+          "app/Features/Signing/Views/SigningTweaksView.swift",
+          "app/Features/Signing/Views/SigningView.swift",
+          "app/Features/Signing/Views/TweakExtractionView.swift",
+          "app/Features/Signing/Views/TweakInjectConfigView.swift",
+          "app/Features/Tasks/Views/TaskCenterView.swift",
+          "app/Features/Updates/PerAppUpdateRulesView.swift",
+          "app/Features/Updates/UpdatesSettingsView.swift",
+          "app/Features/Updates/UpdatesView.swift",
+          "DesignSystem/Components/Shared/AppLibraryPicker.swift",
+          "DesignSystem/Components/Shared/UndoableRemoval.swift",
+          "DesignSystem/Components/Shared/VexAppIconView.swift",
+          "app/Features/Library/ViewModels/FileBrowserViewModel.swift"
+        ],
+        "views_coredata_imports": [
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Discover.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Repositories.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView.swift",
+          "app/Features/Dashboard/Screens/Home/Views/HomeView.swift",
+          "app/Features/Library/Views/LibraryView.swift",
+          "app/Features/Dashboard/Screens/Onboarding/OnboardingView.swift",
+          "app/Features/Sources/Views/Apps/DownloadButtonView.swift",
+          "app/Features/Sources/Views/Apps/SourceAppsView.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+Data.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+TableView.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceAppsTableRepresentableView.swift",
+          "app/Features/Sources/Views/Apps/UIKit/SourceTabBarView.swift",
+          "app/Features/Sources/Views/SourceHealthDashboardView.swift",
+          "app/Features/Sources/Views/SourcesView.swift",
+          "app/Features/Updates/PerAppUpdateRulesView.swift",
+          "app/Features/Updates/UpdatesView.swift",
+          "DesignSystem/Components/Shared/AppLibraryPicker.swift"
+        ],
+        "views_direct_install": [
+          "app/Features/Library/Views/LibraryCellView.swift",
+          "app/Features/Library/Views/LibraryView+BatchActions.swift",
+          "app/Features/Signing/Views/SigningView.swift"
+        ],
+        "views_direct_signing": [
+          "app/Features/Dashboard/Screens/Onboarding/OnboardingView.swift",
+          "app/Features/Signing/Views/SigningView.swift"
+        ],
+        "views_direct_storage": [
+          "app/Features/Dashboard/Screens/About/DeviceDiagnosticsView.swift",
+          "app/Features/Accounts/Views/ProvisioningFlowView.swift",
+          "app/Features/Certificates/ViewModels/CertificatesCoordinator.swift",
+          "app/Features/Certificates/Views/CertificateDashboardView.swift",
+          "app/Features/Certificates/Views/CertificatesCellView.swift",
+          "app/Features/Certificates/Views/CertificatesView.swift",
+          "app/Features/Certificates/Views/Info/CertificatesInfoView.swift",
+          "app/Features/Dashboard/Screens/Diagnostics/AnalyticsView.swift",
+          "Storage/Repositories/FileManagerActions.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Repositories.swift",
+          "app/Features/Dashboard/Screens/Home/Views/AppStoreView.swift",
+          "app/Features/Dashboard/Screens/Home/Views/HomeView.swift",
+          "app/Features/Installation/Views/OTAView.swift",
+          "app/Features/Library/Views/AppCustomizationSheet.swift",
+          "app/Features/Library/Views/Batch/BatchSignView.swift",
+          "app/Features/Library/Views/CloneWizardView.swift",
+          "app/Features/Library/Views/Info/LibraryInfoView.swift",
+          "app/Features/Library/Views/LibraryCellView.swift",
+          "app/Features/Library/Views/LibraryView+BatchActions.swift",
+          "app/Features/Library/Views/LibraryView.swift",
+          "app/Features/Dashboard/Screens/Onboarding/OnboardingView.swift",
+          "app/Features/Sources/ViewModels/DiscoveryViewModel.swift",
+          "app/Features/Sources/Views/Apps/DownloadButtonView.swift",
+          "app/Features/Sources/Views/Apps/SourceAppsView.swift",
+          "app/Features/Sources/Views/SourceHealthDashboardView.swift",
+          "app/Features/Sources/Views/SourcesAddView+Repositories.swift",
+          "app/Features/Sources/Views/SourcesAddView.swift",
+          "app/Features/Sources/Views/SourcesView.swift",
+          "app/Features/Settings/Views/Automation/AutomationView.swift",
+          "app/Features/Settings/Views/Automation/UnattendedSigningGrantSection.swift",
+          "app/Features/Settings/Views/Security/AntiRevokeSettingsView.swift",
+          "app/Features/Settings/Views/SettingsView.swift",
+          "app/Features/Settings/Views/SetupHealthView.swift",
+          "app/Features/Signing/Views/Entitlements/SigningEntitlementsView.swift",
+          "app/Features/Signing/Views/InfoPlist/SigningInfoPlistView.swift",
+          "app/Features/Signing/Views/Shared/SigningAlternativeIconView.swift",
+          "app/Features/Signing/Views/Shared/SigningCustomizationView.swift",
+          "app/Features/Signing/Views/Shared/SigningDylibView.swift",
+          "app/Features/Signing/Views/Shared/SigningFrameworksView.swift",
+          "app/Features/Signing/Views/Signing Options/SigningProfilesView.swift",
+          "app/Features/Signing/Views/SigningPreflightReviewView.swift",
+          "app/Features/Signing/Views/SigningView.swift",
+          "app/Features/Signing/Views/TweakExtractionView.swift",
+          "app/Features/Signing/Views/TweakInjectConfigView.swift",
+          "app/Features/Updates/PerAppUpdateRulesView.swift",
+          "app/Features/Updates/UpdatesSettingsView.swift",
+          "app/Features/Updates/UpdatesView.swift",
+          "DesignSystem/Components/Shared/AppLibraryPicker.swift",
+          "DesignSystem/Components/Shared/UndoableRemoval.swift",
+          "DesignSystem/Components/Shared/VexAppIconView.swift"
+        ],
+        "views_urlsession_shared": [
+          "app/Features/Sources/Views/SourcesAddView+Repositories.swift"
+        ]
+      }
+    }
+  ],
+  "migrationReview": {
+    "baseCommit": "57d3aa65b0228071fa0d2589c232a00b5517ece2",
+    "expandedCoverage": [
+      {
+        "new": "app/Features/Dashboard/Screens/About/DeviceDiagnosticsView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/About/DeviceDiagnosticsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Accounts/Views/ProvisioningFlowView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/ProvisioningFlowView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/Views/CertificateDashboardView.swift",
+        "old": "App/iOS/VexSign/CertificateDashboard/CertificateDashboardView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/Views/CertificatesCellView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Certificates/CertificatesCellView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/Views/CertificatesView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Certificates/CertificatesView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/Views/Info/CertificatesInfoEntitlementView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Certificates/Info/CertificatesInfoEntitlementView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/Views/Info/CertificatesInfoView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Certificates/Info/CertificatesInfoView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Devices/Views/CompanionSigningWorkflowView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/CompanionSigningWorkflowView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Diagnostics/AnalyticsView.swift",
+        "old": "App/iOS/VexSign/Analytics/AnalyticsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Diagnostics/LogsView.swift",
+        "old": "App/iOS/VexSign/Views/Logs/LogsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "Storage/Repositories/FileManagerActions.swift",
+        "old": "App/iOS/VexSign/Views/FileManager/FileManagerActions.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Import/Screens/Files/Views/FileManagerItemView.swift",
+        "old": "App/iOS/VexSign/Views/FileManager/FileManagerItemView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Import/Screens/Files/Views/FilesTabView.swift",
+        "old": "App/iOS/VexSign/Views/TabView/FilesTabView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Discover.swift",
+        "old": "App/iOS/VexSign/Views/TabView/AppStoreView+Discover.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Home/Views/AppStoreView+Repositories.swift",
+        "old": "App/iOS/VexSign/Views/TabView/AppStoreView+Repositories.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Home/Views/AppStoreView.swift",
+        "old": "App/iOS/VexSign/Views/TabView/AppStoreView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Home/Views/HomeView.swift",
+        "old": "App/iOS/VexSign/Views/TabView/HomeView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "services/Import/IPA/IPAExplorerActions.swift",
+        "old": "App/iOS/VexSign/Views/IPAExplorer/IPAExplorerActions.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Import/Views/IPAExplorerView.swift",
+        "old": "App/iOS/VexSign/Views/IPAExplorer/IPAExplorerView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Import/Views/IPAFileViewerView.swift",
+        "old": "App/iOS/VexSign/Views/IPAExplorer/IPAFileViewerView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Installation/Views/OTAView.swift",
+        "old": "App/iOS/VexSign/OTA/OTAView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/AppCustomizationSheet.swift",
+        "old": "App/iOS/VexSign/Views/Library/AppCustomizationSheet.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/Batch/BatchSignView.swift",
+        "old": "App/iOS/VexSign/Views/Library/Batch/BatchSignView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/CloneWizardView.swift",
+        "old": "App/iOS/VexSign/CloneWizard/CloneWizardView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/Info/LibraryInfoView.swift",
+        "old": "App/iOS/VexSign/Views/Library/Info/LibraryInfoView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/LibraryCellView.swift",
+        "old": "App/iOS/VexSign/Views/Library/LibraryCellView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/LibraryView+BatchActions.swift",
+        "old": "App/iOS/VexSign/Views/Library/LibraryView+BatchActions.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/LibraryView.swift",
+        "old": "App/iOS/VexSign/Views/Library/LibraryView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Onboarding/OnboardingView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/OnboardingView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/ViewModels/DiscoveryViewModel.swift",
+        "old": "App/iOS/VexSign/Discovery/DiscoveryViewModel.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/Apps/DownloadButtonView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/Apps/DownloadButtonView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/Apps/SourceAppsView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/Apps/SourceAppsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+Data.swift",
+        "old": "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceAppsCoordinator+Data.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/Apps/UIKit/SourceAppsCoordinator+TableView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceAppsCoordinator+TableView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/Apps/UIKit/SourceAppsTableRepresentableView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceAppsTableRepresentableView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/Apps/UIKit/SourceTabBarView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/Apps/UIKit/SourceTabBarView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/SourceHealthDashboardView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/SourceHealthDashboardView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/SourcesAddView+Repositories.swift",
+        "old": "App/iOS/VexSign/Views/Sources/SourcesAddView+Repositories.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/SourcesAddView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/SourcesAddView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/Views/SourcesView.swift",
+        "old": "App/iOS/VexSign/Views/Sources/SourcesView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Settings/Views/Automation/AutomationView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Automation/AutomationView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Settings/Views/Automation/UnattendedSigningGrantSection.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Automation/UnattendedSigningGrantSection.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Settings/Views/Security/AntiRevokeSettingsView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Security/AntiRevokeSettingsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Settings/Views/SettingsView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/SettingsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Settings/Views/SetupHealthView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/SetupHealthView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Entitlements/SigningEntitlementsView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/Entitlements/SigningEntitlementsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/InfoPlist/SigningInfoPlistView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/InfoPlist/SigningInfoPlistView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Shared/SigningAlternativeIconView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/Shared/SigningAlternativeIconView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Shared/SigningCustomizationView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/Shared/SigningCustomizationView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Shared/SigningDylibView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/Shared/SigningDylibView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Shared/SigningFrameworksView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/Shared/SigningFrameworksView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Shared/SigningToggleCellView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/Shared/SigningToggleCellView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/Signing Options/SigningProfilesView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Signing Options/SigningProfilesView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/SigningMethodsTrollStoreViews.swift",
+        "old": "App/iOS/VexSign/Views/Settings/SigningMethodsTrollStoreViews.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/SigningPreflightReviewView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/SigningPreflightReviewView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/SigningTweaksView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/SigningTweaksView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/SigningView.swift",
+        "old": "App/iOS/VexSign/Views/Signing/SigningView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/TweakExtractionView.swift",
+        "old": "App/iOS/VexSign/Views/Tweaks/TweakExtractionView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Signing/Views/TweakInjectConfigView.swift",
+        "old": "App/iOS/VexSign/Views/Tweaks/TweakInjectConfigView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Tasks/Views/TaskCenterView.swift",
+        "old": "App/iOS/VexSign/Views/Download/TaskCenterView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Updates/PerAppUpdateRulesView.swift",
+        "old": "App/iOS/VexSign/Views/Updates/PerAppUpdateRulesView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Updates/UpdatesSettingsView.swift",
+        "old": "App/iOS/VexSign/Views/Settings/Updates/UpdatesSettingsView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Updates/UpdatesView.swift",
+        "old": "App/iOS/VexSign/Views/Updates/UpdatesView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "DesignSystem/Components/Shared/AppLibraryPicker.swift",
+        "old": "App/iOS/VexSign/Views/Common/AppLibraryPicker.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "DesignSystem/Components/Shared/UndoableRemoval.swift",
+        "old": "App/iOS/VexSign/Views/Common/UndoableRemoval.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "DesignSystem/Components/Shared/VexAppIconView.swift",
+        "old": "App/iOS/VexSign/Views/Common/VexAppIconView.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/ViewModels/FileBrowserViewModel.swift",
+        "old": "App/iOS/VexSign/Views/Common/FileBrowserViewModel.swift",
+        "rule": "presentation_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/ViewModels/CertificatesCoordinator.swift",
+        "old": "App/iOS/VexSign/Presentation/CertificatesCoordinator.swift",
+        "rule": "views_direct_storage"
+      },
+      {
+        "new": "app/Features/Certificates/Views/CertificateDashboardView.swift",
+        "old": "App/iOS/VexSign/CertificateDashboard/CertificateDashboardView.swift",
+        "rule": "views_direct_storage"
+      },
+      {
+        "new": "app/Features/Dashboard/Screens/Diagnostics/AnalyticsView.swift",
+        "old": "App/iOS/VexSign/Analytics/AnalyticsView.swift",
+        "rule": "views_direct_storage"
+      },
+      {
+        "new": "app/Features/Installation/Views/OTAView.swift",
+        "old": "App/iOS/VexSign/OTA/OTAView.swift",
+        "rule": "views_direct_storage"
+      },
+      {
+        "new": "app/Features/Library/Views/CloneWizardView.swift",
+        "old": "App/iOS/VexSign/CloneWizard/CloneWizardView.swift",
+        "rule": "views_direct_storage"
+      },
+      {
+        "new": "app/Features/Sources/ViewModels/DiscoveryViewModel.swift",
+        "old": "App/iOS/VexSign/Discovery/DiscoveryViewModel.swift",
+        "rule": "views_direct_storage"
+      }
+    ],
+    "reason": "Source roots now cover every feature, shared component and design-system file, not only the former Views and Presentation folders. New listed matches were verified against original Git bytes, not accepted as new coupling.",
+    "removedSeams": [
+      "AnisetteProviderUseCase NativeSigning import; provider access now uses AnisetteConfigurationProviding."
+    ]
+  },
+  "rules": {
+    "application_external_integration_imports": [],
+    "application_platform_imports": [],
+    "domain_forbidden_imports": [],
+    "presentation_consumed_engine_owners": [],
+    "presentation_direct_storage": [],
+    "presentation_file_io": [],
+    "presentation_managed_record_types": [],
+    "views_coredata_imports": [],
+    "views_direct_install": [],
+    "views_direct_signing": [],
+    "views_direct_storage": [],
+    "views_urlsession_shared": []
+  }
+}

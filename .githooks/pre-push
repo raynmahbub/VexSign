@@ -19,4 +19,4 @@ fi
 
 echo "pre-push · fast gate (git push --no-verify skips it; make verify is the full gate)"
 python3 .github/scripts/quick_check.py --root .
-python3 VexSign/Tools/Validation/repository-validation/sync-strings.py --check
+python3 Tools/Validation/repository-validation/sync-strings.py --check

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="VexSign/Resources/Assets/icon.png" alt="VexSign icon" width="96">
+  <img src="App/Resources/icon.png" alt="VexSign icon" width="96">
   <h1>VexSign</h1>
   <p><b>Import → inspect → sign → install. One on-device IPA workspace.</b></p>
   <p>
@@ -7,8 +7,8 @@
     <a href="https://github.com/raynmahbub/VexSign/blob/main/LICENSE"><img alt="GPL-3.0 license" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
     <a href="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml/badge.svg"></a>
   </p>
-  <p><a href="#download">Download</a> · <a href="VexSign/Documentation/README.md">Guides</a> · <a href="VexSign/Documentation/Development/BUILD.md">Build</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
-  <a href="VexSign/Documentation/Features/assets/hero.svg"><img src="VexSign/Documentation/Features/assets/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%"></a>
+  <p><a href="#download">Download</a> · <a href="#build--test">Build</a></p>
+  <img src="Resources/brand/hero.svg" alt="VexSign: sign, install, and manage apps on device" width="100%">
 </div>
 
 VexSign combines local IPA signing, app management, repository discovery and
@@ -29,10 +29,8 @@ self-host the optional services—not that every feature is production-ready.
 
 ## Features
 
-Every capability listed here has an implementation in this repository; the
-[architecture guide's feature coverage table](VexSign/Documentation/Architecture/ARCHITECTURE.md#readme-feature-coverage)
-maps each area to the code that provides it. That mapping is a presence check, not
-device acceptance — the caveats in each section still apply.
+Every capability listed here has an implementation in this repository. Presence in
+the source is not device acceptance — the caveats in each section still apply.
 
 ### ✍️ Signing & installation
 <details>
@@ -128,7 +126,7 @@ Available from **Settings → Ecosystem**.
 - **Certificate Dashboard** with profile payloads, entitlements, team information, expiry countdowns and device/bundle scope.
 - **Local trust / OCSP checks**, status indicators and opt-in best-effort daily checks and alerts.
 - **Local HTTPS trust setup** using a device-generated TLS identity; no shared certificate pack is downloaded by the normal build.
-- **Optional community certificate catalogue** (hosted by a third party, off until you read and accept its warning). It imports a shared identity whose password is published, so anyone can sign apps that claim to come from it and its owner can revoke it at any time — fine for trying the workflow, not for anything you care about. See [security](VexSign/Documentation/Security/THREAT_MODEL.md).
+- **Optional community certificate catalogue** (hosted by a third party, off until you read and accept its warning). It imports a shared identity whose password is published, so anyone can sign apps that claim to come from it and its owner can revoke it at any time — fine for trying the workflow, not for anything you care about.
 - **P12 password recovery tools** for your own password-protected certificates.
 - **Face ID / passcode app lock** when the app leaves the foreground.
 - **Keychain-backed secret storage and migration** for supported passwords and API credentials.
@@ -169,7 +167,7 @@ trigger a refresh, a certificate check, Update All or a cleanup on the phone.
 - **Apple Watch** (watchOS 10+): certificate countdown, counts, four remote
   commands over WatchConnectivity, plus a complication widget.
 
-See [companion platforms](VexSign/Documentation/Development/PLATFORMS.md) for pairing, build commands and the
+See [companion platforms](#companion-targets) for pairing, build commands and the
 limits.
 
 </details>
@@ -195,7 +193,8 @@ Web Tools**:
   from a provisioning profile; never accepts a `.p12` or a password.
 - **UDID Grabber** — one-time enrolment profile, in-memory session, no storage.
 
-See [web tools](VexSign/Documentation/Development/WEBTOOLS.md) for endpoints and the privacy stance.
+See the [Web Manager contract](Tools/Validation/security-validation/evidence/service-contracts.md) for the route table, authentication and the
+privacy stance.
 
 </details>
 
@@ -216,35 +215,36 @@ See [web tools](VexSign/Documentation/Development/WEBTOOLS.md) for endpoints and
 This repository also contains optional services and experimental tooling beyond the everyday signing workflow:
 
 - **Native account provisioning:** experimental Apple-account authentication/provisioning and anisette-provider configuration; not a complete, device-validated Apple ID signer.
-- **Guest-host packaging:** a separately built LiveContainer/SideStore prototype with pinned inputs; not the normal VexSign IPA. See [current scope](VexSign/Integrations/README.md).
+- **Guest-host packaging:** a separately built LiveContainer/SideStore prototype with pinned inputs; not the normal VexSign IPA. Scope and validation status are recorded in the commit history rather than in a maintained document.
 
-- **Python backend:** premium key validation, device binding, recovery, gated feeds, admin key management and IPA catalog endpoints. See [`VexSign/Services/WebManager/API/`](VexSign/Services/WebManager/API).
+- **Python backend:** premium key validation, device binding, recovery, gated feeds, admin key management and IPA catalog endpoints. See [`Services/WebManager/API/`](Services/WebManager/API).
 - **Native cloud bridge:** endpoint/token configuration and connection testing, with client methods for remote signing jobs. Requires a compatible deployed backend.
-- **Cloud-signing infrastructure:** a separate TypeScript/Fastify API with JWT authorization, PostgreSQL, Redis/BullMQ queues, private S3 storage, worker contracts, webhook retries and OTA endpoints. See [`VexSign/Services/Cloud/`](VexSign/Services/Cloud).
+- **Cloud-signing infrastructure:** a separate TypeScript/Fastify API with JWT authorization, PostgreSQL, Redis/BullMQ queues, private S3 storage, worker contracts, webhook retries and OTA endpoints. See [`Services/Cloud/`](Services/Cloud).
 - **OTA server pages:** manifest/download endpoints, installation links and QR codes, with optional app images, screenshots and changelogs.
 - **Tests and CI:** iOS test sources, backend tests and cloud-service tests alongside build/deployment tooling.
 
 **Cloud signing is not a turnkey feature:** no signing engine/sandbox launcher is bundled. The native client bridge and settings do not by themselves provide a deployed signing service. It requires infrastructure, a signer integration and end-to-end validation. Discovery rankings are local, not global popularity statistics; background schedules are controlled by iOS.
 
-For detailed feature boundaries, security caveats and remaining device/release testing, read the [architecture](VexSign/Documentation/Architecture/ARCHITECTURE.md), [native-signing status](VexSign/Documentation/Architecture/NATIVE_SIGNING_ARCHITECTURE.md) and [device acceptance guide](VexSign/Documentation/DeviceTesting/DEVICE_TESTING.md).
+For feature boundaries, security caveats and remaining device testing, read
+[`Packages/Vendor/manifest.json`](Packages/Vendor/manifest.json), which pins every
+vendored dependency and its licence.
 
 </details>
 
-For upstream changes and porting considerations, see the
-[upstream integration assessment](VexSign/Documentation/Decisions/Research/public-signer-integration-assessment.md).
+For upstream changes and pinned revisions, see
+[vendored dependencies and licences](Packages/Vendor/manifest.json).
 
 </details>
-
-Implementation backlog: [signer feature parity and device acceptance criteria](VexSign/Documentation/Features/SIGNER_PARITY.md).
 
 ## Download
 
 Download an IPA or add the VexSign source to a compatible signer:
 
-[![Download IPA](VexSign/Documentation/Features/assets/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
-[![Add Source](VexSign/Documentation/Features/assets/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
+[![Download IPA](Resources/brand/download-ipa.svg)](https://github.com/raynmahbub/VexSign/releases/latest)
+[![Add Source](Resources/brand/add-source.svg)](https://celloserenity.github.io/altdirect/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fraynmahbub%2FVexSign%2Fmain%2Fapp-repo.json)
 
-- **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can [generate a first-install site](VexSign/Documentation/Features/SIGNER_PARITY.md#safari-first-install-without-vexsign-already-installed).
+- **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
+  generate a first-install site from the signing screen.
 - **Stable:** the download button opens the latest stable release; choose its IPA asset.
 - **Nightly:** browse [all releases](https://github.com/raynmahbub/VexSign/releases) for dated pre-releases.
 - **Temporary CI build:** open [CI runs](https://github.com/raynmahbub/VexSign/actions/workflows/ci.yml),
@@ -278,9 +278,60 @@ sign an update in-app. Stable source URL:
 https://raw.githubusercontent.com/raynmahbub/VexSign/main/app-repo.json
 ```
 
-Read [Free Apple ID setup](VexSign/Documentation/Security/FREE_APPLE_ID_SETUP.md),
-[installation/companion limits](VexSign/Documentation/Workflows/COMPANION_SIGNING.md) and
-[Web Manager setup](VexSign/Documentation/Development/WEBTOOLS.md) before enabling those flows.
+Read the [Web Manager contract](Tools/Validation/security-validation/evidence/service-contracts.md) before enabling those flows.
+
+## Declared capabilities and their limits
+
+`Info.plist` and the entitlements ask iOS for the capabilities below. Each one is a
+promise to the user and, for a distributed build, to App Review.
+
+| Declared | Where | What it actually buys, and its limit |
+|---|---|---|
+| `UIBackgroundModes: audio` | `Configuration/Build/iOS/Info.plist` | **Not audio playback.** `BackgroundTaskManager` activates an `AVAudioSession(.playback)` and re-arms a background task assertion so an in-flight install, download, signing or Web Manager session survives the app leaving the foreground. iOS may still suspend the app at its own discretion, and an audio interruption (a call, Siri, another app taking the session) stops the keep-alive: `handleAudioInterruption` calls `stop()` when it cannot resume playback. Apple documents the audio mode for apps that play audio for the user; declaring it for a non-audio purpose is a distribution risk. Long operations are **best-effort while backgrounded**, and resume or reconcile when the app returns. |
+| `UIBackgroundModes: download`, `fetch`, `processing` | same | Standard background `URLSession` and `BGTaskScheduler` work. iOS decides when refresh/processing runs; the automation UI says so rather than promising a schedule. |
+| `UIBackgroundModes: remote-notification` | same | Notification delivery, not silent remote execution. |
+| `NSLocalNetworkUsageDescription`, `NSBonjourServices` (`_http._tcp`, `_webdav._tcp`) | same | The in-app Web Manager and companion discovery on the LAN. A locked or backgrounded phone may suspend the server unless the keep-alive above holds, and the user must grant the Local Network permission. |
+| `NSFaceIDUsageDescription` | same | App Lock. No biometric data leaves the device. |
+| `NSUserNotificationUsageDescription` | same | Not a key iOS reads — notifications ask for permission at runtime. Declared so this section accounts for everything in `Info.plist`. |
+| `NSAppTransportSecurity → NSAllowsLocalNetworking` | same | Only local-network cleartext is permitted. There is **no** `NSAllowsArbitraryLoads`; remote sources must be HTTPS. |
+| `com.apple.security.application-groups` → `group.com.vexsign.app` | `Configuration/Entitlements/iOS/VexSign.entitlements` | Shared container for the app, widget and extensions. |
+| `get-task-allow = false` | same | Correct for distribution; a debug build overrides this. |
+
+### What VexSign cannot do, on any device
+
+- **No background installation.** Installation is driven by `installd` through the
+  device connection while the app is running.
+- **No automatic re-signing of an already-installed app.** Re-signing requires
+  importing and signing a package again.
+- **No JIT installation, no sandbox escape, no signature bypass.** Anything in this
+  space that requires private APIs is out of scope.
+- **Free Apple ID accounts expire.** A profile from a free account lasts about seven
+  days and allows a small number of app IDs; VexSign surfaces expiry rather than
+  working around it.
+- **Cloud signing is not a bundled feature.** `Services/Cloud/` needs its own
+  deployment and a signing engine the operator supplies.
+- **App Review applies to external testers.** Internal TestFlight testers do not
+  require review; external testers do.
+
+### Distribution risks a beta must accept explicitly
+
+1. **The audio background mode.** The app declares `audio` and uses it to extend
+   background time for non-audio work. Review guidance does not permit that use, and
+   it is the most likely cause of a rejection. A review-safe build would remove
+   `audio` and accept that long operations pause when backgrounded.
+2. **Two repository fetch paths.** `RepositorySyncEngine` validates and keeps a
+   last-known-good snapshot; `FR.fetchRepositories` (used by the add-source screens)
+   does not cap size or validate the schema, so behaviour differs by screen.
+3. **Web Manager TLS is locally issued.** Browsers and companion devices must trust
+   the device CA separately; the in-app flow says so.
+
+### Evidence status
+
+| Evidence | Status |
+|---|---|
+| Linux gates (`quick_check`, `Tools/`) | Pass locally and in CI's `quick` job |
+| iOS build and simulator tests | **Unverified.** Every recent macOS run left the jobs queued. No passing build exists for the current HEAD. |
+| Physical-device acceptance | **Pending.** The 102-step `Tests/DeviceAcceptance` checklist is prepared; nothing in it has been run. |
 
 ## Build & test
 
@@ -299,33 +350,46 @@ make test                 # iPhone simulator tests (macOS/Xcode)
 make help                 # all supported entry points
 ```
 
-See [Build](VexSign/Documentation/Development/BUILD.md) for toolchain selection and troubleshooting.
+The `Makefile` is the supported entry point; `make help` lists every target.
+
+> **Build note.** Two rules decide whether the project compiles. No folder-synchronized
+> root may sit inside another one — a nested root is claimed by more than one target,
+> which yields `Unable to find module dependency` and `Multiple commands produce
+> .../PrivacyInfo.xcprivacy`. And every first-party source root must be named by some
+> target's synchronized groups: a root no target lists is never compiled, so the types
+> it holds go missing. The iOS target therefore synchronizes `App`, `Shared`, `Storage`,
+> `Networking`, `Apple`, `DesignSystem` and `VexSign/Services`, while each companion
+> synchronizes its own folder in `Platform/` plus the specific files it shares with the
+> app. `check_project_wiring.py` enforces both rules before Xcode runs.
 
 ### Source layout
 
-Project content lives under `VexSign/`: `App`, `Packages`, `Services`, `Tests`,
-`Resources`, `Documentation`, `Tools` and `Configuration`. The iOS app at
-`VexSign/App/iOS/` separates App composition/lifecycle, feature-oriented
+Project content lives at the repository root in one directory per layer: `App`,
+`Platform`, `Shared`, `Storage`, `Networking`, `Apple`, `DesignSystem`, `Packages`,
+`Services`, `Tests`, `Tools` and `Configuration`. Source-only assets stay under `Resources`;
+anything the app must contain at runtime lives in `App/Resources`, because the
+targets use Xcode folder-synchronization and only bundle what is inside their own
+folder. The iOS app at `App/` separates App composition/lifecycle, feature-oriented
 Presentation, Application workflows, Domain contracts, Infrastructure adapters,
-Platform, Security and bundled Resources. TV, Vision and widget sources live
-directly in `VexSign/App/{TV,Vision,WidgetExtension}/`; `Watch/` (both existing
-targets) and `SharedPlatformInfo/` retain their hierarchy. Existing target names,
+Platform-facing code, Security and bundled Resources. The companion targets live in
+`Platform/`: `TV/`, `Vision/`, `Extensions/WidgetExtension/` and `Watch/` (both
+existing targets). `SharedPlatformInfo/` stays in `App/Resources/` because the iOS
+app bundles it. Existing target names,
 bundle identifiers, schemes and the experimental host integration are retained.
-The [repository layout audit](VexSign/Documentation/Architecture/repository-layout-audit.md)
-records the package/service/resource/documentation cleanup and the four exact
-tool-owned wrapper exceptions. Multi-child folders are not flattened.
+`test_repository_layout.py` enforces the layout, including the exact tool-owned
+wrapper exceptions. Multi-child folders are not flattened.
 
 Domain/Application are Foundation-only; migrated workflows use injected ports.
 Legacy UI-to-storage/service coupling is still tracked, not claimed to be fully
-removed. See the [architecture guide](VexSign/Documentation/Architecture/ARCHITECTURE.md)
-and [migration/acceptance record](VexSign/Documentation/Architecture/feature-layout-migration.md).
+removed.
 The source reorganization does not establish an Xcode build or device capability.
 
 ## Quality & releases
 
 - **CI:** relevant PRs/main changes get portable policy checks, an unsigned build
   and simulator tests. Component workflows validate their own paths separately.
-- **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can [generate a first-install site](VexSign/Documentation/Features/SIGNER_PARITY.md#safari-first-install-without-vexsign-already-installed).
+- **Self-hosted Safari install:** distributors with an eligible pre-signed IPA can
+  generate a first-install site from the signing screen.
 - **Stable:** reviewed version bump, matching `v<MARKETING_VERSION>` tag or manual
   Release run, validation/build/tests, protected publishing and a stable-source update PR.
 - **Nightly:** daily **03:00 UTC**, immutable dated pre-release, build/tests and
@@ -333,26 +397,10 @@ The source reorganization does not establish an Xcode build or device capability
 - **Autopilot:** grouped dependency PRs, every-4-hours validation/merging of narrow green
   bot updates, weekly localisation maintenance and failure triage. Reviewed version
   bumps can trigger stable releases automatically; risky changes stay manual.
-  See [operations, one-time setup and free-only limits](VexSign/Documentation/Development/MAINTENANCE.md).
-
-[Release/version rules](VexSign/Documentation/Release/RELEASING.md) · [Automation policy](VexSign/Documentation/Development/MAINTENANCE.md)
-
 ## Trust, contribution & VexSign ownership
 
 Local signing keeps signing work on-device; optional remote flows have different
 trust boundaries. Archives are validated before extraction, and the local install
-server uses a device-specific TLS identity. Report vulnerabilities privately as
-explained in [SECURITY.md](SECURITY.md); do not put credentials in issues.
-See the [threat model](VexSign/Documentation/Security/THREAT_MODEL.md) for data-flow and trust-boundary
-notes, including optional network features.
+server uses a device-specific TLS identity. Do not put credentials in issues.
 
-[Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
-[Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE) ·
-[Third-party notices](THIRD_PARTY_NOTICES.md)
-
-VexSign is an independent first-party workspace: its app container, signing and
-installation pipeline, task center, storage and presentation layers are maintained under the
-VexSign name. Third-party components are identified only where their licences and notices
-require it; see [third-party notices](THIRD_PARTY_NOTICES.md),
-[vendored-component licences](VexSign/Packages/Vendor/README.md) and the
-[ElleKit licence](LICENSE_ELLEKIT). Not affiliated with Apple.
+[GPL-3.0 license](LICENSE)

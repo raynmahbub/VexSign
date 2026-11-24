@@ -5,19 +5,19 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/Services/WebManager/**'
-      - 'VexSign/Services/Cloud/**'
-      - 'VexSign/Services/Cloud/Anisette/**'
-      - 'VexSign/Services/WebManager/Configuration/render.yaml'
+      - 'Services/WebManager/**'
+      - 'Services/Cloud/**'
+      - 'Services/Cloud/Anisette/**'
+      - 'Services/WebManager/Configuration/render.yaml'
       - 'render.yaml'
       - '.github/workflows/services.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/Services/WebManager/**'
-      - 'VexSign/Services/Cloud/**'
-      - 'VexSign/Services/Cloud/Anisette/**'
-      - 'VexSign/Services/WebManager/Configuration/render.yaml'
+      - 'Services/WebManager/**'
+      - 'Services/Cloud/**'
+      - 'Services/Cloud/Anisette/**'
+      - 'Services/WebManager/Configuration/render.yaml'
       - 'render.yaml'
       - '.github/workflows/services.yml'
   schedule:
@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: VexSign/Services/WebManager/API
+        working-directory: Services/WebManager/API
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,7 +63,7 @@ jobs:
           changed=true
           if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] \
               && git fetch --quiet --depth=1 origin "$BASE" 2>/dev/null; then
-            if git diff --quiet "$BASE" HEAD -- :/VexSign/Services/WebManager/Configuration/requirements.txt; then
+            if git diff --quiet "$BASE" HEAD -- :/Services/WebManager/Configuration/requirements.txt; then
               changed=false
             fi
           fi
@@ -74,7 +74,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: VexSign/Services/WebManager/Configuration/requirements.txt
+          cache-dependency-path: Services/WebManager/Configuration/requirements.txt
 
       - name: Install dependencies
         # Everything the service needs at runtime is in requirements.txt, so CI
@@ -88,7 +88,7 @@ jobs:
 
       - name: WebManager relay matches iOS WebManagerServer contract
         working-directory: .
-        run: python3 VexSign/Tools/Development/test_webmanager_relay_contract.py
+        run: python3 Tools/Audit/test_webmanager_relay_contract.py
 
       # The Python counterpart of `npm audit` below. This service parses
       # untrusted uploads and fetches user-supplied URLs, and its SSRF guard is
@@ -97,9 +97,27 @@ jobs:
       - name: Python dependency audit
         if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'
         run: |
+          set +e
+          # The console script is `pip-audit`; `python -m pip-audit` resolves to a
+          # module named "pip-audit" and fails with "No module named pip-audit",
+          # which reads like a missing dependency rather than a wrong entry point.
           python -m pip install pip-audit
-          python -m pip-audit --progress-spinner off --strict \
-            -r ../Configuration/requirements.txt
+          install_status=$?
+          if [ "$install_status" -ne 0 ]; then
+            echo "::error title=pip-audit::installing pip-audit failed (exit ${install_status})"
+            exit "$install_status"
+          fi
+          python -m pip_audit --progress-spinner off --strict \
+            -r ../Configuration/requirements.txt 2>&1 | tee "$RUNNER_TEMP/pip-audit.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # The raw job log is not always reachable, so mirror the reason onto
+            # the check itself: a fresh advisory has to say which package it is.
+            while IFS= read -r line; do
+              echo "::error title=pip-audit::$line"
+            done < <(tail -n 15 "$RUNNER_TEMP/pip-audit.log")
+          fi
+          exit "$status"
 
   cloud:
     # Not gated on public visibility, unlike the macOS jobs: it consumes no paid
@@ -109,7 +127,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: VexSign/Services/Cloud
+        working-directory: Services/Cloud
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Audit the resolved dependency tree, not every source-only change: a
@@ -124,7 +142,7 @@ jobs:
           changed=true
           if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] \
               && git fetch --quiet --depth=1 origin "$BASE" 2>/dev/null; then
-            if git diff --quiet "$BASE" HEAD -- :/VexSign/Services/Cloud/package.json :/VexSign/Services/Cloud/package-lock.json; then
+            if git diff --quiet "$BASE" HEAD -- :/Services/Cloud/package.json :/Services/Cloud/package-lock.json; then
               changed=false
             fi
           fi
@@ -133,7 +151,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: VexSign/Services/Cloud/package-lock.json
+          cache-dependency-path: Services/Cloud/package-lock.json
       - run: npm ci
       # `build` is `tsc -p ...`; it type-checks and emits, so the old
       # `check` (`tsc --noEmit`) step was the same work twice.
@@ -144,7 +162,7 @@ jobs:
       # renamed field fails here instead of in an accepted submission that cannot be decoded.
       - name: iOS client matches the documented contract
         working-directory: .
-        run: python3 VexSign/Tools/Development/test_cloud_signing_contract.py
+        run: python3 Tools/Audit/test_cloud_signing_contract.py
       - run: npm audit --omit=dev --audit-level=high
         if: github.event_name == 'schedule' || steps.deps.outputs.changed == 'true'
 
@@ -157,7 +175,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: VexSign/Services/Cloud/Anisette
+        working-directory: Services/Cloud/Anisette
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

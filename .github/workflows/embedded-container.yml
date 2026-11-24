@@ -6,45 +6,59 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VexSign/Integrations/**'
-      - 'VexSign/App/iOS/Platform/Apple/Device/PrimaryHostEntry.swift'
-      - 'VexSign/Configuration/Build/iOS/Info.plist'
+      - 'Services/Integrations/**'
+      - 'Apple/DeviceServices/PrimaryHostEntry.swift'
+      - 'Configuration/Build/iOS/Info.plist'
       - 'VexSign.xcodeproj/**'
-      - 'VexSign/Packages/NativeSigning/**'
-      - 'VexSign/Packages/SideSign/Sources/**'
-      - 'VexSign/App/iOS/Security/Secrets/AppleAccount*.swift'
-      - 'VexSign/App/iOS/Infrastructure/Accounts/AppleAccount*.swift'
+      - 'Packages/NativeSigning/**'
+      - 'Packages/SideSign/Sources/**'
+      - 'Storage/Keychain/AppleAccount*.swift'
+      - 'Networking/Security/Storage/AppleAccountStorageRuntimePolicy.swift'
+      - 'VexSign/Services/Accounts/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/quick_check.py'
       - '.github/scripts/xcodebuild_report.py'
-      - 'VexSign/Packages/SideSign/Package.swift'
-      - 'VexSign/App/**'
-      - 'VexSign/Integrations/**'
-      - 'VexSign/Packages/**'
+      - 'Packages/SideSign/Package.swift'
+      - 'App/**'
+      - 'Shared/**'
+      - 'Storage/**'
+      - 'Networking/**'
+      - 'Apple/**'
+      - 'DesignSystem/**'
+      - 'VexSign/Services/**'
+      - 'Services/Integrations/**'
+      - 'Packages/**'
       - '.github/workflows/embedded-container.yml'
-      - 'VexSign/Configuration/**'
+      - 'Configuration/**'
   pull_request:
     branches: [main]
     paths:
-      - 'VexSign/Integrations/**'
-      - 'VexSign/App/iOS/Platform/Apple/Device/PrimaryHostEntry.swift'
-      - 'VexSign/Configuration/Build/iOS/Info.plist'
+      - 'Services/Integrations/**'
+      - 'Apple/DeviceServices/PrimaryHostEntry.swift'
+      - 'Configuration/Build/iOS/Info.plist'
       - 'VexSign.xcodeproj/**'
-      - 'VexSign/Packages/NativeSigning/**'
-      - 'VexSign/Packages/SideSign/Sources/**'
-      - 'VexSign/App/iOS/Security/Secrets/AppleAccount*.swift'
-      - 'VexSign/App/iOS/Infrastructure/Accounts/AppleAccount*.swift'
+      - 'Packages/NativeSigning/**'
+      - 'Packages/SideSign/Sources/**'
+      - 'Storage/Keychain/AppleAccount*.swift'
+      - 'Networking/Security/Storage/AppleAccountStorageRuntimePolicy.swift'
+      - 'VexSign/Services/Accounts/AppleAccount*.swift'
       - 'Makefile'
       - '.github/scripts/select_xcode.sh'
       - '.github/scripts/quick_check.py'
       - '.github/scripts/xcodebuild_report.py'
-      - 'VexSign/Packages/SideSign/Package.swift'
-      - 'VexSign/App/**'
-      - 'VexSign/Integrations/**'
-      - 'VexSign/Packages/**'
+      - 'Packages/SideSign/Package.swift'
+      - 'App/**'
+      - 'Shared/**'
+      - 'Storage/**'
+      - 'Networking/**'
+      - 'Apple/**'
+      - 'DesignSystem/**'
+      - 'VexSign/Services/**'
+      - 'Services/Integrations/**'
+      - 'Packages/**'
       - '.github/workflows/embedded-container.yml'
-      - 'VexSign/Configuration/**'
+      - 'Configuration/**'
   workflow_dispatch:
     inputs:
       host_mode:
@@ -132,14 +146,14 @@ jobs:
           path: |
             ${{ runner.temp }}/VexSign/SourcePackages
             ~/Library/Caches/org.swift.swiftpm
-          key: spm-combined-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'VexSign/Integrations/inputs.lock.json', 'VexSign/Packages/NativeSigning/inputs.lock.json') }}
+          key: spm-combined-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.xcode_version }}-${{ hashFiles('**/Package.resolved', 'Services/Integrations/inputs.lock.json', 'Packages/NativeSigning/inputs.lock.json') }}
       - name: Install packaging tool
         run: command -v ldid >/dev/null 2>&1 || brew install ldid
       - name: Native unit regressions (synthetic accounts only)
         id: native_tests
         run: |
           set -uo pipefail
-          python3 VexSign/Packages/NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+          python3 Packages/NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
           status=$?
           if [ "$status" -eq 0 ]; then
             swift test --package-path .build/native-signing-smoke 2>&1 | tee "$RUNNER_TEMP/native-signing-unit-tests.log"
@@ -164,7 +178,7 @@ jobs:
           # above link SideSign's library product but never compile a dependency's test target,
           # so this is the only place SideSignTests is built and run. --force-resolved-versions
           # builds against the pinned Package.resolved revisions, not the floating branch refs.
-          swift test --package-path VexSign/Packages/SideSign --force-resolved-versions 2>&1 \
+          swift test --package-path Packages/SideSign --force-resolved-versions 2>&1 \
             | tee "$RUNNER_TEMP/sidesign-tests.log"
       - name: Build standalone VexSign native input
         id: native_input
@@ -206,7 +220,7 @@ jobs:
           HOST_MODE: ${{ inputs.host_mode || 'native-primary' }}
         run: |
           set -uo pipefail
-          python3 VexSign/Integrations/build.py --mode "$HOST_MODE" \
+          python3 Services/Integrations/build.py --mode "$HOST_MODE" \
             --vexsign-ipa "packages/VexSign-${{ steps.native_input.outputs.app_version }}.ipa" \
             2>&1 | tee "$RUNNER_TEMP/combined-build.log"
           status=$?
@@ -277,28 +291,28 @@ jobs:
         if: inputs.server_compatibility
         run: |
           set -euo pipefail
-          python3 VexSign/Packages/NativeSigning/prepare_server_compatibility.py
+          python3 Packages/NativeSigning/prepare_server_compatibility.py
           swift package --package-path .build/server-dependency-compatibility resolve
-          python3 VexSign/Packages/NativeSigning/prepare_server_compatibility.py --verify-resolved
+          python3 Packages/NativeSigning/prepare_server_compatibility.py --verify-resolved
           swift test --package-path .build/server-dependency-compatibility --force-resolved-versions \
             2>&1 | tee "$RUNNER_TEMP/server-dependency-compatibility.log"
       - name: Optionally resolve the combined app-package and SDK candidate
         if: inputs.combined_dependencies
         run: |
           set -euo pipefail
-          python3 VexSign/Packages/NativeSigning/prepare_combined_smoke.py
+          python3 Packages/NativeSigning/prepare_combined_smoke.py
           swift package --package-path .build/combined-signing-smoke resolve \
             2>&1 | tee "$RUNNER_TEMP/combined-signing-resolution.log"
-          python3 VexSign/Packages/NativeSigning/prepare_combined_smoke.py \
+          python3 Packages/NativeSigning/prepare_combined_smoke.py \
             --verify-resolved .build/combined-signing-smoke/Package.resolved
       - name: Verify the CMS fixture still matches its recorded digest
         run: |
           set -euo pipefail
-          python3 VexSign/Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
+          python3 Packages/NativeSigning/Fixtures/make_cms_fixture.py --check
       - name: Prepare pinned isolated package graph
         run: |
           set -euo pipefail
-          python3 VexSign/Packages/NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
+          python3 Packages/NativeSigning/prepare_smoke.py 2>&1 | tee "$RUNNER_TEMP/native-signing-prepare.log"
       - name: Run native unit regressions without account operations
         if: inputs.unit_tests
         run: |

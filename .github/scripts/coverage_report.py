@@ -40,7 +40,8 @@ from pathlib import Path
 
 # Only first-party app code is interesting; dependencies and the test bundle
 # itself would dominate the "least covered" list otherwise.
-FIRST_PARTY_PREFIXES = ("VexSign/App/iOS/",)
+FIRST_PARTY_PREFIXES = ("App/", "VexSign/Services/", "Shared/", "Storage/", "Networking/",
+                        "Apple/", "DesignSystem/")
 EXCLUDE_MARKERS = ("/SourcePackages/", "/Checkouts/", "VexSignTests", ".xctest")
 
 
@@ -72,6 +73,15 @@ def is_first_party(name: str) -> bool:
     return any(prefix in name for prefix in FIRST_PARTY_PREFIXES) and name.endswith(".swift")
 
 
+def _relative(name: str) -> str:
+    """Strip the checkout prefix so the table names a repository path."""
+    for prefix in FIRST_PARTY_PREFIXES:
+        marker = "/" + prefix
+        if marker in name:
+            return name.split(marker)[-1] if prefix == "App/" else prefix + name.split(marker)[-1]
+    return name
+
+
 def summarise(report: dict, limit: int = 20) -> tuple[float, int, int, list[dict]]:
     """Returns (percent, covered, executable, least-covered first-party files)."""
     covered = int(report.get("coveredLines", 0))
@@ -88,7 +98,7 @@ def summarise(report: dict, limit: int = 20) -> tuple[float, int, int, list[dict
             if lines == 0:
                 continue
             files.append({
-                "name": name.split("VexSign/App/iOS/")[-1] if "VexSign/App/iOS/" in name else name,
+                "name": _relative(name),
                 "covered": int(file_report.get("coveredLines", 0)),
                 "executable": lines,
                 "percent": float(file_report.get("lineCoverage", 0.0)) * 100.0,

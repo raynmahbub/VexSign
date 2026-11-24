@@ -1,0 +1,7 @@
+{
+  "App/Features/Settings/Models/AppearanceStore.swift": 1,
+  "App/Features/Sources/Views/Apps/DownloadButtonView.swift": 1,
+  "App/Navigation/AppNavigationManager.swift": 1,
+  "App/Navigation/Tabs/TabBarPreferences.swift": 1,
+  "Platform/Watch/VexSignWatch/WatchSessionStore.swift": 1
+}
