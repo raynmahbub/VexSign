@@ -149,7 +149,7 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
         )
         let candidateIdentity = SigningIdentityCandidate(
             reference: "identity://test",
-            fingerprint: identity.fingerprintSHA256,
+            fingerprint: identity.fingerprint,
             teamIdentifier: SigningRegressionFixture.team,
             displayName: "Corpus Dev Cert",
             notBefore: SigningRegressionFixture.now.addingTimeInterval(-86_400),
@@ -162,7 +162,7 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
             identity: candidateIdentity,
             profile: profile,
             isAuthenticated: true,
-            authorizedCertificateFingerprints: [identity.fingerprintSHA256]
+            authorizedCertificateFingerprints: [identity.fingerprint]
         )
     }
 
@@ -421,8 +421,7 @@ final class NestedExtensionCompatibilityRegressionTests: XCTestCase {
                 bundleIdentifier: "com.vexsign.corpus",
                 nestedBundleIdentifiers: ["com.vexsign.corpus.widget", "com.vexsign.corpus.notification"],
                 automaticallyRemoveUncoveredExtensions: false
-            ),
-            now: SigningRegressionFixture.now
+            )
         )
         XCTAssertTrue(
             defaultEvaluation.hasBlocking,
