@@ -154,7 +154,7 @@ actor AppFileHandler {
             try fileManager.removeFileIfNeeded(at: destinationURL)
 
             guard fileManager.fileExists(atPath: _ipa.path) else {
-                Logger.misc.error("[\(_uuid, privacy: .public)] Source file does not exist")
+                Logger.misc.error("[\(self._uuid, privacy: .public)] Source file does not exist")
                 throw _error(
                     .copy,
                     reason: "The source file no longer exists. It may have been moved or removed before the import finished."
@@ -168,7 +168,7 @@ actor AppFileHandler {
             _ipa = destinationURL
             try _download?.importControl.checkpoint()
             try Task.checkCancellation()
-            Logger.misc.info("[\(_uuid, privacy: .public)] File copied into import workspace")
+            Logger.misc.info("[\(self._uuid, privacy: .public)] File copied into import workspace")
         } catch is CancellationError {
             _persistLifecycle(.cancelled)
             throw CancellationError()
@@ -178,7 +178,7 @@ actor AppFileHandler {
         } catch {
             _persistLifecycle(.failed)
             Logger.misc.error(
-                "[\(_uuid, privacy: .public)] Copy failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                "[\(self._uuid, privacy: .public)] Copy failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
             )
             throw _error(.copy, reason: error.localizedDescription, underlying: error)
         }
@@ -207,7 +207,7 @@ actor AppFileHandler {
         do {
             try IPAImportStorage.checkCopy(bytes: Int64(fileSize), at: _uniqueWorkDir)
         } catch let error as StoragePreflight.Insufficient {
-            Logger.misc.error("[\(_uuid, privacy: .public)] Insufficient space for IPA copy")
+            Logger.misc.error("[\(self._uuid, privacy: .public)] Insufficient space for IPA copy")
             throw _error(.diskSpace, reason: error.localizedDescription, underlying: error)
         }
     }
@@ -239,7 +239,7 @@ actor AppFileHandler {
         } catch {
             _persistLifecycle(.failed)
             Logger.misc.error(
-                "[\(_uuid, privacy: .public)] Extract failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                "[\(self._uuid, privacy: .public)] Extract failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
             )
             throw _error(.extract, reason: error.localizedDescription, underlying: error)
         }
@@ -251,7 +251,7 @@ actor AppFileHandler {
         _persistLifecycle(.validating)
         guard let payloadURL = uniqueWorkDirPayload else {
             _persistLifecycle(.failed)
-            Logger.misc.error("[\(_uuid, privacy: .public)] Payload URL is nil")
+            Logger.misc.error("[\(self._uuid, privacy: .public)] Payload URL is nil")
             throw _error(
                 .payload,
                 reason: "The archive could not be located after extraction. Nothing was unpacked into the workspace."
@@ -261,7 +261,7 @@ actor AppFileHandler {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: payloadURL.path) else {
             _persistLifecycle(.failed)
-            Logger.misc.error("[\(_uuid, privacy: .public)] Payload does not exist on disk")
+            Logger.misc.error("[\(self._uuid, privacy: .public)] Payload does not exist on disk")
             throw _error(
                 .payload,
                 reason: "The unpacked app is missing from disk. The archive may have failed to extract completely."
@@ -297,7 +297,7 @@ actor AppFileHandler {
                 try fileManager.moveItem(at: app, to: destinationURL.appendingPathComponent(app.lastPathComponent))
             }
             LibrarySizeSnapshot.invalidate()
-            Logger.misc.info("[\(_uuid, privacy: .public)] Moved payload into unsigned library")
+            Logger.misc.info("[\(self._uuid, privacy: .public)] Moved payload into unsigned library")
 
             do {
                 try fileManager.removeFileIfNeeded(at: _uniqueWorkDir)
@@ -306,7 +306,7 @@ actor AppFileHandler {
                 let redacted = LogRedaction.redact(error.localizedDescription)
                 _lastCleanupError = redacted
                 Logger.misc.warning(
-                    "[\(_uuid, privacy: .public)] Deferred work directory cleanup after move: \(redacted, privacy: .public)"
+                    "[\(self._uuid, privacy: .public)] Deferred work directory cleanup after move: \(redacted, privacy: .public)"
                 )
             }
         } catch let error as ImportError {
@@ -315,7 +315,7 @@ actor AppFileHandler {
         } catch {
             _persistLifecycle(.failed)
             Logger.misc.error(
-                "[\(_uuid, privacy: .public)] Move failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                "[\(self._uuid, privacy: .public)] Move failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
             )
             throw _error(.move, reason: error.localizedDescription, underlying: error)
         }
@@ -336,7 +336,7 @@ actor AppFileHandler {
 
         guard let bundle = Bundle(url: appUrl) else {
             _persistLifecycle(.failed)
-            Logger.misc.error("[\(_uuid, privacy: .public)] Could not create bundle from moved payload")
+            Logger.misc.error("[\(self._uuid, privacy: .public)] Could not create bundle from moved payload")
             throw _error(.database, reason: "The app bundle could not be read. It may be corrupted or incomplete.")
         }
 
@@ -363,11 +363,11 @@ actor AppFileHandler {
                 appIcon: bundle.iconFileName,
                 appDescription: _appDescription
             )
-            Logger.misc.info("[\(_uuid, privacy: .public)] Added to database")
+            Logger.misc.info("[\(self._uuid, privacy: .public)] Added to database")
         } catch {
             _persistLifecycle(.failed)
             Logger.misc.error(
-                "[\(_uuid, privacy: .public)] Database add failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                "[\(self._uuid, privacy: .public)] Database add failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
             )
             throw _error(.database, reason: error.localizedDescription, underlying: error)
         }
@@ -409,7 +409,7 @@ actor AppFileHandler {
         } catch {
             firstError = error
             Logger.misc.warning(
-                "[\(_uuid, privacy: .public)] Failed to clean import work directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                "[\(self._uuid, privacy: .public)] Failed to clean import work directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
             )
         }
 
@@ -420,7 +420,7 @@ actor AppFileHandler {
             } catch {
                 if firstError == nil { firstError = error }
                 Logger.misc.warning(
-                    "[\(_uuid, privacy: .public)] Failed to clean uncommitted import payload: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                    "[\(self._uuid, privacy: .public)] Failed to clean uncommitted import payload: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
                 )
             }
         }
@@ -443,7 +443,7 @@ actor AppFileHandler {
             try _journal.remove(id: _uuid)
         } catch {
             Logger.misc.warning(
-                "[\(_uuid, privacy: .public)] Failed to remove resolved import journal: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                "[\(self._uuid, privacy: .public)] Failed to remove resolved import journal: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
             )
         }
     }
