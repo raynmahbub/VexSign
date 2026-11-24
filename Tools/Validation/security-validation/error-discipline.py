@@ -28,9 +28,9 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-# Platform targets live beside App (their folders must not nest inside the
-# iOS synchronized root), so every App-wide policy has to scan both roots.
-SOURCES = [ROOT / "App", ROOT / "Platform"]
+# Platform targets live beside the application source root (their folders must not nest
+# inside the iOS synchronized root), so every App-wide policy has to scan both roots.
+SOURCES = [ROOT / "VexSign", ROOT / "Platform"]
 BASELINE = ROOT / "Tools/Validation/security-validation/error-discipline-baseline.json"
 
 OCCURRENCE = re.compile(r"\btry\?")
@@ -57,74 +57,74 @@ def collect():
             if unjustified:
                 found[path.relative_to(ROOT).as_posix()] = unjustified
 
-        return found
+    return found
 
 
-    def load_baseline():
-        if not BASELINE.exists():
-            return {}
-        return json.loads(BASELINE.read_text(encoding="utf-8"))
+def load_baseline():
+    if not BASELINE.exists():
+        return {}
+    return json.loads(BASELINE.read_text(encoding="utf-8"))
 
 
-    def write_baseline(counts):
-        BASELINE.write_text(
-            json.dumps(dict(sorted(counts.items())), indent=2) + "\n",
-            encoding="utf-8",
+def write_baseline(counts):
+    BASELINE.write_text(
+        json.dumps(dict(sorted(counts.items())), indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Fail when unjustified `try?` sites grow.")
+    parser.add_argument("--write", action="store_true", help="regenerate the baseline from the tree")
+    parser.add_argument("--list", action="store_true", help="print every file's current count")
+    parser.add_argument("--limit", type=int, default=20, help="how many findings to print")
+    arguments = parser.parse_args()
+
+    found = collect()
+    counts = {path: len(lines) for path, lines in found.items()}
+    total = sum(counts.values())
+
+    if arguments.write:
+        write_baseline(counts)
+        print(f"baseline written: {total} unjustified try? in {len(counts)} files")
+        return 0
+
+    if arguments.list:
+        for path, count in sorted(counts.items(), key=lambda pair: -pair[1]):
+            print(f"{count:4d}  {path}")
+        print(f"{total:4d}  total")
+        return 0
+
+    baseline = load_baseline()
+    grew = {}
+    for path, count in counts.items():
+        allowed = baseline.get(path, 0)
+        if count > allowed:
+            grew[path] = (allowed, count)
+
+    removed = sum(max(0, baseline.get(path, 0) - counts.get(path, 0)) for path in baseline)
+
+    if not grew:
+        print(
+            f"✅ {total} unjustified try? across {len(counts)} files — none above the baseline"
+            + (f" ({removed} fewer than the baseline, regenerate it with --write)" if removed else "")
         )
+        return 0
+
+    print(f"❌ {len(grew)} file(s) added an unjustified `try?`:")
+    shown = 0
+    for path, (allowed, count) in sorted(grew.items()):
+        delta = count - allowed
+        print(f"  {path}: {count} (baseline {allowed}, +{delta})")
+        for line in found[path][-delta:][: max(0, arguments.limit - shown)]:
+            print(f"      line {line}")
+            shown += 1
+        if shown >= arguments.limit:
+            break
+    print()
+    print("Either handle the error (do/catch + log) or justify it on the line: // try? ok: <reason>")
+    return 1
 
 
-    def main():
-        parser = argparse.ArgumentParser(description="Fail when unjustified `try?` sites grow.")
-        parser.add_argument("--write", action="store_true", help="regenerate the baseline from the tree")
-        parser.add_argument("--list", action="store_true", help="print every file's current count")
-        parser.add_argument("--limit", type=int, default=20, help="how many findings to print")
-        arguments = parser.parse_args()
-
-        found = collect()
-        counts = {path: len(lines) for path, lines in found.items()}
-        total = sum(counts.values())
-
-        if arguments.write:
-            write_baseline(counts)
-            print(f"baseline written: {total} unjustified try? in {len(counts)} files")
-            return 0
-
-        if arguments.list:
-            for path, count in sorted(counts.items(), key=lambda pair: -pair[1]):
-                print(f"{count:4d}  {path}")
-            print(f"{total:4d}  total")
-            return 0
-
-        baseline = load_baseline()
-        grew = {}
-        for path, count in counts.items():
-            allowed = baseline.get(path, 0)
-            if count > allowed:
-                grew[path] = (allowed, count)
-
-        removed = sum(max(0, baseline.get(path, 0) - counts.get(path, 0)) for path in baseline)
-
-        if not grew:
-            print(
-                f"✅ {total} unjustified try? across {len(counts)} files — none above the baseline"
-                + (f" ({removed} fewer than the baseline, regenerate it with --write)" if removed else "")
-            )
-            return 0
-
-        print(f"❌ {len(grew)} file(s) added an unjustified `try?`:")
-        shown = 0
-        for path, (allowed, count) in sorted(grew.items()):
-            delta = count - allowed
-            print(f"  {path}: {count} (baseline {allowed}, +{delta})")
-            for line in found[path][-delta:][: max(0, arguments.limit - shown)]:
-                print(f"      line {line}")
-                shown += 1
-            if shown >= arguments.limit:
-                break
-        print()
-        print("Either handle the error (do/catch + log) or justify it on the line: // try? ok: <reason>")
-        return 1
-
-
-    if __name__ == "__main__":
-        sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

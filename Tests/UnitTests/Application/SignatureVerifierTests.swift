@@ -263,7 +263,7 @@ final class SignatureVerifierTests: XCTestCase {
         XCTAssertFalse(SignatureVerifier.coverage(of: "TESTTEAM00.com.example.*", includes: "com.examples.app"))
     }
     func testFreshModeUsesIndependentCryptographicSealsNotImportStructure() throws {
-        let source = try RepositorySourceFixture.read("VexSign/Services/Signing/Verification/SignatureVerifier.swift")
+        let source = try RepositorySourceFixture.read("VexSign/Security/CodeSigning/SignatureVerifier.swift")
         let fresh = try XCTUnwrap(source.range(of: "if expectation.expectsSignature && expectation.expectsFreshSignature"))
         let structural = try XCTUnwrap(source.range(of: "issues += _signatureIssues"))
         XCTAssertLessThan(fresh.lowerBound, structural.lowerBound)

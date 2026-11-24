@@ -132,6 +132,7 @@
 		E0E0E1000000000000000012 /* Exceptions for "Networking" folder in "VexSignTV" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Monitoring/LocalNetworkHost.swift",
 			);
 			target = C0FFEE000000000000000006 /* VexSignTV */;
 		};
@@ -155,6 +156,7 @@
 		E0E0E1000000000000000015 /* Exceptions for "Networking" folder in "VexSignVision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Monitoring/LocalNetworkHost.swift",
 			);
 			target = C0FFEE000000000000000012 /* VexSignVision */;
 		};
@@ -201,14 +203,12 @@
 		E0E0E1000000000000000020 /* Exceptions for "Security" folder in "VexSignTV" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Transport/LocalNetworkHost.swift",
 			);
 			target = C0FFEE000000000000000006 /* VexSignTV */;
 		};
 		E0E0E1000000000000000021 /* Exceptions for "Security" folder in "VexSignVision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Transport/LocalNetworkHost.swift",
 			);
 			target = C0FFEE000000000000000012 /* VexSignVision */;
 		};

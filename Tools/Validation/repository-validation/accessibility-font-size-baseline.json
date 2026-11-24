@@ -1,4 +1,6 @@
 {
+  "App/Navigation": 2,
+  "DesignSystem/Components": 1,
   "Extensions/WidgetExtension": 5,
   "Features/Accounts": 6,
   "Features/Certificates": 5,
@@ -12,7 +14,6 @@
   "Features/Sources": 2,
   "Features/Tasks": 2,
   "Features/Updates": 4,
-  "Navigation/Tabs": 2,
   "TV": 3,
   "Vision": 1,
   "Watch/VexSignWatch": 1,

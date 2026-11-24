@@ -29,7 +29,9 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 #: Every first-party root the app target compiles.
-SOURCE_ROOTS = ("App", "VexSign/Services", "Shared", "Storage", "Networking", "Apple", "DesignSystem")
+SOURCE_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Shared", "VexSign/Storage",
+                "VexSign/Networking", "VexSign/Security", "VexSign/System", "VexSign/DesignSystem",
+                "VexSign/Services")
 BASELINE = ROOT / "Tools/Validation/security-validation/concurrency-baseline.json"
 
 PATTERNS = {

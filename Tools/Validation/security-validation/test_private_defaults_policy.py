@@ -20,7 +20,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 # First-party sources only; Packages/Vendor/ and the pinned packages are upstream code.
-SOURCE_ROOTS = ("App", "Platform/TV", "Platform/Vision",
+SOURCE_ROOTS = ("VexSign", "Platform/TV", "Platform/Vision",
                 "Platform/Watch/VexSignWatch", "Platform/Watch/VexSignWatchWidgets",
                 "Platform/Extensions/WidgetExtension")
 APPLE_PREFIX = "com.apple."

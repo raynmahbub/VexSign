@@ -24,11 +24,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-# Every first-party Swift layer, not just App: the token folder moved to the
-# DesignSystem root and this scan used to watch a path that no longer existed.
-SOURCES = tuple(ROOT / name for name in ("App", "Shared", "Storage", "Networking",
-                                        "Apple", "DesignSystem", "VexSign/Services"))
-ALLOWED_DIR = ROOT / "DesignSystem" / "Styles" / "Colors"
+# Every first-party Swift layer under the one application source root: the scan used to
+# watch paths that no longer existed, so it was reading nothing at all.
+APP = ROOT / "VexSign"
+SOURCES = tuple(APP / name for name in ("App", "Features", "Shared", "Storage", "Networking",
+                                        "System", "Security", "DesignSystem", "Services"))
+ALLOWED_DIR = APP / "DesignSystem" / "Styles" / "Colors"
 MAKEFILE = ROOT / "Makefile"
 
 LITERAL = re.compile(

@@ -31,11 +31,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-# Platform/ is first-party app code too; it sits beside App so its folders stay
-# out of the iOS synchronized root.
-APP_ROOTS = ("App", "Platform", "Shared", "Storage", "Networking", "Apple",
-             "DesignSystem", "VexSign/Services")
-APP = ROOT / "App"
+# Platform/ is first-party app code too; it sits beside the application source root so
+# its folders stay out of the iOS synchronized root.
+APP = ROOT / "VexSign"
+APP_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Shared", "VexSign/Storage",
+             "VexSign/Networking", "VexSign/System", "VexSign/Security",
+             "VexSign/DesignSystem", "VexSign/Services", "Platform")
 BASELINE = Path(__file__).resolve().parent / "error-message-baseline.json"
 MAKEFILE = ROOT / "Makefile"
 

@@ -86,6 +86,7 @@ on:
       - 'VexSign/System/**'
       - 'VexSign/Security/**'
       - 'VexSign/DesignSystem/**'
+      - 'VexSign/Resources/**'
       - 'VexSign/Services/**'
       - 'Platform/Extensions/WidgetExtension/**'
       - 'VexSign/Resources/SharedPlatformInfo/**'

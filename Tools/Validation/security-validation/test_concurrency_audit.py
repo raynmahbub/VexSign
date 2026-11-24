@@ -34,7 +34,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 #: Every first-party root the app target compiles; an escape in any of them
 #: needs the same written-down invariant as one in the shell.
-SOURCE_ROOTS = ("App", "VexSign/Services", "Shared", "Storage", "Networking", "Apple", "DesignSystem")
+SOURCE_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Shared", "VexSign/Storage",
+                "VexSign/Networking", "VexSign/Security", "VexSign/System", "VexSign/DesignSystem",
+                "VexSign/Services")
 AUDIT = ROOT / "Tools/Validation/security-validation/concurrency-audit.json"
 
 PATTERNS = {

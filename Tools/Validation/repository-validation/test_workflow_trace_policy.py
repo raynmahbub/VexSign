@@ -7,9 +7,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 class WorkflowTracePolicyTests(unittest.TestCase):
-    #: Sorted roots holding the sources the app target compiles. `App` is the
+    #: Sorted roots holding the sources the app target compiles. `VexSign/App` is the
     #: shell and presentation, the rest are the shared layers it links in.
-    SOURCE_ROOTS = ("App", "Shared", "Storage", "Networking", "Apple", "DesignSystem", "VexSign/Services")
+    SOURCE_ROOTS = ("VexSign/App", "VexSign/Features", "VexSign/Shared", "VexSign/Storage",
+                    "VexSign/Networking", "VexSign/System", "VexSign/Security",
+                    "VexSign/DesignSystem", "VexSign/Services")
 
     def sources(self):
         for root in self.SOURCE_ROOTS:
@@ -427,7 +429,7 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         stream = http.split('private static func downloadTemporary(', 1)[1].split('private static func dateString(', 1)[0]
         self.assertIn('asyncStreamFile(at: file.path)', stream)
         self.assertIn('withExtendedLifetime(lease)', stream.split('asyncStreamFile(at: file.path)', 1)[1])
-        sweeper = self.text('VexSign/Security/Validation/TempStorageSweeper.swift')
+        sweeper = self.text('VexSign/Security/Policies/TempStorageSweeper.swift')
         self.assertIn('registry.acquireCleanup()', sweeper)
         self.assertIn('TemporaryCleanupPolicy.isRetained(', sweeper)
 

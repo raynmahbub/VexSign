@@ -26,9 +26,9 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-# Platform targets live beside App (their folders must not nest inside the
-# iOS synchronized root), so every App-wide policy has to scan both roots.
-SOURCES = [ROOT / "App", ROOT / "Platform"]
+# Platform targets live beside the application source root (their folders must not nest
+# inside the iOS synchronized root), so every App-wide policy has to scan both roots.
+SOURCES = [ROOT / "VexSign", ROOT / "Platform"]
 BASELINE = ROOT / "Tools/Validation/security-validation/singleton-baseline.json"
 
 SINGLETON = re.compile(r"\bstatic\s+(?:let|var)\s+shared\b")

@@ -25,12 +25,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-APP = ROOT / "App"
+APP = ROOT / "VexSign"
 
-# Platform targets sit beside App so their folders cannot nest inside the iOS
-# synchronized root; policy scans have to cover both roots.
+# Platform targets sit beside the application source root so their folders cannot nest
+# inside the iOS synchronized root; policy scans have to cover both roots.
 SCANNED = [APP, ROOT / "Platform"]
-ALLOWED = APP / "iOS" / "Platform" / "iOS" / "Haptics" / "Haptics.swift"
+ALLOWED = APP / "System" / "Haptics" / "Haptics.swift"
 
 GENERATORS = re.compile(r"\bUI(?:Impact|Notification|Selection)FeedbackGenerator\b")
 

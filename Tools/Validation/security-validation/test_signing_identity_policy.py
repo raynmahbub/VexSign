@@ -25,12 +25,12 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 PKCS12 = ROOT / "Packages/SideSign/Sources/Certificates/PKCS12Parser.swift"
 KEYSTORE = ROOT / "Packages/SideSign/Sources/Models/KeyStore.swift"
-VERIFIER = ROOT / "VexSign/Services/Signing/Verification/SignatureVerifier.swift"
-AUDIT = ROOT / "VexSign/Services/Signing/Verification/NestedBundleAudit.swift"
+VERIFIER = ROOT / "VexSign/Security/CodeSigning/SignatureVerifier.swift"
+AUDIT = ROOT / "VexSign/Security/CodeSigning/NestedBundleAudit.swift"
 ENGINE = ROOT / "Packages/Vendor/Zsign/src/bundle.cpp"
 PLAN = ROOT / "VexSign/Services/Signing/Planning/SigningPlan.swift"
-EXECUTABLE_AUDIT = ROOT / "VexSign/Services/Signing/Verification/BundleExecutableAudit.swift"
-SEALS = ROOT / "VexSign/Services/Signing/Verification/SignatureVerifier+Seals.swift"
+EXECUTABLE_AUDIT = ROOT / "VexSign/Security/CodeSigning/BundleExecutableAudit.swift"
+SEALS = ROOT / "VexSign/Security/CodeSigning/SignatureVerifier+Seals.swift"
 SESSION = ROOT / "VexSign/Services/Signing/Planning/SigningResolutionSession.swift"
 
 
@@ -275,7 +275,7 @@ class SigningCredentialAndOutputWiringTests(unittest.TestCase):
 
     def test_fresh_signatures_require_the_complete_verdict_before_registration(self):
         handler = (ROOT / "VexSign/Services/Signing/Execution/SigningHandler.swift").read_text()
-        verifier = (ROOT / "VexSign/Services/Signing/Verification/SignatureVerifier.swift").read_text()
+        verifier = (ROOT / "VexSign/Security/CodeSigning/SignatureVerifier.swift").read_text()
         self.assertIn("try report.requireVerified()", handler)
         self.assertLess(handler.index("try _verifySignedBundle("), handler.index("try await self.move()"))
         self.assertIn("func requireVerified() throws", verifier)
