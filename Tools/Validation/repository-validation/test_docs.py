@@ -69,6 +69,39 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn('14 days', readme)
         self.assertIn('applies to new uploads', readme)  # Older runs do not retroactively gain artifacts.
 
+    def test_root_navigation_and_documentation_index(self):
+        readme = (checker.ROOT / 'README.md').read_text()
+        self.assertIn('## Start here', readme)
+        self.assertIn('## Repository map', readme)
+        for target in ('Documentation/README.md', 'CONTRIBUTING.md', 'SECURITY.md'):
+            self.assertIn(target, readme)
+        index = (checker.ROOT / 'Documentation/README.md').read_text()
+        for area in ('Architecture', 'Development', 'Testing', 'Security', 'Deployment', 'Release'):
+            self.assertIn(f']({area}/README.md)', index)
+        self.assertIn('## Root compatibility files', index)
+
+    def test_current_service_outputs_and_local_secrets_are_ignored(self):
+        import subprocess
+        paths = [
+            'Services/Cloud/node_modules/example.js',
+            'Services/Cloud/dist/example.js',
+            'Services/Cloud/work/example.ipa',
+            'Services/Cloud/local.log',
+            'Services/WebManager/API/local.db',
+            'Services/WebManager/API/local.db-wal',
+            'Services/WebManager/API/local.db-shm',
+            'Services/WebManager/API/.venv/pyvenv.cfg',
+            'Services/WebManager/Configuration/premium.json',
+            'VexSign/Resources/SelfUpdateConfig.plist',
+        ]
+        result = subprocess.run(
+            ['git', 'check-ignore', '--no-index', '--stdin'],
+            input='\n'.join(paths) + '\n', text=True, capture_output=True,
+            cwd=checker.ROOT, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(set(result.stdout.splitlines()), set(paths))
+
     def test_repository(self):
         self.assertEqual(list(checker.broken_links(checker.ROOT)), [])
 
