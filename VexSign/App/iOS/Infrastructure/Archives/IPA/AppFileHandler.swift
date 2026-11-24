@@ -66,8 +66,9 @@ actor AppFileHandler {
             .appendingPathComponent(workDirName, isDirectory: true)
 		self._importClaim = AppOperationRegistry.shared.claimProduction(of: _uuid)
 
+        let importID = _uuid
         Logger.misc.debug(
-            "Import initiated for: \(ipa.lastPathComponent, privacy: .public) with ID: \(_uuid, privacy: .public)"
+            "Import initiated for: \(ipa.lastPathComponent, privacy: .public) with ID: \(importID, privacy: .public)"
         )
     }
 

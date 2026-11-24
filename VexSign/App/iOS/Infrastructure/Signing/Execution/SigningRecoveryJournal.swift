@@ -163,7 +163,7 @@ struct SigningRecoveryJournal: Sendable {
         rowExists: (String) throws -> Bool,
         isOperationActive: (String) -> Bool = { AppOperationRegistry.shared.knowsProduction(of: $0) },
         removeDirectory: (URL, URL) throws -> Bool = { target, allowedRoot in
-            try CleanupRemovalPolicy.remove(target, beneath: allowedRoot)
+            try CleanupRemovalPolicy.remove(target, beneath: allowedRoot) != nil
         },
         now: Date = Date()
     ) -> RecoveryReport {

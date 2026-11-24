@@ -75,9 +75,15 @@ final class CertificateImportCryptographicIntegrationTests: XCTestCase {
             try? SecureSecretStore.delete("certificate.password.\(stagedUUID)")
         }
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: stagedDir.appendingPathComponent("cert.p12").path))
         XCTAssertTrue(
-            FileManager.default.fileExists(atPath: stagedDir.appendingPathComponent("cert.mobileprovision").path)
+            FileManager.default.fileExists(
+                atPath: stagedDir.appendingPathComponent(CertificateFileHandler.p12FileName).path
+            )
+        )
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: stagedDir.appendingPathComponent(CertificateFileHandler.profileFileName).path
+            )
         )
 
         let storage = Storage(inMemory: true)
