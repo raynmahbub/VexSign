@@ -58,6 +58,35 @@ enum SignatureVerifier {
 		var id: String {
 			"\(code.rawValue):\(detail)"
 		}
+
+        var compatibilityDiagnostic: CertificateCompatibilityDiagnostic {
+            let mappedSeverity: CertificateCompatibilityDiagnostic.Severity = severity == .failure ? .blocking : .advisory
+            let reason: CertificateCompatibilityDiagnostic.Reason
+            switch code {
+            case .certificateExpired:
+                reason = .certificateExpired
+            case .profileExpired:
+                reason = .provisioningProfileExpired
+            case .bundleIdentifierMissing, .bundleIdentifierMismatch, .requestedIdentifierMismatch:
+                reason = .bundleIdentifierNotCovered
+            case .nestedIdentifierUncovered, .unsignedNestedBundle:
+                reason = .nestedExtensionNotCovered
+            case .entitlementUnreadable, .entitlementNotGranted:
+                reason = .entitlementNotAuthorized
+            case .profileMissing, .profileChanged, .signerMismatch:
+                reason = .certificateProfileMismatch
+            case .bundleNotFound, .executableMissing, .missingCodeResources, .unsignedExecutable,
+                 .profileUnreadable, .profileIdentifierUnknown, .manifestInvalid,
+                 .expectedAssetsMissing, .signatureInvalid, .resourceSealInvalid, .inspectionOnly:
+                reason = .unsupportedSigningCapability
+            }
+            return CertificateCompatibilityDiagnostic.make(
+                reason: reason,
+                severity: mappedSeverity,
+                componentPath: subject,
+                detail: detail
+            )
+        }
 	}
 
 	// MARK: Report

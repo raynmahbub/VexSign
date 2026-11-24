@@ -51,6 +51,7 @@ struct SigningPipeline: SigningWork, Sendable {
             return .success(artifact)
         } catch {
             // Preserve the operation's primary error; cleanup failure is recorded separately.
+            handler.markInterrupted(cancelled: error is CancellationError, error: error.localizedDescription)
             await _clean(handler)
             return .failure(error)
         }

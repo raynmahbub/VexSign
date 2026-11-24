@@ -12,12 +12,39 @@ import OSLog
 
 // MARK: - Storage
 final class Storage: ObservableObject {
-	static let shared = Storage()
-	let container: NSPersistentContainer
-	@Published private(set) var recoveryNotice: CoreDataStoreRecovery.Notice?
+    enum PersistenceError: LocalizedError, Equatable {
+        case persistentStorageUnavailable(String)
 
-	private let _name: String = "VexSign"
-	private let _inMemory: Bool
+        var errorDescription: String? {
+            switch self {
+            case .persistentStorageUnavailable(let reason):
+                return "Persistent storage is unavailable (\(reason)). Write operations are disabled to protect your library; export diagnostics or restart VexSign to recover."
+            }
+        }
+    }
+
+    static let shared = Storage()
+    let container: NSPersistentContainer
+    @Published private(set) var recoveryNotice: CoreDataStoreRecovery.Notice?
+    @Published private(set) var isPersistentStorageUnavailable = false
+    @Published private(set) var persistenceUnavailableReason: String?
+    @Published private(set) var quarantinedStoreDirectory: URL?
+
+    private let _name: String = "VexSign"
+    private let _inMemory: Bool
+    private let _customQuarantineRoot: URL?
+    private let _forcePersistentStoreFailure: Bool
+    private let _availabilityLock = NSLock()
+    private var _persistentStorageUnavailableState = false
+    private var _persistentStorageUnavailableReasonState: String?
+
+    var persistentStorageUnavailableError: PersistenceError? {
+        _availabilityLock.lock()
+        defer { _availabilityLock.unlock() }
+        guard _persistentStorageUnavailableState else { return nil }
+        let reason = _persistentStorageUnavailableReasonState ?? "The library database could not be opened."
+        return .persistentStorageUnavailable(reason)
+    }
 
 	/// One model instance per process, shared by every `Storage`.
 	///
@@ -58,51 +85,82 @@ private var _writeContext: NSManagedObjectContext {
 	return writeContext
 }
 
-	init(inMemory: Bool = false) {
-		self._inMemory = inMemory
+    init(inMemory: Bool = false) {
+        _inMemory = inMemory
+        _customQuarantineRoot = nil
+        _forcePersistentStoreFailure = false
 
-		// Migrate legacy store file if exists (Feather.sqlite -> VexSign.sqlite) to preserve user data
-		var legacyStoreIsStillInUse = false
-		if !inMemory, let migrationFailure = Self._migrateLegacyStoreIfNeeded() {
-			// The move failed, and `Feather.sqlite` still holds the user's library. Opening a
-			// fresh `VexSign.sqlite` beside it would read as "all my apps are gone", so the
-			// container is pointed at the legacy file instead: the library keeps working, and
-			// the next launch retries the move.
-			Logger.misc.fault(
-				"Opening the legacy store in place because it could not be migrated: \(LogRedaction.redact(migrationFailure.localizedDescription), privacy: .public)"
-			)
-			legacyStoreIsStillInUse = true
-		}
+        // Migrate legacy store file if exists (Feather.sqlite -> VexSign.sqlite) to preserve user data
+        var legacyStoreIsStillInUse = false
+        if !inMemory, let migrationFailure = Self._migrateLegacyStoreIfNeeded() {
+            // The move failed, and `Feather.sqlite` still holds the user's library. Opening a
+            // fresh `VexSign.sqlite` beside it would read as "all my apps are gone", so the
+            // container is pointed at the legacy file instead: the library keeps working, and
+            // the next launch retries the move.
+            Logger.misc.fault(
+                "Opening the legacy store in place because it could not be migrated: \(LogRedaction.redact(migrationFailure.localizedDescription), privacy: .public)"
+            )
+            legacyStoreIsStillInUse = true
+        }
 
-		if let model = Self._sharedModel {
-			container = NSPersistentContainer(name: _name, managedObjectModel: model)
-		} else {
-			container = NSPersistentContainer(name: _name)
-		}
+        if let model = Self._sharedModel {
+            container = NSPersistentContainer(name: _name, managedObjectModel: model)
+        } else {
+            container = NSPersistentContainer(name: _name)
+        }
 
-		if inMemory {
-			// An in-memory description, not a SQLite store pointed at /dev/null:
-			// the file-backed load path reports an error for that URL, and the
-			// recovery below reacts to an error by deleting the store files.
-			let description = NSPersistentStoreDescription()
-			description.type = NSInMemoryStoreType
-			container.persistentStoreDescriptions = [description]
-		} else if legacyStoreIsStillInUse,
-				  let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-			// Same store, same schema — just where the migration could not move it from.
-			let description = NSPersistentStoreDescription(url: support.appendingPathComponent("Feather.sqlite"))
-			description.type = NSSQLiteStoreType
-			description.shouldMigrateStoreAutomatically = true
-			description.shouldInferMappingModelAutomatically = true
-			container.persistentStoreDescriptions = [description]
-			_legacyStoreIsLive = true
-		}
+        if inMemory {
+            // An in-memory description, not a SQLite store pointed at /dev/null:
+            // the file-backed load path reports an error for that URL, and the
+            // recovery below reacts to an error by deleting the store files.
+            let description = NSPersistentStoreDescription()
+            description.type = NSInMemoryStoreType
+            container.persistentStoreDescriptions = [description]
+        } else if legacyStoreIsStillInUse,
+                  let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            // Same store, same schema — just where the migration could not move it from.
+            let description = NSPersistentStoreDescription(url: support.appendingPathComponent("Feather.sqlite"))
+            description.type = NSSQLiteStoreType
+            description.shouldMigrateStoreAutomatically = true
+            description.shouldInferMappingModelAutomatically = true
+            container.persistentStoreDescriptions = [description]
+            _legacyStoreIsLive = true
+        }
 
-		_loadPersistentStoreAggressively()
-		container.viewContext.automaticallyMergesChangesFromParent = true
-		container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-		_migrateSortIndexIfNeeded()
-	}
+        _loadPersistentStoreAggressively()
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        _migrateSortIndexIfNeeded()
+    }
+
+    /// Creates a file-backed store rooted at an explicit SQLite URL so tests can
+    /// exercise corruption recovery, degraded unavailability, and cross-restart persistence
+    /// without touching the live app library.
+    init(
+        storeURL: URL,
+        quarantineRoot: URL? = nil,
+        forcePersistentStoreFailure: Bool = false
+    ) {
+        _inMemory = false
+        _customQuarantineRoot = quarantineRoot
+        _forcePersistentStoreFailure = forcePersistentStoreFailure
+
+        if let model = Self._sharedModel {
+            container = NSPersistentContainer(name: _name, managedObjectModel: model)
+        } else {
+            container = NSPersistentContainer(name: _name)
+        }
+
+        let description = NSPersistentStoreDescription(url: storeURL)
+        description.type = NSSQLiteStoreType
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
+        container.persistentStoreDescriptions = [description]
+
+        _loadPersistentStoreAggressively()
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+    }
 	
 	// MARK: - Concurrency contract
 	//
@@ -199,169 +257,204 @@ private var _writeContext: NSManagedObjectContext {
 	///
 	/// - Throws: whatever the block throws; the context is rolled back first, so
 	///   a failed write leaves no row behind.
-	func write(
-		_ changes: @escaping (NSManagedObjectContext) throws -> NSManagedObject
-	) async throws -> NSManagedObjectID {
-		let context = _writeContext
-		return try await withCheckedThrowingContinuation { continuation in
-			context.perform {
-				do {
-					let object = try changes(context)
-					if context.hasChanges {
-						try context.save()
-					}
-					// Read after the save: a temporary ID only becomes permanent
-					// once the row exists in the store, and only a permanent ID can
-					// be resolved again later.
-					continuation.resume(returning: object.objectID)
-				} catch {
-					context.rollback()
-					continuation.resume(throwing: error)
-				}
-			}
-		}
-	}
+    func write(
+        _ changes: @escaping (NSManagedObjectContext) throws -> NSManagedObject
+    ) async throws -> NSManagedObjectID {
+        if let unavailableError = persistentStorageUnavailableError {
+            throw unavailableError
+        }
+        let context = _writeContext
+        return try await withCheckedThrowingContinuation { continuation in
+            context.perform {
+                do {
+                    if let unavailableError = self.persistentStorageUnavailableError {
+                        throw unavailableError
+                    }
+                    let object = try changes(context)
+                    if context.hasChanges {
+                        try context.save()
+                    }
+                    // Read after the save: a temporary ID only becomes permanent
+                    // once the row exists in the store, and only a permanent ID can
+                    // be resolved again later.
+                    continuation.resume(returning: object.objectID)
+                } catch {
+                    context.rollback()
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
 
-	/// Resolves an ID returned by `write(_:)` on the main-queue context.
-	@MainActor
-	func object<T: NSManagedObject>(_ id: NSManagedObjectID) -> T? {
-		guard !id.isTemporaryID else { return nil }
-		return (try? context.existingObject(with: id)) as? T // try? ok: optional object lookup; nil when the row is gone
-	}
-	
-	func saveContext() {
-		StorageConcurrency.requireMainQueue()
-		// Save sync if already on main to avoid a deadlock
-		if Thread.isMainThread {
-			if context.hasChanges {
-				do {
-					try context.save()
-				} catch {
-					Logger.misc.error("CoreData save failed: \(error.localizedDescription)")
-				}
-			}
-		} else {
-			DispatchQueue.main.async {
-				if self.context.hasChanges {
-					do {
-						try self.context.save()
-					} catch {
-						Logger.misc.error("CoreData save failed: \(error.localizedDescription)")
-					}
-				}
-			}
-		}
-	}
-	
-	/// Deletes every row of one entity.
-	///
-	/// A batch delete goes straight to the store and never touches the view context's
-	/// object graph: rows the context already holds stay visible, so the "count" rows
-	/// drop to zero while lists built from the same context keep showing them until the
-	/// app relaunches. `deleteAppsWithOutcome` merges its deletions for exactly this
-	/// reason; the clear paths did not.
-	func clearContext<T: NSManagedObject>(request: NSFetchRequest<T>) {
-		StorageConcurrency.requireMainQueue()
-		guard let entityName = request.entityName else { return }
-		let deleteRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
-		deleteRequest.includesPropertyValues = false
+    /// Resolves an ID returned by `write(_:)` on the main-queue context.
+    @MainActor
+    func object<T: NSManagedObject>(_ id: NSManagedObjectID) -> T? {
+        guard !id.isTemporaryID else { return nil }
+        return (try? context.existingObject(with: id)) as? T // try? ok: optional object lookup; nil when the row is gone
+    }
 
-		// IDs only: a delete-all should not fault every row into the view context just to
-		// learn their identities.
-		let idRequest = NSFetchRequest<NSManagedObjectID>(entityName: entityName)
-		idRequest.resultType = .managedObjectIDResultType
+    func saveContext() {
+        StorageConcurrency.requireMainQueue()
+        if let unavailableError = persistentStorageUnavailableError {
+            let redacted = LogRedaction.redact(unavailableError.localizedDescription)
+            Logger.misc.fault("Refused CoreData save while persistent storage is unavailable: \(redacted, privacy: .public)")
+            if Thread.isMainThread {
+                context.rollback()
+            } else {
+                DispatchQueue.main.async {
+                    self.context.rollback()
+                }
+            }
+            return
+        }
+        // Save sync if already on main to avoid a deadlock
+        if Thread.isMainThread {
+            if context.hasChanges {
+                do {
+                    try context.save()
+                } catch {
+                    Logger.misc.error("CoreData save failed: \(error.localizedDescription)")
+                }
+            }
+        } else {
+            DispatchQueue.main.async {
+                if self.context.hasChanges {
+                    do {
+                        try self.context.save()
+                    } catch {
+                        Logger.misc.error("CoreData save failed: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
 
-		let ids: [NSManagedObjectID]
-		do {
-			ids = try context.fetch(idRequest)
-		} catch {
-			Logger.misc.error("Could not read rows to clear: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
-			return
-		}
-		guard !ids.isEmpty else { return }
+    /// Deletes every row of one entity.
+    ///
+    /// A batch delete goes straight to the store and never touches the view context's
+    /// object graph: rows the context already holds stay visible, so the "count" rows
+    /// drop to zero while lists built from the same context keep showing them until the
+    /// app relaunches. `deleteAppsWithOutcome` merges its deletions for exactly this
+    /// reason; the clear paths did not.
+    func clearContext<T: NSManagedObject>(request: NSFetchRequest<T>) {
+        StorageConcurrency.requireMainQueue()
+        guard persistentStorageUnavailableError == nil else {
+            Logger.misc.fault("Refused clearing CoreData rows while persistent storage is unavailable.")
+            return
+        }
+        guard let entityName = request.entityName else { return }
+        let deleteRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+        deleteRequest.includesPropertyValues = false
 
-		do {
-			_ = try context.execute(NSBatchDeleteRequest(fetchRequest: deleteRequest))
-		} catch {
-			Logger.misc.error("Batch delete failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
-			return
-		}
-		NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
-	}
-	
-	func countContent<T: NSManagedObject>(for type: T.Type) -> String {
-		StorageConcurrency.requireMainQueue()
-		let request = T.fetchRequest()
-		return "\((try? context.count(for: request)) ?? 0)" // try? ok: display count; an unreadable store shows zero
-	}
+        // IDs only: a delete-all should not fault every row into the view context just to
+        // learn their identities.
+        let idRequest = NSFetchRequest<NSManagedObjectID>(entityName: entityName)
+        idRequest.resultType = .managedObjectIDResultType
 
-	func countSources() -> String { countContent(for: AltSource.self) }
-	func countSignedApps() -> String { countContent(for: Signed.self) }
-	func countImportedApps() -> String { countContent(for: Imported.self) }
-	func countCertificates() -> String { countContent(for: CertificatePair.self) }
+        let ids: [NSManagedObjectID]
+        do {
+            ids = try context.fetch(idRequest)
+        } catch {
+            Logger.misc.error("Could not read rows to clear: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+            return
+        }
+        guard !ids.isEmpty else { return }
 
-	func clearSources() {
-		clearContext(request: AltSource.fetchRequest())
-	}
+        do {
+            _ = try context.execute(NSBatchDeleteRequest(fetchRequest: deleteRequest))
+        } catch {
+            Logger.misc.error("Batch delete failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+            return
+        }
+        NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
+    }
 
-	func clearSignedApps(removeDirectory: Bool = true) {
-		let apps = fetchOnQueue(Signed.fetchRequest()).map { $0 as AppInfoPresentable }
-		guard let leases = _libraryLeases(apps) else { return }
-		defer { withExtendedLifetime(leases) {} }
-		clearContext(request: Signed.fetchRequest())
-		guard removeDirectory else { return }
-		do {
-			try FileManager.default.removeFileIfNeeded(at: FileManager.default.signed)
-		} catch {
-			Logger.misc.error("Failed to remove signed apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
-		}
-	}
+    func countContent<T: NSManagedObject>(for type: T.Type) -> String {
+        StorageConcurrency.requireMainQueue()
+        let request = T.fetchRequest()
+        return "\((try? context.count(for: request)) ?? 0)" // try? ok: display count; an unreadable store shows zero
+    }
 
-	func clearImportedApps(removeDirectory: Bool = true) {
-		let apps = fetchOnQueue(Imported.fetchRequest()).map { $0 as AppInfoPresentable }
-		guard let leases = _libraryLeases(apps) else { return }
-		defer { withExtendedLifetime(leases) {} }
-		clearContext(request: Imported.fetchRequest())
-		guard removeDirectory else { return }
-		do {
-			try FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
-		} catch {
-			Logger.misc.error("Failed to remove imported apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
-		}
-	}
+    func countSources() -> String { countContent(for: AltSource.self) }
+    func countSignedApps() -> String { countContent(for: Signed.self) }
+    func countImportedApps() -> String { countContent(for: Imported.self) }
+    func countCertificates() -> String { countContent(for: CertificatePair.self) }
 
-	/// The same per-app leases `deleteApps` takes, for the paths that remove a whole
-	/// library folder instead of one app.
-	///
-	/// Without them a "clear signed apps" could delete `signed/` while a signing or
-	/// install job was writing into it, which is the one thing the single-app path
-	/// spends its quarantine dance to avoid. `nil` means an app is busy and nothing
-	/// was removed.
-	private func _libraryLeases(_ apps: [AppInfoPresentable]) -> [AppOperationRegistry.Lease]? {
-		var leases: [AppOperationRegistry.Lease] = []
-		do {
-			for key in Set(apps.compactMap(AppOperationRegistry.key)) {
-				leases.append(try AppOperationRegistry.shared.acquire(key))
-			}
-			return leases
-		} catch {
-			Toast.error(error.localizedDescription)
-			return nil
-		}
-	}
+    func clearSources() {
+        guard persistentStorageUnavailableError == nil else { return }
+        clearContext(request: AltSource.fetchRequest())
+    }
 
-	func clearCertificates(resetSelection: Bool = true, removeDirectory: Bool = true) {
-		if resetSelection {
-			UserDefaults.standard.set(0, forKey: "vexsign.selectedCert")
-		}
-		clearContext(request: CertificatePair.fetchRequest())
-		guard removeDirectory else { return }
-		do {
-			try FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)
-		} catch {
-			Logger.misc.error("Failed to remove certificates directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
-		}
-	}
+    func clearSignedApps(removeDirectory: Bool = true) {
+        guard persistentStorageUnavailableError == nil else {
+            Logger.misc.fault("Refused clearing signed apps while persistent storage is unavailable.")
+            return
+        }
+        let apps = fetchOnQueue(Signed.fetchRequest()).map { $0 as AppInfoPresentable }
+        guard let leases = _libraryLeases(apps) else { return }
+        defer { withExtendedLifetime(leases) {} }
+        clearContext(request: Signed.fetchRequest())
+        guard removeDirectory else { return }
+        do {
+            try FileManager.default.removeFileIfNeeded(at: FileManager.default.signed)
+        } catch {
+            Logger.misc.error("Failed to remove signed apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+        }
+    }
+
+    func clearImportedApps(removeDirectory: Bool = true) {
+        guard persistentStorageUnavailableError == nil else {
+            Logger.misc.fault("Refused clearing imported apps while persistent storage is unavailable.")
+            return
+        }
+        let apps = fetchOnQueue(Imported.fetchRequest()).map { $0 as AppInfoPresentable }
+        guard let leases = _libraryLeases(apps) else { return }
+        defer { withExtendedLifetime(leases) {} }
+        clearContext(request: Imported.fetchRequest())
+        guard removeDirectory else { return }
+        do {
+            try FileManager.default.removeFileIfNeeded(at: FileManager.default.unsigned)
+        } catch {
+            Logger.misc.error("Failed to remove imported apps directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+        }
+    }
+
+    /// The same per-app leases `deleteApps` takes, for the paths that remove a whole
+    /// library folder instead of one app.
+    ///
+    /// Without them a "clear signed apps" could delete `signed/` while a signing or
+    /// install job was writing into it, which is the one thing the single-app path
+    /// spends its quarantine dance to avoid. `nil` means an app is busy and nothing
+    /// was removed.
+    private func _libraryLeases(_ apps: [AppInfoPresentable]) -> [AppOperationRegistry.Lease]? {
+        var leases: [AppOperationRegistry.Lease] = []
+        do {
+            for key in Set(apps.compactMap(AppOperationRegistry.key)) {
+                leases.append(try AppOperationRegistry.shared.acquire(key))
+            }
+            return leases
+        } catch {
+            Toast.error(error.localizedDescription)
+            return nil
+        }
+    }
+
+    func clearCertificates(resetSelection: Bool = true, removeDirectory: Bool = true) {
+        guard persistentStorageUnavailableError == nil else {
+            Logger.misc.fault("Refused clearing certificates while persistent storage is unavailable.")
+            return
+        }
+        if resetSelection {
+            UserDefaults.standard.set(0, forKey: "vexsign.selectedCert")
+        }
+        clearContext(request: CertificatePair.fetchRequest())
+        guard removeDirectory else { return }
+        do {
+            try FileManager.default.removeFileIfNeeded(at: FileManager.default.certificates)
+        } catch {
+            Logger.misc.error("Failed to remove certificates directory: \(LogRedaction.redact(error.localizedDescription), privacy: .public)")
+        }
+    }
 
 	/// - Returns: why the legacy store could not be moved, when it could not be. The caller
 	///   must not then open a fresh store at `VexSign.sqlite`, or the user's library reads as
@@ -417,38 +510,89 @@ private var _writeContext: NSManagedObjectContext {
 	/// quarantines unreadable stores without deleting app or certificate folders.
 	private var _legacyStoreIsLive = false
 
-	private func _loadPersistentStoreAggressively() {
-		container.loadPersistentStores { description, error in
-			if let error, self._legacyStoreIsLive {
-				Logger.misc.fault(
-					"The legacy library could not be opened. It is left untouched so existing library data is preserved. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
-				)
-				return
-			}
-			if let error {
-				guard !self._inMemory else {
-					Logger.misc.fault("In-memory store failed to load: \(error.localizedDescription)")
-					return
-				}
-				Logger.misc.error(
-					"Core Data initial load failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public); quarantining unreadable SQLite store"
-				)
-				self._quarantineStore(at: description.url, reason: error.localizedDescription)
-				self.container.loadPersistentStores { _, secondError in
-					if let secondError {
-						Logger.misc.fault(
-							"Core Data secondary load failed after store quarantine: \(LogRedaction.redact(secondError.localizedDescription), privacy: .public)"
-						)
-						// Fallback gracefully without crashing the app: use an in-memory description
-						let fallbackDescription = NSPersistentStoreDescription()
-						fallbackDescription.type = NSInMemoryStoreType
-						self.container.persistentStoreDescriptions = [fallbackDescription]
-						self.container.loadPersistentStores { _, _ in }
-					}
-				}
-			}
-		}
-	}
+    private func _loadPersistentStoreAggressively() {
+        if _forcePersistentStoreFailure {
+            let reason = "Forced persistent store load failure for recovery verification."
+            let description = container.persistentStoreDescriptions.first
+            let quarantined = _quarantineStore(at: description?.url, reason: reason)
+            _mountUnavailableFallback(reason: reason, quarantineOutcome: quarantined)
+            return
+        }
+
+        container.loadPersistentStores { description, error in
+            if let error, self._legacyStoreIsLive {
+                Logger.misc.fault(
+                    "The legacy library could not be opened. It is left untouched so existing library data is preserved. \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+                )
+                self._mountUnavailableFallback(reason: error.localizedDescription, quarantineOutcome: nil)
+                return
+            }
+            if let error {
+                guard !self._inMemory else {
+                    Logger.misc.fault("In-memory store failed to load: \(error.localizedDescription)")
+                    return
+                }
+                Logger.misc.error(
+                    "Core Data initial load failed: \(LogRedaction.redact(error.localizedDescription), privacy: .public); quarantining unreadable SQLite store"
+                )
+                guard let quarantined = self._quarantineStore(at: description.url, reason: error.localizedDescription) else {
+                    self._mountUnavailableFallback(reason: error.localizedDescription, quarantineOutcome: nil)
+                    return
+                }
+                self.container.loadPersistentStores { _, secondError in
+                    if let secondError {
+                        Logger.misc.fault(
+                            "Core Data secondary load failed after store quarantine: \(LogRedaction.redact(secondError.localizedDescription), privacy: .public)"
+                        )
+                        self._mountUnavailableFallback(
+                            reason: secondError.localizedDescription,
+                            quarantineOutcome: quarantined
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func _mountUnavailableFallback(
+        reason: String,
+        quarantineOutcome: CoreDataStoreRecovery.Outcome?
+    ) {
+        let redacted = LogRedaction.redact(reason)
+        _availabilityLock.lock()
+        _persistentStorageUnavailableState = true
+        _persistentStorageUnavailableReasonState = redacted
+        _availabilityLock.unlock()
+
+        let folderName = quarantineOutcome?.notice.quarantineFolderName ?? "UnrecoveredStore"
+        let notice = CoreDataStoreRecovery.Notice(
+            quarantineFolderName: folderName,
+            recoveredAt: quarantineOutcome?.notice.recoveredAt ?? Date(),
+            summary: redacted,
+            quarantineDirectory: quarantineOutcome?.quarantineDirectory,
+            isPersistentStorageUnavailable: true
+        )
+
+        let publish = {
+            self.isPersistentStorageUnavailable = true
+            self.persistenceUnavailableReason = redacted
+            self.quarantinedStoreDirectory = quarantineOutcome?.quarantineDirectory
+            self.recoveryNotice = notice
+        }
+        if Thread.isMainThread {
+            publish()
+        } else {
+            DispatchQueue.main.async(execute: publish)
+        }
+
+        // Mount an in-memory container only so the UI can surface the degraded-storage
+        // warning and allow exporting diagnostics or quarantined stores. Every durable write
+        // and destructive path checks `persistentStorageUnavailableError` and refuses mutation.
+        let fallbackDescription = NSPersistentStoreDescription()
+        fallbackDescription.type = NSInMemoryStoreType
+        container.persistentStoreDescriptions = [fallbackDescription]
+        container.loadPersistentStores { _, _ in }
+    }
 
 	// Backfills sortIndex from the old date-desc order so manual reordering starts stable
 	private func _migrateSortIndexIfNeeded() {
@@ -492,33 +636,61 @@ private var _writeContext: NSManagedObjectContext {
 		UserDefaults.standard.set(true, forKey: key)
 	}
 
-	/// Dismisses the one-shot notice about a quarantined store.
-	///
-	/// Only the banner goes away: the quarantined files stay on disk where the
-	/// user can recover them from, and the next launch opens the fresh store with
-	/// no notice because the store itself is readable again.
-	func acknowledgeRecoveryNotice() {
-		recoveryNotice = nil
-	}
+    /// Dismisses the one-shot notice about a quarantined store when durable storage recovered.
+    ///
+    /// When persistent storage remains unavailable, the warning cannot be dismissed because
+    /// write operations are disabled until storage recovers.
+    func acknowledgeRecoveryNotice() {
+        guard persistentStorageUnavailableError == nil else { return }
+        recoveryNotice = nil
+    }
 
-	private func _quarantineStore(at url: URL?, reason: String) {
-		do {
-			guard let outcome = try CoreDataStoreRecovery.quarantineStore(at: url, reason: reason) else { return }
-			let notice = outcome.notice
-			if Thread.isMainThread {
-				self.recoveryNotice = notice
-			} else {
-				DispatchQueue.main.async {
-					self.recoveryNotice = notice
-				}
-			}
-			Logger.misc.fault(
-				"Quarantined unreadable Core Data store to \(notice.quarantineFolderName, privacy: .public); app and certificate files were preserved."
-			)
-		} catch {
-			Logger.misc.fault(
-				"Failed to quarantine unreadable Core Data store: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
-			)
-		}
-	}
+    func quarantinedStores() -> [CoreDataStoreRecovery.QuarantinedStore] {
+        let root: URL?
+        if let custom = _customQuarantineRoot {
+            root = custom
+        } else if let directory = quarantinedStoreDirectory {
+            root = directory.deletingLastPathComponent()
+        } else if let storeURL = container.persistentStoreDescriptions.first?.url {
+            root = CoreDataStoreRecovery.quarantineRoot(for: storeURL)
+        } else if let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            root = support.appendingPathComponent("QuarantinedStores", isDirectory: true)
+        } else {
+            root = nil
+        }
+        guard let root else { return [] }
+        return CoreDataStoreRecovery.listQuarantinedStores(in: root)
+    }
+
+    @discardableResult
+    private func _quarantineStore(at url: URL?, reason: String) -> CoreDataStoreRecovery.Outcome? {
+        do {
+            guard let outcome = try CoreDataStoreRecovery.quarantineStore(
+                at: url,
+                quarantineRoot: _customQuarantineRoot,
+                reason: reason
+            ) else {
+                return nil
+            }
+            let notice = outcome.notice
+            let publish = {
+                self.recoveryNotice = notice
+                self.quarantinedStoreDirectory = outcome.quarantineDirectory
+            }
+            if Thread.isMainThread {
+                publish()
+            } else {
+                DispatchQueue.main.async(execute: publish)
+            }
+            Logger.misc.fault(
+                "Quarantined unreadable Core Data store to \(notice.quarantineFolderName, privacy: .public); app and certificate files were preserved."
+            )
+            return outcome
+        } catch {
+            Logger.misc.fault(
+                "Failed to quarantine unreadable Core Data store: \(LogRedaction.redact(error.localizedDescription), privacy: .public)"
+            )
+            return nil
+        }
+    }
 }

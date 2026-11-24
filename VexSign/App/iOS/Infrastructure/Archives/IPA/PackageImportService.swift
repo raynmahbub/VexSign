@@ -65,11 +65,18 @@ enum PackageImportService {
                         UnifiedTaskCenter.shared.captureHistoryIcon(historyIcon, subjectID: download.id)
                     }
                 }
-                try? await handler.clean() // try? ok: best-effort cleanup of temporary work directory
+                let cleanupWarning = await _runCleanup(handler)
                 await MainActor.run {
                     do {
                         let imported = try handler.importedApp(for: objectID)
-                        UnifiedTaskCenter.shared.recordImportedArtifact(imported, taskID: importTaskID, downloadID: download?.id)
+                        if let cleanupWarning {
+                            SubsystemDiagnosticsLog.warn(cleanupWarning, subsystem: .storage)
+                        }
+                        UnifiedTaskCenter.shared.recordImportedArtifact(
+                            imported,
+                            taskID: importTaskID,
+                            downloadID: download?.id
+                        )
                         completion(.success(imported))
                     } catch {
                         if let task = taskRecord(id: importTaskID) {
@@ -80,15 +87,37 @@ enum PackageImportService {
                     }
                 }
             } catch {
-                try? await handler.clean() // try? ok: best-effort cleanup of temporary work directory on error
+                await handler.markInterrupted(cancelled: error is CancellationError)
+                let cleanupWarning = await _runCleanup(handler)
                 await MainActor.run {
+                    if let cleanupWarning {
+                        SubsystemDiagnosticsLog.warn(cleanupWarning, subsystem: .storage)
+                    }
                     if let task = taskRecord(id: importTaskID) {
                         task.context?.recordFailure(error)
-                        UnifiedTaskCenter.shared.transition(task, to: error is CancellationError ? .cancelled : .failed, error: error.localizedDescription)
+                        UnifiedTaskCenter.shared.transition(
+                            task,
+                            to: error is CancellationError ? .cancelled : .failed,
+                            error: error.localizedDescription
+                        )
                     }
                     completion(.failure(error))
                 }
             }
+        }
+    }
+
+    /// Runs temporary-workspace cleanup without disguising a cleanup error as an import failure
+    /// or overwriting the original import error. Failures stay persisted in `ImportCleanupJournal`
+    /// for startup retry and are returned as a redacted diagnostic warning.
+    private static func _runCleanup(_ handler: AppFileHandler) async -> String? {
+        do {
+            try await handler.clean()
+            return nil
+        } catch {
+            let redacted = LogRedaction.redact(error.localizedDescription)
+            Logger.misc.warning("IPA import cleanup deferred for retry: \(redacted, privacy: .public)")
+            return "Import cleanup deferred for retry: \(redacted)"
         }
     }
 

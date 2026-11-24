@@ -84,6 +84,7 @@ extension InstallQueue {
 	enum InstallOutcome: Equatable {
 		case pending
 		case succeeded
+		case exported
 		case guestPrepared
 	    case unconfirmed
 		case failed(String)

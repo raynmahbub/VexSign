@@ -10,14 +10,6 @@
       "watch": "This is the escape most likely to stop being true. Any new off-main writer must be paired with a main-actor hop, not a direct assignment."
     },
     {
-      "file": "VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift",
-      "symbol": "AppFileHandler",
-      "kind": "unchecked-sendable",
-      "invariant": "One import's private scratch object; `_ipa`, `uniqueWorkDirPayload` and `_didAddToDatabase` are mutated only from its own sequential async methods (copy -> extract -> move -> addDatabase -> clean). The only cross-thread touch is `download.unpackageProgress`, wrapped in DispatchQueue.main.async at the extract progress callback.",
-      "risk": "low",
-      "watch": "Safe only while the pipeline stays sequential per instance. Two steps run concurrently on one handler would race on `_ipa` and `uniqueWorkDirPayload`."
-    },
-    {
       "file": "VexSign/App/iOS/Application/Shared/RemovalUndoLease.swift",
       "symbol": "RemovalUndoLease",
       "kind": "unchecked-sendable",

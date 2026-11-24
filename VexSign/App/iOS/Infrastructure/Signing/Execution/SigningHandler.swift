@@ -30,8 +30,10 @@ final class SigningHandler: NSObject {
 	/// takes the folder for a leftover and deletes it.
 	private let _outputClaim: AppOperationRegistry.Lease
 	private var _movedAppPath: URL?
-    private var _ownsUniqueWorkDir = false
-    private var _ownsSignedDirectory = false
+	private var _ownsUniqueWorkDir = false
+	private var _ownsSignedDirectory = false
+    private let _recoveryJournal: SigningRecoveryJournal
+    private let _workDirectoryName: String
 	// using uuid string is the best way to find the
 	// app we want to sign, it does not matter what
 	// type of app it is
@@ -68,20 +70,104 @@ final class SigningHandler: NSObject {
 	/// "modify without signing" run reaches `.registering` without verifying anything.
 	var onSignatureVerified: (() -> Void)?
 	
-	init(app: SigningAppSnapshot, options: Options, executionGate: SigningExecutionGate) {
+    init(
+        app: SigningAppSnapshot,
+        options: Options,
+        executionGate: SigningExecutionGate,
+        recoveryJournal: SigningRecoveryJournal = .defaultJournal
+    ) {
         self.executionGate = executionGate
-		self._app = app
-		self._options = options
-		self._appDescription = app.appDescription
-		self._uniqueWorkDir = _fileManager.temporaryDirectory
-			.appendingPathComponent("VexSigning_\(_uuid)", isDirectory: true)
+        _app = app
+        _options = options
+        _appDescription = app.appDescription
+        _recoveryJournal = recoveryJournal
+        let workDirName = "VexSigning_\(_uuid)"
+        _workDirectoryName = workDirName
+        _uniqueWorkDir = _fileManager.temporaryDirectory
+            .appendingPathComponent(workDirName, isDirectory: true)
 		self._outputClaim = AppOperationRegistry.shared.claimProduction(of: _uuid)
 		super.init()
 	}
-	
+
+    private func _recordRecovery(
+        state: SigningRecoveryState,
+        createdWorkDirectory: Bool? = nil,
+        createdSignedDirectory: Bool? = nil,
+        committedToDatabase: Bool? = nil,
+        error: String? = nil,
+        incrementCleanupAttempts: Bool = false
+    ) {
+        let now = Date()
+        do {
+            try _recoveryJournal.update(
+                operationID: _uuid,
+                state: state,
+                createdWorkDirectory: createdWorkDirectory,
+                createdSignedDirectory: createdSignedDirectory,
+                committedToDatabase: committedToDatabase,
+                error: error,
+                incrementCleanupAttempts: incrementCleanupAttempts,
+                now: now
+            )
+        } catch {
+            let record = SigningRecoveryJournal.Record(
+                operationID: _uuid,
+                appName: _app.name ?? "App",
+                sourceAppUUID: _app.uuid,
+                workDirectoryName: _workDirectoryName,
+                state: state,
+                createdWorkDirectory: createdWorkDirectory ?? _ownsUniqueWorkDir,
+                createdSignedDirectory: createdSignedDirectory ?? _ownsSignedDirectory,
+                committedToDatabase: committedToDatabase ?? _didAddToDatabase,
+                cleanupAttempts: incrementCleanupAttempts ? 1 : 0,
+                lastError: error.map(LogRedaction.redact),
+                createdAt: now,
+                updatedAt: now
+            )
+            do {
+                try _recoveryJournal.save(record)
+            } catch let saveError {
+                let redacted = LogRedaction.redact(saveError.localizedDescription)
+                Logger.signing.warning(
+                    "Could not save signing recovery journal for \(_uuid, privacy: .public): \(redacted, privacy: .public)"
+                )
+            }
+        }
+    }
+
+    func markInterrupted(cancelled: Bool, error: String? = nil) {
+        _recordRecovery(
+            state: cancelled ? .cancelled : .failed,
+            error: error
+        )
+    }
+
 	func copy() async throws {
         try Task.checkCancellation()
         onStage?(.copying)
+        let now = Date()
+        let initialRecord = SigningRecoveryJournal.Record(
+            operationID: _uuid,
+            appName: _app.name ?? "App",
+            sourceAppUUID: _app.uuid,
+            workDirectoryName: _workDirectoryName,
+            state: .preparing,
+            createdWorkDirectory: false,
+            createdSignedDirectory: false,
+            committedToDatabase: false,
+            cleanupAttempts: 0,
+            lastError: nil,
+            createdAt: now,
+            updatedAt: now
+        )
+        do {
+            try _recoveryJournal.save(initialRecord)
+        } catch {
+            let redacted = LogRedaction.redact(error.localizedDescription)
+            Logger.signing.warning(
+                "Could not persist initial signing journal for \(_uuid, privacy: .public): \(redacted, privacy: .public)"
+            )
+        }
 
 		guard let appUrl = Storage.shared.getAppDirectory(for: _app) else {
 			throw SigningFileHandlerError.appNotFound
@@ -90,6 +176,7 @@ final class SigningHandler: NSObject {
         // Unique per-run directory creation is exclusive: a pre-existing path is never reused.
         try _fileManager.createDirectory(at: _uniqueWorkDir, withIntermediateDirectories: false)
         _ownsUniqueWorkDir = true
+        _recordRecovery(state: .copying, createdWorkDirectory: true)
         guard CleanupRemovalPolicy.isSafeDirectory(_uniqueWorkDir, beneath: _fileManager.temporaryDirectory) else {
             throw SigningCleanupFailure(details: ["The signing work directory failed its ownership check."])
         }
@@ -123,6 +210,7 @@ final class SigningHandler: NSObject {
 	
 	func modify() async throws {
 		onStage?(.modifying)
+        _recordRecovery(state: .modifying)
 
 		guard let movedAppPath = _movedAppPath else {
 			throw SigningFileHandlerError.appNotFound
@@ -222,6 +310,7 @@ final class SigningHandler: NSObject {
 		// in fact finished. Modify-only runs never sign, so they still never report this stage.
 		if _options.signingOption == .default {
 			onStage?(.signing)
+            _recordRecovery(state: .signing)
 		}
 
         // The execution gate validates every retained component, including
@@ -251,6 +340,7 @@ final class SigningHandler: NSObject {
 
 		if _options.signingOption == .default {
 			onStage?(.verifying)
+            _recordRecovery(state: .verifying)
 			try _verifySignedBundle(at: movedAppPath, assets: handler.verificationAssets)
 			// `_verifySignedBundle` throws when the report is unacceptable, so returning from
 			// it is the engine's own evidence that verification passed. Reported here and only
@@ -336,6 +426,7 @@ final class SigningHandler: NSObject {
             throw CleanupRemovalPolicy.Rejection.unsafeTarget
         }
         let signedDirectory = try await _directory()
+        _recordRecovery(state: .moving, createdSignedDirectory: true)
         try _fileManager.createDirectory(at: signedDirectory, withIntermediateDirectories: false)
         _ownsSignedDirectory = true
         guard CleanupRemovalPolicy.isSafeDirectory(signedDirectory, beneath: signedRoot) else {
@@ -355,6 +446,7 @@ final class SigningHandler: NSObject {
 	/// queue; only the row lookup comes back here.
 	@MainActor
 	func addToDatabase() async throws {
+        _recordRecovery(state: .registering)
 		let app = try await _directory()
 
         guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
@@ -398,6 +490,7 @@ final class SigningHandler: NSObject {
         // The row is already committed. Preserve its bundle even if resolving it fails,
         // rather than leaving a saved row pointing at a deleted directory.
         _didAddToDatabase = true
+        _recordRecovery(state: .committed, committedToDatabase: true)
         // The same goes for cleanup: a pass that read the library before this commit does not
         // know the row, and the claim ends with this run.
         AppOperationRegistry.shared.confirmProduction(of: _uuid)
@@ -433,7 +526,21 @@ final class SigningHandler: NSObject {
             }
         }
         if !failures.isEmpty {
-            throw SigningCleanupFailure(details: failures.map { LogRedaction.redact($0.localizedDescription) })
+            let details = failures.map { LogRedaction.redact($0.localizedDescription) }
+            _recordRecovery(
+                state: .cleanupPending,
+                error: details.joined(separator: "; "),
+                incrementCleanupAttempts: true
+            )
+            throw SigningCleanupFailure(details: details)
+        }
+        do {
+            try _recoveryJournal.remove(operationID: _uuid)
+        } catch {
+            let redacted = LogRedaction.redact(error.localizedDescription)
+            Logger.signing.warning(
+                "Could not remove resolved signing recovery journal for \(_uuid, privacy: .public): \(redacted, privacy: .public)"
+            )
         }
 	}
 }

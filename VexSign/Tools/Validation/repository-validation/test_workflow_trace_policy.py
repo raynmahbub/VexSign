@@ -381,7 +381,8 @@ class WorkflowTracePolicyTests(unittest.TestCase):
         for path, claim in [('VexSign/App/iOS/Infrastructure/Signing/Execution/SigningHandler.swift', '_outputClaim'),
                             ('VexSign/App/iOS/Infrastructure/Archives/IPA/AppFileHandler.swift', '_importClaim')]:
             source = self.text(path)
-            initializer = source.split('\tinit(', 1)[1].split('super.init()', 1)[0]
+            after_init = source.split('init(', 1)[1]
+            initializer = after_init.split('super.init()', 1)[0] if 'super.init()' in after_init else after_init.split('func ', 1)[0]
             self.assertIn(f'self.{claim} = AppOperationRegistry.shared.claimProduction(of: _uuid)', initializer, path)
             register = source.split('func addToDatabase()', 1)[1].split('func clean()', 1)[0]
             self.assertLess(register.index('_didAddToDatabase = true'),

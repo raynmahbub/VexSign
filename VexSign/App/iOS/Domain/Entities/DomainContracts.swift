@@ -354,6 +354,22 @@ struct LibraryRecoveryNotice: Identifiable, Equatable, Sendable {
     let recoveredAt: Date
     /// Redaction-safe one-line reason ("store could not be opened", etc.).
     let summary: String
+    let isPersistentStorageUnavailable: Bool
+    let quarantineDirectoryPath: String?
+
+    init(
+        id: String,
+        recoveredAt: Date,
+        summary: String,
+        isPersistentStorageUnavailable: Bool = false,
+        quarantineDirectoryPath: String? = nil
+    ) {
+        self.id = id
+        self.recoveredAt = recoveredAt
+        self.summary = summary
+        self.isPersistentStorageUnavailable = isPersistentStorageUnavailable
+        self.quarantineDirectoryPath = quarantineDirectoryPath
+    }
 }
 
 struct CertificateOptionItem: Identifiable, Equatable, Sendable {

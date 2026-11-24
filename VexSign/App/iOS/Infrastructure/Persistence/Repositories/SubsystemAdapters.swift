@@ -176,8 +176,32 @@ final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
             )
         }
 
+        var warnings = CredentialMigrationDiagnostics.shared.warnings.map(\.message)
+        if Storage.shared.isPersistentStorageUnavailable {
+            let reason = Storage.shared.persistenceUnavailableReason ?? "Library database unavailable."
+            warnings.append("Persistent storage unavailable (writes disabled): \(reason)")
+        }
+        let pendingCertCleanup = CertificateDeletionJournal.defaultJournal.unresolvedEntries()
+        if !pendingCertCleanup.isEmpty {
+            warnings.append(
+                "Pending certificate cleanup (\(pendingCertCleanup.count)) waiting for Keychain or storage retry."
+            )
+        }
+        let pendingImportCleanup = ImportCleanupJournal.defaultJournal.unresolvedEntries()
+        if !pendingImportCleanup.isEmpty {
+            warnings.append(
+                "Pending IPA import cleanup (\(pendingImportCleanup.count)) scheduled for retry."
+            )
+        }
+        let pendingSigningRecovery = SigningRecoveryJournal.defaultJournal.unresolvedRecords()
+        if !pendingSigningRecovery.isEmpty {
+            warnings.append(
+                "Interrupted signing cleanup (\(pendingSigningRecovery.count)) waiting for recovery."
+            )
+        }
+
         return DiagnosticOverviewSnapshot(
-            migrationWarnings: CredentialMigrationDiagnostics.shared.warnings.map(\.message),
+            migrationWarnings: warnings,
             certificateCount: certItems.count,
             expiringCertificateCount: certItems.filter(\.isExpiringSoon).count,
             repositoryCount: sources.count,
@@ -205,12 +229,28 @@ final class DiagnosticsRepositoryAdapter: DiagnosticsProviding {
 @MainActor
 final class StoreRecoveryAdapter: StoreRecoveryReporting {
     var pendingLibraryRecovery: LibraryRecoveryNotice? {
-        guard let notice = Storage.shared.recoveryNotice else { return nil }
-        return LibraryRecoveryNotice(
-            id: notice.quarantineFolderName,
-            recoveredAt: notice.recoveredAt,
-            summary: notice.summary
-        )
+        if let notice = Storage.shared.recoveryNotice {
+            return LibraryRecoveryNotice(
+                id: notice.quarantineFolderName,
+                recoveredAt: notice.recoveredAt,
+                summary: notice.summary,
+                isPersistentStorageUnavailable: notice.isPersistentStorageUnavailable
+                    || Storage.shared.isPersistentStorageUnavailable,
+                quarantineDirectoryPath: notice.quarantineDirectory?.path
+                    ?? Storage.shared.quarantinedStoreDirectory?.path
+            )
+        }
+        if Storage.shared.isPersistentStorageUnavailable {
+            return LibraryRecoveryNotice(
+                id: "PersistentStorageUnavailable",
+                recoveredAt: Date(),
+                summary: Storage.shared.persistenceUnavailableReason
+                    ?? "The library database could not be opened.",
+                isPersistentStorageUnavailable: true,
+                quarantineDirectoryPath: Storage.shared.quarantinedStoreDirectory?.path
+            )
+        }
+        return nil
     }
 
     func acknowledgeLibraryRecovery() {

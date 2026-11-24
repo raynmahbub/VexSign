@@ -32,6 +32,15 @@ enum InstallationEvidenceMethod: Equatable, Sendable {
     }
 }
 
+/// Explicit lifecycle distinction so submitting a request to iOS, observing active transfer,
+/// verifying exact installation on the device, and ending with unknown outcome are never conflated.
+enum InstallationLifecycleStage: String, Equatable, Sendable {
+    case submitted
+    case installing
+    case confirmed
+    case unconfirmed
+}
+
 /// Shared success gate used at both the installer and queue boundaries. In this build the only
 /// exact, identity-bound inventory evidence is from the paired-device AppService path. OTA has no
 /// supported general app inventory in the sandbox, so even an injected/private probe result or a
@@ -42,5 +51,34 @@ enum InstallCompletionEvidencePolicy {
         hasExactPairedDeviceEvidence: Bool
     ) -> Bool {
         method == .pairedDevice && hasExactPairedDeviceEvidence
+    }
+
+    static func lifecycleStage(
+        method: InstallationEvidenceMethod,
+        hasHandedOff: Bool,
+        isInstalling: Bool,
+        hasExactPairedDeviceEvidence: Bool,
+        isTerminal: Bool
+    ) -> InstallationLifecycleStage {
+        if allowsInstalledOutcome(method: method, hasExactPairedDeviceEvidence: hasExactPairedDeviceEvidence) {
+            return .confirmed
+        }
+        if isTerminal {
+            return .unconfirmed
+        }
+        if isInstalling {
+            return .installing
+        }
+        return hasHandedOff ? .submitted : .unconfirmed
+    }
+
+    /// Automatic retry is never permitted for an unconfirmed handoff or a confirmed install;
+    /// an unconfirmed attempt requires manual device verification first.
+    static func allowsAutomaticRetry(stage: InstallationLifecycleStage) -> Bool {
+        false
+    }
+
+    static func preservesManualVerificationRecovery(stage: InstallationLifecycleStage) -> Bool {
+        stage == .unconfirmed
     }
 }

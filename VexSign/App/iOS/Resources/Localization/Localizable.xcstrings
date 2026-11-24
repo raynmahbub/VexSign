@@ -113715,6 +113715,28 @@
           }
         }
       }
+    },
+    "Persistent Storage Unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persistent Storage Unavailable"
+          }
+        }
+      }
+    },
+    "The library database could not be opened safely. Write operations are disabled to protect your files. Export diagnostics or restart VexSign to retry." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The library database could not be opened safely. Write operations are disabled to protect your files. Export diagnostics or restart VexSign to retry."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

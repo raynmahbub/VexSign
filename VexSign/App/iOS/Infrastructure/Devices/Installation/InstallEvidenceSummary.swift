@@ -88,9 +88,18 @@ struct InstallEvidenceSummary: Equatable {
 	let verification: Verification
 	let retrySafety: RetrySafety
 
-	/// True when the outcome is unknown and the package may already be installed. A retry
-	/// in this state must be started by the user, never automatically.
-	var isOutcomeUnknown: Bool { retrySafety == .checkDeviceFirst }
+    /// True when the outcome is unknown and the package may already be installed. A retry
+    /// in this state must be started by the user, never automatically.
+    var isOutcomeUnknown: Bool { retrySafety == .checkDeviceFirst }
+
+    var lifecycleStage: InstallationLifecycleStage {
+        switch confirmation {
+        case .confirmed:
+            return .confirmed
+        case .otherVersion, .notReported, .notStarted, .unavailable, .notReached, .notApplicable:
+            return .unconfirmed
+        }
+    }
 
 	// MARK: Derivation
 
@@ -216,4 +225,10 @@ enum InstallRetryPolicy {
         if outcomeUnknown && !afterManualDeviceCheck { return .checkDeviceFirst }
 		return nil
 	}
+
+    /// Blind automatic retries after an unconfirmed handoff risk duplicating or overwriting
+    /// an app iOS already accepted.
+    static func allowsAutomaticRetry(outcomeUnknown: Bool) -> Bool {
+        !outcomeUnknown
+    }
 }

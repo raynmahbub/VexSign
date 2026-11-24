@@ -25,6 +25,10 @@ extension Storage {
         completion: @escaping (Error?) -> Void
     ) {
         StorageConcurrency.requireMainQueue()
+        if let unavailableError = persistentStorageUnavailableError {
+            completion(unavailableError)
+            return
+        }
         let transaction = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         transaction.persistentStoreCoordinator = container.persistentStoreCoordinator
         transaction.mergePolicy = NSErrorMergePolicy
@@ -32,10 +36,15 @@ extension Storage {
         var wrotePassword = false
         do {
             guard UUID(uuidString: uuid) != nil else { throw WorkspaceAccessError.invalidReference }
+            guard try !CertificateDeletionJournal.defaultJournal.hasPendingEntry(forUUID: uuid) else {
+                throw WorkspaceAccessError.mismatchedRecord
+            }
             let existing = CertificatePair.fetchRequest()
             existing.predicate = NSPredicate(format: "uuid ==[c] %@", uuid)
             existing.fetchLimit = 1
-            guard try context.fetch(existing).isEmpty, try transaction.count(for: existing) == 0 else { throw WorkspaceAccessError.mismatchedRecord }
+            guard try context.fetch(existing).isEmpty, try transaction.count(for: existing) == 0 else {
+                throw WorkspaceAccessError.mismatchedRecord
+            }
             try SecureSecretStore.write(Data((password ?? "").utf8), account: account)
             wrotePassword = true
             let new = CertificatePair(context: transaction)
@@ -66,8 +75,18 @@ extension Storage {
         } catch {
             transaction.rollback()
             if wrotePassword {
-                do { try SecureSecretStore.delete(account) }
-                catch { Logger.misc.error("Could not remove a failed certificate import's Keychain item.") }
+                do {
+                    try SecureSecretStore.delete(account)
+                } catch let cleanupError {
+                    Logger.misc.error("Could not remove a failed certificate import's Keychain item.")
+                    _recordPendingCertificateCleanup(
+                        uuid: uuid,
+                        directoryPath: nil,
+                        pendingKeychain: true,
+                        pendingFilesystem: false,
+                        errorMessage: cleanupError.localizedDescription
+                    )
+                }
             }
             completion(error)
             return
@@ -83,7 +102,8 @@ extension Storage {
 
     /// Commit row/relationship deletion first in an isolated context. A failed
     /// save cannot erase a surviving row's password/files or unrelated view edits.
-    /// Cleanup failures after commit remain logged, recoverable orphan material.
+    /// Cleanup failures after commit are persisted in `CertificateDeletionJournal`
+    /// so orphaned Keychain credentials and files are retried on launch and unlock.
     @MainActor
     @discardableResult
     func deleteCertificate(for cert: CertificatePair) -> Bool {
@@ -94,6 +114,10 @@ extension Storage {
     @discardableResult
     func deleteCertificate(for cert: CertificatePair, saveDeletion: (NSManagedObjectContext) throws -> Void) -> Bool {
         StorageConcurrency.requireMainQueue()
+        guard persistentStorageUnavailableError == nil else {
+            Logger.misc.fault("Refused certificate deletion while persistent storage is unavailable.")
+            return false
+        }
         guard cert.managedObjectContext === context, !cert.isDeleted, !cert.objectID.isTemporaryID,
               let uuid = cert.uuid, UUID(uuidString: uuid) != nil else { return false }
         guard !AppOperationRegistry.shared.isBusy(SigningIdentityStore.leaseKey(reference: cert.objectID.uriRepresentation().absoluteString)) else { return false }
@@ -117,22 +141,71 @@ extension Storage {
         }
         NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: [id],
             NSUpdatedObjectsKey: linkedIDs], into: [context])
+        var pendingKeychain = false
+        var pendingFilesystem = false
+        var cleanupErrors: [String] = []
         do { try SecureSecretStore.delete("certificate.password.\(uuid)") }
-        catch { Logger.misc.error("Could not remove certificate Keychain item; cleanup requires an unlocked Keychain.") }
+        catch {
+            pendingKeychain = true
+            let redacted = LogRedaction.redact(error.localizedDescription)
+            cleanupErrors.append("keychain: \(redacted)")
+            Logger.misc.error("Could not remove certificate Keychain item; cleanup requires an unlocked Keychain.")
+        }
         if let directory {
             let root = directory.deletingLastPathComponent()
             do {
                 guard Self.allowedCertificateDeletionOriginal(directory) else { throw CleanupRemovalPolicy.Rejection.unsafeTarget }
                 _ = try CleanupRemovalPolicy.remove(directory, beneath: root)
             } catch {
+                pendingFilesystem = true
+                let redacted = LogRedaction.redact(error.localizedDescription)
+                cleanupErrors.append("filesystem: \(redacted)")
                 Logger.misc.error("Could not delete certificate files; the private key remains until Remove Leftovers runs.")
             }
+        }
+        if pendingKeychain || pendingFilesystem {
+            _recordPendingCertificateCleanup(
+                uuid: uuid,
+                directoryPath: pendingFilesystem ? directory?.path : nil,
+                pendingKeychain: pendingKeychain,
+                pendingFilesystem: pendingFilesystem,
+                errorMessage: cleanupErrors.joined(separator: "; ")
+            )
         }
         // Retire old checks before a synchronous Undo/new import can start a
         // new generation using the same UUID. No queued invalidation may kill it.
         CertificateStatusManager.shared.removeRevocationSnapshot(certificateUUID: uuid)
         WidgetStatusPublisher.publish()
         return true
+    }
+
+    private func _recordPendingCertificateCleanup(
+        uuid: String,
+        directoryPath: String?,
+        pendingKeychain: Bool,
+        pendingFilesystem: Bool,
+        errorMessage: String
+    ) {
+        let now = Date()
+        let entry = CertificateDeletionJournal.Entry(
+            uuid: uuid,
+            keychainAccount: "certificate.password.\(uuid)",
+            directoryPath: directoryPath,
+            pendingKeychainDeletion: pendingKeychain,
+            pendingFilesystemDeletion: pendingFilesystem,
+            attempts: 1,
+            lastError: LogRedaction.redact(errorMessage),
+            createdAt: now,
+            updatedAt: now
+        )
+        do {
+            try CertificateDeletionJournal.defaultJournal.record(entry)
+        } catch {
+            let redacted = LogRedaction.redact(error.localizedDescription)
+            Logger.misc.error(
+                "Could not persist pending certificate cleanup journal for \(uuid, privacy: .public): \(redacted, privacy: .public)"
+            )
+        }
     }
 
     static var certificateDeletionRoot: URL {
@@ -187,6 +260,9 @@ extension Storage {
     /// row with a different object ID but the same UUID also owns this path.
     func containsCertificateIdentity(uuid: String) throws -> Bool {
         StorageConcurrency.requireMainQueue()
+        if let unavailableError = persistentStorageUnavailableError {
+            throw unavailableError
+        }
         guard UUID(uuidString: uuid) != nil else { throw WorkspaceAccessError.invalidReference }
         guard !container.persistentStoreCoordinator.persistentStores.isEmpty else { throw WorkspaceAccessError.persistenceFailed }
         let reader = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
@@ -223,24 +299,36 @@ extension Storage {
         let fileManager = FileManager.default
         let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-        guard fileManager.fileExists(atPath: Self.certificateDeletionRoot.path) else { return }
-        guard CleanupRemovalPolicy.isSafeDirectory(support, beneath: library),
-              CleanupRemovalPolicy.isSafeDirectory(Self.certificateDeletionRoot, beneath: support) else {
-            Logger.misc.error("Certificate deletion journal path is unsafe; no private files changed.")
-            return
-        }
-        do {
-            for directory in try fileManager.contentsOfDirectory(at: Self.certificateDeletionRoot, includingPropertiesForKeys: nil) {
-                guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: Self.certificateDeletionRoot) else {
-                    Logger.misc.error("Unsafe certificate deletion journal entry retained.")
-                    continue
-                }
+        if fileManager.fileExists(atPath: Self.certificateDeletionRoot.path) {
+            if CleanupRemovalPolicy.isSafeDirectory(support, beneath: library),
+               CleanupRemovalPolicy.isSafeDirectory(Self.certificateDeletionRoot, beneath: support) {
                 do {
-                    let transaction = try StagedAppDeletion(directory: directory)
-                    try recoverCertificateDeletion(transaction)
-                } catch { Logger.misc.error("Certificate deletion recovery deferred; tracked private files retained.") }
+                    for directory in try fileManager.contentsOfDirectory(
+                        at: Self.certificateDeletionRoot,
+                        includingPropertiesForKeys: nil
+                    ) {
+                        guard CleanupRemovalPolicy.isSafeDirectory(directory, beneath: Self.certificateDeletionRoot) else {
+                            Logger.misc.error("Unsafe certificate deletion journal entry retained.")
+                            continue
+                        }
+                        do {
+                            let transaction = try StagedAppDeletion(directory: directory)
+                            try recoverCertificateDeletion(transaction)
+                        } catch {
+                            Logger.misc.error("Certificate deletion recovery deferred; tracked private files retained.")
+                        }
+                    }
+                } catch {
+                    Logger.misc.error("Certificate deletion recovery is unavailable; no private files changed.")
+                }
+            } else {
+                Logger.misc.error("Certificate deletion journal path is unsafe; no private files changed.")
             }
-        } catch { Logger.misc.error("Certificate deletion recovery is unavailable; no private files changed.") }
+        }
+
+        _ = CertificateDeletionJournal.defaultJournal.recoverPending { uuid in
+            try containsCertificateIdentity(uuid: uuid)
+        }
     }
 
 	func getCertificate(for index: Int) -> CertificatePair? {

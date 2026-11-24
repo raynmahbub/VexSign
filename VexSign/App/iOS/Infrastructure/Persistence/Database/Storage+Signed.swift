@@ -67,4 +67,23 @@ extension Storage {
 		let lowest = (try? context.fetch(request))?.first?.sortIndex ?? 1
 		return lowest - 1
 	}
+
+    /// Returns whether a `Signed` row with `uuid` is committed in the persistent store.
+    /// Throws when persistent storage is unavailable or unreadable so signing recovery
+    /// never deletes a committed signed application.
+    func containsCommittedSigned(uuid: String) throws -> Bool {
+        if let unavailableError = persistentStorageUnavailableError {
+            throw unavailableError
+        }
+        let request: NSFetchRequest<Signed> = Signed.fetchRequest()
+        request.predicate = NSPredicate(format: "uuid ==[c] %@", uuid)
+        request.fetchLimit = 1
+        request.includesPendingChanges = false
+        let reader = container.newBackgroundContext()
+        var result: Result<Bool, Error> = .success(false)
+        reader.performAndWait {
+            result = Result { try reader.count(for: request) > 0 }
+        }
+        return try result.get()
+    }
 }

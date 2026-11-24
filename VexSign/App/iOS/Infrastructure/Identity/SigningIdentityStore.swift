@@ -133,6 +133,7 @@ enum SigningIdentityStore {
         let status = SecPKCS12Import(data as CFData,
             [kSecImportExportPassphrase as String: password] as CFDictionary, &items)
         guard status == errSecSuccess, let records = items as? [[String: Any]] else {
+            if status == errSecAuthFailed { throw InspectionFailure.wrongPassword }
             if status == errSecDecode { throw InspectionFailure.malformedPKCS12 }
             throw InspectionFailure.inaccessible
         }
@@ -174,17 +175,34 @@ enum SigningIdentityStore {
         return Proof(identity: identity, keyAvailability: .accessible, nativeSigningSupported: nativeSigningSupported)
     }
 
-    enum InspectionFailure: LocalizedError {
-        case certificateMissing, privateKeyMissing, multipleIdentities, inaccessible, malformedPKCS12, unsupportedKey, inventoryLimit
+    enum InspectionFailure: LocalizedError, Equatable {
+        case certificateMissing
+        case privateKeyMissing
+        case wrongPassword
+        case multipleIdentities
+        case inaccessible
+        case malformedPKCS12
+        case unsupportedKey
+        case inventoryLimit
+
         var errorDescription: String? {
             switch self {
-            case .certificateMissing: return "The signing certificate or .p12 file is missing. Import the complete identity."
-            case .privateKeyMissing: return "A certificate without its matching private key is not a signing identity. Import a complete .p12."
-            case .multipleIdentities: return "More than one identity was found. Import each certificate/private-key pair separately so selection is unambiguous."
-            case .inaccessible: return "The signing identity could not be opened. Unlock the device and verify the saved .p12 password in Certificates."
-            case .malformedPKCS12: return "The .p12 is malformed or unreadable; it has not been accepted as an identity."
-            case .unsupportedKey: return "This private-key algorithm is not supported by the identity proof. Import a supported Apple-issued RSA or EC signing identity."
-            case .inventoryLimit: return "The signing inventory exceeds the bounded inspection limit. Remove duplicate files and retry; no partial inventory has been selected."
+            case .certificateMissing:
+                return "The signing certificate or .p12 file is missing. Import the complete identity."
+            case .privateKeyMissing:
+                return "A certificate without its matching private key is not a signing identity. Import a complete .p12."
+            case .wrongPassword:
+                return "The password for this .p12 certificate file is incorrect. Enter the exact export password and try again."
+            case .multipleIdentities:
+                return "More than one identity was found. Import each certificate/private-key pair separately so selection is unambiguous."
+            case .inaccessible:
+                return "The signing identity could not be opened. Unlock the device and verify the saved .p12 password in Certificates."
+            case .malformedPKCS12:
+                return "The .p12 is malformed or unreadable; it has not been accepted as an identity."
+            case .unsupportedKey:
+                return "This private-key algorithm is not supported by the identity proof. Import a supported Apple-issued RSA or EC signing identity."
+            case .inventoryLimit:
+                return "The signing inventory exceeds the bounded inspection limit. Remove duplicate files and retry; no partial inventory has been selected."
             }
         }
     }

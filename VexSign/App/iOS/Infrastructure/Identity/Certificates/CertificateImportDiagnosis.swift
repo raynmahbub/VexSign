@@ -46,4 +46,63 @@ enum CertificateImportDiagnosis: LocalizedError, Equatable {
             return .localized("The private key in the .p12 does not match the certificate “%@”. Export the identity again from Keychain Access and include both the certificate and its private key.", arguments: commonName)
         }
     }
+
+    var compatibilityDiagnostic: CertificateCompatibilityDiagnostic {
+        let detail = errorDescription
+        switch self {
+        case .emptyCertificateFile, .keyDoesNotMatchCertificate:
+            return CertificateCompatibilityDiagnostic.make(
+                reason: .privateKeyUnavailable,
+                detail: detail
+            )
+        case .profileListsNoCertificates, .identityNotInProfile:
+            return CertificateCompatibilityDiagnostic.make(
+                reason: .certificateProfileMismatch,
+                detail: detail
+            )
+        case .profileExpired:
+            return CertificateCompatibilityDiagnostic.make(
+                reason: .provisioningProfileExpired,
+                detail: detail
+            )
+        }
+    }
+
+    static func diagnostic(for error: Error) -> CertificateCompatibilityDiagnostic {
+        if let diagnosis = error as? CertificateImportDiagnosis {
+            return diagnosis.compatibilityDiagnostic
+        }
+        if let inspection = error as? SigningIdentityStore.InspectionFailure {
+            switch inspection {
+            case .wrongPassword:
+                return CertificateCompatibilityDiagnostic.make(
+                    reason: .wrongPrivateKeyPassword,
+                    detail: inspection.errorDescription
+                )
+            case .certificateMissing, .privateKeyMissing, .inaccessible:
+                return CertificateCompatibilityDiagnostic.make(
+                    reason: .privateKeyUnavailable,
+                    detail: inspection.errorDescription
+                )
+            case .multipleIdentities, .malformedPKCS12, .unsupportedKey, .inventoryLimit:
+                return CertificateCompatibilityDiagnostic.make(
+                    reason: .unsupportedSigningCapability,
+                    detail: inspection.errorDescription
+                )
+            }
+        }
+        if let profileFailure = error as? ProvisioningProfileParser.Failure {
+            switch profileFailure {
+            case .missing, .unreadable, .malformed, .untrustedCMS, .missingApplicationIdentifier:
+                return CertificateCompatibilityDiagnostic.make(
+                    reason: .unsupportedSigningCapability,
+                    detail: profileFailure.errorDescription
+                )
+            }
+        }
+        return CertificateCompatibilityDiagnostic.make(
+            reason: .unsupportedSigningCapability,
+            detail: LogRedaction.redact(error.localizedDescription)
+        )
+    }
 }

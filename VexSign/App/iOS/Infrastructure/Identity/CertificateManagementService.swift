@@ -180,6 +180,17 @@ enum CertificateManagementService {
         } catch {
             return error
         }
+        return pairValidationError(keyData: keyData, password: password, profile: profile, now: Date())
+    }
+
+    /// Validates a PKCS#12 archive against an already-authenticated provisioning profile
+    /// using the exact inspection, certificate-matching, and expiry rules applied on import.
+    static func pairValidationError(
+        keyData: Data,
+        password: String,
+        profile: Certificate,
+        now: Date = Date()
+    ) -> Error? {
         if keyData.isEmpty { return CertificateImportDiagnosis.emptyCertificateFile }
 
         let identity: SigningIdentity
@@ -201,7 +212,7 @@ enum CertificateManagementService {
         // Authorized and parseable, so the only remaining question is the window: the
         // strict parser refuses an expired profile, and saying so is the difference
         // between "renew your profile" and "your password is wrong".
-        if profile.ExpirationDate <= Date() || profile.CreationDate > Date() {
+        if profile.ExpirationDate <= now || profile.CreationDate > now {
             return CertificateImportDiagnosis.profileExpired(
                 name: profile.Name,
                 expiry: profile.ExpirationDate

@@ -20,6 +20,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
         StorageManager.purgeStaleTemporary()
         Storage.shared.recoverPendingAppDeletions()
         Storage.shared.recoverPendingCertificateDeletions()
+        ImportCleanupJournal.recoverOnLaunch()
+        SigningRecoveryJournal.recoverOnLaunch()
         InstallCleanup.flushOnLaunch()
         _addDefaultCertificates()
         _registerBackgroundTasks()
@@ -83,6 +85,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, DownloadManager.ErrorDelegat
         completionHandler: @escaping () -> Void
     ) {
         DownloadManager.shared.backgroundCompletionHandler = completionHandler
+    }
+
+    func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) {
+        Storage.shared.recoverPendingCertificateDeletions()
+        ImportCleanupJournal.recoverOnLaunch()
+        SigningRecoveryJournal.recoverOnLaunch()
     }
 
     private func _addDefaultCertificates() {

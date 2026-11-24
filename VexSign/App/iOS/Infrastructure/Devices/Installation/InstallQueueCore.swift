@@ -72,6 +72,7 @@ final class InstallQueue: ObservableObject {
 	}
 
 	var succeededCount: Int { outcomes.values.filter { $0 == .succeeded }.count }
+    var exportedCount: Int { outcomes.values.filter { $0 == .exported }.count }
 	var failedCount: Int {
 		outcomes.values.filter {
 			if case .failed = $0 { return true }
@@ -495,7 +496,7 @@ final class InstallQueue: ObservableObject {
 
 		case .success(.exported(let package)):
             _finishUnifiedTask()
-			if let current { outcomes[current.id] = .succeeded }
+            if let current { outcomes[current.id] = .exported }
 			_syncUnifiedTaskProgress()
 			_abandon()
 
